@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { styles } from "../stylesheets/styles";
-
+import React from "react";
 export default function Login() {
   return (
     <View>
