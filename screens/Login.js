@@ -7,25 +7,30 @@ import Checkbox from "expo-checkbox";
 export default function Login() {
   const navigation = useNavigation();
   const [isChecked, setChecked] = useState(false);
-  const toggleCheckbox = () => {
-    setChecked(!isChecked);
-  };
 
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
+  const changeHandler = (key, value) => {
+    const formattedValue = value;
+    setFormData({ ...formData, [key]: formattedValue });
+  };
 
   return (
     <View style={styles.formCard}>
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Login</Text>
-        <Text style={styles.subHeaderText}>Please enter your credentials</Text>
+        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
+          Please enter your credentials
+        </Text>
         <TextInput
           style={styles.formInput}
           maxLength={20}
           placeholder="Username"
           placeholderTextColor={"gray"}
+          value={formData.username}
+          onChangeText={(e) => changeHandler("username", e)}
         />
         <TextInput
           style={styles.formInput}
@@ -33,6 +38,8 @@ export default function Login() {
           placeholder="Password"
           secureTextEntry={true}
           placeholderTextColor={"gray"}
+          value={formData.password}
+          onChangeText={(e) => changeHandler("password", e)}
         />
         <View style={styles.loginHelper}>
           <View style={styles.checkBox}>
@@ -46,7 +53,7 @@ export default function Login() {
             <Text>Forgot password?</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.button}>
+        <TouchableOpacity style={[styles.button, { marginTop: 20 }]}>
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
       </View>
