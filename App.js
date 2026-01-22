@@ -3,6 +3,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View } from "react-native";
 import Login from "./screens/Login";
+import ForgotPassword from "./screens/ForgotPassword";
+import ResetPassword from "./screens/ResetPassword";
+
 export default function App() {
   const CScreen = createNativeStackNavigator();
   return (
@@ -11,7 +14,17 @@ export default function App() {
         <CScreen.Screen
           name="login"
           component={Login}
-          options={{ title: "" }}
+          options={{ title: "AirMS" }}
+        />
+        <CScreen.Screen
+          name="forgotPassword"
+          component={ForgotPassword}
+          options={{ title: "AirMS" }}
+        />
+        <CScreen.Screen
+          name="resetPassword"
+          component={ResetPassword}
+          options={{ title: "AirMS" }}
         />
       </CScreen.Navigator>
     </NavigationContainer>
