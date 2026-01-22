@@ -14,17 +14,17 @@ export default function App() {
         <CScreen.Screen
           name="login"
           component={Login}
-          options={{ title: "AirMS" }}
+          options={{ title: "AirMS", headerTitleAlign: "center" }}
         />
         <CScreen.Screen
           name="forgotPassword"
           component={ForgotPassword}
-          options={{ title: "AirMS" }}
+          options={{ title: "AirMS", headerTitleAlign: "center" }}
         />
         <CScreen.Screen
           name="resetPassword"
           component={ResetPassword}
-          options={{ title: "AirMS" }}
+          options={{ title: "AirMS", headerTitleAlign: "center" }}
         />
       </CScreen.Navigator>
     </NavigationContainer>
