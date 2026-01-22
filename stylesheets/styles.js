@@ -31,11 +31,11 @@ export const styles = StyleSheet.create({
     padding: 10,
   },
   headerText: {
-    fontSize: 32,
+    fontSize: "clamp(24px, 4vw, 32px)",
     fontWeight: 500,
   },
   subHeaderText: {
-    fontSize: 24,
+    fontSize: "clamp(16px, 2vw, 20px)",
     textAlign: "center",
   },
   loginHelper: {

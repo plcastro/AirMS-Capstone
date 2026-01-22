@@ -54,7 +54,7 @@ export default function Login() {
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={[styles.button, { marginTop: 20 }]}>
-          <Text style={styles.buttonText}>Login</Text>
+          <Text style={styles.buttonText}>LOGIN</Text>
         </TouchableOpacity>
       </View>
     </View>

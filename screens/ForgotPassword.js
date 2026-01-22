@@ -36,7 +36,7 @@ export default function ForgotPassword() {
           style={[styles.button, { marginTop: 20 }]}
           onPress={() => emailValidation(email)}
         >
-          <Text style={styles.buttonText}>Send Reset Link</Text>
+          <Text style={styles.buttonText}>SEND RESET LINK TO MY EMAIL</Text>
         </TouchableOpacity>
       </View>
     </View>
