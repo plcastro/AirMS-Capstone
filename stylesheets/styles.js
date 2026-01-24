@@ -1,9 +1,9 @@
-import { StyleSheet } from "react-native";
-
+import { Dimensions, StyleSheet } from "react-native";
+const { width } = Dimensions.get("window");
 export const styles = StyleSheet.create({
   formCard: {
-    margin: "auto",
-    display: "flex",
+    marginHorizontal: "auto",
+    marginVertical: "auto",
     maxWidth: "90%",
     maxHeight: "70%",
     width: 800,
@@ -13,7 +13,11 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 15,
     borderRadius: 15,
-    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    elevation: 4, // Android
+    shadowColor: "#000", // iOS
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   formContainer: {
     alignItems: "center",
@@ -24,25 +28,25 @@ export const styles = StyleSheet.create({
   formInput: {
     height: 50,
     width: "100%",
-    border: "1px solid #e4e4e4",
+    borderWidth: 1,
+    borderColor: "#e4e4e4",
     borderRadius: 10,
     marginTop: 10,
     marginBottom: 10,
     padding: 10,
   },
   headerText: {
-    fontSize: "clamp(24px, 4vw, 32px)",
-    fontWeight: 500,
+    fontSize: Math.min(Math.max(width * 0.04, 24), 32),
+    fontWeight: "500",
   },
   subHeaderText: {
-    fontSize: "clamp(16px, 2vw, 20px)",
+    fontSize: Math.min(Math.max(width * 0.02, 16), 20),
     textAlign: "center",
   },
   loginHelper: {
     width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
   },
   checkBox: {
     flexDirection: "row",
@@ -50,8 +54,12 @@ export const styles = StyleSheet.create({
     margin: 7,
     gap: 5,
   },
+  forgotPassLink: {
+    alignItems: "center",
+    margin: 7,
+    gap: 5,
+  },
   button: {
-    display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
@@ -64,6 +72,11 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     color: "#fff",
     fontSize: 16,
-    fontWeight: 500,
+    fontWeight: "500",
+  },
+  error: {
+    alignSelf: "flex-start",
+    marginBottom: 10,
+    color: "red",
   },
 });
