@@ -1,4 +1,11 @@
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
 
@@ -15,7 +22,11 @@ export default function ForgotPassword() {
     return true;
   };
   return (
-    <View style={styles.formCard}>
+    <KeyboardAvoidingView
+      style={styles.formCard}
+      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Forgot Password</Text>
         <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
@@ -39,6 +50,6 @@ export default function ForgotPassword() {
           <Text style={styles.buttonText}>SEND RESET LINK TO MY EMAIL</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

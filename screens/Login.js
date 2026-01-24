@@ -1,4 +1,11 @@
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
@@ -37,7 +44,11 @@ export default function Login() {
   };
 
   return (
-    <SafeAreaView style={styles.formCard}>
+    <KeyboardAvoidingView
+      style={styles.formCard}
+      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      enabled
+    >
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Login</Text>
         <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
@@ -48,6 +59,8 @@ export default function Login() {
           maxLength={20}
           placeholder="Username"
           placeholderTextColor={"gray"}
+          autoCapitalize="none"
+          keyboardType="default"
           value={formData.username}
           onChangeText={(e) => changeHandler("username", e)}
         />
@@ -57,6 +70,8 @@ export default function Login() {
           placeholder="Password"
           secureTextEntry={true}
           placeholderTextColor={"gray"}
+          autoCapitalize="none"
+          keyboardType="default"
           value={formData.password}
           onChangeText={(e) => changeHandler("password", e)}
         />
@@ -86,6 +101,6 @@ export default function Login() {
           <Text style={styles.buttonText}>LOGIN</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }

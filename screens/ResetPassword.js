@@ -1,4 +1,11 @@
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
@@ -26,7 +33,11 @@ export default function ResetPassword() {
   };
 
   return (
-    <SafeAreaView style={styles.formCard}>
+    <KeyboardAvoidingView
+      style={styles.formCard}
+      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Reset Password</Text>
         <Text style={styles.subHeaderText}>Please enter your new password</Text>
@@ -52,6 +63,6 @@ export default function ResetPassword() {
           <Text style={styles.buttonText}>RESET PASSWORD</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
