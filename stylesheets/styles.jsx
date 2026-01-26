@@ -51,13 +51,12 @@ export const styles = StyleSheet.create({
   checkBox: {
     flexDirection: "row",
     alignItems: "center",
-    margin: 7,
-    gap: 5,
+    marginRight: 2,
+    marginBottom: 30,
   },
   forgotPassLink: {
     alignItems: "center",
-    margin: 7,
-    gap: 5,
+    marginBottom: 30,
   },
   button: {
     alignItems: "center",
@@ -78,5 +77,31 @@ export const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginBottom: 10,
     color: "red",
+  },
+  drawerContent: {
+    flex: 1,
+  },
+  userInfoSection: {
+    paddingLeft: 5,
+  },
+  title: {
+    fontSize: 16,
+    marginTop: 3,
+    fontWeight: "bold",
+  },
+  caption: {
+    fontSize: 13,
+    lineHeight: 14,
+    color: "#6e6e6e",
+  },
+  drawerSection: {
+    marginTop: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#dedede",
+  },
+  bottomDrawerSection: {
+    marginBottom: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#dedede",
   },
 });
