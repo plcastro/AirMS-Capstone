@@ -4,6 +4,7 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
+  ScrollView,
 } from "react-native";
 import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
@@ -16,16 +17,5 @@ export default function Dashboard() {
   const logout = () => {
     nav.replace("login");
   };
-  return (
-    <View>
-      <Text>Dashboard</Text>
-      <TouchableOpacity
-        onPress={() => {
-          logout();
-        }}
-      >
-        <Text>Log out</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  return <ScrollView></ScrollView>;
 }

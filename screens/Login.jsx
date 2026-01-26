@@ -9,13 +9,15 @@ import {
 import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
-import Checkbox from "expo-checkbox";
+
 import { SafeAreaView } from "react-native-safe-area-context";
+import Button from "../components/Button";
+import CheckBox from "../components/CheckBox";
 
 export default function Login() {
   const nav = useNavigation();
   const [getMessage, setMessage] = useState("");
-  const [isChecked, setChecked] = useState(false);
+
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -40,7 +42,13 @@ export default function Login() {
   };
   const login = () => {
     //login logic
-    nav.replace("dashboard");
+    console.log(formData.username, formData.password);
+
+    nav.replace("main");
+  };
+
+  const goToForgotPassword = () => {
+    nav.navigate("forgotPassword");
   };
 
   return (
@@ -75,31 +83,25 @@ export default function Login() {
           value={formData.password}
           onChangeText={(e) => changeHandler("password", e)}
         />
-        <Text style={styles.error}>{getMessage}</Text>
+        {getMessage ? <Text style={styles.error}>{getMessage}</Text> : null}
         <View style={styles.loginHelper}>
-          <View style={styles.checkBox}>
-            <Checkbox
-              value={isChecked}
-              onValueChange={(val) => {
-                setChecked(val);
-                console.log("Checkbox checked?", val);
-              }}
-            />
+          <CheckBox
+            title="Remember me"
+            checkboxStyle={styles.checkBox}
+            onValueChange={(val) => console.log("Parent got:", val)}
+          />
 
-            <Text>Remember me</Text>
-          </View>
           <View style={styles.forgotPassLink}>
-            <TouchableOpacity onPress={() => nav.navigate("forgotPassword")}>
-              <Text>Forgot password?</Text>
-            </TouchableOpacity>
+            <Button use={goToForgotPassword} title="Forgot Password?" />
           </View>
         </View>
-        <TouchableOpacity
-          style={[styles.button, { marginTop: 20 }]}
-          onPress={() => validate()}
-        >
-          <Text style={styles.buttonText}>LOGIN</Text>
-        </TouchableOpacity>
+
+        <Button
+          use={validate}
+          title="Login"
+          buttonStyle={styles.button}
+          buttonTextStyle={styles.buttonText}
+        />
       </View>
     </KeyboardAvoidingView>
   );

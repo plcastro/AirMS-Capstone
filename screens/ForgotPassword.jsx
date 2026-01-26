@@ -18,8 +18,13 @@ export default function ForgotPassword() {
       setMessage("Invalid email format.");
       return false;
     }
+
+    sendOTPEmail();
     setMessage("");
     return true;
+  };
+  const sendOTPEmail = () => {
+    //if correct email, insert logic for sending otp via email
   };
   return (
     <KeyboardAvoidingView
