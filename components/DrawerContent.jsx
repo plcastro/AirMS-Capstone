@@ -12,7 +12,8 @@ const DrawerList = [
   { icon: "account", label: "Parts Monitoring", navigateTo: "profile" },
   //user management - admin only
   { icon: "account-group", label: "User Management", navigateTo: "" },
-  { icon: "bookshelf", label: "Aircraft Log Book", navigateTo: "" },
+  { icon: "book", label: "Aircraft Log Book", navigateTo: "" },
+  { icon: "book", label: "Component Inventory", navigateTo: "" },
   { icon: "sort", label: "Priority Sorting", navigateTo: "" },
   {
     icon: "chart-arc",
