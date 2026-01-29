@@ -6,9 +6,9 @@ import { Avatar } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import AirMSWeb from "../assets/AirMS_web.png";
 import { styles } from "../stylesheets/styles";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 const DrawerList = [
-  { icon: "home-outline", label: "Home", navigateTo: "dashboard" },
+  { icon: "home-outline", label: "Home", navigateTo: "Dashboard" },
 
   {
     icon: "account",
@@ -32,7 +32,7 @@ function DrawerContent(props) {
   const { navigation } = props;
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <DrawerContentScrollView {...props}>
         {/* Top Logo */}
         <Image
@@ -79,7 +79,7 @@ function DrawerContent(props) {
           onPress={() => navigation.replace("login")}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
