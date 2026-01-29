@@ -38,8 +38,8 @@ function DrawerContent(props) {
         <Image
           source={AirMSWeb}
           style={{
-            width: 200,
-            height: 60,
+            width: 150,
+            height: 50,
             alignSelf: "center",
             marginVertical: 10,
           }}

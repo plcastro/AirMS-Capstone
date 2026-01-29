@@ -9,7 +9,7 @@ import {
 import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import CheckBox from "../components/CheckBox";
@@ -22,6 +22,37 @@ export default function Login() {
     username: "",
     password: "",
   });
+
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const savedUsername = localStorage.getItem("rememberedUsername");
+    const savedPassword = localStorage.getItem("rememberedPassword");
+    const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+
+    if (savedRememberMe && savedUsername) {
+      setFormData({
+        username: savedUsername,
+        password: savedPassword || "",
+      });
+      setRememberMe(true);
+    }
+  }, []);
+
+  const handleRememberMeChange = (e) => {
+    const isChecked = e.target.checked;
+    setRememberMe(isChecked);
+
+    if (!isChecked) {
+      localStorage.setItem("rememberMe", "false"); // triggers other tabs
+      localStorage.removeItem("rememberedUsername");
+      localStorage.removeItem("rememberedPassword");
+    } else {
+      localStorage.setItem("rememberMe", "true");
+    }
+  };
+
   const changeHandler = (key, value) => {
     const formattedValue = value;
     setFormData({ ...formData, [key]: formattedValue });
@@ -29,15 +60,17 @@ export default function Login() {
   const validate = () => {
     const { username, password } = formData;
     //validate logic
-    if (!username && password) {
-      return setMessage("Please enter your username");
-    }
-    if (username && !password) {
-      return setMessage("Please enter your password");
-    }
-    if (!username && !password) {
+    if (!username.trim() && !password.trim()) {
       return setMessage("Please enter your username and password");
     }
+    if (!username.trim()) {
+      return setMessage("Please enter your username");
+    }
+    if (!password.trim()) {
+      return setMessage("Please enter your password");
+    }
+    login();
+
     login();
   };
   const login = async () => {
@@ -50,17 +83,31 @@ export default function Login() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
+          username: formData.username.trim(),
+          password: formData.password.trim(),
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+
+        // Handle Remember Me functionality
+        if (rememberMe) {
+          localStorage.setItem("rememberedUsername", formData.username.trim());
+          localStorage.setItem("rememberedPassword", formData.password.trim());
+          localStorage.setItem("rememberMe", "true");
+        } else {
+          // Clear saved credentials if Remember Me is not checked
+          localStorage.removeItem("rememberedUsername");
+          localStorage.removeItem("rememberedPassword");
+          localStorage.removeItem("rememberMe");
+        }
+
         console.log("Login successful:", data);
         setMessage("");
-        nav.replace("main");
+        nav.replace("Dashboard");
       } else {
         setMessage(data.message);
       }
@@ -77,7 +124,7 @@ export default function Login() {
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       enabled
     >
       <View style={styles.formContainer}>
@@ -111,7 +158,17 @@ export default function Login() {
           <CheckBox
             title="Remember me"
             checkboxStyle={styles.checkBox}
-            onValueChange={(val) => console.log("Parent got:", val)}
+            value={rememberMe}
+            onValueChange={(val) => {
+              setRememberMe(val);
+              if (!val) {
+                localStorage.removeItem("rememberedUsername");
+                localStorage.removeItem("rememberedPassword");
+                localStorage.setItem("rememberMe", "false");
+              } else {
+                localStorage.setItem("rememberMe", "true");
+              }
+            }}
           />
 
           <View style={styles.forgotPassLink}>

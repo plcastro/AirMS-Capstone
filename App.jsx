@@ -25,7 +25,7 @@ function DrawerNav() {
         headerShown: true,
         drawerType: Platform.OS === "web" ? "permanent" : "slide",
         swipeEnabled: Platform.OS !== "web",
-        drawerStyle: Platform.OS === "web" ? { width: 260 } : { width: 260 },
+        drawerStyle: Platform.OS === "web" ? { width: 260 } : { width: 300 },
         overlayColor: "transparent",
       }}
     >
@@ -61,7 +61,7 @@ function DrawerNav() {
 // Stack navigator for login + main app
 function StackNav() {
   return (
-    <Stack.Navigator initialRouteName="main">
+    <Stack.Navigator initialRouteName="login">
       <Stack.Screen
         name="login"
         component={Login}
@@ -93,7 +93,7 @@ function StackNav() {
         }}
       />
       <Stack.Screen
-        name="main"
+        name="dashboard"
         component={DrawerNav}
         options={{ headerShown: false }} // drawer will handle headers
       />
