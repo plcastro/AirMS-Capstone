@@ -104,4 +104,13 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#dedede",
   },
+  profileCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    width: "90%",
+    height: "80%",
+    margin: "auto",
+  },
 });

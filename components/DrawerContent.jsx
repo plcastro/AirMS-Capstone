@@ -1,4 +1,5 @@
 import React from "react";
+import { CommonActions } from "@react-navigation/native";
 import { View, StyleSheet, Text, TouchableOpacity, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Avatar } from "react-native-paper";
@@ -9,10 +10,14 @@ import { styles } from "../stylesheets/styles";
 const DrawerList = [
   { icon: "home-outline", label: "Home", navigateTo: "dashboard" },
 
-  { icon: "account", label: "Parts Monitoring", navigateTo: "profile" },
+  {
+    icon: "account",
+    label: "Parts Monitoring",
+    navigateTo: "Parts Monitoring",
+  },
   //user management - admin only
   { icon: "account-group", label: "User Management", navigateTo: "" },
-  { icon: "book", label: "Aircraft Log Book", navigateTo: "" },
+  { icon: "book", label: "Aircraft Log Book", navigateTo: "Logbook" },
   { icon: "book", label: "Component Inventory", navigateTo: "" },
   { icon: "sort", label: "Priority Sorting", navigateTo: "" },
   {
@@ -20,7 +25,7 @@ const DrawerList = [
     label: "Report and Analytics",
     navigateTo: "",
   },
-  { icon: "account", label: "Profile", navigateTo: "profile" },
+  { icon: "account", label: "Profile", navigateTo: "Profile" },
 ];
 
 function DrawerContent(props) {
@@ -40,27 +45,6 @@ function DrawerContent(props) {
           }}
         />
 
-        {/* User info */}
-        <TouchableOpacity>
-          <View style={styles.userInfoSection}>
-            <View style={{ flexDirection: "row", marginTop: 15 }}>
-              <Avatar.Image
-                // source={{
-                //   uri: "data:image/png;base64,...", // keep your base64
-                // }}
-                size={50}
-                style={{ marginTop: 5 }}
-              />
-              <View style={{ marginLeft: 10, justifyContent: "center" }}>
-                <Text style={styles.title}>Fullname</Text>
-                <Text style={styles.caption} numberOfLines={1}>
-                  Email
-                </Text>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-
         {/* Drawer Items */}
         <View style={styles.drawerSection}>
           {DrawerList.map((item, index) => (
@@ -71,13 +55,13 @@ function DrawerContent(props) {
               )}
               label={item.label}
               onPress={() => {
-                if (
-                  item.label.toLowerCase() === "sign out" ||
-                  item.label.toLowerCase() === "log out"
-                ) {
-                  navigation.replace("login");
-                } else if (item.navigateTo) {
-                  navigation.navigate(item.navigateTo);
+                if (item.navigateTo) {
+                  // Use CommonActions to prevent auto-closing
+                  navigation.dispatch(
+                    CommonActions.navigate({
+                      name: item.navigateTo,
+                    }),
+                  );
                 }
               }}
             />

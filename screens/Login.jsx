@@ -40,11 +40,34 @@ export default function Login() {
     }
     login();
   };
-  const login = () => {
-    //login logic
-    console.log(formData.username, formData.password);
+  const login = async () => {
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000" // Android emulator uses this to reach localhost
+          : "http://localhost:8000";
+      const response = await fetch(`${API_BASE}/api/user/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+        }),
+      });
 
-    nav.replace("main");
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Login successful:", data);
+        setMessage("");
+        nav.replace("main");
+      } else {
+        setMessage(data.message);
+      }
+    } catch (err) {
+      console.log("Error logging in:", err);
+      setMessage("Something went wrong. Please try again.");
+    }
   };
 
   const goToForgotPassword = () => {

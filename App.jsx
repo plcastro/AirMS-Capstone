@@ -10,6 +10,8 @@ import ForgotPassword from "./screens/ForgotPassword";
 import Dashboard from "./screens/Dashboard";
 import Profile from "./screens/Profile";
 import DrawerContent from "./components/DrawerContent";
+import PartsMonitoring from "./screens/PartsMonitoring";
+import Logbook from "./screens/Logbook";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -20,33 +22,38 @@ function DrawerNav() {
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{
-        headerShown: Platform.OS !== "web",
-        drawerType: Platform.OS === "web" ? "permanent" : "front",
+        headerShown: true,
+        drawerType: Platform.OS === "web" ? "permanent" : "slide",
         swipeEnabled: Platform.OS !== "web",
-        drawerStyle: Platform.OS === "web" ? { width: 260 } : {},
+        drawerStyle: Platform.OS === "web" ? { width: 260 } : { width: 260 },
+        overlayColor: "transparent",
       }}
     >
       <Drawer.Screen
         name="Dashboard"
         component={Dashboard}
-        options={({ navigation }) => ({
-          headerLeft:
-            Platform.OS !== "web"
-              ? () => (
-                  <Icon
-                    name="menu"
-                    size={30}
-                    color="#26866F"
-                    style={{ marginLeft: 20 }}
-                    onPress={() =>
-                      navigation.dispatch(DrawerActions.toggleDrawer())
-                    }
-                  />
-                )
-              : null,
-        })}
+        options={({ navigation }) => {
+          if (Platform.OS === "web") {
+            return { title: "" }; // no menu icon
+          } else {
+            return {
+              title: "",
+              headerLeft: () => (
+                <Icon
+                  name="menu"
+                  size={30}
+                  color="#26866F"
+                  style={{ marginLeft: 20 }}
+                  onPress={() => navigation.toggleDrawer()}
+                />
+              ),
+            };
+          }
+        }}
       />
       <Drawer.Screen name="Profile" component={Profile} />
+      <Drawer.Screen name="Parts Monitoring" component={PartsMonitoring} />
+      <Drawer.Screen name="Logbook" component={Logbook} />
     </Drawer.Navigator>
   );
 }
@@ -54,7 +61,7 @@ function DrawerNav() {
 // Stack navigator for login + main app
 function StackNav() {
   return (
-    <Stack.Navigator initialRouteName="login">
+    <Stack.Navigator initialRouteName="main">
       <Stack.Screen
         name="login"
         component={Login}

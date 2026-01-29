@@ -1,21 +1,34 @@
+import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
+  ScrollView,
   TouchableOpacity,
   Platform,
-  ScrollView,
 } from "react-native";
-import { styles } from "../stylesheets/styles";
-import React, { useState, useEffect } from "react";
-import { useNavigation } from "@react-navigation/native";
-import Checkbox from "expo-checkbox";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { styles } from "../stylesheets/styles";
+import Icon from "react-native-vector-icons/Entypo";
+import { useNavigation } from "@react-navigation/native";
 
-export default function Dashboard() {
+export default function Dashboard({ children, title = "Dashboard" }) {
   const nav = useNavigation();
+
   const logout = () => {
     nav.replace("login");
   };
-  return <ScrollView></ScrollView>;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      {/* Header */}
+
+      {/* Main content */}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, padding: 15 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
