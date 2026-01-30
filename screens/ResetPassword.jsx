@@ -10,7 +10,7 @@ import { styles } from "../stylesheets/styles";
 import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import Button from "../components/Button";
 export default function ResetPassword() {
   const nav = useNavigation();
   const [newPassword, setNewPassword] = useState("");
@@ -19,12 +19,11 @@ export default function ResetPassword() {
 
   const validatePasswords = () => {
     if (newPassword !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return false;
+      return setMessage("Passwords do not match.");
     }
+
     setMessage("");
     saveNewPassword();
-    return true;
   };
   const saveNewPassword = () => {
     // Logic to save the new password goes here
@@ -35,7 +34,7 @@ export default function ResetPassword() {
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>
@@ -45,23 +44,27 @@ export default function ResetPassword() {
           style={styles.formInput}
           maxLength={20}
           placeholder="New Password"
-          secureTextEntry
+          secureTextEntry={true}
           placeholderTextColor={"gray"}
+          value={newPassword}
+          onChangeText={setNewPassword}
         />
         <TextInput
           style={styles.formInput}
           maxLength={20}
           placeholder="Confirm Password"
-          secureTextEntry
+          secureTextEntry={true}
           placeholderTextColor={"gray"}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
         />
         <Text style={styles.error}>{message}</Text>
-        <TouchableOpacity
-          style={[styles.button, { marginTop: 20 }]}
-          onPress={() => validatePasswords()}
-        >
-          <Text style={styles.buttonText}>RESET PASSWORD</Text>
-        </TouchableOpacity>
+        <Button
+          buttonStyle={[styles.button, { marginTop: 20 }]}
+          buttonTextStyle={styles.buttonText}
+          use={() => validatePasswords()}
+          label={"RESET PASSWORD"}
+        />
       </View>
     </KeyboardAvoidingView>
   );

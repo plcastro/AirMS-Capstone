@@ -18,7 +18,12 @@ export default function Profile() {
           source={{
             uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
           }}
-          style={{ width: 100, height: 100, marginVertical: 10 }}
+          style={{
+            width: 300,
+            height: 300,
+            marginVertical: 10,
+            borderRadius: 150,
+          }}
         />
 
         <Text style={styles.subHeaderText}>Full Name: Doraemon</Text>

@@ -1,75 +1,148 @@
-import React from "react";
-import { CommonActions } from "@react-navigation/native";
-import { View, StyleSheet, Text, TouchableOpacity, Image } from "react-native";
+import React, { useState, useEffect } from "react";
+import { CommonActions, useRoute } from "@react-navigation/native";
+import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
-import { Avatar } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import AirMSWeb from "../assets/AirMS_web.png";
-import { styles } from "../stylesheets/styles";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { styles } from "../stylesheets/styles";
+import AirMSWeb from "../assets/AirMS_web.png";
+
 const DrawerList = [
-  { icon: "home-outline", label: "Home", navigateTo: "Dashboard" },
+  { icon: "view-dashboard", label: "Dashboard", navigateTo: "Dashboard" },
+
+  {
+    icon: "account-group",
+    label: "User Management",
+    navigateTo: "UserManagement",
+    children: [
+      { label: "Manage Users", navigateTo: "UserManagement" },
+      { label: "Audit Trail", navigateTo: "Audit Trail" },
+    ],
+  },
+
+  { icon: "book", label: "Aircraft Log Book", navigateTo: "Logbook" },
 
   {
     icon: "account",
     label: "Parts Monitoring",
-    navigateTo: "Parts Monitoring",
+    children: [
+      { label: "Parts Monitoring Table", navigateTo: "Parts Monitoring" },
+      { label: "Track Maintenance", navigateTo: "Track Maintenance" },
+    ],
   },
-  //user management - admin only
-  { icon: "account-group", label: "User Management", navigateTo: "" },
-  { icon: "book", label: "Aircraft Log Book", navigateTo: "Logbook" },
+
   { icon: "book", label: "Component Inventory", navigateTo: "" },
   { icon: "sort", label: "Priority Sorting", navigateTo: "" },
-  {
-    icon: "chart-arc",
-    label: "Report and Analytics",
-    navigateTo: "",
-  },
+  { icon: "chart-arc", label: "Report and Analytics", navigateTo: "" },
   { icon: "account", label: "Profile", navigateTo: "Profile" },
 ];
 
-function DrawerContent(props) {
-  const { navigation } = props;
+function DrawerContent({ navigation }) {
+  const activeRoute =
+    navigation.getState().routes[navigation.getState().index].name;
+
+  const [openMenu, setOpenMenu] = useState(null);
+
+  // Auto-open parent if a child route is active
+  useEffect(() => {
+    DrawerList.forEach((item) => {
+      if (item.children?.some((c) => c.navigateTo === activeRoute)) {
+        setOpenMenu(item.label);
+      }
+    });
+  }, [activeRoute]);
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <DrawerContentScrollView {...props}>
-        {/* Top Logo */}
+      <DrawerContentScrollView>
         <Image
           source={AirMSWeb}
           style={{
             width: 150,
             height: 50,
             alignSelf: "center",
-            marginVertical: 10,
           }}
         />
 
-        {/* Drawer Items */}
         <View style={styles.drawerSection}>
-          {DrawerList.map((item, index) => (
-            <DrawerItem
-              key={index}
-              icon={({ color, size }) => (
-                <Icon name={item.icon} color={color} size={size} />
-              )}
-              label={item.label}
-              onPress={() => {
-                if (item.navigateTo) {
-                  // Use CommonActions to prevent auto-closing
-                  navigation.dispatch(
-                    CommonActions.navigate({
-                      name: item.navigateTo,
-                    }),
-                  );
-                }
-              }}
-            />
-          ))}
+          {DrawerList.map((item, index) => {
+            const activeRoute =
+              navigation.getState().routes[navigation.getState().index].name;
+            const isActive = !item.children && item.navigateTo === activeRoute;
+
+            return (
+              <View key={index}>
+                <DrawerItem
+                  label={item.label}
+                  focused={isActive}
+                  style={{
+                    backgroundColor: isActive ? "#26866F" : "transparent",
+                    borderRadius: 0,
+                  }}
+                  labelStyle={{
+                    color: isActive ? "#ffffff" : "#777",
+                  }}
+                  icon={({ size }) => (
+                    <Icon
+                      name={
+                        item.children
+                          ? openMenu === item.label
+                            ? "chevron-down"
+                            : "chevron-right"
+                          : item.icon
+                      }
+                      color={isActive ? "#ffffff" : "#777"}
+                      size={size}
+                    />
+                  )}
+                  onPress={() => {
+                    if (item.children) {
+                      setOpenMenu(openMenu === item.label ? null : item.label);
+                    } else {
+                      navigation.dispatch(
+                        CommonActions.navigate({ name: item.navigateTo }),
+                      );
+                    }
+                  }}
+                />
+
+                {item.children && openMenu === item.label && (
+                  <View style={{ paddingLeft: 24 }}>
+                    {item.children.map((child, i) => {
+                      const childActive = activeRoute === child.navigateTo;
+
+                      return (
+                        <DrawerItem
+                          key={i}
+                          label={child.label}
+                          focused={childActive}
+                          style={{
+                            backgroundColor: childActive
+                              ? "#26866F"
+                              : "transparent",
+                            borderRadius: 0,
+                          }}
+                          labelStyle={{
+                            color: childActive ? "#ffffff" : "#777",
+                          }}
+                          onPress={() =>
+                            navigation.dispatch(
+                              CommonActions.navigate({
+                                name: child.navigateTo,
+                              }),
+                            )
+                          }
+                        />
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       </DrawerContentScrollView>
 
-      {/* Bottom Logout */}
       <View style={styles.bottomDrawerSection}>
         <DrawerItem
           icon={({ color, size }) => (

@@ -1,10 +1,68 @@
+import React, { useState, useEffect } from "react";
+import { DataTable } from "react-native-paper";
 import { View, Text } from "react-native";
-import React from "react";
 
-export default function Table(props) {
+export default function Table({ data = [], headers = [] }) {
+  const [page, setPage] = useState(0);
+  const [itemsPerPageList] = useState([5, 10, 15]);
+  const [itemsPerPage, setItemsPerPage] = useState(itemsPerPageList[0]);
+
+  const from = page * itemsPerPage;
+  const to = Math.min((page + 1) * itemsPerPage, data.length);
+
+  useEffect(() => {
+    setPage(0);
+  }, [itemsPerPage, data]);
+
+  if (!data.length) {
+    return (
+      <View style={{ padding: 20, alignItems: "center" }}>
+        <Text>No data available</Text>
+      </View>
+    );
+  }
+
   return (
-    <View>
-      <Text>Table</Text>
-    </View>
+    <DataTable>
+      {/* Table Header */}
+      <DataTable.Header
+        style={{
+          backgroundColor: "#26866F",
+        }}
+      >
+        {headers.map((header, index) => (
+          <DataTable.Title key={index} numeric={header.numeric}>
+            {header.label}
+          </DataTable.Title>
+        ))}
+      </DataTable.Header>
+
+      {/* Table Rows */}
+      {data.slice(from, to).map((row, index) => (
+        <DataTable.Row key={row.id ?? index}>
+          {headers.map((header, i) => (
+            <DataTable.Cell key={i} numeric={header.numeric}>
+              {row[header.key]}
+            </DataTable.Cell>
+          ))}
+        </DataTable.Row>
+      ))}
+
+      {/* Pagination */}
+      <DataTable.Pagination
+        page={page}
+        numberOfPages={Math.ceil(data.length / itemsPerPage)}
+        onPageChange={setPage}
+        label={`${from + 1}-${to} of ${data.length}`}
+        numberOfItemsPerPageList={itemsPerPageList}
+        numberOfItemsPerPage={itemsPerPage}
+        onItemsPerPageChange={(newItemsPerPage, newPage) => {
+          setItemsPerPage(newItemsPerPage); // update items per page
+          setPage(0); // reset page to 0 when rows per page changes
+        }}
+        showFastPaginationControls
+        selectPageDropdownLabel="Rows per page"
+      />
+    </DataTable>
   );
 }

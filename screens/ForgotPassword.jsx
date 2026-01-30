@@ -2,13 +2,12 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
-
+import Button from "../components/Button";
 export default function ForgotPassword() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -48,12 +47,12 @@ export default function ForgotPassword() {
           onChangeText={setEmail}
         />
         {message ? <Text style={{ color: "red" }}>{message}</Text> : null}
-        <TouchableOpacity
-          style={[styles.button, { marginTop: 20 }]}
-          onPress={() => emailValidation(email)}
-        >
-          <Text style={styles.buttonText}>SEND RESET LINK TO MY EMAIL</Text>
-        </TouchableOpacity>
+        <Button
+          buttonStyle={[styles.button, { marginTop: 20 }]}
+          buttonTextStyle={styles.buttonText}
+          use={() => emailValidation(email)}
+          label="SEND RESET LINK TO MY EMAIL"
+        />
       </View>
     </KeyboardAvoidingView>
   );

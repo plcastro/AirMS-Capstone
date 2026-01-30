@@ -27,9 +27,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const savedUsername = localStorage.getItem("rememberedUsername");
-    const savedPassword = localStorage.getItem("rememberedPassword");
-    const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+    const savedUsername = AsyncStorage.getItem("rememberedUsername");
+    const savedPassword = AsyncStorage.getItem("rememberedPassword");
+    const savedRememberMe = AsyncStorage.getItem("rememberMe") === "true";
 
     if (savedRememberMe && savedUsername) {
       setFormData({
@@ -45,11 +45,11 @@ export default function Login() {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false"); // triggers other tabs
-      localStorage.removeItem("rememberedUsername");
-      localStorage.removeItem("rememberedPassword");
+      AsyncStorage.setItem("rememberMe", "false"); // triggers other tabs
+      AsyncStorage.removeItem("rememberedUsername");
+      AsyncStorage.removeItem("rememberedPassword");
     } else {
-      localStorage.setItem("rememberMe", "true");
+      AsyncStorage.setItem("rememberMe", "true");
     }
   };
 
@@ -70,8 +70,6 @@ export default function Login() {
       return setMessage("Please enter your password");
     }
     login();
-
-    login();
   };
   const login = async () => {
     try {
@@ -91,18 +89,18 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        AsyncStorage.setItem("currentUser", JSON.stringify(data.user));
 
         // Handle Remember Me functionality
         if (rememberMe) {
-          localStorage.setItem("rememberedUsername", formData.username.trim());
-          localStorage.setItem("rememberedPassword", formData.password.trim());
-          localStorage.setItem("rememberMe", "true");
+          AsyncStorage.setItem("rememberedUsername", formData.username.trim());
+          AsyncStorage.setItem("rememberedPassword", formData.password.trim());
+          AsyncStorage.setItem("rememberMe", "true");
         } else {
           // Clear saved credentials if Remember Me is not checked
-          localStorage.removeItem("rememberedUsername");
-          localStorage.removeItem("rememberedPassword");
-          localStorage.removeItem("rememberMe");
+          AsyncStorage.removeItem("rememberedUsername");
+          AsyncStorage.removeItem("rememberedPassword");
+          AsyncStorage.removeItem("rememberMe");
         }
 
         console.log("Login successful:", data);
@@ -162,23 +160,23 @@ export default function Login() {
             onValueChange={(val) => {
               setRememberMe(val);
               if (!val) {
-                localStorage.removeItem("rememberedUsername");
-                localStorage.removeItem("rememberedPassword");
-                localStorage.setItem("rememberMe", "false");
+                AsyncStorage.removeItem("rememberedUsername");
+                AsyncStorage.removeItem("rememberedPassword");
+                AsyncStorage.setItem("rememberMe", "false");
               } else {
-                localStorage.setItem("rememberMe", "true");
+                AsyncStorage.setItem("rememberMe", "true");
               }
             }}
           />
 
           <View style={styles.forgotPassLink}>
-            <Button use={goToForgotPassword} title="Forgot Password?" />
+            <Button use={goToForgotPassword} label="Forgot Password?" />
           </View>
         </View>
 
         <Button
           use={validate}
-          title="Login"
+          label="Login"
           buttonStyle={styles.button}
           buttonTextStyle={styles.buttonText}
         />
