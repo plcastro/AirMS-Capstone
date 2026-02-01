@@ -2,11 +2,11 @@ import { Text, TouchableOpacity } from "react-native";
 import React from "react";
 
 export default function Button(props) {
-  const { use, label, buttonStyle, buttonTextStyle } = props;
+  const { onPress, label, buttonStyle, buttonTextStyle } = props;
 
   return (
     <>
-      <TouchableOpacity onPress={use} style={buttonStyle}>
+      <TouchableOpacity onPress={onPress} style={buttonStyle}>
         <Text style={buttonTextStyle}>{label}</Text>
       </TouchableOpacity>
     </>

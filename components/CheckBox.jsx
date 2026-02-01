@@ -9,8 +9,6 @@ export default function CheckBox(props) {
   const toggleCheckbox = () => {
     const newValue = !checked;
     setChecked(newValue);
-    // console.log("Checkbox checked?", newValue);
-
     if (onValueChange) onValueChange(newValue);
   };
 

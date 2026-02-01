@@ -28,18 +28,24 @@ export default function Table({ data = [], headers = [] }) {
       <DataTable.Header
         style={{
           backgroundColor: "#26866F",
+          borderRadius: 5,
         }}
       >
         {headers.map((header, index) => (
           <DataTable.Title key={index} numeric={header.numeric}>
-            {header.label}
+            <Text style={{ color: "white", fontWeight: 100 }}>
+              {header.label}
+            </Text>
           </DataTable.Title>
         ))}
       </DataTable.Header>
 
       {/* Table Rows */}
       {data.slice(from, to).map((row, index) => (
-        <DataTable.Row key={row.id ?? index}>
+        <DataTable.Row
+          key={row.id ?? index}
+          style={{ backgroundColor: "#ffffff" }}
+        >
           {headers.map((header, i) => (
             <DataTable.Cell key={i} numeric={header.numeric}>
               {row[header.key]}

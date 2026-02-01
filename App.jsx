@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator, DrawerActions } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Entypo";
-import { Provider as PaperProvider } from "react-native-paper";
+
 import Login from "./screens/Login";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
@@ -14,32 +14,31 @@ import DrawerContent from "./components/DrawerContent";
 import PartsMonitoring from "./screens/PartsMonitoring";
 import Logbook from "./screens/Logbook";
 import UserManagement from "./screens/UserManagement";
+
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
 // Drawer navigator for main app screens
 function DrawerNav() {
+  const isWeb = Platform.OS === "web";
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{
-        headerShown: true,
-        drawerType: Platform.OS === "web" ? "permanent" : "slide",
-        swipeEnabled: Platform.OS !== "web",
-        drawerStyle: Platform.OS === "web" ? { width: 260 } : { width: 300 },
+        headerShown: !isWeb,
+        drawerType: isWeb ? "permanent" : "slide",
+        swipeEnabled: !isWeb,
+        drawerStyle: !isWeb ? { width: 260 } : { width: 300 },
         overlayColor: "transparent",
       }}
     >
       <Drawer.Screen
         name="Dashboard"
         component={Dashboard}
-        options={({ navigation }) => {
-          if (Platform.OS === "web") {
-            return { title: "" }; // no menu icon
-          } else {
-            return {
-              title: "",
-              headerLeft: () => (
+        options={({ navigation }) => ({
+          title: "",
+          headerLeft: !isWeb
+            ? () => (
                 <Icon
                   name="menu"
                   size={30}
@@ -47,10 +46,9 @@ function DrawerNav() {
                   style={{ marginLeft: 20 }}
                   onPress={() => navigation.toggleDrawer()}
                 />
-              ),
-            };
-          }
-        }}
+              )
+            : undefined, // remove on web
+        })}
       />
       <Drawer.Screen name="UserManagement" component={UserManagement} />
 
@@ -64,7 +62,7 @@ function DrawerNav() {
 // Stack navigator for login + main app
 function StackNav() {
   return (
-    <Stack.Navigator initialRouteName="resetPassword">
+    <Stack.Navigator initialRouteName="login">
       <Stack.Screen
         name="login"
         component={Login}
@@ -113,7 +111,7 @@ function StackNav() {
       <Stack.Screen
         name="dashboard"
         component={DrawerNav}
-        options={{ headerShown: false }} // drawer will handle headers
+        options={{ headerShown: false, headerTransparent: true }} // drawer will handle headers
       />
     </Stack.Navigator>
   );

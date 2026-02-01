@@ -113,4 +113,98 @@ export const styles = StyleSheet.create({
     height: "80%",
     margin: "auto",
   },
+  /* ===== ADD USER PANEL ===== */
+  addUserOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+
+  addUserCard: {
+    width: "85%",
+    maxWidth: 900,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+  },
+
+  addUserTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+
+  addUserContent: {
+    flexDirection: "row",
+  },
+
+  imageBox: {
+    width: 120,
+    height: 120,
+    backgroundColor: "#EEE",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 6,
+  },
+
+  plus: {
+    fontSize: 36,
+    color: "#AAA",
+  },
+
+  form: {
+    flex: 1,
+    marginLeft: 20,
+  },
+
+  formRow: {
+    marginBottom: 10,
+  },
+
+  label: {
+    fontSize: 12,
+    marginBottom: 4,
+    color: "#333",
+  },
+
+  input: {
+    backgroundColor: "#F1F1F1",
+    height: 36,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 16,
+  },
+
+  saveBtn: {
+    backgroundColor: "#26866F",
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+
+  cancelBtn: {
+    backgroundColor: "#26866F",
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+
+  btnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

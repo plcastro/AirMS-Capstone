@@ -6,15 +6,20 @@ import Button from "../components/Button";
 export default function UserManagement() {
   const [allUsers, setAllUsers] = useState([]);
   const headers = [
+    { label: "ID", key: "id", numeric: true },
+    { label: "Fullname", key: "fullname" },
     { label: "Username", key: "username" },
     { label: "Email", key: "email" },
     { label: "Role", key: "role" },
+    { label: "Date Created", key: "date_created" },
+    { label: "Status", key: "status" },
+    { label: "Actions", key: "actions" },
   ];
 
   useEffect(() => {
     async function fetchUsers() {
       try {
-        const response = await fetch("http://localhost:8000/get-all-user");
+        const response = await fetch("http://localhost:8000/user/getAlluser");
         const json = await response.json();
         setAllUsers(json.data);
       } catch (error) {

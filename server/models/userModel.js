@@ -15,7 +15,23 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, "Please enter a valid email."],
     required: [true, "Please enter your email."],
   },
+  dateCreated: {
+    type: Date,
+    default: Date.now,
+  },
+  role: {
+    type: String,
+    enum: ["user", "superuser", "admin"],
+    default: "user",
+    required: [true, "Please select user's role."],
+  },
   password: { type: String, required: [true, "Please enter a password."] },
+  status: {
+    type: String,
+    enum: ["active", "inactive", "deactivated"],
+  },
+  loginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date },
 });
 
 // Hash password before saving

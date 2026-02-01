@@ -2,24 +2,66 @@ const UserModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-loginUser = async (req, res) => {
+
+const loginUser = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { identifier, password } = req.body;
 
+    // Input validation
+    if (!password || !identifier) {
+      return res.status(400).json({
+        message: "Please provide your username/email and password",
+      });
+    }
+
+    // Find user by username OR email (remove password from query)
     const user = await UserModel.findOne({
-      $and: [{ username }, { password }],
+      $or: [{ username: identifier }, { email: identifier }],
     });
+    console.log("Login attempt:", identifier, password);
+    console.log("Found user:", user);
+    // Generic error message to prevent user enumeration
+    if (!user) {
+      return res.status(401).json({
+        message: "Incorrect credentials",
+      });
+    }
 
-    if (!user)
-      return res.status(400).json({ message: "Invalid username or password" });
-    const hashedInput = crypto.createHash("md5").update(password).digest("hex");
-    // const isMatch = await bcrypt.compare(password, user.password);
-    // if (!isMatch)
-    //   return res.status(400).json({ message: "Invalid username or password" });
-    if (hashedInput !== user.password)
-      return res.status(400).json({ message: "Invalid username or password" });
-    const token = jwt.sign({ id: user._id }, "your_jwt_secret", {
-      expiresIn: "1d",
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Incorrect credentials",
+      });
+    }
+    // Check if user account is active (optional)
+    if (user.status === "inactive" || user.status === "deactivated") {
+      return res.status(401).json({
+        message:
+          "Account is " +
+          (user.status === "inactive" ? " inactive" : " deactivated") +
+          ". Please contact support.",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET || "fallback_secret",
+      {
+        expiresIn: "1d",
+        issuer: "your-app-name",
+        audience: "your-app-users",
+      },
+    );
+
+    await UserModel.findByIdAndUpdate(user._id, {
+      lastLogin: new Date(),
+      $inc: { loginCount: 1 },
     });
 
     res.status(200).json({
@@ -31,26 +73,24 @@ loginUser = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         username: user.username,
+        role: user.role,
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Login error:", err);
+    res.status(500).json({
+      message: "An error occurred during login. Please try again.",
+    });
   }
 };
 
-createUser = async (req, res) => {
+const createUser = async (req, res) => {
   try {
     const { firstName, lastName, email, username, password, confirmPassword } =
       req.body;
 
-    const existingUser = await UserModel.findOne({
-      $or: [{ username }, { email }],
-    });
-
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "Email or username already registered" });
+    if (!firstName || !lastName || !email || !username || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     if (password !== confirmPassword) {
@@ -59,29 +99,45 @@ createUser = async (req, res) => {
         .json({ message: "Password and confirm password do not match" });
     }
 
-    const newUser = await User.create({
+    const existingUser = await UserModel.findOne({
+      $or: [
+        { username: username.toLowerCase() },
+        { email: email.toLowerCase() },
+      ],
+    });
+
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ message: "Email or username already registered" });
+    }
+
+    const newUser = await UserModel.create({
       firstName,
       lastName,
-      email,
-      username,
+      email: email.toLowerCase(),
+      username: username.toLowerCase(),
       password,
-    });
-    const token = jwt.sign({ id: newUser._id }, "your_jwt_secret", {
-      expiresIn: "1d",
     });
 
     res.status(201).json({
       message: "User registered successfully",
-      token,
       user: {
         id: newUser._id,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
         username: newUser.username,
-        password: newUser.password,
+        email: newUser.email,
       },
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Registration failed" });
+  }
+};
+
+const getAllUser = async (req, res) => {
+  try {
+    const users = await UserModel.find({});
+    res.status(200).json({ status: "Ok", data: users });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -90,4 +146,5 @@ createUser = async (req, res) => {
 module.exports = {
   loginUser,
   createUser,
+  getAllUser,
 };

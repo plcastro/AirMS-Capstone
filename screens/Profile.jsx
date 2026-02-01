@@ -1,7 +1,8 @@
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
-import AlertComp from "../components/AlertComp";
+import AlertComp from "../components/Alert";
+import Button from "../components/Button";
 
 export default function Profile() {
   const [alertVisible, setAlertVisible] = useState(false);
@@ -19,8 +20,8 @@ export default function Profile() {
             uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
           }}
           style={{
-            width: 300,
-            height: 300,
+            width: 200,
+            height: 200,
             marginVertical: 10,
             borderRadius: 150,
           }}
@@ -30,19 +31,17 @@ export default function Profile() {
         <Text style={styles.subHeaderText}>Email: doraemon@gmail.com</Text>
         <Text style={styles.subHeaderText}>Username: doraemon</Text>
 
-        <TouchableOpacity
+        <Button
+          label="Update Profile"
           onPress={() => setAlertVisible(true)}
-          style={{
+          buttonStyle={{
             marginTop: 20,
             padding: 10,
             backgroundColor: "#26866F",
             borderRadius: 5,
           }}
-        >
-          <Text style={{ color: "#fff", textAlign: "center" }}>
-            Update Profile
-          </Text>
-        </TouchableOpacity>
+          buttonTextStyle={{ color: "#fff", textAlign: "center" }}
+        />
 
         <AlertComp
           visible={alertVisible}

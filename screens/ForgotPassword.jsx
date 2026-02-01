@@ -28,7 +28,11 @@ export default function ForgotPassword() {
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={Platform.OS === "android" && "ios" ? "padding" : "height"}
+      behavior={
+        Platform.OS === "android" || Platform.OS === "ios"
+          ? "padding"
+          : "height"
+      }
       keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>
@@ -50,7 +54,7 @@ export default function ForgotPassword() {
         <Button
           buttonStyle={[styles.button, { marginTop: 20 }]}
           buttonTextStyle={styles.buttonText}
-          use={() => emailValidation(email)}
+          onPress={() => emailValidation(email)}
           label="SEND RESET LINK TO MY EMAIL"
         />
       </View>

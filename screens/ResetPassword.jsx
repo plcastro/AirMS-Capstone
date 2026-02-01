@@ -34,7 +34,11 @@ export default function ResetPassword() {
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={
+        Platform.OS === "ios" || Platform.OS === "android"
+          ? "padding"
+          : "height"
+      }
       keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>
@@ -62,7 +66,7 @@ export default function ResetPassword() {
         <Button
           buttonStyle={[styles.button, { marginTop: 20 }]}
           buttonTextStyle={styles.buttonText}
-          use={() => validatePasswords()}
+          onPress={() => validatePasswords()}
           label={"RESET PASSWORD"}
         />
       </View>

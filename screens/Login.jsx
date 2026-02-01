@@ -13,40 +13,47 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import CheckBox from "../components/CheckBox";
+import AlertComp from "../components/Alert";
 
 export default function Login() {
   const nav = useNavigation();
   const [getMessage, setMessage] = useState("");
 
   const [formData, setFormData] = useState({
-    username: "",
+    identifier: "",
     password: "",
   });
 
   const [rememberMe, setRememberMe] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const savedUsername = AsyncStorage.getItem("rememberedUsername");
-    const savedPassword = AsyncStorage.getItem("rememberedPassword");
-    const savedRememberMe = AsyncStorage.getItem("rememberMe") === "true";
+    const loadSaved = async () => {
+      const savedRememberMe = await AsyncStorage.getItem("rememberMe");
 
-    if (savedRememberMe && savedUsername) {
-      setFormData({
-        username: savedUsername,
-        password: savedPassword || "",
-      });
-      setRememberMe(true);
-    }
+      if (savedRememberMe === "true") {
+        const savedIdentifier = await AsyncStorage.getItem(
+          "rememberedIdentifier",
+        );
+
+        const savedPassword = await AsyncStorage.getItem("rememberedPassword");
+
+        if (savedIdentifier) {
+          setFormData({
+            identifier: savedIdentifier || "",
+            password: savedPassword || "",
+          });
+          setRememberMe(true);
+        }
+      }
+    };
+
+    loadSaved();
   }, []);
 
   const handleRememberMeChange = (e) => {
-    const isChecked = e.target.checked;
-    setRememberMe(isChecked);
-
     if (!isChecked) {
       AsyncStorage.setItem("rememberMe", "false"); // triggers other tabs
-      AsyncStorage.removeItem("rememberedUsername");
+      AsyncStorage.removeItem("rememberedIdentifier");
       AsyncStorage.removeItem("rememberedPassword");
     } else {
       AsyncStorage.setItem("rememberMe", "true");
@@ -58,13 +65,13 @@ export default function Login() {
     setFormData({ ...formData, [key]: formattedValue });
   };
   const validate = () => {
-    const { username, password } = formData;
+    const { identifier, password } = formData;
     //validate logic
-    if (!username.trim() && !password.trim()) {
-      return setMessage("Please enter your username and password");
+    if (!identifier.trim() && !password.trim()) {
+      return setMessage("Please enter your credentials");
     }
-    if (!username.trim()) {
-      return setMessage("Please enter your username");
+    if (!identifier.trim()) {
+      return setMessage("Please enter your username or email");
     }
     if (!password.trim()) {
       return setMessage("Please enter your password");
@@ -77,12 +84,13 @@ export default function Login() {
         Platform.OS === "android"
           ? "http://10.0.2.2:8000" // Android emulator uses this to reach localhost
           : "http://localhost:8000";
+
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: formData.username.trim(),
-          password: formData.password.trim(),
+          identifier: formData.identifier,
+          password: formData.password,
         }),
       });
 
@@ -93,19 +101,23 @@ export default function Login() {
 
         // Handle Remember Me functionality
         if (rememberMe) {
-          AsyncStorage.setItem("rememberedUsername", formData.username.trim());
+          AsyncStorage.setItem(
+            "rememberedIdentifier",
+            formData.identifier.trim(),
+          );
           AsyncStorage.setItem("rememberedPassword", formData.password.trim());
           AsyncStorage.setItem("rememberMe", "true");
         } else {
           // Clear saved credentials if Remember Me is not checked
-          AsyncStorage.removeItem("rememberedUsername");
+          AsyncStorage.removeItem("rememberedIdentifier");
           AsyncStorage.removeItem("rememberedPassword");
           AsyncStorage.removeItem("rememberMe");
         }
 
         console.log("Login successful:", data);
         setMessage("");
-        nav.replace("Dashboard");
+
+        nav.replace("dashboard");
       } else {
         setMessage(data.message);
       }
@@ -122,7 +134,11 @@ export default function Login() {
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={
+        Platform.OS === "ios" || Platform.OS === "android"
+          ? "padding"
+          : "height"
+      }
       enabled
     >
       <View style={styles.formContainer}>
@@ -133,12 +149,12 @@ export default function Login() {
         <TextInput
           style={styles.formInput}
           maxLength={20}
-          placeholder="Username"
+          placeholder="Username or Email"
           placeholderTextColor={"gray"}
           autoCapitalize="none"
           keyboardType="default"
-          value={formData.username}
-          onChangeText={(e) => changeHandler("username", e)}
+          value={formData.identifier}
+          onChangeText={(e) => setFormData({ ...formData, identifier: e })}
         />
         <TextInput
           style={styles.formInput}
@@ -160,7 +176,7 @@ export default function Login() {
             onValueChange={(val) => {
               setRememberMe(val);
               if (!val) {
-                AsyncStorage.removeItem("rememberedUsername");
+                AsyncStorage.removeItem("rememberedIdentifier");
                 AsyncStorage.removeItem("rememberedPassword");
                 AsyncStorage.setItem("rememberMe", "false");
               } else {
@@ -170,16 +186,23 @@ export default function Login() {
           />
 
           <View style={styles.forgotPassLink}>
-            <Button use={goToForgotPassword} label="Forgot Password?" />
+            <Button onPress={goToForgotPassword} label="Forgot Password?" />
           </View>
         </View>
 
         <Button
-          use={validate}
+          onPress={validate}
           label="Login"
           buttonStyle={styles.button}
           buttonTextStyle={styles.buttonText}
         />
+        {getMessage && (
+          <AlertComp
+            title="Login Error"
+            message={getMessage}
+            onPressFunction={() => setMessage("")}
+          />
+        )}
       </View>
     </KeyboardAvoidingView>
   );

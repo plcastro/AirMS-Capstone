@@ -8,8 +8,6 @@ import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
 
 const DrawerList = [
-  { icon: "view-dashboard", label: "Dashboard", navigateTo: "Dashboard" },
-
   {
     icon: "account-group",
     label: "User Management",
@@ -20,7 +18,7 @@ const DrawerList = [
     ],
   },
 
-  { icon: "book", label: "Aircraft Log Book", navigateTo: "Logbook" },
+  { icon: "book", label: "Aircraft Logbook", navigateTo: "Logbook" },
 
   {
     icon: "account",
@@ -107,7 +105,7 @@ function DrawerContent({ navigation }) {
                 />
 
                 {item.children && openMenu === item.label && (
-                  <View style={{ paddingLeft: 24 }}>
+                  <View>
                     {item.children.map((child, i) => {
                       const childActive = activeRoute === child.navigateTo;
 
