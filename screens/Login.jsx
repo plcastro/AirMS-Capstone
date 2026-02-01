@@ -7,17 +7,20 @@ import {
   Platform,
 } from "react-native";
 import { styles } from "../stylesheets/styles";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
 import CheckBox from "../components/CheckBox";
-import AlertComp from "../components/Alert";
+import AlertComp from "../components/AlertComp";
+import { AuthContext } from "../Context/AuthContext";
 
 export default function Login() {
   const nav = useNavigation();
   const [getMessage, setMessage] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const { setUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({
     identifier: "",
@@ -116,7 +119,7 @@ export default function Login() {
 
         console.log("Login successful:", data);
         setMessage("");
-
+        setUser(data.user);
         nav.replace("dashboard");
       } else {
         setMessage(data.message);
@@ -148,7 +151,7 @@ export default function Login() {
         </Text>
         <TextInput
           style={styles.formInput}
-          maxLength={20}
+          maxLength={50}
           placeholder="Username or Email"
           placeholderTextColor={"gray"}
           autoCapitalize="none"
@@ -158,7 +161,7 @@ export default function Login() {
         />
         <TextInput
           style={styles.formInput}
-          maxLength={20}
+          maxLength={50}
           placeholder="Password"
           secureTextEntry={true}
           placeholderTextColor={"gray"}
@@ -198,9 +201,9 @@ export default function Login() {
         />
         {getMessage && (
           <AlertComp
-            title="Login Error"
+            title={loginSuccess ? "Logged in Successfully" : "Login Error"}
             message={getMessage}
-            onPressFunction={() => setMessage("")}
+            onPressFunction={() => setMessage("")} // dismiss message
           />
         )}
       </View>

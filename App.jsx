@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Platform, Image } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator, DrawerActions } from "@react-navigation/drawer";
@@ -14,6 +14,7 @@ import DrawerContent from "./components/DrawerContent";
 import PartsMonitoring from "./screens/PartsMonitoring";
 import Logbook from "./screens/Logbook";
 import UserManagement from "./screens/UserManagement";
+import { AuthContext } from "./Context/AuthContext";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -118,9 +119,12 @@ function StackNav() {
 }
 
 export default function App() {
+  const [user, setUser] = useState(null);
   return (
     <NavigationContainer>
-      <StackNav />
+      <AuthContext.Provider value={{ user, setUser }}>
+        <StackNav />
+      </AuthContext.Provider>
     </NavigationContainer>
   );
 }

@@ -6,12 +6,11 @@ import Button from "../components/Button";
 export default function UserManagement() {
   const [allUsers, setAllUsers] = useState([]);
   const headers = [
-    { label: "ID", key: "id", numeric: true },
     { label: "Fullname", key: "fullname" },
     { label: "Username", key: "username" },
     { label: "Email", key: "email" },
     { label: "Role", key: "role" },
-    { label: "Date Created", key: "date_created" },
+    { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
     { label: "Actions", key: "actions" },
   ];

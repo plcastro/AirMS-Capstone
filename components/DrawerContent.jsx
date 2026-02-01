@@ -6,36 +6,67 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
+import { useContext } from "react";
+import { AuthContext } from "../Context/AuthContext";
 
 const DrawerList = [
   {
     icon: "account-group",
     label: "User Management",
     navigateTo: "UserManagement",
+    access: ["admin"],
     children: [
       { label: "Manage Users", navigateTo: "UserManagement" },
       { label: "Audit Trail", navigateTo: "Audit Trail" },
     ],
   },
 
-  { icon: "book", label: "Aircraft Logbook", navigateTo: "Logbook" },
+  {
+    icon: "book",
+    label: "Aircraft Logbook",
+    navigateTo: "Logbook",
+    access: ["superuser"],
+  },
 
   {
     icon: "account",
     label: "Parts Monitoring",
+    access: ["superuser"],
     children: [
       { label: "Parts Monitoring Table", navigateTo: "Parts Monitoring" },
       { label: "Track Maintenance", navigateTo: "Track Maintenance" },
     ],
   },
 
-  { icon: "book", label: "Component Inventory", navigateTo: "" },
-  { icon: "sort", label: "Priority Sorting", navigateTo: "" },
-  { icon: "chart-arc", label: "Report and Analytics", navigateTo: "" },
-  { icon: "account", label: "Profile", navigateTo: "Profile" },
+  {
+    icon: "book",
+    label: "Component Inventory",
+    navigateTo: "",
+    access: ["superuser"],
+  },
+  {
+    icon: "sort",
+    label: "Priority Sorting",
+    navigateTo: "",
+    access: ["superuser"],
+  },
+  {
+    icon: "chart-arc",
+    label: "Report and Analytics",
+    navigateTo: "",
+    access: ["superuser"],
+  },
+  {
+    icon: "account",
+    label: "Profile",
+    navigateTo: "Profile",
+    access: ["admin", "superuser", "user"],
+  },
 ];
 
 function DrawerContent({ navigation }) {
+  const { user } = useContext(AuthContext);
+  const userRole = user?.role;
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
@@ -49,6 +80,9 @@ function DrawerContent({ navigation }) {
       }
     });
   }, [activeRoute]);
+  const filteredDrawerList = DrawerList.filter(
+    (item) => !item.access || item.access.includes(userRole),
+  );
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -63,7 +97,7 @@ function DrawerContent({ navigation }) {
         />
 
         <View style={styles.drawerSection}>
-          {DrawerList.map((item, index) => {
+          {filteredDrawerList.map((item, index) => {
             const activeRoute =
               navigation.getState().routes[navigation.getState().index].name;
             const isActive = !item.children && item.navigateTo === activeRoute;

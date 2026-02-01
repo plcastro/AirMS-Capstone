@@ -5,6 +5,7 @@ const {
   loginUser,
   createUser,
   getAllUser,
+  auditLog,
 } = require("../controllers/userController");
 
 router.post("/login", loginLimiter, loginUser);

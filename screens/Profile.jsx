@@ -1,8 +1,9 @@
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
-import AlertComp from "../components/Alert";
+
 import Button from "../components/Button";
+import AlertComp from "../components/AlertComp";
 
 export default function Profile() {
   const [alertVisible, setAlertVisible] = useState(false);

@@ -207,4 +207,79 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  /* ===== TABLE ===== */
+  tableCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginTop: 8,
+    overflow: "visible",
+    flex: 0.8,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#26866F",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopRightRadius: 12,
+    borderTopLeftRadius: 12,
+  },
+  headerCell: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "flex-start", // Changed from 'center' to 'flex-start'
+    marginRight: 8,
+  },
+  lastHeaderCell: {
+    flex: 0.5, // Make the last column narrower
+    marginRight: 0,
+    alignItems: "flex-end", // Align dots to the right
+  },
+  tableHeaderText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "left", // Default to left
+  },
+  tableBody: {
+    flex: 1,
+    position: "relative",
+    zIndex: 1,
+  },
+  tableRowContainer: {
+    position: "relative",
+    borderBottomWidth: 1,
+    borderColor: "#EEE",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  cell: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "flex-start", // Changed from 'center' to 'flex-start'
+    marginRight: 8,
+  },
+  lastCell: {
+    flex: 0.5, // Make the last column narrower
+    marginRight: 0,
+    alignItems: "flex-end", // Align dots to the right
+  },
+  tableCell: {
+    fontSize: 12,
+    color: "#333",
+    textAlign: "left", // Default to left
+    paddingVertical: 4,
+  },
+  dotsButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  dots: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
 });

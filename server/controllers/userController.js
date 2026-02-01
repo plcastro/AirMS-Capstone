@@ -1,7 +1,6 @@
 const UserModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
 
 const loginUser = async (req, res) => {
   try {
@@ -14,16 +13,16 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Find user by username OR email (remove password from query)
     const user = await UserModel.findOne({
-      $or: [{ username: identifier }, { email: identifier }],
+      $or: [{ username: identifier.trim() }, { email: identifier.trim() }],
     });
-    console.log("Login attempt:", identifier, password);
+
     console.log("Found user:", user);
+
     // Generic error message to prevent user enumeration
     if (!user) {
       return res.status(401).json({
-        message: "Incorrect credentials",
+        message: "Incorrect user credentials",
       });
     }
 
@@ -31,16 +30,18 @@ const loginUser = async (req, res) => {
 
     if (!isMatch) {
       return res.status(401).json({
-        message: "Incorrect credentials",
+        message: "Incorrect user credentials",
       });
     }
-    // Check if user account is active (optional)
-    if (user.status === "inactive" || user.status === "deactivated") {
+    // Handle inactive status for first-time login
+    if (user.status === "inactive") {
+      await UserModel.findByIdAndUpdate(user._id, { status: "active" });
+    }
+
+    // Prevent login if deactivated
+    if (user.status === "deactivated") {
       return res.status(401).json({
-        message:
-          "Account is " +
-          (user.status === "inactive" ? " inactive" : " deactivated") +
-          ". Please contact support.",
+        message: "Your account is deactivated. Please contact support.",
       });
     }
 
@@ -54,7 +55,7 @@ const loginUser = async (req, res) => {
       process.env.JWT_SECRET || "fallback_secret",
       {
         expiresIn: "1d",
-        issuer: "your-app-name",
+        issuer: "AirMS",
         audience: "your-app-users",
       },
     );
@@ -100,10 +101,7 @@ const createUser = async (req, res) => {
     }
 
     const existingUser = await UserModel.findOne({
-      $or: [
-        { username: username.toLowerCase() },
-        { email: email.toLowerCase() },
-      ],
+      $or: [{ username: username.trim() }, { email: email.trim() }],
     });
 
     if (existingUser) {
@@ -115,13 +113,13 @@ const createUser = async (req, res) => {
     const newUser = await UserModel.create({
       firstName,
       lastName,
-      email: email.toLowerCase(),
-      username: username.toLowerCase(),
+      email: email.trim(),
+      username: username.trim(),
       password,
     });
 
     res.status(201).json({
-      message: "User registered successfully",
+      message: "User added successfully",
       user: {
         id: newUser._id,
         username: newUser.username,
@@ -130,7 +128,7 @@ const createUser = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Registration failed" });
+    res.status(500).json({ message: "User account creation failed" });
   }
 };
 
@@ -143,8 +141,16 @@ const getAllUser = async (req, res) => {
   }
 };
 
+const auditLog = (action, userId) => {
+  // Implement audit logging logic here
+  console.log(
+    `Audit Log - User: ${userId}, Action: ${action}, Timestamp: ${new Date()}`,
+  );
+};
+
 module.exports = {
   loginUser,
   createUser,
   getAllUser,
+  auditLog,
 };
