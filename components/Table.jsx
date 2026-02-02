@@ -5,7 +5,7 @@ import Button from "./Button";
 import { DataTable } from "react-native-paper";
 export default function Table({ headers = [], data = [], columnWidths = {} }) {
   const [page, setPage] = useState(0);
-  const [numberOfItemsPerPageList] = useState([10, 15, 20]);
+  const [numberOfItemsPerPageList] = useState([5, 10, 15]);
   const [itemsPerPage, onItemsPerPageChange] = useState(
     numberOfItemsPerPageList[0],
   );
