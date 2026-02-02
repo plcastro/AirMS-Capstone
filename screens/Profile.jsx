@@ -1,13 +1,16 @@
-import { View, Text, Image, TouchableOpacity } from "react-native";
-import React, { useState } from "react";
+import { View, Text, Image, TouchableOpacity, Modal } from "react-native";
+import React, { useState, useContext } from "react";
 import { styles } from "../stylesheets/styles";
 
 import Button from "../components/Button";
 import AlertComp from "../components/AlertComp";
+import { AuthContext } from "../Context/AuthContext";
 
 export default function Profile() {
   const [alertVisible, setAlertVisible] = useState(false);
-
+  const { user } = useContext(AuthContext);
+  const { firstName, lastName, email, username, password } = user;
+  console.log("User in Profile:", user);
   const handleUpdate = () => {
     console.log("Profile updated!");
   };
@@ -28,9 +31,11 @@ export default function Profile() {
           }}
         />
 
-        <Text style={styles.subHeaderText}>Full Name: Doraemon</Text>
-        <Text style={styles.subHeaderText}>Email: doraemon@gmail.com</Text>
-        <Text style={styles.subHeaderText}>Username: doraemon</Text>
+        <Text style={styles.subHeaderText}>
+          Full Name: {firstName} {lastName}
+        </Text>
+        <Text style={styles.subHeaderText}>Email: {email}</Text>
+        <Text style={styles.subHeaderText}>Username: {username}</Text>
 
         <Button
           label="Update Profile"
@@ -43,14 +48,18 @@ export default function Profile() {
           }}
           buttonTextStyle={{ color: "#fff", textAlign: "center" }}
         />
-
-        <AlertComp
+        <Modal
+          visible={alertVisible}
+          transparent={true}
+          animationType="none"
+        ></Modal>
+        {/* <AlertComp
           visible={alertVisible}
           onClose={() => setAlertVisible(false)}
           title="Profile Update"
           message="Are you sure you want to update this profile?"
           onConfirm={handleUpdate}
-        />
+        /> */}
       </View>
     </>
   );

@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Platform, Image } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator, DrawerActions } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Entypo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Login from "./screens/Login";
 import ForgotPassword from "./screens/ForgotPassword";
@@ -14,7 +15,10 @@ import DrawerContent from "./components/DrawerContent";
 import PartsMonitoring from "./screens/PartsMonitoring";
 import Logbook from "./screens/Logbook";
 import UserManagement from "./screens/UserManagement";
+import UserLogs from "./screens/UserLogs";
+
 import { AuthContext } from "./Context/AuthContext";
+import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -29,7 +33,7 @@ function DrawerNav() {
         headerShown: !isWeb,
         drawerType: isWeb ? "permanent" : "slide",
         swipeEnabled: !isWeb,
-        drawerStyle: !isWeb ? { width: 260 } : { width: 300 },
+        drawerStyle: !isWeb ? { width: 260 } : { width: 260 },
         overlayColor: "transparent",
       }}
     >
@@ -51,8 +55,8 @@ function DrawerNav() {
             : undefined, // remove on web
         })}
       />
-      <Drawer.Screen name="UserManagement" component={UserManagement} />
-
+      <Drawer.Screen name="User Management" component={UserManagement} />
+      <Drawer.Screen name="User Logs" component={UserLogs} />
       <Drawer.Screen name="Profile" component={Profile} />
       <Drawer.Screen name="Parts Monitoring" component={PartsMonitoring} />
       <Drawer.Screen name="Logbook" component={Logbook} />
@@ -63,7 +67,7 @@ function DrawerNav() {
 // Stack navigator for login + main app
 function StackNav() {
   return (
-    <Stack.Navigator initialRouteName="login">
+    <Stack.Navigator>
       <Stack.Screen
         name="login"
         component={Login}
@@ -112,7 +116,7 @@ function StackNav() {
       <Stack.Screen
         name="dashboard"
         component={DrawerNav}
-        options={{ headerShown: false, headerTransparent: true }} // drawer will handle headers
+        options={{ headerShown: false }} // drawer will handle headers
       />
     </Stack.Navigator>
   );
@@ -120,11 +124,31 @@ function StackNav() {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const theme = {
+    ...DefaultTheme,
+    colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
+  };
+  useEffect(() => {
+    const loadUser = async () => {
+      const storedUser = await AsyncStorage.getItem("currentUser");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+      setLoading(false);
+    };
+    loadUser();
+  }, []);
+
+  if (loading) return null; // or splash screen
+
   return (
-    <NavigationContainer>
-      <AuthContext.Provider value={{ user, setUser }}>
-        <StackNav />
-      </AuthContext.Provider>
-    </NavigationContainer>
+    <AuthContext.Provider value={{ user, setUser }}>
+      <PaperProvider theme={theme}>
+        <NavigationContainer>
+          <StackNav />
+        </NavigationContainer>
+      </PaperProvider>
+    </AuthContext.Provider>
   );
 }

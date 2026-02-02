@@ -1,6 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
 const { width } = Dimensions.get("window");
 export const styles = StyleSheet.create({
+  // Login, Reset, Forgot password Screen Styles
   formCard: {
     marginHorizontal: "auto",
     marginVertical: "auto",
@@ -207,79 +208,61 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  /* ===== TABLE ===== */
-  tableCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginTop: 8,
-    overflow: "visible",
-    flex: 0.8,
-  },
-  tableHeader: {
+  /* ===== SEARCH + ADD BUTTON ===== */
+  searchRow: {
     flexDirection: "row",
-    backgroundColor: "#26866F",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderTopRightRadius: 12,
-    borderTopLeftRadius: 12,
+    justifyContent: "flex-end",
+    alignItems: "center",
+
+    marginBottom: 12,
+    width: 500,
   },
-  headerCell: {
+  searchInput: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "flex-start", // Changed from 'center' to 'flex-start'
-    marginRight: 8,
+    backgroundColor: "#EDEDED",
+    borderColor: "#CCCCCC",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 38,
+    marginRight: 10,
   },
-  lastHeaderCell: {
-    flex: 0.5, // Make the last column narrower
-    marginRight: 0,
-    alignItems: "flex-end", // Align dots to the right
+  addButton: {
+    backgroundColor: "#26866F",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
-  tableHeaderText: {
+  addButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 12,
-    textAlign: "left", // Default to left
   },
-  tableBody: {
-    flex: 1,
-    position: "relative",
-    zIndex: 1,
-  },
-  tableRowContainer: {
-    position: "relative",
-    borderBottomWidth: 1,
-    borderColor: "#EEE",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  cell: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "flex-start", // Changed from 'center' to 'flex-start'
-    marginRight: 8,
-  },
-  lastCell: {
-    flex: 0.5, // Make the last column narrower
-    marginRight: 0,
-    alignItems: "flex-end", // Align dots to the right
-  },
-  tableCell: {
-    fontSize: 12,
-    color: "#333",
-    textAlign: "left", // Default to left
-    paddingVertical: 4,
-  },
-  dotsButton: {
+  tableCell: { color: "#181717" },
+  tableHeader: { backgroundColor: "#26866F", borderRadius: 4 },
+  tableHeaderText: { color: "#FFFFFF" },
+  statusActive: {
+    backgroundColor: "#d4edda",
+    borderColor: "#28a745",
+    borderWidth: 1,
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  dots: {
-    fontSize: 18,
-    fontWeight: "bold",
+  statusInactive: {
+    backgroundColor: "#d1ecf1",
+    borderColor: "#17a2b8",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusDeactivated: {
+    backgroundColor: "#f8d7da",
+    borderColor: "#dc3545",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });

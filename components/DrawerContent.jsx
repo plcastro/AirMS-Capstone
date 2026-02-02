@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { Platform } from "react-native";
 import { CommonActions, useRoute } from "@react-navigation/native";
 import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
@@ -6,18 +7,17 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
-import { useContext } from "react";
 import { AuthContext } from "../Context/AuthContext";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const DrawerList = [
   {
     icon: "account-group",
     label: "User Management",
-    navigateTo: "UserManagement",
+    navigateTo: "User Management",
     access: ["admin"],
     children: [
-      { label: "Manage Users", navigateTo: "UserManagement" },
-      { label: "Audit Trail", navigateTo: "Audit Trail" },
+      { label: "Manage Users", navigateTo: "User Management" },
+      { label: "User Logs", navigateTo: "User Logs" },
     ],
   },
 
@@ -41,24 +41,24 @@ const DrawerList = [
   {
     icon: "book",
     label: "Component Inventory",
-    navigateTo: "",
+    navigateTo: "Component Inventory",
     access: ["superuser"],
   },
   {
     icon: "sort",
     label: "Priority Sorting",
-    navigateTo: "",
+    navigateTo: "Priority Sorting",
     access: ["superuser"],
   },
   {
     icon: "chart-arc",
     label: "Report and Analytics",
-    navigateTo: "",
+    navigateTo: "Reports And Analytics",
     access: ["superuser"],
   },
   {
     icon: "account",
-    label: "Profile",
+    label: "My Profile",
     navigateTo: "Profile",
     access: ["admin", "superuser", "user"],
   },
@@ -83,6 +83,37 @@ function DrawerContent({ navigation }) {
   const filteredDrawerList = DrawerList.filter(
     (item) => !item.access || item.access.includes(userRole),
   );
+
+  const handleLogout = async () => {
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+
+      await fetch(`${API_BASE}/api/user/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await AsyncStorage.getItem("currentUserToken")}`,
+        },
+      });
+
+      // remove current session data
+      await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
+
+      // only remove remembered credentials if the user did NOT check remember me
+      const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
+      if (rememberMeFlag === "false" || rememberMeFlag === null) {
+        await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedPassword");
+        await AsyncStorage.setItem("rememberMe", "false"); // reset flag
+      }
+      navigation.replace("login");
+    } catch (err) {
+      console.error("Error logging out:", err);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -180,8 +211,8 @@ function DrawerContent({ navigation }) {
           icon={({ color, size }) => (
             <Icon name="exit-to-app" color={color} size={size} />
           )}
-          label="Sign Out"
-          onPress={() => navigation.replace("login")}
+          label="Log Out"
+          onPress={() => handleLogout()}
         />
       </View>
     </SafeAreaView>

@@ -1,22 +1,14 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-} from "react-native";
+import React, { useState, useContext } from "react";
+import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { styles } from "../stylesheets/styles";
-import Icon from "react-native-vector-icons/Entypo";
+
+import { AuthContext } from "../Context/AuthContext";
+
 import { useNavigation } from "@react-navigation/native";
 
 export default function Dashboard({ children, title = "Dashboard" }) {
   const nav = useNavigation();
-
-  const logout = () => {
-    nav.replace("login");
-  };
+  const { user } = useContext(AuthContext);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
