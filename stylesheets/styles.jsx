@@ -1,7 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
 const { width } = Dimensions.get("window");
 export const styles = StyleSheet.create({
-  // Login, Reset, Forgot password Screen Styles
+  // Login, Reset, Forgot password, Security Setup Screen Styles
   formCard: {
     marginHorizontal: "auto",
     marginVertical: "auto",
@@ -114,6 +114,11 @@ export const styles = StyleSheet.create({
     height: "80%",
     margin: "auto",
   },
+  label: {
+    fontSize: 12,
+    marginBottom: 4,
+    color: "#333",
+  },
   /* ===== ADD USER PANEL ===== */
   addUserOverlay: {
     position: "absolute",
@@ -208,24 +213,26 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+
   /* ===== SEARCH + ADD BUTTON ===== */
   searchRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-
-    marginBottom: 12,
-    width: 500,
+    marginBottom: 8,
+    width: 650,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#EDEDED",
+    width: 200,
+    backgroundColor: "#f7f6f6",
     borderColor: "#CCCCCC",
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 38,
     marginRight: 10,
+    marginBottom: 4,
   },
   addButton: {
     backgroundColor: "#26866F",
@@ -264,5 +271,112 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  /* ROLE DROPDOWN */
+  picker: {
+    backgroundColor: "#F1F1F1",
+    height: 36,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  pickerItem: {
+    fontSize: 14,
+  },
+  /* ===== ALERT COMPONENT STYLES ===== */
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2000,
+  },
+  alertContainer: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    minWidth: 300,
+    maxWidth: 400,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "left",
+  },
+  alertMessage: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  alertButtonRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 10,
+  },
+  alertConfirmBtn: {
+    backgroundColor: "#26866F",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  alertCancelBtn: {
+    backgroundColor: "#6c757d",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  alertConfirmBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  alertCancelBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  /* ===== FILTER STYLES ===== */
+  filterContainer: {
+    backgroundColor: "#EDEDED",
+    borderColor: "#CCCCCC",
+    borderWidth: 1,
+    borderRadius: 8,
+    marginRight: 10,
+    marginBottom: 4,
+    height: 38,
+    justifyContent: "center",
+    minWidth: 120, // Minimum width for filter dropdowns
+  },
+  filterPicker: {
+    width: 120, // Slightly narrower to fit two filters
+    height: 38,
+    fontSize: 12,
+  },
+  addButton: {
+    backgroundColor: "#26866F",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  /* ===== USER COUNT STYLES ===== */
+  userCountContainer: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  userCountText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
   },
 });

@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -5,10 +6,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { styles } from "../stylesheets/styles";
-import React, { useState, useEffect, useContext } from "react";
-import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { styles } from "../stylesheets/styles";
+import { useNavigation } from "@react-navigation/native";
 import Button from "../components/Button";
 import CheckBox from "../components/CheckBox";
 import AlertComp from "../components/AlertComp";
@@ -16,47 +17,46 @@ import { AuthContext } from "../Context/AuthContext";
 
 export default function Login() {
   const nav = useNavigation();
-  const [getMessage, setMessage] = useState("");
-  const [loginSuccess, setLoginSuccess] = useState(false);
   const { setUser } = useContext(AuthContext);
 
-  const [formData, setFormData] = useState({
-    identifier: "",
-    password: "",
-  });
-
+  const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
+  const [getMessage, setMessage] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
+  // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
-      const savedRememberMe = await AsyncStorage.getItem("rememberMe");
-      if (savedRememberMe === "true") {
-        const savedIdentifier = await AsyncStorage.getItem(
-          "rememberedIdentifier",
-        );
-        const savedPassword = await AsyncStorage.getItem("rememberedPassword");
-        if (savedIdentifier) {
+      try {
+        const savedRememberMe = await AsyncStorage.getItem("rememberMe");
+        if (savedRememberMe === "true") {
+          const savedIdentifier = await AsyncStorage.getItem(
+            "rememberedIdentifier",
+          );
+          const savedPassword =
+            await AsyncStorage.getItem("rememberedPassword");
           setFormData({
-            identifier: savedIdentifier,
+            identifier: savedIdentifier || "",
             password: savedPassword || "",
           });
           setRememberMe(true);
         }
+      } catch (err) {
+        console.error("Failed to load saved credentials:", err);
       }
     };
+
     loadSavedCredentials();
   }, []);
 
   const changeHandler = (key, value) => {
-    const formattedValue = value;
-    setFormData({ ...formData, [key]: formattedValue });
+    setFormData({ ...formData, [key]: value });
   };
+
   const validate = () => {
     const { identifier, password } = formData;
-
-    if (!identifier.trim() && !password.trim()) {
+    if (!identifier.trim() && !password.trim())
       return setMessage("Please enter your credentials");
-    }
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Please enter your password");
@@ -74,20 +74,20 @@ export default function Login() {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identifier: formData.identifier,
-          password: formData.password,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
-
+      const { user, token, message } = data;
       if (response.ok) {
-        // Save session
-        await AsyncStorage.setItem("currentUser", JSON.stringify(data.user));
-        await AsyncStorage.setItem("currentUserToken", data.token);
+        setUser(user);
+        setLoginSuccess(true);
+        setMessage("User logged in successfully");
 
-        // Save or remove Remember Me credentials
+        await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+        await AsyncStorage.setItem("currentUserToken", token);
+
+        // Save/remove remembered credentials
         if (rememberMe) {
           await AsyncStorage.setItem("rememberMe", "true");
           await AsyncStorage.setItem(
@@ -103,16 +103,12 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
-
-        setUser(data.user);
-        setLoginSuccess(true);
-        setMessage("User logged in successfully");
       } else {
-        setMessage(data.message || "Login failed");
+        setMessage(message || "Login failed");
       }
     } catch (err) {
-      console.error("Error logging in:", err);
-      setMessage("Something went wrong. Please try again.");
+      console.error(err);
+      setMessage("Something went wrong");
     }
   };
 
@@ -133,32 +129,32 @@ export default function Login() {
           style={styles.formInput}
           maxLength={50}
           placeholder="Username or Email"
-          placeholderTextColor={"gray"}
+          placeholderTextColor="gray"
           autoCapitalize="none"
           keyboardType="default"
           value={formData.identifier}
-          onChangeText={(e) => changeHandler("identifier", e)}
+          onChangeText={(text) => changeHandler("identifier", text)}
         />
         <TextInput
           style={styles.formInput}
           maxLength={50}
           placeholder="Password"
-          secureTextEntry={true}
-          placeholderTextColor={"gray"}
+          placeholderTextColor="gray"
           autoCapitalize="none"
+          secureTextEntry
           keyboardType="default"
           value={formData.password}
-          onChangeText={(e) => changeHandler("password", e)}
+          onChangeText={(text) => changeHandler("password", text)}
         />
-        {getMessage && !loginSuccess ? (
+        {getMessage && !loginSuccess && (
           <Text style={styles.error}>{getMessage}</Text>
-        ) : null}
+        )}
         <View style={styles.loginHelper}>
           <CheckBox
             title="Remember me"
             checkboxStyle={styles.checkBox}
             value={rememberMe}
-            onValueChange={(val) => setRememberMe(val)}
+            onValueChange={setRememberMe}
           />
 
           <View style={styles.forgotPassLink}>
@@ -169,7 +165,6 @@ export default function Login() {
             />
           </View>
         </View>
-
         <Button
           onPress={validate}
           label="Login"
@@ -180,10 +175,9 @@ export default function Login() {
           <AlertComp
             title="Success"
             message={getMessage}
-            duration={2500} // auto-dismiss after 2.5s
-            onFinish={() => {
-              nav.replace("dashboard");
-            }}
+            duration={1500}
+            onFinish={() => nav.replace("dashboard")}
+            containerStyle={{ alignContent: "center" }}
           />
         )}
       </View>

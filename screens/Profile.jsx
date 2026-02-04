@@ -5,6 +5,7 @@ import { styles } from "../stylesheets/styles";
 import Button from "../components/Button";
 import AlertComp from "../components/AlertComp";
 import { AuthContext } from "../Context/AuthContext";
+import Dashboard from "../Layout/Dashboard";
 
 export default function Profile() {
   const [alertVisible, setAlertVisible] = useState(false);
@@ -16,7 +17,7 @@ export default function Profile() {
   };
 
   return (
-    <>
+    <Dashboard>
       <View style={styles.profileCard}>
         <Text style={styles.headerText}>User Profile</Text>
         <Image
@@ -61,6 +62,6 @@ export default function Profile() {
           onConfirm={handleUpdate}
         /> */}
       </View>
-    </>
+    </Dashboard>
   );
 }

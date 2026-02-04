@@ -1,36 +1,36 @@
-import { Text, TouchableOpacity, View } from "react-native";
 import React from "react";
-import Icon from "react-native-vector-icons/Entypo";
+import { TouchableOpacity, Text, View } from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons"; // adjust to your icon lib
 
-export default function Button(props) {
-  const {
-    onPress,
-    label,
-    buttonStyle,
-    buttonTextStyle,
-    iconName,
-    iconSize = 16,
-    iconColor = "#fff",
-    iconPosition = "left",
-  } = props;
-
+export default function Button({
+  iconName,
+  label,
+  onPress,
+  buttonStyle = {},
+  buttonTextStyle = {},
+  iconStyle = {},
+}) {
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        },
         buttonStyle,
-        { flexDirection: "row", alignItems: "center", gap: 6 },
       ]}
     >
-      {iconName && iconPosition === "left" && (
-        <Icon name={iconName} size={iconSize} color={iconColor} />
+      {iconName && (
+        <Icon
+          name={iconName}
+          size={16}
+          color={buttonTextStyle.color || "#fff"}
+          style={[{ marginRight: 4 }, iconStyle]}
+        />
       )}
-
-      {label && <Text style={buttonTextStyle}>{label}</Text>}
-
-      {iconName && iconPosition === "right" && (
-        <Icon name={iconName} size={iconSize} color={iconColor} />
-      )}
+      <Text style={[{ textAlign: "center" }, buttonTextStyle]}>{label}</Text>
     </TouchableOpacity>
   );
 }

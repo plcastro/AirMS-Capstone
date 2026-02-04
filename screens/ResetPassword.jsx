@@ -27,18 +27,16 @@ export default function ResetPassword() {
   };
   const saveNewPassword = () => {
     // Logic to save the new password goes here
+    //if user is changing password while logged in, redirect to profile
 
+    //if user is from forgot password flow, redirect to login
     nav.replace("login");
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={
-        Platform.OS === "ios" || Platform.OS === "android"
-          ? "padding"
-          : "height"
-      }
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>

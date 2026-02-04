@@ -9,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Login from "./screens/Login";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
-import Dashboard from "./screens/Dashboard";
+import Dashboard from "./Layout/Dashboard";
 import Profile from "./screens/Profile";
 import DrawerContent from "./components/DrawerContent";
 import PartsMonitoring from "./screens/PartsMonitoring";
@@ -19,6 +19,8 @@ import UserLogs from "./screens/UserLogs";
 
 import { AuthContext } from "./Context/AuthContext";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
+import SecuritySetup from "./screens/SecuritySetup";
+import DashboardHeader from "./components/DashboardHeader";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -26,6 +28,12 @@ const Drawer = createDrawerNavigator();
 // Drawer navigator for main app screens
 function DrawerNav() {
   const isWeb = Platform.OS === "web";
+  const wrapWithDashboard = (ScreenComponent) => (props) => (
+    <Dashboard>
+      <ScreenComponent {...props} />
+    </Dashboard>
+  );
+
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
@@ -33,13 +41,13 @@ function DrawerNav() {
         headerShown: !isWeb,
         drawerType: isWeb ? "permanent" : "slide",
         swipeEnabled: !isWeb,
-        drawerStyle: !isWeb ? { width: 260 } : { width: 260 },
+        drawerStyle: { width: 260 },
         overlayColor: "transparent",
       }}
     >
       <Drawer.Screen
         name="Dashboard"
-        component={Dashboard}
+        component={Dashboard} // role-based main module already in Dashboard
         options={({ navigation }) => ({
           title: "",
           headerLeft: !isWeb
@@ -52,66 +60,55 @@ function DrawerNav() {
                   onPress={() => navigation.toggleDrawer()}
                 />
               )
-            : undefined, // remove on web
+            : undefined,
         })}
       />
-      <Drawer.Screen name="User Management" component={UserManagement} />
-      <Drawer.Screen name="User Logs" component={UserLogs} />
-      <Drawer.Screen name="Profile" component={Profile} />
-      <Drawer.Screen name="Parts Monitoring" component={PartsMonitoring} />
-      <Drawer.Screen name="Logbook" component={Logbook} />
+      {/* Other screens wrapped in Dashboard layout */}
+      <Drawer.Screen
+        name="User Management"
+        component={wrapWithDashboard(UserManagement)}
+      />
+      <Drawer.Screen name="User Logs" component={wrapWithDashboard(UserLogs)} />
+      <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      <Drawer.Screen
+        name="Parts Monitoring"
+        component={wrapWithDashboard(PartsMonitoring)}
+      />
+      <Drawer.Screen name="Logbook" component={wrapWithDashboard(Logbook)} />
     </Drawer.Navigator>
   );
 }
 
 // Stack navigator for login + main app
 function StackNav() {
+  const optionsMain = {
+    headerShown: true,
+    title: "",
+    headerTitleAlign: "center",
+    headerTitle: () => (
+      <Image
+        source={require("./assets/AirMS_web.png")}
+        style={{ width: 150, height: 50 }}
+      />
+    ),
+  };
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="login"
-        component={Login}
-        options={{
-          headerShown: true,
-          title: "",
-          headerTitleAlign: "center",
-          headerTitle: () => (
-            <Image
-              source={require("./assets/AirMS_web.png")}
-              style={{ width: 150, height: 50 }}
-            />
-          ),
-        }}
-      />
+      <Stack.Screen name="login" component={Login} options={optionsMain} />
       <Stack.Screen
         name="forgotPassword"
         component={ForgotPassword}
-        options={{
-          headerShown: true,
-          title: "",
-          headerTitleAlign: "center",
-          headerTitle: () => (
-            <Image
-              source={require("./assets/AirMS_web.png")}
-              style={{ width: 150, height: 50 }}
-            />
-          ),
-        }}
+        options={optionsMain}
       />
       <Stack.Screen
         name="resetPassword"
         component={ResetPassword}
-        options={{
-          headerShown: true,
-          title: "",
-          headerTitleAlign: "center",
-          headerTitle: () => (
-            <Image
-              source={require("./assets/AirMS_web.png")}
-              style={{ width: 150, height: 50 }}
-            />
-          ),
-        }}
+        options={optionsMain}
+      />
+      <Stack.Screen
+        name="securitySetup"
+        component={SecuritySetup}
+        options={optionsMain}
       />
       <Stack.Screen
         name="dashboard"

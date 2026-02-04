@@ -98,6 +98,8 @@ function DrawerContent({ navigation }) {
           Authorization: `Bearer ${await AsyncStorage.getItem("currentUserToken")}`,
         },
       });
+      const token = await AsyncStorage.getItem("currentUserToken");
+      console.log("LOGOUT TOKEN:", token);
 
       // remove current session data
       await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);

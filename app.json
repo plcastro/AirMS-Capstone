@@ -24,6 +24,9 @@
     },
     "web": {
       "favicon": "./assets/AirMS_mobile.png"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
