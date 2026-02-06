@@ -78,6 +78,8 @@ export default function FlightLog() {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10,
         }}
       >
         <View style={{ flexDirection: "row" }}>

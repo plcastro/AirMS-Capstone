@@ -20,6 +20,7 @@ import UserLogs from "./screens/UserLogs";
 import FlightLog from "./screens/FlightLog";
 import MaintenanceLog from "./screens/MaintenanceLog";
 import DrawerContent from "./components/DrawerContent";
+import useResponsiveWeb from "./Layout/useResponsiveWeb";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -28,7 +29,7 @@ const Drawer = createDrawerNavigator();
 function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
   const isWeb = Platform.OS === "web";
-
+  const isWide = useResponsiveWeb();
   if (loading || !user) return null; // prevent drawer rendering until user is ready
 
   const wrapWithDashboard = (ScreenComponent) => (props) => (
@@ -50,7 +51,7 @@ function DrawerNav() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              marginRight: 10,
+              marginRight: "5%",
             }}
             onPress={() => navigation.navigate("Profile")}
           >
@@ -65,10 +66,16 @@ function DrawerNav() {
                 marginRight: 5,
               }}
             />
-            <View style={{ flexDirection: "column" }}>
-              <Text>{user?.firstName || ""}</Text>
-              <Text>{user?.access || ""}</Text>
-            </View>
+            {isWeb && isWide && (
+              <View style={{ flexDirection: "column" }}>
+                <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+                  {`${user?.firstName} ${user?.lastName}`.trim() || "User"}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#777" }}>
+                  {user?.role || ""}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         ),
       })}

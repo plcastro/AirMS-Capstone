@@ -680,8 +680,8 @@ export const styles = StyleSheet.create({
   },
 
   newFlightEntryCard: {
-    width: "100%",
-    minWidth: 1000,
+    width: "90%",
+    minWidth: 500,
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,

@@ -55,6 +55,7 @@ export default function FlightEntry({ visible, onClose, onSave }) {
         editable: false,
         value: "",
       },
+
       {
         label: "Date Zulu",
         key: "dateZulu",
@@ -62,12 +63,15 @@ export default function FlightEntry({ visible, onClose, onSave }) {
         value: "",
       },
       { label: "Date", key: "date", editable: false, value: "" },
+    ],
+    [
       {
         label: "Flight Time",
         key: "flightTime",
         editable: false,
         value: "",
       },
+
       {
         label: "Block Time",
         key: "blockTime",
@@ -143,9 +147,23 @@ export default function FlightEntry({ visible, onClose, onSave }) {
         editable: false,
         value: "",
       },
+    ],
+    [
       {
         label: "Totals This Flight Log",
         key: "totalsThisFlightLog",
+        editable: false,
+        value: "",
+      },
+      {
+        label: "",
+        key: "totalsThisFlightLog1",
+        editable: false,
+        value: "",
+      },
+      {
+        label: "",
+        key: "totalsThisFlightLog2",
         editable: false,
         value: "",
       },
@@ -156,11 +174,37 @@ export default function FlightEntry({ visible, onClose, onSave }) {
         value: "",
       },
       {
+        label: "",
+        key: "airframeForward1",
+        editable: false,
+        value: "",
+      },
+      {
+        label: "",
+        key: "airframeForward2",
+        editable: false,
+        value: "",
+      },
+      {
         label: "Airframe Total Time",
         key: "airframeTotalTime",
         editable: false,
         value: "",
       },
+      {
+        label: "",
+        key: "airframeTotalTime1",
+        editable: false,
+        value: "",
+      },
+      {
+        label: "",
+        key: "airframeTotalTime2",
+        editable: false,
+        value: "",
+      },
+    ],
+    [
       {
         label: "Engine 1 (Cyc. PWD)",
         key: "engine1CycPWD",
