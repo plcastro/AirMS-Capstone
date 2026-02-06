@@ -1,23 +1,28 @@
-// Context/AuthContext.jsx
 import React, { createContext, useState, useEffect } from "react";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // wait until user is loaded
 
-  // Load user from storage on app start
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const savedUser = await AsyncStorage.getItem("currentUser");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
+        let savedUser = null;
+        if (Platform.OS === "web") {
+          savedUser = localStorage.getItem("currentUser");
+        } else {
+          savedUser = await AsyncStorage.getItem("currentUser");
         }
+
+        if (savedUser) setUser(JSON.parse(savedUser));
       } catch (err) {
-        console.error("Failed to load user from storage:", err);
+        console.error("Failed to load user:", err);
       }
+      setLoading(false);
     };
     loadUser();
   }, []);
@@ -26,9 +31,17 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     try {
       if (rememberMe) {
-        await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+        if (Platform.OS === "web") {
+          localStorage.setItem("currentUser", JSON.stringify(userData));
+        } else {
+          await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+        }
       } else {
-        await AsyncStorage.removeItem("currentUser");
+        if (Platform.OS === "web") {
+          localStorage.removeItem("currentUser");
+        } else {
+          await AsyncStorage.removeItem("currentUser");
+        }
       }
     } catch (err) {
       console.error("Failed to save/remove user:", err);
@@ -38,14 +51,18 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     setUser(null);
     try {
-      await AsyncStorage.removeItem("currentUser");
+      if (Platform.OS === "web") {
+        localStorage.removeItem("currentUser");
+      } else {
+        await AsyncStorage.removeItem("currentUser");
+      }
     } catch (err) {
       console.error("Failed to remove user:", err);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loginUser, logoutUser }}>
+    <AuthContext.Provider value={{ user, loginUser, logoutUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
