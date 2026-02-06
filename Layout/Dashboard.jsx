@@ -14,19 +14,17 @@ import Profile from "../screens/Profile";
 export default function Dashboard({ children }) {
   const { user } = useContext(AuthContext);
   if (!user) return null; // loader if needed
-
+  console.log(user.role);
   // Role-based dashboard content
   const renderMainModule = () => {
     switch (user.role) {
       case "admin":
-        return (
-          <>
-            <UserManagement />
-          </>
-        );
-      case "superuser":
+        return <UserManagement />;
+      case "pilot":
+      case "head mechanic":
+      case "manager":
         return <FlightLog />;
-      case "user":
+      case "mechanic":
         return <Profile />;
       default:
         return <Profile />;
@@ -35,8 +33,6 @@ export default function Dashboard({ children }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ececec" }}>
-      <DashboardHeader />
-
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}

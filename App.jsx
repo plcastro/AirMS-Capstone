@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { Platform, Image } from "react-native";
+import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
@@ -26,7 +26,11 @@ const Drawer = createDrawerNavigator();
 
 // Drawer navigator
 function DrawerNav() {
+  const { user, loading } = useContext(AuthContext);
   const isWeb = Platform.OS === "web";
+
+  if (loading || !user) return null; // prevent drawer rendering until user is ready
+
   const wrapWithDashboard = (ScreenComponent) => (props) => (
     <Dashboard>
       <ScreenComponent {...props} />
@@ -36,33 +40,73 @@ function DrawerNav() {
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
-      screenOptions={{
-        headerShown: !isWeb,
-        drawerType: isWeb ? "permanent" : "slide",
-        swipeEnabled: !isWeb,
+      screenOptions={({ navigation }) => ({
+        headerShown: true,
+        drawerType: "slide",
         drawerStyle: { width: 260 },
         overlayColor: "transparent",
-      }}
+        headerRight: () => (
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginRight: 10,
+            }}
+            onPress={() => navigation.navigate("Profile")}
+          >
+            <Image
+              source={{
+                uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                marginRight: 5,
+              }}
+            />
+            <View style={{ flexDirection: "column" }}>
+              <Text>{user?.firstName || ""}</Text>
+              <Text>{user?.access || ""}</Text>
+            </View>
+          </TouchableOpacity>
+        ),
+      })}
     >
-      <Drawer.Screen name="Dashboard" component={Dashboard} />
-      <Drawer.Screen
-        name="User Management"
-        component={wrapWithDashboard(UserManagement)}
-      />
-      <Drawer.Screen name="User Logs" component={wrapWithDashboard(UserLogs)} />
+      {user.role === "admin" && (
+        <>
+          <Drawer.Screen
+            name="User Management"
+            component={wrapWithDashboard(UserManagement)}
+          />
+          <Drawer.Screen
+            name="User Logs"
+            component={wrapWithDashboard(UserLogs)}
+          />
+        </>
+      )}
+
+      {["pilot", "head of maintenance", "manager"].includes(user.role) && (
+        <>
+          <Drawer.Screen
+            name="Flight Logbook"
+            component={wrapWithDashboard(FlightLog)}
+          />
+          <Drawer.Screen
+            name="Maintenance Logbook"
+            component={wrapWithDashboard(MaintenanceLog)}
+          />
+        </>
+      )}
+
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
-      <Drawer.Screen
-        name="Parts Monitoring"
-        component={wrapWithDashboard(PartsMonitoring)}
-      />
-      <Drawer.Screen
-        name="Flight Logbook"
-        component={wrapWithDashboard(FlightLog)}
-      />
-      <Drawer.Screen
-        name="Maintenance Logbook"
-        component={wrapWithDashboard(MaintenanceLog)}
-      />
+
+      {["head of maintenance", "manager"].includes(user.role) && (
+        <Drawer.Screen
+          name="Parts Monitoring"
+          component={wrapWithDashboard(PartsMonitoring)}
+        />
+      )}
     </Drawer.Navigator>
   );
 }

@@ -15,6 +15,7 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all"); // "all", "active", "deactivated"
   const [roleFilter, setRoleFilter] = useState("all"); // "all", "user", "superuser", "admin"
+  const [accessFilter, setAccessFilter] = useState("all"); // NEW: "all", "user", "superuser", "admin"
   const [searchQuery, setSearchQuery] = useState("");
 
   const headers = [
@@ -23,6 +24,7 @@ export default function UserManagement() {
     { label: "Username", key: "username" },
     { label: "Email", key: "email" },
     { label: "Role", key: "role" },
+    { label: "Access Control", key: "access" }, // NEW: Added Access Control header
     { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
     { label: "Actions", key: "actions" },
@@ -31,9 +33,10 @@ export default function UserManagement() {
   const COLUMN_WIDTHS = {
     index: 10,
     fullname: 200,
-    username: 200,
+    username: 150,
     email: 250,
-    role: 100,
+    role: 150,
+    access: 100, // NEW: Added width for Access Control
     dateCreated: 250,
     status: 100,
     actions: 300,
@@ -65,7 +68,7 @@ export default function UserManagement() {
     }
   };
 
-  // Filter users based on status filter, role filter, and search query
+  // Filter users based on status filter, role filter, access filter, and search query
   useEffect(() => {
     let filtered = [...allUsers];
 
@@ -79,6 +82,11 @@ export default function UserManagement() {
       filtered = filtered.filter((user) => user.role === roleFilter);
     }
 
+    // NEW: Apply access filter
+    if (accessFilter !== "all") {
+      filtered = filtered.filter((user) => user.access === accessFilter);
+    }
+
     // Apply search filter if searchQuery exists
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase().trim();
@@ -87,12 +95,13 @@ export default function UserManagement() {
           (user.fullname && user.fullname.toLowerCase().includes(query)) ||
           (user.username && user.username.toLowerCase().includes(query)) ||
           (user.email && user.email.toLowerCase().includes(query)) ||
-          (user.role && user.role.toLowerCase().includes(query)),
+          (user.role && user.role.toLowerCase().includes(query)) ||
+          (user.access && user.access.toLowerCase().includes(query)), // NEW: Added accessLevel to search
       );
     }
 
     setFilteredUsers(filtered);
-  }, [allUsers, statusFilter, roleFilter, searchQuery]);
+  }, [allUsers, statusFilter, roleFilter, accessFilter, searchQuery]);
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
@@ -179,7 +188,6 @@ export default function UserManagement() {
           value={searchQuery}
           onChangeText={handleSearchChange}
         />
-
         {/* Role Filter Dropdown */}
         <View style={styles.filterContainer}>
           <Picker
@@ -194,6 +202,21 @@ export default function UserManagement() {
             <Picker.Item label="Pilot" value="pilot" />
             <Picker.Item label="Manager" value="manager" />
             <Picker.Item label="Mechanic" value="mechanic" />
+          </Picker>
+        </View>
+
+        {/* NEW: Access Control Filter Dropdown */}
+        <View style={styles.filterContainer}>
+          <Picker
+            selectedValue={accessFilter}
+            onValueChange={(itemValue) => setAccessFilter(itemValue)}
+            style={styles.filterPicker}
+            mode="dropdown"
+          >
+            <Picker.Item label="Access Level" value="all" />
+            <Picker.Item label="Admin" value="admin" />
+            <Picker.Item label="Superuser" value="superuser" />
+            <Picker.Item label="User" value="user" />
           </Picker>
         </View>
 
@@ -251,6 +274,8 @@ export default function UserManagement() {
           Showing {filteredUsers.length} of {allUsers.length} users
           {statusFilter !== "all" && ` (${statusFilter} only)`}
           {roleFilter !== "all" && ` (${roleFilter} only)`}
+          {accessFilter !== "all" && ` (${accessFilter} only)`}{" "}
+          {/* NEW: Added access filter info */}
         </Text>
       </View>
     </View>

@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     marginBottom: 8,
-    width: 650,
+    width: 750,
   },
   searchInput: {
     flex: 1,

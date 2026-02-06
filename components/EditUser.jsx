@@ -20,6 +20,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
+  const [accessLevel, setAccessLevel] = useState("");
   const [joinedDate, setJoinedDate] = useState("");
   const [message, setMessage] = useState("");
   const [isChanged, setIsChanged] = useState(false);
@@ -37,13 +38,37 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
     setEmail(user.email || "");
     setUsername(user.username || "");
     setRole(user.role || "");
+    setAccessLevel(user.accessLevel || "");
   }, [user]);
 
+  // Check if form has changed
+  useEffect(() => {
+    if (!user) return;
+
+    const hasChanged =
+      firstName !== (user.firstName || "") ||
+      lastName !== (user.lastName || "") ||
+      email.trim() !== (user.email || "") ||
+      username.trim() !== (user.username || "") ||
+      role !== (user.role || "") ||
+      accessLevel !== (user.accessLevel || "");
+
+    setIsChanged(hasChanged);
+  }, [firstName, lastName, email, username, role, accessLevel, user]);
+
   const validateForm = async () => {
-    if (!firstName || !lastName || !email || !username || !role) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !role ||
+      !accessLevel
+    ) {
       setMessage("Please fill in all required fields.");
       return false;
     }
+
     const API_BASE =
       Platform.OS === "android"
         ? "http://10.0.2.2:8000"
@@ -91,13 +116,6 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
   const handleUpdateClick = async () => {
     if (!user) return;
 
-    const isChanged =
-      firstName !== (user.firstName || "") ||
-      lastName !== (user.lastName || "") ||
-      email.trim() !== (user.email || "") ||
-      username.trim() !== (user.username || "") ||
-      role !== (user.role || "");
-
     const isValid = await validateForm();
     if (isValid) {
       setConfirmMessage("Are you sure you want to save changes?");
@@ -126,6 +144,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
             email: email.trim(),
             username: username.trim(),
             role,
+            accessLevel,
           }),
         },
       );
@@ -216,9 +235,27 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
                   mode="dropdown"
                 >
                   <Picker.Item label="Change Role" value="" />
-                  <Picker.Item label="user" value="user" />
-                  <Picker.Item label="superuser" value="superuser" />
-                  <Picker.Item label="admin" value="admin" />
+                  <Picker.Item label="Admin" value="admin" />
+                  <Picker.Item label="Head Mechanic" value="head mechanic" />
+                  <Picker.Item label="Pilot" value="pilot" />
+                  <Picker.Item label="Manager" value="manager" />
+                  <Picker.Item label="Mechanic" value="mechanic" />
+                </Picker>
+              </View>
+
+              {/* Access Control Field */}
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Access Control:</Text>
+                <Picker
+                  selectedValue={accessLevel}
+                  onValueChange={(itemValue) => setAccessLevel(itemValue)}
+                  style={styles.picker}
+                  mode="dropdown"
+                >
+                  <Picker.Item label="Select Access Level" value="" />
+                  <Picker.Item label="Admin" value="admin" />
+                  <Picker.Item label="Superuser" value="superuser" />
+                  <Picker.Item label="User" value="user" />
                 </Picker>
               </View>
 
@@ -237,7 +274,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
 
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={styles.saveBtn}
+                  style={[styles.saveBtn, !isChanged && styles.saveBtnDisabled]}
                   onPress={handleUpdateClick}
                   disabled={!isChanged}
                 >

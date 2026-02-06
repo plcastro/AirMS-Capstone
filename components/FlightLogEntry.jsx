@@ -246,69 +246,72 @@ export default function FlightEntry({ visible, onClose, onSave }) {
               <Text style={{ fontSize: 18, fontWeight: "600" }}>✕</Text>
             </TouchableOpacity>
             {renderPage(pages[page])}
-          </View>
 
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 10,
-              marginLeft: "auto",
-              marginBottom: 20,
-              marginTop: 20,
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-              disabled={page === 0}
+            {page === pages.length - 1 && (
+              <View
+                style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}
+              >
+                <Button
+                  label="Approve"
+                  buttonStyle={styles.alertConfirmBtn}
+                  buttonTextStyle={styles.alertConfirmBtnText}
+                />
+                <Button
+                  label="Discard"
+                  buttonStyle={styles.alertCancelBtn}
+                  onPress={handleDiscard}
+                  buttonTextStyle={styles.alertCancelBtnText}
+                />
+              </View>
+            )}
+            <View
               style={{
-                opacity: page === 0 ? 0.5 : 1,
-                borderWidth: 1,
-                borderColor: "#acacac",
-                padding: 7,
-                width: 100,
+                flexDirection: "row",
+                gap: 10,
+                marginLeft: "auto",
+                marginBottom: 20,
+                marginTop: 20,
               }}
             >
-              <Text style={{ textAlign: "center" }}>Previous</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                disabled={page === 0}
+                style={{
+                  opacity: page === 0 ? 0.5 : 1,
+                  borderWidth: 1,
+                  borderColor: "#acacac",
+                  padding: 7,
+                  width: 100,
+                }}
+              >
+                <Text style={{ textAlign: "center" }}>Previous</Text>
+              </TouchableOpacity>
 
-            <View style={{ backgroundColor: "#26866F", padding: 7, width: 50 }}>
-              <Text style={{ color: "#fff", textAlign: "center" }}>
-                {page + 1}
-              </Text>
+              <View
+                style={{ backgroundColor: "#26866F", padding: 7, width: 50 }}
+              >
+                <Text style={{ color: "#fff", textAlign: "center" }}>
+                  {page + 1}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() =>
+                  setPage((prev) => Math.min(prev + 1, pages.length - 1))
+                }
+                disabled={page === pages.length - 1}
+                style={{
+                  opacity: page === pages.length - 1 ? 0.5 : 1,
+                  borderWidth: 1,
+                  borderColor: "#acacac",
+                  padding: 7,
+                  width: 100,
+                }}
+              >
+                <Text style={{ textAlign: "center" }}>Next</Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              onPress={() =>
-                setPage((prev) => Math.min(prev + 1, pages.length - 1))
-              }
-              disabled={page === pages.length - 1}
-              style={{
-                opacity: page === pages.length - 1 ? 0.5 : 1,
-                borderWidth: 1,
-                borderColor: "#acacac",
-                padding: 7,
-                width: 100,
-              }}
-            >
-              <Text style={{ textAlign: "center" }}>Next</Text>
-            </TouchableOpacity>
           </View>
-
-          {page === pages.length - 1 && (
-            <View style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}>
-              <Button
-                label="Approve"
-                buttonStyle={styles.alertConfirmBtn}
-                buttonTextStyle={styles.alertConfirmBtnText}
-              />
-              <Button
-                label="Discard"
-                buttonStyle={styles.alertCancelBtn}
-                onPress={handleDiscard}
-                buttonTextStyle={styles.alertCancelBtnText}
-              />
-            </View>
-          )}
 
           {Platform.OS !== "web" && <SignatureScreen />}
         </ScrollView>

@@ -9,7 +9,8 @@ export default function DashboardHeader({ pageName }) {
   const { user } = useContext(AuthContext);
   const firstName = user?.firstName || "User";
   const lastName = user?.lastName || "";
-  const role = user?.role || "";
+  const accessLevel = user?.access || "";
+  console.log(user.role, user.access);
   return (
     <View
       style={{
@@ -52,8 +53,8 @@ export default function DashboardHeader({ pageName }) {
             <Text style={{ fontSize: 14, fontWeight: "bold" }}>
               {`${firstName} ${lastName}`.trim() || "User"}
             </Text>
-            {role ? (
-              <Text style={{ fontSize: 12, color: "#777" }}>{role}</Text>
+            {accessLevel ? (
+              <Text style={{ fontSize: 12, color: "#777" }}>{accessLevel}</Text>
             ) : null}
           </View>
         </TouchableOpacity>

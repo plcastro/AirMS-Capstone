@@ -20,7 +20,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
-  const [access, setAccess] = useState(""); // auto-set based on role
+  const [accessLevel, setAccessLevel] = useState("");
   const [joinedDate, setJoinedDate] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -47,7 +47,14 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   }, []);
 
   const validateForm = async () => {
-    if (!firstName || !lastName || !email || !username || !role) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !role ||
+      !accessLevel
+    ) {
       setMessage("Please fill in all required fields.");
       return false;
     }
@@ -79,8 +86,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   };
 
   const handleSaveClick = async () => {
-    const accessLevel = getAccessLevel(role);
-
     const isValid = await validateForm();
     if (isValid) {
       setShowConfirm(true);
@@ -106,7 +111,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
           email: email.trim(),
           username: username.trim(),
           role,
-          accessLevel: getAccessLevel(role),
+          accessLevel: accessLevel,
           joinedDate: today,
         }),
       });
@@ -130,7 +135,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     setEmail("");
     setUsername("");
     setRole("");
-    setAccess("");
+    setAccessLevel("");
     setJoinedDate("");
     setMessage("");
     setShowConfirm(false);
@@ -148,6 +153,14 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       <View style={styles.addUserCard}>
         <Text style={styles.addUserTitle}>ADD USER</Text>
         <View style={styles.addUserContent}>
+          {/* Image Upload Section */}
+          <View>
+            <Text style={styles.label}>Image:</Text>
+            <TouchableOpacity style={styles.imageBox}>
+              <Text style={styles.plus}>＋</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView style={styles.form}>
             <View style={styles.formRow}>
               <Text style={styles.label}>First Name:</Text>
@@ -190,7 +203,13 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               <Text style={styles.label}>Role:</Text>
               <Picker
                 selectedValue={role}
-                onValueChange={(value) => setRole(value)}
+                onValueChange={(value) => {
+                  setRole(value);
+                  // Auto-set access level based on role if not manually set
+                  if (!accessLevel) {
+                    setAccessLevel(getAccessLevel(value));
+                  }
+                }}
                 style={styles.picker}
               >
                 <Picker.Item label="Select Role" value="" />
@@ -199,6 +218,21 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
                 <Picker.Item label="Pilot" value="pilot" />
                 <Picker.Item label="Manager" value="manager" />
                 <Picker.Item label="Mechanic" value="mechanic" />
+              </Picker>
+            </View>
+
+            {/* Access Control Field */}
+            <View style={styles.formRow}>
+              <Text style={styles.label}>Access Control:</Text>
+              <Picker
+                selectedValue={accessLevel}
+                onValueChange={(value) => setAccessLevel(value)}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Access Level" value="" />
+                <Picker.Item label="Admin" value="admin" />
+                <Picker.Item label="Superuser" value="superuser" />
+                <Picker.Item label="User" value="user" />
               </Picker>
             </View>
 

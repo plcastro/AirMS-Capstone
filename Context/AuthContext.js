@@ -18,23 +18,48 @@ export const AuthProvider = ({ children }) => {
           savedUser = await AsyncStorage.getItem("currentUser");
         }
 
-        if (savedUser) setUser(JSON.parse(savedUser));
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          // normalize role and access
+          setUser({
+            ...parsed,
+            role: parsed.role?.toLowerCase() || "user",
+            access:
+              parsed.access?.toLowerCase() ||
+              parsed.role?.toLowerCase() ||
+              "user",
+          });
+        }
       } catch (err) {
         console.error("Failed to load user:", err);
       }
       setLoading(false);
     };
+
     loadUser();
   }, []);
 
   const loginUser = async (userData, rememberMe = false) => {
-    setUser(userData);
+    const normalizedUser = {
+      ...userData,
+      role: userData.role?.toLowerCase() || "user",
+      access:
+        userData.access?.toLowerCase() ||
+        userData.role?.toLowerCase() ||
+        "user",
+    };
+
+    setUser(normalizedUser);
+
     try {
       if (rememberMe) {
         if (Platform.OS === "web") {
-          localStorage.setItem("currentUser", JSON.stringify(userData));
+          localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
         } else {
-          await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+          await AsyncStorage.setItem(
+            "currentUser",
+            JSON.stringify(normalizedUser),
+          );
         }
       } else {
         if (Platform.OS === "web") {
