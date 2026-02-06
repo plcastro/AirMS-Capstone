@@ -22,8 +22,38 @@ export default function ForgotPassword() {
     setMessage("");
     return true;
   };
-  const sendOTPEmail = () => {
-    //if correct email, insert logic for sending otp via email
+  const sendOTPEmail = async () => {
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+
+      const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
+      const users = await response.json();
+      const emailTaken = users.some((user) => user.email === email.trim());
+      if (!emailTaken) {
+        setMessage("Email not found.");
+        return;
+      }
+      fetch(`${API_BASE}/api/user/request-password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+        .then((response) => {
+          if (response.ok) {
+            setMessage("Password reset link sent to your email.");
+          } else {
+            setMessage("Failed to send reset link. Please try again later.");
+          }
+        })
+        .catch((err) => {
+          setMessage("Failed to send reset link. Please try again later.");
+        });
+    } catch (err) {
+      setMessage("Failed to send reset link. Please try again later.");
+    }
   };
   return (
     <KeyboardAvoidingView
