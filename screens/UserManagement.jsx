@@ -30,9 +30,9 @@ export default function UserManagement() {
 
   const COLUMN_WIDTHS = {
     index: 10,
-    fullname: 250,
-    username: 250,
-    email: 300,
+    fullname: 200,
+    username: 200,
+    email: 250,
     role: 100,
     dateCreated: 250,
     status: 100,
