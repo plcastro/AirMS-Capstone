@@ -36,7 +36,7 @@ export default function UserManagement() {
     role: 100,
     dateCreated: 250,
     status: 100,
-    actions: 350,
+    actions: 300,
   };
 
   const fetchUsers = async () => {
@@ -143,9 +143,11 @@ export default function UserManagement() {
             mode="dropdown"
           >
             <Picker.Item label="Role" value="all" />
-            <Picker.Item label="User" value="user" />
-            <Picker.Item label="Superuser" value="superuser" />
             <Picker.Item label="Admin" value="admin" />
+            <Picker.Item label="Head Mechanic" value="head mechanic" />
+            <Picker.Item label="Pilot" value="pilot" />
+            <Picker.Item label="Manager" value="manager" />
+            <Picker.Item label="Mechanic" value="mechanic" />
           </Picker>
         </View>
 

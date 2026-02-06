@@ -47,7 +47,7 @@ export default function PasswordUpdateProfile({ visible, onClose, onSubmit }) {
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <View style={[styles.alertOverlay, containerStyle]}>
+      <View style={styles.alertOverlay}>
         <View style={styles.alertContainer}>
           <Text style={styles.headerText}>Change Password</Text>
 
