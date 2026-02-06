@@ -32,7 +32,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
         return "admin";
       case "pilot":
       case "manager":
-      case "head mechanic":
+      case "head of maintenance":
         return "superuser";
       case "mechanic":
         return "user";
@@ -40,7 +40,13 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
         return "";
     }
   };
-
+  useEffect(() => {
+    if (role) {
+      setAccessLevel(getAccessLevel(role));
+    } else {
+      setAccessLevel("");
+    }
+  }, [role]);
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
     setJoinedDate(today);
@@ -111,7 +117,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
           email: email.trim(),
           username: username.trim(),
           role,
-          accessLevel: accessLevel,
+          access: accessLevel,
           joinedDate: today,
         }),
       });
@@ -214,7 +220,10 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               >
                 <Picker.Item label="Select Role" value="" />
                 <Picker.Item label="Admin" value="admin" />
-                <Picker.Item label="Head Mechanic" value="head mechanic" />
+                <Picker.Item
+                  label="Head of Maintenance"
+                  value="head of maintenance"
+                />
                 <Picker.Item label="Pilot" value="pilot" />
                 <Picker.Item label="Manager" value="manager" />
                 <Picker.Item label="Mechanic" value="mechanic" />
@@ -224,16 +233,11 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
             {/* Access Control Field */}
             <View style={styles.formRow}>
               <Text style={styles.label}>Access Control:</Text>
-              <Picker
-                selectedValue={accessLevel}
-                onValueChange={(value) => setAccessLevel(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Select Access Level" value="" />
-                <Picker.Item label="Admin" value="admin" />
-                <Picker.Item label="Superuser" value="superuser" />
-                <Picker.Item label="User" value="user" />
-              </Picker>
+              <TextInput
+                style={styles.input}
+                value={accessLevel}
+                editable={false}
+              />
             </View>
 
             <View style={styles.formRow}>
