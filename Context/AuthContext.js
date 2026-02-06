@@ -22,12 +22,16 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  const loginUser = async (userData) => {
+  const loginUser = async (userData, rememberMe = false) => {
     setUser(userData);
     try {
-      await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+      if (rememberMe) {
+        await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+      } else {
+        await AsyncStorage.removeItem("currentUser");
+      }
     } catch (err) {
-      console.error("Failed to save user:", err);
+      console.error("Failed to save/remove user:", err);
     }
   };
 
@@ -41,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser: loginUser, logoutUser }}>
+    <AuthContext.Provider value={{ user, setUser, loginUser, logoutUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -19,13 +19,10 @@ import PartsMonitoring from "./screens/PartsMonitoring";
 import UserManagement from "./screens/UserManagement";
 import UserLogs from "./screens/UserLogs";
 import FlightLog from "./screens/FlightLog";
-import LogEntry from "./components/FlightLogEntry";
 import MaintenanceLog from "./screens/MaintenanceLog";
 
-import { AuthContext } from "./Context/AuthContext";
+import { AuthProvider } from "./Context/AuthContext";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-
-import DashboardHeader from "./components/DashboardHeader";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -153,12 +150,12 @@ export default function App() {
   if (loading) return null; // or splash screen
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthProvider>
       <PaperProvider theme={theme}>
         <NavigationContainer>
           <StackNav />
         </NavigationContainer>
       </PaperProvider>
-    </AuthContext.Provider>
+    </AuthProvider>
   );
 }

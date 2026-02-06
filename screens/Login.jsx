@@ -17,7 +17,7 @@ import { AuthContext } from "../Context/AuthContext";
 
 export default function Login() {
   const nav = useNavigation();
-  const { setUser } = useContext(AuthContext);
+  const { loginUser, setUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
@@ -79,13 +79,10 @@ export default function Login() {
       const data = await response.json();
       const { user, token, message } = data;
       if (response.ok) {
-        setUser(user);
-        setLoginSuccess(true);
-        setMessage("User logged in successfully");
+        loginUser(user, rememberMe);
 
-        await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+        // Always save token separately
         await AsyncStorage.setItem("currentUserToken", token);
-
         // Save/remove remembered credentials
         if (rememberMe) {
           await AsyncStorage.setItem("rememberMe", "true");
@@ -102,6 +99,8 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
+        setLoginSuccess(true);
+        setMessage("User logged in successfully");
       } else {
         setMessage(message || "Login failed");
       }
