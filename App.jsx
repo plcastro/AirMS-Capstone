@@ -69,6 +69,17 @@ function DrawerNav() {
 
 // Stack navigator with auth check
 function StackNavWrapper() {
+  const optionsMain = {
+    headerShown: true,
+    title: "",
+    headerTitleAlign: "center",
+    headerTitle: () => (
+      <Image
+        source={require("./assets/AirMS_web.png")}
+        style={{ width: 150, height: 50 }}
+      />
+    ),
+  };
   const { user, loading } = useContext(AuthContext);
 
   if (loading) return null; // or a splash/loading screen
@@ -77,25 +88,21 @@ function StackNavWrapper() {
     <Stack.Navigator>
       {!user && (
         <>
-          <Stack.Screen
-            name="login"
-            component={Login}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="login" component={Login} options={optionsMain} />
           <Stack.Screen
             name="forgotPassword"
             component={ForgotPassword}
-            options={{ headerShown: false }}
+            options={optionsMain}
           />
           <Stack.Screen
             name="resetPassword"
             component={ResetPassword}
-            options={{ headerShown: false }}
+            options={optionsMain}
           />
           <Stack.Screen
             name="securitySetup"
             component={SecuritySetup}
-            options={{ headerShown: false }}
+            options={optionsMain}
           />
         </>
       )}

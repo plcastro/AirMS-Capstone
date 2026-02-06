@@ -99,20 +99,66 @@ export default function UserManagement() {
     setShowEditUser(true);
   };
 
-  const handleDeactivateUser = (user) => {
-    console.log("Deactivating user:", user);
-    setAllUsers((prevUsers) =>
-      prevUsers.map((u) =>
-        u.id === user.id ? { ...u, status: "deactivated" } : u,
-      ),
-    );
+  const handleDeactivateUser = async (user) => {
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+
+      const response = await fetch(
+        `${API_BASE}/api/user/updateUserStatus/${user._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "deactivated" }),
+        },
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        setAllUsers((prev) =>
+          prev.map((u) =>
+            u._id === user._id ? { ...u, status: "deactivated" } : u,
+          ),
+        );
+      } else {
+        console.error("Failed to deactivate user:", data.message);
+      }
+    } catch (error) {
+      console.error("Error deactivating user:", error);
+    }
   };
 
-  const handleReactivateUser = (user) => {
-    console.log("Reactivating user:", user);
-    setAllUsers((prevUsers) =>
-      prevUsers.map((u) => (u.id === user.id ? { ...u, status: "active" } : u)),
-    );
+  const handleReactivateUser = async (user) => {
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+
+      const response = await fetch(
+        `${API_BASE}/api/user/updateUserStatus/${user._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "active" }),
+        },
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        setAllUsers((prev) =>
+          prev.map((u) =>
+            u._id === user._id ? { ...u, status: "active" } : u,
+          ),
+        );
+      } else {
+        console.error("Failed to reactivate user:", data.message);
+      }
+    } catch (error) {
+      console.error("Error reactivating user:", error);
+    }
   };
 
   const handleSearchChange = (text) => {
@@ -197,7 +243,7 @@ export default function UserManagement() {
           setSelectedUser(null);
         }}
         user={selectedUser}
-        onUserUpdated={() => fetchUsers()}
+        onUserUpdated={fetchUsers}
       />
       {/* User Count Display */}
       <View style={styles.userCountContainer}>

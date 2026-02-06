@@ -32,15 +32,12 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
   useEffect(() => {
     if (!user) return;
 
-    const changed =
-      firstName !== (user.firstName || "") ||
-      lastName !== (user.lastName || "") ||
-      email.trim() !== (user.email || "") ||
-      username.trim() !== (user.username || "") ||
-      role !== (user.role || "");
-
-    setIsChanged(changed);
-  }, [firstName, lastName, email, username, role, user]);
+    setFirstName(user.firstName || "");
+    setLastName(user.lastName || "");
+    setEmail(user.email || "");
+    setUsername(user.username || "");
+    setRole(user.role || "");
+  }, [user]);
 
   const validateForm = async () => {
     if (!firstName || !lastName || !email || !username || !role) {

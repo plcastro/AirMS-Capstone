@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Platform } from "react-native";
 import { CommonActions } from "@react-navigation/native";
-import { View, Image } from "react-native";
+import { View, Image, Platform } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -88,9 +87,26 @@ function DrawerContent({ navigation }) {
     });
   }, [activeRoute]);
 
-  const filteredDrawerList = DrawerList.filter(
-    (item) => !item.access || item.access.includes(userRole),
-  );
+  const filteredDrawerList = DrawerList.filter((item) => {
+    if (item.access && !item.access.includes(userRole)) return false;
+
+    // Mobile: only show Profile + Logbooks
+    if (Platform.OS !== "web") {
+      return (
+        item.navigateTo === "Profile" ||
+        item.navigateTo === "Flight Logbook" ||
+        item.navigateTo === "Maintenance Logbook" ||
+        item.children?.some(
+          (child) =>
+            child.navigateTo === "Flight Logbook" ||
+            child.navigateTo === "Maintenance Logbook",
+        )
+      );
+    }
+
+    // Web: show everything
+    return true;
+  });
 
   const handleLogout = async () => {
     try {

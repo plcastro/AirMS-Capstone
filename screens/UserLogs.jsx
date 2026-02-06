@@ -87,7 +87,7 @@ export default function UserLogs() {
       </View>
 
       <Table
-        data={allUserLogs}
+        data={filteredUsers}
         headers={headers}
         columnWidths={COLUMN_WIDTHS}
       />

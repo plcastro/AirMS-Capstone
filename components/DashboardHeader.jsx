@@ -4,7 +4,7 @@ import React, { useContext } from "react";
 import { AuthContext } from "../Context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 
-export default function DashboardHeader() {
+export default function DashboardHeader({ pageName }) {
   const navigation = useNavigation();
   const { user } = useContext(AuthContext);
   const firstName = user?.firstName || "User";
@@ -23,33 +23,41 @@ export default function DashboardHeader() {
         backgroundColor: "#fff",
       }}
     >
-      <TouchableOpacity
-        style={{ flexDirection: "row", alignItems: "center" }}
-        onPress={() => navigation.navigate("Profile", { userId: user._id })}
+      <View
+        style={{
+          justifyContent: "flex-end",
+          padding: 7,
+          paddingRight: 50,
+        }}
       >
-        {/* Profile Image */}
-        <Image
-          source={{
-            uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
-          }}
-          style={{
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            marginRight: 10, // space between image and texts
-          }}
-        />
+        <TouchableOpacity
+          style={{ flexDirection: "row", alignItems: "center" }}
+          onPress={() => navigation.navigate("Profile", { userId: user._id })}
+        >
+          {/* Profile Image */}
+          <Image
+            source={{
+              uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
+            }}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              marginRight: 10, // space between image and texts
+            }}
+          />
 
-        {/* Name & Role */}
-        <View style={{ flexDirection: "column" }}>
-          <Text style={{ fontSize: 14, fontWeight: "bold" }}>
-            {`${firstName} ${lastName}`.trim() || "User"}
-          </Text>
-          {role ? (
-            <Text style={{ fontSize: 12, color: "#777" }}>{role}</Text>
-          ) : null}
-        </View>
-      </TouchableOpacity>
+          {/* Name & Role */}
+          <View style={{ flexDirection: "column" }}>
+            <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+              {`${firstName} ${lastName}`.trim() || "User"}
+            </Text>
+            {role ? (
+              <Text style={{ fontSize: 12, color: "#777" }}>{role}</Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
