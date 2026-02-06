@@ -7,9 +7,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // Screens you might render
 
 import PartsMonitoring from "../screens/PartsMonitoring";
-import Logbook from "../screens/Logbook";
+import FlightLog from "../screens/FlightLog";
 import UserManagement from "../screens/UserManagement";
-
+import Profile from "../screens/Profile";
 // Props: pass children if you want to render any screen inside this layout
 export default function Dashboard({ children }) {
   const { user } = useContext(AuthContext);
@@ -19,13 +19,17 @@ export default function Dashboard({ children }) {
   const renderMainModule = () => {
     switch (user.role) {
       case "admin":
-        return <UserManagement />;
+        return (
+          <>
+            <UserManagement />
+          </>
+        );
       case "superuser":
-        return <PartsMonitoring />;
+        return <FlightLog />;
       case "user":
-        return <Logbook />;
+        return <Profile />;
       default:
-        return <Text>No module assigned</Text>;
+        return <Profile />;
     }
   };
 

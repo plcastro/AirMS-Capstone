@@ -35,20 +35,19 @@ export default function Login() {
           );
           const savedPassword =
             await AsyncStorage.getItem("rememberedPassword");
+
           setFormData({
             identifier: savedIdentifier || "",
             password: savedPassword || "",
           });
-          setRememberMe(true);
+          setRememberMe(true); // ✅ now checkbox will be checked
         }
       } catch (err) {
-        console.error("Failed to load saved credentials:", err);
+        console.error(err);
       }
     };
-
     loadSavedCredentials();
   }, []);
-
   const changeHandler = (key, value) => {
     setFormData({ ...formData, [key]: value });
   };
@@ -153,10 +152,9 @@ export default function Login() {
           <CheckBox
             title="Remember me"
             checkboxStyle={styles.checkBox}
-            value={rememberMe}
+            value={rememberMe} // controlled value
             onValueChange={setRememberMe}
           />
-
           <View style={styles.forgotPassLink}>
             <Button
               onPress={goToForgotPassword}

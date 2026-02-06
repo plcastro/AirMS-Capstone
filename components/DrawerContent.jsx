@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Platform } from "react-native";
-import { CommonActions, useRoute } from "@react-navigation/native";
+import { CommonActions } from "@react-navigation/native";
 import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
@@ -24,7 +24,14 @@ const DrawerList = [
   {
     icon: "book",
     label: "Aircraft Logbook",
-    navigateTo: "Logbook",
+    navigateTo: "Flight Logbook",
+    children: [
+      {
+        label: "Flight Logbook",
+        navigateTo: "Flight Logbook",
+      },
+      { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
+    ],
     access: ["superuser"],
   },
 
@@ -33,8 +40,8 @@ const DrawerList = [
     label: "Parts Monitoring",
     access: ["superuser"],
     children: [
-      { label: "Parts Monitoring Table", navigateTo: "Parts Monitoring" },
-      { label: "Track Maintenance", navigateTo: "Track Maintenance" },
+      { label: "Parts Monitoring Table", navigateTo: "PartsMonitoring" },
+      { label: "Track Maintenance", navigateTo: "TrackMaintenance" },
     ],
   },
 
@@ -80,6 +87,7 @@ function DrawerContent({ navigation }) {
       }
     });
   }, [activeRoute]);
+
   const filteredDrawerList = DrawerList.filter(
     (item) => !item.access || item.access.includes(userRole),
   );

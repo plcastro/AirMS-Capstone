@@ -114,7 +114,7 @@ export default function Table({
           sortedData.slice(from, to).map((row, idx) => (
             <DataTable.Row
               key={row.id ?? idx}
-              style={{ backgroundColor: "#fff" }}
+              style={{ backgroundColor: "#fff", textAlign: "center" }}
             >
               {headers.map((header, hIdx) => {
                 const cellWidth = columnWidths[header.key] || 100; // Fallback

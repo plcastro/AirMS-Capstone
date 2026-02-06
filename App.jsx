@@ -6,20 +6,25 @@ import { NavigationContainer } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/Entypo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import Dashboard from "./Layout/Dashboard";
+
 import Login from "./screens/Login";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
-import Dashboard from "./Layout/Dashboard";
+import SecuritySetup from "./screens/SecuritySetup";
+
 import Profile from "./screens/Profile";
 import DrawerContent from "./components/DrawerContent";
 import PartsMonitoring from "./screens/PartsMonitoring";
-import Logbook from "./screens/Logbook";
 import UserManagement from "./screens/UserManagement";
 import UserLogs from "./screens/UserLogs";
+import FlightLog from "./screens/FlightLog";
+import LogEntry from "./components/FlightLogEntry";
+import MaintenanceLog from "./screens/MaintenanceLog";
 
 import { AuthContext } from "./Context/AuthContext";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-import SecuritySetup from "./screens/SecuritySetup";
+
 import DashboardHeader from "./components/DashboardHeader";
 
 const Stack = createNativeStackNavigator();
@@ -74,7 +79,15 @@ function DrawerNav() {
         name="Parts Monitoring"
         component={wrapWithDashboard(PartsMonitoring)}
       />
-      <Drawer.Screen name="Logbook" component={wrapWithDashboard(Logbook)} />
+      <Drawer.Screen
+        name="Flight Logbook"
+        component={wrapWithDashboard(FlightLog)}
+      />
+
+      <Drawer.Screen
+        name="Maintenance Logbook"
+        component={wrapWithDashboard(MaintenanceLog)}
+      />
     </Drawer.Navigator>
   );
 }

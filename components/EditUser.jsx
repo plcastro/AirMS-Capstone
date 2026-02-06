@@ -15,55 +15,138 @@ import AlertComp from "./AlertComp";
 export default function EditUser({ visible, onClose, user, onUserUpdated }) {
   if (!visible) return null;
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
   const [joinedDate, setJoinedDate] = useState("");
   const [message, setMessage] = useState("");
+  const [isChanged, setIsChanged] = useState(false);
+
+  const [confirmMessage, setConfirmMessage] = useState(
+    "Are you sure you want to save changes?",
+  );
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showCancel, setShowCancel] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setFullName(`${user.firstName || ""} ${user.lastName || ""}`.trim());
-      setEmail(user.email || "");
-      setUsername(user.username || "");
-      setRole(user.role || "");
-      setJoinedDate(user.dateCreated || "");
-      setMessage("");
-    }
-  }, [user]);
+    if (!user) return;
 
-  const validateForm = () => {
-    if (!fullName || !email || !username || !role) {
+    const changed =
+      firstName !== (user.firstName || "") ||
+      lastName !== (user.lastName || "") ||
+      email.trim() !== (user.email || "") ||
+      username.trim() !== (user.username || "") ||
+      role !== (user.role || "");
+
+    setIsChanged(changed);
+  }, [firstName, lastName, email, username, role, user]);
+
+  const validateForm = async () => {
+    if (!firstName || !lastName || !email || !username || !role) {
       setMessage("Please fill in all required fields.");
+      return false;
+    }
+    const API_BASE =
+      Platform.OS === "android"
+        ? "http://10.0.2.2:8000"
+        : "http://localhost:8000";
+    try {
+      const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+
+      console.log("Data received:", data);
+
+      const users = Array.isArray(data) ? data : data.data || [];
+      const emailTaken = users.some(
+        (u) =>
+          u._id.toString() !== user._id.toString() &&
+          u.email.toLowerCase().trim() === email.toLowerCase().trim(),
+      );
+
+      const usernameTaken = users.some(
+        (u) =>
+          u._id.toString() !== user._id.toString() &&
+          u.username.toLowerCase().trim() === username.toLowerCase().trim(),
+      );
+
+      if (emailTaken || usernameTaken) {
+        setMessage("Email or username already registered.");
+        return false;
+      }
+    } catch (err) {
+      console.error("Error checking duplicates:", err);
+      setMessage("Failed to check email/username availability.");
       return false;
     }
     return true;
   };
 
-  const handleUpdateClick = () => {
-    if (validateForm()) {
+  const handleUpdateClick = async () => {
+    if (!user) return;
+
+    const isChanged =
+      firstName !== (user.firstName || "") ||
+      lastName !== (user.lastName || "") ||
+      email.trim() !== (user.email || "") ||
+      username.trim() !== (user.username || "") ||
+      role !== (user.role || "");
+
+    const isValid = await validateForm();
+    if (isValid) {
+      setConfirmMessage("Are you sure you want to save changes?");
       setShowConfirm(true);
     }
   };
 
-  const handleConfirmUpdate = () => {
-    console.log("Updating user:", {
-      fullName,
-      email,
-      username,
-      role,
-    });
+  const handleConfirmUpdate = async () => {
+    const API_BASE =
+      Platform.OS === "android"
+        ? "http://10.0.2.2:8000"
+        : "http://localhost:8000";
 
-    if (onUserUpdated) {
-      onUserUpdated();
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/user/updateUser/${user._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            email: email.trim(),
+            username: username.trim(),
+            role,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Update failed");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      setMessage("Failed to update user. Please try again.");
+      return;
     }
 
+    onUserUpdated?.();
     setMessage("");
     setShowConfirm(false);
-    setShowCancel(false);
     onClose();
   };
 
@@ -73,7 +156,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
 
   const handleCancel = () => {
     setMessage("");
-    setShowCancel(true); // show confirmation modal
+    onClose();
   };
 
   const Content = (
@@ -92,11 +175,19 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
 
             <ScrollView style={styles.form}>
               <View style={styles.formRow}>
-                <Text style={styles.label}>Full Name:</Text>
+                <Text style={styles.label}>First Name:</Text>
                 <TextInput
                   style={styles.input}
-                  value={fullName}
-                  onChangeText={setFullName}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
+              </View>
+              <View style={styles.formRow}>
+                <Text style={styles.label}>Last Name:</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
                 />
               </View>
 
@@ -151,6 +242,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
                 <TouchableOpacity
                   style={styles.saveBtn}
                   onPress={handleUpdateClick}
+                  disabled={!isChanged}
                 >
                   <Text style={styles.btnText}>UPDATE</Text>
                 </TouchableOpacity>
@@ -166,28 +258,15 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
           </View>
         </View>
       </View>
-      {showCancel && (
-        <AlertComp
-          title="CANCEL EDIT"
-          message="Are you sure you want to discard changes?"
-          type="confirm"
-          onConfirm={() => {
-            setShowCancel(false);
-            onClose(); // actually close modal
-          }}
-          onCancel={() => setShowCancel(false)} // keep editing
-          confirmText="Yes, discard"
-          cancelText="No, keep editing"
-        />
-      )}
+
       {showConfirm && (
         <AlertComp
           title="SAVE CHANGES"
-          message="Are you sure you want to save changes?"
+          message={confirmMessage}
           type="confirm"
           onConfirm={handleConfirmUpdate}
           onCancel={handleCancelUpdate}
-          confirmText="Yes, update"
+          confirmText="Yes, update user"
           cancelText="Cancel"
         />
       )}
