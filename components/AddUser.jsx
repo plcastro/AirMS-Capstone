@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,28 +24,35 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   const [joinedDate, setJoinedDate] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
-  const [file, setFile] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const fileInputRef = useRef(null);
 
-  // Determine access level automatically from role
+  // Automatically determine access level from role
   const getAccessLevel = (role) => {
-    switch (role.toLowerCase()) {
+    switch (role) {
       case "Admin":
         return "Admin";
       case "Pilot":
       case "Manager":
       case "Head of Maintenance":
-        return "superuser";
+        return "Superuser";
       case "Mechanic":
-        return "user";
+        return "User";
       default:
-        return "user";
+        return "";
     }
   };
 
+  // Update accessLevel automatically whenever role changes
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    if (role) {
+      setAccessLevel(getAccessLevel(role));
+    } else {
+      setAccessLevel("");
+    }
+  }, [role]);
+
+  // Set joined date to today on component mount
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
     setJoinedDate(today);
   }, []);
 
@@ -62,18 +69,16 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       return false;
     }
 
+    const API_BASE =
+      Platform.OS === "android"
+        ? "http://10.0.2.2:8000"
+        : "http://localhost:8000";
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
       const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
       const data = await response.json();
 
-      console.log("Existing users for validation:", data); // Debug log
-
-      const emailTaken = data.some((user) => user.email === email.trim());
-      const usernameTaken = data.some(
+      const emailTaken = data.data.some((user) => user.email === email.trim());
+      const usernameTaken = data.data.some(
         (user) => user.username === username.trim(),
       );
 
@@ -92,9 +97,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
 
   const handleSaveClick = async () => {
     const isValid = await validateForm();
-    if (isValid) {
-      setShowConfirm(true);
-    }
+    if (isValid) setShowConfirm(true);
   };
 
   const handleConfirmSave = async () => {
@@ -102,40 +105,34 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       Platform.OS === "android"
         ? "http://10.0.2.2:8000"
         : "http://localhost:8000";
-
-    const tempPassword = Math.random().toString(36).slice(-8);
-
-    const formData = new FormData();
-    formData.append("firstName", firstName.trim());
-    formData.append("lastName", lastName.trim());
-    formData.append("email", email.trim());
-    formData.append("username", username.trim());
-    formData.append("password", tempPassword); // <--- THIS IS REQUIRED
-    formData.append("role", role);
-    formData.append("access", accessLevel || getAccessLevel(role));
-    formData.append("dateCreated", new Date().toISOString());
-
-    if (file) {
-      // Make sure to include filename for web
-      formData.append("file", file, file.name);
-    }
+    const today = new Date().toISOString().split("T")[0];
 
     try {
       const response = await fetch(`${API_BASE}/api/user/create`, {
         method: "POST",
-        body: formData, // do NOT set headers manually
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          username: username.trim(),
+          role,
+          access: accessLevel,
+          joinedDate: today,
+        }),
       });
 
       const data = await response.json();
-      console.log("Server response:", data);
-
-      if (response.ok) {
-        setMessage("User added successfully.");
-      } else {
-        setMessage(data.message || "Failed to add user.");
-      }
+      setMessage(
+        response.ok
+          ? "User added successfully."
+          : data.message || "Failed to add user.",
+      );
     } catch (error) {
-      console.error("Error adding user:", error);
+      console.error(error);
       setMessage("An error occurred while adding the user.");
     }
 
@@ -149,30 +146,9 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     setRole("");
     setAccessLevel("");
     setJoinedDate("");
-    setFile(null);
-    setFileName("");
     setMessage("");
     setShowConfirm(false);
     onClose();
-  };
-
-  const pickImage = async () => {
-    const options = {
-      mediaType: "photo",
-      maxWidth: 500,
-      maxHeight: 500,
-      quality: 0.8,
-    };
-
-    const result = await launchImageLibrary(options);
-
-    if (result.didCancel) {
-      console.log("User cancelled image picker");
-    } else if (result.errorCode) {
-      console.log("ImagePicker Error: ", result.errorMessage);
-    } else if (result.assets && result.assets.length > 0) {
-      setImageUri(result.assets[0].uri);
-    }
   };
 
   const handleCancelSave = () => setShowConfirm(false);
@@ -186,43 +162,12 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       <View style={styles.addUserCard}>
         <Text style={styles.addUserTitle}>ADD USER</Text>
         <View style={styles.addUserContent}>
-          {/* Image Upload Section */}
+          {/* Image Upload Placeholder */}
           <View>
-            <Text style={styles.label}>File:</Text>
-
-            {/* Hidden file input */}
-            {Platform.OS === "web" && (
-              <input
-                type="file"
-                accept=".jpg,.png"
-                ref={fileInputRef}
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const selectedFile = e.target.files[0];
-                  if (selectedFile) {
-                    setFile(selectedFile);
-                    setFileName(selectedFile.name);
-                  }
-                }}
-              />
-            )}
-
-            {/* Plus button */}
-            <TouchableOpacity
-              style={styles.imageBox}
-              onPress={() => {
-                if (Platform.OS === "web") {
-                  fileInputRef.current?.click();
-                }
-              }}
-            >
+            <Text style={styles.label}>Image:</Text>
+            <TouchableOpacity style={styles.imageBox}>
               <Text style={styles.plus}>＋</Text>
             </TouchableOpacity>
-
-            {/* Show selected file name */}
-            {fileName ? (
-              <Text style={{ marginTop: 4, fontSize: 12 }}>{fileName}</Text>
-            ) : null}
           </View>
 
           <ScrollView style={styles.form}>
@@ -267,13 +212,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               <Text style={styles.label}>Role:</Text>
               <Picker
                 selectedValue={role}
-                onValueChange={(value) => {
-                  setRole(value);
-                  // Auto-set access level based on role if not manually set
-                  if (!accessLevel) {
-                    setAccessLevel(getAccessLevel(value));
-                  }
-                }}
+                onValueChange={(value) => setRole(value)}
                 style={styles.picker}
               >
                 <Picker.Item label="Select Role" value="" />
@@ -288,19 +227,13 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               </Picker>
             </View>
 
-            {/* Access Control Field */}
             <View style={styles.formRow}>
               <Text style={styles.label}>Access Control:</Text>
-              <Picker
-                selectedValue={accessLevel}
-                onValueChange={(value) => setAccessLevel(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Select Access Level" value="" />
-                <Picker.Item label="Admin" value="admin" />
-                <Picker.Item label="Superuser" value="superuser" />
-                <Picker.Item label="User" value="user" />
-              </Picker>
+              <TextInput
+                style={styles.input}
+                value={accessLevel}
+                editable={false}
+              />
             </View>
 
             <View style={styles.formRow}>
@@ -308,7 +241,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               <TextInput
                 style={styles.input}
                 value={joinedDate}
-                placeholder="YYYY-MM-DD"
                 editable={false}
               />
             </View>
@@ -326,7 +258,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
               >
                 <Text style={styles.btnText}>Save</Text>
               </TouchableOpacity>
-
               <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
                 <Text style={styles.btnText}>Cancel</Text>
               </TouchableOpacity>
