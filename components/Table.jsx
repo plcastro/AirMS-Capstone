@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Dimensions } from "react-native"; // Added Dimensions import
+import { View, Text, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
+import * as Font from "expo-font"; // for Expo, skip if bare RN
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import Button from "./Button";
 import AlertComp from "./AlertComp";
 import { styles } from "../stylesheets/styles";
@@ -8,13 +10,14 @@ import { styles } from "../stylesheets/styles";
 export default function Table({
   headers = [],
   data = [],
-  columnWidths = {}, // object like { name: 200, email: 250, actions: 150 }
+  columnWidths = {},
   onEditUser,
   onDeactivateUser,
   onReactivateUser,
+  currentUserId,
 }) {
   const [page, setPage] = useState(0);
-  const [itemsPerPageList] = useState([5, 10, 15]);
+  const [itemsPerPageList] = useState([10, 15, 20]);
   const [itemsPerPage, setItemsPerPage] = useState(itemsPerPageList[0]);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
@@ -142,12 +145,12 @@ export default function Table({
                           iconName="edit"
                           label="Edit"
                           buttonStyle={{
-                            width: 100, // Adjusted to fit within 150px cell width
+                            width: 100,
                             borderRadius: 4,
                             paddingHorizontal: 6,
                             paddingVertical: 4,
                             backgroundColor: "#106ab4",
-                            marginRight: 4, // Reduced margin
+                            marginRight: 4,
                             alignItems: "center",
                           }}
                           buttonTextStyle={{
@@ -158,11 +161,12 @@ export default function Table({
                           onPress={() => onEditUser(row)}
                         />
                         {row.status === "deactivated" ? (
+                          // Show Reactivate button for deactivated users
                           <Button
                             iconName="check"
                             label="Reactivate"
                             buttonStyle={{
-                              width: 100, // Adjusted to fit within 150px cell width
+                              width: 100,
                               borderRadius: 4,
                               paddingHorizontal: 6,
                               paddingVertical: 4,
@@ -179,12 +183,13 @@ export default function Table({
                               setShowReactivateConfirm(true);
                             }}
                           />
-                        ) : (
+                        ) : row.status === "active" &&
+                          row._id !== currentUserId ? (
                           <Button
                             iconName="person-off"
                             label="Deactivate"
                             buttonStyle={{
-                              width: 100, // Adjusted to fit within 150px cell width
+                              width: 100,
                               borderRadius: 4,
                               paddingHorizontal: 6,
                               paddingVertical: 4,
@@ -201,7 +206,7 @@ export default function Table({
                               setShowDeactivateConfirm(true);
                             }}
                           />
-                        )}
+                        ) : null}
                       </View>
                     </DataTable.Cell>
                   );

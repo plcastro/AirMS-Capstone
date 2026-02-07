@@ -40,7 +40,7 @@ export default function Login() {
             identifier: savedIdentifier || "",
             password: savedPassword || "",
           });
-          setRememberMe(true); // ✅ now checkbox will be checked
+          setRememberMe(true);
         }
       } catch (err) {
         console.error(err);

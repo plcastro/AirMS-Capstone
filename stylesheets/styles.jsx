@@ -112,10 +112,10 @@ export const styles = StyleSheet.create({
     borderRadius: 10,
     width: 700,
     maxWidth: "90%",
-    height: "80%",
+    height: 600,
     margin: "auto",
   },
-  profileContent: { alignItems: "center" },
+  profileContent: { alignItems: "center", width: "100%" },
   label: {
     fontSize: 12,
     marginBottom: 4,

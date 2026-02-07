@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { View, TextInput, Platform, Text } from "react-native";
 import Table from "../components/Table";
 import Button from "../components/Button";
@@ -6,6 +6,8 @@ import AddUser from "../components/AddUser";
 import EditUser from "../components/EditUser";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function UserManagement() {
   const [allUsers, setAllUsers] = useState([]);
@@ -17,7 +19,7 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState("all"); // "all", "user", "superuser", "admin"
   const [accessFilter, setAccessFilter] = useState("all"); // NEW: "all", "user", "superuser", "admin"
   const [searchQuery, setSearchQuery] = useState("");
-
+  const [currentUserId, setCurrentUserId] = useState(null);
   const headers = [
     { label: "#", key: "index" },
     { label: "Fullname", key: "fullname" },
@@ -41,7 +43,40 @@ export default function UserManagement() {
     status: 100,
     actions: 300,
   };
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        console.log("=== DEBUG: Loading current user from AsyncStorage ===");
 
+        // Check if AsyncStorage is working
+        const keys = await AsyncStorage.getAllKeys();
+        console.log("All AsyncStorage keys:", keys);
+
+        const storedUser = await AsyncStorage.getItem("currentUser");
+        console.log("Raw storedUser string:", storedUser);
+
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            console.log("Parsed user object:", parsed);
+            console.log("User ID:", parsed.id);
+            console.log("User email:", parsed.email);
+            console.log("User username:", parsed.username);
+
+            setCurrentUserId(parsed.id);
+          } catch (parseError) {
+            console.error("Error parsing storedUser JSON:", parseError);
+          }
+        } else {
+          console.log("No 'currentUser' found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error loading from AsyncStorage:", error);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
   const fetchUsers = async () => {
     try {
       const API_BASE =
@@ -251,6 +286,7 @@ export default function UserManagement() {
         onEditUser={handleEditUser}
         onDeactivateUser={handleDeactivateUser}
         onReactivateUser={handleReactivateUser}
+        currentUserId={currentUserId}
       />
 
       <AddUser

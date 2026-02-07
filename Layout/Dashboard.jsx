@@ -18,13 +18,13 @@ export default function Dashboard({ children }) {
   // Role-based dashboard content
   const renderMainModule = () => {
     switch (user.role) {
-      case "admin":
+      case "Admin":
         return <UserManagement />;
-      case "pilot":
-      case "head mechanic":
-      case "manager":
+      case "Pilot":
+      case "Head of Maintenance":
+      case "Manager":
         return <FlightLog />;
-      case "mechanic":
+      case "Mechanic":
         return <Profile />;
       default:
         return <Profile />;

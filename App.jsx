@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -116,7 +116,25 @@ function DrawerNav() {
     </Drawer.Navigator>
   );
 }
+// --- SecuritySetup wrapper to redirect active users ---
+function SecuritySetupWrapper(props) {
+  // Just render SecuritySetup, no user checks here
+  return <SecuritySetup {...props} />;
+}
 
+// --- Login wrapper to redirect active users ---
+function LoginWrapper(props) {
+  const { user } = useContext(AuthContext);
+  const nav = props.navigation;
+
+  useEffect(() => {
+    if (user?.status === "active") {
+      nav.replace("dashboard");
+    }
+  }, [user]);
+
+  return <Login {...props} />;
+}
 // --- Stack navigator ---
 function StackNavWrapper() {
   const optionsMain = {
@@ -163,14 +181,11 @@ function StackNavWrapper() {
         </>
       ) : null}
 
-      {/* Show dashboard only for active logged-in users */}
-      {user && user.status === "active" && (
-        <Stack.Screen
-          name="dashboard"
-          component={DrawerNav}
-          options={{ headerShown: false }}
-        />
-      )}
+      <Stack.Screen
+        name="dashboard"
+        component={DrawerNav}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }

@@ -21,19 +21,36 @@ export default function Profile() {
             uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
           }}
           style={{
-            width: 200,
-            height: 200,
+            width: 150,
+            height: 150,
             marginVertical: 10,
             borderRadius: 100, // half of width/height for circle
           }}
         />
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            gap: 20,
+          }}
+        >
+          <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            <Text>Name:</Text>
+            <Text>Email: </Text>
+            <Text>Username: </Text>
+            <Text>Role:</Text>
+          </View>
+          <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
+            <Text>
+              {firstName} {lastName}
+            </Text>
+            <Text>{email}</Text>
 
-        <Text style={styles.subHeaderText}>
-          Full Name: {firstName} {lastName}
-        </Text>
-        <Text style={styles.subHeaderText}>Email: {email}</Text>
-        <Text style={styles.subHeaderText}>Username: {username}</Text>
-        <Text style={styles.subHeaderText}>Role: {role}</Text>
+            <Text>{username}</Text>
+
+            <Text>{role}</Text>
+          </View>
+        </View>
         <Button
           label="Update profile"
           onPress={() => setShowUpdateModal(true)}
