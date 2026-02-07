@@ -1,0 +1,347 @@
+import React, { useState, useEffect, useContext } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Modal,
+  ScrollView,
+  Platform,
+} from "react-native";
+import { styles } from "../stylesheets/styles";
+import Button from "./Button";
+import AlertComp from "./AlertComp";
+import { AuthContext } from "../Context/AuthContext";
+
+export default function UpdateProfile({ visible, onClose }) {
+  const { user, loginUser } = useContext(AuthContext);
+
+  const [formData, setFormData] = useState({
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+  });
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasNumber: false,
+  });
+
+  useEffect(() => {
+    if (user) {
+      setFormData({ firstName: user.firstName, lastName: user.lastName });
+    }
+  }, [user]);
+
+  // --- Live validation ---
+  useEffect(() => {
+    const errors = {};
+    if (!formData.firstName.trim()) errors.firstName = "First name is required";
+    else if (/[^a-zA-Z\s\-\.'’]/.test(formData.firstName))
+      errors.firstName = "Invalid characters in first name";
+
+    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+    else if (/[^a-zA-Z\s\-\.'’]/.test(formData.lastName))
+      errors.lastName = "Invalid characters in last name";
+
+    if (confirmPassword && newPassword !== confirmPassword)
+      errors.confirmPassword = "Passwords do not match";
+
+    setFormErrors(errors);
+
+    setPasswordRequirements({
+      minLength: newPassword.length >= 8,
+      hasUppercase: /[A-Z]/.test(newPassword),
+      hasNumber: /\d/.test(newPassword),
+    });
+  }, [formData, newPassword, confirmPassword]);
+
+  const hasChanges =
+    formData.firstName !== user?.firstName ||
+    formData.lastName !== user?.lastName ||
+    currentPassword ||
+    newPassword ||
+    confirmPassword;
+
+  const isSaveEnabled =
+    hasChanges &&
+    Object.keys(formErrors).length === 0 &&
+    formData.firstName.trim() &&
+    formData.lastName.trim() &&
+    (!newPassword || (currentPassword && newPassword && confirmPassword));
+
+  const handleChange = (key, value) =>
+    setFormData({ ...formData, [key]: value });
+
+  const getRequirementStyle = (met) => ({
+    color: met ? "#26866F" : "#999",
+    fontSize: 12,
+  });
+
+  const resetForm = () => {
+    setFormData({ firstName: user.firstName, lastName: user.lastName });
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setFormErrors({});
+    setAlertVisible(false);
+    setPasswordRequirements({
+      minLength: false,
+      hasUppercase: false,
+      hasNumber: false,
+    });
+  };
+
+  const saveProfile = async () => {
+    if (!user?.id) return false;
+
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+      const response = await fetch(
+        `${API_BASE}/api/user/updateUserProfile/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormErrors({
+          ...formErrors,
+          currentPassword: data?.message || "Failed to update profile",
+        });
+        return false;
+      }
+
+      const data = await response.json();
+      loginUser(data.user, true); // update AuthContext
+      return true;
+    } catch (err) {
+      console.error(err);
+      setFormErrors({
+        ...formErrors,
+        currentPassword: "Failed to update profile",
+      });
+      return false;
+    }
+  };
+
+  const savePassword = async () => {
+    if (!user?.id) return false;
+    try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
+
+      const response = await fetch(
+        `${API_BASE}/api/user/updatePassword/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({ currentPassword, newPassword }),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormErrors({
+          ...formErrors,
+          currentPassword: data?.message || "Failed to update password",
+        });
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error(err);
+      setFormErrors({
+        ...formErrors,
+        currentPassword: "Failed to update password",
+      });
+      return false;
+    }
+  };
+
+  const confirmSave = async () => {
+    setAlertVisible(false);
+
+    let profileUpdated = false;
+    let passwordUpdated = false;
+
+    if (
+      formData.firstName !== user.firstName ||
+      formData.lastName !== user.lastName
+    ) {
+      profileUpdated = await saveProfile();
+    }
+
+    if (newPassword) {
+      passwordUpdated = await savePassword();
+    }
+
+    if (profileUpdated || passwordUpdated) {
+      resetForm();
+      onClose();
+    }
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.alertOverlay}>
+        <View style={[styles.alertContainer, { width: 500 }]}>
+          <ScrollView contentContainerStyle={{ padding: 10 }}>
+            <Text>First Name</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="First Name"
+              placeholderTextColor="gray"
+              value={formData.firstName}
+              onChangeText={(t) => handleChange("firstName", t)}
+            />
+            {formErrors.firstName && (
+              <Text style={styles.error}>{formErrors.firstName}</Text>
+            )}
+
+            <Text>Last Name</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Last Name"
+              placeholderTextColor="gray"
+              value={formData.lastName}
+              onChangeText={(t) => handleChange("lastName", t)}
+            />
+            {formErrors.lastName && (
+              <Text style={styles.error}>{formErrors.lastName}</Text>
+            )}
+
+            <Text>Email</Text>
+            <TextInput
+              style={styles.formInput}
+              value={user.email}
+              editable={false}
+            />
+
+            <Text>Username</Text>
+            <TextInput
+              style={styles.formInput}
+              value={user.username}
+              editable={false}
+            />
+
+            <Text>Current Password</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Current Password"
+              placeholderTextColor="gray"
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+            />
+            {formErrors.currentPassword && (
+              <Text style={styles.error}>{formErrors.currentPassword}</Text>
+            )}
+
+            <Text>New Password</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="New Password"
+              placeholderTextColor="gray"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            {formErrors.newPassword && (
+              <Text style={styles.error}>{formErrors.newPassword}</Text>
+            )}
+
+            <Text>Confirm New Password</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Confirm New Password"
+              placeholderTextColor="gray"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            {formErrors.confirmPassword && (
+              <Text style={styles.error}>{formErrors.confirmPassword}</Text>
+            )}
+
+            <View style={{ marginVertical: 10 }}>
+              <Text style={{ fontSize: 12, color: "#666" }}>
+                Password Requirements:
+              </Text>
+              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+                ✓ At least 8 characters
+              </Text>
+              <Text
+                style={getRequirementStyle(passwordRequirements.hasUppercase)}
+              >
+                ✓ One uppercase letter
+              </Text>
+              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+                ✓ One number
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", marginTop: 20, gap: 10 }}>
+              <Button
+                label="Save changes"
+                onPress={() => setAlertVisible(true)}
+                disabled={!isSaveEnabled}
+                buttonStyle={[
+                  styles.alertConfirmBtn,
+                  { opacity: isSaveEnabled ? 1 : 0.5 },
+                ]}
+                buttonTextStyle={styles.alertConfirmBtnText}
+              />
+              <Button
+                label="Cancel"
+                onPress={handleClose}
+                buttonStyle={[styles.alertCancelBtn]}
+                buttonTextStyle={styles.alertCancelBtnText}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      {alertVisible && (
+        <AlertComp
+          visible={alertVisible}
+          onClose={() => setAlertVisible(false)}
+          title="Profile Update"
+          message="Are you sure you want to update your profile?"
+          type="confirm"
+          onConfirm={confirmSave}
+          confirmText="Yes, update"
+          cancelText="Cancel"
+        />
+      )}
+    </Modal>
+  );
+}
