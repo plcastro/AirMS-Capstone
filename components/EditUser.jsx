@@ -13,8 +13,6 @@ import { styles } from "../stylesheets/styles";
 import AlertComp from "./AlertComp";
 
 export default function EditUser({ visible, onClose, user, onUserUpdated }) {
-  if (!visible) return null;
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,6 +28,30 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
   );
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Automatically determine access level from role
+  const getAccessLevel = (role) => {
+    switch (role) {
+      case "Admin":
+        return "Admin";
+      case "Pilot":
+      case "Manager":
+      case "Head of Maintenance":
+        return "Superuser";
+      case "Mechanic":
+        return "User";
+      default:
+        return "";
+    }
+  };
+
+  // Update accessLevel automatically whenever role changes
+  useEffect(() => {
+    if (role) {
+      setAccessLevel(getAccessLevel(role));
+    } else {
+      setAccessLevel("");
+    }
+  }, [role]);
   useEffect(() => {
     if (!user) return;
 
@@ -174,7 +196,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
     setMessage("");
     onClose();
   };
-
+  if (!visible) return null;
   const Content = (
     <>
       <View style={styles.addUserOverlay}>
@@ -235,28 +257,25 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
                   mode="dropdown"
                 >
                   <Picker.Item label="Change Role" value="" />
-                  <Picker.Item label="Admin" value="admin" />
-                  <Picker.Item label="Head Mechanic" value="head mechanic" />
-                  <Picker.Item label="Pilot" value="pilot" />
-                  <Picker.Item label="Manager" value="manager" />
-                  <Picker.Item label="Mechanic" value="mechanic" />
+                  <Picker.Item label="Admin" value="Admin" />
+                  <Picker.Item
+                    label="Head of Maintenance"
+                    value="Head of Maintenance"
+                  />
+                  <Picker.Item label="Pilot" value="Pilot" />
+                  <Picker.Item label="Manager" value="Manager" />
+                  <Picker.Item label="Mechanic" value="Mechanic" />
                 </Picker>
               </View>
 
               {/* Access Control Field */}
               <View style={styles.formRow}>
                 <Text style={styles.label}>Access Control:</Text>
-                <Picker
-                  selectedValue={accessLevel}
-                  onValueChange={(itemValue) => setAccessLevel(itemValue)}
-                  style={styles.picker}
-                  mode="dropdown"
-                >
-                  <Picker.Item label="Select Access Level" value="" />
-                  <Picker.Item label="Admin" value="admin" />
-                  <Picker.Item label="Superuser" value="superuser" />
-                  <Picker.Item label="User" value="user" />
-                </Picker>
+                <TextInput
+                  style={styles.input}
+                  value={accessLevel}
+                  editable={false} // auto-set based on role
+                />
               </View>
 
               {message ? (

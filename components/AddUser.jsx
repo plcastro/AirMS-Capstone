@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,10 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
+
 import AlertComp from "./AlertComp";
 
 export default function AddUser({ visible, onClose, onUserAdded }) {
-  if (!visible) return null;
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,6 +23,9 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   const [joinedDate, setJoinedDate] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
+  const [file, setFile] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const fileInputRef = useRef(null);
 
   // Automatically determine access level from role
   const getAccessLevel = (role) => {
@@ -105,34 +107,40 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       Platform.OS === "android"
         ? "http://10.0.2.2:8000"
         : "http://localhost:8000";
-    const today = new Date().toISOString().split("T")[0];
+
+    const tempPassword = Math.random().toString(36).slice(-8);
+
+    const formData = new FormData();
+    formData.append("firstName", firstName.trim());
+    formData.append("lastName", lastName.trim());
+    formData.append("email", email.trim());
+    formData.append("username", username.trim());
+    formData.append("password", tempPassword); // <--- THIS IS REQUIRED
+    formData.append("role", role);
+    formData.append("access", accessLevel || getAccessLevel(role));
+    formData.append("dateCreated", new Date().toISOString());
+
+    if (file) {
+      // Make sure to include filename for web
+      formData.append("file", file, file.name);
+    }
 
     try {
       const response = await fetch(`${API_BASE}/api/user/create`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim(),
-          username: username.trim(),
-          role,
-          access: accessLevel,
-          joinedDate: today,
-        }),
+        body: formData, // do NOT set headers manually
       });
 
       const data = await response.json();
-      setMessage(
-        response.ok
-          ? "User added successfully."
-          : data.message || "Failed to add user.",
-      );
+      console.log("Server response:", data);
+
+      if (response.ok) {
+        setMessage("User added successfully.");
+      } else {
+        setMessage(data.message || "Failed to add user.");
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Error adding user:", error);
       setMessage("An error occurred while adding the user.");
     }
 
@@ -146,9 +154,29 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     setRole("");
     setAccessLevel("");
     setJoinedDate("");
+    setFile(null);
+    setFileName("");
     setMessage("");
     setShowConfirm(false);
     onClose();
+  };
+  const pickImage = async () => {
+    const options = {
+      mediaType: "photo",
+      maxWidth: 500,
+      maxHeight: 500,
+      quality: 0.8,
+    };
+
+    const result = await launchImageLibrary(options);
+
+    if (result.didCancel) {
+      console.log("User cancelled image picker");
+    } else if (result.errorCode) {
+      console.log("ImagePicker Error: ", result.errorMessage);
+    } else if (result.assets && result.assets.length > 0) {
+      setImageUri(result.assets[0].uri);
+    }
   };
 
   const handleCancelSave = () => setShowConfirm(false);
@@ -156,18 +184,50 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     setMessage("");
     onClose();
   };
+  if (!visible) return null;
 
   const Content = (
     <View style={styles.addUserOverlay}>
       <View style={styles.addUserCard}>
         <Text style={styles.addUserTitle}>ADD USER</Text>
         <View style={styles.addUserContent}>
-          {/* Image Upload Placeholder */}
+          {/* Image Upload Section */}
           <View>
-            <Text style={styles.label}>Image:</Text>
-            <TouchableOpacity style={styles.imageBox}>
+            <Text style={styles.label}>File:</Text>
+
+            {/* Hidden file input */}
+            {Platform.OS === "web" && (
+              <input
+                type="file"
+                accept=".jpg,.png"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const selectedFile = e.target.files[0];
+                  if (selectedFile) {
+                    setFile(selectedFile);
+                    setFileName(selectedFile.name);
+                  }
+                }}
+              />
+            )}
+
+            {/* Plus button */}
+            <TouchableOpacity
+              style={styles.imageBox}
+              onPress={() => {
+                if (Platform.OS === "web") {
+                  fileInputRef.current?.click();
+                }
+              }}
+            >
               <Text style={styles.plus}>＋</Text>
             </TouchableOpacity>
+
+            {/* Show selected file name */}
+            {fileName ? (
+              <Text style={{ marginTop: 4, fontSize: 12 }}>{fileName}</Text>
+            ) : null}
           </View>
 
           <ScrollView style={styles.form}>

@@ -18,7 +18,7 @@ export default function Profile() {
         <Text style={styles.headerText}>User Profile</Text>
         <Image
           source={{
-            uri: "https://static.vecteezy.com/system/resources/previews/022/036/297/non_2x/doraemon-cartoon-japanese-free-vector.jpg",
+            uri: user.image,
           }}
           style={{
             width: 150,
