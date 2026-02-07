@@ -13,104 +13,109 @@ import SignatureScreen from "./SignatureScreen";
 import AlertComp from "./AlertComp";
 import ApproveMaintenance from "./ApproveMaintenance";
 
-export default function FlightLogEntry({ visible, onClose, onSave }) {
+export default function FlightLogEntry({ visible, onClose, onSave, role }) {
   const [page, setPage] = useState(0);
   const [formData, setFormData] = useState({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
-
+  const isPilot = role === "pilot";
   const pages = [
     [
-      { label: "Tail No.", key: "tailNum", editable: false, value: "---" },
+      {
+        label: "Tail No.",
+        key: "tailNum",
+        editable: { isPilot },
+        value: "---",
+      },
       {
         label: "Pilot in Command",
         key: "pilotInCommand",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Second Pilot in Command",
         key: "secondPilotInCommand",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Depart (Station ID)",
         key: "depart",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Arrive (Station ID)",
         key: "arrive",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Off Block",
         key: "offBlock",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "On Block",
         key: "onBlock",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
 
       {
         label: "Date Zulu",
         key: "dateZulu",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
-      { label: "Date", key: "date", editable: false, value: "" },
+      { label: "Date", key: "date", editable: { isPilot }, value: "" },
     ],
     [
       {
         label: "Flight Time",
         key: "flightTime",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
 
       {
         label: "Block Time",
         key: "blockTime",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
-      { label: "Cycles", key: "cycles", editable: false, value: "" },
+      { label: "Cycles", key: "cycles", editable: { isPilot }, value: "" },
       {
         label: "Night (Flight Specific)",
         key: "nightFlightSpecific",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "N. Ldg (Flight Specific)",
         key: "nLdgFlightSpecific",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "App (Flight Specific)",
         key: "appFlightSpecific",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Inst (Flight Specific)",
         key: "instFlightSpecific",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Pilot (Flight Specific)",
         key: "pilotFlightSpecific",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
     ],
@@ -118,37 +123,37 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
       {
         label: "Engine 1 (Times Forward)",
         key: "engine1TForward",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 2 (Times Forward)",
         key: "engine2TForward",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "APLI (Times Forward)",
         key: "apliTForward",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 1 (Current Times)",
         key: "engine1CTimes",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 2 (Current Times)",
         key: "engine2CTimes",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "APLI (Current Times)",
         key: "apliTCTimes",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
     ],
@@ -156,55 +161,55 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
       {
         label: "Totals This Flight Log",
         key: "totalsThisFlightLog",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "totalsThisFlightLog1",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "totalsThisFlightLog2",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Airframe Forward",
         key: "airframeForward",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "airframeForward1",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "airframeForward2",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Airframe Total Time",
         key: "airframeTotalTime",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "airframeTotalTime1",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "",
         key: "airframeTotalTime2",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
     ],
@@ -212,42 +217,57 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
       {
         label: "Engine 1 (Cyc. PWD)",
         key: "engine1CycPWD",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 2 (Cyc. PWD)",
         key: "engine2CycPWD",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 1 (Cycles)",
         key: "engine1Cycles",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
       {
         label: "Engine 2 (Cycles)",
         key: "engine2Cycles",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
     ],
     [
-      { label: "Departure", key: "departure", editable: false, value: "" },
-      { label: "PAX", key: "pax", editable: false, value: "" },
+      {
+        label: "Departure",
+        key: "departure",
+        editable: { isPilot },
+        value: "",
+      },
+      { label: "PAX", key: "pax", editable: { isPilot }, value: "" },
       {
         label: "Fuel Purchased",
         key: "fuelPurchased",
-        editable: false,
+        editable: { isPilot },
         value: "",
       },
-      { label: "Fuel Out", key: "fuelOut", editable: false, value: "" },
-      { label: "Fuel In", key: "fuelIn", editable: false, value: "" },
-      { label: "Fuel Burn", key: "fuelBurn", editable: false, value: "" },
-      { label: "Leg Distance", key: "legDistance", editable: false, value: "" },
-      { label: "FBO Handler", key: "fboHandler", editable: false, value: "" },
+      { label: "Fuel Out", key: "fuelOut", editable: { isPilot }, value: "" },
+      { label: "Fuel In", key: "fuelIn", editable: { isPilot }, value: "" },
+      { label: "Fuel Burn", key: "fuelBurn", editable: { isPilot }, value: "" },
+      {
+        label: "Leg Distance",
+        key: "legDistance",
+        editable: { isPilot },
+        value: "",
+      },
+      {
+        label: "FBO Handler",
+        key: "fboHandler",
+        editable: { isPilot },
+        value: "",
+      },
     ],
   ];
 
@@ -413,41 +433,40 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
             {Platform.OS !== "web" && <SignatureScreen />}
           </ScrollView>
         </View>
+        {/* Discard Confirmation */}
+        {showDiscardConfirm && (
+          <AlertComp
+            title="DISCARD LOG"
+            message="Are you sure you discard this log?"
+            type="confirm"
+            onConfirm={confirmDiscard}
+            onCancel={() => setShowDiscardConfirm(false)}
+            confirmText="YES"
+            cancelText="CANCEL"
+          />
+        )}
+
+        {/* Save Confirmation */}
+        {showSaveConfirm && (
+          <AlertComp
+            title="SUBMIT LOG"
+            message="Are you sure you want to submit log?"
+            type="confirm"
+            onConfirm={confirmSave}
+            onCancel={() => setShowSaveConfirm(false)}
+            confirmText="YES"
+            cancelText="CANCEL"
+          />
+        )}
+
+        {/* Approval Maintenance Modal */}
+        <ApproveMaintenance
+          visible={showApproveModal}
+          aircraftNumber={formData.tailNum || "---"}
+          onConfirm={handleApproveSubmit}
+          onCancel={handleApproveCancel}
+        />
       </Modal>
-
-      {/* Discard Confirmation */}
-      {showDiscardConfirm && (
-        <AlertComp
-          title="DISCARD LOG"
-          message="Are you sure you discard this log?"
-          type="confirm"
-          onConfirm={confirmDiscard}
-          onCancel={() => setShowDiscardConfirm(false)}
-          confirmText="YES"
-          cancelText="CANCEL"
-        />
-      )}
-
-      {/* Save Confirmation */}
-      {showSaveConfirm && (
-        <AlertComp
-          title="SUBMIT LOG"
-          message="Are you sure you want to submit log?"
-          type="confirm"
-          onConfirm={confirmSave}
-          onCancel={() => setShowSaveConfirm(false)}
-          confirmText="YES"
-          cancelText="CANCEL"
-        />
-      )}
-
-      {/* Approval Maintenance Modal */}
-      <ApproveMaintenance
-        visible={showApproveModal}
-        aircraftNumber={formData.tailNum || "---"}
-        onConfirm={handleApproveSubmit}
-        onCancel={handleApproveCancel}
-      />
     </>
   );
 }

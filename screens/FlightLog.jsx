@@ -1,20 +1,18 @@
-import React, { useState, useContext } from "react";
-import { View, Text, TextInput, Modal, TouchableOpacity } from "react-native";
+import React, { useState, useContext, useEffect } from "react";
+import { View, Text, TextInput, Platform } from "react-native";
 import { styles } from "../stylesheets/styles";
 import Button from "../components/Button";
 import FlightTable from "../components/FlightTable";
 import FlightLogEditDefects from "../components/FlightLogEditDefects";
 import FlightLogEditTechnical from "../components/FlightLogEditTechnical";
 import FlightLogVerifyTechnical from "../components/FlightLogVerifyTechnical";
-
-import Icon from "@mdi/react";
-import { mdiGasStation, mdiOil, mdiMapMarkerDistance } from "@mdi/js";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../Context/AuthContext";
 import FlightEntry from "../components/FlightLogEntry";
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
-
+  const isMobile = Platform.OS !== "web";
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Defects");
   const [modalVisible, setModalVisible] = useState(false);
@@ -27,6 +25,15 @@ export default function FlightLog() {
   const [selectedTechnicalLog, setSelectedTechnicalLog] = useState(null);
   const [selectedLogForVerification, setSelectedLogForVerification] =
     useState(null);
+
+  //sets default active tab based on user role
+  useEffect(() => {
+    if (user?.role === "pilot") {
+      setActiveTab("Defects");
+    } else {
+      setActiveTab("TechnicalLog");
+    }
+  }, [user?.role]);
 
   // Mock Data for Defects - Only 1 entry
   const [defectsData, setDefectsData] = useState([
@@ -60,17 +67,17 @@ export default function FlightLog() {
   const cardData = [
     {
       label: "Total Fuel Purchased",
-      icon: mdiGasStation,
+      icon: "gas-station",
       value: "46",
     },
     {
       label: "Total Fuel Burned",
-      icon: mdiOil,
+      icon: "oil",
       value: "5.2",
     },
     {
       label: "Total Leg Distance",
-      icon: mdiMapMarkerDistance,
+      icon: "map-marker-distance",
       value: "30 NM",
     },
   ];
@@ -98,7 +105,7 @@ export default function FlightLog() {
   ];
 
   const TL_COLUMN_WIDTHS = {
-    index: 10,
+    index: 20,
     tailNum: 150,
     date: 150,
     depart: 150,
@@ -232,27 +239,30 @@ export default function FlightLog() {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          flexWrap: "wrap",
           gap: 10,
         }}
       >
         <View style={{ flexDirection: "row" }}>
-          <Button
-            label="Defects"
-            onPress={() => setActiveTab("Defects")}
-            buttonStyle={[
-              activeTab === "Defects"
-                ? styles.alertConfirmBtn
-                : styles.alertCancelBtn,
-              { width: 150, marginRight: 10 },
-            ]}
-            buttonTextStyle={
-              activeTab === "Defects"
-                ? styles.alertConfirmBtnText
-                : styles.alertCancelBtnText
-            }
-          />
+          {/* Show Defects tab only for pilots */}
+          {user?.role === "pilot" && (
+            <Button
+              label="Defects"
+              onPress={() => setActiveTab("Defects")}
+              buttonStyle={[
+                activeTab === "Defects"
+                  ? styles.alertConfirmBtn
+                  : styles.alertCancelBtn,
+                { width: 150, marginRight: 10 },
+              ]}
+              buttonTextStyle={
+                activeTab === "Defects"
+                  ? styles.alertConfirmBtnText
+                  : styles.alertCancelBtnText
+              }
+            />
+          )}
 
+          {/* Technical Log tab always visible */}
           <Button
             label="Technical Log"
             onPress={() => setActiveTab("TechnicalLog")}
@@ -270,7 +280,7 @@ export default function FlightLog() {
           />
         </View>
 
-        {/* Only show New Entry button for pilots */}
+        {/* Show New Entry button only for pilots */}
         {user?.role === "pilot" && (
           <Button
             label="+ New Entry"
@@ -281,9 +291,9 @@ export default function FlightLog() {
         )}
       </View>
 
-      {/* Content */}
+      {/* Table rendering */}
       <View style={{ marginTop: 10 }}>
-        {activeTab === "Defects" && (
+        {activeTab === "Defects" && user?.role === "pilot" && (
           <FlightTable
             headers={Defheaders}
             columnWidths={DEF_COLUMN_WIDTHS}
@@ -297,7 +307,15 @@ export default function FlightLog() {
 
         {activeTab === "TechnicalLog" && (
           <>
-            <View style={{ flexDirection: "row", gap: 30, marginBottom: 10 }}>
+            {/* Cards */}
+            <View
+              style={{
+                flexDirection: "row",
+                maxWidth: 450,
+                marginBottom: 10,
+                gap: 5,
+              }}
+            >
               {cardData.map((card, i) => (
                 <View
                   key={i}
@@ -306,25 +324,39 @@ export default function FlightLog() {
                     borderRadius: 8,
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: 12,
-                    width: 200,
-                    height: 100,
+                    padding: 7,
+                    height: 50,
+                    flexBasis: isMobile ? "45%" : "30%",
+                    minWidth: isMobile ? 100 : 150,
+                    minHeight: isMobile ? 100 : 110,
+                    marginBottom: 12,
                   }}
                 >
                   <Text
-                    style={{ color: "#fff", fontSize: 16, fontWeight: 500 }}
+                    style={{
+                      color: "#fff",
+                      fontSize: 16,
+                      fontWeight: "500",
+                      textAlign: "center",
+                    }}
                   >
                     {card.label}
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Icon
-                      path={card.icon}
-                      size={1.5}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginTop: 6,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name={card.icon}
+                      size={isMobile ? 22 : 50}
                       color="#fff"
                       style={{ marginRight: 5 }}
                     />
                     <Text
-                      style={{ color: "#fff", fontSize: 21, fontWeight: 500 }}
+                      style={{ color: "#fff", fontSize: 21, fontWeight: "500" }}
                     >
                       {card.value}
                     </Text>
@@ -352,6 +384,7 @@ export default function FlightLog() {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSave={handleSaveNewEntry}
+          role={"pilot"}
         />
       )}
 
