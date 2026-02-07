@@ -3,7 +3,6 @@ import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
-import Icon from "react-native-vector-icons/Entypo";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
@@ -25,12 +24,12 @@ import useResponsiveWeb from "./Layout/useResponsiveWeb";
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
-// Drawer navigator
+// --- Drawer navigator ---
 function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
-  if (loading || !user) return null; // prevent drawer rendering until user is ready
+  if (loading || !user) return null;
 
   const wrapWithDashboard = (ScreenComponent) => (props) => (
     <Dashboard>
@@ -118,7 +117,7 @@ function DrawerNav() {
   );
 }
 
-// Stack navigator with auth check
+// --- Stack navigator ---
 function StackNavWrapper() {
   const optionsMain = {
     headerShown: true,
@@ -131,13 +130,24 @@ function StackNavWrapper() {
       />
     ),
   };
+
   const { user, loading } = useContext(AuthContext);
 
-  if (loading) return null; // or a splash/loading screen
+  if (loading) return null;
 
   return (
     <Stack.Navigator>
-      {!user && (
+      {/* Show security setup only for inactive users */}
+      {!user || user.status === "inactive" ? (
+        <Stack.Screen
+          name="securitySetup"
+          component={SecuritySetup}
+          options={optionsMain}
+        />
+      ) : null}
+
+      {/* Show login flow only for users who are active or not logged in */}
+      {!user || user.status === "active" ? (
         <>
           <Stack.Screen name="login" component={Login} options={optionsMain} />
           <Stack.Screen
@@ -150,14 +160,11 @@ function StackNavWrapper() {
             component={ResetPassword}
             options={optionsMain}
           />
-          <Stack.Screen
-            name="securitySetup"
-            component={SecuritySetup}
-            options={optionsMain}
-          />
         </>
-      )}
-      {user && (
+      ) : null}
+
+      {/* Show dashboard only for active logged-in users */}
+      {user && user.status === "active" && (
         <Stack.Screen
           name="dashboard"
           component={DrawerNav}
@@ -168,7 +175,21 @@ function StackNavWrapper() {
   );
 }
 
-// Main App
+// --- Linking config ---
+const linking = {
+  prefixes: ["myapp://", "http://localhost:8081", "https://yourdomain.com"],
+  config: {
+    screens: {
+      securitySetup: "security-setup",
+      dashboard: "dashboard",
+      login: "login",
+      forgotPassword: "forgotPassword",
+      resetPassword: "resetPassword",
+    },
+  },
+};
+
+// --- Main App ---
 export default function App() {
   const theme = {
     ...DefaultTheme,
@@ -178,7 +199,7 @@ export default function App() {
   return (
     <AuthProvider>
       <PaperProvider theme={theme}>
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <StackNavWrapper />
         </NavigationContainer>
       </PaperProvider>

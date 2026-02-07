@@ -123,7 +123,7 @@ export default function MaintenanceNewEntry({ visible, onClose, onSave }) {
             </View>
             <View style={styles.newEntryField}>
               <Text style={styles.newEntryLabel}>Date Defect Discovered</Text>
-              <input
+              <TextInput
                 type="date"
                 style={{
                   ...styles.newEntryInput,

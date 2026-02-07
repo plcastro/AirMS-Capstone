@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useState, useEffect } from "react";
 import { View, TextInput, Platform, Text } from "react-native";
 import Table from "../components/Table";
@@ -17,6 +18,8 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState("all"); // "all", "user", "superuser", "admin"
   const [accessFilter, setAccessFilter] = useState("all"); // NEW: "all", "user", "superuser", "admin"
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const headers = [
     { label: "#", key: "index" },
@@ -42,29 +45,67 @@ export default function UserManagement() {
     actions: 300,
   };
 
+  const API_BASE =
+    Platform.OS === "android"
+      ? "http://10.0.2.2:8000"
+      : "http://localhost:8000";
+
+  // 🔐 Load logged-in user
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        console.log("=== DEBUG: Loading current user from AsyncStorage ===");
+
+        // Check if AsyncStorage is working
+        const keys = await AsyncStorage.getAllKeys();
+        console.log("All AsyncStorage keys:", keys);
+
+        const storedUser = await AsyncStorage.getItem("currentUser");
+        console.log("Raw storedUser string:", storedUser);
+
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            console.log("Parsed user object:", parsed);
+            console.log("User ID:", parsed.id);
+            console.log("User email:", parsed.email);
+            console.log("User username:", parsed.username);
+
+            setCurrentUserId(parsed.id);
+          } catch (parseError) {
+            console.error("Error parsing storedUser JSON:", parseError);
+          }
+        } else {
+          console.log("No 'currentUser' found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error loading from AsyncStorage:", error);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
+
+  // 📥 Fetch users
   const fetchUsers = async () => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
       const json = await response.json();
 
-      if (Array.isArray(json.data)) {
-        const usersWithFormattedData = json.data.map((user) => ({
+      if (Array.isArray(json)) {
+        const formatted = json.map((user, index) => ({
           ...user,
+          _id: user._id || user.id,
+          index: index + 1,
           fullname: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
           dateCreated: user.dateCreated
             ? new Date(user.dateCreated).toLocaleString()
             : "N/A",
         }));
-        setAllUsers(usersWithFormattedData);
+        setAllUsers(formatted);
       }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      setAllUsers([]);
+    } catch (err) {
+      console.error("Error fetching users:", err);
     }
   };
 
@@ -102,6 +143,11 @@ export default function UserManagement() {
 
     setFilteredUsers(filtered);
   }, [allUsers, statusFilter, roleFilter, accessFilter, searchQuery]);
+
+  useEffect(() => {
+    console.log("Current User ID:", currentUserId);
+    console.log("First user in allUsers:", allUsers[0]);
+  }, [currentUserId, allUsers]);
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
@@ -180,13 +226,12 @@ export default function UserManagement() {
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-      {/* Search + Filters + Add Button Row */}
       <View style={styles.searchRow}>
         <TextInput
           placeholder="Search"
           style={styles.searchInput}
           value={searchQuery}
-          onChangeText={handleSearchChange}
+          onChangeText={setSearchQuery}
         />
         {/* Role Filter Dropdown */}
         <View style={styles.filterContainer}>
@@ -220,28 +265,14 @@ export default function UserManagement() {
           </Picker>
         </View>
 
-        {/* Status Filter Dropdown */}
-        <View style={styles.filterContainer}>
-          <Picker
-            selectedValue={statusFilter}
-            onValueChange={(itemValue) => setStatusFilter(itemValue)}
-            style={styles.filterPicker}
-            mode="dropdown"
-          >
-            <Picker.Item label="Status" value="all" />
-            <Picker.Item label="Active" value="active" />
-            <Picker.Item label="Inactive" value="inactive" />
-            <Picker.Item label="Deactivated" value="deactivated" />
-          </Picker>
-        </View>
+        <Picker selectedValue={statusFilter} onValueChange={setStatusFilter}>
+          <Picker.Item label="Status" value="all" />
+          <Picker.Item label="Active" value="active" />
+          <Picker.Item label="Inactive" value="inactive" />
+          <Picker.Item label="Deactivated" value="deactivated" />
+        </Picker>
 
-        <Button
-          iconName="person-add"
-          label="Add User"
-          buttonStyle={styles.addButton}
-          buttonTextStyle={styles.addButtonText}
-          onPress={() => setShowAddUser(true)}
-        />
+        <Button label="Add User" onPress={() => setShowAddUser(true)} />
       </View>
 
       <Table
@@ -251,20 +282,18 @@ export default function UserManagement() {
         onEditUser={handleEditUser}
         onDeactivateUser={handleDeactivateUser}
         onReactivateUser={handleReactivateUser}
+        currentUserId={currentUserId}
       />
 
       <AddUser
         visible={showAddUser}
         onClose={() => setShowAddUser(false)}
-        onUserAdded={() => fetchUsers()}
+        onUserAdded={fetchUsers}
       />
 
       <EditUser
         visible={showEditUser}
-        onClose={() => {
-          setShowEditUser(false);
-          setSelectedUser(null);
-        }}
+        onClose={() => setShowEditUser(false)}
         user={selectedUser}
         onUserUpdated={fetchUsers}
       />

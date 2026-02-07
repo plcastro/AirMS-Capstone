@@ -28,12 +28,12 @@ export default function MaintenanceLog() {
   ];
 
   const COLUMN_WIDTHS = {
-    aircraft: 100,
-    defects: 250,
+    aircraft: 70,
+    defects: 450,
     dateDefectDiscovered: 150,
     correctiveActionDone: 200,
     dateDefectRectified: 150,
-    action: 100,
+    action: 70,
     status: 100,
   };
 
@@ -251,8 +251,7 @@ export default function MaintenanceLog() {
           </Text>
         </View>
         <Button
-          iconName="plus"
-          label="New Entry"
+          label="+ New Entry"
           buttonStyle={styles.maintenanceAddButton}
           buttonTextStyle={styles.maintenanceAddButtonText}
           onPress={() => setShowNewEntry(true)}
