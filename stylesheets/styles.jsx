@@ -110,10 +110,12 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#ffffff",
     borderRadius: 10,
-    width: "90%",
+    width: 700,
+    maxWidth: "90%",
     height: "80%",
     margin: "auto",
   },
+  profileContent: { alignItems: "center" },
   label: {
     fontSize: 12,
     marginBottom: 4,
@@ -686,5 +688,45 @@ export const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     position: "relative",
+  },
+  /* ===== FLIGHT LOG APPROVAL STYLES ===== */
+
+  flightTwoColumn: {
+    flexDirection: "row",
+    gap: 24,
+    width: "100%",
+  },
+
+  flightColumn: {
+    flex: 1,
+  },
+
+  flightSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginTop: 16,
+    color: "#000",
+  },
+
+  mmelGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  mmelItem: {
+    width: "48%",
+    marginBottom: 10,
+  },
+
+  signatureWrapper: {
+    position: "relative",
+  },
+
+  clearSignatureBtn: {
+    position: "absolute",
+    right: 12,
+    top: 12,
   },
 });

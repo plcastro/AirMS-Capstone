@@ -1,25 +1,31 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
-  ScrollView,
-  Platform,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
+  ScrollView,
 } from "react-native";
-import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
-import SignatureScreen from "./SignatureScreen";
 import AlertComp from "./AlertComp";
-import ApproveMaintenance from "./ApproveMaintenance";
+import FlightLogApprove from "./FlightLogApprove";
 
-export default function FlightLogEntry({ visible, onClose, onSave }) {
-  const [page, setPage] = useState(0);
+export default function FlightLogVerifyTechnical({
+  visible,
+  entry,
+  onClose,
+  onApprove,
+}) {
+  const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState({});
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showApproveModal, setShowApproveModal] = useState(false);
 
+  // State for the verification flow
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showVorCheckForm, setShowVorCheckForm] = useState(false);
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+
+  // Exact same page structure as FlightLogEditTechnical but all fields are non-editable
   const pages = [
     [
       { label: "Tail No.", key: "tailNum", editable: false, value: "---" },
@@ -59,7 +65,6 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
         editable: false,
         value: "",
       },
-
       {
         label: "Date Zulu",
         key: "dateZulu",
@@ -75,7 +80,6 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
         editable: false,
         value: "",
       },
-
       {
         label: "Block Time",
         key: "blockTime",
@@ -251,75 +255,127 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
     ],
   ];
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (entry) {
+      // Map entry data exactly as FlightLogEditTechnical does
+      setFormData({
+        tailNum: entry.tailNum || "---",
+        date: entry.date || "",
+        depart: entry.depart || "",
+        arrive: entry.arrive || "",
+        offBlock: entry.offBlock || "",
+        onBlock: entry.onBlock || "",
+        blockTime: entry.blockTime || "",
+        flightTime: entry.flightTime || "",
+        // Initialize other fields with empty values
+        pilotInCommand: "",
+        secondPilotInCommand: "",
+        dateZulu: "",
+        cycles: "",
+        nightFlightSpecific: "",
+        nLdgFlightSpecific: "",
+        appFlightSpecific: "",
+        instFlightSpecific: "",
+        pilotFlightSpecific: "",
+        engine1TForward: "",
+        engine2TForward: "",
+        apliTForward: "",
+        engine1CTimes: "",
+        engine2CTimes: "",
+        apliTCTimes: "",
+        totalsThisFlightLog: "",
+        totalsThisFlightLog1: "",
+        totalsThisFlightLog2: "",
+        airframeForward: "",
+        airframeForward1: "",
+        airframeForward2: "",
+        airframeTotalTime: "",
+        airframeTotalTime1: "",
+        airframeTotalTime2: "",
+        engine1CycPWD: "",
+        engine2CycPWD: "",
+        engine1Cycles: "",
+        engine2Cycles: "",
+        departure: "",
+        pax: "",
+        fuelPurchased: "",
+        fuelOut: "",
+        fuelIn: "",
+        fuelBurn: "",
+        legDistance: "",
+        fboHandler: "",
+      });
+      setCurrentPage(0);
+    }
+  }, [entry]);
 
-  const handleDiscard = () => {
-    setShowDiscardConfirm(true);
+  const handleApprove = () => {
+    setShowApproveConfirm(true);
   };
 
-  const confirmDiscard = () => {
-    setFormData({});
-    setShowDiscardConfirm(false);
-    onClose();
+  const handleConfirmApprove = () => {
+    setShowApproveConfirm(false);
+    setShowVorCheckForm(true);
   };
 
-  const handleSave = () => {
-    setShowSaveConfirm(true);
+  const handleVorCheckSubmit = (vorCheckData) => {
+    console.log("VOR Check data submitted:", vorCheckData);
+    setShowVorCheckForm(false);
+    setShowFinalConfirm(true);
   };
 
-  const confirmSave = () => {
-    setShowSaveConfirm(false);
-    setShowApproveModal(true);
+  const handleVorCheckCancel = () => {
+    setShowVorCheckForm(false);
   };
 
-  const handleApproveSubmit = (username, password) => {
-    console.log("New entry approved with:", { username, password });
+  const handleFinalConfirm = () => {
+    console.log("Technical log verification confirmed");
 
-    // Create the new entry
-    const newEntry = {
-      id: Date.now(),
-      index: Date.now(),
-      tailNum: formData.tailNum || "---",
-      date: formData.date || new Date().toLocaleDateString(),
-      depart: formData.depart || "",
-      arrive: formData.arrive || "",
-      offBlock: formData.offBlock || "",
-      onBlock: formData.onBlock || "",
-      blockTime: formData.blockTime || "",
-      flightTime: formData.flightTime || "",
-      technicalAction: "Submitted for review",
-      status: "pending",
-      submittedBy: username,
-      submittedAt: new Date().toISOString(),
+    const verifiedLog = {
+      ...entry,
+      status: "verified",
+      verifiedAt: new Date().toLocaleDateString(),
     };
 
-    // Call onSave with the new entry
-    onSave?.(newEntry);
-
-    setShowApproveModal(false);
-    setFormData({});
+    onApprove?.(verifiedLog);
+    setShowFinalConfirm(false);
     onClose();
   };
 
-  const handleApproveCancel = () => {
-    setShowApproveModal(false);
+  const handleCancelApprove = () => {
+    setShowApproveConfirm(false);
+  };
+
+  const handleCancelFinalConfirm = () => {
+    setShowFinalConfirm(false);
+  };
+
+  const handleDiscard = () => {
+    onClose();
   };
 
   const renderPage = (fields) => {
     return fields.map((field, index) => (
       <View key={index} style={{ marginBottom: 10 }}>
-        <Text>{field.label}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "500", marginBottom: 4 }}>
+          {field.label}
+        </Text>
         <TextInput
-          style={styles.flightFormInput}
+          style={[
+            styles.flightFormInput,
+            {
+              backgroundColor: field.editable ? "#F1F1F1" : "#f0f0f0",
+              color: field.editable ? "#333" : "#666",
+            },
+          ]}
           value={formData[field.key] ?? field.value ?? ""}
-          editable={field.editable}
-          onChangeText={(text) =>
-            setFormData((prev) => ({ ...prev, [field.key]: text }))
-          }
+          editable={false} // Always false for verification
         />
       </View>
     ));
   };
+
+  if (!visible || !entry) return null;
 
   return (
     <>
@@ -335,32 +391,56 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.newFlightEntryCard}>
+              {/* Close button - same as edit modal */}
               <TouchableOpacity
-                onPress={handleDiscard}
-                style={{ alignSelf: "flex-end" }}
+                onPress={onClose}
+                style={{ alignSelf: "flex-end", marginBottom: 10 }}
               >
                 <Text style={{ fontSize: 18, fontWeight: "600" }}>✕</Text>
               </TouchableOpacity>
-              {renderPage(pages[page])}
 
-              {page === pages.length - 1 && (
+              {/* Title */}
+              <Text
+                style={[
+                  styles.newEntryTitle,
+                  {
+                    marginBottom: 20,
+                    fontSize: 20,
+                    textAlign: "center",
+                  },
+                ]}
+              >
+                Verify Technical Log
+              </Text>
+
+              {renderPage(pages[currentPage])}
+
+              {/* Approve/Cancel buttons on last page - matching edit modal layout */}
+              {currentPage === pages.length - 1 && (
                 <View
-                  style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}
+                  style={{
+                    flexDirection: "row",
+                    gap: 10,
+                    marginLeft: "auto",
+                    marginTop: 20,
+                  }}
                 >
                   <TouchableOpacity
-                    onPress={handleSave}
-                    style={styles.alertConfirmBtn}
+                    onPress={handleApprove}
+                    style={[styles.alertConfirmBtn, { minWidth: 100 }]}
                   >
-                    <Text style={styles.alertConfirmBtnText}>Save</Text>
+                    <Text style={styles.alertConfirmBtnText}>Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleDiscard}
-                    style={styles.alertCancelBtn}
+                    style={[styles.alertCancelBtn, { minWidth: 100 }]}
                   >
                     <Text style={styles.alertCancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               )}
+
+              {/* Page navigation - identical to edit modal */}
               <View
                 style={{
                   flexDirection: "row",
@@ -371,10 +451,12 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
                 }}
               >
                 <TouchableOpacity
-                  onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                  disabled={page === 0}
+                  onPress={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 0))
+                  }
+                  disabled={currentPage === 0}
                   style={{
-                    opacity: page === 0 ? 0.5 : 1,
+                    opacity: currentPage === 0 ? 0.5 : 1,
                     borderWidth: 1,
                     borderColor: "#acacac",
                     padding: 7,
@@ -388,17 +470,19 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
                   style={{ backgroundColor: "#26866F", padding: 7, width: 50 }}
                 >
                   <Text style={{ color: "#fff", textAlign: "center" }}>
-                    {page + 1}
+                    {currentPage + 1}
                   </Text>
                 </View>
 
                 <TouchableOpacity
                   onPress={() =>
-                    setPage((prev) => Math.min(prev + 1, pages.length - 1))
+                    setCurrentPage((prev) =>
+                      Math.min(prev + 1, pages.length - 1),
+                    )
                   }
-                  disabled={page === pages.length - 1}
+                  disabled={currentPage === pages.length - 1}
                   style={{
-                    opacity: page === pages.length - 1 ? 0.5 : 1,
+                    opacity: currentPage === pages.length - 1 ? 0.5 : 1,
                     borderWidth: 1,
                     borderColor: "#acacac",
                     padding: 7,
@@ -409,45 +493,43 @@ export default function FlightLogEntry({ visible, onClose, onSave }) {
                 </TouchableOpacity>
               </View>
             </View>
-
-            {Platform.OS !== "web" && <SignatureScreen />}
           </ScrollView>
         </View>
       </Modal>
 
-      {/* Discard Confirmation */}
-      {showDiscardConfirm && (
+      {/* First Confirmation: Approve Log */}
+      {showApproveConfirm && (
         <AlertComp
-          title="DISCARD LOG"
-          message="Are you sure you discard this log?"
+          title="APPROVE LOG"
+          message="Are you sure you want to approve log?"
           type="confirm"
-          onConfirm={confirmDiscard}
-          onCancel={() => setShowDiscardConfirm(false)}
+          onConfirm={handleConfirmApprove}
+          onCancel={handleCancelApprove}
           confirmText="YES"
           cancelText="CANCEL"
         />
       )}
 
-      {/* Save Confirmation */}
-      {showSaveConfirm && (
-        <AlertComp
-          title="SUBMIT LOG"
-          message="Are you sure you want to submit log?"
-          type="confirm"
-          onConfirm={confirmSave}
-          onCancel={() => setShowSaveConfirm(false)}
-          confirmText="YES"
-          cancelText="CANCEL"
-        />
-      )}
-
-      {/* Approval Maintenance Modal */}
-      <ApproveMaintenance
-        visible={showApproveModal}
-        aircraftNumber={formData.tailNum || "---"}
-        onConfirm={handleApproveSubmit}
-        onCancel={handleApproveCancel}
+      {/* VOR Check Form Modal */}
+      <FlightLogApprove
+        visible={showVorCheckForm}
+        aircraftNumber={formData.tailNum}
+        onConfirm={handleVorCheckSubmit}
+        onCancel={handleVorCheckCancel}
       />
+
+      {/* Final Confirmation: Confirm Log */}
+      {showFinalConfirm && (
+        <AlertComp
+          title="CONFIRM LOG"
+          message="Are you sure you want to confirm log?"
+          type="confirm"
+          onConfirm={handleFinalConfirm}
+          onCancel={handleCancelFinalConfirm}
+          confirmText="CONFIRM"
+          cancelText="CANCEL"
+        />
+      )}
     </>
   );
 }
