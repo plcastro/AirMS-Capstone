@@ -27,29 +27,21 @@ export default function Profile() {
             borderRadius: 100, // half of width/height for circle
           }}
         />
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            gap: 20,
-          }}
-        >
-          <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
-            <Text>Name:</Text>
-            <Text>Email: </Text>
-            <Text>Username: </Text>
-            <Text>Role:</Text>
-          </View>
-          <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
-            <Text>
-              {firstName} {lastName}
-            </Text>
-            <Text>{email}</Text>
 
-            <Text>{username}</Text>
-
-            <Text>{role}</Text>
-          </View>
+        <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
+          <Text>
+            <Text style={{ fontWeight: "bold" }}>Name:</Text> {firstName}{" "}
+            {lastName}
+          </Text>
+          <Text>
+            <Text style={{ fontWeight: "bold" }}>Email:</Text> {email}
+          </Text>
+          <Text>
+            <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
+          </Text>
+          <Text>
+            <Text style={{ fontWeight: "bold" }}>Role:</Text> {role}
+          </Text>
         </View>
         <Button
           label="Update profile"

@@ -6,10 +6,11 @@ import AddUser from "../components/AddUser";
 import EditUser from "../components/EditUser";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import useResponsiveWeb from "../Layout/useResponsiveWeb";
 
 export default function UserManagement() {
+  const isMobile = Platform.OS !== "web";
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -216,64 +217,72 @@ export default function UserManagement() {
   return (
     <View style={{ flex: 1, padding: 16 }}>
       {/* Search + Filters + Add Button Row */}
-      <View style={styles.searchRow}>
+      <View
+        style={{
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10, // spacing between items
+          marginBottom: 10,
+        }}
+      >
+        {/* Search Input */}
         <TextInput
           placeholder="Search"
-          style={styles.searchInput}
+          style={[
+            styles.searchInput,
+            { width: isMobile ? "100%" : 250, flexShrink: 0 },
+          ]}
           value={searchQuery}
           onChangeText={handleSearchChange}
         />
-        {/* Role Filter Dropdown */}
-        <View style={styles.filterContainer}>
-          <Picker
-            selectedValue={roleFilter}
-            onValueChange={(itemValue) => setRoleFilter(itemValue)}
-            style={styles.filterPicker}
-            mode="dropdown"
-          >
-            <Picker.Item label="Role" value="all" />
-            <Picker.Item label="Admin" value="admin" />
-            <Picker.Item label="Head Mechanic" value="head mechanic" />
-            <Picker.Item label="Pilot" value="pilot" />
-            <Picker.Item label="Manager" value="manager" />
-            <Picker.Item label="Mechanic" value="mechanic" />
-          </Picker>
-        </View>
 
-        {/* NEW: Access Control Filter Dropdown */}
-        <View style={styles.filterContainer}>
-          <Picker
-            selectedValue={accessFilter}
-            onValueChange={(itemValue) => setAccessFilter(itemValue)}
-            style={styles.filterPicker}
-            mode="dropdown"
-          >
-            <Picker.Item label="Access Level" value="all" />
-            <Picker.Item label="Admin" value="admin" />
-            <Picker.Item label="Superuser" value="superuser" />
-            <Picker.Item label="User" value="user" />
-          </Picker>
-        </View>
+        {/* Role Filter Dropdown */}
+        <Picker
+          selectedValue={roleFilter}
+          onValueChange={(itemValue) => setRoleFilter(itemValue)}
+          style={[styles.filterPicker, { maxWidth: 150, width: "100%" }]}
+          mode="dropdown"
+        >
+          <Picker.Item label="Role" value="All" />
+          <Picker.Item label="Admin" value="Admin" />
+          <Picker.Item label="Head Mechanic" value="Head of Maintenance" />
+          <Picker.Item label="Pilot" value="Pilot" />
+          <Picker.Item label="Manager" value="Manager" />
+          <Picker.Item label="Mechanic" value="Mechanic" />
+        </Picker>
+
+        {/* Access Control Filter Dropdown */}
+        <Picker
+          selectedValue={accessFilter}
+          onValueChange={(itemValue) => setAccessFilter(itemValue)}
+          style={[styles.filterPicker, { maxWidth: 150, width: "100%" }]}
+          mode="dropdown"
+        >
+          <Picker.Item label="Access Level" value="all" />
+          <Picker.Item label="Admin" value="admin" />
+          <Picker.Item label="Superuser" value="superuser" />
+          <Picker.Item label="User" value="user" />
+        </Picker>
 
         {/* Status Filter Dropdown */}
-        <View style={styles.filterContainer}>
-          <Picker
-            selectedValue={statusFilter}
-            onValueChange={(itemValue) => setStatusFilter(itemValue)}
-            style={styles.filterPicker}
-            mode="dropdown"
-          >
-            <Picker.Item label="Status" value="all" />
-            <Picker.Item label="Active" value="active" />
-            <Picker.Item label="Inactive" value="inactive" />
-            <Picker.Item label="Deactivated" value="deactivated" />
-          </Picker>
-        </View>
+        <Picker
+          selectedValue={statusFilter}
+          onValueChange={(itemValue) => setStatusFilter(itemValue)}
+          style={[styles.filterPicker, { maxWidth: 150, width: "100%" }]}
+          mode="dropdown"
+        >
+          <Picker.Item label="Status" value="all" />
+          <Picker.Item label="Active" value="active" />
+          <Picker.Item label="Inactive" value="inactive" />
+          <Picker.Item label="Deactivated" value="deactivated" />
+        </Picker>
 
+        {/* Add User Button */}
         <Button
           iconName="person-add"
           label="Add User"
-          buttonStyle={styles.addButton}
+          buttonStyle={[styles.addButton, { width: 150 }]}
           buttonTextStyle={styles.addButtonText}
           onPress={() => setShowAddUser(true)}
         />

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
-import * as Font from "expo-font"; // for Expo, skip if bare RN
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+
 import Button from "./Button";
 import AlertComp from "./AlertComp";
 import { styles } from "../stylesheets/styles";

@@ -4,6 +4,7 @@ import Table from "../components/Table";
 import { styles } from "../stylesheets/styles";
 
 export default function UserLogs() {
+  const isMobile = Platform.OS !== "web";
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -77,7 +78,7 @@ export default function UserLogs() {
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-      <View style={[styles.searchRow, { width: 300, alignSelf: "flex-start" }]}>
+      <View style={styles.searchRow}>
         <TextInput
           placeholder="Search"
           style={styles.searchInput}

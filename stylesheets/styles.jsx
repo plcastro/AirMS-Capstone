@@ -219,14 +219,13 @@ export const styles = StyleSheet.create({
   /* ===== SEARCH + ADD BUTTON ===== */
   searchRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     alignItems: "center",
     marginBottom: 8,
     width: 750,
   },
   searchInput: {
-    flex: 1,
-    width: 200,
+    width: 250,
     backgroundColor: "#f7f6f6",
     borderColor: "#CCCCCC",
     borderWidth: 1,
@@ -297,7 +296,7 @@ export const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 8,
     minWidth: 300,
-    maxWidth: 400,
+    maxWidth: 500,
   },
   alertTitle: {
     fontSize: 18,

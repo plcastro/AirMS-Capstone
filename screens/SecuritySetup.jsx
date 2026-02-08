@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -10,17 +10,21 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Button from "../components/Button";
 import AlertComp from "../components/AlertComp";
 import { styles } from "../stylesheets/styles";
+import { AuthContext } from "../Context/AuthContext";
 
 export default function SecuritySetup() {
   const nav = useNavigation();
   const route = useRoute();
+  const { user } = useContext(AuthContext);
+  const API_BASE =
+    Platform.OS === "android"
+      ? "http://10.0.2.2:8000"
+      : "http://localhost:8000";
 
-  // --- Get token from params (deep link or URL) ---
-  const token = route.params?.token || "";
-
-  const [getMessage, setMessage] = useState("");
-  const [setupSuccess, setSetupSuccess] = useState(false);
-
+  // --- Get info from login redirect ---
+  const email = user?.email || ""; // always from login context
+  const tempPassword = route.params?.tempPassword || ""; // optional, for verification
+  console.log(email);
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -32,12 +36,20 @@ export default function SecuritySetup() {
     hasNumber: false,
   });
 
-  useEffect(() => {
-    if (!token) {
-      setMessage("Activation token is missing. Please check your link.");
-    }
-  }, [token]);
+  const [message, setMessage] = useState("");
+  const [setupSuccess, setSetupSuccess] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
+  // --- Redirect active users ---
+  useEffect(() => {
+    // block access if user is missing OR already active
+    if (!user || user.status === "active") {
+      nav.replace("login");
+    }
+  }, [user]);
+
+  // --- Input handler ---
   const changeHandler = (key, value) => {
     setFormData({ ...formData, [key]: value });
 
@@ -50,32 +62,73 @@ export default function SecuritySetup() {
     }
   };
 
+  // --- Validate before submitting ---
   const validate = () => {
     const { newPassword, confirmPassword } = formData;
 
-    if (!token) return setMessage("Cannot activate account without a token.");
     if (!newPassword.trim() || !confirmPassword.trim())
-      return setMessage("Please fill in all password fields.");
+      return setMessage("Please fill all fields.");
     if (!passwordRequirements.minLength)
       return setMessage("Password must be at least 8 characters.");
     if (!passwordRequirements.hasUppercase)
-      return setMessage("Password must contain at least one uppercase letter.");
+      return setMessage("Password must contain an uppercase letter.");
     if (!passwordRequirements.hasNumber)
-      return setMessage("Password must contain at least one number.");
+      return setMessage("Password must contain a number.");
     if (newPassword !== confirmPassword)
       return setMessage("Passwords do not match.");
 
     handleSetup();
   };
 
-  const handleSetup = () => {
-    // TODO: API call with `token` and `formData.newPassword`
-    console.log("Activating account with token:", token);
-    console.log("New password:", formData.newPassword);
+  // --- Activate / set new password ---
+  const handleSetup = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, newPassword: formData.newPassword }),
+      });
+      const data = await res.json();
 
-    // Simulate success
-    setSetupSuccess(true);
-    setMessage("Account activated successfully!");
+      if (res.ok) {
+        setSetupSuccess(true);
+        setMessage("Password set successfully! Redirecting to dashboard...");
+      } else {
+        setMessage(data.message || "Failed to activate account.");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("Failed to activate account. Try again later.");
+    }
+  };
+
+  // --- Resend activation link (creates new temp password) ---
+  const handleResendActivation = async () => {
+    if (!email)
+      return setMessage("Email missing. Cannot resend activation link.");
+
+    try {
+      setResendLoading(true);
+      setResendMessage("");
+
+      const res = await fetch(`${API_BASE}/api/user/resend-activation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      setResendMessage(
+        res.ok
+          ? data.message
+          : data.message || "Failed to resend activation link.",
+      );
+    } catch (err) {
+      console.error(err);
+      setResendMessage("Failed to resend activation link. Try again later.");
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const getRequirementStyle = (met) => ({
@@ -85,97 +138,117 @@ export default function SecuritySetup() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={[styles.formCard, { minHeight: "80%" }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled
     >
-      <View style={styles.formContainer}>
+      <View style={[styles.formContainer, { alignItems: "flex-start" }]}>
         <Text style={styles.headerText}>Security Setup</Text>
         <Text style={[styles.subHeaderText, { marginBottom: 30 }]}>
-          Please set your password to proceed
+          Set your new password to proceed
         </Text>
 
-        {/* New Password */}
-        <View style={{ alignItems: "flex-start", width: "100%" }}>
-          <Text style={[styles.label, { marginBottom: 5 }]}>New Password</Text>
-          <TextInput
-            style={styles.formInput}
-            maxLength={50}
-            placeholder="Enter new password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            secureTextEntry
-            value={formData.newPassword}
-            onChangeText={(e) => changeHandler("newPassword", e)}
-          />
+        <Text style={[styles.label, { marginBottom: 5 }]}>New Password</Text>
+        <TextInput
+          style={styles.formInput}
+          secureTextEntry
+          maxLength={50}
+          placeholder="Enter new password"
+          placeholderTextColor="gray"
+          autoCapitalize="none"
+          value={formData.newPassword}
+          onChangeText={(e) => changeHandler("newPassword", e)}
+        />
 
-          {/* Password Requirements */}
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-              Password Requirements:
-            </Text>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓{" "}
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-                At least 8 characters
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row" }}>
-              <Text
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                ✓{" "}
-              </Text>
-              <Text
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                One uppercase letter
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓{" "}
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                One number
-              </Text>
-            </View>
-          </View>
+        <Text style={[styles.label, { marginBottom: 5 }]}>
+          Confirm Password
+        </Text>
+        <TextInput
+          style={styles.formInput}
+          secureTextEntry
+          maxLength={50}
+          placeholder="Confirm new password"
+          placeholderTextColor="gray"
+          autoCapitalize="none"
+          value={formData.confirmPassword}
+          onChangeText={(e) => changeHandler("confirmPassword", e)}
+        />
 
-          {/* Confirm Password */}
-          <Text style={[styles.label, { marginBottom: 5 }]}>
-            Confirm Password
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+            Password Requirements:
           </Text>
-          <TextInput
-            style={styles.formInput}
-            maxLength={50}
-            placeholder="Confirm new password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            secureTextEntry
-            value={formData.confirmPassword}
-            onChangeText={(e) => changeHandler("confirmPassword", e)}
-          />
+          <View style={{ flexDirection: "row" }}>
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              ✓{" "}
+            </Text>
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              At least 8 characters
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row" }}>
+            <Text
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              ✓{" "}
+            </Text>
+            <Text
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              One uppercase letter
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row" }}>
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              ✓{" "}
+            </Text>
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              One number
+            </Text>
+          </View>
         </View>
 
-        {getMessage && !setupSuccess && (
-          <Text style={styles.error}>{getMessage}</Text>
+        {message && !setupSuccess && (
+          <Text style={styles.error}>{message}</Text>
         )}
 
-        {/* Activate Button */}
         <Button
           onPress={validate}
-          label="ACTIVATE ACCOUNT"
+          label="SET PASSWORD"
           buttonStyle={[styles.button, { marginTop: 20 }]}
           buttonTextStyle={styles.buttonText}
         />
 
-        {getMessage && setupSuccess && (
+        {/* Resend activation */}
+        {email && !setupSuccess && (
+          <View style={{ marginTop: 15 }}>
+            <Button
+              label={resendLoading ? "SENDING..." : "RESEND ACTIVATION LINK"}
+              onPress={handleResendActivation}
+              disabled={resendLoading}
+              buttonStyle={[
+                styles.button,
+                {
+                  backgroundColor: "#fff",
+                  borderWidth: 1,
+                  borderColor: "#ccc",
+                  minWidth: "100%",
+                },
+              ]}
+              buttonTextStyle={[styles.buttonText, { color: "#244D3B" }]}
+            />
+            {resendMessage ? (
+              <Text style={{ fontSize: 12, color: "#666", marginTop: 5 }}>
+                {resendMessage}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        {setupSuccess && (
           <AlertComp
             title="Success"
-            message={getMessage}
+            message={message}
             duration={2500}
             onFinish={() => nav.replace("dashboard")}
           />

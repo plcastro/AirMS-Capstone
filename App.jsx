@@ -3,8 +3,12 @@ import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
-import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-
+import {
+  Provider as PaperProvider,
+  configureFonts,
+  DefaultTheme,
+} from "react-native-paper";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 
 import Login from "./screens/Login";
@@ -29,8 +33,16 @@ function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
-  if (loading || !user) return null;
+  console.log(user);
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
+  if (!user) return null; // user not logged in
   const wrapWithDashboard = (ScreenComponent) => (props) => (
     <Dashboard>
       <ScreenComponent {...props} />
@@ -46,36 +58,37 @@ function DrawerNav() {
         drawerStyle: { width: 260 },
         overlayColor: "transparent",
         headerRight: () => (
-          <TouchableOpacity
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginRight: "5%",
-            }}
-            onPress={() => navigation.navigate("Profile")}
-          >
-            <Image
-              source={{
-                uri: user.image,
-              }}
+          <View style={{ marginHorizontal: 20 }}>
+            <TouchableOpacity
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                marginRight: 5,
+                flexDirection: "row",
+                alignItems: "center",
               }}
-            />
-            {isWeb && isWide && (
-              <View style={{ flexDirection: "column" }}>
-                <Text style={{ fontSize: 14, fontWeight: "bold" }}>
-                  {`${user?.firstName} ${user?.lastName}`.trim() || "User"}
-                </Text>
-                <Text style={{ fontSize: 12, color: "#777" }}>
-                  {user?.role || ""}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <Image
+                source={{
+                  uri: user.image,
+                }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  marginRight: 5,
+                }}
+              />
+              {isWeb && isWide && (
+                <View style={{ flexDirection: "column" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+                    {`${user.firstName} ${user.lastName}` || "User"}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: "#777" }}>
+                    {user?.role || ""}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         ),
       })}
     >
@@ -116,25 +129,56 @@ function DrawerNav() {
     </Drawer.Navigator>
   );
 }
-// --- SecuritySetup wrapper to redirect active users ---
-function SecuritySetupWrapper(props) {
-  // Just render SecuritySetup, no user checks here
-  return <SecuritySetup {...props} />;
-}
 
 // --- Login wrapper to redirect active users ---
 function LoginWrapper(props) {
-  const { user } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext);
   const nav = props.navigation;
 
   useEffect(() => {
-    if (user?.status === "active") {
+    if (loading) return; // wait until user is loaded
+    if (!user) {
+      return (
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text>Session expired. Please log in.</Text>
+        </View>
+      );
+    }
+
+    if (user.status !== "active") {
+      return (
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text>Account not active.</Text>
+        </View>
+      );
+    }
+
+    // safe to access user.status now
+    if (user.requiresPasswordChange || user.status === "inactive") {
+      navigation.navigate("SecuritySetup", {
+        email: user.email,
+      });
+    }
+    if (user.status === "active") {
       nav.replace("dashboard");
     }
-  }, [user]);
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return <Login {...props} />;
 }
+
 // --- Stack navigator ---
 function StackNavWrapper() {
   const optionsMain = {
@@ -149,42 +193,36 @@ function StackNavWrapper() {
     ),
   };
 
-  const { user, loading } = useContext(AuthContext);
+  const { loading } = useContext(AuthContext);
 
   if (loading) return null;
 
   return (
-    <Stack.Navigator>
-      {/* Show security setup only for inactive users */}
-      {!user || user.status === "inactive" ? (
-        <Stack.Screen
-          name="securitySetup"
-          component={SecuritySetup}
-          options={optionsMain}
-        />
-      ) : null}
-
-      {/* Show login flow only for users who are active or not logged in */}
-      {!user || user.status === "active" ? (
-        <>
-          <Stack.Screen name="login" component={Login} options={optionsMain} />
-          <Stack.Screen
-            name="forgotPassword"
-            component={ForgotPassword}
-            options={optionsMain}
-          />
-          <Stack.Screen
-            name="resetPassword"
-            component={ResetPassword}
-            options={optionsMain}
-          />
-        </>
-      ) : null}
-
+    <Stack.Navigator initialRouteName="login">
+      <Stack.Screen
+        name="login"
+        component={LoginWrapper}
+        options={optionsMain}
+      />
+      <Stack.Screen
+        name="securitySetup"
+        component={SecuritySetup}
+        options={optionsMain}
+      />
       <Stack.Screen
         name="dashboard"
         component={DrawerNav}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="forgotPassword"
+        component={ForgotPassword}
+        options={optionsMain}
+      />
+      <Stack.Screen
+        name="resetPassword"
+        component={ResetPassword}
+        options={optionsMain}
       />
     </Stack.Navigator>
   );
@@ -209,6 +247,10 @@ export default function App() {
   const theme = {
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
+    icons: {
+      ...DefaultTheme.icons,
+      icon: (props) => <MaterialCommunityIcons {...props} />,
+    },
   };
 
   return (

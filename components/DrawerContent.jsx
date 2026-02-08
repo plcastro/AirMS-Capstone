@@ -14,7 +14,7 @@ const DrawerList = [
     icon: "account-group",
     label: "User Management",
     navigateTo: "User Management",
-    role: ["admin"],
+    role: ["Admin"],
     children: [
       { label: "Manage Users", navigateTo: "User Management" },
       { label: "User Logs", navigateTo: "User Logs" },
@@ -24,7 +24,7 @@ const DrawerList = [
     icon: "book",
     label: "Aircraft Logbook",
     navigateTo: "Flight Logbook",
-    role: ["pilot", "head of maintenance", "manager"],
+    role: ["Pilot", "Head of Maintenance", "Manager"],
     children: [
       { label: "Flight Logbook", navigateTo: "Flight Logbook" },
       { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
@@ -33,7 +33,7 @@ const DrawerList = [
   {
     icon: "account",
     label: "Parts Monitoring",
-    role: ["head of maintenance", "manager"],
+    role: ["Head of Maintenance", "Manager"],
     children: [
       { label: "Parts Monitoring Table", navigateTo: "PartsMonitoring" },
       { label: "Track Maintenance", navigateTo: "TrackMaintenance" },
@@ -43,25 +43,25 @@ const DrawerList = [
     icon: "book",
     label: "Component Inventory",
     navigateTo: "Component Inventory",
-    role: ["head of maintenance", "manager"],
+    role: ["Head of Maintenance", "Manager"],
   },
   {
     icon: "sort",
     label: "Priority Sorting",
     navigateTo: "Priority Sorting",
-    role: ["head of maintenance", "manager"],
+    role: ["Head of Maintenance", "Manager"],
   },
   {
     icon: "chart-arc",
     label: "Report and Analytics",
     navigateTo: "Reports And Analytics",
-    role: ["pilot", "head of maintenance", "manager"],
+    role: ["Pilot", "Head of Maintenance", "Manager"],
   },
   {
     icon: "account",
     label: "My Profile",
     navigateTo: "Profile",
-    role: ["admin", "pilot", "head of maintenance", "manager", "mechanic"],
+    role: ["Admin", "Pilot", "Head of Maintenance", "Manager", "mechanic"],
   },
 ];
 
@@ -81,17 +81,20 @@ function DrawerContent({ navigation }) {
     });
   }, [activeRoute]);
 
-  // Filter drawer items based on user.role only
+  // Filter drawer items based on role and platform
   const filteredDrawerList = DrawerList.filter((item) => {
     const itemRoles = item.role?.map((r) => r.toLowerCase()) || [];
-    if (itemRoles.length && !itemRoles.includes(userRole)) return false;
+    const isRoleAllowed = !itemRoles.length || itemRoles.includes(userRole);
 
-    // Mobile: always show My Profile and permitted items
     if (Platform.OS !== "web") {
-      return item.label === "My Profile" || itemRoles.includes(userRole);
+      // Mobile: only show logbook items or My Profile
+      const isLogbook = item.label === "Aircraft Logbook";
+      const isProfile = item.label === "My Profile";
+      return (isLogbook && isRoleAllowed) || isProfile;
     }
 
-    return true; // Web shows everything for role
+    // Web: show items permitted by role
+    return isRoleAllowed;
   });
 
   const handleLogout = async () => {

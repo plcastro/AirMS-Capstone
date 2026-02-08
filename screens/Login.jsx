@@ -78,12 +78,25 @@ export default function Login() {
 
       const data = await response.json();
       const { user, token, message } = data;
-      if (response.ok) {
-        loginUser(user, rememberMe);
 
-        // Always save token separately
+      if (response.ok) {
+        // --- Check status before login ---
+        if (user.status === "inactive") {
+          // Save user in context but do NOT redirect to dashboard
+          loginUser(user, rememberMe); // context still knows the user
+          await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+          await AsyncStorage.setItem("currentUserToken", token);
+          setMessage("Please complete security setup before logging in.");
+          // Optionally navigate to SecuritySetup
+          navigation.replace("securitySetup");
+          return;
+        }
+
+        // Only active users proceed to dashboard
+        loginUser(user, rememberMe);
         await AsyncStorage.setItem("currentUserToken", token);
-        // Save/remove remembered credentials
+        await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+
         if (rememberMe) {
           await AsyncStorage.setItem("rememberMe", "true");
           await AsyncStorage.setItem(
@@ -99,6 +112,7 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
+
         setLoginSuccess(true);
         setMessage("User logged in successfully");
       } else {
