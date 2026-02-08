@@ -241,7 +241,10 @@ export default function UserManagement() {
         <Picker
           selectedValue={roleFilter}
           onValueChange={(itemValue) => setRoleFilter(itemValue)}
-          style={[styles.filterPicker, { maxWidth: 150, width: "100%" }]}
+          style={[
+            styles.filterPicker,
+            { minWidth: isMobile ? "100%" : 150, width: "100%", maxWidth: 150 },
+          ]}
           mode="dropdown"
         >
           <Picker.Item label="Role" value="All" />
