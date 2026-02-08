@@ -503,6 +503,7 @@ export default function FlightLogVerifyTechnical({
           title="APPROVE LOG"
           message="Are you sure you want to approve log?"
           type="confirm"
+          visible={showApproveConfirm}
           onConfirm={handleConfirmApprove}
           onCancel={handleCancelApprove}
           confirmText="YES"
@@ -524,6 +525,7 @@ export default function FlightLogVerifyTechnical({
           title="CONFIRM LOG"
           message="Are you sure you want to confirm log?"
           type="confirm"
+          visible={showFinalConfirm}
           onConfirm={handleFinalConfirm}
           onCancel={handleCancelFinalConfirm}
           confirmText="CONFIRM"

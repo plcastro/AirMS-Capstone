@@ -19,7 +19,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, role }) {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
-  const isPilot = role === "pilot";
+  const isPilot = role === "Pilot";
   const pages = [
     [
       {
@@ -439,6 +439,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, role }) {
             title="DISCARD LOG"
             message="Are you sure you discard this log?"
             type="confirm"
+            visible={showDiscardConfirm}
             onConfirm={confirmDiscard}
             onCancel={() => setShowDiscardConfirm(false)}
             confirmText="YES"
@@ -452,6 +453,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, role }) {
             title="SUBMIT LOG"
             message="Are you sure you want to submit log?"
             type="confirm"
+            visible={showSaveConfirm}
             onConfirm={confirmSave}
             onCancel={() => setShowSaveConfirm(false)}
             confirmText="YES"

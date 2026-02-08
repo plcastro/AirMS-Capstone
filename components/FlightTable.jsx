@@ -342,6 +342,7 @@ export default function FlightTable({
           title="CONFIRM ACTION"
           message="Are you sure you want to delete this log?"
           type="confirm"
+          visible={showConfirm}
           onConfirm={handleConfirm}
           onCancel={cancelConfirm}
           confirmText="YES"

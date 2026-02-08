@@ -234,6 +234,7 @@ export default function FlightLogEditDefects({
           title="SUBMIT LOG"
           message="Are you sure you want to submit log?"
           type="confirm"
+          visible={showSaveConfirm}
           onConfirm={confirmSave}
           onCancel={() => setShowSaveConfirm(false)}
           confirmText="YES"
