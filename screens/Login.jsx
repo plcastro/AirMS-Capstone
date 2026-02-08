@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -18,7 +19,8 @@ import { API_BASE } from "../utilities/API_BASE";
 
 export default function Login() {
   const nav = useNavigation();
-  const { loginUser, setUser } = useContext(AuthContext);
+  const { loginUser } = useContext(AuthContext);
+  const [pendingUser, setPendingUser] = useState(null);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
@@ -82,14 +84,13 @@ export default function Login() {
           loginUser(user, rememberMe); // context still knows the user
           await AsyncStorage.setItem("currentUser", JSON.stringify(user));
           await AsyncStorage.setItem("currentUserToken", token);
-          setMessage("Please complete security setup before logging in.");
+
           // Optionally navigate to SecuritySetup
           nav.replace("securitySetup");
           return;
         }
 
         // Only active users proceed to dashboard
-        loginUser(user, rememberMe);
         await AsyncStorage.setItem("currentUserToken", token);
         await AsyncStorage.setItem("currentUser", JSON.stringify(user));
 
@@ -108,9 +109,9 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
-
-        setLoginSuccess(true);
+        setPendingUser(user);
         setMessage("User logged in successfully");
+        setLoginSuccess(true);
       } else {
         setMessage(message || "Login failed");
       }
@@ -178,12 +179,16 @@ export default function Login() {
           buttonStyle={styles.button}
           buttonTextStyle={styles.buttonText}
         />
-        {getMessage && loginSuccess && (
+        {loginSuccess && (
           <AlertComp
             title="Success"
+            visible={loginSuccess}
             message={getMessage}
             duration={1500}
-            onFinish={() => nav.replace("dashboard")}
+            onFinish={() => {
+              loginUser(pendingUser, rememberMe);
+              nav.replace("dashboard");
+            }}
             containerStyle={{ alignContent: "center" }}
           />
         )}

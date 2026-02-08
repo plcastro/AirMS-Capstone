@@ -60,7 +60,6 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
     setEmail(user.email || "");
     setUsername(user.username || "");
     setRole(user.role || "");
-    setAccessLevel(user.accessLevel || "");
   }, [user]);
 
   // Check if form has changed
@@ -314,6 +313,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
 
       {showConfirm && (
         <AlertComp
+          visible={showConfirm}
           title="SAVE CHANGES"
           message={confirmMessage}
           type="confirm"

@@ -225,7 +225,7 @@ export const styles = StyleSheet.create({
     width: 750,
   },
   searchInput: {
-    width: 250,
+    width: 300,
     backgroundColor: "#f7f6f6",
     borderColor: "#CCCCCC",
     borderWidth: 1,

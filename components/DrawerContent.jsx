@@ -8,7 +8,8 @@ import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
 import { AuthContext } from "../Context/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE } from "../utilities/API_BASE";
+
+import AlertComp from "./AlertComp";
 
 const DrawerList = [
   {
@@ -70,6 +71,8 @@ function DrawerContent({ navigation }) {
   const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
   const userRole = user?.role?.toLowerCase(); // normalize role
+  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
+
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
@@ -101,6 +104,10 @@ function DrawerContent({ navigation }) {
 
   const handleLogout = async () => {
     try {
+      const API_BASE =
+        Platform.OS === "android"
+          ? "http://10.0.2.2:8000"
+          : "http://localhost:8000";
       const token = await AsyncStorage.getItem("currentUserToken");
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {
@@ -218,9 +225,23 @@ function DrawerContent({ navigation }) {
             <Icon name="exit-to-app" color={color} size={size} />
           )}
           label="Log Out"
-          onPress={handleLogout}
+          onPress={() => setShowLogoutAlert(true)}
         />
       </View>
+      {showLogoutAlert && (
+        <AlertComp
+          visible={showLogoutAlert}
+          title="Confirm Logout"
+          message="Are you sure you want to log out?"
+          confirmText="Log Out"
+          cancelText="Cancel"
+          onConfirm={() => {
+            setShowLogoutAlert(false);
+            handleLogout();
+          }}
+          onCancel={() => setShowLogoutAlert(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -1,66 +1,59 @@
-import React, { useEffect, useState } from "react";
-import { Modal, View, Text, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, Modal, TouchableOpacity } from "react-native";
 import { styles } from "../stylesheets/styles";
 
 export default function AlertComp({
+  visible,
   title,
   message,
-  type = "alert",
-  duration = 1500,
+  duration,
+  onFinish,
   onConfirm,
   onCancel,
-  onFinish,
-  confirmText = "YES",
-  cancelText = "CANCEL",
-  containerStyle = {}, // <-- add this
+  confirmText = "OK",
+  cancelText = "Cancel",
 }) {
-  const [visible, setVisible] = useState(true);
-
+  // Auto-close alert (used for success alerts)
   useEffect(() => {
-    if (type === "alert" && message) {
-      const timer = setTimeout(() => {
-        setVisible(false);
-        if (onFinish) onFinish();
-      }, duration);
-      return () => clearTimeout(timer);
-    }
-  }, [message, type, duration, onFinish]);
+    if (!duration || !visible) return;
 
-  const handleConfirm = () => {
-    setVisible(false);
-    if (onConfirm) onConfirm();
-  };
+    const timer = setTimeout(() => {
+      onFinish?.();
+    }, duration);
 
-  const handleCancel = () => {
-    setVisible(false);
-    if (onCancel) onCancel();
-  };
+    return () => clearTimeout(timer);
+  }, [visible, duration]);
 
   if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none">
-      <View style={[styles.alertOverlay, containerStyle]}>
+    <Modal transparent animationType="fade" visible={visible}>
+      <View style={styles.alertOverlay}>
         <View style={styles.alertContainer}>
-          <Text style={styles.alertTitle}>{title}</Text>
-          <Text style={styles.alertMessage}>{message}</Text>
+          {title && <Text style={styles.alertTitle}>{title}</Text>}
+          {message && <Text style={styles.alertMessage}>{message}</Text>}
 
-          {type === "confirm" ? (
+          {(onConfirm || onCancel) && (
             <View style={styles.alertButtonRow}>
-              <TouchableOpacity
-                style={styles.alertConfirmBtn}
-                onPress={handleConfirm}
-              >
-                <Text style={styles.alertConfirmBtnText}>{confirmText}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.alertCancelBtn}
-                onPress={handleCancel}
-              >
-                <Text style={styles.alertCancelBtnText}>{cancelText}</Text>
-              </TouchableOpacity>
+              {onCancel && (
+                <TouchableOpacity
+                  style={styles.alertCancelBtn}
+                  onPress={onCancel}
+                >
+                  <Text style={styles.alertCancelBtnText}>{cancelText}</Text>
+                </TouchableOpacity>
+              )}
+
+              {onConfirm && (
+                <TouchableOpacity
+                  style={styles.alertConfirmBtn}
+                  onPress={onConfirm}
+                >
+                  <Text style={styles.alertConfirmBtnText}>{confirmText}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          ) : null}
+          )}
         </View>
       </View>
     </Modal>
