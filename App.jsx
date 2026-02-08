@@ -33,7 +33,6 @@ function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
-  console.log(user);
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -131,42 +130,29 @@ function DrawerNav() {
 }
 
 // --- Login wrapper to redirect active users ---
-function LoginWrapper(props) {
+function LoginWrapper({ navigation, ...props }) {
   const { user, loading } = useContext(AuthContext);
-  const nav = props.navigation;
 
   useEffect(() => {
     if (loading) return; // wait until user is loaded
-    if (!user) {
-      return (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <Text>Session expired. Please log in.</Text>
-        </View>
-      );
+    if (!user) return; // not logged in, stay on login
+
+    if (user.status === "deactivated") {
+      // Optionally show message on login screen
+      return;
     }
 
-    if (user.status !== "active") {
-      return (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <Text>Account not active.</Text>
-        </View>
-      );
+    // If inactive, proceed to SecuritySetup
+    if (user.status === "inactive" || user.requiresPasswordChange) {
+      navigation.navigate("SecuritySetup", { email: user.email });
+      return;
     }
 
-    // safe to access user.status now
-    if (user.requiresPasswordChange || user.status === "inactive") {
-      navigation.navigate("SecuritySetup", {
-        email: user.email,
-      });
-    }
+    // If active and no password change required, go to dashboard
     if (user.status === "active") {
-      nav.replace("dashboard");
+      navigation.replace("dashboard");
     }
-  }, [user, loading]);
+  }, [user, loading, navigation]);
 
   if (loading) {
     return (

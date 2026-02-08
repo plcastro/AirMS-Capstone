@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { CommonActions } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { View, Image, Platform } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
@@ -66,6 +66,7 @@ const DrawerList = [
 ];
 
 function DrawerContent({ navigation }) {
+  const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
   const userRole = user?.role?.toLowerCase(); // normalize role
   const activeRoute =
@@ -103,17 +104,20 @@ function DrawerContent({ navigation }) {
         Platform.OS === "android"
           ? "http://10.0.2.2:8000"
           : "http://localhost:8000";
-      await fetch(`${API_BASE}/api/user/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${await AsyncStorage.getItem(
-            "currentUserToken",
-          )}`,
-        },
-      });
+
+      const token = await AsyncStorage.getItem("currentUserToken");
+      if (token) {
+        await fetch(`${API_BASE}/api/user/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
 
       await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
+
       const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
       if (rememberMeFlag === "false" || rememberMeFlag === null) {
         await AsyncStorage.multiRemove([
@@ -122,7 +126,7 @@ function DrawerContent({ navigation }) {
         ]);
         await AsyncStorage.setItem("rememberMe", "false");
       }
-
+      nav.replace("login");
       logoutUser();
     } catch (err) {
       console.error("Error logging out:", err);

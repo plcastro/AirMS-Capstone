@@ -5,14 +5,15 @@ import { styles } from "../stylesheets/styles";
 export default function AlertComp({
   title,
   message,
-  type = "alert",
-  duration = 1500,
+  type = "alert", // alert | confirm
+  alertType = "alert", // alert style: alert | success | error
+  duration,
   onConfirm,
   onCancel,
   onFinish,
   confirmText = "YES",
   cancelText = "CANCEL",
-  containerStyle = {}, // <-- add this
+  containerStyle = {},
 }) {
   const [visible, setVisible] = useState(true);
 
@@ -22,8 +23,10 @@ export default function AlertComp({
         setVisible(false);
         if (onFinish) onFinish();
       }, duration);
-      return () => clearTimeout(timer);
+
+      return () => clearTimeout(timer); // cleanup
     }
+    return () => {}; // <-- always return a function
   }, [message, type, duration, onFinish]);
 
   const handleConfirm = () => {
@@ -38,14 +41,24 @@ export default function AlertComp({
 
   if (!visible) return null;
 
-  return (
-    <Modal transparent visible={visible} animationType="none">
-      <View style={[styles.alertOverlay, containerStyle]}>
-        <View style={styles.alertContainer}>
-          <Text style={styles.alertTitle}>{title}</Text>
-          <Text style={styles.alertMessage}>{message}</Text>
+  // Color based on alertType
+  const backgroundColor =
+    alertType === "success"
+      ? "#28a745"
+      : alertType === "error"
+        ? "#dc3545"
+        : alertType === "warning"
+          ? "#cca805"
+          : "#26866F"; // default alert color
 
-          {type === "confirm" ? (
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={[styles.alertOverlay, containerStyle]}>
+        <View style={[styles.alertContainer, { backgroundColor }]}>
+          {title ? <Text style={styles.alertTitle}>{title}</Text> : null}
+          {message ? <Text style={styles.alertMessage}>{message}</Text> : null}
+
+          {type === "confirm" && (
             <View style={styles.alertButtonRow}>
               <TouchableOpacity
                 style={styles.alertConfirmBtn}
@@ -60,7 +73,7 @@ export default function AlertComp({
                 <Text style={styles.alertCancelBtnText}>{cancelText}</Text>
               </TouchableOpacity>
             </View>
-          ) : null}
+          )}
         </View>
       </View>
     </Modal>

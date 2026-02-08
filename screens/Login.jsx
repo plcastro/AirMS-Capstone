@@ -186,9 +186,15 @@ export default function Login() {
           <AlertComp
             title="Success"
             message={getMessage}
-            duration={1500}
+            type="alert"
+            alertType="success"
+            duration={2500}
             onFinish={() => nav.replace("dashboard")}
-            containerStyle={{ alignContent: "center" }}
+            containerStyle={{
+              justifyContent: "center",
+              alignItems: "center",
+              flex: 1,
+            }}
           />
         )}
       </View>
