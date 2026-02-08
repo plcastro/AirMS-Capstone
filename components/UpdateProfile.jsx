@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../utilities/API_BASE";
 
 export default function UpdateProfile({ visible, onClose }) {
+  const isMobile = Platform.OS !== "web";
   const { user, loginUser, setUser } = useContext(AuthContext);
   const fileInputRef = useRef(null);
   /* ---------------- STATE ---------------- */
@@ -263,7 +264,9 @@ export default function UpdateProfile({ visible, onClose }) {
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.alertOverlay}>
-        <View style={[styles.alertContainer, { width: 500 }]}>
+        <View
+          style={[styles.alertContainer, { width: isMobile ? "100%" : 600 }]}
+        >
           <ScrollView contentContainerStyle={{ padding: 10 }}>
             {/* IMAGE PICKER */}
             <View style={{ alignItems: "center", marginBottom: 15 }}>
