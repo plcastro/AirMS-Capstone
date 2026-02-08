@@ -8,7 +8,6 @@ import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
 import { AuthContext } from "../Context/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import AlertComp from "./AlertComp";
 import { API_BASE } from "../utilities/API_BASE";
 
@@ -46,19 +45,19 @@ const DrawerList = [
     icon: "book",
     label: "Component Inventory",
     navigateTo: "Component Inventory",
-    role: ["Head of Maintenance", "Manager"],
+    role: ["Head of Maintenance"],
   },
   {
     icon: "sort",
     label: "Priority Sorting",
     navigateTo: "Priority Sorting",
-    role: ["Head of Maintenance", "Manager"],
+    role: ["Head of Maintenance"],
   },
   {
     icon: "chart-arc",
     label: "Report and Analytics",
     navigateTo: "Reports And Analytics",
-    role: ["Pilot", "Head of Maintenance", "Manager"],
+    role: ["Head of Maintenance", "Manager"],
   },
   {
     icon: "account",
@@ -71,14 +70,14 @@ const DrawerList = [
 function DrawerContent({ navigation }) {
   const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
-  const userRole = user?.role?.toLowerCase(); // normalize role
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
 
+  const userRole = user?.role?.toLowerCase(); // normalize role
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
-  const [openMenu, setOpenMenu] = useState(null);
-
+  // Track which parent menu is open
   useEffect(() => {
     DrawerList.forEach((item) => {
       if (item.children?.some((c) => c.navigateTo === activeRoute)) {
@@ -86,22 +85,6 @@ function DrawerContent({ navigation }) {
       }
     });
   }, [activeRoute]);
-
-  // Filter drawer items based on role and platform
-  const filteredDrawerList = DrawerList.filter((item) => {
-    const itemRoles = item.role?.map((r) => r.toLowerCase()) || [];
-    const isRoleAllowed = !itemRoles.length || itemRoles.includes(userRole);
-
-    if (Platform.OS !== "web") {
-      // Mobile: only show logbook items or My Profile
-      const isLogbook = item.label === "Aircraft Logbook";
-      const isProfile = item.label === "My Profile";
-      return (isLogbook && isRoleAllowed) || isProfile;
-    }
-
-    // Web: show items permitted by role
-    return isRoleAllowed;
-  });
 
   const handleLogout = async () => {
     try {
@@ -117,20 +100,56 @@ function DrawerContent({ navigation }) {
       }
 
       await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
-
       const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
-      if (rememberMeFlag === "false" || rememberMeFlag === null) {
+
+      if (!rememberMeFlag || rememberMeFlag === "false") {
         await AsyncStorage.multiRemove([
           "rememberedIdentifier",
           "rememberedPassword",
         ]);
         await AsyncStorage.setItem("rememberMe", "false");
       }
-      nav.replace("login");
+
       logoutUser();
+      nav.replace("login");
     } catch (err) {
       console.error("Error logging out:", err);
     }
+  };
+
+  // Role-based filtering
+  const isItemVisible = (item) => {
+    const itemRoles = item.role?.map((r) => r.toLowerCase()) || [];
+    if (!itemRoles.length) return true;
+    return itemRoles.includes(userRole);
+  };
+
+  const getChildren = (item) => {
+    if (!item.children) return [];
+
+    return item.children
+      .filter((child) => {
+        switch (userRole) {
+          case "Pilot":
+            return child.label === "Flight Logbook"; // ONLY flight log
+          case "Head of Maintenance":
+          case "Manager":
+            return (
+              child.label === "Flight Logbook" ||
+              child.label === "Maintenance Logbook"
+            );
+          default:
+            return true; // Admin, Mechanic see all allowed
+        }
+      })
+      .map((child) => {
+        return {
+          ...child,
+          readOnly:
+            (userRole === "Head of Maintenance" || userRole === "Manager") &&
+            child.label === "Flight Logbook",
+        };
+      });
   };
 
   return (
@@ -138,11 +157,16 @@ function DrawerContent({ navigation }) {
       <DrawerContentScrollView>
         <Image
           source={AirMSWeb}
-          style={{ width: 150, height: 50, alignSelf: "center" }}
+          style={{
+            width: 150,
+            height: 50,
+            alignSelf: "center",
+            marginBottom: 10,
+          }}
         />
 
         <View style={styles.drawerSection}>
-          {filteredDrawerList.map((item, index) => {
+          {DrawerList.filter(isItemVisible).map((item, index) => {
             const isActive =
               (!item.children && item.navigateTo === activeRoute) ||
               (item.children &&
@@ -182,34 +206,38 @@ function DrawerContent({ navigation }) {
                   }}
                 />
 
-                {item.children && openMenu === item.label && (
-                  <View>
-                    {item.children.map((child, i) => {
-                      const childActive = activeRoute === child.navigateTo;
-                      return (
-                        <DrawerItem
-                          key={i}
-                          label={child.label}
-                          focused={childActive}
-                          style={{
-                            backgroundColor: childActive
-                              ? "#26866F"
-                              : "transparent",
-                            borderRadius: 0,
-                          }}
-                          labelStyle={{ color: childActive ? "#fff" : "#777" }}
-                          onPress={() =>
+                {item.children &&
+                  openMenu === item.label &&
+                  getChildren(item).map((child, i) => {
+                    const childActive = activeRoute === child.navigateTo;
+                    return (
+                      <DrawerItem
+                        key={i}
+                        label={
+                          child.readOnly
+                            ? `${child.label} (Read-only)`
+                            : child.label
+                        }
+                        focused={childActive}
+                        style={{
+                          backgroundColor: childActive
+                            ? "#26866F"
+                            : "transparent",
+                          borderRadius: 0,
+                        }}
+                        labelStyle={{ color: childActive ? "#fff" : "#777" }}
+                        onPress={() => {
+                          if (!child.readOnly) {
                             navigation.dispatch(
                               CommonActions.navigate({
                                 name: child.navigateTo,
                               }),
-                            )
+                            );
                           }
-                        />
-                      );
-                    })}
-                  </View>
-                )}
+                        }}
+                      />
+                    );
+                  })}
               </View>
             );
           })}
@@ -225,6 +253,7 @@ function DrawerContent({ navigation }) {
           onPress={() => setShowLogoutAlert(true)}
         />
       </View>
+
       {showLogoutAlert && (
         <AlertComp
           visible={showLogoutAlert}
