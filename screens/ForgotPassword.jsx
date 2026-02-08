@@ -8,6 +8,8 @@ import {
 import React, { useState } from "react";
 import { styles } from "../stylesheets/styles";
 import Button from "../components/Button";
+import { API_BASE } from "../utilities/API_BASE";
+
 export default function ForgotPassword() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -24,11 +26,6 @@ export default function ForgotPassword() {
   };
   const sendOTPEmail = async () => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
       const users = await response.json();
       const emailTaken = users.some((user) => user.email === email.trim());

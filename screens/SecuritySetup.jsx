@@ -11,15 +11,11 @@ import Button from "../components/Button";
 import AlertComp from "../components/AlertComp";
 import { styles } from "../stylesheets/styles";
 import { AuthContext } from "../Context/AuthContext";
-
+import { API_BASE } from "../utilities/API_BASE";
 export default function SecuritySetup() {
   const nav = useNavigation();
   const route = useRoute();
   const { user } = useContext(AuthContext);
-  const API_BASE =
-    Platform.OS === "android"
-      ? "http://10.0.2.2:8000"
-      : "http://localhost:8000";
 
   // --- Get info from login redirect ---
   const email = user?.email || ""; // always from login context

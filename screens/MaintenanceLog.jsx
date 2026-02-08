@@ -6,7 +6,7 @@ import MaintenanceNewEntry from "../components/MaintenanceNewEntry";
 import MaintenanceEditEntry from "../components/MaintenanceEditEntry";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
-
+import { API_BASE } from "../utilities/API_BASE";
 export default function MaintenanceLog() {
   const [allEntries, setAllEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);

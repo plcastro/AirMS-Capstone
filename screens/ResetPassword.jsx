@@ -11,6 +11,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../components/Button";
+import { API_BASE } from "../utilities/API_BASE";
 export default function ResetPassword() {
   const nav = useNavigation();
   const [newPassword, setNewPassword] = useState("");

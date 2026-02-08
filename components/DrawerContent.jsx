@@ -8,6 +8,7 @@ import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
 import { AuthContext } from "../Context/AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE } from "../utilities/API_BASE";
 
 const DrawerList = [
   {
@@ -100,11 +101,6 @@ function DrawerContent({ navigation }) {
 
   const handleLogout = async () => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const token = await AsyncStorage.getItem("currentUserToken");
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {

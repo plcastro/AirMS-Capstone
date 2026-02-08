@@ -1,0 +1,14 @@
+// config.js
+import { Platform } from "react-native";
+
+// Define your URLs here
+const localUrl = "http://localhost:8000";
+const androidEmulatorUrl = "http://10.0.2.2:8000";
+const productionUrl = "https://your-api-domain.com";
+
+export const API_BASE = Platform.select({
+  ios: localUrl,
+  android: androidEmulatorUrl,
+  // Use production URL if in a production build, else local
+  default: __DEV__ ? localUrl : productionUrl,
+});

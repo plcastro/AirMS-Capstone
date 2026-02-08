@@ -14,6 +14,7 @@ import Button from "../components/Button";
 import CheckBox from "../components/CheckBox";
 import AlertComp from "../components/AlertComp";
 import { AuthContext } from "../Context/AuthContext";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function Login() {
   const nav = useNavigation();
@@ -23,7 +24,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const [alertVisible, setAlertVisible] = useState(false);
+
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -65,11 +66,6 @@ export default function Login() {
 
   const login = async () => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +111,6 @@ export default function Login() {
 
         setLoginSuccess(true);
         setMessage("User logged in successfully");
-        setAlertVisible(true);
       } else {
         setMessage(message || "Login failed");
       }
@@ -128,81 +123,71 @@ export default function Login() {
   const goToForgotPassword = () => nav.navigate("forgotPassword");
 
   return (
-    <>
-      <KeyboardAvoidingView
-        style={styles.formCard}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        enabled
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.headerText}>Login</Text>
-          <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-            Please enter your credentials
-          </Text>
-          <TextInput
-            style={styles.formInput}
-            maxLength={50}
-            placeholder="Username or Email"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            keyboardType="default"
-            value={formData.identifier}
-            onChangeText={(text) => changeHandler("identifier", text)}
-          />
-          <TextInput
-            style={styles.formInput}
-            maxLength={50}
-            placeholder="Password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            secureTextEntry
-            keyboardType="default"
-            value={formData.password}
-            onChangeText={(text) => changeHandler("password", text)}
-          />
-          {getMessage && !loginSuccess && (
-            <Text style={styles.error}>{getMessage}</Text>
-          )}
-          <View style={styles.loginHelper}>
-            <CheckBox
-              title="Remember me"
-              checkboxStyle={styles.checkBox}
-              value={rememberMe} // controlled value
-              onValueChange={setRememberMe}
-            />
-            <View style={styles.forgotPassLink}>
-              <Button
-                onPress={goToForgotPassword}
-                label="Forgot Password?"
-                buttonTextStyle={{ color: "#555555" }}
-              />
-            </View>
-          </View>
-          <Button
-            onPress={validate}
-            label="Login"
-            buttonStyle={styles.button}
-            buttonTextStyle={styles.buttonText}
-          />
-        </View>
-      </KeyboardAvoidingView>
-      {alertVisible && (
-        <AlertComp
-          title="Success"
-          message={getMessage}
-          type="alert"
-          duration={1500}
-          onFinish={() => {
-            setAlertVisible(false); // hide alert
-            nav.replace("dashboard");
-          }}
-          containerStyle={{
-            justifyContent: "center",
-            alignItems: "center",
-            flex: 1,
-          }}
+    <KeyboardAvoidingView
+      style={styles.formCard}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      enabled
+    >
+      <View style={styles.formContainer}>
+        <Text style={styles.headerText}>Login</Text>
+        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
+          Please enter your credentials
+        </Text>
+        <TextInput
+          style={styles.formInput}
+          maxLength={100}
+          placeholder="Username or Email"
+          placeholderTextColor="gray"
+          autoCapitalize="none"
+          keyboardType="default"
+          value={formData.identifier}
+          onChangeText={(text) => changeHandler("identifier", text)}
         />
-      )}
-    </>
+        <TextInput
+          style={styles.formInput}
+          maxLength={100}
+          placeholder="Password"
+          placeholderTextColor="gray"
+          autoCapitalize="none"
+          secureTextEntry
+          keyboardType="default"
+          value={formData.password}
+          onChangeText={(text) => changeHandler("password", text)}
+        />
+        {getMessage && !loginSuccess && (
+          <Text style={styles.error}>{getMessage}</Text>
+        )}
+        <View style={styles.loginHelper}>
+          <CheckBox
+            title="Remember me"
+            checkboxStyle={styles.checkBox}
+            value={rememberMe} // controlled value
+            onValueChange={setRememberMe}
+          />
+          <View style={styles.forgotPassLink}>
+            <Button
+              onPress={goToForgotPassword}
+              label="Forgot Password?"
+              buttonTextStyle={{ color: "#555555" }}
+            />
+          </View>
+        </View>
+        <Button
+          onPress={validate}
+          label="Login"
+          buttonStyle={styles.button}
+          buttonTextStyle={styles.buttonText}
+        />
+        {getMessage && loginSuccess && (
+          <AlertComp
+            title="Success"
+            message={getMessage}
+            duration={1500}
+            onFinish={() => nav.replace("dashboard")}
+            containerStyle={{ alignContent: "center" }}
+          />
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }

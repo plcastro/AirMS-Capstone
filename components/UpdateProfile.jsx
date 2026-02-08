@@ -15,15 +15,11 @@ import AlertComp from "./AlertComp";
 import { AuthContext } from "../Context/AuthContext";
 import { launchImageLibrary } from "react-native-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function UpdateProfile({ visible, onClose }) {
   const { user, loginUser, setUser } = useContext(AuthContext);
   const fileInputRef = useRef(null);
-  const API_BASE =
-    Platform.OS === "android"
-      ? "http://10.0.2.2:8000"
-      : "http://localhost:8000";
-
   /* ---------------- STATE ---------------- */
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
@@ -247,11 +243,6 @@ export default function UpdateProfile({ visible, onClose }) {
   const logAudit = async (action, details) => {
     if (!user?.token) return;
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       await fetch(`${API_BASE}/api/audit-log`, {
         method: "POST",
         headers: {

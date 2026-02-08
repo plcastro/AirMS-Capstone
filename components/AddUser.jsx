@@ -12,6 +12,7 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
 
 import AlertComp from "./AlertComp";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function AddUser({ visible, onClose, onUserAdded }) {
   const [firstName, setFirstName] = useState("");
@@ -71,10 +72,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
       return false;
     }
 
-    const API_BASE =
-      Platform.OS === "android"
-        ? "http://10.0.2.2:8000"
-        : "http://localhost:8000";
     try {
       const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
       const data = await response.json();
@@ -103,11 +100,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
   };
 
   const handleConfirmSave = async () => {
-    const API_BASE =
-      Platform.OS === "android"
-        ? "http://10.0.2.2:8000"
-        : "http://localhost:8000";
-
     const tempPassword = Math.random().toString(36).slice(-8);
 
     const formData = new FormData();
@@ -234,6 +226,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
             <View style={styles.formRow}>
               <Text style={styles.label}>First Name:</Text>
               <TextInput
+                maxLength={50}
                 style={styles.input}
                 value={firstName}
                 onChangeText={setFirstName}
@@ -243,6 +236,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
             <View style={styles.formRow}>
               <Text style={styles.label}>Last Name:</Text>
               <TextInput
+                maxLength={50}
                 style={styles.input}
                 value={lastName}
                 onChangeText={setLastName}
@@ -252,6 +246,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
             <View style={styles.formRow}>
               <Text style={styles.label}>Email:</Text>
               <TextInput
+                maxLength={100}
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
@@ -262,6 +257,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
             <View style={styles.formRow}>
               <Text style={styles.label}>Username:</Text>
               <TextInput
+                maxLength={30}
                 style={styles.input}
                 value={username}
                 onChangeText={setUsername}

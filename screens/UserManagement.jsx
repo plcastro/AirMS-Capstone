@@ -8,6 +8,7 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../stylesheets/styles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import useResponsiveWeb from "../Layout/useResponsiveWeb";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function UserManagement() {
   const isMobile = Platform.OS !== "web";
@@ -80,11 +81,6 @@ export default function UserManagement() {
   }, []);
   const fetchUsers = async () => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
       const json = await response.json();
 
@@ -146,11 +142,6 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(
         `${API_BASE}/api/user/updateUserStatus/${user._id}`,
         {
@@ -177,11 +168,6 @@ export default function UserManagement() {
 
   const handleReactivateUser = async (user) => {
     try {
-      const API_BASE =
-        Platform.OS === "android"
-          ? "http://10.0.2.2:8000"
-          : "http://localhost:8000";
-
       const response = await fetch(
         `${API_BASE}/api/user/updateUserStatus/${user._id}`,
         {

@@ -9,6 +9,7 @@ import FlightLogVerifyTechnical from "../components/FlightLogVerifyTechnical";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../Context/AuthContext";
 import FlightEntry from "../components/FlightLogEntry";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
