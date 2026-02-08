@@ -29,7 +29,7 @@ export default function FlightLog() {
 
   //sets default active tab based on user role
   useEffect(() => {
-    if (user?.role === "pilot") {
+    if (user?.role === "Pilot") {
       setActiveTab("Defects");
     } else {
       setActiveTab("TechnicalLog");

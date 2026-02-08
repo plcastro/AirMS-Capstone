@@ -117,7 +117,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error(err);
-      setMessage("Something went wrong");
+      setMessage("Too many login attempts. Try again later");
     }
   };
 
