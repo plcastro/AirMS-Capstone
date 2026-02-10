@@ -21,13 +21,13 @@ export const AuthProvider = ({ children }) => {
 
         if (savedUser) {
           const parsed = JSON.parse(savedUser);
-          // normalize role and access
+          // normalize position and access
           setUser({
             ...parsed,
-            role: parsed.role?.toLowerCase() || "user",
+            position: parsed.position?.toLowerCase() || "user",
             access:
               parsed.access?.toLowerCase() ||
-              parsed.role?.toLowerCase() ||
+              parsed.position?.toLowerCase() ||
               "user",
           });
         }
@@ -43,10 +43,10 @@ export const AuthProvider = ({ children }) => {
   const loginUser = async (userData, rememberMe = false) => {
     const normalizedUser = {
       ...userData,
-      role: userData.role?.toLowerCase() || "user",
+      position: userData.position?.toLowerCase() || "user",
       access:
         userData.access?.toLowerCase() ||
-        userData.role?.toLowerCase() ||
+        userData.position?.toLowerCase() ||
         "user",
     };
 

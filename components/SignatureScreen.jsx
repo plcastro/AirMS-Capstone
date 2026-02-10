@@ -58,7 +58,6 @@ const SignatureScreen = () => {
         penColor="#000000"
         backgroundColor="rgba(255,255,255,0)"
         webviewProps={{
-          // Custom WebView optimization
           cacheEnabled: true,
           androidLayerType: "hardware",
         }}

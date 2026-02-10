@@ -1,23 +1,19 @@
 import React, { useContext } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { AuthContext } from "../Context/AuthContext";
-import DashboardHeader from "../components/DashboardHeader";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Screens you might render
-
-import PartsMonitoring from "../screens/PartsMonitoring";
-import FlightLog from "../screens/FlightLog";
-import UserManagement from "../screens/UserManagement";
+import FlightLog from "../screens/Main/FlightLog";
+import UserManagement from "../screens/Admin/UserManagement";
 import Profile from "../screens/Profile";
-// Props: pass children if you want to render any screen inside this layout
+
 export default function Dashboard({ children }) {
   const { user } = useContext(AuthContext);
   if (!user) return null; // loader if needed
-  console.log(user.role);
-  // Role-based dashboard content
+  console.log(user.position);
+  // Position-based dashboard content
   const renderMainModule = () => {
-    switch (user.role) {
+    switch (user.position) {
       case "Admin":
         return <UserManagement />;
       case "Pilot":

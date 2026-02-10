@@ -11,19 +11,25 @@ import {
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 
-import Login from "./screens/Login";
-import ForgotPassword from "./screens/ForgotPassword";
-import ResetPassword from "./screens/ResetPassword";
-import SecuritySetup from "./screens/SecuritySetup";
+import Login from "./screens/Auth/Login";
+import ForgotPassword from "./screens/Auth/ForgotPassword";
+import ResetPassword from "./screens/Auth/ResetPassword";
+import SecuritySetup from "./screens/Auth/SecuritySetup";
+
 import Dashboard from "./Layout/Dashboard";
 import Profile from "./screens/Profile";
-import PartsMonitoring from "./screens/PartsMonitoring";
-import UserManagement from "./screens/UserManagement";
-import UserLogs from "./screens/UserLogs";
-import FlightLog from "./screens/FlightLog";
-import MaintenanceLog from "./screens/MaintenanceLog";
+
+import UserManagement from "./screens/Admin/UserManagement";
+import UserLogs from "./screens/Admin/UserLogs";
+
+import FlightLog from "./screens/Main/FlightLog";
+import MaintenanceLog from "./screens/Main/MaintenanceLog";
+import PartsMonitoring from "./screens/Main/PartsMonitoring";
+
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
+import LinkingConfig from "./utilities/LinkingConfig";
+import { API_BASE } from "./utilities/API_BASE";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -31,6 +37,13 @@ const Drawer = createDrawerNavigator();
 // --- Drawer navigator ---
 function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
+
+  const profileImage =
+    user.image && typeof user.image === "string"
+      ? user.image.startsWith("http")
+        ? user.image
+        : `${API_BASE}${user.image}`
+      : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
   if (loading) {
@@ -67,7 +80,7 @@ function DrawerNav() {
             >
               <Image
                 source={{
-                  uri: user.image,
+                  uri: profileImage,
                 }}
                 style={{
                   width: 40,
@@ -82,7 +95,7 @@ function DrawerNav() {
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#777" }}>
-                    {user?.role || ""}
+                    {user?.position || ""}
                   </Text>
                 </View>
               )}
@@ -91,40 +104,24 @@ function DrawerNav() {
         ),
       })}
     >
-      {user.role === "admin" && (
-        <>
-          <Drawer.Screen
-            name="User Management"
-            component={wrapWithDashboard(UserManagement)}
-          />
-          <Drawer.Screen
-            name="User Logs"
-            component={wrapWithDashboard(UserLogs)}
-          />
-        </>
-      )}
-
-      {["pilot", "head of maintenance", "manager"].includes(user.role) && (
-        <>
-          <Drawer.Screen
-            name="Flight Logbook"
-            component={wrapWithDashboard(FlightLog)}
-          />
-          <Drawer.Screen
-            name="Maintenance Logbook"
-            component={wrapWithDashboard(MaintenanceLog)}
-          />
-        </>
-      )}
-
+      <Drawer.Screen
+        name="User Management"
+        component={wrapWithDashboard(UserManagement)}
+      />
+      <Drawer.Screen name="User Logs" component={wrapWithDashboard(UserLogs)} />
+      <Drawer.Screen
+        name="Flight Logbook"
+        component={wrapWithDashboard(FlightLog)}
+      />
+      <Drawer.Screen
+        name="Maintenance Logbook"
+        component={wrapWithDashboard(MaintenanceLog)}
+      />
+      <Drawer.Screen
+        name="Parts Monitoring"
+        component={wrapWithDashboard(PartsMonitoring)}
+      />
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
-
-      {["head of maintenance", "manager"].includes(user.role) && (
-        <Drawer.Screen
-          name="Parts Monitoring"
-          component={wrapWithDashboard(PartsMonitoring)}
-        />
-      )}
     </Drawer.Navigator>
   );
 }
@@ -134,21 +131,18 @@ function LoginWrapper({ navigation, ...props }) {
   const { user, loading } = useContext(AuthContext);
 
   useEffect(() => {
-    if (loading) return; // wait until user is loaded
-    if (!user) return; // not logged in, stay on login
+    if (loading) return;
+    if (!user) return;
 
     if (user.status === "deactivated") {
-      // Optionally show message on login screen
       return;
     }
 
-    // If inactive, proceed to SecuritySetup
-    if (user.status === "inactive" || user.requiresPasswordChange) {
-      navigation.navigate("SecuritySetup", { email: user.email });
+    if (user.status === "inactive") {
+      navigation.navigate("securitySetup", { email: user.email });
       return;
     }
 
-    // If active and no password change required, go to dashboard
     if (user.status === "active") {
       navigation.replace("dashboard");
     }
@@ -214,22 +208,8 @@ function StackNavWrapper() {
   );
 }
 
-// --- Linking config ---
-const linking = {
-  prefixes: ["myapp://", "http://localhost:8081", "https://yourdomain.com"],
-  config: {
-    screens: {
-      securitySetup: "security-setup",
-      dashboard: "dashboard",
-      login: "login",
-      forgotPassword: "forgotPassword",
-      resetPassword: "resetPassword",
-    },
-  },
-};
-
-// --- Main App ---
 export default function App() {
+  const linking = LinkingConfig;
   const theme = {
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },

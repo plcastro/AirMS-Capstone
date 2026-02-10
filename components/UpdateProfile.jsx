@@ -8,6 +8,7 @@ import {
   Platform,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { styles } from "../stylesheets/styles";
 import Button from "./Button";
@@ -19,19 +20,30 @@ import { API_BASE } from "../utilities/API_BASE";
 
 export default function UpdateProfile({ visible, onClose }) {
   const isMobile = Platform.OS !== "web";
-  const { user, loginUser, setUser } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const fileInputRef = useRef(null);
+  const { image } = user;
+
+  const profileImage =
+    image && typeof image === "string"
+      ? image.startsWith("http")
+        ? image
+        : `${API_BASE}${image}`
+      : `${API_BASE}/uploads/default_avatar.jpg`;
+
   /* ---------------- STATE ---------------- */
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
   });
-  const [file, setFile] = useState(user?.image ? { uri: user.image } : null);
+  const [file, setFile] = useState(user?.image ? { uri: profileImage } : null);
   const [fileName, setFileName] = useState(file ? "Current Image" : "");
+  const [previewUri, setPreviewUri] = useState(profileImage);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [formErrors, setFormErrors] = useState({});
+  const [errorMessage, setErrorMessage] = useState("");
   const [alertVisible, setAlertVisible] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
@@ -40,12 +52,24 @@ export default function UpdateProfile({ visible, onClose }) {
   });
 
   useEffect(() => {
-    if (user) {
-      setFormData({ firstName: user.firstName, lastName: user.lastName });
-      setFile(user.image ? { uri: user.image } : null);
-      setFileName(user.image ? "Current Image" : "");
+    if (!visible || !user) return;
+
+    setFormData({ firstName: user.firstName, lastName: user.lastName });
+    setFile(user.image ? { uri: profileImage } : null);
+    setFileName(user.image ? "Current Image" : "");
+  }, [visible]);
+
+  useEffect(() => {
+    if (file?.uri) {
+      setPreviewUri(file.uri);
+    } else {
+      setPreviewUri(profileImage);
     }
-  }, [user, visible]);
+  }, [file, profileImage]);
+
+  const currentpass = currentPassword.trim();
+  const newpass = newPassword.trim();
+  const confpass = confirmPassword.trim();
 
   // --- Live validation ---
   useEffect(() => {
@@ -53,6 +77,7 @@ export default function UpdateProfile({ visible, onClose }) {
 
     const firstName = formData.firstName || "";
     const lastName = formData.lastName || "";
+
     if (!formData.firstName.trim()) errors.firstName = "First name is required";
     else if (/[^a-zA-Z\s\-\.'’]/.test(formData.firstName))
       errors.firstName = "Invalid characters in first name";
@@ -60,8 +85,23 @@ export default function UpdateProfile({ visible, onClose }) {
     if (!formData.lastName.trim()) errors.lastName = "Last name is required";
     else if (/[^a-zA-Z\s\-\.'’]/.test(formData.lastName))
       errors.lastName = "Invalid characters in last name";
+    if (currentpass.includes(" ")) {
+      errors.currentPassword = "Password should not include spaces";
+    }
 
-    if (confirmPassword && newPassword !== confirmPassword)
+    if (newpass.includes(" ")) {
+      errors.newPassword = "Password should not include spaces";
+    }
+
+    if (confpass.includes(" ")) {
+      errors.confirmPassword = "Password should not include spaces";
+    }
+
+    if (currentpass && newpass !== confpass) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (currentpass && newpass !== confpass)
       errors.confirmPassword = "Passwords do not match";
 
     setFormErrors(errors);
@@ -73,7 +113,7 @@ export default function UpdateProfile({ visible, onClose }) {
     });
   }, [formData, newPassword, confirmPassword]);
 
-  /* ---------------- IMAGE PICKER ---------------- */
+  /* ---------------- IMAGE PICKER + UPLOAD ---------------- */
   const pickImage = async () => {
     if (Platform.OS === "web") {
       fileInputRef.current?.click();
@@ -86,16 +126,29 @@ export default function UpdateProfile({ visible, onClose }) {
     });
 
     if (!result.didCancel && result.assets?.length) {
-      setFile(result.assets[0]);
-      setFileName(result.assets[0].fileName || "profile.jpg");
+      const asset = result.assets[0];
+
+      setFile({
+        uri: asset.uri,
+        fileName: asset.fileName || "profile.jpg",
+        type: asset.type || "image/jpeg",
+      });
+
+      setFileName(asset.fileName || "profile.jpg");
     }
   };
-
   /* ---------------- CHANGE DETECTION ---------------- */
   const imageChanged =
     file?.uri &&
     file.uri !== (user?.image || "") &&
     !file.uri.startsWith("http");
+
+  const nameChanged =
+    formData.firstName !== user?.firstName ||
+    formData.lastName !== user?.lastName;
+
+  const passwordChanged = currentpass || newpass || confpass;
+
   const hasChanges =
     imageChanged ||
     formData.firstName !== user?.firstName ||
@@ -140,8 +193,8 @@ export default function UpdateProfile({ visible, onClose }) {
     onClose();
   };
 
-  // --- You can keep saveProfile and savePassword functions as before ---
   const saveProfile = async () => {
+    if (!nameChanged) return true;
     try {
       const res = await fetch(
         `${API_BASE}/api/user/updateUserProfile/${user.id}`,
@@ -152,14 +205,15 @@ export default function UpdateProfile({ visible, onClose }) {
             Authorization: `Bearer ${await AsyncStorage.getItem("currentUserToken")}`,
           },
           body: JSON.stringify({
-            firstName: formData.firstName,
-            lastName: formData.lastName,
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
           }),
         },
       );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Profile update failed");
+      setErrorMessage("Profile update failed");
       return true;
     } catch (err) {
       console.error(err);
@@ -168,7 +222,8 @@ export default function UpdateProfile({ visible, onClose }) {
   };
 
   const savePassword = async () => {
-    if (!newPassword) return true; // no change
+    if (!passwordChanged) return true;
+
     try {
       const res = await fetch(
         `${API_BASE}/api/user/updatePassword/${user.id}`,
@@ -186,23 +241,37 @@ export default function UpdateProfile({ visible, onClose }) {
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Password update failed");
+
+      if (!res.ok) {
+        setErrorMessage(data.message || "Incorrect current password");
+        return false;
+      }
+
       return true;
     } catch (err) {
       console.error(err);
+      setErrorMessage("Password update failed");
       return false;
     }
   };
 
+  /* ---------------- IMAGE UPLOAD API CALL ---------------- */
   const saveImage = async () => {
-    if (!imageChanged) return true;
+    if (!file || !file.uri || file.uri.startsWith("http")) return true;
+
     try {
       const form = new FormData();
-      form.append("image", {
-        uri: file.uri,
-        name: file.fileName || "profile.jpg",
-        type: "image/jpeg",
-      });
+
+      if (Platform.OS === "web") {
+        form.append("image", file.rawFile);
+      } else {
+        form.append("image", {
+          uri:
+            Platform.OS === "ios" ? file.uri.replace("file://", "") : file.uri,
+          name: file.fileName,
+          type: file.type,
+        });
+      }
 
       const res = await fetch(
         `${API_BASE}/api/user/updateUserImage/${user.id}`,
@@ -216,208 +285,230 @@ export default function UpdateProfile({ visible, onClose }) {
       );
 
       const data = await res.json();
+
       if (!res.ok) throw new Error(data.message || "Image update failed");
-      return true;
+      return data.user.image;
     } catch (err) {
-      console.error(err);
+      console.error("Image upload error:", err);
+      setErrorMessage("Image upload failed");
       return false;
     }
   };
 
-  const confirmSave = async () => {
-    setAlertVisible(false);
+  /* ---------------- WEB FILE INPUT ---------------- */
+  const handleWebFileChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
 
-    await saveImage();
+    setFile({
+      uri: URL.createObjectURL(f),
+      fileName: f.name,
+      type: f.type,
+      rawFile: f, // needed for FormData on web
+    });
 
-    const updatedUser = await saveProfile();
-
-    await savePassword();
-
-    if (updatedUser) {
-      setUser(updatedUser);
-    }
-
-    resetForm();
-    onClose();
+    setFileName(f.name);
   };
 
-  const logAudit = async (action, details) => {
-    if (!user?.token) return;
-    try {
-      await fetch(`${API_BASE}/api/audit-log`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          action,
-          details,
-          performedBy: user.id,
-        }),
-      });
-    } catch (err) {
-      console.error("Audit log failed:", err);
+  const confirmSave = async () => {
+    setErrorMessage("");
+
+    const newImageUrl = await saveImage();
+
+    if (newImageUrl === null && file?.uri && !file.uri.startsWith("http")) {
+      setAlertVisible(false);
+      return;
     }
+
+    const profileOk = await saveProfile();
+    if (!profileOk) {
+      setAlertVisible(false);
+      return;
+    }
+
+    const passwordOk = await savePassword();
+    if (!passwordOk) {
+      setAlertVisible(false);
+      return;
+    }
+
+    setUser((prevUser) => ({
+      ...prevUser,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      image: newImageUrl || prevUser.image,
+    }));
+
+    Alert.alert("Success", "Updated Successfully");
+
+    resetForm();
+    setAlertVisible(false);
+    onClose();
   };
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.alertOverlay}>
-        <View
-          style={[styles.alertContainer, { width: isMobile ? "100%" : 600 }]}
-        >
-          <ScrollView contentContainerStyle={{ padding: 10 }}>
-            {/* IMAGE PICKER */}
-            <View style={{ alignItems: "center", marginBottom: 15 }}>
+      <ScrollView>
+        <View style={styles.alertOverlay}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                alignItems: "center",
+                justifyContent: "center",
+                width: isMobile ? "100%" : 600,
+                flexDirection: isMobile ? "column" : "row",
+                gap: 10,
+              },
+            ]}
+          >
+            <View style={{ alignSelf: "flex-start" }}>
               {Platform.OS === "web" && (
                 <input
                   type="file"
                   accept="image/*"
                   ref={fileInputRef}
                   style={{ display: "none" }}
-                  onChange={(e) => {
-                    const f = e.target.files[0];
-                    if (f) {
-                      setFile({
-                        uri: URL.createObjectURL(f),
-                        fileName: f.name,
-                      });
-                      setFileName(f.name);
-                    }
-                  }}
+                  onChange={handleWebFileChange}
                 />
               )}
               <TouchableOpacity onPress={pickImage}>
-                {file?.uri ? (
-                  <Image
-                    source={{ uri: file.uri }}
-                    style={{ width: 100, height: 100, borderRadius: 50 }}
-                  />
-                ) : (
-                  <Text style={{ fontSize: 32 }}>＋</Text>
-                )}
+                <Image
+                  source={{ uri: previewUri }}
+                  style={{ width: 100, height: 100, borderRadius: 50 }}
+                />
               </TouchableOpacity>
-              <Text>{fileName}</Text>
             </View>
 
             {/* EXISTING PROFILE FORM */}
-            <Text>First Name</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="First Name"
-              placeholderTextColor="gray"
-              value={formData.firstName}
-              onChangeText={(t) => handleChange("firstName", t)}
-            />
-            {formErrors.firstName && (
-              <Text style={styles.error}>{formErrors.firstName}</Text>
-            )}
-
-            <Text>Last Name</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="Last Name"
-              placeholderTextColor="gray"
-              value={formData.lastName}
-              onChangeText={(t) => handleChange("lastName", t)}
-            />
-            {formErrors.lastName && (
-              <Text style={styles.error}>{formErrors.lastName}</Text>
-            )}
-
-            <Text>Email</Text>
-            <TextInput
-              style={styles.formInput}
-              value={user.email}
-              editable={false}
-            />
-
-            <Text>Username</Text>
-            <TextInput
-              style={styles.formInput}
-              value={user.username}
-              editable={false}
-            />
-
-            <Text>Current Password</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="Current Password"
-              placeholderTextColor="gray"
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-            />
-            {formErrors.currentPassword && (
-              <Text style={styles.error}>{formErrors.currentPassword}</Text>
-            )}
-
-            <Text>New Password</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="New Password"
-              placeholderTextColor="gray"
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-            {formErrors.newPassword && (
-              <Text style={styles.error}>{formErrors.newPassword}</Text>
-            )}
-
-            <Text>Confirm New Password</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="Confirm New Password"
-              placeholderTextColor="gray"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            {formErrors.confirmPassword && (
-              <Text style={styles.error}>{formErrors.confirmPassword}</Text>
-            )}
-
-            <View style={{ marginVertical: 10 }}>
-              <Text style={{ fontSize: 12, color: "#666" }}>
-                Password Requirements:
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓ At least 8 characters
-              </Text>
-              <Text
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                ✓ One uppercase letter
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓ One number
-              </Text>
+            <View style={{ flexDirection: "column", width: 300 }}>
+              <View>
+                <Text>First Name</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="First Name"
+                  placeholderTextColor="gray"
+                  value={formData.firstName}
+                  onChangeText={(t) => handleChange("firstName", t)}
+                />
+                {formErrors.firstName && (
+                  <Text style={styles.error}>{formErrors.firstName}</Text>
+                )}
+              </View>
+              <View>
+                <Text>Last Name</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Last Name"
+                  placeholderTextColor="gray"
+                  value={formData.lastName}
+                  onChangeText={(t) => handleChange("lastName", t)}
+                />
+                {formErrors.lastName && (
+                  <Text style={styles.error}>{formErrors.lastName}</Text>
+                )}
+              </View>
+              <View>
+                <Text>Email</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={user.email}
+                  editable={false}
+                />
+              </View>
+              <View>
+                <Text>Username</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={user.username}
+                  editable={false}
+                />
+              </View>
+              <View>
+                <Text>Current Password</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Current Password"
+                  placeholderTextColor="gray"
+                  secureTextEntry
+                  value={currentPassword}
+                  onChangeText={(t) => setCurrentPassword(t.trim())}
+                />
+                {formErrors.currentPassword && (
+                  <Text style={styles.error}>{formErrors.currentPassword}</Text>
+                )}
+              </View>
+              <View>
+                <Text>New Password</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="New Password"
+                  placeholderTextColor="gray"
+                  secureTextEntry
+                  value={newPassword}
+                  onChangeText={(t) => setNewPassword(t.trim())}
+                />
+                {formErrors.newPassword && (
+                  <Text style={styles.error}>{formErrors.newPassword}</Text>
+                )}
+              </View>
+              <View>
+                <Text>Confirm New Password</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Confirm New Password"
+                  placeholderTextColor="gray"
+                  secureTextEntry
+                  value={confirmPassword}
+                  onChangeText={(t) => setConfirmPassword(t.trim())}
+                />
+                {formErrors.confirmPassword && (
+                  <Text style={styles.error}>{formErrors.confirmPassword}</Text>
+                )}
+              </View>
+              <View style={{ marginVertical: 10 }}>
+                <Text style={{ fontSize: 12, color: "#666" }}>
+                  Password Requirements:
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.minLength)}
+                >
+                  ✓ At least 8 characters
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasUppercase)}
+                >
+                  ✓ One uppercase letter
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasNumber)}
+                >
+                  ✓ One number
+                </Text>
+              </View>
+              {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+              <View style={{ flexDirection: "row", marginTop: 20, gap: 10 }}>
+                <Button
+                  label="Save changes"
+                  onPress={() => setAlertVisible(true)}
+                  disabled={!isSaveEnabled}
+                  buttonStyle={[
+                    styles.alertConfirmBtn,
+                    { opacity: isSaveEnabled ? 1 : 0.5 },
+                  ]}
+                  buttonTextStyle={styles.alertConfirmBtnText}
+                />
+                <Button
+                  label="Cancel"
+                  onPress={handleClose}
+                  buttonStyle={[styles.alertCancelBtn]}
+                  buttonTextStyle={styles.alertCancelBtnText}
+                />
+              </View>
             </View>
-
-            <View style={{ flexDirection: "row", marginTop: 20, gap: 10 }}>
-              <Button
-                label="Save changes"
-                onPress={() => setAlertVisible(true)}
-                disabled={!isSaveEnabled}
-                buttonStyle={[
-                  styles.alertConfirmBtn,
-                  { opacity: isSaveEnabled ? 1 : 0.5 },
-                ]}
-                buttonTextStyle={styles.alertConfirmBtnText}
-              />
-              <Button
-                label="Cancel"
-                onPress={handleClose}
-                buttonStyle={[styles.alertCancelBtn]}
-                buttonTextStyle={styles.alertCancelBtnText}
-              />
-            </View>
-          </ScrollView>
+          </View>
         </View>
-      </View>
-
+      </ScrollView>
       {alertVisible && (
         <AlertComp
           visible={alertVisible}
@@ -428,6 +519,7 @@ export default function UpdateProfile({ visible, onClose }) {
           onConfirm={confirmSave}
           confirmText="Yes, update"
           cancelText="Cancel"
+          onCancel={() => setAlertVisible(false)}
         />
       )}
     </Modal>

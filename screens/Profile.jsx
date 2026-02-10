@@ -6,11 +6,19 @@ import Button from "../components/Button";
 
 import { AuthContext } from "../Context/AuthContext";
 import UpdateProfile from "../components/UpdateProfile";
+import { API_BASE } from "../utilities/API_BASE";
 
 export default function Profile() {
   const { user } = useContext(AuthContext);
-  const { firstName, lastName, email, username, role } = user;
+  const { firstName, lastName, email, username, position, image } = user;
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  console.log(image);
+  const profileImage =
+    image && typeof image === "string"
+      ? image.startsWith("http")
+        ? image
+        : `${API_BASE}${image}`
+      : `${API_BASE}/uploads/default_avatar.jpg`;
 
   return (
     <View style={styles.profileCard}>
@@ -18,13 +26,13 @@ export default function Profile() {
         <Text style={styles.headerText}>User Profile</Text>
         <Image
           source={{
-            uri: user.image,
+            uri: profileImage,
           }}
           style={{
             width: 150,
             height: 150,
             marginVertical: 10,
-            borderRadius: 100, // half of width/height for circle
+            borderRadius: 100,
           }}
         />
 
@@ -40,7 +48,7 @@ export default function Profile() {
             <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
           </Text>
           <Text>
-            <Text style={{ fontWeight: "bold" }}>Role:</Text> {role}
+            <Text style={{ fontWeight: "bold" }}>Position:</Text> {position}
           </Text>
         </View>
         <Button

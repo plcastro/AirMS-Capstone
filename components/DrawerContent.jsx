@@ -16,7 +16,7 @@ const DrawerList = [
     icon: "account-group",
     label: "User Management",
     navigateTo: "User Management",
-    role: ["Admin"],
+    position: ["Admin"],
     children: [
       { label: "Manage Users", navigateTo: "User Management" },
       { label: "User Logs", navigateTo: "User Logs" },
@@ -26,7 +26,7 @@ const DrawerList = [
     icon: "book",
     label: "Aircraft Logbook",
     navigateTo: "Flight Logbook",
-    role: ["Pilot", "Head of Maintenance", "Manager"],
+    position: ["Pilot", "Head of Maintenance", "Manager"],
     children: [
       { label: "Flight Logbook", navigateTo: "Flight Logbook" },
       { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
@@ -35,7 +35,7 @@ const DrawerList = [
   {
     icon: "account",
     label: "Parts Monitoring",
-    role: ["Head of Maintenance", "Manager"],
+    position: ["Head of Maintenance", "Manager"],
     children: [
       { label: "Parts Monitoring Table", navigateTo: "PartsMonitoring" },
       { label: "Track Maintenance", navigateTo: "TrackMaintenance" },
@@ -45,25 +45,25 @@ const DrawerList = [
     icon: "book",
     label: "Component Inventory",
     navigateTo: "Component Inventory",
-    role: ["Head of Maintenance"],
+    position: ["Head of Maintenance"],
   },
   {
     icon: "sort",
     label: "Priority Sorting",
     navigateTo: "Priority Sorting",
-    role: ["Head of Maintenance"],
+    position: ["Head of Maintenance"],
   },
   {
     icon: "chart-arc",
     label: "Report and Analytics",
     navigateTo: "Reports And Analytics",
-    role: ["Head of Maintenance", "Manager"],
+    position: ["Head of Maintenance", "Manager"],
   },
   {
     icon: "account",
     label: "My Profile",
     navigateTo: "Profile",
-    role: ["Admin", "Pilot", "Head of Maintenance", "Manager", "mechanic"],
+    position: ["Admin", "Pilot", "Head of Maintenance", "Manager", "Mechanic"],
   },
 ];
 
@@ -73,7 +73,7 @@ function DrawerContent({ navigation }) {
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
 
-  const userRole = user?.role?.toLowerCase(); // normalize role
+  const userPosition = user?.position?.toLowerCase(); // normalize position
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
@@ -117,11 +117,11 @@ function DrawerContent({ navigation }) {
     }
   };
 
-  // Role-based filtering
+  // Position-based filtering
   const isItemVisible = (item) => {
-    const itemRoles = item.role?.map((r) => r.toLowerCase()) || [];
-    if (!itemRoles.length) return true;
-    return itemRoles.includes(userRole);
+    const itemPositions = item.position?.map((p) => p.toLowerCase()) || [];
+    if (!itemPositions.length) return true;
+    return itemPositions.includes(userPosition);
   };
 
   const getChildren = (item) => {
@@ -129,11 +129,11 @@ function DrawerContent({ navigation }) {
 
     return item.children
       .filter((child) => {
-        switch (userRole) {
-          case "Pilot":
+        switch (userPosition) {
+          case "pilot":
             return child.label === "Flight Logbook"; // ONLY flight log
-          case "Head of Maintenance":
-          case "Manager":
+          case "head of aintenance":
+          case "manager":
             return (
               child.label === "Flight Logbook" ||
               child.label === "Maintenance Logbook"
@@ -146,7 +146,8 @@ function DrawerContent({ navigation }) {
         return {
           ...child,
           readOnly:
-            (userRole === "Head of Maintenance" || userRole === "Manager") &&
+            (userPosition === "head of maintenance" ||
+              userPosition === "manager") &&
             child.label === "Flight Logbook",
         };
       });
