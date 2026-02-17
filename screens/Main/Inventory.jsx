@@ -213,8 +213,8 @@ export default function Inventory() {
   };
   const importantColumnWidths = {
     index: 10,
-    partName: 200,
-    currQty: 120,
+    partName: 150,
+    currQty: 100,
     stockLevel: 120,
   };
 
