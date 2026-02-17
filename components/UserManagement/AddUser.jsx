@@ -48,7 +48,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     }
   };
 
-  // Update accessLevel automatically whenever position changes
   useEffect(() => {
     if (position) {
       setAccessLevel(getAccessLevel(position));
@@ -57,7 +56,6 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
     }
   }, [position]);
 
-  // Set joined date to today on component mount
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     setJoinedDate(today);
@@ -81,7 +79,15 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
 
     setUsername(generated);
   }, [firstName, lastName]);
-
+  const capitalizeWords = (text) => {
+    if (!text) return "";
+    return text
+      .split(" ")
+      .map((word) =>
+        word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "",
+      )
+      .join(" ");
+  };
   const validateForm = () => {
     if (
       !firstName ||
@@ -284,7 +290,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
                 maxLength={50}
                 style={styles.input}
                 value={firstName}
-                onChangeText={setFirstName}
+                onChangeText={(text) => setFirstName(capitalizeWords(text))}
                 autoCapitalize="words"
               />
             </View>
@@ -297,7 +303,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
                 maxLength={50}
                 style={styles.input}
                 value={lastName}
-                onChangeText={setLastName}
+                onChangeText={(text) => setLastName(capitalizeWords(text))}
                 autoCapitalize="words"
               />
             </View>
@@ -374,7 +380,7 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
                 <Text style={styles.btnText}>Save</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-                <Text style={styles.btnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

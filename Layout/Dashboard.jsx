@@ -5,27 +5,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import FlightLog from "../screens/Main/FlightLog";
 import UserManagement from "../screens/Admin/UserManagement";
-import Profile from "../screens/Profile";
+import Profile from "../screens/Settings/Profile";
 
 export default function Dashboard({ children }) {
   const { user } = useContext(AuthContext);
-  if (!user) return null; // loader if needed
-  console.log(user.position);
-  // Position-based dashboard content
-  const renderMainModule = () => {
-    switch (user.position) {
-      case "Admin":
-        return <UserManagement />;
-      case "Pilot":
-      case "Head of Maintenance":
-      case "Manager":
-        return <FlightLog />;
-      case "Mechanic":
-        return <Profile />;
-      default:
-        return <Profile />;
-    }
-  };
+  if (!user) return null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ececec" }}>
@@ -33,8 +17,7 @@ export default function Dashboard({ children }) {
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* If children are passed, render them, otherwise render main dashboard module */}
-        {children || renderMainModule()}
+        {children}
       </ScrollView>
     </SafeAreaView>
   );

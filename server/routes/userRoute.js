@@ -19,6 +19,7 @@ const {
 const {
   requestPasswordReset,
   resetPassword,
+  verifyOtp,
 } = require("../controllers/passwordResetController");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { upload, processImage } = require("../middleware/upload");
@@ -30,7 +31,7 @@ router.get("/username-exists", checkUsernameExists);
 router.get("/getAllUsers", getAllUsers);
 router.put("/updateUser/:id", upload.single("image"), processImage, updateUser);
 router.put("/updateUserProfile/:id", updateUserProfile);
-router.put("/updatePassword/:id", updatePassword);
+router.put("/change-password/:id", updatePassword);
 router.put("/updateUserStatus/:id", updateUserStatus);
 router.put(
   "/updateUserImage/:id",
@@ -40,10 +41,11 @@ router.put(
 );
 
 router.post("/activate", activateUser);
-
 router.post("/resend-activation", resendActivation);
-router.post("/reset-password/:token", resetPassword);
-router.post("/request-password-reset", requestPasswordReset);
 router.post("/complete-security-setup", verifyToken, completeSecuritySetup);
+
+router.post("/request-reset", requestPasswordReset);
+router.post("/verify-otp", verifyOtp);
+router.post("/reset-password/:token", resetPassword);
 
 module.exports = router;

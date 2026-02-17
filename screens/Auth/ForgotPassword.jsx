@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -5,15 +6,18 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useState } from "react";
-import { styles } from "../../stylesheets/styles";
+import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
+import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function ForgotPassword() {
-  const [message, setMessage] = useState("");
+  const nav = useNavigation();
   const [email, setEmail] = useState("");
-  const emailValidation = (email) => {
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
       setMessage("Email is required.");
@@ -23,52 +27,44 @@ export default function ForgotPassword() {
       setMessage("Invalid email format.");
       return false;
     }
-
-    sendOTPEmail();
-    setMessage("");
     return true;
   };
 
-  const sendOTPEmail = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/user/getAllUsers`);
-      const result = await response.json();
-      const usersArray = result.data;
+  const sendResetLink = async () => {
+    if (!validateEmail(email)) return;
 
-      const emailExists = usersArray.some(
-        (user) => user.email === email.trim(),
-      );
-      if (!emailExists) {
-        setMessage("Email not found.");
-        return;
-      }
-      fetch(`${API_BASE}/api/user/request-password-reset`, {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/user/request-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
-      })
-        .then((response) => {
-          if (response.ok) {
-            setMessage("Password reset link sent to your email.");
-          } else {
-            setMessage("Failed to send reset link. Please try again later.");
-          }
-        })
-        .catch((err) => {
-          setMessage("Failed to send reset link. Please try again later.");
-        });
+      });
+
+      const data = await response.json();
+      setLoading(false);
+
+      if (response.ok) {
+        setMessage("Password reset email sent. Redirecting to OTP screen...");
+
+        // Redirect to OTP screen with token
+        setTimeout(() => nav.replace("otpScreen", { token: data.token }), 2500);
+      } else {
+        setMessage(
+          data.message || "Failed to send reset link. Try again later.",
+        );
+      }
     } catch (err) {
-      setMessage("Failed to send reset link. Please try again later.");
+      console.error(err);
+      setLoading(false);
+      setMessage("Failed to send reset link. Try again later.");
     }
   };
+
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
-      behavior={
-        Platform.OS === "android" || Platform.OS === "ios"
-          ? "padding"
-          : "height"
-      }
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>
@@ -76,16 +72,18 @@ export default function ForgotPassword() {
         <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
           Please provide your email to proceed
         </Text>
+
         <TextInput
           style={styles.formInput}
           maxLength={254}
           placeholder="Enter email address"
-          placeholderTextColor={"gray"}
+          placeholderTextColor="gray"
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
         />
+
         {message ? (
           <Text
             style={{ color: "red", textAlign: "left", alignSelf: "flex-start" }}
@@ -93,11 +91,13 @@ export default function ForgotPassword() {
             {message}
           </Text>
         ) : null}
+
         <Button
+          label={loading ? "SENDING..." : "SEND RESET LINK"}
+          onPress={sendResetLink}
+          disabled={loading}
           buttonStyle={[styles.button, { marginTop: 20 }]}
           buttonTextStyle={styles.buttonText}
-          onPress={() => emailValidation(email)}
-          label="SEND RESET LINK"
         />
       </View>
     </KeyboardAvoidingView>

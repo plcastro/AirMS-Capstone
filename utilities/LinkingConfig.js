@@ -3,8 +3,9 @@ const LinkingConfig = {
   config: {
     screens: {
       login: "login",
+      otpScreen: "verify-otp",
       forgotPassword: "forgot-password",
-      resetPassword: "reset-password/:token",
+      resetPassword: "reset-password",
       securitySetup: "security-setup",
       dashboard: "dashboard",
     },

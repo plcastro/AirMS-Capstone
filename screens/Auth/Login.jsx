@@ -5,7 +5,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Modal,
   Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -50,8 +49,9 @@ export default function Login() {
     };
     loadSavedCredentials();
   }, []);
+
   const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData({ ...formData, [key]: value.trim() });
   };
 
   const validate = () => {
@@ -90,13 +90,14 @@ export default function Login() {
           loginUser(user, rememberMe);
           await AsyncStorage.setItem("currentUser", JSON.stringify(user));
           await AsyncStorage.setItem("currentUserToken", token);
-
-          // Optionally navigate to SecuritySetup
-          nav.navigate("securitySetup", { email: user.email });
+          console.log(user.setupToken);
+          nav.replace("securitySetup", {
+            email: user.email,
+            setupToken: rawSetupToken,
+          });
           return;
         }
 
-        // Only active users proceed to dashboard
         await AsyncStorage.setItem("currentUserToken", token);
         await AsyncStorage.setItem("currentUser", JSON.stringify(user));
 
@@ -119,9 +120,10 @@ export default function Login() {
         loginUser(user, rememberMe);
         setMessage("User logged in successfully");
         setLoginSuccess(true);
+
         goToDashboard();
       } else {
-        console.log("Login error message:", data.message); // debug
+        console.log("Login error message:", data.message);
         Alert.alert("Login Failed", data.message || "Unauthorized");
         setMessage(data.message || "Login failed");
       }
@@ -130,8 +132,9 @@ export default function Login() {
       setMessage("Too many login attempts. Please try again later");
     }
   };
+
   const goToDashboard = () => {
-    nav.replace("dashboard");
+    setTimeout(() => nav.replace("dashboard"), 2000);
   };
 
   const goToForgotPassword = () => nav.navigate("forgotPassword");
@@ -145,12 +148,12 @@ export default function Login() {
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Login</Text>
         <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-          Please enter your credentials
+          Please enter your username and password
         </Text>
         <TextInput
           style={styles.formInput}
           maxLength={100}
-          placeholder="Username or Email"
+          placeholder="Username/Email"
           placeholderTextColor="gray"
           autoCapitalize="none"
           keyboardType="default"

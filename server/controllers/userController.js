@@ -10,67 +10,77 @@ const fs = require("fs");
 const path = require("path");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
 
-// --- GET ALL USERS ---
+const deleteFile = (filePath) => {
+  const absolutePath = path.join(__dirname, "..", filePath);
+  fs.unlink(absolutePath, (err) => {
+    if (err) console.error(`Failed to delete file: ${absolutePath}`, err);
+    else console.log(`Successfully deleted file: ${absolutePath}`);
+  });
+};
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
     await auditLog(`Fetched all users. Total: ${users.length}`, null);
     res.status(200).json({ status: "Ok", data: users });
   } catch (err) {
-    console.error("Error fetching users:", err);
     await auditLog("Failed to fetch all users", null);
     res.status(500).json({ message: err.message });
   }
 };
 
-// --- LOGIN USER ---
 const loginUser = async (req, res) => {
   try {
     const { identifier, password } = req.body;
-    const trimmedIdentifier = identifier.trim();
-    if (!trimmedIdentifier || !password)
+    if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
+    }
 
-    console.log("Identifier received:", `"${trimmedIdentifier}"`);
+    const trimmedIdentifier = identifier.trim();
 
+    // Find user by username or email
     const user = await UserModel.findOne({
-      $or: [
-        { username: `${trimmedIdentifier}` },
-        { email: `${trimmedIdentifier}` },
-      ],
-    }).collation({ locale: "en", strength: 2 });
+      $or: [{ username: trimmedIdentifier }, { email: trimmedIdentifier }],
+    })
+      .collation({ locale: "en", strength: 2 })
+      .select("+password +tempPassword +setupToken +setupTokenExpires");
 
-    if (!user)
-      return res.status(401).json({ message: "This account does not exists" });
+    if (!user) {
+      return res.status(401).json({ message: "This account does not exist" });
+    }
 
     if (user.status === "deactivated") {
       return res
         .status(401)
-        .json({ message: "Account deactivated. Please contact AirMS Support" });
+        .json({ message: "Account deactivated. Contact support." });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    // Compare password
+    let passwordMatch = false;
 
-    const tempPasswordMatch = user.tempPassword
-      ? await bcrypt.compare(password, user.tempPassword)
-      : false;
+    if (user.status === "inactive" && user.tempPassword) {
+      passwordMatch = await bcrypt.compare(password, user.tempPassword);
+    } else if (user.password) {
+      passwordMatch = await bcrypt.compare(password, user.password);
+    }
 
-    if (!passwordMatch && !tempPasswordMatch) {
+    if (!passwordMatch) {
       await auditLog(`Failed login attempt: ${identifier}`, user._id);
       return res
         .status(401)
-        .json({ message: "Incorrect username/email and password" });
+        .json({ message: "Incorrect username/email or password" });
     }
 
-    // --- JWT ---
+    // Create JWT
     const token = jwt.sign(
       {
         id: user._id,
         username: user.username,
         email: user.email,
         position: user.position,
+        status: user.status,
       },
       process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: "1d" },
@@ -78,7 +88,31 @@ const loginUser = async (req, res) => {
 
     await auditLog("User logged in", user._id);
 
-    res.status(200).json({
+    // Inactive user → send raw setupToken
+    if (user.status === "inactive") {
+      // Generate raw setupToken
+      const rawSetupToken = crypto.randomBytes(32).toString("hex");
+      const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
+
+      user.setupToken = setupTokenHash;
+      user.setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+      await user.save();
+
+      return res.status(200).json({
+        message: "Login successful, security setup required",
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          status: user.status,
+          setupToken: rawSetupToken, // send raw token to frontend
+        },
+      });
+    }
+
+    // Active user → normal login
+    return res.status(200).json({
       message: "Login successful",
       token,
       user: {
@@ -89,18 +123,15 @@ const loginUser = async (req, res) => {
         email: user.email,
         position: user.position,
         status: user.status,
-        requiresPasswordChange: tempPasswordMatch,
-        password: user.password,
         image: user.image,
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ message: "Login failed" });
   }
 };
 
-// --- LOGOUT USER ---
 const logoutUser = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -125,40 +156,35 @@ const logoutUser = async (req, res) => {
   }
 };
 
-// --- CREATE USER ---
 const createUser = async (req, res) => {
   try {
     const { firstName, lastName, email, password, position, access, image } =
       req.body;
 
-    if (!firstName || !lastName || !email || !password || !position) {
+    if (!firstName || !lastName || !email || !password || !position)
       return res.status(400).json({ message: "All fields are required" });
-    }
 
-    if (!validator.isEmail(email.trim())) {
+    if (!validator.isEmail(email.trim()))
       return res.status(400).json({ message: "Invalid email format" });
-    }
 
     const existingEmail = await UserModel.findOne({ email: email.trim() });
-    if (existingEmail) {
+    if (existingEmail)
       return res.status(409).json({ message: "Email already registered" });
-    }
 
     const username = await generateUniqueUsername(firstName, lastName);
-
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Generate temp password for login
     const tempPassword = Math.random().toString(36).slice(-8);
     const tempPasswordHashed = await bcrypt.hash(tempPassword, 12);
 
-    let imagePath = "/uploads/default_avatar.jpg"; // DEFAULT IMAGE PROFILE
+    // Generate setup token
+    const rawSetupToken = crypto.randomBytes(32).toString("hex");
+    const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
+    const setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
-    if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
-    }
-
-    const setupToken = crypto.randomBytes(32).toString("hex");
-    const setupTokenHash = await bcrypt.hash(setupToken, 10);
+    let imagePath = "/uploads/default_avatar.jpg";
+    if (req.file) imagePath = `/uploads/${req.file.filename}`;
 
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
@@ -166,44 +192,36 @@ const createUser = async (req, res) => {
       email: email.trim(),
       username: username.trim(),
       password: hashedPassword,
+      tempPassword: tempPasswordHashed,
+      status: "inactive",
+      setupToken: setupTokenHash,
+      setupTokenExpires,
+      image: req.file
+        ? `/uploads/${req.file.filename}`
+        : "/uploads/default_avatar.jpg",
       position,
       access,
-      status: "inactive",
-      tempPassword: tempPasswordHashed,
-      image: imagePath,
-      setupToken: setupTokenHash,
-      setupTokenExpires: Date.now() + 60 * 60 * 1000, // 1 hour
     });
 
-    const setupLink = `http://localhost:8081/#/security-setup?token=${setupToken}`;
-    console.log("EMAIL_USER:", process.env.EMAIL_USER);
-    try {
-      await sendEmail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "AirMS User Creation",
-        html: `
-          <p>Hello, ${firstName}</p>
-          <p>Your account with the username <strong>${username}</strong> has been created successfully.</p>
-          <p>Please use the temporary password below and follow this link to set your password:</p>
-          <p><strong>Temp Password:</strong> ${tempPassword}</p>
-          <p><strong>Setup Link:</strong> <a href="${setupLink}">${setupLink}</a></p>
-        `,
-      });
+    const setupLink = `http://localhost:8081/#/security-setup?email=${email}&setupToken=${rawSetupToken}`;
 
-      await auditLog(
-        `User created: ${username} (${email}), Role: ${position}, Temp Password issued`,
-        newUser._id,
-      );
-    } catch (err) {
-      console.error(`Failed to send email to ${email}:`, err);
-      await auditLog(
-        `User created but failed to send email: ${username} (${email})`,
-        newUser._id,
-      );
-    }
+    await sendEmail({
+      to: email,
+      subject: "AirMS Account Created – Security Setup Required",
+      html: `
+    <p>Hello ${firstName},</p>
+    <p>Your account <strong>${username}</strong> has been created.</p>
+    <p>Temporary password: <strong>${tempPassword}</strong></p>
+    <p>Use this to login: <a href="${setupLink}">Login & Setup Password</a></p>
+    <p>Valid for 1 hour.</p>
+  `,
+    });
 
-    // 12. Success response
+    await auditLog(
+      `User created: ${username} (${email}), Temp password issued`,
+      newUser._id,
+    );
+
     res.status(201).json({
       message: "User added successfully",
       user: {
@@ -220,6 +238,7 @@ const createUser = async (req, res) => {
     res.status(500).json({ message: "User account creation failed" });
   }
 };
+
 const completeSecuritySetup = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -256,7 +275,7 @@ const completeSecuritySetup = async (req, res) => {
     res.status(500).json({ message: "Failed to complete security setup" });
   }
 };
-// --- CHECK USERNAME EXISTS ---
+
 const checkUsernameExists = async (req, res) => {
   try {
     const { username } = req.query;
@@ -280,7 +299,6 @@ const checkUsernameExists = async (req, res) => {
   }
 };
 
-// --- UPDATE USER ---
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -331,7 +349,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-// --- UPDATE USER PROFILE ---
 const updateUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
@@ -365,7 +382,6 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-// --- UPDATE USER STATUS ---
 const updateUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -397,19 +413,6 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
-const deleteFile = (filePath) => {
-  const absolutePath = path.join(__dirname, "..", filePath);
-
-  fs.unlink(absolutePath, (err) => {
-    if (err) {
-      console.error(`Failed to delete file: ${absolutePath}`, err);
-    } else {
-      console.log(`Successfully deleted file: ${absolutePath}`);
-    }
-  });
-};
-
-/// --- UPDATE USER IMAGE ONLY ---
 const updateUserImage = async (req, res) => {
   try {
     const { id } = req.params;
@@ -462,7 +465,6 @@ const updatePassword = async (req, res) => {
     const user = await UserModel.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    // Compare current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res
@@ -470,10 +472,8 @@ const updatePassword = async (req, res) => {
         .json({ message: "Current password is incorrect." });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // Update only the password
     await UserModel.updateOne({ _id: userId }, { password: hashedPassword });
 
     res.status(200).json({ message: "Password updated successfully." });
@@ -483,33 +483,28 @@ const updatePassword = async (req, res) => {
   }
 };
 
-// --- ACTIVATE USER (SECURITY SETUP) ---
 const activateUser = async (req, res) => {
   try {
-    const { token, tempPassword, newPassword } = req.body;
+    const { token, newPassword } = req.body;
 
-    if (!token || !tempPassword || !newPassword) {
+    if (!token || !newPassword) {
       return res.status(400).json({ message: "All fields required" });
     }
 
     const user = await UserModel.findOne({
       setupToken: { $exists: true },
       setupTokenExpires: { $gt: Date.now() },
-    });
+    }).select("+setupToken");
 
-    if (!user) {
-      return res.status(400).json({ message: "Activation token expired" });
-    }
+    if (!user)
+      return res
+        .status(400)
+        .json({ message: "Activation token expired or invalid" });
 
-    const tokenMatch = await bcrypt.compare(token, user.setupToken);
-    if (!tokenMatch) {
+    // Verify token
+    const isTokenValid = await bcrypt.compare(token, user.setupToken);
+    if (!isTokenValid)
       return res.status(400).json({ message: "Invalid activation token" });
-    }
-
-    const tempMatch = await bcrypt.compare(tempPassword, user.tempPassword);
-    if (!tempMatch) {
-      return res.status(400).json({ message: "Invalid temporary password" });
-    }
 
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
@@ -523,58 +518,46 @@ const activateUser = async (req, res) => {
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("activateUser error:", err);
     res.status(500).json({ message: "Activation failed" });
   }
 };
 
-// --- RESEND ACTIVATION EMAIL ---
 const resendActivation = async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email required" });
-    }
+    if (!email) return res.status(400).json({ message: "Email required" });
 
     const user = await UserModel.findOne({ email: email.trim() });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.status === "active") {
+    if (user.status === "active")
       return res.status(400).json({ message: "Account already active" });
-    }
 
     const newTempPassword = Math.random().toString(36).slice(-8);
     const tempHash = await bcrypt.hash(newTempPassword, 12);
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = await bcrypt.hash(rawToken, 10);
+    const rawSetupToken = crypto.randomBytes(32).toString("hex");
+    const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
 
-    user.tempPassword = tempHash;
-    user.setupToken = tokenHash;
+    user.tempPassword = await bcrypt.hash(
+      Math.random().toString(36).slice(-8),
+      12,
+    );
+    user.setupToken = setupTokenHash;
     user.setupTokenExpires = Date.now() + 60 * 60 * 1000;
 
     await user.save();
 
-    const setupLink = `http://localhost:8081/#/security-setup?token=${rawToken}`;
+    const setupLink = `http://localhost:8081/#/security-setup?email=${user.email}&setupToken=${rawSetupToken}`;
 
     await sendEmail({
-      to: email,
-      subject: "Resend Activation – AirMS",
-      html: `
-        <p>Hello ${user.firstName},</p>
-        <p>Your new temporary password:</p>
-        <strong>${newTempPassword}</strong>
-        <p><a href="${setupLink}">Activate Account</a></p>
-        <p>Valid for 1 hour.</p>
-      `,
+      to: user.email,
+      subject: "AirMS Account Activation – Resend",
+      html: `<p>Click here to setup your password: <a href="${setupLink}">Security Setup</a></p>`,
     });
 
     await auditLog("Activation email resent", user._id);
-
     res.status(200).json({ message: "Activation email resent" });
   } catch (err) {
     console.error(err);

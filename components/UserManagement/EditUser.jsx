@@ -302,7 +302,7 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
                   style={styles.cancelBtn}
                   onPress={handleCancel}
                 >
-                  <Text style={styles.btnText}>CANCEL</Text>
+                  <Text style={styles.cancelBtnText}>CANCEL</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

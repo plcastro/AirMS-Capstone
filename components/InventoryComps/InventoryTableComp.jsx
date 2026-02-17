@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Dimensions, Alert } from "react-native";
+import { View, Text, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
 
 import Button from "../Button";
 import AlertComp from "../AlertComp";
 import { styles } from "../../stylesheets/styles";
 
-export default function Table({
+export default function InventoryTableComp({
   headers = [],
   data = [],
   columnWidths = {},
-  onEditUser,
-  onDeactivateUser,
-  onReactivateUser,
-  currentUserId,
+  onEditComponent,
+  onDeleteComponent, // new prop
 }) {
   const [page, setPage] = useState(0);
   const [itemsPerPageList] = useState([10, 15, 20]);
   const [itemsPerPage, setItemsPerPage] = useState(itemsPerPageList[0]);
-  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
-  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
-  const [userToModify, setUserToModify] = useState(null);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [componentToModify, setComponentToModify] = useState(null);
 
   const from = page * itemsPerPage;
   const to = Math.min((page + 1) * itemsPerPage, data.length);
@@ -41,31 +39,24 @@ export default function Table({
     return valA < valB ? 1 : -1;
   });
 
-  // Confirm handlers
-  const confirmDeactivate = () => {
-    if (userToModify && onDeactivateUser) onDeactivateUser(userToModify);
-    Alert.alert("User deactivated");
-    setShowDeactivateConfirm(false);
-    setUserToModify(null);
-  };
-  const confirmReactivate = () => {
-    if (userToModify && onReactivateUser) onReactivateUser(userToModify);
-    Alert.alert("User reactivated");
-    setShowReactivateConfirm(false);
-    setUserToModify(null);
-  };
-  const cancelModify = () => {
-    setShowDeactivateConfirm(false);
-    setShowReactivateConfirm(false);
-    setUserToModify(null);
+  const confirmDelete = () => {
+    if (componentToModify && onDeleteComponent) {
+      onDeleteComponent(componentToModify.id);
+    }
+    setShowDeleteConfirm(false);
+    setComponentToModify(null);
   };
 
-  // Calculate total column width and screen width
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setComponentToModify(null);
+  };
+
+  // Layout
   const screenWidth = Dimensions.get("window").width;
   const totalWidth = Object.values(columnWidths).reduce((sum, w) => sum + w, 0);
   const needsHorizontalScroll = totalWidth > screenWidth;
 
-  // Render the table content
   const renderTable = () => (
     <View
       style={
@@ -94,17 +85,17 @@ export default function Table({
         {/* Header */}
         <DataTable.Header style={styles.tableHeader}>
           {headers.map((header, i) => {
-            const cellWidth = columnWidths[header.key] || 100; // Fallback
+            const cellWidth = columnWidths[header.key] || 100;
             return (
               <DataTable.Title
                 key={i}
                 numeric={header.numeric}
                 style={{
                   width: cellWidth,
-                  flex: 0, // Prevent flex growth
-                  flexBasis: cellWidth, // Enforce exact width
-                  flexShrink: 0, // Prevent shrinking
-                  minWidth: Math.max(cellWidth, 50), // Ensure minimum visibility
+                  flex: 0,
+                  flexBasis: cellWidth,
+                  flexShrink: 0,
+                  minWidth: Math.max(cellWidth, 50),
                 }}
                 onPress={() => {
                   if (sortColumn === header.key) {
@@ -137,9 +128,8 @@ export default function Table({
               style={{ backgroundColor: "#fff", textAlign: "center" }}
             >
               {headers.map((header, hIdx) => {
-                const cellWidth = columnWidths[header.key] || 100; // Fallback
+                const cellWidth = columnWidths[header.key] || 100;
 
-                // Actions column
                 if (header.key === "actions") {
                   return (
                     <DataTable.Cell
@@ -160,9 +150,8 @@ export default function Table({
                       >
                         <Button
                           iconName="edit"
-                          label="Edit"
                           buttonStyle={{
-                            width: 100,
+                            width: 50,
                             borderRadius: 4,
                             paddingHorizontal: 6,
                             paddingVertical: 4,
@@ -175,70 +164,39 @@ export default function Table({
                             color: "#fff",
                             textAlign: "center",
                           }}
-                          onPress={() => onEditUser(row)}
+                          onPress={() => onEditComponent(row)}
                         />
-                        {row.status === "deactivated" ? (
-                          // Show Reactivate button for deactivated users
-                          <Button
-                            iconName="check"
-                            label="Reactivate"
-                            buttonStyle={{
-                              width: 100,
-                              borderRadius: 4,
-                              paddingHorizontal: 6,
-                              paddingVertical: 4,
-                              backgroundColor: "#28a745",
-                              alignItems: "center",
-                            }}
-                            buttonTextStyle={{
-                              fontSize: 12,
-                              color: "#fff",
-                              textAlign: "center",
-                            }}
-                            onPress={() => {
-                              setUserToModify(row);
-                              setShowReactivateConfirm(true);
-                            }}
-                          />
-                        ) : row.status === "active" &&
-                          row._id !== currentUserId ? (
-                          <Button
-                            iconName="person-off"
-                            label="Deactivate"
-                            buttonStyle={{
-                              width: 100,
-                              borderRadius: 4,
-                              paddingHorizontal: 6,
-                              paddingVertical: 4,
-                              backgroundColor: "#b41010",
-                              alignItems: "center",
-                            }}
-                            buttonTextStyle={{
-                              fontSize: 12,
-                              color: "#fff",
-                              textAlign: "center",
-                            }}
-                            onPress={() => {
-                              setUserToModify(row);
-                              setShowDeactivateConfirm(true);
-                            }}
-                          />
-                        ) : null}
+                        <Button
+                          iconName="delete"
+                          buttonStyle={{
+                            width: 50,
+                            borderRadius: 4,
+                            paddingHorizontal: 6,
+                            paddingVertical: 4,
+                            backgroundColor: "#cc0404",
+                            marginRight: 4,
+                            alignItems: "center",
+                          }}
+                          buttonTextStyle={{
+                            fontSize: 12,
+                            color: "#fff",
+                            textAlign: "center",
+                          }}
+                          onPress={() => {
+                            setComponentToModify(row);
+                            setShowDeleteConfirm(true);
+                          }}
+                        />
                       </View>
                     </DataTable.Cell>
                   );
                 }
 
-                // Status column
-                if (header.key === "status") {
-                  const statusStyle =
-                    row.status === "active"
-                      ? styles.statusActive
-                      : row.status === "inactive"
-                        ? styles.statusInactive
-                        : row.status === "deactivated"
-                          ? styles.statusDeactivated
-                          : null;
+                if (header.key === "stockLevel") {
+                  const stockLevel = row.stockLevel?.toLowerCase();
+                  let stockLevelColor = "#087e64";
+                  if (stockLevel === "critical") stockLevelColor = "#b41010";
+                  if (stockLevel === "low") stockLevelColor = "#ff9900";
 
                   return (
                     <DataTable.Cell
@@ -253,29 +211,29 @@ export default function Table({
                     >
                       <View
                         style={{
-                          paddingHorizontal: 4, // Reduced padding to fit 50px width
+                          paddingHorizontal: 6,
                           paddingVertical: 2,
                           borderRadius: 6,
                           alignItems: "center",
                           justifyContent: "center",
-                          ...statusStyle,
+                          backgroundColor: stockLevelColor,
                         }}
                       >
                         <Text
                           style={{
-                            color: "#000",
+                            color: "#fff",
                             fontWeight: "bold",
-                            fontSize: 10,
+                            fontSize: 12,
                           }}
                         >
-                          {row.status ?? "-"}
+                          {stockLevel?.charAt(0).toUpperCase() +
+                            stockLevel?.slice(1)}
                         </Text>
                       </View>
                     </DataTable.Cell>
                   );
                 }
 
-                // Default cell
                 return (
                   <DataTable.Cell
                     key={hIdx}
@@ -323,21 +281,17 @@ export default function Table({
         renderTable()
       )}
 
-      {/* Confirm Alerts */}
-      {(showDeactivateConfirm || showReactivateConfirm) && (
+      {/* Confirm Delete Alert */}
+      {showDeleteConfirm && (
         <AlertComp
-          visible={showDeactivateConfirm || showReactivateConfirm}
-          title={showDeactivateConfirm ? "DEACTIVATE USER" : "REACTIVATE USER"}
-          message={`Are you sure you want to ${
-            showDeactivateConfirm ? "deactivate" : "reactivate"
-          } this user?`}
+          visible={showDeleteConfirm}
+          title="DELETE COMPONENT"
+          message="Are you sure you want to delete this component?"
           type="confirm"
-          onConfirm={
-            showDeactivateConfirm ? confirmDeactivate : confirmReactivate
-          }
-          onCancel={cancelModify}
-          confirmText="YES"
-          cancelText="CANCEL"
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          confirmText="Yes, delete"
+          cancelText="Cancel"
         />
       )}
     </View>

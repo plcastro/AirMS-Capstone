@@ -17,24 +17,25 @@ import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
 
 import Dashboard from "./Layout/Dashboard";
-import Profile from "./screens/Profile";
+import Profile from "./screens/Settings/Profile";
 
 import UserManagement from "./screens/Admin/UserManagement";
 import UserLogs from "./screens/Admin/UserLogs";
 
+import Inventory from "./screens/Main/Inventory";
 import FlightLog from "./screens/Main/FlightLog";
 import MaintenanceLog from "./screens/Main/MaintenanceLog";
 import PartsMonitoring from "./screens/Main/PartsMonitoring";
-
+import MaintenanceTracking from "./screens/Main/MaintenanceTracking";
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
+import OTP from "./screens/Auth/OTP";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
-// --- Drawer navigator ---
 function DrawerNav() {
   const { user, loading } = useContext(AuthContext);
 
@@ -54,7 +55,8 @@ function DrawerNav() {
     );
   }
 
-  if (!user) return null; // user not logged in
+  if (!user) return null;
+
   const wrapWithDashboard = (ScreenComponent) => (props) => (
     <Dashboard>
       <ScreenComponent {...props} />
@@ -104,11 +106,18 @@ function DrawerNav() {
         ),
       })}
     >
-      <Drawer.Screen
-        name="User Management"
-        component={wrapWithDashboard(UserManagement)}
-      />
-      <Drawer.Screen name="User Logs" component={wrapWithDashboard(UserLogs)} />
+      {user.position?.toLowerCase() === "admin" && (
+        <>
+          <Drawer.Screen
+            name="User Management"
+            component={wrapWithDashboard(UserManagement)}
+          />
+          <Drawer.Screen
+            name="User Logs"
+            component={wrapWithDashboard(UserLogs)}
+          />
+        </>
+      )}
       <Drawer.Screen
         name="Flight Logbook"
         component={wrapWithDashboard(FlightLog)}
@@ -121,12 +130,19 @@ function DrawerNav() {
         name="Parts Monitoring"
         component={wrapWithDashboard(PartsMonitoring)}
       />
+      <Drawer.Screen
+        name="Track Maintenance"
+        component={wrapWithDashboard(MaintenanceTracking)}
+      />
+      <Drawer.Screen
+        name="Component Inventory"
+        component={wrapWithDashboard(Inventory)}
+      />
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
     </Drawer.Navigator>
   );
 }
 
-// --- Login wrapper to redirect active users ---
 function LoginWrapper({ navigation, ...props }) {
   const { user, loading } = useContext(AuthContext);
 
@@ -139,12 +155,13 @@ function LoginWrapper({ navigation, ...props }) {
     }
 
     if (user.status === "inactive") {
-      navigation.navigate("securitySetup", { email: user.email });
-      return;
-    }
+      console.log(user.setupToken);
+      navigation.navigate("securitySetup", {
+        setupToken: user.token,
+        email: user.email,
+      });
 
-    if (user.status === "active") {
-      navigation.replace("dashboard");
+      return;
     }
   }, [user, loading, navigation]);
 
@@ -184,6 +201,7 @@ function StackNavWrapper() {
         component={LoginWrapper}
         options={optionsMain}
       />
+      <Stack.Screen name="otpScreen" component={OTP} options={optionsMain} />
       <Stack.Screen
         name="securitySetup"
         component={SecuritySetup}

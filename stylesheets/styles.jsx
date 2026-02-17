@@ -1,6 +1,40 @@
 import { Dimensions, StyleSheet } from "react-native";
 const { width } = Dimensions.get("window");
 export const styles = StyleSheet.create({
+  // PIN INPUT STYLE
+  codeInputSection: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 30,
+  },
+  hiddenTextInput: { position: "absolute", width: 1, height: 1, opacity: 0 },
+  codeInputContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  codeInput: {
+    borderColor: "#9b9b9b",
+    minWidth: "15%",
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 12,
+  },
+  codeInputText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#000000",
+    fontFamily: "Arial",
+  },
+  codeInputFocused: {
+    borderColor: "#244D3B",
+    minWidth: "15%",
+    borderWidth: 2,
+    borderRadius: 5,
+    padding: 12,
+  },
+
   // Login, Reset, Forgot password, Security Setup Screen Styles
   formCard: {
     marginHorizontal: "auto",
@@ -39,6 +73,7 @@ export const styles = StyleSheet.create({
   headerText: {
     fontSize: Math.min(Math.max(width * 0.04, 24), 32),
     fontWeight: "500",
+    textAlign: "center",
   },
   subHeaderText: {
     fontSize: Math.min(Math.max(width * 0.02, 16), 20),
@@ -204,12 +239,16 @@ export const styles = StyleSheet.create({
   },
 
   cancelBtn: {
-    backgroundColor: "#26866F",
+    backgroundColor: "#ebebeb",
     paddingHorizontal: 22,
     paddingVertical: 10,
     borderRadius: 8,
   },
-
+  cancelBtnText: {
+    color: "#26866F",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   btnText: {
     color: "#fff",
     fontSize: 16,

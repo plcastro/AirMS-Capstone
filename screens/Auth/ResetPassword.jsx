@@ -1,42 +1,55 @@
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
-import { styles } from "../../stylesheets/styles";
-import React, { useState } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function ResetPassword() {
-  const nav = useNavigation();
+  const navigation = useNavigation();
   const route = useRoute();
-  const token = route.params?.token;
+  const { token } = route.params;
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [passwordValid, setPasswordValid] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Password strength check
+  useEffect(() => {
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasLowercase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasMinLength = newPassword.length >= 8;
+    setPasswordValid(hasUppercase && hasLowercase && hasNumber && hasMinLength);
+  }, [newPassword]);
 
   const validatePasswords = () => {
     if (!newPassword || !confirmPassword) {
-      return setMessage("Please fill in all fields.");
+      return Alert.alert("Error", "Please fill in all fields.");
     }
-
     if (newPassword !== confirmPassword) {
-      return setMessage("Passwords do not match.");
+      return Alert.alert("Error", "Passwords do not match.");
     }
-
-    setMessage("");
-    saveNewPassword();
+    if (!passwordValid) {
+      return Alert.alert(
+        "Error",
+        "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
+      );
+    }
+    resetPassword();
   };
 
-  const saveNewPassword = async () => {
-    if (!token) return setMessage("Invalid or missing reset token.");
+  const resetPassword = async () => {
+    if (!token) return Alert.alert("Error", "Invalid or missing reset token.");
 
     setLoading(true);
     try {
@@ -45,21 +58,22 @@ export default function ResetPassword() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword, otp }),
+          body: JSON.stringify({ newPassword }),
         },
       );
 
       const data = await response.json();
-
       if (!response.ok)
         throw new Error(data.message || "Failed to reset password");
 
-      setMessage("Password reset successfully. Redirecting to login…");
+      setSuccessMessage(
+        "Password changed successfully. Redirecting to login...",
+      );
 
-      setTimeout(() => nav.replace("login"), 3000);
-    } catch (err) {
-      console.error("Reset password error:", err);
-      setMessage(err.message || "Something went wrong.");
+      setTimeout(() => navigation.replace("login"), 3000);
+    } catch (error) {
+      console.error("Reset password error:", error);
+      Alert.alert("Error", error.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -73,51 +87,40 @@ export default function ResetPassword() {
     >
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Reset Password</Text>
-        <TextInput
-          style={styles.formInput}
-          placeholder="Enter OTP from Email"
-          value={otp}
-          onChangeText={setOtp}
-          keyboardType="numeric"
-        />
-        <Text style={styles.subHeaderText}>Please enter your new password</Text>
+        <Text style={styles.subHeaderText}>Enter your new password</Text>
 
         <TextInput
           style={styles.formInput}
-          maxLength={50}
           placeholder="New Password"
           secureTextEntry
           placeholderTextColor="gray"
           value={newPassword}
           onChangeText={setNewPassword}
+          maxLength={50}
         />
 
         <TextInput
           style={styles.formInput}
-          maxLength={50}
           placeholder="Confirm Password"
           secureTextEntry
           placeholderTextColor="gray"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
+          maxLength={50}
         />
 
-        {message ? <Text style={styles.error}>{message}</Text> : null}
+        {successMessage ? (
+          <Text style={{ marginTop: 10, color: "green" }}>
+            {successMessage}
+          </Text>
+        ) : null}
 
         <Button
-          buttonStyle={[styles.button, { marginTop: 20 }]}
-          buttonTextStyle={styles.buttonText}
+          label={loading ? "RESETTING..." : "CHANGE PASSWORD"}
           onPress={validatePasswords}
-          label={loading ? "RESETTING..." : "RESET PASSWORD"}
-          disabled={loading}
-        />
-        <Button
           buttonStyle={[styles.button, { marginTop: 20 }]}
           buttonTextStyle={styles.buttonText}
-          onPress={() => {
-            nav.replace("login");
-          }}
-          label="GO TO LOGIN"
+          disabled={loading || !newPassword || !confirmPassword}
         />
       </View>
     </KeyboardAvoidingView>

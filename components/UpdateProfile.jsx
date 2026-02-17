@@ -226,7 +226,7 @@ export default function UpdateProfile({ visible, onClose }) {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/updatePassword/${user.id}`,
+        `${API_BASE}/api/user/change-password/${user.id}`,
         {
           method: "PUT",
           headers: {

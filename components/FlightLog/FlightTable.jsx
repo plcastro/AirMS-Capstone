@@ -181,8 +181,17 @@ export default function FlightTable({
   };
 
   const renderTable = () => (
-    <View style={{ width: "100%" }}>
-      <DataTable style={{ width: "100%" }}>
+    <View
+      style={{
+        width: "100%",
+        flexDirection: "row",
+        maxWidth: "100%",
+        minWidth: totalWidth,
+      }}
+    >
+      <DataTable
+        style={{ width: "100%", maxWidth: "100%", minWidth: totalWidth }}
+      >
         {/* HEADER */}
         <DataTable.Header style={styles.tableHeader}>
           {headers.map((header, i) => (

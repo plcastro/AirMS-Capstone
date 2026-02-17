@@ -1,12 +1,12 @@
 import { View, Text, Image } from "react-native";
 import React, { useState, useContext } from "react";
-import { styles } from "../stylesheets/styles";
+import { styles } from "../../stylesheets/styles";
 
-import Button from "../components/Button";
+import Button from "../../components/Button";
 
-import { AuthContext } from "../Context/AuthContext";
-import UpdateProfile from "../components/UpdateProfile";
-import { API_BASE } from "../utilities/API_BASE";
+import { AuthContext } from "../../Context/AuthContext";
+import UpdateProfile from "../../components/UpdateProfile";
+import { API_BASE } from "../../utilities/API_BASE";
 
 export default function Profile() {
   const { user } = useContext(AuthContext);
