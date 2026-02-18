@@ -22,6 +22,7 @@ export default function UpdateProfile({ visible, onClose }) {
   const isMobile = Platform.OS !== "web";
   const { user, setUser } = useContext(AuthContext);
   const fileInputRef = useRef(null);
+  const [page, setPage] = useState(1);
   const { image } = user;
 
   const profileImage =
@@ -189,6 +190,7 @@ export default function UpdateProfile({ visible, onClose }) {
   };
 
   const handleClose = () => {
+    setPage(1);
     resetForm();
     onClose();
   };
@@ -348,21 +350,48 @@ export default function UpdateProfile({ visible, onClose }) {
 
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <ScrollView>
-        <View style={styles.alertOverlay}>
+      <View style={styles.alertOverlay}>
+        <View
+          style={[
+            styles.alertContainer,
+            {
+              width: isMobile ? "100%" : 320,
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+            },
+          ]}
+        >
           <View
-            style={[
-              styles.alertContainer,
-              {
-                alignItems: "center",
-                justifyContent: "center",
-                width: isMobile ? "100%" : 600,
-                flexDirection: isMobile ? "column" : "row",
-                gap: 10,
-              },
-            ]}
+            style={{ marginBottom: 20, flexDirection: "row", width: "100%" }}
           >
-            <View style={{ alignSelf: "flex-start" }}>
+            {["Profile", "Name", "Password"].map((label, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => setPage(index + 1)}
+                style={{
+                  flex: 1,
+
+                  padding: 10,
+                  borderBottomWidth: 2,
+                  borderBottomColor: page === index + 1 ? "#26866F" : "#ccc",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontWeight: page === index + 1 ? "bold" : "normal",
+                    color: page === index + 1 ? "#26866F" : "#666",
+                  }}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {page === 1 && (
+            <View style={{ alignItems: "center", width: "100%" }}>
               {Platform.OS === "web" && (
                 <input
                   type="file"
@@ -372,104 +401,70 @@ export default function UpdateProfile({ visible, onClose }) {
                   onChange={handleWebFileChange}
                 />
               )}
+
               <TouchableOpacity onPress={pickImage}>
                 <Image
                   source={{ uri: previewUri }}
-                  style={{ width: 100, height: 100, borderRadius: 50 }}
+                  style={{ width: 120, height: 120, borderRadius: 60 }}
                 />
               </TouchableOpacity>
-            </View>
 
-            {/* EXISTING PROFILE FORM */}
-            <View style={{ flexDirection: "column", width: 300 }}>
-              <View>
-                <Text>First Name</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="First Name"
-                  placeholderTextColor="gray"
-                  value={formData.firstName}
-                  onChangeText={(t) => handleChange("firstName", t)}
-                />
-                {formErrors.firstName && (
-                  <Text style={styles.error}>{formErrors.firstName}</Text>
-                )}
-              </View>
-              <View>
-                <Text>Last Name</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="Last Name"
-                  placeholderTextColor="gray"
-                  value={formData.lastName}
-                  onChangeText={(t) => handleChange("lastName", t)}
-                />
-                {formErrors.lastName && (
-                  <Text style={styles.error}>{formErrors.lastName}</Text>
-                )}
-              </View>
-              <View>
-                <Text>Email</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={user.email}
-                  editable={false}
-                />
-              </View>
-              <View>
-                <Text>Username</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={user.username}
-                  editable={false}
-                />
-              </View>
-              <View>
-                <Text>Current Password</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="Current Password"
-                  placeholderTextColor="gray"
-                  secureTextEntry
-                  value={currentPassword}
-                  onChangeText={(t) => setCurrentPassword(t.trim())}
-                />
-                {formErrors.currentPassword && (
-                  <Text style={styles.error}>{formErrors.currentPassword}</Text>
-                )}
-              </View>
-              <View>
-                <Text>New Password</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="New Password"
-                  placeholderTextColor="gray"
-                  secureTextEntry
-                  value={newPassword}
-                  onChangeText={(t) => setNewPassword(t.trim())}
-                />
-                {formErrors.newPassword && (
-                  <Text style={styles.error}>{formErrors.newPassword}</Text>
-                )}
-              </View>
-              <View>
-                <Text>Confirm New Password</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="Confirm New Password"
-                  placeholderTextColor="gray"
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={(t) => setConfirmPassword(t.trim())}
-                />
-                {formErrors.confirmPassword && (
-                  <Text style={styles.error}>{formErrors.confirmPassword}</Text>
-                )}
-              </View>
-              <View style={{ marginVertical: 10 }}>
-                <Text style={{ fontSize: 12, color: "#666" }}>
-                  Password Requirements:
-                </Text>
+              <Text style={{ marginTop: 10, color: "#666" }}>
+                Tap image to change
+              </Text>
+            </View>
+          )}
+          {page === 2 && (
+            <View style={{ width: "100%" }}>
+              <Text>First Name</Text>
+              <TextInput
+                style={styles.formInput}
+                value={formData.firstName}
+                onChangeText={(t) => handleChange("firstName", t)}
+              />
+              {formErrors.firstName && (
+                <Text style={styles.error}>{formErrors.firstName}</Text>
+              )}
+
+              <Text>Last Name</Text>
+              <TextInput
+                style={styles.formInput}
+                value={formData.lastName}
+                onChangeText={(t) => handleChange("lastName", t)}
+              />
+              {formErrors.lastName && (
+                <Text style={styles.error}>{formErrors.lastName}</Text>
+              )}
+            </View>
+          )}
+
+          {page === 3 && (
+            <View style={{ width: "100%" }}>
+              <Text>Current Password</Text>
+              <TextInput
+                style={styles.formInput}
+                secureTextEntry
+                value={currentPassword}
+                onChangeText={(t) => setCurrentPassword(t)}
+              />
+
+              <Text>New Password</Text>
+              <TextInput
+                style={styles.formInput}
+                secureTextEntry
+                value={newPassword}
+                onChangeText={(t) => setNewPassword(t)}
+              />
+
+              <Text>Confirm Password</Text>
+              <TextInput
+                style={styles.formInput}
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={(t) => setConfirmPassword(t)}
+              />
+
+              <View style={{ marginTop: 10 }}>
                 <Text
                   style={getRequirementStyle(passwordRequirements.minLength)}
                 >
@@ -478,7 +473,7 @@ export default function UpdateProfile({ visible, onClose }) {
                 <Text
                   style={getRequirementStyle(passwordRequirements.hasUppercase)}
                 >
-                  ✓ One uppercase letter
+                  ✓ One uppercase
                 </Text>
                 <Text
                   style={getRequirementStyle(passwordRequirements.hasNumber)}
@@ -486,29 +481,37 @@ export default function UpdateProfile({ visible, onClose }) {
                   ✓ One number
                 </Text>
               </View>
-              {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-              <View style={{ flexDirection: "row", marginTop: 20, gap: 10 }}>
-                <Button
-                  label="Save changes"
-                  onPress={() => setAlertVisible(true)}
-                  disabled={!isSaveEnabled}
-                  buttonStyle={[
-                    styles.alertConfirmBtn,
-                    { opacity: isSaveEnabled ? 1 : 0.5 },
-                  ]}
-                  buttonTextStyle={styles.alertConfirmBtnText}
-                />
-                <Button
-                  label="Cancel"
-                  onPress={handleClose}
-                  buttonStyle={[styles.alertCancelBtn]}
-                  buttonTextStyle={styles.alertCancelBtnText}
-                />
-              </View>
             </View>
+          )}
+
+          {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+          <View
+            style={{
+              flexDirection: "column",
+              marginTop: 20,
+              gap: 10,
+              width: "100%",
+            }}
+          >
+            <Button
+              label="Save changes"
+              onPress={() => setAlertVisible(true)}
+              disabled={isSaveEnabled}
+              buttonStyle={[
+                styles.primaryAlertBtn,
+                { opacity: isSaveEnabled ? 1 : 0.5 },
+              ]}
+              buttonTextStyle={styles.primaryBtnTxt}
+            />
+            <Button
+              label="Cancel"
+              onPress={handleClose}
+              buttonStyle={[styles.secondaryBtn]}
+              buttonTextStyle={styles.secondaryBtnTxt}
+            />
           </View>
         </View>
-      </ScrollView>
+      </View>
       {alertVisible && (
         <AlertComp
           visible={alertVisible}

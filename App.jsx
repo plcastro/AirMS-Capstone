@@ -3,11 +3,7 @@ import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
-import {
-  Provider as PaperProvider,
-  configureFonts,
-  DefaultTheme,
-} from "react-native-paper";
+import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 
@@ -27,11 +23,14 @@ import FlightLog from "./screens/Main/FlightLog";
 import MaintenanceLog from "./screens/Main/MaintenanceLog";
 import PartsMonitoring from "./screens/Main/PartsMonitoring";
 import MaintenanceTracking from "./screens/Main/MaintenanceTracking";
+
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
+import LoadingScreen from "./screens/LoadingScreen";
+import ReportAndAnalysis from "./screens/Main/ReportAndAnalysis";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -48,11 +47,7 @@ function DrawerNav() {
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Loading dashboard...</Text>
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) return null;
@@ -121,6 +116,10 @@ function DrawerNav() {
       <Drawer.Screen
         name="Flight Logbook"
         component={wrapWithDashboard(FlightLog)}
+      />
+      <Drawer.Screen
+        name="Reports and Analytics"
+        component={wrapWithDashboard(ReportAndAnalysis)}
       />
       <Drawer.Screen
         name="Maintenance Logbook"

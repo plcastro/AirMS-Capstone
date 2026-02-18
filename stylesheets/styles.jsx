@@ -1,4 +1,5 @@
 import { Dimensions, StyleSheet } from "react-native";
+import { COLORS } from "./colors";
 const { width } = Dimensions.get("window");
 export const styles = StyleSheet.create({
   // PIN INPUT STYLE
@@ -15,7 +16,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   codeInput: {
-    borderColor: "#9b9b9b",
+    borderColor: COLORS.border,
     minWidth: "15%",
     borderWidth: 1,
     borderRadius: 5,
@@ -24,17 +25,22 @@ export const styles = StyleSheet.create({
   codeInputText: {
     fontSize: 16,
     textAlign: "center",
-    color: "#000000",
+    color: COLORS.black,
     fontFamily: "Arial",
   },
   codeInputFocused: {
-    borderColor: "#244D3B",
+    borderColor: COLORS.primaryLight,
     minWidth: "15%",
     borderWidth: 2,
     borderRadius: 5,
     padding: 12,
   },
-
+  //Screens
+  container: {
+    flex: 1,
+    paddingHorizontal: "5%",
+    paddingVertical: 10,
+  },
   // Login, Reset, Forgot password, Security Setup Screen Styles
   formCard: {
     marginHorizontal: "auto",
@@ -43,13 +49,13 @@ export const styles = StyleSheet.create({
     maxHeight: "70%",
     width: 800,
     height: 500,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
     padding: 15,
     borderRadius: 15,
     elevation: 4, // Android
-    shadowColor: "#000", // iOS
+    shadowColor: COLORS.black, // iOS
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -64,7 +70,7 @@ export const styles = StyleSheet.create({
     height: 50,
     width: "100%",
     borderWidth: 1,
-    borderColor: "#e4e4e4",
+    borderColor: COLORS.grayLight,
     borderRadius: 10,
     marginTop: 10,
     marginBottom: 10,
@@ -76,7 +82,7 @@ export const styles = StyleSheet.create({
     textAlign: "center",
   },
   subHeaderText: {
-    fontSize: Math.min(Math.max(width * 0.02, 16), 20),
+    fontSize: Math.min(Math.max(width * 0.02, 16), 21),
     textAlign: "center",
   },
   loginHelper: {
@@ -94,18 +100,58 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
   },
-  button: {
+  primaryBtn: {
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 12,
     width: "100%",
     height: 50,
     maxHeight: 40,
-    backgroundColor: "#244D3B",
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
   },
-  buttonText: {
+  primaryBtnTxt: {
     textAlign: "center",
-    color: "#fff",
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  secondaryBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    height: 50,
+    maxHeight: 40,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 10,
+  },
+  secondaryBtnTxt: {
+    textAlign: "center",
+    color: COLORS.primaryLight,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  primaryAlertBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    height: 50,
+    maxHeight: 40,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 10,
+  },
+  secondaryAlertBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    height: 50,
+    maxHeight: 40,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 10,
+  },
+  secondaryAlertBtnTxt: {
+    textAlign: "center",
+    color: COLORS.primaryLight,
     fontSize: 16,
     fontWeight: "500",
   },
@@ -128,22 +174,22 @@ export const styles = StyleSheet.create({
   caption: {
     fontSize: 13,
     lineHeight: 14,
-    color: "#6e6e6e",
+    color: COLORS.grayDark,
   },
   drawerSection: {
     marginTop: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#dedede",
+    borderBottomColor: COLORS.grayMedium,
   },
   bottomDrawerSection: {
     marginBottom: 15,
     borderTopWidth: 1,
-    borderTopColor: "#dedede",
+    borderTopColor: COLORS.grayMedium,
   },
   profileCard: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.white,
     borderRadius: 10,
     width: 700,
     maxWidth: "90%",
@@ -154,7 +200,7 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     marginBottom: 4,
-    color: "#333",
+    color: COLORS.grayDark,
   },
   /* ===== ADD USER PANEL ===== */
   addUserOverlay: {
@@ -163,7 +209,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: COLORS.overlayDark,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1000,
@@ -172,7 +218,7 @@ export const styles = StyleSheet.create({
   addUserCard: {
     width: "85%",
     maxWidth: 900,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 20,
   },
@@ -190,7 +236,7 @@ export const styles = StyleSheet.create({
   imageBox: {
     width: 120,
     height: 120,
-    backgroundColor: "#EEE",
+    backgroundColor: COLORS.grayLight,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -199,7 +245,7 @@ export const styles = StyleSheet.create({
 
   plus: {
     fontSize: 36,
-    color: "#AAA",
+    color: COLORS.grayDark,
   },
 
   form: {
@@ -214,11 +260,11 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     marginBottom: 4,
-    color: "#333",
+    color: COLORS.grayDark,
   },
 
   input: {
-    backgroundColor: "#F1F1F1",
+    backgroundColor: COLORS.grayLight,
     height: 36,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -230,43 +276,20 @@ export const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  saveBtn: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-
-  cancelBtn: {
-    backgroundColor: "#ebebeb",
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  cancelBtnText: {
-    color: "#26866F",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  btnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
   /* ===== SEARCH + ADD BUTTON ===== */
   searchRow: {
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
     marginBottom: 8,
-    width: 750,
+    width: "100%",
+    flexWrap: "wrap",
   },
   searchInput: {
-    width: 300,
-    backgroundColor: "#f7f6f6",
-    borderColor: "#CCCCCC",
+    width: 500,
+    minWidth: width < 768 ? "100%" : 300,
+    backgroundColor: COLORS.grayLight,
+    borderColor: COLORS.grayMedium,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -274,39 +297,28 @@ export const styles = StyleSheet.create({
     marginRight: 10,
     marginBottom: 4,
   },
-  addButton: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 12,
-  },
-  tableCell: { color: "#181717" },
-  tableHeader: { backgroundColor: "#26866F", borderRadius: 4 },
-  tableHeaderText: { color: "#FFFFFF" },
+  tableCell: { color: COLORS.black },
+  tableHeader: { backgroundColor: COLORS.primaryLight, borderRadius: 4 },
+  tableHeaderText: { color: COLORS.white },
   statusActive: {
-    backgroundColor: "#d4edda",
-    borderColor: "#28a745",
+    backgroundColor: COLORS.successBg,
+    borderColor: COLORS.successBorder,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   statusInactive: {
-    backgroundColor: "#d1ecf1",
-    borderColor: "#17a2b8",
+    backgroundColor: COLORS.infoBg,
+    borderColor: COLORS.infoBorder,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   statusDeactivated: {
-    backgroundColor: "#f8d7da",
-    borderColor: "#dc3545",
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -314,7 +326,7 @@ export const styles = StyleSheet.create({
   },
   /* ROLE DROPDOWN */
   picker: {
-    backgroundColor: "#F1F1F1",
+    backgroundColor: COLORS.grayLight,
     height: 36,
     borderRadius: 8,
     marginTop: 4,
@@ -325,13 +337,13 @@ export const styles = StyleSheet.create({
   /* ===== ALERT COMPONENT STYLES ===== */
   alertOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: COLORS.overlayDark,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1000,
   },
   alertContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 20,
     borderRadius: 8,
     minWidth: 300,
@@ -354,38 +366,11 @@ export const styles = StyleSheet.create({
     gap: 12,
     marginTop: 10,
   },
-  alertConfirmBtn: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 6,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  alertCancelBtn: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d8d8d8",
-    borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 6,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  alertConfirmBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  alertCancelBtnText: {
-    color: "#26866F",
-    fontWeight: "600",
-    fontSize: 14,
-  },
+
   /* ===== FILTER STYLES ===== */
   filterContainer: {
-    backgroundColor: "#EDEDED",
-    borderColor: "#CCCCCC",
+    backgroundColor: COLORS.grayLight,
+    borderColor: COLORS.grayMedium,
     borderWidth: 1,
     borderRadius: 8,
     marginRight: 10,
@@ -393,22 +378,11 @@ export const styles = StyleSheet.create({
     height: 38,
     justifyContent: "center",
     minWidth: 120, // Minimum width for filter dropdowns
+    width: "100%",
   },
   filterPicker: {
     width: 120, // Slightly narrower to fit two filters
     height: 38,
-    fontSize: 12,
-  },
-  addButton: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "600",
     fontSize: 12,
   },
   /* ===== USER COUNT STYLES ===== */
@@ -418,14 +392,14 @@ export const styles = StyleSheet.create({
   },
   userCountText: {
     fontSize: 12,
-    color: "#666",
+    color: COLORS.grayDark,
     fontStyle: "italic",
   },
   /* ===== MAINTENANCE LOG STYLES ===== */
   maintenanceTableContainer: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
 
   maintenanceSearchRow: {
@@ -435,20 +409,10 @@ export const styles = StyleSheet.create({
     gap: 10,
     flexWrap: "wrap",
   },
-  maintenanceSearchInput: {
-    flex: 1,
-    minWidth: 500,
-    maxWidth: 600,
-    backgroundColor: "#EDEDED",
-    borderColor: "#CCCCCC",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 38,
-  },
+
   maintenanceFilter: {
-    backgroundColor: "#EDEDED",
-    borderColor: "#CCCCCC",
+    backgroundColor: COLORS.grayLight,
+    borderColor: COLORS.grayMedium,
     borderWidth: 1,
     borderRadius: 8,
     height: 38,
@@ -461,8 +425,8 @@ export const styles = StyleSheet.create({
     fontSize: 12,
   },
   maintenanceAircraftFilter: {
-    backgroundColor: "#EDEDED",
-    borderColor: "#CCCCCC",
+    backgroundColor: COLORS.grayLight,
+    borderColor: COLORS.grayMedium,
     borderWidth: 1,
     borderRadius: 8,
     height: 38,
@@ -471,7 +435,7 @@ export const styles = StyleSheet.create({
   },
   maintenanceSearchDivider: {
     height: 1,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: COLORS.grayMedium,
     marginBottom: 12,
   },
   maintenanceHistoryHeader: {
@@ -482,7 +446,7 @@ export const styles = StyleSheet.create({
     paddingTop: 8,
   },
   maintenanceHistoryTitleWithBg: {
-    backgroundColor: "#26866F",
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4,
@@ -492,20 +456,10 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: "white",
   },
-  maintenanceAddButton: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  maintenanceAddButtonText: {
-    color: "#fff",
-    fontWeight: "500",
-    fontSize: 12,
-  },
+
   maintenanceStatusUnverified: {
-    backgroundColor: "#f8d7da",
-    borderColor: "#dc3545",
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -513,8 +467,8 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   maintenanceStatusVerified: {
-    backgroundColor: "#d4edda",
-    borderColor: "#28a745",
+    backgroundColor: COLORS.successBg,
+    borderColor: COLORS.successBorder,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -522,15 +476,15 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   maintenanceTableCell: {
-    color: "#181717",
+    color: COLORS.black,
     fontSize: 12,
   },
   maintenanceTableHeader: {
-    backgroundColor: "#26866F",
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 4,
   },
   maintenanceTableHeaderText: {
-    color: "#FFFFFF",
+    color: COLORS.white,
     fontWeight: "600",
     textAlign: "center",
   },
@@ -540,7 +494,7 @@ export const styles = StyleSheet.create({
   },
   maintenanceLogCountText: {
     fontSize: 12,
-    color: "#666",
+    color: COLORS.grayDark,
     fontStyle: "italic",
   },
   /* ===== NEW ENTRY MODAL STYLES ===== */
@@ -550,15 +504,14 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: COLORS.overlayDark,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1000,
   },
   newEntryCard: {
     width: "85%",
-
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 20,
   },
@@ -566,7 +519,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 16,
-    color: "#26866F",
+    color: COLORS.primaryLight,
   },
   newEntryField: {
     marginBottom: 16,
@@ -574,25 +527,25 @@ export const styles = StyleSheet.create({
   newEntryLabel: {
     fontSize: 12,
     marginBottom: 4,
-    color: "#333",
+    color: COLORS.grayDark,
     fontWeight: "500",
   },
   newEntryInput: {
-    backgroundColor: "#F1F1F1",
+    backgroundColor: COLORS.grayLight,
     height: 36,
     borderRadius: 8,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: "#CCCCCC",
+    borderColor: COLORS.grayMedium,
   },
   newEntryTextArea: {
-    backgroundColor: "#F1F1F1",
+    backgroundColor: COLORS.grayLight,
     height: 80,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "#CCCCCC",
+    borderColor: COLORS.grayMedium,
     textAlignVertical: "top",
   },
   newEntryButtonRow: {
@@ -601,26 +554,10 @@ export const styles = StyleSheet.create({
     marginTop: 20,
     gap: 10,
   },
-  newEntrySaveBtn: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  newEntryDiscardBtn: {
-    backgroundColor: "#6c757d",
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  newEntryBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+
   /* ===== VERIFICATION ALERT STYLES ===== */
   verificationAlertContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 24,
     borderRadius: 12,
     alignItems: "center",
@@ -628,7 +565,7 @@ export const styles = StyleSheet.create({
     maxWidth: 500,
     marginHorizontal: 20,
     elevation: 5,
-    shadowColor: "#000",
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -637,14 +574,14 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 16,
-    color: "#26866F",
+    color: COLORS.primaryLight,
     textAlign: "center",
   },
   verificationAlertMessage: {
     fontSize: 16,
     textAlign: "center",
     marginBottom: 24,
-    color: "#333",
+    color: COLORS.grayDark,
     lineHeight: 22,
   },
   verificationField: {
@@ -655,17 +592,17 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
-    color: "#333",
+    color: COLORS.grayDark,
   },
   verificationInput: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: COLORS.grayLight,
     borderWidth: 1,
-    borderColor: "#DEE2E6",
+    borderColor: COLORS.grayMedium,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#333",
+    color: COLORS.grayDark,
   },
   verificationButtonRow: {
     flexDirection: "row",
@@ -674,35 +611,15 @@ export const styles = StyleSheet.create({
     marginTop: 8,
     width: "100%",
   },
-  verificationApproveBtn: {
-    backgroundColor: "#26866F",
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-    minWidth: 140,
-    alignItems: "center",
-  },
-  verificationCancelBtn: {
-    backgroundColor: "#6C757D",
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-    minWidth: 140,
-    alignItems: "center",
-  },
-  verificationBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
-  },
+
   // FLIGHT LOG
   flightFormInput: {
-    backgroundColor: "#F1F1F1",
+    backgroundColor: COLORS.grayLight,
     height: 36,
     borderRadius: 8,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: "#CCCCCC",
+    borderColor: COLORS.grayMedium,
     marginBottom: 5,
   },
 
@@ -714,7 +631,7 @@ export const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: COLORS.overlayLight,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -722,7 +639,7 @@ export const styles = StyleSheet.create({
   newFlightEntryCard: {
     maxWidth: "95%",
     width: 500,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 20,
     position: "relative",
@@ -744,7 +661,7 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 8,
     marginTop: 16,
-    color: "#000",
+    color: COLORS.black,
   },
 
   mmelGrid: {
@@ -766,5 +683,112 @@ export const styles = StyleSheet.create({
     position: "absolute",
     right: 12,
     top: 12,
+  },
+  /* Top Row */
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+
+  exportButton: {
+    backgroundColor: COLORS.primaryLight,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginLeft: 10,
+    elevation: 3,
+  },
+
+  exportText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    fontSize: 13,
+  },
+
+  /* Filters */
+  filterContainer: {
+    marginBottom: 20,
+  },
+
+  filterInput: {
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    marginBottom: 8,
+    elevation: 1,
+  },
+
+  /* Cards */
+  cardRow: {
+    flexDirection: width < 768 ? "column" : "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 16,
+    width: width < 768 ? "100%" : "31%",
+    marginBottom: width < 400 ? 12 : 0,
+    elevation: 3,
+  },
+
+  cardTitle: {
+    fontSize: 14,
+    color: COLORS.grayMedium,
+    marginBottom: 8,
+  },
+
+  cardValue: {
+    fontSize: 21,
+    fontWeight: "bold",
+    color: COLORS.grayDark,
+  },
+
+  /* Performance Section */
+  performanceContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 3,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+
+  chartPlaceholder: {
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.grayMedium,
+    borderRadius: 12,
+  },
+
+  /* List */
+  listItem: {
+    backgroundColor: COLORS.white,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    elevation: 1,
+  },
+
+  listTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  listSub: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 4,
   },
 });

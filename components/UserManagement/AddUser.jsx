@@ -374,13 +374,16 @@ export default function AddUser({ visible, onClose, onUserAdded }) {
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={styles.saveBtn}
+                style={styles.primaryAlertBtn}
                 onPress={handleSaveClick}
               >
-                <Text style={styles.btnText}>Save</Text>
+                <Text style={styles.primaryBtnTxt}>Save</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={handleCancel}
+              >
+                <Text style={styles.secondaryBtnTxt}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

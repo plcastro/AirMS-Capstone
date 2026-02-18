@@ -203,11 +203,11 @@ export default function MaintenanceLog() {
   }, []);
 
   return (
-    <View style={styles.maintenanceTableContainer}>
+    <View style={styles.container}>
       <View style={styles.maintenanceSearchRow}>
         <TextInput
           placeholder="Search by aircraft, defects, date, or corrective action..."
-          style={styles.maintenanceSearchInput}
+          style={styles.searchInput}
           value={searchQuery}
           onChangeText={handleSearchChange}
         />
@@ -252,8 +252,8 @@ export default function MaintenanceLog() {
         </View>
         <Button
           label="+ New Entry"
-          buttonStyle={styles.maintenanceAddButton}
-          buttonTextStyle={styles.maintenanceAddButtonText}
+          buttonStyle={[styles.primaryBtn, { width: 150 }]}
+          buttonTextStyle={styles.primaryBtnTxt}
           onPress={() => setShowNewEntry(true)}
         />
       </View>

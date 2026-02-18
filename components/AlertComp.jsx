@@ -37,19 +37,19 @@ export default function AlertComp({
             <View style={styles.alertButtonRow}>
               {onCancel && (
                 <TouchableOpacity
-                  style={styles.alertCancelBtn}
+                  style={styles.secondaryAlertBtn}
                   onPress={onCancel}
                 >
-                  <Text style={styles.alertCancelBtnText}>{cancelText}</Text>
+                  <Text style={styles.secondaryAlertBtnTxt}>{cancelText}</Text>
                 </TouchableOpacity>
               )}
 
               {onConfirm && (
                 <TouchableOpacity
-                  style={styles.alertConfirmBtn}
+                  style={styles.primaryAlertBtn}
                   onPress={onConfirm}
                 >
-                  <Text style={styles.alertConfirmBtnText}>{confirmText}</Text>
+                  <Text style={styles.primaryBtnTxt}>{confirmText}</Text>
                 </TouchableOpacity>
               )}
             </View>

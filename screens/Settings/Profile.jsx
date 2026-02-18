@@ -21,58 +21,57 @@ export default function Profile() {
       : `${API_BASE}/uploads/default_avatar.jpg`;
 
   return (
-    <View style={styles.profileCard}>
-      <View style={styles.profileContent}>
-        <Text style={styles.headerText}>User Profile</Text>
-        <Image
-          source={{
-            uri: profileImage,
-          }}
-          style={{
-            width: 150,
-            height: 150,
-            marginVertical: 10,
-            borderRadius: 100,
-          }}
-        />
+    <View style={styles.container}>
+      <View style={styles.profileCard}>
+        <View style={styles.profileContent}>
+          <Text style={styles.headerText}>User Profile</Text>
+          <Image
+            source={{
+              uri: profileImage,
+            }}
+            style={{
+              width: 150,
+              height: 150,
+              marginVertical: 10,
+              borderRadius: 100,
+            }}
+          />
 
-        <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
-          <Text>
-            <Text style={{ fontWeight: "bold" }}>Name:</Text> {firstName}{" "}
-            {lastName}
-          </Text>
-          <Text>
-            <Text style={{ fontWeight: "bold" }}>Email:</Text> {email}
-          </Text>
-          <Text>
-            <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
-          </Text>
-          <Text>
-            <Text style={{ fontWeight: "bold" }}>Position:</Text> {position}
-          </Text>
+          <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            <Text>
+              <Text style={{ fontWeight: "bold" }}>Name:</Text> {firstName}{" "}
+              {lastName}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "bold" }}>Email:</Text> {email}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
+            </Text>
+            <Text>
+              <Text style={{ fontWeight: "bold" }}>Position:</Text> {position}
+            </Text>
+          </View>
+          <Button
+            label="Edit profile"
+            onPress={() => setShowUpdateModal(true)}
+            buttonStyle={[
+              styles.primaryAlertBtn,
+              { width: 150, marginTop: 20 },
+            ]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+
+          <UpdateProfile
+            visible={showUpdateModal}
+            user={user}
+            onClose={() => setShowUpdateModal(false)}
+            onSubmit={(data) => {
+              console.log(data);
+              setShowUpdateModal(false);
+            }}
+          />
         </View>
-        <Button
-          label="Update profile"
-          onPress={() => setShowUpdateModal(true)}
-          buttonStyle={{
-            marginTop: 20,
-            padding: 10,
-            backgroundColor: "#26866F",
-            borderRadius: 5,
-          }}
-          buttonTextStyle={{ color: "#fff", textAlign: "center" }}
-        />
-
-        <UpdateProfile
-          visible={showUpdateModal}
-          user={user}
-          onClose={() => setShowUpdateModal(false)}
-          onSubmit={(data) => {
-            // call API here
-            console.log(data);
-            setShowUpdateModal(false);
-          }}
-        />
       </View>
     </View>
   );

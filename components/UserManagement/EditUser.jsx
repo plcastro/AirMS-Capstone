@@ -291,18 +291,18 @@ export default function EditUser({ visible, onClose, user, onUserUpdated }) {
 
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[styles.saveBtn, !isChanged && styles.saveBtnDisabled]}
+                  style={[styles.primaryBtn, !isChanged && styles.primaryBtn]}
                   onPress={handleUpdateClick}
                   disabled={!isChanged}
                 >
-                  <Text style={styles.btnText}>UPDATE</Text>
+                  <Text style={styles.primaryBtnTxt}>UPDATE</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.cancelBtn}
+                  style={styles.secondaryBtn}
                   onPress={handleCancel}
                 >
-                  <Text style={styles.cancelBtnText}>CANCEL</Text>
+                  <Text style={styles.secondaryBtnTxt}>CANCEL</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

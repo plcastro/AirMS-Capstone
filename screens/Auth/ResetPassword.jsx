@@ -118,8 +118,8 @@ export default function ResetPassword() {
         <Button
           label={loading ? "RESETTING..." : "CHANGE PASSWORD"}
           onPress={validatePasswords}
-          buttonStyle={[styles.button, { marginTop: 20 }]}
-          buttonTextStyle={styles.buttonText}
+          buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+          buttonTextStyle={styles.primaryBtnTxt}
           disabled={loading || !newPassword || !confirmPassword}
         />
       </View>

@@ -3,7 +3,7 @@ import React from "react";
 
 export default function MaintenanceTracking() {
   return (
-    <View>
+    <View style={styles.container}>
       <Text>MaintenanceTracking</Text>
     </View>
   );

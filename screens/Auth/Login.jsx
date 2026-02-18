@@ -191,9 +191,9 @@ export default function Login() {
         </View>
         <Button
           onPress={validate}
-          label="Login"
-          buttonStyle={styles.button}
-          buttonTextStyle={styles.buttonText}
+          label="LOGIN"
+          buttonStyle={[styles.primaryBtn]}
+          buttonTextStyle={styles.primaryBtnTxt}
         />
       </View>
     </KeyboardAvoidingView>

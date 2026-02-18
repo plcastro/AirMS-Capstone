@@ -264,7 +264,7 @@ export default function Inventory() {
   );
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
+    <View style={styles.container}>
       {/* Search & Filter */}
       <View style={[styles.searchRow, { minWidth: "100%" }]}>
         <TextInput
@@ -323,14 +323,13 @@ export default function Inventory() {
               iconName="add"
               label={Platform.OS === "web" ? "Add Component" : ""}
               buttonStyle={[
-                styles.button,
+                styles.primaryBtn,
                 {
-                  backgroundColor: "#26866F",
                   width: Platform.OS === "web" ? "100%" : 50,
                   paddingHorizontal: Platform.OS === "web" ? 7 : 0,
                 },
               ]}
-              buttonTextStyle={{ color: "#fff" }}
+              buttonTextStyle={styles.primaryBtnTxt}
               onPress={() => setShowAddComponent(true)}
             />
           </View>

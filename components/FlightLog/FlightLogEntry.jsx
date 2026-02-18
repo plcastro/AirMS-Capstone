@@ -369,15 +369,15 @@ export default function FlightLogEntry({ visible, onClose, onSave, role }) {
                 >
                   <TouchableOpacity
                     onPress={handleSave}
-                    style={styles.alertConfirmBtn}
+                    style={styles.primaryAlertBtn}
                   >
-                    <Text style={styles.alertConfirmBtnText}>Save</Text>
+                    <Text style={styles.primaryBtnTxt}>Save</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleDiscard}
-                    style={styles.alertCancelBtn}
+                    style={styles.secondaryBtn}
                   >
-                    <Text style={styles.alertCancelBtnText}>Cancel</Text>
+                    <Text style={styles.secondaryBtnTxt}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               )}

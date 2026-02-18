@@ -84,17 +84,17 @@ export default function ApproveMaintenance({
             {/* Buttons */}
             <View style={styles.verificationButtonRow}>
               <TouchableOpacity
-                style={styles.verificationApproveBtn}
+                style={styles.primaryAlertBtn}
                 onPress={handleApprove}
               >
-                <Text style={styles.verificationBtnText}>APPROVE</Text>
+                <Text style={styles.primaryBtnTxt}>APPROVE</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.verificationCancelBtn}
+                style={styles.secondaryBtn}
                 onPress={handleCancel}
               >
-                <Text style={styles.verificationBtnText}>CANCEL</Text>
+                <Text style={styles.secondaryBtnTxt}>CANCEL</Text>
               </TouchableOpacity>
             </View>
           </View>

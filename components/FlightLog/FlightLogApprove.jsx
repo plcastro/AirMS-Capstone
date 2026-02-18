@@ -140,17 +140,14 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
           {/* ACTION BUTTONS */}
           <View style={styles.verificationButtonRow}>
             <TouchableOpacity
-              style={styles.verificationApproveBtn}
+              style={styles.primaryAlertBtn}
               onPress={() => onConfirm?.(data)}
             >
-              <Text style={styles.verificationBtnText}>Confirm</Text>
+              <Text style={styles.primaryBtnTxt}>Confirm</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.verificationCancelBtn}
-              onPress={onCancel}
-            >
-              <Text style={styles.verificationBtnText}>Cancel</Text>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={onCancel}>
+              <Text style={styles.secondaryBtnTxt}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>

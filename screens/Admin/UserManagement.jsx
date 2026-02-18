@@ -200,24 +200,19 @@ export default function UserManagement() {
   }, []);
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      {/* Search + Filters + Add Button Row */}
+    <View style={styles.container}>
       <View
         style={{
           flexDirection: isMobile ? "column" : "row",
           alignItems: "center",
           flexWrap: "wrap",
-          gap: 10, // spacing between items
+          gap: 10,
           marginBottom: 10,
         }}
       >
-        {/* Search Input */}
         <TextInput
           placeholder="Search"
-          style={[
-            styles.searchInput,
-            { width: isMobile ? "100%" : 250, flexShrink: 0 },
-          ]}
+          style={styles.searchInput}
           value={searchQuery}
           onChangeText={handleSearchChange}
         />
@@ -266,12 +261,11 @@ export default function UserManagement() {
           <Picker.Item label="Deactivated" value="deactivated" />
         </Picker>
 
-        {/* Add User Button */}
         <Button
           iconName="person-add"
           label="Add User"
-          buttonStyle={[styles.addButton, { width: 150 }]}
-          buttonTextStyle={styles.addButtonText}
+          buttonStyle={[styles.primaryAlertBtn, { width: 150 }]}
+          buttonTextStyle={styles.primaryBtnTxt}
           onPress={() => setShowAddUser(true)}
         />
       </View>

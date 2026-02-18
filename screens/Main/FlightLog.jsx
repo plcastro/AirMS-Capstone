@@ -225,7 +225,7 @@ export default function FlightLog() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
+    <View style={styles.container}>
       {/* Search */}
       <View style={[styles.searchRow, { maxWidth: 350 }]}>
         <TextInput
@@ -254,14 +254,14 @@ export default function FlightLog() {
               onPress={() => setActiveTab("Defects")}
               buttonStyle={[
                 activeTab === "Defects"
-                  ? styles.alertConfirmBtn
-                  : styles.alertCancelBtn,
+                  ? styles.primaryBtn
+                  : styles.secondaryBtn,
                 { width: 150, marginRight: 10 },
               ]}
               buttonTextStyle={
                 activeTab === "Defects"
-                  ? styles.alertConfirmBtnText
-                  : styles.alertCancelBtnText
+                  ? styles.primaryBtnTxt
+                  : styles.secondaryBtnTxt
               }
             />
           )}
@@ -272,30 +272,28 @@ export default function FlightLog() {
             onPress={() => setActiveTab("TechnicalLog")}
             buttonStyle={[
               activeTab === "TechnicalLog"
-                ? styles.alertConfirmBtn
-                : styles.alertCancelBtn,
+                ? styles.primaryAlertBtn
+                : styles.secondaryBtn,
               { width: 150 },
             ]}
             buttonTextStyle={
               activeTab === "TechnicalLog"
-                ? styles.alertConfirmBtnText
-                : styles.alertCancelBtnText
+                ? styles.primaryAlertBtn
+                : styles.secondaryBtnTxt
             }
           />
         </View>
 
-        {/* Show New Entry button only for pilots */}
         {user?.position === "pilot" && (
           <Button
             label="+ New Entry"
             onPress={() => setModalVisible(true)}
-            buttonStyle={[{ width: 150 }, styles.alertConfirmBtn]}
-            buttonTextStyle={styles.alertConfirmBtnText}
+            buttonStyle={[{ width: 150 }, styles.primaryAlertBtn]}
+            buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
       </View>
 
-      {/* Table rendering */}
       <View style={{ marginTop: 10 }}>
         {activeTab === "Defects" && user?.position === "pilot" && (
           <FlightTable
@@ -311,7 +309,6 @@ export default function FlightLog() {
 
         {activeTab === "TechnicalLog" && (
           <>
-            {/* Cards */}
             <View
               style={{
                 flexDirection: "row",

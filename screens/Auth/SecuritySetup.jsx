@@ -193,8 +193,8 @@ export default function SecuritySetup() {
           <Button
             onPress={validate}
             label="SET PASSWORD"
-            buttonStyle={[styles.button, { marginTop: 20 }]}
-            buttonTextStyle={styles.buttonText}
+            buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+            buttonTextStyle={styles.primaryBtnTxt}
           />
 
           <View style={{ marginTop: 15 }}>
@@ -203,15 +203,13 @@ export default function SecuritySetup() {
               onPress={handleResendActivation}
               disabled={resendLoading}
               buttonStyle={[
-                styles.button,
+                styles.secondaryBtn,
                 {
-                  backgroundColor: "#e0e0e0",
-
                   maxWidth: 500,
                   minWidth: "100%",
                 },
               ]}
-              buttonTextStyle={[styles.buttonText, { color: "#244D3B" }]}
+              buttonTextStyle={[styles.secondaryBtnTxt]}
             />
             {resendMessage && (
               <Text style={{ fontSize: 12, color: "#8f8e8e", marginTop: 5 }}>

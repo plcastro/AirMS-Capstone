@@ -427,15 +427,15 @@ export default function FlightLogVerifyTechnical({
                 >
                   <TouchableOpacity
                     onPress={handleApprove}
-                    style={[styles.alertConfirmBtn, { minWidth: 100 }]}
+                    style={[styles.primaryBtn, { minWidth: 100 }]}
                   >
-                    <Text style={styles.alertConfirmBtnText}>Approve</Text>
+                    <Text style={styles.primaryBtnTxt}>Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleDiscard}
-                    style={[styles.alertCancelBtn, { minWidth: 100 }]}
+                    style={[styles.secondaryBtn, { minWidth: 100 }]}
                   >
-                    <Text style={styles.alertCancelBtnText}>Cancel</Text>
+                    <Text style={styles.secondaryBtnTxt}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               )}

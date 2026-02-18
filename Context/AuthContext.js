@@ -8,7 +8,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load stored user on app start
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -45,17 +44,18 @@ export const AuthProvider = ({ children }) => {
 
   // Login
   const loginUser = async (userData) => {
-    const normalizedUser = {
-      ...userData,
-      position: userData.position
-        ? userData.position.trim().toLowerCase()
-        : null,
-      access: userData.access ? userData.access.trim().toLowerCase() : null,
-    };
-
-    setUser(normalizedUser);
-
     try {
+      setLoading(true);
+      const normalizedUser = {
+        ...userData,
+        position: userData.position
+          ? userData.position.trim().toLowerCase()
+          : null,
+        access: userData.access ? userData.access.trim().toLowerCase() : null,
+      };
+
+      setUser(normalizedUser);
+
       if (Platform.OS === "web") {
         localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
       } else {
@@ -66,14 +66,18 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Failed to store user:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Logout
   const logoutUser = async () => {
-    setUser(null);
-
     try {
+      setLoading(true); // 🔥 show loading automatically
+
+      setUser(null);
+
       if (Platform.OS === "web") {
         localStorage.removeItem("currentUser");
       } else {
@@ -81,6 +85,8 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Failed to remove user:", err);
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -45,14 +45,13 @@ export default function OTP() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token, // send the token
-          otp: code, // send the OTP code
+          token,
+          otp: code,
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        // navigate to reset password screen with token
         navigation.navigate("resetPassword", { token });
       } else {
         Alert.alert("Error", data.message || "Invalid OTP");
@@ -118,10 +117,10 @@ export default function OTP() {
           onPress={handleVerify}
           disabled={!pinReady}
           buttonStyle={[
-            styles.alertConfirmBtn,
+            styles.primaryBtn,
             { minWidth: "100%", marginBottom: 10 },
           ]}
-          buttonTextStyle={styles.alertConfirmBtnText}
+          buttonTextStyle={styles.primaryBtnTxt}
         />
 
         <Button
@@ -130,8 +129,8 @@ export default function OTP() {
           }
           onPress={handleResend}
           disabled={resendTimer > 0}
-          buttonStyle={[styles.alertCancelBtn, { minWidth: "100%" }]}
-          buttonTextStyle={styles.alertCancelBtnText}
+          buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
+          buttonTextStyle={styles.secondaryBtnTxt}
         />
       </View>
     </KeyboardAvoidingView>

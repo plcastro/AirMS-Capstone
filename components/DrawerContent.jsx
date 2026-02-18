@@ -55,8 +55,8 @@ const DrawerList = [
   },
   {
     icon: "chart-arc",
-    label: "Report and Analytics",
-    navigateTo: "Reports And Analytics",
+    label: "Reports and Analytics",
+    navigateTo: "Reports and Analytics",
     position: ["head of maintenance", "manager"],
   },
   {

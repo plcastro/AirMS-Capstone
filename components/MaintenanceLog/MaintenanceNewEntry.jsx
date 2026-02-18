@@ -162,17 +162,17 @@ export default function MaintenanceNewEntry({ visible, onClose, onSave }) {
 
             <View style={styles.newEntryButtonRow}>
               <TouchableOpacity
-                style={styles.newEntrySaveBtn}
+                style={styles.primaryAlertBtn}
                 onPress={handleSave}
               >
-                <Text style={styles.newEntryBtnText}>Save</Text>
+                <Text style={styles.primaryBtnTxt}>Save</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.newEntryDiscardBtn}
+                style={styles.secondaryBtn}
                 onPress={handleDiscard}
               >
-                <Text style={styles.newEntryBtnText}>Discard</Text>
+                <Text style={styles.secondaryBtnTxt}>Discard</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

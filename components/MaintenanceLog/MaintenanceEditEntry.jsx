@@ -243,17 +243,17 @@ export default function EditEntry({ visible, entry, onClose, onSave }) {
 
               <View style={styles.newEntryButtonRow}>
                 <TouchableOpacity
-                  style={styles.newEntrySaveBtn}
+                  style={styles.primaryAlertBtn}
                   onPress={handleSave}
                 >
-                  <Text style={styles.newEntryBtnText}>Update</Text>
+                  <Text style={styles.primaryBtnTxt}>Update</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.newEntryDiscardBtn}
+                  style={styles.secondaryBtn}
                   onPress={handleDiscard}
                 >
-                  <Text style={styles.newEntryBtnText}>Cancel</Text>
+                  <Text style={styles.secondaryBtnTxt}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

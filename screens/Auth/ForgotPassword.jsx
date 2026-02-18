@@ -96,8 +96,8 @@ export default function ForgotPassword() {
           label={loading ? "SENDING..." : "SEND RESET LINK"}
           onPress={sendResetLink}
           disabled={loading}
-          buttonStyle={[styles.button, { marginTop: 20 }]}
-          buttonTextStyle={styles.buttonText}
+          buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+          buttonTextStyle={styles.primaryBtnTxt}
         />
       </View>
     </KeyboardAvoidingView>

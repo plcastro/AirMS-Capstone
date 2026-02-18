@@ -73,7 +73,7 @@ export default function UserLogs() {
   }, []);
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
+    <View style={styles.container}>
       <View style={styles.searchRow}>
         <TextInput
           placeholder="Search"
