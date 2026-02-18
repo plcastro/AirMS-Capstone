@@ -6,7 +6,7 @@ export const COLORS = {
   black: "#000000",
 
   grayLight: "#F1F1F1",
-  grayMedium: "#CCCCCC",
+  grayMedium: "#d4d4d4",
   grayDark: "#5c5c5c",
 
   border: "#e4e4e4",

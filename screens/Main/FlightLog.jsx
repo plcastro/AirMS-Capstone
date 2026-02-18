@@ -9,6 +9,9 @@ import FlightLogVerifyTechnical from "../../components/FlightLog/FlightLogVerify
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import FlightEntry from "../../components/FlightLog/FlightLogEntry";
+
+import MdiIcon from "@mdi/react";
+import { mdiMapMarkerDistance, mdiOil, mdiGasStation } from "@mdi/js";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function FlightLog() {
@@ -68,17 +71,17 @@ export default function FlightLog() {
   const cardData = [
     {
       label: "Total Fuel Purchased",
-      icon: "gas-station",
+      icon: mdiGasStation,
       value: "46",
     },
     {
       label: "Total Fuel Burned",
-      icon: "oil",
+      icon: mdiOil,
       value: "5.2",
     },
     {
       label: "Total Leg Distance",
-      icon: "map-marker-distance",
+      icon: mdiMapMarkerDistance,
       value: "30 NM",
     },
   ];
@@ -229,14 +232,14 @@ export default function FlightLog() {
       {/* Search */}
       <View style={[styles.searchRow, { maxWidth: 350 }]}>
         <TextInput
-          placeholderTextColor="gray"
+          placeholderTextColor={"gray"}
           placeholder="Search by date, origin, or destination..."
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
-
+      <View style={styles.maintenanceSearchDivider} />
       {/* Tabs + New Entry */}
       <View
         style={{
@@ -278,7 +281,7 @@ export default function FlightLog() {
             ]}
             buttonTextStyle={
               activeTab === "TechnicalLog"
-                ? styles.primaryAlertBtn
+                ? styles.primaryBtnTxt
                 : styles.secondaryBtnTxt
             }
           />
@@ -327,7 +330,8 @@ export default function FlightLog() {
                     justifyContent: "center",
                     padding: 7,
                     height: 50,
-                    flexBasis: isMobile ? "45%" : "30%",
+                    flexWrap: isMobile ? "wrap" : "nowrap",
+                    width: isMobile ? "45%" : "30%",
                     minWidth: isMobile ? 100 : 150,
                     minHeight: isMobile ? 100 : 110,
                     marginBottom: 12,
@@ -350,9 +354,9 @@ export default function FlightLog() {
                       marginTop: 6,
                     }}
                   >
-                    <MaterialCommunityIcons
-                      name={card.icon}
-                      size={isMobile ? 22 : 50}
+                    <MdiIcon
+                      path={card.icon}
+                      size={1}
                       color="#fff"
                       style={{ marginRight: 5 }}
                     />

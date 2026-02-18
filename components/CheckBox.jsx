@@ -1,24 +1,20 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import React, { useState } from "react";
+import React from "react";
 import Checkbox from "expo-checkbox";
 
-export default function CheckBox(props) {
-  const { title, isChecked = false, onValueChange, checkboxStyle } = props;
-  const [checked, setChecked] = useState(isChecked);
-
-  const toggleCheckbox = () => {
-    const newValue = !checked;
-    setChecked(newValue);
-    if (onValueChange) onValueChange(newValue);
-  };
-
+export default function CheckBox({
+  title,
+  value,
+  onValueChange,
+  checkboxStyle,
+}) {
   return (
     <TouchableOpacity
-      style={checkboxStyle}
-      onPress={toggleCheckbox}
+      style={[{ flexDirection: "row", alignItems: "center" }, checkboxStyle]}
+      onPress={() => onValueChange(!value)} // toggle using parent value
       activeOpacity={0.8}
     >
-      <Checkbox value={checked} onValueChange={toggleCheckbox} />
+      <Checkbox value={value} onValueChange={() => onValueChange(!value)} />
       <Text style={{ marginLeft: 8 }}>{title}</Text>
     </TouchableOpacity>
   );

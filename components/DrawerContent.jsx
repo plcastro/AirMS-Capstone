@@ -23,7 +23,7 @@ const DrawerList = [
     ],
   },
   {
-    icon: "book",
+    icon: "book-open-page-variant",
     label: "Aircraft Logbook",
     navigateTo: "Flight Logbook",
     position: ["pilot", "head of maintenance", "manager"],
@@ -33,7 +33,7 @@ const DrawerList = [
     ],
   },
   {
-    icon: "account",
+    icon: "cog-outline",
     label: "Parts Monitoring",
     position: ["head of maintenance", "manager"],
     children: [
@@ -42,13 +42,13 @@ const DrawerList = [
     ],
   },
   {
-    icon: "book",
+    icon: "archive-outline",
     label: "Component Inventory",
     navigateTo: "Component Inventory",
     position: ["head of maintenance"],
   },
   {
-    icon: "sort",
+    icon: "sort-variant",
     label: "Priority Sorting",
     navigateTo: "Priority Sorting",
     position: ["head of maintenance"],
@@ -60,7 +60,13 @@ const DrawerList = [
     position: ["head of maintenance", "manager"],
   },
   {
-    icon: "account",
+    icon: "clipboard-text",
+    label: "Tasks",
+    navigateTo: "Tasks",
+    position: ["head of maintenance", "mechanic"],
+  },
+  {
+    icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
     position: ["admin", "pilot", "head of maintenance", "manager", "mechanic"],
@@ -100,7 +106,6 @@ function DrawerContent({ navigation }) {
 
       await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
       const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
-
       if (!rememberMeFlag || rememberMeFlag === "false") {
         await AsyncStorage.multiRemove([
           "rememberedIdentifier",
@@ -117,38 +122,25 @@ function DrawerContent({ navigation }) {
   };
 
   const isItemVisible = (item) => {
-    const itemPositions = item.position?.map((p) => p.toLowerCase()) || [];
-    if (!itemPositions.length) return true;
-    return itemPositions.includes(userPosition);
+    const positions = item.position?.map((p) => p.toLowerCase()) || [];
+    return positions.length === 0 || positions.includes(userPosition);
   };
 
   const getChildren = (item) => {
     if (!item.children) return [];
-
-    return item.children
-      .filter((child) => {
-        switch (userPosition) {
-          case "pilot":
-            return child.label === "Flight Logbook"; // ONLY flight log
-          case "head of maintenance":
-          case "manager":
-            return (
-              child.label === "Flight Logbook" ||
-              child.label === "Maintenance Logbook"
-            );
-          default:
-            return true;
-        }
-      })
-      .map((child) => {
-        return {
-          ...child,
-          // readOnly:
-          //   (userPosition === "head of maintenance" ||
-          //     userPosition === "manager") &&
-          //   child.label === "Flight Logbook",
-        };
-      });
+    return item.children.filter((child) => {
+      switch (userPosition) {
+        case "pilot":
+          return child.label === "Flight Logbook";
+        case "head of maintenance":
+        case "manager":
+          return ["Flight Logbook", "Maintenance Logbook"].includes(
+            child.label,
+          );
+        default:
+          return true;
+      }
+    });
   };
 
   return (
@@ -181,7 +173,7 @@ function DrawerContent({ navigation }) {
                     borderRadius: 0,
                   }}
                   labelStyle={{ color: isActive ? "#fff" : "#777" }}
-                  icon={({ size }) => (
+                  icon={({ color, size }) => (
                     <Icon
                       name={
                         item.children
@@ -212,11 +204,7 @@ function DrawerContent({ navigation }) {
                     return (
                       <DrawerItem
                         key={i}
-                        label={
-                          child.readOnly
-                            ? `${child.label} (Read-only)`
-                            : child.label
-                        }
+                        label={child.label}
                         focused={childActive}
                         style={{
                           backgroundColor: childActive
@@ -224,16 +212,15 @@ function DrawerContent({ navigation }) {
                             : "transparent",
                           borderRadius: 0,
                         }}
-                        labelStyle={{ color: childActive ? "#fff" : "#777" }}
-                        onPress={() => {
-                          if (!child.readOnly) {
-                            navigation.dispatch(
-                              CommonActions.navigate({
-                                name: child.navigateTo,
-                              }),
-                            );
-                          }
+                        labelStyle={{
+                          color: childActive ? "#fff" : "#777",
+                          paddingLeft: 20,
                         }}
+                        onPress={() =>
+                          navigation.dispatch(
+                            CommonActions.navigate({ name: child.navigateTo }),
+                          )
+                        }
                       />
                     );
                   })}
@@ -245,6 +232,7 @@ function DrawerContent({ navigation }) {
 
       <View style={styles.bottomDrawerSection}>
         <DrawerItem
+          style={{ borderRadius: 0 }}
           icon={({ color, size }) => (
             <Icon name="exit-to-app" color={color} size={size} />
           )}

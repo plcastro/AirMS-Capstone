@@ -23,6 +23,8 @@ import FlightLog from "./screens/Main/FlightLog";
 import MaintenanceLog from "./screens/Main/MaintenanceLog";
 import PartsMonitoring from "./screens/Main/PartsMonitoring";
 import MaintenanceTracking from "./screens/Main/MaintenanceTracking";
+import ReportAndAnalytics from "./screens/Main/ReportAndAnalytics";
+import TaskAssignment from "./screens/Main/TaskAssignment";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -30,7 +32,6 @@ import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
-import ReportAndAnalysis from "./screens/Main/ReportAndAnalysis";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -113,30 +114,52 @@ function DrawerNav() {
           />
         </>
       )}
-      <Drawer.Screen
-        name="Flight Logbook"
-        component={wrapWithDashboard(FlightLog)}
-      />
-      <Drawer.Screen
-        name="Reports and Analytics"
-        component={wrapWithDashboard(ReportAndAnalysis)}
-      />
-      <Drawer.Screen
-        name="Maintenance Logbook"
-        component={wrapWithDashboard(MaintenanceLog)}
-      />
-      <Drawer.Screen
-        name="Parts Monitoring"
-        component={wrapWithDashboard(PartsMonitoring)}
-      />
-      <Drawer.Screen
-        name="Track Maintenance"
-        component={wrapWithDashboard(MaintenanceTracking)}
-      />
-      <Drawer.Screen
-        name="Component Inventory"
-        component={wrapWithDashboard(Inventory)}
-      />
+      {["head of maintenance", "pilot"].includes(
+        user.position?.toLowerCase(),
+      ) && (
+        <>
+          <Drawer.Screen
+            name="Flight Logbook"
+            component={wrapWithDashboard(FlightLog)}
+          />
+        </>
+      )}
+      {["head of maintenance", "manager"].includes(
+        user.position?.toLowerCase(),
+      ) && (
+        <>
+          <Drawer.Screen
+            name="Reports and Analytics"
+            component={wrapWithDashboard(ReportAndAnalytics)}
+          />
+          <Drawer.Screen
+            name="Maintenance Logbook"
+            component={wrapWithDashboard(MaintenanceLog)}
+          />
+          <Drawer.Screen
+            name="Parts Monitoring"
+            component={wrapWithDashboard(PartsMonitoring)}
+          />
+          <Drawer.Screen
+            name="Track Maintenance"
+            component={wrapWithDashboard(MaintenanceTracking)}
+          />
+          <Drawer.Screen
+            name="Component Inventory"
+            component={wrapWithDashboard(Inventory)}
+          />
+        </>
+      )}
+
+      {["mechanic", "head of maintenance"].includes(
+        user.position?.toLowerCase(),
+      ) && (
+        <Drawer.Screen
+          name="Tasks"
+          component={wrapWithDashboard(TaskAssignment)}
+        />
+      )}
+
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
     </Drawer.Navigator>
   );

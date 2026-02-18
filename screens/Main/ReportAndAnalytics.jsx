@@ -40,7 +40,7 @@ const mockData = [
   },
 ];
 
-export default function ReportAndAnalysis() {
+export default function ReportAndAnalytics() {
   const [searchQuery, setSearchQuery] = useState("");
   const [aircraftFilter, setAircraftFilter] = useState("");
   const [componentFilter, setComponentFilter] = useState("");

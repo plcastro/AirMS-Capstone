@@ -274,7 +274,7 @@ export default function Inventory() {
           onChangeText={setSearchQuery}
         />
       </View>
-
+      <View style={styles.maintenanceSearchDivider} />
       <View
         style={{
           flexDirection: "row",
@@ -293,7 +293,7 @@ export default function Inventory() {
               maxWidth: 200,
               minWidth: 100, // ensures buttons don’t get too small on mobile
               padding: 10,
-              backgroundColor: activeTab === tab ? "#26866F" : "#ccc",
+              backgroundColor: activeTab === tab ? "#26866F" : "#ffffff",
               marginHorizontal: 4,
               borderRadius: 6,
               marginBottom: 4, // space when wrapping
@@ -302,7 +302,7 @@ export default function Inventory() {
             <Text
               style={{
                 textAlign: "center",
-                color: activeTab === tab ? "#fff" : "#000",
+                color: activeTab === tab ? "#fff" : "#26866F",
                 fontWeight: "bold",
               }}
             >
@@ -323,10 +323,10 @@ export default function Inventory() {
               iconName="add"
               label={Platform.OS === "web" ? "Add Component" : ""}
               buttonStyle={[
-                styles.primaryBtn,
+                styles.primaryAlertBtn,
                 {
                   width: Platform.OS === "web" ? "100%" : 50,
-                  paddingHorizontal: Platform.OS === "web" ? 7 : 0,
+                  paddingHorizontal: Platform.OS === "web" ? 12 : 0,
                 },
               ]}
               buttonTextStyle={styles.primaryBtnTxt}

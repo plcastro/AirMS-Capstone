@@ -1,4 +1,4 @@
-import { View, ScrollView, Text } from "react-native";
+import { View, ScrollView, Text, Dimensions } from "react-native";
 import React, { useState, useEffect } from "react";
 import { styles } from "../../stylesheets/styles";
 import { DataTable } from "react-native-paper";
@@ -46,12 +46,23 @@ export default function MaintenanceTable({
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
   };
-
+  const screenWidth = Dimensions.get("window").width;
+  const totalWidth = Object.values(columnWidths).reduce((sum, w) => sum + w, 0);
+  const needsHorizontalScroll = totalWidth > screenWidth;
   return (
     <View>
       <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-        <View style={{ width: "100%" }}>
-          <DataTable>
+        <View
+          style={{
+            width: "100%",
+            flexDirection: "row",
+            maxWidth: "100%",
+            minWidth: totalWidth,
+          }}
+        >
+          <DataTable
+            style={{ width: "100%", maxWidth: "100%", minWidth: totalWidth }}
+          >
             <DataTable.Header style={styles.maintenanceTableHeader}>
               {headers.map((header, index) => (
                 <DataTable.Title

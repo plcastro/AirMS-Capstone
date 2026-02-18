@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logoutUser = async () => {
     try {
-      setLoading(true); // 🔥 show loading automatically
+      setLoading(true);
 
       setUser(null);
 

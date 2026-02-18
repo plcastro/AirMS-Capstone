@@ -12,7 +12,7 @@ export default function Profile() {
   const { user } = useContext(AuthContext);
   const { firstName, lastName, email, username, position, image } = user;
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  console.log(image);
+
   const profileImage =
     image && typeof image === "string"
       ? image.startsWith("http")

@@ -116,7 +116,7 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
-        Alert.alert("Logged in successfully");
+        Alert.alert("Success", "Logged in successfully");
         loginUser(user, rememberMe);
         setMessage("User logged in successfully");
         setLoginSuccess(true);
