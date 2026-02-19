@@ -1,10 +1,19 @@
 import { View, Text, ScrollView } from "react-native";
-import React from "react";
+import React, { useContext } from "react";
 import { styles } from "../../stylesheets/styles";
 import Button from "../Button";
+import { AuthContext } from "../../Context/AuthContext";
 
-export default function TaskCard({ data, onStartTask }) {
+export default function TaskCard({
+  data,
+  onStartTask,
+  onEditTask,
+  onDeleteTask,
+  onReviewTask,
+}) {
   const { title, dueDate, startDateTime, endDateTime, priority, status } = data;
+
+  const { user } = useContext(AuthContext);
 
   const getStatusColor = () => {
     switch (status) {
@@ -14,6 +23,8 @@ export default function TaskCard({ data, onStartTask }) {
         return "#1E88E5";
       case "Completed":
         return "#34A853";
+      default:
+        return "gray";
     }
   };
 
@@ -29,6 +40,7 @@ export default function TaskCard({ data, onStartTask }) {
         return "gray";
     }
   };
+
   return (
     <View style={styles.taskCard}>
       <ScrollView>
@@ -44,20 +56,49 @@ export default function TaskCard({ data, onStartTask }) {
               <Text style={styles.statusTxt}>{status}</Text>
             </View>
           </View>
+
           <Text>Date Due: {dueDate}</Text>
           <Text>Start Date/Time: {startDateTime}</Text>
           <Text>End Date/Time: {endDateTime}</Text>
-          <Text style={{ color: getPriorityColor(), fontWeight: 500 }}>
+
+          <Text style={{ color: getPriorityColor(), fontWeight: "500" }}>
             {priority}
           </Text>
+
           <View style={{ alignItems: "center", marginTop: 10 }}>
-            {status !== "Completed" && (
+            {/* Mechanic View */}
+            {user?.position === "mechanic" && status !== "Completed" && (
               <Button
                 onPress={onStartTask}
                 label={status === "Pending" ? "Start Task" : "Continue Task"}
                 buttonStyle={[styles.primaryAlertBtn, { width: 200 }]}
                 buttonTextStyle={styles.primaryBtnTxt}
               />
+            )}
+
+            {/* Head of Maintenance View */}
+            {user?.position === "head of maintenance" && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  width: "100%",
+                }}
+              >
+                <Button
+                  onPress={onEditTask}
+                  label="Edit"
+                  buttonStyle={[styles.neutralBtn, { width: 100 }]}
+                  buttonTextStyle={styles.primaryBtnTxt}
+                />
+                <Button
+                  onPress={onDeleteTask}
+                  label="Delete"
+                  buttonStyle={[styles.dangerBtn, { width: 100 }]}
+                  buttonTextStyle={styles.primaryBtnTxt}
+                />
+              </View>
             )}
           </View>
         </View>
