@@ -1,4 +1,4 @@
-export const TaskInfo = [
+const TaskInfo = [
   {
     id: "1",
     status: "Pending",
@@ -144,3 +144,4 @@ export const TaskInfo = [
     ],
   },
 ];
+export default TaskInfo;

@@ -25,6 +25,7 @@ import PartsMonitoring from "./screens/Main/PartsMonitoring";
 import MaintenanceTracking from "./screens/Main/MaintenanceTracking";
 import ReportAndAnalytics from "./screens/Main/ReportAndAnalytics";
 import TaskAssignment from "./screens/Main/TaskAssignment";
+import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -32,6 +33,7 @@ import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
+import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -151,13 +153,20 @@ function DrawerNav() {
         </>
       )}
 
-      {["mechanic", "head of maintenance"].includes(
+      {/* {["mechanic", "head of maintenance"].includes(
         user.position?.toLowerCase(),
       ) && (
         <Drawer.Screen
           name="Tasks"
           component={wrapWithDashboard(TaskAssignment)}
         />
+      )} */}
+      {user.position?.toLowerCase() === "head of maintenance" && (
+        <Drawer.Screen name="Tasks" component={HeadTaskScreen} />
+      )}
+
+      {user.position?.toLowerCase() === "mechanic" && (
+        <Drawer.Screen name="Tasks" component={MechanicTaskScreen} />
       )}
 
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />

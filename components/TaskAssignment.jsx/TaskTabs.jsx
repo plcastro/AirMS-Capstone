@@ -3,16 +3,17 @@ import React, { useState, useContext } from "react";
 import TaskCard from "../components/TaskAssignment/TaskCard";
 import { styles } from "../stylesheets/styles";
 import { AuthContext } from "../Context/AuthContext";
+import AddTask from "../components/TaskAssignment/AddTask";
+import EditTask from "../components/TaskAssignment/EditTask";
 
-export default function TaskTabs({ tasks }) {
+export default function TaskTabs({ tasks, employees, taskOptions }) {
   const { user } = useContext(AuthContext);
-
   const isHead = user?.position === "head of maintenance";
 
   const mechanicTabs = ["Current", "Upcoming", "Remarks"];
   const headTabs = ["Tasks", "Submitted"];
-
   const [activeTab, setActiveTab] = useState(isHead ? "Tasks" : "Current");
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -23,16 +24,13 @@ export default function TaskTabs({ tasks }) {
     if (isHead) {
       switch (activeTab) {
         case "Tasks":
-          // All tasks (head can see everything)
-          return tasks;
+          return tasks; // Head sees all tasks
         case "Submitted":
-          // Completed tasks (submitted by mechanics)
           return tasks.filter((t) => t.status === "Completed");
         default:
           return [];
       }
     } else {
-      // Mechanic view
       switch (activeTab) {
         case "Current":
           return tasks.filter((t) => t.assignedToMe && t.status === "Ongoing");
@@ -69,8 +67,19 @@ export default function TaskTabs({ tasks }) {
             {tab}
           </Text>
         ))}
+
+        {/* Head: Add Task button */}
+        {isHead && (
+          <Text
+            style={[styles.tabText, { marginLeft: 15, color: "#fff" }]}
+            onPress={() => setShowAddModal(true)}
+          >
+            + Add Task
+          </Text>
+        )}
       </View>
 
+      {/* Task List */}
       <ScrollView contentContainerStyle={{ padding: 10 }}>
         {tasksToRender.length === 0 ? (
           <Text style={{ textAlign: "center", marginTop: 20 }}>
@@ -83,7 +92,6 @@ export default function TaskTabs({ tasks }) {
               data={task}
               onStartTask={() => console.log("Start task", task.id)}
               onEditTask={() => {
-                console.log(task.id);
                 setSelectedTask(task);
                 setShowEditModal(true);
               }}
@@ -92,26 +100,30 @@ export default function TaskTabs({ tasks }) {
           ))
         )}
       </ScrollView>
+
+      {/* Add Task Modal */}
       <AddTask
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAddTask={(newTask) => {
-          console.log("Add task:", newTask);
+          console.log("Added Task:", newTask);
           setShowAddModal(false);
         }}
-        employees={[]} // pass real employees here
-        taskOptions={[]} // pass real task options here
+        employees={employees}
+        taskOptions={taskOptions}
       />
+
+      {/* Edit Task Modal */}
       <EditTask
         visible={showEditModal}
         onClose={() => setShowEditModal(false)}
         onSave={(updatedTask) => {
-          console.log("Updated task:", updatedTask);
+          console.log("Updated Task:", updatedTask);
           setShowEditModal(false);
         }}
         task={selectedTask}
-        employees={[]}
-        taskOptions={[]}
+        employees={employees}
+        taskOptions={taskOptions}
       />
     </View>
   );
