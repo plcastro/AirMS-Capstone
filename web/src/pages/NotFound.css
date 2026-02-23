@@ -1,0 +1,27 @@
+button {
+  width: 250px;
+  height: 40px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+.first-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: auto;
+  text-align: center;
+}
+h1 {
+  font-size: "clamp(32px, 6vw, 48px)";
+}
+img {
+  width: 500px;
+}
+
+@media only screen and (max-width: 768px) {
+  img {
+    width: 100%;
+  }
+}
