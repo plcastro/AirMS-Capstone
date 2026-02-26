@@ -1,10 +1,45 @@
+:root {
+  --color-primary: #244d3b;
+  --color-primary-light: #26866f;
+
+  --color-white: var(--color-white);
+  --color-black: var(--color-black);
+
+  --color-gray-light: #dfdede;
+  --color-gray-medium: #919191;
+  --color-gray-dark: #5c5c5c;
+
+  --color-border: #e4e4e4;
+
+  --color-success-bg: #d4edda;
+  --color-success-border: #28a745;
+
+  --color-info-bg: #d1ecf1;
+  --color-info-border: #17a2b8;
+
+  --color-danger-bg: #f8d7da;
+  --color-danger-border: #dc3545;
+
+  --color-overlay-dark: rgba(0, 0, 0, 0.6);
+  --color-overlay-light: rgba(0, 0, 0, 0.4);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
 .login-container {
   display: flex;
   max-width: 450px;
   width: 100%;
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 5px 15px var(--color-gray-dark);
 }
 
 .login-content {
@@ -13,26 +48,26 @@
 }
 
 .title {
-  color: #000;
+  color: var(--color-black);
   margin-bottom: 10px;
   text-align: center;
 }
 
 .subtitle {
-  color: #000;
+  color: var(--color-black);
   margin-bottom: 30px;
   font-size: 16px;
   text-align: center;
 }
 
 h1 {
-  color: #000;
+  color: var(--color-black);
   margin-bottom: 10px;
   font-size: 28px;
 }
 
 .subtitle {
-  color: black;
+  color: var(--color-black);
   margin-bottom: 30px;
   font-size: 16px;
 }
@@ -53,7 +88,7 @@ input[type="email"],
 input[type="password"] {
   width: 100%;
   padding: 12px 15px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-gray-light);
   border-radius: 5px;
   font-size: 16px;
   transition: border-color 0.3s;
@@ -62,7 +97,7 @@ input[type="password"] {
 input[type="text"]:focus,
 input[type="email"]:focus,
 input[type="password"]:focus {
-  border-color: #000;
+  border-color: var(--color-black);
   outline: none;
 }
 
@@ -90,21 +125,21 @@ input[type="password"]:focus {
 }
 
 .forgot-password {
-  color: #666;
+  color: var(--color-gray-dark);
   text-decoration: none;
   font-size: 14px;
 }
 
 .forgot-password:hover {
   text-decoration: underline;
-  color: black;
+  color: var(--color-black);
 }
 
 .login-btn {
   width: 100%;
   padding: 12px;
-  background-color: #244d3b;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   border: none;
   border-radius: 5px;
   font-size: 16px;
@@ -115,13 +150,13 @@ input[type="password"]:focus {
 
 .login-btn:hover {
   background-color: #37755ab4;
-  color: #ffffff;
+  color: var(--color-white);
 }
 
 .forgot-password-container {
   max-width: 700px;
   width: 100%;
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -135,8 +170,8 @@ input[type="password"]:focus {
 .recovery-btn {
   width: 100%;
   padding: 12px;
-  background-color: #000;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   border: none;
   border-radius: 5px;
   font-size: 16px;
@@ -153,13 +188,13 @@ input[type="password"]:focus {
 
 .recovery-btn:hover {
   background-color: #eee;
-  color: black;
+  color: var(--color-primary);
 }
 
 .reset-password-container {
   max-width: 500px;
   width: 100%;
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -178,8 +213,8 @@ input[type="password"]:focus {
 .reset-btn {
   width: 100%;
   padding: 12px;
-  background-color: #000;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   border: none;
   border-radius: 5px;
   font-size: 16px;
@@ -192,8 +227,13 @@ input[type="password"]:focus {
 }
 
 .reset-btn:hover {
-  background-color: #ddd;
-  color: black;
+  background-color: var(--color-gray-light);
+  color: var(--color-primary);
+}
+
+.error {
+  margin-top: 10px;
+  color: red;
 }
 
 /* Responsive Design */
@@ -373,12 +413,3 @@ input[type="password"]:focus {
     align-self: flex-start;
   }
 }
-
-/* @media (min-width: 1200px) {
-  .login-container,
-  .signup-container,
-  .forgot-password-container,
-  .reset-password-container {
-    margin-top: 3%;
-  }
-} */

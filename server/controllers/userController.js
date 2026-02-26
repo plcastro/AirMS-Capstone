@@ -183,9 +183,10 @@ const createUser = async (req, res) => {
     const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
     const setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
-    let imagePath = "/uploads/default_avatar.jpg";
-    if (req.file) imagePath = `/uploads/${req.file.filename}`;
-
+    let imagePath = "";
+    if (req.file) {
+      imagePath = `/uploads/${req.file.filename}`;
+    }
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -196,9 +197,7 @@ const createUser = async (req, res) => {
       status: "inactive",
       setupToken: setupTokenHash,
       setupTokenExpires,
-      image: req.file
-        ? `/uploads/${req.file.filename}`
-        : "/uploads/default_avatar.jpg",
+      image: imagePath,
       position,
       access,
     });
