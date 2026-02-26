@@ -19,11 +19,8 @@ const layoutStyle = {
 };
 
 const contentStyle = {
-  display: "flex",
-  flexDirection: "column",
   minHeight: "100vh",
-  alignItems: "center",
-  justifyContent: "center",
+  width: "100%",
 };
 
 const RootLayout = () => {

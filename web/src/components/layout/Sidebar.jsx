@@ -8,7 +8,7 @@ import {
   UnorderedListOutlined,
   ContactsOutlined,
 } from "@ant-design/icons";
-
+import AirMS_web from "../../assets/AirMS_web.png";
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,15 +49,15 @@ const Sidebar = () => {
 
   // Update selected menu based on path
   useEffect(() => {
-    if (location.pathname.includes("/dashboard/view/borrow")) setCurrent("1");
-    else if (location.pathname.includes("/dashboard/view/return"))
+    if (location.pathname.includes("/dashboard/user-management/list-of-users"))
+      setCurrent("1");
+    else if (
+      location.pathname.includes("/dashboard/user-management/activity-logs")
+    )
       setCurrent("2");
-    else if (location.pathname.includes("/dashboard/view/records"))
-      setCurrent("3");
-    else if (location.pathname.includes("/dashboard/view/staff"))
-      setCurrent("4");
-    else if (location.pathname.includes("/dashboard/view/profile"))
-      setCurrent("5");
+    else if (location.pathname.includes("/dashboard/")) setCurrent("3");
+    else if (location.pathname.includes("/dashboard/")) setCurrent("4");
+    else if (location.pathname.includes("/dashboard/profile")) setCurrent("5");
     else setCurrent("");
   }, [location.pathname]);
 
@@ -65,19 +65,19 @@ const Sidebar = () => {
     setCurrent(e.key);
     switch (e.key) {
       case "1":
-        navigate("/dashboard/view/borrow");
+        navigate("/dashboard/user-management");
         break;
       case "2":
-        navigate("/dashboard/view/return");
+        navigate("/dashboard/activity-logs");
         break;
       case "3":
-        navigate("/dashboard/view/records");
+        navigate("/dashboard/");
         break;
       case "4":
-        navigate("/dashboard/view/staff");
+        navigate("/dashboard/");
         break;
       case "5":
-        navigate("/dashboard/view/profile");
+        navigate("/dashboard/profile");
         break;
       default:
         break;
@@ -96,30 +96,37 @@ const Sidebar = () => {
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#001529",
+        backgroundColor: "#f5f5f5",
         color: "white",
       }}
     >
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "10px", textAlign: "left" }}>
-          {/* <img
-            src={logo_dark}
+        <div
+          style={{
+            padding: "10px",
+            alignItems: "center",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <img
+            src={AirMS_web}
             alt="Logo"
-            style={{ maxWidth: "200px", width: "100%", marginTop: 50 }}
-          /> */}
-          <h3 style={{ margin: "20px 0 10px" }}>{user.name}</h3>
-          <p style={{ color: "#ccc", margin: "10px 0", fontSize: "14px" }}>
-            {user.account_type}
-          </p>
+            style={{
+              maxWidth: "200px",
+              width: "auto",
+              height: "44px",
+            }}
+          />
         </div>
 
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[current]}
           defaultOpenKeys={["sub1", "sub2"]}
           onClick={onClickMenu}
-          style={{ flex: 1, borderInline: "none", backgroundColor: "#001529" }}
+          style={{ flex: 1, borderInline: "none", backgroundColor: "#f5f5f5" }}
           items={[
             {
               key: "sub1",
@@ -169,7 +176,7 @@ const Sidebar = () => {
       <div style={{ padding: "10px" }}>
         <Button
           type="primary"
-          style={{ backgroundColor: "#06233dff", maxWidth: 300, width: "100%" }}
+          style={{ backgroundColor: "#26866f", maxWidth: 300, width: "100%" }}
           icon={<ArrowLeftOutlined />}
           onClick={onLogout}
         >

@@ -4,12 +4,14 @@ import { useEffect } from "react";
 // Authentication
 import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
+import OTP from "./pages/auth/OTP";
 import ResetPassword from "./pages/auth/ResetPassword";
 
 // Dashboard
 import UserManagement from "./pages/dashboard/UserManagement";
 import Profile from "./pages/dashboard/Profile";
 import NotFound from "./pages/NotFound";
+
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 
@@ -34,8 +36,10 @@ export default function App() {
 
         {/* Authentication */}
         <Route element={<RootLayout />}>
+          <Route path="/otp" element={<OTP />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
+
           <Route path="/reset/:token" element={<ResetPassword />} />
         </Route>
 

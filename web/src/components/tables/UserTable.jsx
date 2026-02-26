@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
-import { Table, Button, Modal, Tag, Space, message } from "antd";
+import React, { useMemo, useState } from "react";
+import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
+import { EditOutlined } from "@ant-design/icons";
+import "../common/PaginationFix.css";
 
 export default function UserTable({
   headers = [],
@@ -8,41 +10,13 @@ export default function UserTable({
   onDeactivateUser,
   onReactivateUser,
   currentUserId,
+  loading = false,
 }) {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalAction, setModalAction] = useState(""); // "deactivate" or "reactivate"
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
-  // Show confirmation modal
-  const showConfirmModal = (user, action) => {
-    setSelectedUser(user);
-    setModalAction(action);
-    setIsModalVisible(true);
-  };
-
-  const handleConfirm = () => {
-    if (!selectedUser) return;
-    if (modalAction === "deactivate") {
-      onDeactivateUser?.(selectedUser);
-      message.success("User deactivated");
-    } else if (modalAction === "reactivate") {
-      onReactivateUser?.(selectedUser);
-      message.success("User reactivated");
-    }
-    setIsModalVisible(false);
-    setSelectedUser(null);
-    setModalAction("");
-  };
-
-  const handleCancel = () => {
-    setIsModalVisible(false);
-    setSelectedUser(null);
-    setModalAction("");
-  };
-
-  // Convert headers to AntD column format
   const columns = useMemo(() => {
-    const cols = headers.map((header) => {
+    return headers.map((header) => {
       if (header.key === "actions") {
         return {
           title: header.label,
@@ -52,27 +26,35 @@ export default function UserTable({
               <Button
                 type="primary"
                 size="small"
+                icon={<EditOutlined />}
                 onClick={() => onEditUser?.(record)}
+                style={{ width: 100 }}
               >
                 Edit
               </Button>
 
               {record.status === "deactivated" ? (
-                <Button
-                  type="default"
-                  size="small"
-                  onClick={() => showConfirmModal(record, "reactivate")}
+                <Popconfirm
+                  title="Reactivate this user?"
+                  onConfirm={() => {
+                    onReactivateUser?.(record);
+                    message.success("User reactivated");
+                  }}
                 >
-                  Reactivate
-                </Button>
+                  <Button size="small">Reactivate</Button>
+                </Popconfirm>
               ) : record.status === "active" && record._id !== currentUserId ? (
-                <Button
-                  type="danger"
-                  size="small"
-                  onClick={() => showConfirmModal(record, "deactivate")}
+                <Popconfirm
+                  title="Deactivate this user?"
+                  onConfirm={() => {
+                    onDeactivateUser?.(record);
+                    message.success("User deactivated");
+                  }}
                 >
-                  Deactivate
-                </Button>
+                  <Button danger size="small" style={{ width: 100 }}>
+                    Deactivate
+                  </Button>
+                </Popconfirm>
               ) : null}
             </Space>
           ),
@@ -84,12 +66,17 @@ export default function UserTable({
           title: header.label,
           dataIndex: "status",
           key: "status",
+          filters: [
+            { text: "Active", value: "active" },
+            { text: "Inactive", value: "inactive" },
+            { text: "Deactivated", value: "deactivated" },
+          ],
+          onFilter: (value, record) => record.status === value,
           render: (status) => {
             let color = "default";
             if (status === "active") color = "green";
-            else if (status === "inactive") color = "orange";
-            else if (status === "deactivated") color = "red";
-
+            if (status === "inactive") color = "orange";
+            if (status === "deactivated") color = "red";
             return <Tag color={color}>{status}</Tag>;
           },
         };
@@ -99,42 +86,29 @@ export default function UserTable({
         title: header.label,
         dataIndex: header.key,
         key: header.key,
-        sorter: (a, b) => {
-          const valA = a[header.key] ?? "";
-          const valB = b[header.key] ?? "";
-          return valA > valB ? 1 : -1;
-        },
+        sorter: (a, b) =>
+          String(a[header.key] ?? "").localeCompare(
+            String(b[header.key] ?? ""),
+          ),
       };
     });
-
-    return cols;
-  }, [headers, currentUserId, onEditUser]);
+  }, [headers, currentUserId, onEditUser, onDeactivateUser, onReactivateUser]);
 
   return (
-    <>
-      <Table
-        columns={columns}
-        dataSource={data}
-        rowKey={(record) => record._id}
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: "max-content" }}
-      />
-
-      <Modal
-        title={
-          modalAction === "deactivate" ? "Deactivate User" : "Reactivate User"
-        }
-        visible={isModalVisible}
-        onOk={handleConfirm}
-        onCancel={handleCancel}
-        okText="Yes"
-        cancelText="Cancel"
-      >
-        <p>
-          Are you sure you want to {modalAction} user{" "}
-          <strong>{selectedUser?.name}</strong>?
-        </p>
-      </Modal>
-    </>
+    <Table
+      columns={columns}
+      dataSource={data}
+      rowKey={(record) => record._id}
+      loading={loading}
+      scroll={{ x: "max-content" }}
+      pagination={{
+        pageSize: pageSize,
+        showSizeChanger: true,
+        pageSizeOptions: ["10", "20", "50"],
+        current: currentPage,
+        onChange: (page) => setCurrentPage(page),
+        placement: "bottomEnd",
+      }}
+    />
   );
 }

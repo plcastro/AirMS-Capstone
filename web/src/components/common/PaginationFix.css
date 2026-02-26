@@ -1,0 +1,58 @@
+
+  .ant-table-pagination.ant-pagination {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 !important;
+    margin: 16px 0 !important;
+    list-style: none !important;
+  }
+
+  .ant-pagination-item, 
+  .ant-pagination-prev, 
+  .ant-pagination-next,
+  .ant-pagination-jump-prev,
+  .ant-pagination-jump-next {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    margin: 0 4px !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+    line-height: 32px !important; 
+  }
+
+  .ant-pagination-item a {
+    display: block !important;
+    height: 100% !important;
+    width: 100% !important;
+    text-align: center !important;
+    padding: 0 !important;
+    line-height: 30px !important; /* Binawasan ng 2px para sa border */
+  }
+
+  .ant-pagination-prev .ant-pagination-item-link,
+  .ant-pagination-next .ant-pagination-item-link {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important;
+    width: 100% !important;
+    font-size: 12px !important;
+  }
+
+  .ant-pagination-options {
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: 8px !important;
+    height: 32px !important;
+  }
+
+  .ant-pagination-options .ant-select {
+    display: flex !important;
+    align-items: center !important;
+  }
+
