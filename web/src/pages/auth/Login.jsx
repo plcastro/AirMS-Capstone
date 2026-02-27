@@ -2,8 +2,7 @@ import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { UserOutlined } from "@ant-design/icons";
-import { Flex, Input } from "antd";
+import { Input, Button } from "antd";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,7 +28,8 @@ const Login = () => {
       setRememberMe(true);
     }
   }, []);
-
+  const isFormValid =
+    formData.username.trim() !== "" && formData.password.trim() !== "";
   const handleInputChange = (e) => {
     const { id, value } = e.target;
     setFormData((prevState) => ({
@@ -55,7 +55,6 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    // Prevent empty fields
     if (!formData.username.trim() || !formData.password.trim()) {
       setError("Username and password are required");
       return;
@@ -161,9 +160,14 @@ const Login = () => {
             </Link>
           </div>
 
-          <button type="submit" className="login-btn" disabled={loading}>
+          <Button
+            htmlType="submit"
+            type="primary"
+            className="login-btn"
+            disabled={!isFormValid || loading}
+          >
             {loading ? "Logging in..." : "LOGIN"}
-          </button>
+          </Button>
 
           {error && (
             <div className="error" style={{ color: "red" }}>

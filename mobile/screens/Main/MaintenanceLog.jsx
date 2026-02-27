@@ -37,53 +37,53 @@ export default function MaintenanceLog() {
     status: 100,
   };
 
-  const mockData = [
-    {
-      id: 1,
-      aircraft: "2810",
-      defects: "Oxygen pressure low in main cabin supply system",
-      dateDefectDiscovered: "01/04/2026",
-      correctiveActionDone: "Fixed area and replaced seal",
-      dateDefectRectified: "01/05/2026",
-      status: "Verified",
-    },
-    {
-      id: 2,
-      aircraft: "2810",
-      defects: "Aileron control surface failure during pre-flight check",
-      dateDefectDiscovered: "01/08/2026",
-      correctiveActionDone: "N/A",
-      dateDefectRectified: "N/A",
-      status: "Unverified",
-    },
-    {
-      id: 3,
-      aircraft: "2810",
-      defects: "Airframe dented on left wing due to ground equipment contact",
-      dateDefectDiscovered: "01/03/2026",
-      correctiveActionDone: "Inspected and scheduled for repair",
-      dateDefectRectified: "01/10/2026",
-      status: "Verified",
-    },
-    {
-      id: 4,
-      aircraft: "2811",
-      defects: "Engine oil leak detected during post-flight inspection",
-      dateDefectDiscovered: "02/15/2026",
-      correctiveActionDone: "Replaced main oil seal and tested",
-      dateDefectRectified: "02/20/2026",
-      status: "Verified",
-    },
-    {
-      id: 5,
-      aircraft: "2812",
-      defects: "Landing gear sensor intermittent failure readings",
-      dateDefectDiscovered: "01/01/2026",
-      correctiveActionDone: "N/A",
-      dateDefectRectified: "N/A",
-      status: "Unverified",
-    },
-  ];
+  // const mockData = [
+  //   {
+  //     id: 1,
+  //     aircraft: "2810",
+  //     defects: "Oxygen pressure low in main cabin supply system",
+  //     dateDefectDiscovered: "01/04/2026",
+  //     correctiveActionDone: "Fixed area and replaced seal",
+  //     dateDefectRectified: "01/05/2026",
+  //     status: "Verified",
+  //   },
+  //   {
+  //     id: 2,
+  //     aircraft: "2810",
+  //     defects: "Aileron control surface failure during pre-flight check",
+  //     dateDefectDiscovered: "01/08/2026",
+  //     correctiveActionDone: "N/A",
+  //     dateDefectRectified: "N/A",
+  //     status: "Unverified",
+  //   },
+  //   {
+  //     id: 3,
+  //     aircraft: "2810",
+  //     defects: "Airframe dented on left wing due to ground equipment contact",
+  //     dateDefectDiscovered: "01/03/2026",
+  //     correctiveActionDone: "Inspected and scheduled for repair",
+  //     dateDefectRectified: "01/10/2026",
+  //     status: "Verified",
+  //   },
+  //   {
+  //     id: 4,
+  //     aircraft: "2811",
+  //     defects: "Engine oil leak detected during post-flight inspection",
+  //     dateDefectDiscovered: "02/15/2026",
+  //     correctiveActionDone: "Replaced main oil seal and tested",
+  //     dateDefectRectified: "02/20/2026",
+  //     status: "Verified",
+  //   },
+  //   {
+  //     id: 5,
+  //     aircraft: "2812",
+  //     defects: "Landing gear sensor intermittent failure readings",
+  //     dateDefectDiscovered: "01/01/2026",
+  //     correctiveActionDone: "N/A",
+  //     dateDefectRectified: "N/A",
+  //     status: "Unverified",
+  //   },
+  // ];
 
   const calculateStatus = (entry) => {
     const hasRealCorrectiveAction =

@@ -1,7 +1,7 @@
 // WEB
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Input } from "antd";
+import { Input, Button } from "antd";
 import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
 
@@ -13,24 +13,23 @@ export default function ForgotPassword() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const validateEmail = (email) => {
+  const isEmailValid = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setError("Email is required.");
-      return false;
-    }
-    if (!emailRegex.test(email)) {
-      setError("Invalid email format.");
-      return false;
-    }
-    setError("");
-    return true;
+    return emailRegex.test(value.trim());
   };
+
+  const isFormValid = isEmailValid(email);
 
   const sendResetLink = async (e) => {
     e.preventDefault();
-    if (!validateEmail(email)) return;
-
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+    if (!isEmailValid(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE}/api/user/request-reset`, {
@@ -76,17 +75,21 @@ export default function ForgotPassword() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </div>
+            <Button
+              htmlType="submit"
+              type="primary"
+              className="login-btn"
+              disabled={!isFormValid || loading}
+            >
+              {loading ? "Sending..." : "EMAIL ME A RECOVERY LINK"}
+            </Button>
 
-          <button type="submit" className="recovery-btn" disabled={loading}>
-            {loading ? "Sending..." : "EMAIL ME A RECOVERY LINK"}
-          </button>
+            {error && <div className="error">{error}</div>}
+            {message && <div className="info">{message}</div>}
 
-          {error && <div className="error">{error}</div>}
-          {message && <div className="info">{message}</div>}
-
-          <div className="signup-link" style={{ marginTop: "20px" }}>
-            Remembered your password? <Link to="/login">Log in</Link>
+            <div className="signup-link" style={{ marginTop: "20px" }}>
+              Remembered your password? <Link to="/login">Log in</Link>
+            </div>
           </div>
         </form>
       </div>
