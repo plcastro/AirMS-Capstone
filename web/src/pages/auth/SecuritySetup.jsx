@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { API_BASE } from "../../utilities/API_BASE";
+
 import "./login.css";
-import { Input } from "antd";
+import { Input, Button } from "antd";
+import { API_BASE } from "../../utils/API_BASE";
 const SecuritySetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,26 +16,28 @@ const SecuritySetup = () => {
     newPassword: "",
     confirmPassword: "",
   });
-  const [passwordRequirements, setPasswordRequirements] = useState({
-    minLength: false,
-    hasUppercase: false,
-    hasNumber: false,
-  });
   const [message, setMessage] = useState("");
   const [setupSuccess, setSetupSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
 
-  const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+  const passwordRequirements = {
+    minLength: formData.newPassword.length >= 8,
+    hasUppercase: /[A-Z]/.test(formData.newPassword),
+    hasNumber: /\d/.test(formData.newPassword),
+  };
+  const isFormValid =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    formData.confirmPassword &&
+    formData.newPassword === formData.confirmPassword;
 
-    if (key === "newPassword") {
-      setPasswordRequirements({
-        minLength: value.length >= 8,
-        hasUppercase: /[A-Z]/.test(value),
-        hasNumber: /\d/.test(value),
-      });
-    }
+  const changeHandler = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const validate = () => {
@@ -52,6 +55,7 @@ const SecuritySetup = () => {
     if (newPassword !== confirmPassword)
       return setMessage("Passwords do not match.");
 
+    setMessage("");
     handleSetup();
   };
 
@@ -137,6 +141,7 @@ const SecuritySetup = () => {
               value={formData.newPassword}
               onChange={(e) => changeHandler("newPassword", e.target.value)}
               required
+              minLength={8}
             />
           </div>
 
@@ -149,50 +154,53 @@ const SecuritySetup = () => {
               value={formData.confirmPassword}
               onChange={(e) => changeHandler("confirmPassword", e.target.value)}
               required
+              minLength={8}
             />
           </div>
 
           <div style={{ marginBottom: "15px" }}>
             <p style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-              Password Requirements:
+              Create a password that meets the following requirements:
             </p>
             <div>
               <span style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓
+                ✓ At least 8 characters
               </span>
-              <span>At least 8 characters</span>
             </div>
             <div>
               <span
                 style={getRequirementStyle(passwordRequirements.hasUppercase)}
               >
-                ✓
+                ✓ One uppercase letter
               </span>
-              <span>One uppercase letter</span>
             </div>
             <div>
               <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓
+                ✓ One number
               </span>
-              <span>One number</span>
             </div>
           </div>
 
           {message && !setupSuccess && <div className="error">{message}</div>}
 
-          <button type="submit" className="login-btn">
+          <Button
+            type="primary"
+            className="login-btn"
+            disabled={!isFormValid}
+            htmlType="submit"
+          >
             SET PASSWORD
-          </button>
+          </Button>
 
-          <div style={{ marginTop: "15px" }}>
-            <button
-              type="button"
+          <div style={{ marginTop: "10px" }}>
+            <Button
+              type="default"
               className="recovery-btn"
               onClick={handleResendActivation}
               disabled={resendLoading}
             >
               {resendLoading ? "SENDING..." : "RESEND ACTIVATION LINK"}
-            </button>
+            </Button>
             {resendMessage && (
               <div
                 style={{ fontSize: "12px", color: "#8f8e8e", marginTop: "5px" }}

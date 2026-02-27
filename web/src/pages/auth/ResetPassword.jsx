@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./login.css";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
@@ -14,9 +14,7 @@ const ResetPassword = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tokenValid, setTokenValid] = useState(true); // assume valid unless verified by backend
-
-  // Password strength check (optional frontend validation)
+  const [tokenValid, setTokenValid] = useState(true);
   const isPasswordStrong = (password) => {
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);

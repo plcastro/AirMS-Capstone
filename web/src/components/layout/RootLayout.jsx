@@ -15,10 +15,16 @@ const layoutStyle = {
   display: "flex",
   flexDirection: "column",
   width: "100%",
+  alignItems: "center",
+  justifyContent: "center",
   overflowX: "hidden",
 };
 
 const contentStyle = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
   minHeight: "100vh",
   width: "100%",
 };

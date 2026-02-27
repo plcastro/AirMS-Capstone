@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { Input, Select, Button } from "antd";
+import { Input, Select, Button, Space } from "antd";
 import UserTable from "../../components/tables/UserTable";
 import UserModal from "../../components/common/UserForm";
 import { API_BASE } from "../../utils/API_BASE";
+import { PlusOutlined } from "@ant-design/icons";
 
-const { Option } = Select;
+const filterData = {
+  Position: ["Admin", "Head of Maintenance", "Pilot", "Manager", "Mechanic"],
+  "Access Level": ["Admin", "Superuser", "User"],
+  Status: ["active", "inactive", "deactivated"],
+};
+const filterCategories = Object.keys(filterData);
 
 export default function UserManagement() {
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [positionFilter, setPositionFilter] = useState("all");
-  const [accessFilter, setAccessFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(filterCategories[0]);
+  const [subOptions, setSubOptions] = useState(filterData[filterCategories[0]]);
+  const [selectedValue, setSelectedValue] = useState("all");
 
   const headers = [
     { label: "#", key: "index" },
@@ -30,7 +36,6 @@ export default function UserManagement() {
     { label: "Actions", key: "actions" },
   ];
 
-  // Load current user
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser");
     if (storedUser) {
@@ -71,14 +76,28 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
+  const handleCategoryChange = (value) => {
+    setSelectedCategory(value);
+    setSubOptions(filterData[value]);
+    setSelectedValue("all"); // Reset value when category changes
+  };
+
+  // 4. Handle Value Change (Second Select)
+  const handleValueChange = (value) => {
+    setSelectedValue(value);
+  };
   useEffect(() => {
     let filtered = [...allUsers];
-    if (statusFilter !== "all")
-      filtered = filtered.filter((u) => u.status === statusFilter);
-    if (positionFilter !== "all")
-      filtered = filtered.filter((u) => u.position === positionFilter);
-    if (accessFilter !== "all")
-      filtered = filtered.filter((u) => u.access === accessFilter);
+    if (selectedValue !== "all") {
+      // Map Category names to the actual keys in your user object
+      const keyMap = {
+        Position: "position",
+        "Access Level": "access",
+        Status: "status",
+      };
+      const filterKey = keyMap[selectedCategory];
+      filtered = filtered.filter((u) => u[filterKey] === selectedValue);
+    }
     if (searchQuery.trim()) {
       filtered = filtered.filter((u) =>
         [u.fullname, u.username, u.email, u.position, u.access]
@@ -88,7 +107,7 @@ export default function UserManagement() {
       );
     }
     setFilteredUsers(filtered);
-  }, [allUsers, statusFilter, positionFilter, accessFilter, searchQuery]);
+  }, [allUsers, selectedCategory, selectedValue, searchQuery]);
 
   const handleAddUser = () => {
     setEditingUser(null);
@@ -130,49 +149,61 @@ export default function UserManagement() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div>
       <div
-        style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 10,
+
+          alignItems: "center",
+          minHeight: 40,
+          width: "100%",
+        }}
       >
         <Input
-          placeholder="Search"
+          placeholder="Search User by name, username, email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: 300 }}
+          style={{ width: 300, height: 40, fontSize: 14 }}
         />
-        <Select
-          value={positionFilter}
-          onChange={setPositionFilter}
-          style={{ width: 180 }}
+
+        <Space wrap>
+          <Select
+            value={selectedCategory}
+            style={{ width: 150, height: 40 }}
+            onChange={handleCategoryChange}
+            options={filterCategories.map((category) => ({
+              label: category,
+              value: category,
+            }))}
+          />
+          <Select
+            value={selectedValue}
+            style={{ width: 180, height: 40 }}
+            onChange={handleValueChange}
+            options={[
+              { label: `All ${selectedCategory}`, value: "all" },
+              ...subOptions.map((opt) => ({ label: opt, value: opt })),
+            ]}
+          />
+        </Space>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: " column",
+          alignItems: "flex-end",
+          width: "100%",
+        }}
+      >
+        <Button
+          type="primary"
+          onClick={handleAddUser}
+          style={{ width: 100, height: 40 }}
+          icon={<PlusOutlined />}
         >
-          <Option value="all">Position</Option>
-          <Option value="Admin">Admin</Option>
-          <Option value="Head of Maintenance">Head of Maintenance</Option>
-          <Option value="Pilot">Pilot</Option>
-          <Option value="Manager">Manager</Option>
-          <Option value="Mechanic">Mechanic</Option>
-        </Select>
-        <Select
-          value={accessFilter}
-          onChange={setAccessFilter}
-          style={{ width: 180 }}
-        >
-          <Option value="all">Access Level</Option>
-          <Option value="Admin">Admin</Option>
-          <Option value="Superuser">Superuser</Option>
-          <Option value="User">User</Option>
-        </Select>
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          style={{ width: 150 }}
-        >
-          <Option value="all">Status</Option>
-          <Option value="active">Active</Option>
-          <Option value="inactive">Inactive</Option>
-          <Option value="deactivated">Deactivated</Option>
-        </Select>
-        <Button type="primary" onClick={handleAddUser}>
           Add User
         </Button>
       </div>

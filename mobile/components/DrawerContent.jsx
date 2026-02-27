@@ -12,16 +12,16 @@ import AlertComp from "./AlertComp";
 import { API_BASE } from "../utilities/API_BASE";
 
 const DrawerList = [
-  {
-    icon: "account-group",
-    label: "User Management",
-    navigateTo: "User Management",
-    position: ["admin"],
-    children: [
-      { label: "Manage Users", navigateTo: "User Management" },
-      { label: "User Logs", navigateTo: "User Logs" },
-    ],
-  },
+  // {
+  //   icon: "account-group",
+  //   label: "User Management",
+  //   navigateTo: "User Management",
+  //   position: ["admin"],
+  //   children: [
+  //     { label: "Manage Users", navigateTo: "User Management" },
+  //     { label: "User Logs", navigateTo: "User Logs" },
+  //   ],
+  // },
   {
     icon: "book-open-page-variant",
     label: "Aircraft Logbook",
@@ -32,33 +32,33 @@ const DrawerList = [
       { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
     ],
   },
-  {
-    icon: "cog-outline",
-    label: "Parts Monitoring",
-    position: ["head of maintenance", "manager"],
-    children: [
-      { label: "Parts Monitoring Table", navigateTo: "Parts Monitoring" },
-      { label: "Track Maintenance", navigateTo: "Track Maintenance" },
-    ],
-  },
-  {
-    icon: "archive-outline",
-    label: "Component Inventory",
-    navigateTo: "Component Inventory",
-    position: ["head of maintenance"],
-  },
-  {
-    icon: "sort-variant",
-    label: "Priority Sorting",
-    navigateTo: "Priority Sorting",
-    position: ["head of maintenance"],
-  },
-  {
-    icon: "chart-arc",
-    label: "Reports and Analytics",
-    navigateTo: "Reports and Analytics",
-    position: ["head of maintenance", "manager"],
-  },
+  // {
+  //   icon: "cog-outline",
+  //   label: "Parts Monitoring",
+  //   position: ["head of maintenance", "manager"],
+  //   children: [
+  //     { label: "Parts Monitoring Table", navigateTo: "Parts Monitoring" },
+  //     { label: "Track Maintenance", navigateTo: "Track Maintenance" },
+  //   ],
+  // },
+  // {
+  //   icon: "archive-outline",
+  //   label: "Component Inventory",
+  //   navigateTo: "Component Inventory",
+  //   position: ["head of maintenance"],
+  // },
+  // {
+  //   icon: "sort-variant",
+  //   label: "Priority Sorting",
+  //   navigateTo: "Priority Sorting",
+  //   position: ["head of maintenance"],
+  // },
+  // {
+  //   icon: "chart-arc",
+  //   label: "Reports and Analytics",
+  //   navigateTo: "Reports and Analytics",
+  //   position: ["head of maintenance", "manager"],
+  // },
   {
     icon: "clipboard-text",
     label: "Tasks",
