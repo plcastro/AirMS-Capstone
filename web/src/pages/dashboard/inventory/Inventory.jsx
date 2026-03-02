@@ -12,7 +12,7 @@ import {
 import {
   EditComponent,
   AddComponent,
-} from "../../components/pagecomponents/InventoryEntryModal";
+} from "../../../components/pagecomponents/InventoryEntryModal";
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("Parts");
@@ -141,17 +141,12 @@ export default function Inventory() {
       : true,
   );
 
-  const importantInventory = filteredInventory.filter(
-    (item) => item.stockLevel === "Critical",
-  );
-
   return (
-    <div>
-      <Input.Search
+    <div style={{ justifyContent: "space-between" }}>
+      <Input
         placeholder="Search by Part Name, Location, Stock Level..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        allowClear
         style={{ width: 300 }}
       />
       {activeTab === "Parts" && (
@@ -165,13 +160,7 @@ export default function Inventory() {
         <Tabs.TabPane tab="Important" key="Important" />
       </Tabs>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={
-          activeTab === "Parts" ? filteredInventory : importantInventory
-        }
-      />
+      <Table rowKey="id" columns={columns} dataSource={filteredInventory} />
 
       <AddComponent
         visible={showAddModal}

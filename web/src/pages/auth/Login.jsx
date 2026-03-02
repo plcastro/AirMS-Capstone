@@ -2,12 +2,12 @@ import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Input, Button } from "antd";
+import { Input, Button, Alert } from "antd";
 
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: "",
+    identifier: "",
     password: "",
   });
   const [rememberMe, setRememberMe] = useState(false);
@@ -16,20 +16,21 @@ const Login = () => {
 
   // Load saved credentials on component mount
   useEffect(() => {
-    const savedUsername = localStorage.getItem("rememberedUsername");
+    const savedIdentifier = localStorage.getItem("rememberedIdentifier");
     const savedPassword = localStorage.getItem("rememberedPassword");
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
-    if (savedRememberMe && savedUsername) {
+    if (savedRememberMe && savedIdentifier) {
       setFormData({
-        username: savedUsername,
+        identifier: savedIdentifier,
         password: savedPassword || "",
       });
       setRememberMe(true);
     }
   }, []);
+
   const isFormValid =
-    formData.username.trim() !== "" && formData.password.trim() !== "";
+    formData.identifier.trim() !== "" && formData.password.trim() !== "";
   const handleInputChange = (e) => {
     const { id, value } = e.target;
     setFormData((prevState) => ({
@@ -55,53 +56,57 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    if (!formData.username.trim() || !formData.password.trim()) {
-      setError("Username and password are required");
+    if (!formData.identifier.trim() || !formData.password.trim()) {
+      setError("Username/email and password are required");
       return;
     }
 
     setLoading(true);
 
     try {
-      // const response = await fetch("http://localhost:8000/api/users/login", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     username: formData.username.trim(),
-      //     password: formData.password.trim(),
-      //   }),
-      // });
+      const response = await fetch("http://localhost:8000/api/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: formData.identifier.trim(),
+          password: formData.password.trim(),
+        }),
+      });
 
-      // let data;
-      // try {
-      //   data = await response.json(); // parse JSON safely
-      // } catch {
-      //   setError("Invalid response from server");
-      //   return;
-      // }
+      const text = await response.text();
+      console.log("RAW RESPONSE:", text);
 
-      // if (response.ok) {
-      //   // Store user data
-      //   localStorage.setItem("currentUser", JSON.stringify(data.user));
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log("PARSED DATA:", data);
+      } catch (err) {
+        console.error("JSON parse failed", err);
+      }
 
-      //   // Handle Remember Me functionality
-      //   if (rememberMe) {
-      //     localStorage.setItem("rememberedUsername", formData.username.trim());
-      //     localStorage.setItem("rememberedPassword", formData.password.trim());
-      //     localStorage.setItem("rememberMe", "true");
-      //   } else {
-      //     // Clear saved credentials if Remember Me is not checked
-      //     localStorage.removeItem("rememberedUsername");
-      //     localStorage.removeItem("rememberedPassword");
-      //     localStorage.removeItem("rememberMe");
-      //   }
+      if (response.ok) {
+        // Store user data
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
 
-      navigate("/dashboard/");
-      // } else {
-      //   setError(data.error || "Login failed");
-      // }
+        // Handle Remember Me functionality
+        if (rememberMe) {
+          localStorage.setItem(
+            "rememberedIdentifier",
+            formData.identifier.trim(),
+          );
+          localStorage.setItem("rememberedPassword", formData.password.trim());
+          localStorage.setItem("rememberMe", "true");
+        } else {
+          // Clear saved credentials if Remember Me is not checked
+          localStorage.removeItem("rememberedIdentifier");
+          localStorage.removeItem("rememberedPassword");
+          localStorage.removeItem("rememberMe");
+        }
+
+        handleNavigate(data.user.position);
+      } else {
+        setError(data.error || "Login failed");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Network error. Please try again.");
@@ -109,7 +114,28 @@ const Login = () => {
       setLoading(false);
     }
   };
+  const handleNavigate = (position) => {
+    // Normalize position to lowercase for comparison
+    const pos = position?.toLowerCase() || "";
 
+    switch (pos) {
+      case "admin":
+        navigate("/dashboard/user-management/view-users");
+        break;
+      case "pilot":
+        navigate("/dashboard/flight-log");
+        break;
+      case "head of maintenance":
+        navigate("/dashboard/maintenance-log");
+        break;
+      case "manager":
+        navigate("/dashboard/inventory-management");
+        break;
+      default:
+        navigate("/dashboard/profile"); // fallback dashboard
+        break;
+    }
+  };
   return (
     <div className="login-container">
       <div className="login-content">
@@ -120,12 +146,12 @@ const Login = () => {
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username/Email</label>
             <Input
               type="text"
-              id="username"
-              placeholder="Enter your username"
-              value={formData.username}
+              id="identifier"
+              placeholder="Enter your username/email"
+              value={formData.identifier}
               onChange={handleInputChange}
               autoComplete="username"
               required

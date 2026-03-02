@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { Button, Input, Tabs, Table, Space } from "antd";
+import React, { useState, useEffect, useContext } from "react";
+import { Button, Input, Tabs, Space } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import FLogTable from "../../../components/tables/FLogTable";
+import { AuthContext } from "../../../context/AuthContext";
 
 export default function FlightLog() {
+  const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Defects");
 
@@ -13,7 +16,7 @@ export default function FlightLog() {
 
   const [selectedDefect, setSelectedDefect] = useState(null);
   const [selectedTechnicalLog, setSelectedTechnicalLog] = useState(null);
-
+  const userPosition = user?.position?.toLowerCase() || "pilot";
   useEffect(() => {
     setActiveTab("Defects");
   }, []);
@@ -148,7 +151,12 @@ export default function FlightLog() {
         ]}
       />
 
-      <div style={{ marginTop: 16 }}>
+      <div
+        style={{
+          justifyContent: "space-between",
+          display: "flex",
+        }}
+      >
         <Button
           type="primary"
           onClick={() => setModalVisible(true)}
@@ -157,27 +165,24 @@ export default function FlightLog() {
         >
           New Entry
         </Button>
+      </div>
+
+      <div>
         {activeTab === "Defects" ? (
-          <Table
-            columns={defectColumns}
-            dataSource={defectsData}
-            rowKey="index"
-            pagination={{
-              pageSize: 5,
-              showSizeChanger: true,
-              pageSizeOptions: ["5", "10", "15"],
-            }}
+          <FLogTable
+            headers={defectColumns}
+            data={defectsData}
+            userPosition={userPosition}
+            onEditLog={handleEditLog}
+            onDeleteLog={handleDeleteLog}
           />
         ) : (
-          <Table
-            columns={technicalColumns}
-            dataSource={technicalLogData}
-            rowKey="index"
-            pagination={{
-              pageSize: 5,
-              showSizeChanger: true,
-              pageSizeOptions: ["5", "10", "15"],
-            }}
+          <FLogTable
+            headers={technicalColumns}
+            data={technicalLogData}
+            userPosition={userPosition}
+            onEditLog={handleEditLog}
+            onDeleteLog={handleDeleteLog}
           />
         )}
       </div>

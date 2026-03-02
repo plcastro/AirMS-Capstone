@@ -10,6 +10,9 @@ const fs = require("fs");
 const path = require("path");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
+
 const deleteFile = (filePath) => {
   const absolutePath = path.join(__dirname, "..", filePath);
   fs.unlink(absolutePath, (err) => {
@@ -21,10 +24,10 @@ const deleteFile = (filePath) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
-    await auditLog(`Fetched all users. Total: ${users.length}`, null);
+    // await auditLog(`Fetched all users. Total: ${users.length}`, null);
     res.status(200).json({ status: "Ok", data: users });
   } catch (err) {
-    await auditLog("Failed to fetch all users", null);
+    // await auditLog("Failed to fetch all users", null);
     res.status(500).json({ message: err.message });
   }
 };
@@ -67,11 +70,25 @@ const loginUser = async (req, res) => {
     }
 
     if (!passwordMatch) {
-      await auditLog(`Failed login attempt: ${identifier}`, user._id);
-      return res
-        .status(401)
-        .json({ message: "Incorrect username/email or password" });
+      user.failedLoginAttempts += 1;
+
+      if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        user.isLocked = true;
+        user.lockUntil = Date.now() + LOCK_TIME;
+      }
+
+      await user.save();
+
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
     }
+
+    // ✅ Reset failed attempts on success
+    user.failedLoginAttempts = 0;
+    user.isLocked = false;
+    user.lockUntil = undefined;
+    await user.save();
 
     // Create JWT
     const token = jwt.sign(
@@ -130,6 +147,18 @@ const loginUser = async (req, res) => {
     console.error("Login error:", err);
     res.status(500).json({ message: "Login failed" });
   }
+};
+
+const unlockUser = async (req, res) => {
+  const user = await UserModel.findById(req.params.id);
+
+  user.failedLoginAttempts = 0;
+  user.isLocked = false;
+  user.lockUntil = undefined;
+
+  await user.save();
+
+  res.json({ message: "Account unlocked successfully" });
 };
 
 const logoutUser = async (req, res) => {
@@ -362,22 +391,27 @@ const updateUserProfile = async (req, res) => {
     if (lastName && lastName.trim() !== user.lastName)
       updateData.lastName = lastName.trim();
 
-    if (Object.keys(updateData).length === 0)
-      return res.status(400).json({ message: "No changes provided" });
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(200)
+        .json({ message: "No name changes provided", user });
+    }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
       new: true,
     });
 
     await auditLog(
-      `User profile updated: ${updatedUser.username}`,
+      `User name updated: ${updatedUser.username}`,
       updatedUser._id,
     );
 
-    res.status(200).json({ message: "Profile updated", user: updatedUser });
+    res
+      .status(200)
+      .json({ message: "Name updated successfully", user: updatedUser });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to update profile" });
+    res.status(500).json({ message: "Failed to update name" });
   }
 };
 
@@ -415,22 +449,15 @@ const updateUserStatus = async (req, res) => {
 const updateUserImage = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Request Body:", req.body);
-    console.log("Request File:", req.file);
-
-    if (!req.file) {
+    if (!req.file)
       return res.status(400).json({ message: "No image file provided" });
-    }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.image) {
-      deleteFile(user.image);
-    }
+    if (user.image) deleteFile(user.image);
 
-    const newImagePath = req.file.savedPath;
-
+    const newImagePath = `/uploads/${req.file.filename}`;
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { image: newImagePath },
@@ -438,16 +465,16 @@ const updateUserImage = async (req, res) => {
     );
 
     await auditLog(
-      `User image updated: ${updatedUser.username}`,
+      `User avatar updated: ${updatedUser.username}`,
       updatedUser._id,
     );
 
     res
       .status(200)
-      .json({ message: "Image updated successfully", user: updatedUser });
+      .json({ message: "Avatar updated successfully", user: updatedUser });
   } catch (err) {
-    console.error("Error updating image:", err);
-    res.status(500).json({ message: "Failed to update image" });
+    console.error("Error updating avatar:", err);
+    res.status(500).json({ message: "Failed to update avatar" });
   }
 };
 const updatePassword = async (req, res) => {
