@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
-import ActivityLogTable from "../../components/tables/ActivityLogTable";
+import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { useState } from "react";
-import { API_BASE } from "../../utils/API_BASE";
+import { API_BASE } from "../../../utils/API_BASE";
 import { Input } from "antd";
 
 export default function UserLogs() {

@@ -1,75 +1,47 @@
-import React, { useState, useEffect } from "react";
-import { Layout, Button, theme, Avatar, message } from "antd";
+import React, { useState, useContext } from "react";
+import { Layout, Button, theme, Avatar } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
 
 const { Header, Sider, Content } = Layout;
 
 const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState({});
+  const { user } = useContext(AuthContext);
   const location = useLocation();
-  const navigate = useNavigate();
-
-  const currentUserId = JSON.parse(localStorage.getItem("currentUser"))?.userid;
 
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  // Fetch current user info
-  useEffect(() => {
-    if (!currentUserId) return;
-
-    const fetchUserInfo = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:8000/api/users/${currentUserId}`,
-        );
-        if (!res.ok) throw new Error("Failed to fetch user info");
-        const data = await res.json();
-        setUser(data);
-      } catch (err) {
-        console.error(err);
-        message.error("Failed to load user info");
-      }
-    };
-
-    fetchUserInfo();
-
-    const handleUserUpdate = (e) => setUser(e.detail);
-    window.addEventListener("userUpdated", handleUserUpdate);
-    return () => window.removeEventListener("userUpdated", handleUserUpdate);
-  }, [currentUserId]);
-
-  // Map pathnames to page titles
   const pageMap = {
-    "/dashboard/user-management/list-of-users": "Users",
+    "/dashboard/user-management/view-users": "Users",
     "/dashboard/user-management/activity-logs": "Activity Logs",
     "/dashboard/flight-log": "Flight Logs",
     "/dashboard/maintenance-log": "Maintenance Logs",
-    "/dashboard/profile": "Profile",
     "/dashboard/parts-monitoring/pm-table": "PM Table",
+    "/dashboard/parts-monitoring/maintenance-tracking": "Maintenance Tracking",
     "/dashboard/inventory-management": "Inventory Management",
-    // add other routes here
+    "/dashboard/maintenance-priority": "Maintenance Priority",
+    "/dashboard/maintenance-report/maintenance-performance":
+      "Maintenance Performance",
+    "/dashboard/maintenance-report/maintenance-summary": "Maintenance Summary",
+    "/dashboard/maintenance-report/maintenance-history": "Maintenance History",
+    "/dashboard/maintenance-report/component-usage": "Component Usage",
+    "/dashboard/profile": "Profile",
   };
   const pageTitle = pageMap[location.pathname] || "Dashboard";
 
-  const handleLogout = () => {
-    localStorage.removeItem("currentUser");
-    navigate("/login");
-  };
-
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      {/* SIDEBAR */}
+    <Layout style={{ height: "100vh", overflow: "hidden" }}>
       <Sider
-        width={250}
+        width={265}
         collapsible
         collapsed={collapsed}
         trigger={null}
@@ -79,29 +51,39 @@ const DashboardLayout = () => {
       </Sider>
 
       <Layout>
-        {/* HEADER */}
         <Header
           style={{
-            padding: "0 6px",
             background: colorBgContainer,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+            padding: 12,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <Button
-              type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              style={{ fontSize: 16, width: 48, height: 48 }}
-            />
-            <h3>{pageTitle}</h3>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div>
+              <Button
+                type="text"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+                style={{
+                  fontSize: 16,
+                  width: 46,
+                  height: 46,
+                }}
+              />
+            </div>
+            <h2>{pageTitle}</h2>
           </div>
-
           <div style={{ display: "flex", alignItems: "center" }}>
-            {user.image ? (
+            {user?.image ? (
               <img
                 src={user.image}
                 alt="User"
@@ -115,6 +97,23 @@ const DashboardLayout = () => {
             ) : (
               <Avatar size="large" icon={<UserOutlined />} />
             )}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                lineHeight: 1.2,
+                marginRight: 10,
+                marginLeft: 10,
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                {user?.firstName + " " + user?.lastName || "Unknown User"}
+              </span>
+              <span style={{ fontSize: 12, color: "#888" }}>
+                {user?.position || "Unknown Position"}
+              </span>
+            </div>
           </div>
         </Header>
 

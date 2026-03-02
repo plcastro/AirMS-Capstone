@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Input, Select, Button, Space } from "antd";
-import UserTable from "../../components/tables/UserTable";
-import UserModal from "../../components/common/UserForm";
-import { API_BASE } from "../../utils/API_BASE";
-import { PlusOutlined } from "@ant-design/icons";
+import { Input, Select, Button, Divider } from "antd";
+import UserTable from "../../../components/tables/UserTable";
+import UserModal from "../../../components/common/UserForm";
+import { API_BASE } from "../../../utils/API_BASE";
+import { UserAddOutlined } from "@ant-design/icons";
 
 const filterData = {
   Position: ["Admin", "Head of Maintenance", "Pilot", "Manager", "Mechanic"],
@@ -169,27 +169,26 @@ export default function UserManagement() {
           style={{ width: 300, height: 40, fontSize: 14 }}
         />
 
-        <Space wrap>
-          <Select
-            value={selectedCategory}
-            style={{ width: 150, height: 40 }}
-            onChange={handleCategoryChange}
-            options={filterCategories.map((category) => ({
-              label: category,
-              value: category,
-            }))}
-          />
-          <Select
-            value={selectedValue}
-            style={{ width: 180, height: 40 }}
-            onChange={handleValueChange}
-            options={[
-              { label: `All ${selectedCategory}`, value: "all" },
-              ...subOptions.map((opt) => ({ label: opt, value: opt })),
-            ]}
-          />
-        </Space>
+        <Select
+          value={selectedCategory}
+          style={{ width: 150, height: 40 }}
+          onChange={handleCategoryChange}
+          options={filterCategories.map((category) => ({
+            label: category,
+            value: category,
+          }))}
+        />
+        <Select
+          value={selectedValue}
+          style={{ width: 180, height: 40 }}
+          onChange={handleValueChange}
+          options={[
+            { label: `All ${selectedCategory}`, value: "all" },
+            ...subOptions.map((opt) => ({ label: opt, value: opt })),
+          ]}
+        />
       </div>
+      <Divider />
       <div
         style={{
           display: "flex",
@@ -202,7 +201,7 @@ export default function UserManagement() {
           type="primary"
           onClick={handleAddUser}
           style={{ width: 100, height: 40 }}
-          icon={<PlusOutlined />}
+          icon={<UserAddOutlined />}
         >
           Add User
         </Button>

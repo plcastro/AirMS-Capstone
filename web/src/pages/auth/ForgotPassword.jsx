@@ -74,6 +74,8 @@ export default function ForgotPassword() {
               inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              style={{ marginBottom: 30 }}
+              maxLength={254}
             />
             <Button
               htmlType="submit"
