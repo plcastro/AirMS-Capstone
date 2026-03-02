@@ -15,8 +15,18 @@ const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await UserModel.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user)
+      return res.json({
+        message:
+          "If this email is registered and active, a reset link has been sent.",
+      });
 
+    if (user.status?.toLowerCase() === "inactive") {
+      return res.status(403).json({
+        message:
+          "Your account is currently inactive. Please contact AirMS support.",
+      });
+    }
     // Generate reset token & OTP
     const token = crypto.randomBytes(32).toString("hex");
     const otp = generateOTP();
@@ -37,7 +47,7 @@ const requestPasswordReset = async (req, res) => {
       to: user.email,
       subject: "AirMS Password Reset Request",
       html: `
-        <h1>Hello, <strong>${user.firstName}</strong></h1></br>
+        <h2>Hello, <strong>${user.firstName}</strong></h2></br>
         <p>Your verification code is: <strong>${otp}</strong></p>
         <p>Use this code in the app to reset your password.</p>
         <p>If you did not request this, ignore this email.</p>

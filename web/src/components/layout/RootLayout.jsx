@@ -4,13 +4,8 @@ import { Flex, Layout } from "antd";
 import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 
-const headerStyle = {
-  color: "#fff",
-  height: 64,
-  lineHeight: "64px",
-};
 const layoutStyle = {
   display: "flex",
   flexDirection: "column",
@@ -18,6 +13,7 @@ const layoutStyle = {
   alignItems: "center",
   justifyContent: "center",
   overflowX: "hidden",
+  height: "100vh",
 };
 
 const contentStyle = {
@@ -25,22 +21,19 @@ const contentStyle = {
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: "100vh",
+  height: "100vh",
   width: "100%",
+  overflowX: "hidden",
 };
 
 const RootLayout = () => {
   return (
-    <Flex gap="middle" wrap>
-      <Layout style={layoutStyle}>
-        <Header style={headerStyle}>
-          <Navbar />
-        </Header>
-        <Content style={contentStyle}>
-          <Outlet />
-        </Content>
-      </Layout>
-    </Flex>
+    <Layout style={layoutStyle}>
+      <Navbar />
+      <Content style={contentStyle}>
+        <Outlet />
+      </Content>
+    </Layout>
   );
 };
 export default RootLayout;

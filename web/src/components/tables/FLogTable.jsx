@@ -9,12 +9,16 @@ export default function FLogTable({
   onDeleteLog,
   onShowLog,
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
   const [logToModify, setLogToModify] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
-
+  const handlePageChange = (page, pageSize) => {
+    setCurrentPage(page);
+    setPageSize(pageSize);
+  };
   const handleDelete = (row) => {
     setLogToModify(row);
     Modal.confirm({
@@ -39,7 +43,7 @@ export default function FLogTable({
   };
 
   const renderActions = (row) => {
-    if (userPosition === "Pilot") {
+    if (userPosition === "pilot") {
       return (
         <>
           <Button type="primary" size="small" onClick={() => onEditLog?.(row)}>
@@ -64,50 +68,34 @@ export default function FLogTable({
     );
   };
 
-  const columns = [
-    ...headers.map((header) => ({
-      title: header.label,
-      dataIndex: header.key,
-      key: header.key,
-      render: (text, record) =>
-        header.key === "defectAction" || header.key === "technicalAction"
-          ? renderActions(record)
+  const columns = headers.map((col) => ({
+    ...col,
+    // This ensures your specific render logic for actions still works
+    render: (text, record) =>
+      col.key === "action"
+        ? renderActions(record)
+        : col.render
+          ? col.render(text, record)
           : text || "-",
-      align:
-        header.key === "index" ||
-        header.key === "aircraft" ||
-        header.key === "tailNum" ||
-        header.numeric
-          ? "center"
-          : "left",
-    })),
-  ];
+  }));
 
   return (
-    <>
-      <Table
-        columns={columns}
-        dataSource={data}
-        rowKey={(record) => record.id || record.index}
-        pagination={{
-          current: page,
-          pageSize,
-          onChange: (p, ps) => {
-            setPage(p);
-            setPageSize(ps);
-          },
-          pageSizeOptions: ["5", "10", "15"],
-          showSizeChanger: true,
-        }}
-      />
-
-      {/* Approval Modal for delete
-      <ApproveMaintenance
-        visible={showApproveModal}
-        aircraftNumber={logToModify?.tailNum || logToModify?.aircraft || "---"}
-        onConfirm={handleApproveDelete}
-        onCancel={handleApproveCancel}
-      /> */}
-    </>
+    <Table
+      columns={columns}
+      dataSource={data}
+      rowKey={(record, index) => record.id || index}
+      pagination={{
+        current: currentPage,
+        pageSize,
+        total: data.length,
+        showSizeChanger: true,
+        pageSizeOptions: ["5", "10", "15", "20"],
+        onChange: handlePageChange,
+        onShowSizeChange: handlePageChange,
+        showQuickJumper: true,
+        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+      }}
+      scroll={{ x: "max-content" }}
+    />
   );
 }

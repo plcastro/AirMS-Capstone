@@ -46,6 +46,21 @@ const userSchema = new mongoose.Schema({
   otpExpires: Date,
   otpAttempts: { type: Number, default: 0 },
   otpLockUntil: Date,
+
+  // --- Account lockout for security ---
+  failedLoginAttempts: {
+    type: Number,
+    default: 0,
+  },
+
+  lockUntil: {
+    type: Date,
+  },
+
+  isLocked: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 userSchema.pre("save", async function () {

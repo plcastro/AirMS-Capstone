@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Table, Button, Tag } from "antd";
 import "../common/PaginationFix.css";
+import { EditOutlined } from "@ant-design/icons";
+
 export default function MLogTable({
   headers = [],
   data = [],
@@ -12,6 +14,7 @@ export default function MLogTable({
 
   // Map headers to AntD Table columns
   const columns = headers.map((header) => {
+    // Action column
     if (header.key === "action") {
       return {
         title: header.label,
@@ -21,9 +24,9 @@ export default function MLogTable({
         render: (_, record) => (
           <Button
             type="primary"
-            size="small"
-            style={{ minWidth: 70 }}
+            block
             onClick={() => onEditEntry(record)}
+            icon={<EditOutlined />}
           >
             Edit
           </Button>
@@ -31,19 +34,23 @@ export default function MLogTable({
       };
     }
 
+    // Status column
     if (header.key === "status") {
       return {
         title: header.label,
         key: header.key,
+        dataIndex: header.key,
         width: columnWidths[header.key] || 140,
         align: "center",
         render: (text) => {
-          const color = text === "Verified" ? "green" : "volcano";
-          return <Tag color={color}>{text || "Unverified"}</Tag>;
+          const value = typeof text === "object" ? JSON.stringify(text) : text;
+          const color = value === "Verified" ? "green" : "volcano";
+          return <Tag color={color}>{value || "Unverified"}</Tag>;
         },
       };
     }
 
+    // Regular columns
     return {
       title: header.label,
       dataIndex: header.key,
@@ -52,9 +59,13 @@ export default function MLogTable({
       ellipsis: true,
       render: (text) => {
         if (!text || text === "N/A") return "N/A";
+
+        if (typeof text === "object") return JSON.stringify(text);
+
         if (header.key === "defects" || header.key === "correctiveActionDone") {
           return text.length > 80 ? text.substring(0, 80) + "..." : text;
         }
+
         return text;
       },
     };
@@ -81,8 +92,7 @@ export default function MLogTable({
         showQuickJumper: true,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
       }}
-      scroll={{ x: Object.values(columnWidths).reduce((a, b) => a + b, 0) }}
-      bordered
+      scroll={{ x: "max-content" }}
     />
   );
 }

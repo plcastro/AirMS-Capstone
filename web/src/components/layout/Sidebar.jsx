@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Menu, Button, message } from "antd";
+import React, { useContext, useEffect, useState } from "react";
+import { Menu, Button, Modal } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   BookOutlined,
@@ -7,39 +7,104 @@ import {
   UnorderedListOutlined,
   FlagOutlined,
   LogoutOutlined,
+  AuditOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
+import AirMS_logo from "../../assets/AirMS_logo.png";
+import { AuthContext } from "../../context/AuthContext";
 
 const Sidebar = ({ collapsed }) => {
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [current, setCurrent] = useState("");
-  const [user, setUser] = useState({});
+  const [open, setOpen] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [modalText, setModalText] = useState(
+    "Are you sure you want to log out?",
+  );
 
-  const currentUserId = JSON.parse(localStorage.getItem("currentUser"))?.userid;
+  const position = user?.position?.toLowerCase() || "";
 
-  useEffect(() => {
-    if (!currentUserId) return;
-    fetch(`http://localhost:8000/api/users/${currentUserId}`)
-      .then((res) => res.json())
-      .then((data) => setUser(data))
-      .catch(() => message.error("Failed to load user info"));
-  }, [currentUserId]);
+  // Define all menu items with optional roles
+  const menuItems = [
+    {
+      key: "sub1",
+      label: "User Management",
+      icon: <BookOutlined />,
+      roles: ["admin"],
+      children: [
+        { key: "1", label: "View Users", icon: <TeamOutlined /> },
+        { key: "2", label: "Activity Logs", icon: <AuditOutlined /> },
+      ],
+    },
+    {
+      key: "sub2",
+      label: "Aircraft Logbook",
+      icon: <BookOutlined />,
+      roles: ["head of maintenance", "pilot", "admin"],
+      children: [
+        { key: "3", label: "Flight Logs", icon: <BookOutlined /> },
+        { key: "4", label: "Maintenance Logs", icon: <BookOutlined /> },
+      ],
+    },
+    {
+      key: "sub3",
+      label: "Parts Monitoring",
+      icon: <BookOutlined />,
+      roles: ["head of maintenance", "admin"],
+      children: [
+        { key: "5", label: "PM Table", icon: <BookOutlined /> },
+        { key: "6", label: "Maintenance Tracking", icon: <BookOutlined /> },
+      ],
+    },
+    {
+      key: "7",
+      label: "Inventory Management",
+      icon: <UnorderedListOutlined />,
+      roles: ["head of maintenance", "admin"],
+    },
+    {
+      key: "8",
+      label: "Maintenance Priority",
+      icon: <FlagOutlined />,
+      roles: ["head of maintenance", "admin"],
+    },
+    {
+      key: "sub4",
+      label: "Maintenance Report",
+      icon: <BookOutlined />,
+      roles: ["head of maintenance", "admin"],
+      children: [
+        { key: "9", label: "Maintenance Performance", icon: <BookOutlined /> },
+        { key: "10", label: "Maintenance Summary", icon: <BookOutlined /> },
+        { key: "11", label: "Maintenance History", icon: <BookOutlined /> },
+        { key: "12", label: "Component Usage", icon: <BookOutlined /> },
+      ],
+    },
+    {
+      key: "13",
+      label: "Profile",
+      icon: <UserOutlined />,
+      roles: ["admin", "head of maintenance", "pilot"],
+    },
+  ];
 
-  useEffect(() => {
-    if (location.pathname.includes("/dashboard/user-management/list-of-users"))
-      setCurrent("1");
-    else if (
-      location.pathname.includes("/dashboard/user-management/activity-logs")
-    )
-      setCurrent("2");
-    else if (location.pathname.includes("/dashboard/flight-log"))
-      setCurrent("3");
-    else if (location.pathname.includes("/dashboard/maintenance-log"))
-      setCurrent("4");
-    else if (location.pathname.includes("/dashboard/profile")) setCurrent("13");
-    else setCurrent("");
-  }, [location.pathname]);
+  // Filter items based on user position
+  const filteredItems = menuItems
+    .filter((item) => !item.roles || item.roles.includes(position))
+    .map((item) => {
+      if (item.children) {
+        return {
+          ...item,
+          children: item.children.filter(
+            (child) => !child.roles || child.roles.includes(position),
+          ),
+        };
+      }
+      return item;
+    });
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
@@ -61,10 +126,17 @@ const Sidebar = ({ collapsed }) => {
     navigate(routes[e.key] || "/dashboard/profile");
   };
 
-  const onLogout = () => {
-    localStorage.removeItem("currentUser");
-    navigate("/login");
+  const showModal = () => setOpen(true);
+  const handleOk = () => {
+    setConfirmLoading(true);
+    setTimeout(() => {
+      setOpen(false);
+      setConfirmLoading(false);
+      localStorage.removeItem("currentUser");
+      navigate("/login");
+    }, 500);
   };
+  const handleCancel = () => setOpen(false);
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
@@ -72,19 +144,23 @@ const Sidebar = ({ collapsed }) => {
         style={{
           justifyContent: "center",
           alignItems: "center",
-          padding: "16px",
+          height: 64,
           display: "flex",
         }}
       >
-        <img
-          src={AirMS_web}
-          alt="Logo"
-          style={{
-            maxWidth: collapsed ? "50px" : "180px",
-            transition: "all 0.3s",
-            height: "40px",
-          }}
-        />
+        {!collapsed ? (
+          <img
+            src={AirMS_web}
+            alt="Logo"
+            style={{ maxWidth: 120, height: 40 }}
+          />
+        ) : (
+          <img
+            src={AirMS_logo}
+            alt="Logo"
+            style={{ maxWidth: 40, height: 40 }}
+          />
+        )}
       </div>
 
       <Menu
@@ -93,80 +169,31 @@ const Sidebar = ({ collapsed }) => {
         selectedKeys={[current]}
         onClick={onClickMenu}
         style={{ flex: 1, borderRight: 0 }}
-        items={[
-          {
-            key: "sub1",
-            label: "User Management",
-            icon: <BookOutlined />,
-            children: [
-              { key: "1", label: "View Users", icon: <BookOutlined /> },
-              { key: "2", label: "Activity Logs", icon: <BookOutlined /> },
-            ],
-          },
-          {
-            key: "sub2",
-            label: "Aircraft Logbook",
-            icon: <BookOutlined />,
-            children: [
-              { key: "3", label: "Flight Logs", icon: <BookOutlined /> },
-              { key: "4", label: "Maintenance Logs", icon: <BookOutlined /> },
-            ],
-          },
-          {
-            key: "sub3",
-            label: "Parts Monitoring",
-            icon: <BookOutlined />,
-            children: [
-              { key: "5", label: "PM Table", icon: <BookOutlined /> },
-              {
-                key: "6",
-                label: "Maintenance Tracking",
-                icon: <BookOutlined />,
-              },
-            ],
-          },
-          {
-            key: "7",
-            label: "Inventory Management",
-            icon: <UnorderedListOutlined />,
-          },
-          { key: "8", label: "Maintenance Priority", icon: <FlagOutlined /> },
-          {
-            key: "sub4",
-            label: "Maintenance Report",
-            icon: <BookOutlined />,
-            children: [
-              {
-                key: "9",
-                label: "Maintenance Performance",
-                icon: <BookOutlined />,
-              },
-              {
-                key: "10",
-                label: "Maintenance Summary",
-                icon: <BookOutlined />,
-              },
-              {
-                key: "11",
-                label: "Maintenance History",
-                icon: <BookOutlined />,
-              },
-              { key: "12", label: "Component Usage", icon: <BookOutlined /> },
-            ],
-          },
-          { key: "13", label: "Profile", icon: <UserOutlined /> },
-        ]}
+        items={filteredItems}
       />
-      <div style={{ padding: "16px", textAlign: "center" }}>
+
+      <div style={{ padding: "16px" }}>
         <Button
           type="primary"
+          danger
           block
-          onClick={onLogout}
           icon={<LogoutOutlined />}
+          onClick={showModal}
         >
-          Log Out
+          {collapsed ? "" : "Logout"}
         </Button>
       </div>
+
+      <Modal
+        title="Confirm Logout"
+        open={open}
+        centered
+        onOk={handleOk}
+        confirmLoading={confirmLoading}
+        onCancel={handleCancel}
+      >
+        <p>{modalText}</p>
+      </Modal>
     </div>
   );
 };

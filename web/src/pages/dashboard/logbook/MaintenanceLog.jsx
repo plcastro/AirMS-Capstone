@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Input } from "antd";
-import MLogTable from "../../components/tables/MLogTable";
+import { Input, Divider, Button, Tag } from "antd";
+import MLogTable from "../../../components/tables/MLogTable";
+import { PlusOutlined } from "@ant-design/icons";
 export default function MaintenanceLog() {
   const [allEntries, setAllEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
@@ -193,6 +194,39 @@ export default function MaintenanceLog() {
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
       />
+      <hr color="#d8d8d8" />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 40,
+          marginTop: 10,
+          marginBottom: 10,
+        }}
+      >
+        <Tag
+          color={"#26866f"}
+          variant={"solid"}
+          style={{
+            height: 40,
+            width: 300,
+            fontSize: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+
+            textAlign: "center",
+            borderRadius: 4,
+          }}
+        >
+          Maintenance History
+        </Tag>
+        <Button type="primary" icon={<PlusOutlined />} style={{ width: 150 }}>
+          New Entry
+        </Button>
+      </div>
+
       <MLogTable
         headers={headers}
         data={filteredEntries}
