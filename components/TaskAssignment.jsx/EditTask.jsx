@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, Alert, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  Modal,
+  TextInput,
+  ScrollView,
+  Dimensions,
+  TouchableOpacity,
+  Platform,
+} from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import Button from "../Button";
+import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
+import { COLORS } from "../../stylesheets/colors";
 
 const { width } = Dimensions.get("window");
 
@@ -15,28 +26,114 @@ export default function EditTask({
   employees,
   taskOptions,
 }) {
+  const [taskTitle, setTaskTitle] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [selectedTask, setSelectedTask] = useState("");
-  const [dueDate, setDueDate] = useState(new Date());
+  
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
+  const [dueDate, setDueDate] = useState(new Date());
+  
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showDuePicker, setShowDuePicker] = useState(false);
+  
+  const [checklistItems, setChecklistItems] = useState([]);
+
+  // Aircraft options
+  const aircraftOptions = [
+    { id: "2810", name: "2810" },
+    { id: "2811", name: "2811" },
+    { id: "2812", name: "2812" },
+  ];
 
   useEffect(() => {
     if (task) {
-      setSelectedEmployee(task.employeeId);
-      setSelectedTask(task.taskId);
-      setDueDate(new Date(task.dueDate));
-      setStartDate(new Date(task.startDateTime));
-      setEndDate(new Date(task.endDateTime));
+      setTaskTitle(task.title || "");
+      setSelectedAircraft(task.aircraft || "");
+      setSelectedEmployee(task.assignedTo || "");
+      
+      if (task.startDateTime) {
+        setStartDate(new Date(task.startDateTime));
+      }
+      if (task.endDateTime) {
+        setEndDate(new Date(task.endDateTime));
+      }
+      if (task.dueDate) {
+        setDueDate(new Date(task.dueDate));
+      }
+      
+      setChecklistItems(task.checklistItems || [""]);
     }
   }, [task]);
 
+  const handleAddChecklistItem = () => {
+    setChecklistItems([...checklistItems, ""]);
+  };
+
+  const handleUpdateChecklistItem = (index, text) => {
+    const updated = [...checklistItems];
+    updated[index] = text;
+    setChecklistItems(updated);
+  };
+
+  const handleDeleteChecklistItem = (index) => {
+    const updated = checklistItems.filter((_, i) => i !== index);
+    setChecklistItems(updated);
+  };
+
   const confirmSave = () => {
-    onClose();
+    const filteredChecklist = checklistItems.filter(item => item.trim() !== "");
+    
+    const updatedTask = {
+      ...task,
+      title: taskTitle,
+      aircraft: selectedAircraft,
+      dueDate: dueDate.toISOString(),
+      startDateTime: startDate.toISOString(),
+      endDateTime: endDate.toISOString(),
+      assignedTo: selectedEmployee,
+      assignedToName: employees.find(e => e.id === selectedEmployee)?.name || task.assignedToName,
+      checklistItems: filteredChecklist.length > 0 ? filteredChecklist : ["New checklist item"],
+    };
+    onSave(updatedTask);
   };
 
   const confirmDiscard = () => {
     onClose();
+  };
+
+  const formatDateTime = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit',
+      year: 'numeric'
+    }) + ' ' + date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const onStartChange = (event, selectedDate) => {
+    setShowStartPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setStartDate(selectedDate);
+    }
+  };
+
+  const onEndChange = (event, selectedDate) => {
+    setShowEndPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setEndDate(selectedDate);
+    }
+  };
+
+  const onDueChange = (event, selectedDate) => {
+    setShowDuePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDueDate(selectedDate);
+    }
   };
 
   return (
@@ -47,84 +144,251 @@ export default function EditTask({
             styles.alertContainer,
             {
               width: width > 425 ? 600 : "95%",
-              gap: 10,
+              maxHeight: "90%",
+              padding: 20,
             },
           ]}
         >
-          <Text style={[styles.alertTitle, { textAlign: "left" }]}>
-            Edit Task
-          </Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Task Section */}
+            <Text style={[styles.alertTitle, { textAlign: "left", marginBottom: 15 }]}>
+              Task
+            </Text>
 
-          {/* Pick Employee */}
-          <Text>Pick Employee</Text>
-          <Picker
-            style={[styles.formInput, { borderRadius: 0 }]}
-            selectedValue={selectedEmployee}
-            onValueChange={(itemValue) => setSelectedEmployee(itemValue)}
-          >
-            <Picker.Item label="Select Employee" value="" />
-            {employees.map((emp) => (
-              <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
+            <TextInput
+              style={[styles.formInput, { 
+                borderRadius: 8, 
+                marginBottom: 15,
+                backgroundColor: COLORS.grayLight,
+                paddingHorizontal: 12,
+              }]}
+              placeholder="Maintenance Task"
+              placeholderTextColor={COLORS.grayDark}
+              value={taskTitle}
+              onChangeText={setTaskTitle}
+            />
+
+            {/* Aircraft Section */}
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              Aircraft
+            </Text>
+            <View style={[styles.filterContainer, { 
+              marginBottom: 15,
+              backgroundColor: COLORS.grayLight,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: 8,
+              overflow: "hidden",
+            }]}>
+              <Picker
+                selectedValue={selectedAircraft}
+                onValueChange={(itemValue) => setSelectedAircraft(itemValue)}
+                style={{ height: 40 }}
+                dropdownIconColor={COLORS.primaryLight}
+              >
+                <Picker.Item label="Tail No." value="" />
+                {aircraftOptions.map((aircraft) => (
+                  <Picker.Item 
+                    key={aircraft.id} 
+                    label={aircraft.name} 
+                    value={aircraft.id} 
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            {/* Mechanic Section */}
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              Mechanic
+            </Text>
+            <View style={[styles.filterContainer, { 
+              marginBottom: 15,
+              backgroundColor: COLORS.grayLight,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              borderRadius: 8,
+              overflow: "hidden",
+            }]}>
+              <Picker
+                selectedValue={selectedEmployee}
+                onValueChange={(itemValue) => setSelectedEmployee(itemValue)}
+                style={{ height: 40 }}
+                dropdownIconColor={COLORS.primaryLight}
+              >
+                <Picker.Item label="Pick Mechanic" value="" />
+                {employees.map((emp) => (
+                  <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
+                ))}
+              </Picker>
+            </View>
+
+            {/* Start Date Section */}
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              Start Date and Time
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: COLORS.grayLight,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 15,
+              }}
+              onPress={() => setShowStartPicker(true)}
+            >
+              <Text style={{ color: COLORS.grayDark }}>
+                {formatDateTime(startDate)}
+              </Text>
+            </TouchableOpacity>
+            
+            {showStartPicker && (
+              <DateTimePicker
+                value={startDate}
+                mode="datetime"
+                display="default"
+                onChange={onStartChange}
+              />
+            )}
+
+            {/* End Date Section */}
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              End Date and Time
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: COLORS.grayLight,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 20,
+              }}
+              onPress={() => setShowEndPicker(true)}
+            >
+              <Text style={{ color: COLORS.grayDark }}>
+                {formatDateTime(endDate)}
+              </Text>
+            </TouchableOpacity>
+            
+            {showEndPicker && (
+              <DateTimePicker
+                value={endDate}
+                mode="datetime"
+                display="default"
+                onChange={onEndChange}
+              />
+            )}
+
+            {/* Due Date Section - Single picker */}
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              Due Date
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: COLORS.grayLight,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 20,
+              }}
+              onPress={() => setShowDuePicker(true)}
+            >
+              <Text style={{ color: COLORS.grayDark }}>
+                {formatDateTime(dueDate)}
+              </Text>
+            </TouchableOpacity>
+            
+            {showDuePicker && (
+              <DateTimePicker
+                value={dueDate}
+                mode="datetime"
+                display="default"
+                onChange={onDueChange}
+              />
+            )}
+
+            {/* Checklist Section */}
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
+              Checklist
+            </Text>
+
+            {checklistItems.map((item, index) => (
+              <View key={index} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <CheckBox
+                    value={false}
+                    onValueChange={() => {}}
+                    disabled={true}
+                    checkboxColor="#ccc"
+                  />
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      padding: 4,
+                      borderBottomWidth: 1,
+                      borderBottomColor: COLORS.border,
+                      fontSize: 14,
+                    }}
+                    value={item}
+                    onChangeText={(text) => handleUpdateChecklistItem(index, text)}
+                    placeholder="Checklist task"
+                    placeholderTextColor={COLORS.grayDark}
+                  />
+                  <TouchableOpacity
+                    onPress={() => handleDeleteChecklistItem(index)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 4,
+                      backgroundColor: COLORS.dangerBg,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ color: COLORS.dangerBorder, fontSize: 18, fontWeight: "bold" }}>
+                      ×
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ))}
-          </Picker>
 
-          {/* Pick Task */}
-          <Text>Pick Task</Text>
-          <Picker
-            style={[styles.formInput, { borderRadius: 0 }]}
-            selectedValue={selectedTask}
-            onValueChange={(itemValue) => setSelectedTask(itemValue)}
-          >
-            <Picker.Item label="Select Task" value="" />
-            {taskOptions.map((task) => (
-              <Picker.Item key={task.id} label={task.name} value={task.id} />
-            ))}
-          </Picker>
+            {/* Add Checklist Button */}
+            <TouchableOpacity
+              onPress={handleAddChecklistItem}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 10,
+                marginBottom: 20,
+              }}
+            >
+              <Text style={{ fontSize: 20, color: COLORS.primaryLight, marginRight: 8 }}>+</Text>
+              <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>Add Checklist</Text>
+            </TouchableOpacity>
+          </ScrollView>
 
-          {/* Date Due */}
-          <Text>Date Due</Text>
-          <DateTimePicker
-            value={dueDate}
-            mode="date"
-            display="default"
-            onChange={(e, date) => setDueDate(date || dueDate)}
-          />
-
-          {/* Start Date & Time */}
-          <Text>Start Date & Time</Text>
-          <DateTimePicker
-            value={startDate}
-            mode="datetime"
-            display="default"
-            onChange={(e, date) => setStartDate(date || startDate)}
-          />
-
-          {/* End Date & Time */}
-          <Text>End Date & Time</Text>
-          <DateTimePicker
-            value={endDate}
-            mode="datetime"
-            display="default"
-            onChange={(e, date) => setEndDate(date || endDate)}
-          />
-
+          {/* Buttons */}
           <View
             style={{
               flexDirection: "row",
               justifyContent: "space-between",
-              width: "100%",
+              marginTop: 20,
+              gap: 10,
             }}
           >
             <Button
-              label="Discard Task"
+              label="Discard"
               onPress={confirmDiscard}
-              buttonStyle={[styles.dangerBtn, { width: "48%" }]}
-              buttonTextStyle={styles.primaryBtnTxt}
+              buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
+              buttonTextStyle={styles.secondaryAlertBtnTxt}
             />
             <Button
               label="Save Changes"
               onPress={confirmSave}
-              buttonStyle={styles.primaryAlertBtn}
+              buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.primaryBtnTxt}
             />
           </View>
