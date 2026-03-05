@@ -8,6 +8,7 @@ import {
 import Sidebar from "./Sidebar";
 import { Outlet, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import { API_BASE } from "../../utils/API_BASE";
 
 const { Header, Sider, Content } = Layout;
 
@@ -15,7 +16,7 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useContext(AuthContext);
   const location = useLocation();
-
+  console.log(user.image);
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -29,11 +30,7 @@ const DashboardLayout = () => {
     "/dashboard/parts-monitoring/maintenance-tracking": "Maintenance Tracking",
     "/dashboard/inventory-management": "Inventory Management",
     "/dashboard/maintenance-priority": "Maintenance Priority",
-    "/dashboard/maintenance-report/maintenance-performance":
-      "Maintenance Performance",
-    "/dashboard/maintenance-report/maintenance-summary": "Maintenance Summary",
-    "/dashboard/maintenance-report/maintenance-history": "Maintenance History",
-    "/dashboard/maintenance-report/component-usage": "Component Usage",
+    "/dashboard/maintenance-report": "Maintenance Report",
     "/dashboard/profile": "Profile",
   };
   const pageTitle = pageMap[location.pathname] || "Dashboard";
@@ -85,7 +82,7 @@ const DashboardLayout = () => {
           <div style={{ display: "flex", alignItems: "center" }}>
             {user?.image ? (
               <img
-                src={user.image}
+                src={user?.image ? `${API_BASE}${user.image}` : ""}
                 alt="User"
                 style={{
                   width: 40,

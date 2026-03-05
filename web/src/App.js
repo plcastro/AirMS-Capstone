@@ -4,20 +4,7 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 import { ConfigProvider, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
-// // Authentication
-// import Login from "./pages/auth/Login";
-// import ForgotPassword from "./pages/auth/ForgotPassword";
-// import OTP from "./pages/auth/OTP";
-// import ResetPassword from "./pages/auth/ResetPassword";
-// import SecuritySetup from "./pages/auth/SecuritySetup";
-// // Dashboard
-// import UserManagement from "./pages/dashboard/UserManagement";
-// import UserLogs from "./pages/dashboard/UserLogs";
-// import FlightLog from "./pages/dashboard/FlightLog";
-// import MaintenanceLog from "./pages/dashboard/MaintenanceLog";
-// import Inventory from "./pages/dashboard/Inventory";
-// import Profile from "./pages/dashboard/Profile";
-// import NotFound from "./pages/NotFound";
+
 const LoadingScreen = () => (
   <div
     style={{
@@ -47,17 +34,8 @@ const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
 );
 const Inventory = lazy(() => import("./pages/dashboard/inventory/Inventory"));
-const MaintenancePerf = lazy(
-  () => import("./pages/dashboard/reports/MaintenancePerformance"),
-);
-const MaintenanceSummary = lazy(
-  () => import("./pages/dashboard/reports/MaintenanceSummary"),
-);
-const MaintenanceHistory = lazy(
-  () => import("./pages/dashboard/reports/MaintenanceHistory"),
-);
-const ComponentUsage = lazy(
-  () => import("./pages/dashboard/reports/ComponentUsage"),
+const MaintenanceReport = lazy(
+  () => import("./pages/dashboard/reports/MaintenanceReport"),
 );
 const Profile = lazy(() => import("./pages/dashboard/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -93,22 +71,7 @@ const AppRouter = () => {
           <Route path="flight-log" element={<FlightLog />} />
           <Route path="maintenance-log" element={<MaintenanceLog />} />
           <Route path="inventory-management" element={<Inventory />} />
-          <Route
-            path="maintenance-report/maintenance-performance"
-            element={<MaintenancePerf />}
-          />
-          <Route
-            path="maintenance-report/maintenance-summary"
-            element={<MaintenanceSummary />}
-          />
-          <Route
-            path="maintenance-report/maintenance-history"
-            element={<MaintenanceHistory />}
-          />
-          <Route
-            path="maintenance-report/component-usage"
-            element={<ComponentUsage />}
-          />
+          <Route path="maintenance-report" element={<MaintenanceReport />} />
           <Route path="profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -137,11 +100,11 @@ export default function App() {
           Table: { headerBg: "#26866f", headerColor: "#fff" },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
-            colorItemBg: "#f5f5f5",
-            colorItemBgHover: "#e6f7f1",
-            colorItemBgSelected: "#26866f",
-            colorItemText: "#000",
-            colorItemTextSelected: "#fff",
+            itemBg: "#f5f5f5",
+            itemSelectedColor: "#e6f7f1",
+            itemSelectedBg: "#26866f",
+            itemColor: "#000",
+            itemSelectedColor: "#fff",
           },
         },
       }}

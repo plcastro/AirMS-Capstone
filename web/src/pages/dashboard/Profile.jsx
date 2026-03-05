@@ -54,7 +54,11 @@ export default function Profile() {
           />
         )}
 
-        <Space direction="vertical" align="baseline" style={{ width: "100%" }}>
+        <Space
+          orientation="vertical"
+          align="baseline"
+          style={{ width: "100%" }}
+        >
           <Text>
             <strong>Name:</strong> {user.firstName} {user.lastName}
           </Text>

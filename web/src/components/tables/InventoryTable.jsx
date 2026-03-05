@@ -8,11 +8,15 @@ export default function InventoryTable({
   onDeleteComponent, // new prop
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [sortedInfo, setSortedInfo] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [componentToModify, setComponentToModify] = useState(null);
-
+  const handlePageChange = (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  };
   // Handlers for confirm modal
   const confirmDelete = () => {
     if (componentToModify && onDeleteComponent) {
@@ -99,7 +103,7 @@ export default function InventoryTable({
   });
 
   return (
-    <>
+    <div style={{ width: "100%", overflowX: "auto" }}>
       <Table
         columns={columns}
         dataSource={data}
@@ -109,16 +113,18 @@ export default function InventoryTable({
           pageSize,
           total: data.length,
           showSizeChanger: true,
-          onChange: (page, size) => {
-            setCurrentPage(page);
-            setPageSize(size);
-          },
+          pageSizeOptions: ["5", "10", "15", "20"],
+          onChange: handlePageChange,
+          onShowSizeChange: handlePageChange,
+          showQuickJumper: true,
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         }}
+        scroll={{ x: "max-content" }}
         onChange={(_, __, sorter) => setSortedInfo(sorter)}
       />
 
       <Modal
-        visible={showDeleteConfirm}
+        open={showDeleteConfirm}
         title="Delete Component"
         onOk={confirmDelete}
         onCancel={cancelDelete}
@@ -127,6 +133,6 @@ export default function InventoryTable({
       >
         <p>Are you sure you want to delete this component?</p>
       </Modal>
-    </>
+    </div>
   );
 }

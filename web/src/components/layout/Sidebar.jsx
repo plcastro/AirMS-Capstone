@@ -72,19 +72,13 @@ const Sidebar = ({ collapsed }) => {
       roles: ["head of maintenance", "admin"],
     },
     {
-      key: "sub4",
+      key: "9",
       label: "Maintenance Report",
       icon: <BookOutlined />,
       roles: ["head of maintenance", "admin"],
-      children: [
-        { key: "9", label: "Maintenance Performance", icon: <BookOutlined /> },
-        { key: "10", label: "Maintenance Summary", icon: <BookOutlined /> },
-        { key: "11", label: "Maintenance History", icon: <BookOutlined /> },
-        { key: "12", label: "Component Usage", icon: <BookOutlined /> },
-      ],
     },
     {
-      key: "13",
+      key: "10",
       label: "Profile",
       icon: <UserOutlined />,
       roles: ["admin", "head of maintenance", "pilot"],
@@ -117,11 +111,8 @@ const Sidebar = ({ collapsed }) => {
       6: "/dashboard/parts-monitoring/maintenance-tracking",
       7: "/dashboard/inventory-management",
       8: "/dashboard/maintenance-priority",
-      9: "/dashboard/maintenance-report/maintenance-performance",
-      10: "/dashboard/maintenance-report/maintenance-summary",
-      11: "/dashboard/maintenance-report/maintenance-history",
-      12: "/dashboard/maintenance-report/component-usage",
-      13: "/dashboard/profile",
+      9: "/dashboard/maintenance-report",
+      10: "/dashboard/profile",
     };
     navigate(routes[e.key] || "/dashboard/profile");
   };
