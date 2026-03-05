@@ -37,6 +37,17 @@ const Inventory = lazy(() => import("./pages/dashboard/inventory/Inventory"));
 const MaintenanceReport = lazy(
   () => import("./pages/dashboard/reports/MaintenanceReport"),
 );
+const PartsMonitoring = lazy(
+  () => import("./pages/dashboard/parts-monitoring/PartsMonitoring"),
+);
+const MaintenanceTracking = lazy(
+  () => import("./pages/dashboard/parts-monitoring/MaintenanceTracking"),
+);
+
+const MaintenancePriority = lazy(
+  () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
+);
+
 const Profile = lazy(() => import("./pages/dashboard/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -70,6 +81,18 @@ const AppRouter = () => {
           <Route path="user-management/activity-logs" element={<UserLogs />} />
           <Route path="flight-log" element={<FlightLog />} />
           <Route path="maintenance-log" element={<MaintenanceLog />} />
+          <Route
+            path="parts-monitoring/maintenance-tracking"
+            element={<MaintenanceTracking />}
+          />
+          <Route
+            path="parts-monitoring/pm-table"
+            element={<PartsMonitoring />}
+          />
+          <Route
+            path="maintenance-priority"
+            element={<MaintenancePriority />}
+          />
           <Route path="inventory-management" element={<Inventory />} />
           <Route path="maintenance-report" element={<MaintenanceReport />} />
           <Route path="profile" element={<Profile />} />
