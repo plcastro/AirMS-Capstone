@@ -274,7 +274,7 @@ export default function UpdateProfile({ visible, onClose }) {
           </Space>
         </TabPane>
         <TabPane tab="Name" key="2">
-          <Space direction="vertical" style={{ width: "100%" }}>
+          <Space orientation="vertical" style={{ width: "100%" }}>
             <Text>First Name</Text>
             <Input
               value={formData.firstName}
@@ -295,7 +295,7 @@ export default function UpdateProfile({ visible, onClose }) {
           </Space>
         </TabPane>
         <TabPane tab="Password" key="3">
-          <Space direction="vertical" style={{ width: "100%" }}>
+          <Space orientation="vertical" style={{ width: "100%" }}>
             <Text>Current Password</Text>
             <Input.Password
               value={currentPassword}

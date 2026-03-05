@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Table, Button, Tag } from "antd";
-import "../common/PaginationFix.css";
+
 import { EditOutlined } from "@ant-design/icons";
 
 export default function MLogTable({

@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
 import { EditOutlined } from "@ant-design/icons";
-import "../common/PaginationFix.css";
-
+// import "../common/PaginationFix.css";
 export default function UserTable({
   headers = [],
   data = [],
