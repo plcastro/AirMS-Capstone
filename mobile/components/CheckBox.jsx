@@ -7,15 +7,24 @@ export default function CheckBox({
   value,
   onValueChange,
   checkboxStyle,
+  disabled = false,
+  textStyle = {},
+  checkboxColor,
 }) {
   return (
     <TouchableOpacity
       style={[{ flexDirection: "row", alignItems: "center" }, checkboxStyle]}
-      onPress={() => onValueChange(!value)} // toggle using parent value
-      activeOpacity={0.8}
+      onPress={() => !disabled && onValueChange(!value)}
+      activeOpacity={disabled ? 1 : 0.8}
+      disabled={disabled}
     >
-      <Checkbox value={value} onValueChange={() => onValueChange(!value)} />
-      <Text style={{ marginLeft: 8 }}>{title}</Text>
+      <Checkbox
+        value={value}
+        onValueChange={() => !disabled && onValueChange(!value)}
+        disabled={disabled}
+        color={checkboxColor}
+      />
+      <Text style={[{ marginLeft: 8 }, textStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 }
