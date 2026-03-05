@@ -6,7 +6,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
@@ -16,6 +16,7 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useContext(AuthContext);
   const location = useLocation();
+  const nav = useNavigate();
   console.log(user.image);
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -79,7 +80,10 @@ const DashboardLayout = () => {
             </div>
             <h2>{pageTitle}</h2>
           </div>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
+            onClick={() => nav("/dashboard/profile")}
+          >
             {user?.image ? (
               <img
                 src={user?.image ? `${API_BASE}${user.image}` : ""}

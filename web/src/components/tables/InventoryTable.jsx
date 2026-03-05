@@ -5,19 +5,19 @@ export default function InventoryTable({
   headers = [],
   data = [],
   onEditComponent,
-  onDeleteComponent, // new prop
+  onDeleteComponent,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [sortedInfo, setSortedInfo] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [componentToModify, setComponentToModify] = useState(null);
+
   const handlePageChange = (page, size) => {
     setCurrentPage(page);
     setPageSize(size);
   };
-  // Handlers for confirm modal
+
   const confirmDelete = () => {
     if (componentToModify && onDeleteComponent) {
       onDeleteComponent(componentToModify.id);
@@ -31,21 +31,25 @@ export default function InventoryTable({
     setComponentToModify(null);
   };
 
-  // Columns conversion from headers
   const columns = headers.map((header) => {
     if (header.key === "actions") {
       return {
         title: "Action",
         key: "actions",
         align: "center",
+        width: 160,
         render: (_, record) => (
-          <Space>
-            <Button type="primary" onClick={() => onEditComponent(record)}>
+          <Space wrap>
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => onEditComponent(record)}
+            >
               Edit
             </Button>
             <Button
-              type="default"
               danger
+              size="small"
               onClick={() => {
                 setComponentToModify(record);
                 setShowDeleteConfirm(true);
@@ -64,6 +68,7 @@ export default function InventoryTable({
         dataIndex: header.key,
         key: header.key,
         align: "center",
+        width: 120,
         sorter: (a, b) =>
           (a[header.key] ?? "").localeCompare(b[header.key] ?? ""),
         render: (text) => {
@@ -71,15 +76,16 @@ export default function InventoryTable({
           const level = text?.toLowerCase();
           if (level === "critical") color = "#b41010";
           if (level === "low") color = "#ff9900";
+
           return (
             <div
               style={{
                 backgroundColor: color,
                 color: "#fff",
                 fontWeight: "bold",
-                textAlign: "center",
                 borderRadius: 6,
-                padding: "2px 6px",
+                padding: "4px 8px",
+                textAlign: "center",
               }}
             >
               {level ? level.charAt(0).toUpperCase() + level.slice(1) : "-"}
@@ -94,6 +100,7 @@ export default function InventoryTable({
       dataIndex: header.key,
       key: header.key,
       align: header.numeric ? "center" : "left",
+      ellipsis: true,
       sorter: (a, b) =>
         (a[header.key] ?? "")
           .toString()
@@ -103,11 +110,13 @@ export default function InventoryTable({
   });
 
   return (
-    <div style={{ width: "100%", overflowX: "auto" }}>
+    <div style={{ width: "100%" }}>
       <Table
         columns={columns}
         dataSource={data}
         rowKey={(record) => record.id || record.index}
+        style={{ width: "100%" }}
+        tableLayout="auto"
         pagination={{
           current: currentPage,
           pageSize,
@@ -119,7 +128,7 @@ export default function InventoryTable({
           showQuickJumper: true,
           showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         }}
-        scroll={{ x: "max-content" }}
+        scroll={{ x: "100%" }}
         onChange={(_, __, sorter) => setSortedInfo(sorter)}
       />
 
