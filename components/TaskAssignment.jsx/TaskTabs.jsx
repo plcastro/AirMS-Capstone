@@ -21,7 +21,6 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
 
   const now = new Date();
 
-  // Helper function to format date
   const formatDisplayDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -30,7 +29,6 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
     });
   };
 
-  // Filter tasks based on active tab and user type
   const filterTasks = () => {
     if (isHead) {
       switch (activeTab) {
@@ -42,20 +40,16 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
           return [];
       }
     } else {
-      // Mechanic filtering
       return tasks.filter((task) => {
         const dueDate = new Date(task.dueDate);
         const isPastDue = dueDate < now;
 
         switch (activeTab) {
           case "Upcoming":
-            // Show Pending, Returned, or Ongoing tasks that are NOT past due
             return (task.status === "Pending" || task.status === "Returned" || task.status === "Ongoing") && !isPastDue;
           case "Past Due":
-            // Show Pending, Returned, or Ongoing tasks that ARE past due
             return (task.status === "Pending" || task.status === "Returned" || task.status === "Ongoing") && isPastDue;
           case "Completed":
-            // Show Completed or Turned in tasks
             return task.status === "Completed" || task.status === "Turned in";
           default:
             return false;
@@ -64,7 +58,6 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
     }
   };
 
-  // Group tasks by due date
   const getGroupedTasks = () => {
     if (isHead) return [];
 
@@ -116,7 +109,6 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
     }
   };
 
-  // Get header text based on active tab
   const taskHeader =
     activeTab === "Upcoming" ? "Upcoming Tasks" :
       activeTab === "Past Due" ? "Past Due" :
@@ -143,7 +135,7 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { width: 120 }, // Fixed width from your original
+              { width: 120 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
@@ -176,7 +168,6 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
           {!isHead && groupedTasks.length > 0 ? (
             groupedTasks.map((section) => (
               <View key={section.title}>
-                {/* Date Header - OUTSIDE the task card */}
                 <View style={{
                   paddingVertical: 2,
                   paddingHorizontal: 6,
@@ -192,13 +183,12 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
                   </Text>
                 </View>
 
-                {/* Tasks in this section - cards WITHOUT date header inside */}
                 {section.data.map((task) => (
                   <TaskCard
                     key={task.id}
                     data={task}
                     variant={getCardVariant()}
-                    onPress={onTaskPress}  // ADD THIS LINE - makes card pressable to open checklist
+                    onPress={onTaskPress}
                     onStartTask={() => handleTaskAction(task, 'start')}
                     onEditTask={() => handleTaskAction(task, 'edit')}
                     onDeleteTask={() => handleTaskAction(task, 'delete')}
@@ -212,7 +202,7 @@ export default function TaskTabs({ tasks, employees = [], taskOptions = [], onTa
                 key={task.id}
                 data={task}
                 variant={getCardVariant()}
-                onPress={onTaskPress}  // ADD THIS LINE - makes card pressable to open checklist
+                onPress={onTaskPress}
                 onStartTask={() => handleTaskAction(task, 'start')}
                 onEditTask={() => handleTaskAction(task, 'edit')}
                 onDeleteTask={() => handleTaskAction(task, 'delete')}
