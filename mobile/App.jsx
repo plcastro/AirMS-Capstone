@@ -18,12 +18,7 @@ import Profile from "./screens/Settings/Profile";
 import UserManagement from "./screens/Admin/UserManagement";
 import UserLogs from "./screens/Admin/UserLogs";
 
-import Inventory from "./screens/Main/Inventory";
 import FlightLog from "./screens/Main/FlightLog";
-import MaintenanceLog from "./screens/Main/MaintenanceLog";
-import PartsMonitoring from "./screens/Main/PartsMonitoring";
-import MaintenanceTracking from "./screens/Main/MaintenanceTracking";
-import ReportAndAnalytics from "./screens/Main/ReportAndAnalytics";
 import TaskAssignment from "./screens/Main/TaskAssignment";
 import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
 
@@ -96,7 +91,7 @@ function DrawerNav() {
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#777" }}>
-                    {user?.position || ""}
+                    {user?.jobTitle || ""}
                   </Text>
                 </View>
               )}
@@ -105,7 +100,7 @@ function DrawerNav() {
         ),
       })}
     >
-      {user.position?.toLowerCase() === "admin" && (
+      {user.jobTitle?.toLowerCase() === "admin" && (
         <>
           <Drawer.Screen
             name="User Management"
@@ -118,7 +113,7 @@ function DrawerNav() {
         </>
       )}
       {["head of maintenance", "pilot"].includes(
-        user.position?.toLowerCase(),
+        user.jobTitle?.toLowerCase(),
       ) && (
         <>
           <Drawer.Screen
@@ -127,33 +122,8 @@ function DrawerNav() {
           />
         </>
       )}
-      {/* {["head of maintenance", "manager"].includes(
-        user.position?.toLowerCase(),
-      ) && (
-        <>
-          <Drawer.Screen
-            name="Reports and Analytics"
-            component={wrapWithDashboard(ReportAndAnalytics)}
-          />
-          <Drawer.Screen
-            name="Maintenance Logbook"
-            component={wrapWithDashboard(MaintenanceLog)}
-          />
-          <Drawer.Screen
-            name="Parts Monitoring"
-            component={wrapWithDashboard(PartsMonitoring)}
-          />
-          <Drawer.Screen
-            name="Track Maintenance"
-            component={wrapWithDashboard(MaintenanceTracking)}
-          />
-          <Drawer.Screen
-            name="Component Inventory"
-            component={wrapWithDashboard(Inventory)}
-          />
-        </>
-      )} */}
-      {user.position?.toLowerCase() === "head of maintenance" && (
+
+      {user.jobTitle?.toLowerCase() === "head of maintenance" && (
         <Drawer.Screen
           name="Mechanics"
           component={wrapWithDashboard(MechanicList)}
@@ -161,7 +131,7 @@ function DrawerNav() {
       )}
 
       {["head of maintenance", "mechanic"].includes(
-        user.position?.toLowerCase(),
+        user.jobTitle?.toLowerCase(),
       ) && (
         <>
           <Drawer.Screen

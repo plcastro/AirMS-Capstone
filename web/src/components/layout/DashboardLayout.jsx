@@ -111,7 +111,7 @@ const DashboardLayout = () => {
                 {user?.firstName + " " + user?.lastName || "Unknown User"}
               </span>
               <span style={{ fontSize: 12, color: "#888" }}>
-                {user?.position || "Unknown Position"}
+                {user?.jobTitle || "Unknown Job Title"}
               </span>
             </div>
           </div>

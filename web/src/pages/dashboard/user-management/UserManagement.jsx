@@ -1,16 +1,47 @@
 import React, { useState, useEffect } from "react";
-import { Input, Select, Button, Divider } from "antd";
+import { Input, Button, Divider, TreeSelect, Typography } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserModal from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined } from "@ant-design/icons";
 
-const filterData = {
-  Position: ["Admin", "Head of Maintenance", "Pilot", "Manager", "Mechanic"],
-  "Access Level": ["Admin", "Superuser", "User"],
-  Status: ["active", "inactive", "deactivated"],
-};
-const filterCategories = Object.keys(filterData);
+const { Text } = Typography;
+
+// Updated data: Values now match the actual strings in your User objects
+const accessLevelData = [
+  {
+    title: "Job Title",
+    value: "pos-parent",
+    selectable: false, // Prevents selecting the category header
+    children: [
+      { title: "Admin", value: "Admin" },
+      { title: "Head of Maintenance", value: "Head of Maintenance" },
+      { title: "Pilot", value: "Pilot" },
+      { title: "Manager", value: "Manager" },
+      { title: "Mechanic", value: "Mechanic" },
+    ],
+  },
+  {
+    title: "Access Level",
+    value: "access-parent",
+    selectable: false,
+    children: [
+      { title: "Admin", value: "Admin-access" }, // Note: unique value if overlaps with position
+      { title: "Superuser", value: "Superuser" },
+      { title: "User", value: "User" },
+    ],
+  },
+  {
+    title: "Status",
+    value: "status-parent",
+    selectable: false,
+    children: [
+      { title: "Active", value: "active" },
+      { title: "Inactive", value: "inactive" },
+      { title: "Deactivated", value: "deactivated" },
+    ],
+  },
+];
 
 export default function UserManagement() {
   const [allUsers, setAllUsers] = useState([]);
@@ -20,22 +51,23 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(filterCategories[0]);
-  const [subOptions, setSubOptions] = useState(filterData[filterCategories[0]]);
-  const [selectedValue, setSelectedValue] = useState("all");
+
+  // Filtering states
+  const [treeValue, setTreeValue] = useState(undefined);
 
   const headers = [
     { label: "#", key: "index" },
     { label: "Fullname", key: "fullname" },
     { label: "Username", key: "username" },
     { label: "Email", key: "email" },
-    { label: "Position", key: "position" },
+    { label: "JobTitle", key: "position" },
     { label: "Access Control", key: "access" },
     { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
     { label: "Actions", key: "actions" },
   ];
 
+  // Load current user for deactivation protection
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser");
     if (storedUser) {
@@ -43,7 +75,7 @@ export default function UserManagement() {
         const parsed = JSON.parse(storedUser);
         setCurrentUserId(parsed.userid || parsed._id || parsed.id);
       } catch (err) {
-        console.error("Error parsing currentUser:", err);
+        console.error(err);
       }
     }
   }, []);
@@ -76,44 +108,40 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
-  const handleCategoryChange = (value) => {
-    setSelectedCategory(value);
-    setSubOptions(filterData[value]);
-    setSelectedValue("all"); // Reset value when category changes
-  };
-
-  // 4. Handle Value Change (Second Select)
-  const handleValueChange = (value) => {
-    setSelectedValue(value);
-  };
+  // Combined Search and Tree Filter Logic
   useEffect(() => {
     let filtered = [...allUsers];
-    if (selectedValue !== "all") {
-      // Map Category names to the actual keys in your user object
-      const keyMap = {
-        Position: "position",
-        "Access Level": "access",
-        Status: "status",
-      };
-      const filterKey = keyMap[selectedCategory];
-      filtered = filtered.filter((u) => u[filterKey] === selectedValue);
+
+    // 1. Filter by TreeSelect Value
+    if (treeValue) {
+      filtered = filtered.filter((u) => {
+        // We check all three possible fields since the TreeSelect value is flat
+        return (
+          u.position === treeValue ||
+          u.access === treeValue ||
+          u.status?.toLowerCase() === treeValue.toLowerCase()
+        );
+      });
     }
+
+    // 2. Filter by Search Query
     if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>
         [u.fullname, u.username, u.email, u.position, u.access]
           .join(" ")
           .toLowerCase()
-          .includes(searchQuery.toLowerCase()),
+          .includes(q),
       );
     }
+
     setFilteredUsers(filtered);
-  }, [allUsers, selectedCategory, selectedValue, searchQuery]);
+  }, [allUsers, treeValue, searchQuery]);
 
   const handleAddUser = () => {
     setEditingUser(null);
     setShowModal(true);
   };
-
   const handleEditUser = (user) => {
     setEditingUser(user);
     setShowModal(true);
@@ -142,51 +170,49 @@ export default function UserManagement() {
     setShowModal(false);
     setEditingUser(null);
   };
-
   const handleUserSaved = () => {
     fetchUsers();
     handleModalClose();
   };
 
   return (
-    <div>
+    <div style={{ padding: "20px" }}>
       <div
         style={{
           display: "flex",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 10,
-
+          gap: 15,
+          marginBottom: 20,
           alignItems: "center",
-          minHeight: 40,
-          width: "100%",
         }}
       >
         <Input
-          placeholder="Search User by name, username, email..."
+          placeholder="Search name, email, etc..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: 300, height: 40, fontSize: 14 }}
+          style={{ width: 350, height: 40 }}
+          allowClear
         />
 
-        <Select
-          value={selectedCategory}
-          style={{ width: 150, height: 40 }}
-          onChange={handleCategoryChange}
-          options={filterCategories.map((category) => ({
-            label: category,
-            value: category,
-          }))}
+        <TreeSelect
+          style={{ width: 250 }}
+          value={treeValue}
+          dropdownStyle={{ maxHeight: 400, overflow: "auto" }}
+          treeData={accessLevelData}
+          placeholder="Filter by Category"
+          treeDefaultExpandAll
+          onChange={setTreeValue}
+          allowClear
         />
-        <Select
-          value={selectedValue}
-          style={{ width: 180, height: 40 }}
-          onChange={handleValueChange}
-          options={[
-            { label: `All ${selectedCategory}`, value: "all" },
-            ...subOptions.map((opt) => ({ label: opt, value: opt })),
-          ]}
-        />
+
+        <Button
+          onClick={() => {
+            setSearchQuery("");
+            setTreeValue(undefined);
+          }}
+          type="link"
+        >
+          Reset Filters
+        </Button>
       </div>
       <Divider />
       <div

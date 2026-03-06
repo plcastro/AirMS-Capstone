@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
     enum: ["active", "inactive", "deactivated"],
     default: "inactive",
   },
-  position: {
+  jobTitle: {
     type: String,
     enum: ["Head of Maintenance", "Pilot", "Admin", "Manager", "Mechanic"],
     default: "Mechanic",

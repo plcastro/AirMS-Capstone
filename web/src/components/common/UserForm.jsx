@@ -1,132 +1,137 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { API_BASE } from "../../utils/API_BASE";
 import {
   Modal,
+  Upload,
   Input,
   Button,
   Select,
   Divider,
   message as antMessage,
+  Col,
+  Row,
+  Typography,
 } from "antd";
-import { API_BASE } from "../../utils/API_BASE";
+import { LoadingOutlined, PlusOutlined } from "@ant-design/icons";
+import ImgCrop from "antd-img-crop";
+
+const { Text } = Typography;
 
 export default function UserModal({ visible, onClose, onUserSaved, user }) {
+  // --- Form States ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
-  const [position, setPosition] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [accessLevel, setAccessLevel] = useState("");
   const [joinedDate, setJoinedDate] = useState(new Date());
+  const [imageUrl, setImageUrl] = useState(null);
   const [file, setFile] = useState(null);
-  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!firstName || !lastName) return setUsername("");
-    const generated = `${lastName}${firstName[0]}`
-      .toLowerCase()
-      .replace(/\s+/g, "")
-      .replace(/[^a-z0-9]/g, "");
-    setUsername(generated);
-  }, [firstName, lastName]);
+  // --- Tracking "Touched" Fields ---
+  const [touched, setTouched] = useState({});
 
+  const handleBlur = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  // --- Reset logic ---
   useEffect(() => {
-    switch (position) {
-      case "Admin":
-        setAccessLevel("Admin");
-        break;
-      case "Pilot":
-      case "Manager":
-      case "Head of Maintenance":
-        setAccessLevel("Superuser");
-        break;
-      case "Mechanic":
-        setAccessLevel("User");
-        break;
-      default:
+    if (visible) {
+      setTouched({}); // Reset errors when modal opens
+      if (user) {
+        setFirstName(user.firstName || "");
+        setLastName(user.lastName || "");
+        setEmail(user.email || "");
+        setUsername(user.username || "");
+        setJobTitle(user.jobTitle || "");
+        setAccessLevel(user.access || "");
+        setJoinedDate(
+          user.dateCreated ? new Date(user.dateCreated) : new Date(),
+        );
+        setImageUrl(user.image || null);
+      } else {
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setUsername("");
+        setJobTitle("");
         setAccessLevel("");
-        break;
-    }
-  }, [position]);
-
-  useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setEmail(user.email || "");
-      setUsername(user.username || "");
-      setPosition(user.position || "");
-      setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
-    } else {
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      setUsername("");
-      setPosition("");
-      setJoinedDate(new Date());
-      setFile(null);
+        setJoinedDate(new Date());
+        setImageUrl(null);
+        setFile(null);
+      }
     }
   }, [user, visible]);
 
-  const handlePickImage = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) setFile(selectedFile);
-  };
+  // --- Validation Logic ---
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const validateForm = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      antMessage.error("Invalid email format.");
-      return false;
-    }
-    return true;
-  };
+  const errors = useMemo(
+    () => ({
+      firstName: !firstName.trim() ? "First name is required" : null,
+      lastName: !lastName.trim() ? "Last name is required" : null,
+      email: !email.trim()
+        ? "Email is required"
+        : !emailRegex.test(email)
+          ? "Invalid email format"
+          : null,
+      jobTitle: !jobTitle ? "JobTitle is required" : null,
+    }),
+    [firstName, lastName, email, jobTitle],
+  );
 
+  const isFormInvalid = Object.values(errors).some((err) => err !== null);
+
+  // --- Save Handler ---
   const handleSave = async () => {
-    if (!validateForm()) return;
+    setLoading(true);
     const formData = new FormData();
     formData.append("firstName", firstName.trim());
     formData.append("lastName", lastName.trim());
     formData.append("email", email.trim());
     formData.append("username", username.trim());
-    formData.append("position", position);
+    formData.append("jobTitle", jobTitle);
     formData.append("access", accessLevel);
     formData.append("dateCreated", joinedDate.toISOString());
+    if (file) formData.append("image", file);
 
-    if (file) {
-      formData.append("image", file);
-    } else {
-      formData.append("image", user?.image || ""); // Keep existing image if editing and no new file selected
-    }
-
-    setLoading(true);
     try {
       const url = user
         ? `${API_BASE}/api/user/updateUser/${user._id}`
         : `${API_BASE}/api/user/create`;
-      const method = user ? "PUT" : "POST";
-      const res = await fetch(url, { method, body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        antMessage.error(data.message || "Operation failed.");
-        return;
-      }
-      antMessage.success(
-        user ? "User updated successfully" : "User added successfully",
-      );
+      const res = await fetch(url, {
+        method: user ? "PUT" : "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Operation failed");
+      antMessage.success(user ? "User updated" : "User added");
       onUserSaved?.();
       onClose();
     } catch (err) {
-      console.error(err);
-      antMessage.error("Server error. Please try again.");
+      antMessage.error(err.message || "Server error");
     } finally {
       setLoading(false);
     }
   };
 
+  // Helper to render error text
+  const ErrorMsg = ({ field }) =>
+    touched[field] && errors[field] ? (
+      <div style={{ marginBottom: 8 }}>
+        <Text type="danger" style={{ fontSize: "12px" }}>
+          {errors[field]}
+        </Text>
+      </div>
+    ) : (
+      <div style={{ marginBottom: 16 }} />
+    );
+
   return (
     <Modal
-      open={visible} // <-- use `open` instead of `visible`
+      open={visible}
       title={user ? "Edit User" : "Add User"}
       onCancel={onClose}
       footer={[
@@ -138,77 +143,87 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
           type="primary"
           loading={loading}
           onClick={handleSave}
+          disabled={isFormInvalid}
         >
           {user ? "Update" : "Save"}
         </Button>,
       ]}
     >
-      <div style={{ marginBottom: 10 }}>
-        <Divider />
-        <input
-          type="file"
-          accept="image/*"
-          ref={fileInputRef}
-          style={{ display: "none" }}
-          onChange={handlePickImage}
-        />
-        <Button onClick={() => fileInputRef.current.click()}>
-          {file ? "Change Image" : "Upload Image"}
-        </Button>
-      </div>
-      <Input
-        placeholder="First Name"
-        value={firstName}
-        onChange={(e) => setFirstName(e.target.value)}
-        style={{ marginBottom: 10 }}
-        required
-      />
-      <Input
-        placeholder="Last Name"
-        value={lastName}
-        onChange={(e) => setLastName(e.target.value)}
-        style={{ marginBottom: 10 }}
-        required
-      />
-      <Input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ marginBottom: 10 }}
-        required
-      />
-      <Input
-        placeholder="Username"
-        value={username}
-        disabled
-        style={{ marginBottom: 10 }}
-      />
+      <Divider />
+      <Row gutter={[0, 0]} justify="center">
+        <Col span={24} style={{ textAlign: "center", marginBottom: 20 }}>
+          <ImgCrop rotationSlider aspect={1 / 1}>
+            <Upload
+              listType="picture-card"
+              showUploadList={false}
+              action="https://660d2bd96ddfa2943b33731c.mockapi.io/api/upload"
+              onChange={(info) => {
+                if (info.file.originFileObj) {
+                  setFile(info.file.originFileObj);
+                  setImageUrl(URL.createObjectURL(info.file.originFileObj));
+                }
+              }}
+            >
+              {imageUrl ? (
+                <img src={imageUrl} alt="avatar" style={{ width: "100%" }} />
+              ) : (
+                <PlusOutlined />
+              )}
+            </Upload>
+          </ImgCrop>
+        </Col>
 
-      <Select
-        placeholder="Select Position"
-        value={position}
-        onChange={setPosition}
-        style={{ width: "100%", marginBottom: 10 }}
-        options={[
-          { label: "Admin", value: "Admin" },
-          { label: "Head of Maintenance", value: "Head of Maintenance" },
-          { label: "Pilot", value: "Pilot" },
-          { label: "Manager", value: "Manager" },
-          { label: "Mechanic", value: "Mechanic" },
-        ]}
-        required
-      />
-      <Input
-        placeholder="Access Level"
-        value={accessLevel}
-        disabled
-        style={{ marginBottom: 10 }}
-      />
-      <Input
-        placeholder="Joined Date"
-        value={joinedDate.toLocaleDateString()}
-        disabled
-      />
+        <Col span={24}>
+          <Text strong>First Name</Text>
+          <Input
+            status={touched.firstName && errors.firstName ? "error" : ""}
+            placeholder="First Name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            onBlur={() => handleBlur("firstName")}
+          />
+          <ErrorMsg field="firstName" />
+
+          <Text strong>Last Name</Text>
+          <Input
+            status={touched.lastName && errors.lastName ? "error" : ""}
+            placeholder="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            onBlur={() => handleBlur("lastName")}
+          />
+          <ErrorMsg field="lastName" />
+
+          <Text strong>Email</Text>
+          <Input
+            status={touched.email && errors.email ? "error" : ""}
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => handleBlur("email")}
+          />
+          <ErrorMsg field="email" />
+
+          <Text strong>JobTitle</Text>
+          <Select
+            status={touched.jobTitle && errors.jobTitle ? "error" : ""}
+            style={{ width: "100%" }}
+            placeholder="Select JobTitle"
+            value={jobTitle || undefined}
+            onChange={(val) => {
+              setJobTitle(val);
+              handleBlur("jobTitle");
+            }}
+            options={[
+              { label: "Admin", value: "Admin" },
+              { label: "Pilot", value: "Pilot" },
+              { label: "Manager", value: "Manager" },
+              { label: "Mechanic", value: "Mechanic" },
+            ]}
+          />
+          <ErrorMsg field="jobTitle" />
+        </Col>
+      </Row>
     </Modal>
   );
 }

@@ -10,7 +10,7 @@ export default function FlightTable({
   headers = [],
   data = [],
   columnWidths = {},
-  userPosition,
+  userJobTitle,
   onEditLog,
   onDeleteLog,
   onShowLog,
@@ -80,7 +80,7 @@ export default function FlightTable({
 
   /* ---------------- ACTIONS ---------------- */
   const renderActions = (row) => {
-    if (userPosition === "Pilot") {
+    if (userJobTitle === "Pilot") {
       return (
         <View
           style={{ flexDirection: "row", gap: 6, justifyContent: "center" }}
@@ -132,7 +132,7 @@ export default function FlightTable({
     }
 
     // For head of maintenance, show "Verify Details" button
-    if (userPosition === "Head of Maintenance") {
+    if (userJobTitle === "Head of Maintenance") {
       return (
         <Button
           label="Verify Details"

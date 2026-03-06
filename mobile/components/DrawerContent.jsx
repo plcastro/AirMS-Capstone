@@ -16,7 +16,7 @@ const DrawerList = [
     icon: "book-open-page-variant",
     label: "Aircraft Logbook",
     navigateTo: "Flight Logbook",
-    position: ["pilot", "head of maintenance", "manager"],
+    jobTitle: ["pilot", "head of maintenance", "manager"],
     children: [
       { label: "Flight Logbook", navigateTo: "Flight Logbook" },
       { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
@@ -26,19 +26,19 @@ const DrawerList = [
     icon: "clipboard-text",
     label: "Tasks",
     navigateTo: "Tasks",
-    position: ["head of maintenance", "mechanic"],
+    jobTitle: ["head of maintenance", "mechanic"],
   },
   {
     icon: "account-group",
     label: "Mechanic List",
     navigateTo: "Mechanics",
-    position: ["head of maintenance", "mechanic"],
+    jobTitle: ["head of maintenance", "mechanic"],
   },
   {
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
-    position: ["admin", "pilot", "head of maintenance", "manager", "mechanic"],
+    jobTitle: ["admin", "pilot", "head of maintenance", "manager", "mechanic"],
   },
 ];
 
@@ -48,7 +48,7 @@ function DrawerContent({ navigation }) {
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
 
-  const userPosition = user?.position?.toLowerCase();
+  const userjobTitle = user?.jobTitle?.toLowerCase();
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
@@ -91,14 +91,14 @@ function DrawerContent({ navigation }) {
   };
 
   const isItemVisible = (item) => {
-    const positions = item.position?.map((p) => p.toLowerCase()) || [];
-    return positions.length === 0 || positions.includes(userPosition);
+    const jobTitles = item.jobTitle?.map((p) => p.toLowerCase()) || [];
+    return jobTitles.length === 0 || jobTitles.includes(userjobTitle);
   };
 
   const getChildren = (item) => {
     if (!item.children) return [];
     return item.children.filter((child) => {
-      switch (userPosition) {
+      switch (userjobTitle) {
         case "pilot":
           return child.label === "Flight Logbook";
         case "head of maintenance":

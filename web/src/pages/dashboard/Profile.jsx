@@ -69,7 +69,7 @@ export default function Profile() {
             <strong>Username:</strong> {user.username}
           </Text>
           <Text>
-            <strong>Position:</strong> {user.position}
+            <strong>Job Title:</strong> {user.jobTitle}
           </Text>
         </Space>
 
