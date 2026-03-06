@@ -1,7 +1,7 @@
 import { Table, Tag } from "antd";
 import React, { useState, useMemo } from "react";
 
-export default function MPriorityTable({
+export default function MTrackingTable({
   headers = [],
   data = [],
   loading = false,
