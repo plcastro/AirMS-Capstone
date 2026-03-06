@@ -103,7 +103,7 @@ const Login = () => {
           localStorage.removeItem("rememberMe");
         }
 
-        handleNavigate(data.user.position);
+        handleNavigate(data.user.jobTitle);
       } else {
         setError(data.error || "Login failed");
       }
@@ -114,9 +114,9 @@ const Login = () => {
       setLoading(false);
     }
   };
-  const handleNavigate = (position) => {
-    // Normalize position to lowercase for comparison
-    const pos = position?.toLowerCase() || "";
+  const handleNavigate = (jobTitle) => {
+    // Normalize jobTitle to lowercase for comparison
+    const pos = jobTitle?.toLowerCase() || "";
 
     switch (pos) {
       case "admin":

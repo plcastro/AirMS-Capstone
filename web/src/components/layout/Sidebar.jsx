@@ -17,12 +17,11 @@ import { AuthContext } from "../../context/AuthContext";
 const Sidebar = ({ collapsed }) => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [current, setCurrent] = useState("");
+  const location = useLocation();
+  const jobTitle = user?.jobTitle?.toLowerCase() || "";
+  const [current, setCurrent] = useState();
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
-
-  const position = user?.position?.toLowerCase() || "";
-
   const menuItems = [
     {
       key: "sub1",
@@ -80,35 +79,45 @@ const Sidebar = ({ collapsed }) => {
     },
   ];
 
-  // Filter items based on user position
+  // Filter items based on user jobTitle
   const filteredItems = menuItems
-    .filter((item) => !item.roles || item.roles.includes(position))
+    .filter((item) => !item.roles || item.roles.includes(jobTitle))
     .map((item) => {
       if (item.children) {
         return {
           ...item,
           children: item.children.filter(
-            (child) => !child.roles || child.roles.includes(position),
+            (child) => !child.roles || child.roles.includes(jobTitle),
           ),
         };
       }
       return item;
     });
 
+  const routeToKey = {
+    "/dashboard/user-management/view-users": "1",
+    "/dashboard/user-management/activity-logs": "2",
+    "/dashboard/flight-log": "3",
+    "/dashboard/maintenance-log": "4",
+    "/dashboard/parts-monitoring/pm-table": "5",
+    "/dashboard/parts-monitoring/maintenance-tracking": "6",
+    "/dashboard/inventory-management": "7",
+    "/dashboard/maintenance-priority": "8",
+    "/dashboard/maintenance-report": "9",
+    "/dashboard/profile": "10",
+  };
+
+  // --- automatically select menu based on current route ---
+  useEffect(() => {
+    const key = routeToKey[location.pathname] || "10";
+    setCurrent(key);
+  }, [location.pathname]);
+
   const onClickMenu = (e) => {
     setCurrent(e.key);
-    const routes = {
-      1: "/dashboard/user-management/view-users",
-      2: "/dashboard/user-management/activity-logs",
-      3: "/dashboard/flight-log",
-      4: "/dashboard/maintenance-log",
-      5: "/dashboard/parts-monitoring/pm-table",
-      6: "/dashboard/parts-monitoring/maintenance-tracking",
-      7: "/dashboard/inventory-management",
-      8: "/dashboard/maintenance-priority",
-      9: "/dashboard/maintenance-report",
-      10: "/dashboard/profile",
-    };
+    const routes = Object.fromEntries(
+      Object.entries(routeToKey).map(([k, v]) => [v, k]),
+    );
     navigate(routes[e.key] || "/dashboard/profile");
   };
 

@@ -1,28 +1,31 @@
-import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
-import { EditOutlined } from "@ant-design/icons";
+import React, { useState } from "react";
+import { Table } from "antd";
 
-export default function ActivityLogTable({
-  headers = [],
-  data = [],
-  loading = false,
-}) {
+export default function ActivityLogTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
+  const handlePageChange = (page, pageSize) => {
+    setCurrentPage(page);
+    setPageSize(pageSize);
+  };
   return (
     <Table
       columns={headers}
       dataSource={data}
-      rowKey={(record) => record._id}
+      rowKey={(record) => record.index || record._id}
       loading={loading}
-      scroll={{ x: "max-content" }}
+      scroll={{ x: "max-content", y: "100%" }}
       pagination={{
-        pageSize: pageSize,
-        showSizeChanger: true,
-        pageSizeOptions: ["10", "20", "50"],
         current: currentPage,
-        onChange: (page) => setCurrentPage(page),
+        pageSize,
+        total: data.length,
+        showSizeChanger: true,
+        pageSizeOptions: ["10", "15", "20"],
+        onChange: handlePageChange,
+        onShowSizeChange: handlePageChange,
+        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         placement: "bottomEnd",
       }}
     />

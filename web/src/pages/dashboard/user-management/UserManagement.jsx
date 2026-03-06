@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Input, Button, Divider, TreeSelect, Typography } from "antd";
+import { Input, Button, Divider, TreeSelect } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserModal from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined } from "@ant-design/icons";
-
-const { Text } = Typography;
 
 // Updated data: Values now match the actual strings in your User objects
 const accessLevelData = [
@@ -26,7 +24,7 @@ const accessLevelData = [
     value: "access-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin-access" }, // Note: unique value if overlaps with position
+      { title: "Admin", value: "Admin-access" }, // Note: unique value if overlaps with jobTitle
       { title: "Superuser", value: "Superuser" },
       { title: "User", value: "User" },
     ],
@@ -60,7 +58,7 @@ export default function UserManagement() {
     { label: "Fullname", key: "fullname" },
     { label: "Username", key: "username" },
     { label: "Email", key: "email" },
-    { label: "JobTitle", key: "position" },
+    { label: "JobTitle", key: "jobTitle" },
     { label: "Access Control", key: "access" },
     { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
@@ -117,7 +115,7 @@ export default function UserManagement() {
       filtered = filtered.filter((u) => {
         // We check all three possible fields since the TreeSelect value is flat
         return (
-          u.position === treeValue ||
+          u.jobTitle === treeValue ||
           u.access === treeValue ||
           u.status?.toLowerCase() === treeValue.toLowerCase()
         );
@@ -128,7 +126,7 @@ export default function UserManagement() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>
-        [u.fullname, u.username, u.email, u.position, u.access]
+        [u.fullname, u.username, u.email, u.jobTitle, u.access]
           .join(" ")
           .toLowerCase()
           .includes(q),
@@ -196,14 +194,17 @@ export default function UserManagement() {
         <TreeSelect
           style={{ width: 250 }}
           value={treeValue}
-          dropdownStyle={{ maxHeight: 400, overflow: "auto" }}
+          styles={{
+            popup: {
+              root: { maxHeight: 400, overflow: "auto" },
+            },
+          }}
           treeData={accessLevelData}
           placeholder="Filter by Category"
           treeDefaultExpandAll
           onChange={setTreeValue}
           allowClear
         />
-
         <Button
           onClick={() => {
             setSearchQuery("");
@@ -213,25 +214,25 @@ export default function UserManagement() {
         >
           Reset Filters
         </Button>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: " column",
+            alignItems: "flex-end",
+            width: "100%",
+          }}
+        >
+          <Button
+            type="primary"
+            onClick={handleAddUser}
+            style={{ width: 100, height: 40, marginBottom: 10 }}
+            icon={<UserAddOutlined />}
+          >
+            Add User
+          </Button>
+        </div>
       </div>
       <Divider />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: " column",
-          alignItems: "flex-end",
-          width: "100%",
-        }}
-      >
-        <Button
-          type="primary"
-          onClick={handleAddUser}
-          style={{ width: 100, height: 40 }}
-          icon={<UserAddOutlined />}
-        >
-          Add User
-        </Button>
-      </div>
 
       <UserTable
         headers={headers}
@@ -253,6 +254,7 @@ export default function UserManagement() {
           user={editingUser}
           onClose={handleModalClose}
           onUserSaved={handleUserSaved}
+          allUsers={allUsers}
         />
       )}
     </div>

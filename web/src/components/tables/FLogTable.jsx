@@ -11,14 +11,16 @@ export default function FLogTable({
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
 
   const [logToModify, setLogToModify] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
+
   const handlePageChange = (page, pageSize) => {
     setCurrentPage(page);
     setPageSize(pageSize);
   };
+
   const handleDelete = (row) => {
     setLogToModify(row);
     Modal.confirm({
@@ -70,7 +72,6 @@ export default function FLogTable({
 
   const columns = headers.map((col) => ({
     ...col,
-    // This ensures your specific render logic for actions still works
     render: (text, record) =>
       col.key === "action"
         ? renderActions(record)
@@ -89,7 +90,7 @@ export default function FLogTable({
         pageSize,
         total: data.length,
         showSizeChanger: true,
-        pageSizeOptions: ["5", "10", "15", "20"],
+        pageSizeOptions: ["10", "15", "20"],
         onChange: handlePageChange,
         onShowSizeChange: handlePageChange,
         showQuickJumper: true,

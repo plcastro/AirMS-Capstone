@@ -96,7 +96,7 @@ const loginUser = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        position: user.position,
+        jobTitle: user.jobTitle,
         status: user.status,
       },
       process.env.JWT_SECRET || "fallback_secret",
@@ -138,7 +138,7 @@ const loginUser = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        position: user.position,
+        jobTitle: user.jobTitle,
         status: user.status,
         image: user.image,
       },
@@ -187,10 +187,10 @@ const logoutUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, position, access, image } =
+    const { firstName, lastName, email, password, jobTitle, access, image } =
       req.body;
 
-    if (!firstName || !lastName || !email || !password || !position)
+    if (!firstName || !lastName || !email || !password || !jobTitle)
       return res.status(400).json({ message: "All fields are required" });
 
     if (!validator.isEmail(email.trim()))
@@ -227,7 +227,7 @@ const createUser = async (req, res) => {
       setupToken: setupTokenHash,
       setupTokenExpires,
       image: imagePath,
-      position,
+      jobTitle,
       access,
     });
 
@@ -256,7 +256,7 @@ const createUser = async (req, res) => {
         id: newUser._id,
         username: newUser.username,
         email: newUser.email,
-        position: newUser.position,
+        jobTitle: newUser.jobTitle,
         status: newUser.status,
       },
     });
@@ -330,7 +330,7 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, username, access, position } = req.body;
+    const { firstName, lastName, email, username, access, jobTitle } = req.body;
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -344,14 +344,14 @@ const updateUser = async (req, res) => {
       changes.email = { old: user.email, new: email };
     if (username && username !== user.username)
       changes.username = { old: user.username, new: username };
-    if (position && position !== user.position)
-      changes.position = { old: user.position, new: position };
+    if (jobTitle && jobTitle !== user.jobTitle)
+      changes.jobTitle = { old: user.jobTitle, new: jobTitle };
     if (access && access !== user.access)
       changes.access = { old: user.access, new: access };
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
-      { firstName, lastName, email, username, access, position },
+      { firstName, lastName, email, username, access, jobTitle },
       { new: true },
     );
 

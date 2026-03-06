@@ -192,14 +192,20 @@ export default function App() {
     <ConfigProvider
       theme={{
         components: {
-          Table: { headerBg: "#26866f", headerColor: "#fff" },
+          Table: {
+            headerBg: "#26866f",
+            headerColor: "#fff",
+          },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
             itemBg: "#f5f5f5",
-            itemHoverBg: "#e6f7f1",
+            itemHoverBg: "#006340",
+            itemHoverColor: "#fff",
             itemSelectedBg: "#26866f",
             itemColor: "#000",
             itemSelectedColor: "#fff",
+            itemActiveBg: "#26866f",
+            subMenuItemSelectedColor: "#002019",
           },
         },
       }}

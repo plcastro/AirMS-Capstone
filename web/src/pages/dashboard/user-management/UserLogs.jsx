@@ -8,11 +8,36 @@ export default function UserLogs() {
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
   const headers = [
-    { label: "#", key: "index" },
-    { label: "Date and Time", key: "dateTime" },
-    { label: "Action made", key: "actionMade" },
-    { label: "Performed by", key: "username" }, // show username
+    {
+      title: "#",
+      dataIndex: "index",
+      key: "index",
+      width: 60,
+    },
+
+    {
+      title: "Action Made",
+      dataIndex: "actionMade",
+      key: "actionMade",
+      width: 500,
+      ellipsis: true,
+    },
+    {
+      title: "Performed by",
+      dataIndex: "username",
+      key: "username",
+      width: 260,
+      render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
+    },
+    {
+      title: "Date and Time",
+      dataIndex: "dateTime",
+      key: "dateTime",
+      sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
+      width: 260,
+    },
   ];
 
   const fetchUserLogs = async () => {
@@ -66,14 +91,22 @@ export default function UserLogs() {
   }, []);
 
   return (
-    <div>
+    <div style={{ padding: "24px", maxWidth: "100%", overflow: "hidden" }}>
       <Input
         placeholder="Search logs..."
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
       />
-      <ActivityLogTable headers={headers} data={filteredUsers} />
+
+      {/* This wrapper ensures the table never pushes past the screen edge */}
+      <div style={{ width: "100%", overflowX: "auto" }}>
+        <ActivityLogTable
+          headers={headers}
+          data={filteredUsers}
+          loading={loading} // Make sure to pass your loading state!
+        />
+      </div>
     </div>
   );
 }

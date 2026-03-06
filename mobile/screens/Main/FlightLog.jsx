@@ -28,14 +28,14 @@ export default function FlightLog() {
   const [selectedLogForVerification, setSelectedLogForVerification] =
     useState(null);
 
-  //sets default active tab based on user position
+  //sets default active tab based on user jobTitle
   useEffect(() => {
-    if (user?.position === "Pilot") {
+    if (user?.jobTitle === "Pilot") {
       setActiveTab("Defects");
     } else {
       setActiveTab("TechnicalLog");
     }
-  }, [user?.position]);
+  }, [user?.jobTitle]);
 
   // Mock Data for Defects - Only 1 entry
   const [defectsData, setDefectsData] = useState([
@@ -147,13 +147,13 @@ export default function FlightLog() {
     console.log("Show log details:", log);
     // For head of maintenance, open verification modal
     if (
-      user?.position === "head of maintenance" &&
+      user?.jobTitle === "head of maintenance" &&
       activeTab === "TechnicalLog"
     ) {
       setSelectedLogForVerification(log);
       setVerifyDetailsModalVisible(true);
     } else {
-      // For other positions, implement show details functionality here
+      // For other jobTitles, implement show details functionality here
       // You can open a read-only view or different modal
     }
   };
@@ -241,7 +241,7 @@ export default function FlightLog() {
       >
         <View style={{ flexDirection: "row" }}>
           {/* Show Defects tab only for pilots */}
-          {user?.position === "pilot" && (
+          {user?.jobTitle === "pilot" && (
             <Button
               label="Defects"
               onPress={() => setActiveTab("Defects")}
@@ -277,7 +277,7 @@ export default function FlightLog() {
           />
         </View>
 
-        {user?.position === "pilot" && (
+        {user?.jobTitle === "pilot" && (
           <Button
             label="+ New Entry"
             onPress={() => setModalVisible(true)}
@@ -288,12 +288,12 @@ export default function FlightLog() {
       </View>
 
       <View style={{ marginTop: 10 }}>
-        {activeTab === "Defects" && user?.position === "pilot" && (
+        {activeTab === "Defects" && user?.jobTitle === "pilot" && (
           <FlightTable
             headers={Defheaders}
             columnWidths={DEF_COLUMN_WIDTHS}
             data={defectsData}
-            userRole={user?.position}
+            userRole={user?.jobTitle}
             onEditLog={handleEditLog}
             onDeleteLog={handleDeleteLog}
             onShowLog={handleShowLog}
@@ -351,7 +351,7 @@ export default function FlightLog() {
               headers={TLheaders}
               columnWidths={TL_COLUMN_WIDTHS}
               data={technicalLogData}
-              userRole={user?.position}
+              userRole={user?.jobTitle}
               onEditLog={handleEditLog}
               onDeleteLog={handleDeleteLog}
               onShowLog={handleShowLog}
@@ -361,12 +361,12 @@ export default function FlightLog() {
       </View>
 
       {/* New Entry Modal - Only for pilots */}
-      {user?.position === "pilot" && (
+      {user?.jobTitle === "pilot" && (
         <FlightEntry
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSave={handleSaveNewEntry}
-          position={"pilot"}
+          jobTitle={"pilot"}
         />
       )}
 
@@ -382,7 +382,7 @@ export default function FlightLog() {
       />
 
       {/* Edit Technical Log Modal - Only for pilots */}
-      {user?.position === "pilot" && (
+      {user?.jobTitle === "pilot" && (
         <FlightLogEditTechnical
           visible={editTechnicalModalVisible}
           entry={selectedTechnicalLog}
