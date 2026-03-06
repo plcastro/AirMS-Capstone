@@ -152,7 +152,21 @@ const AppRouter = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="profile" element={<Profile />} />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  "admin",
+                  "head of maintenance",
+                  "pilot",
+                  "manager",
+                ]}
+              >
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -181,7 +195,7 @@ export default function App() {
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
             itemBg: "#f5f5f5",
-            itemSelectedColor: "#e6f7f1",
+            itemHoverBg: "#e6f7f1",
             itemSelectedBg: "#26866f",
             itemColor: "#000",
             itemSelectedColor: "#fff",
