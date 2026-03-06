@@ -17,7 +17,6 @@ const DashboardLayout = () => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
   const nav = useNavigate();
-  console.log(user.image);
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
