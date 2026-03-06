@@ -10,7 +10,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function Profile() {
   const { user } = useContext(AuthContext);
-  const { firstName, lastName, email, username, position, image } = user;
+  const { firstName, lastName, email, username, jobTitle, image } = user;
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const profileImage =
@@ -49,7 +49,7 @@ export default function Profile() {
               <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
             </Text>
             <Text>
-              <Text style={{ fontWeight: "bold" }}>Position:</Text> {position}
+              <Text style={{ fontWeight: "bold" }}>Job Title:</Text> {jobTitle}
             </Text>
           </View>
           <Button

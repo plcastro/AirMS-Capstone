@@ -161,6 +161,7 @@ const AppRouter = () => {
                   "head of maintenance",
                   "pilot",
                   "manager",
+                  "mechanic",
                 ]}
               >
                 <Profile />

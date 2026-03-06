@@ -14,7 +14,7 @@ export default function TaskTabs({
   onTaskPress,
 }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.position === "head of maintenance";
+  const isHead = user?.jobTitle === "head of maintenance";
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];

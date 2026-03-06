@@ -4,7 +4,7 @@ import "../common/PaginationFix.css";
 export default function FLogTable({
   headers = [],
   data = [],
-  userPosition,
+  userJobTitle,
   onEditLog,
   onDeleteLog,
   onShowLog,
@@ -43,7 +43,7 @@ export default function FLogTable({
   };
 
   const renderActions = (row) => {
-    if (userPosition === "pilot") {
+    if (userJobTitle === "pilot") {
       return (
         <>
           <Button type="primary" size="small" onClick={() => onEditLog?.(row)}>

@@ -16,7 +16,7 @@ export default function FlightLog() {
 
   const [selectedDefect, setSelectedDefect] = useState(null);
   const [selectedTechnicalLog, setSelectedTechnicalLog] = useState(null);
-  const userPosition = user?.position?.toLowerCase() || "pilot";
+  const userJobTitle = user?.jobTitle?.toLowerCase() || "pilot";
   useEffect(() => {
     setActiveTab("Defects");
   }, []);
@@ -172,7 +172,7 @@ export default function FlightLog() {
           <FLogTable
             headers={defectColumns}
             data={defectsData}
-            userPosition={userPosition}
+            userJobTitle={userJobTitle}
             onEditLog={handleEditLog}
             onDeleteLog={handleDeleteLog}
           />
@@ -180,7 +180,7 @@ export default function FlightLog() {
           <FLogTable
             headers={technicalColumns}
             data={technicalLogData}
-            userPosition={userPosition}
+            userJobTitle={userJobTitle}
             onEditLog={handleEditLog}
             onDeleteLog={handleDeleteLog}
           />
