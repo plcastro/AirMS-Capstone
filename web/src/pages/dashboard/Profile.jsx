@@ -59,18 +59,18 @@ export default function Profile() {
           align="baseline"
           style={{ width: "100%" }}
         >
-          <Text>
+          <p>
             <strong>Name:</strong> {user.firstName} {user.lastName}
-          </Text>
-          <Text>
+          </p>
+          <p>
             <strong>Email:</strong> {user.email}
-          </Text>
-          <Text>
+          </p>
+          <p>
             <strong>Username:</strong> {user.username}
-          </Text>
-          <Text>
+          </p>
+          <p>
             <strong>Job Title:</strong> {user.jobTitle}
-          </Text>
+          </p>
         </Space>
 
         <Button

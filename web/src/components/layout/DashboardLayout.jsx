@@ -117,7 +117,6 @@ const DashboardLayout = () => {
           </div>
         </Header>
 
-        {/* PAGE CONTENT */}
         <Content
           style={{
             minHeight: "100vh",

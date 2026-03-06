@@ -11,9 +11,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  const position = user?.position?.toLowerCase();
+  const jobTitle = user?.jobTitle?.toLowerCase();
 
-  if (allowedRoles && !allowedRoles.includes(position)) {
+  if (allowedRoles && !allowedRoles.includes(jobTitle)) {
     return <Navigate to="/dashboard/profile" replace />;
   }
 

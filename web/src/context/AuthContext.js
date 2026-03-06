@@ -18,8 +18,8 @@ export const AuthProvider = ({ children }) => {
 
           const normalizedUser = {
             ...parsed,
-            position: parsed.position
-              ? parsed.position.trim().toLowerCase()
+            jobTitle: parsed.jobTitle
+              ? parsed.jobTitle.trim().toLowerCase()
               : null,
             access: parsed.access ? parsed.access.trim().toLowerCase() : null,
           };
@@ -42,8 +42,8 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const normalizedUser = {
         ...userData,
-        position: userData.position
-          ? userData.position.trim().toLowerCase()
+        jobTitle: userData.jobTitle
+          ? userData.jobTitle.trim().toLowerCase()
           : null,
         access: userData.access ? userData.access.trim().toLowerCase() : null,
       };

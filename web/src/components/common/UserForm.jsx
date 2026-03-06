@@ -12,13 +12,18 @@ import {
   Row,
   Typography,
 } from "antd";
-import { LoadingOutlined, PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 
 const { Text } = Typography;
 
-export default function UserModal({ visible, onClose, onUserSaved, user }) {
-  // --- Form States ---
+export default function UserModal({
+  visible,
+  onClose,
+  onUserSaved,
+  user,
+  allUsers,
+}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,17 +35,54 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // --- Tracking "Touched" Fields ---
+  // Track which fields have been touched for validation messages
   const [touched, setTouched] = useState({});
 
   const handleBlur = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  // --- Reset logic ---
+  useEffect(() => {
+    if (user) return;
+
+    if (!firstName || !lastName) {
+      setUsername("");
+      return;
+    }
+
+    const baseUsername = `${lastName}${firstName[0]}`
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+    let finalUsername = baseUsername;
+    let counter = 1;
+
+    const usernameExists = (name) => allUsers.some((u) => u.username === name);
+
+    while (usernameExists(finalUsername)) {
+      counter++;
+      finalUsername = `${baseUsername}${counter}`;
+    }
+
+    setUsername(finalUsername);
+  }, [firstName, lastName, user, allUsers]);
+
+  useEffect(() => {
+    const roleMap = {
+      Admin: "Admin",
+      Pilot: "Superuser",
+      Manager: "Superuser",
+      "Head of Maintenance": "Superuser",
+      Mechanic: "User",
+    };
+    setAccessLevel(roleMap[jobTitle] || "");
+  }, [jobTitle]);
+
+  // 3. Reset/Populate form
   useEffect(() => {
     if (visible) {
-      setTouched({}); // Reset errors when modal opens
+      setTouched({});
       if (user) {
         setFirstName(user.firstName || "");
         setLastName(user.lastName || "");
@@ -66,9 +108,8 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
     }
   }, [user, visible]);
 
-  // --- Validation Logic ---
+  // 4. Validation Logic
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   const errors = useMemo(
     () => ({
       firstName: !firstName.trim() ? "First name is required" : null,
@@ -78,14 +119,13 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
         : !emailRegex.test(email)
           ? "Invalid email format"
           : null,
-      jobTitle: !jobTitle ? "JobTitle is required" : null,
+      jobTitle: !jobTitle ? "Job Title is required" : null,
     }),
     [firstName, lastName, email, jobTitle],
   );
 
   const isFormInvalid = Object.values(errors).some((err) => err !== null);
 
-  // --- Save Handler ---
   const handleSave = async () => {
     setLoading(true);
     const formData = new FormData();
@@ -111,29 +151,18 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
       onUserSaved?.();
       onClose();
     } catch (err) {
-      antMessage.error(err.message || "Server error");
+      antMessage.error("Server error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-
-  // Helper to render error text
-  const ErrorMsg = ({ field }) =>
-    touched[field] && errors[field] ? (
-      <div style={{ marginBottom: 8 }}>
-        <Text type="danger" style={{ fontSize: "12px" }}>
-          {errors[field]}
-        </Text>
-      </div>
-    ) : (
-      <div style={{ marginBottom: 16 }} />
-    );
 
   return (
     <Modal
       open={visible}
       title={user ? "Edit User" : "Add User"}
       onCancel={onClose}
+      width={600}
       footer={[
         <Button key="cancel" onClick={onClose}>
           Cancel
@@ -150,8 +179,8 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
       ]}
     >
       <Divider />
-      <Row gutter={[0, 0]} justify="center">
-        <Col span={24} style={{ textAlign: "center", marginBottom: 20 }}>
+      <Row gutter={[16, 16]}>
+        <Col span={24} style={{ textAlign: "center" }}>
           <ImgCrop rotationSlider aspect={1 / 1}>
             <Upload
               listType="picture-card"
@@ -173,42 +202,61 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
           </ImgCrop>
         </Col>
 
-        <Col span={24}>
+        <Col span={12}>
           <Text strong>First Name</Text>
           <Input
             status={touched.firstName && errors.firstName ? "error" : ""}
-            placeholder="First Name"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             onBlur={() => handleBlur("firstName")}
           />
-          <ErrorMsg field="firstName" />
+          {touched.firstName && errors.firstName && (
+            <Text type="danger" style={{ fontSize: "11px" }}>
+              {errors.firstName}
+            </Text>
+          )}
+        </Col>
 
+        <Col span={12}>
           <Text strong>Last Name</Text>
           <Input
             status={touched.lastName && errors.lastName ? "error" : ""}
-            placeholder="Last Name"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             onBlur={() => handleBlur("lastName")}
           />
-          <ErrorMsg field="lastName" />
+          {touched.lastName && errors.lastName && (
+            <Text type="danger" style={{ fontSize: "11px" }}>
+              {errors.lastName}
+            </Text>
+          )}
+        </Col>
 
-          <Text strong>Email</Text>
+        <Col span={24}>
+          <Text strong>Email Address</Text>
           <Input
             status={touched.email && errors.email ? "error" : ""}
-            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => handleBlur("email")}
           />
-          <ErrorMsg field="email" />
+          {touched.email && errors.email && (
+            <Text type="danger" style={{ fontSize: "11px" }}>
+              {errors.email}
+            </Text>
+          )}
+        </Col>
 
+        <Col span={12}>
+          <Text strong>Generated Username</Text>
+          <Input value={username} disabled />
+        </Col>
+
+        <Col span={12}>
           <Text strong>JobTitle</Text>
           <Select
             status={touched.jobTitle && errors.jobTitle ? "error" : ""}
             style={{ width: "100%" }}
-            placeholder="Select JobTitle"
             value={jobTitle || undefined}
             onChange={(val) => {
               setJobTitle(val);
@@ -221,7 +269,21 @@ export default function UserModal({ visible, onClose, onUserSaved, user }) {
               { label: "Mechanic", value: "Mechanic" },
             ]}
           />
-          <ErrorMsg field="jobTitle" />
+          {touched.jobTitle && errors.jobTitle && (
+            <Text type="danger" style={{ fontSize: "11px" }}>
+              {errors.jobTitle}
+            </Text>
+          )}
+        </Col>
+
+        <Col span={12}>
+          <Text strong>Access Level</Text>
+          <Input value={accessLevel} disabled />
+        </Col>
+
+        <Col span={12}>
+          <Text strong>Date Joined</Text>
+          <Input value={joinedDate.toLocaleDateString()} disabled />
         </Col>
       </Row>
     </Modal>

@@ -156,7 +156,7 @@ export default function FlightTable({
       );
     }
 
-    // Default/other positions
+    // Default/other jobTitles
     return (
       <Button
         label="Verify Details"
