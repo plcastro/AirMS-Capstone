@@ -331,10 +331,7 @@ export default function UpdateProfile({ visible, onClose }) {
         </TabPane>
       </Tabs>
 
-      <Space style={{ width: "100%" }}>
-        <Button onClick={handleClose} block>
-          Cancel
-        </Button>
+      <Space style={{ width: "100%", marginTop: 20 }} orientation="vertical">
         <Button
           type="primary"
           onClick={confirmSave}
@@ -342,6 +339,9 @@ export default function UpdateProfile({ visible, onClose }) {
           block
         >
           Save Changes
+        </Button>
+        <Button onClick={handleClose} block>
+          Cancel
         </Button>
       </Space>
     </Modal>

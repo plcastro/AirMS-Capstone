@@ -17,17 +17,12 @@ import { AuthContext } from "../../context/AuthContext";
 const Sidebar = ({ collapsed }) => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
   const [current, setCurrent] = useState("");
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
-  const [modalText, setModalText] = useState(
-    "Are you sure you want to log out?",
-  );
 
   const position = user?.position?.toLowerCase() || "";
 
-  // Define all menu items with optional roles
   const menuItems = [
     {
       key: "sub1",
@@ -43,7 +38,7 @@ const Sidebar = ({ collapsed }) => {
       key: "sub2",
       label: "Aircraft Logbook",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "pilot", "admin"],
+      roles: ["head of maintenance", "pilot", "manager"],
       children: [
         { key: "3", label: "Flight Logs", icon: <BookOutlined /> },
         { key: "4", label: "Maintenance Logs", icon: <BookOutlined /> },
@@ -53,7 +48,7 @@ const Sidebar = ({ collapsed }) => {
       key: "sub3",
       label: "Parts Monitoring",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "admin"],
+      roles: ["head of maintenance", "manager"],
       children: [
         { key: "5", label: "PM Table", icon: <BookOutlined /> },
         { key: "6", label: "Maintenance Tracking", icon: <BookOutlined /> },
@@ -63,19 +58,19 @@ const Sidebar = ({ collapsed }) => {
       key: "7",
       label: "Inventory Management",
       icon: <UnorderedListOutlined />,
-      roles: ["head of maintenance", "admin"],
+      roles: ["head of maintenance", "manager"],
     },
     {
       key: "8",
       label: "Maintenance Priority",
       icon: <FlagOutlined />,
-      roles: ["head of maintenance", "admin"],
+      roles: ["head of maintenance", "manager"],
     },
     {
       key: "9",
       label: "Maintenance Report",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "admin"],
+      roles: ["head of maintenance", "manager"],
     },
     {
       key: "10",
@@ -183,7 +178,7 @@ const Sidebar = ({ collapsed }) => {
         confirmLoading={confirmLoading}
         onCancel={handleCancel}
       >
-        <p>{modalText}</p>
+        <p>Are you sure you want to log out?</p>
       </Modal>
     </div>
   );

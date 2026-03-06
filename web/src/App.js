@@ -4,6 +4,7 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 import { ConfigProvider, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./pages/auth/ProtectedRoute";
 
 const LoadingScreen = () => (
   <div
@@ -76,25 +77,81 @@ const AppRouter = () => {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route
             path="user-management/view-users"
-            element={<UserManagement />}
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <UserManagement />
+              </ProtectedRoute>
+            }
           />
-          <Route path="user-management/activity-logs" element={<UserLogs />} />
-          <Route path="flight-log" element={<FlightLog />} />
-          <Route path="maintenance-log" element={<MaintenanceLog />} />
           <Route
-            path="parts-monitoring/maintenance-tracking"
-            element={<MaintenanceTracking />}
+            path="user-management/activity-logs"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <UserLogs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="flight-log"
+            element={
+              <ProtectedRoute
+                allowedRoles={["head of maintenance", "pilot", "manager"]}
+              >
+                <FlightLog />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="maintenance-log"
+            element={
+              <ProtectedRoute
+                allowedRoles={["head of maintenance", "pilot", "manager"]}
+              >
+                <MaintenanceLog />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="parts-monitoring/pm-table"
-            element={<PartsMonitoring />}
+            element={
+              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+                <PartsMonitoring />
+              </ProtectedRoute>
+            }
           />
           <Route
-            path="maintenance-priority"
-            element={<MaintenancePriority />}
+            path="parts-monitoring/maintenance-tracking"
+            element={
+              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+                <MaintenanceTracking />
+              </ProtectedRoute>
+            }
           />
-          <Route path="inventory-management" element={<Inventory />} />
-          <Route path="maintenance-report" element={<MaintenanceReport />} />
+
+          <Route
+            path="maintenance-priority"
+            element={
+              <ProtectedRoute allowedRoles={["head of maintenance"]}>
+                <MaintenancePriority />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="inventory-management"
+            element={
+              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+                <Inventory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="maintenance-report"
+            element={
+              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+                <MaintenanceReport />
+              </ProtectedRoute>
+            }
+          />
           <Route path="profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Route>
