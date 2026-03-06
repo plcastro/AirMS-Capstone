@@ -127,7 +127,7 @@ function DrawerNav() {
           />
         </>
       )}
-      {["head of maintenance", "manager"].includes(
+      {/* {["head of maintenance", "manager"].includes(
         user.position?.toLowerCase(),
       ) && (
         <>
@@ -152,7 +152,7 @@ function DrawerNav() {
             component={wrapWithDashboard(Inventory)}
           />
         </>
-      )}
+      )} */}
       {user.position?.toLowerCase() === "head of maintenance" && (
         <Drawer.Screen
           name="Mechanics"

@@ -146,7 +146,7 @@ export default function AddTask({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.alertOverlay}>
         <View
           style={[
@@ -179,7 +179,7 @@ export default function AddTask({
                   paddingHorizontal: 12,
                 },
               ]}
-              placeholder="Maintenance Task"
+              placeholder="Maintenance Task Title"
               placeholderTextColor={COLORS.grayDark}
               value={taskTitle}
               onChangeText={setTaskTitle}

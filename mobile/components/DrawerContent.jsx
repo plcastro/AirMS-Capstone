@@ -29,6 +29,12 @@ const DrawerList = [
     position: ["head of maintenance", "mechanic"],
   },
   {
+    icon: "account-group",
+    label: "Mechanic List",
+    navigateTo: "Mechanics",
+    position: ["head of maintenance", "mechanic"],
+  },
+  {
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
