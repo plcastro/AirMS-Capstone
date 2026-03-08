@@ -19,6 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const atlas_URL = process.env.atlas_URL;
+require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 mongoose.connect(atlas_URL).then(() => console.log("Connected to MongoDB"));
 
 app.use("/api/user", userRoutes);
