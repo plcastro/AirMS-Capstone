@@ -45,7 +45,7 @@ const Login = () => {
 
     if (!isChecked) {
       localStorage.setItem("rememberMe", "false"); // triggers other tabs
-      localStorage.removeItem("rememberedUsername");
+      localStorage.removeItem("rememberedIdentifier");
       localStorage.removeItem("rememberedPassword");
     } else {
       localStorage.setItem("rememberMe", "true");
@@ -55,12 +55,10 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     if (!formData.identifier.trim() || !formData.password.trim()) {
       setError("Username/email and password are required");
       return;
     }
-
     setLoading(true);
 
     try {
@@ -73,22 +71,24 @@ const Login = () => {
         }),
       });
 
-      const text = await response.text();
-      console.log("RAW RESPONSE:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-        console.log("PARSED DATA:", data);
-      } catch (err) {
-        console.error("JSON parse failed", err);
-      }
+      const data = await response.json();
+      console.log("Login response:", data);
 
       if (response.ok) {
-        // Store user data
+        if (data.requireSetup) {
+          navigate(
+            `/security-setup?email=${encodeURIComponent(
+              data.user.email,
+            )}&setupToken=${data.user.setupToken}`,
+          );
+          return;
+        }
+
+        // Normal login
+        localStorage.setItem("jwtToken", data.token);
         localStorage.setItem("currentUser", JSON.stringify(data.user));
 
-        // Handle Remember Me functionality
+        // Remember Me
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
@@ -97,7 +97,6 @@ const Login = () => {
           localStorage.setItem("rememberedPassword", formData.password.trim());
           localStorage.setItem("rememberMe", "true");
         } else {
-          // Clear saved credentials if Remember Me is not checked
           localStorage.removeItem("rememberedIdentifier");
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
@@ -105,7 +104,7 @@ const Login = () => {
 
         handleNavigate(data.user.jobTitle);
       } else {
-        setError(data.error || "Login failed");
+        setError(data.message || "Login failed");
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -114,6 +113,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
   const handleNavigate = (jobTitle) => {
     // Normalize jobTitle to lowercase for comparison
     const pos = jobTitle?.toLowerCase() || "";

@@ -21,7 +21,10 @@ const {
   resetPassword,
   verifyOtp,
 } = require("../controllers/passwordResetController");
-const { verifyToken } = require("../middleware/authMiddleware");
+const {
+  verifyToken,
+  verifySetupToken,
+} = require("../middleware/authMiddleware");
 const { upload, processImage } = require("../middleware/upload");
 
 router.post("/login", rateLimiter, loginUser);
