@@ -39,13 +39,25 @@ export default function EditTask({
   const [showDuePicker, setShowDuePicker] = useState(false);
 
   const [checklistItems, setChecklistItems] = useState([]);
+  const [aircraftOptions, setAircraftOptions] = useState([]);
 
-  // Aircraft options
-  const aircraftOptions = [
-    { id: "2810", name: "2810" },
-    { id: "2811", name: "2811" },
-    { id: "2812", name: "2812" },
-  ];
+  // Fetch aircraft options
+    useEffect(() => {
+      const fetchAircraft = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/aircraft/aircraft-tail-numbers`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch aircraft');
+          }
+          const data = await response.json();
+          const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
+          setAircraftOptions(options);
+        } catch (error) {
+          console.error('Error fetching aircraft:', error);
+        }
+      };
+      fetchAircraft();
+    }, []);
 
   useEffect(() => {
     if (task) {

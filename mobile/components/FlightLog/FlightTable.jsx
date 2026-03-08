@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
 import Button from "../Button";
 import AlertComp from "../AlertComp";
-import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
+import ApproveMaintenance from "./FlightLogApprove";
 import { styles } from "../../stylesheets/styles";
 
 export default function FlightTable({
@@ -358,14 +358,7 @@ export default function FlightTable({
           cancelText="CANCEL"
         />
       )}
-
-      {/* APPROVAL MAINTENANCE MODAL FOR DELETE */}
-      <ApproveMaintenance
-        visible={showApproveModal}
-        aircraftNumber={logToModify?.tailNum || logToModify?.aircraft || "---"}
-        onConfirm={handleApproveDelete}
-        onCancel={handleApproveCancel}
-      />
+     
     </>
   );
 }
