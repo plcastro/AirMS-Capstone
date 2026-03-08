@@ -5,12 +5,11 @@ import UserModal from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined } from "@ant-design/icons";
 
-// Updated data: Values now match the actual strings in your User objects
 const accessLevelData = [
   {
     title: "Job Title",
     value: "pos-parent",
-    selectable: false, // Prevents selecting the category header
+    selectable: false,
     children: [
       { title: "Admin", value: "Admin" },
       { title: "Head of Maintenance", value: "Head of Maintenance" },

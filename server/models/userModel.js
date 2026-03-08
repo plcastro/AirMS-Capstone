@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
     enum: ["Admin", "Superuser", "User"],
     default: "User",
   },
-  tempPassword: { type: String, select: false },
+  tempPasswordExpires: Date,
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
 
@@ -63,10 +63,10 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 12);
-});
+// userSchema.pre("save", async function () {
+//   if (!this.isModified("password")) return;
+//   this.password = await bcrypt.hash(this.password, 12);
+// });
 
 const User = mongoose.model("users", userSchema);
 module.exports = User;

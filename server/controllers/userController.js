@@ -1,14 +1,15 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const validator = require("validator");
-const rateLimit = require("express-rate-limit");
-const UserModel = require("../models/userModel");
-const { auditLog } = require("./logsController");
 const sendEmail = require("../utilities/sendEmail");
+const validator = require("validator");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const UserModel = require("../models/userModel");
+const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
+const WEB_URL = process.env.WEB_URL;
+const MOBILE_URL = process.env.MOBILE_URL;
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
@@ -31,66 +32,84 @@ const getAllUsers = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 const loginUser = async (req, res) => {
   try {
     const { identifier, password } = req.body;
+
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
     }
 
-    const trimmedIdentifier = identifier.trim();
+    const trimmed = identifier.trim();
 
-    // Find user by username or email
     const user = await UserModel.findOne({
-      $or: [{ username: trimmedIdentifier }, { email: trimmedIdentifier }],
-    })
-      .collation({ locale: "en", strength: 2 })
-      .select("+password +tempPassword +setupToken +setupTokenExpires");
+      $or: [{ username: trimmed }, { email: trimmed }],
+    }).select("+password +tempPasswordExpires +setupToken +setupTokenExpires");
 
     if (!user) {
-      return res.status(401).json({ message: "This account does not exist" });
+      return res.status(401).json({ message: "Account does not exist" });
     }
 
     if (user.status === "deactivated") {
       return res
-        .status(401)
+        .status(403)
         .json({ message: "Account deactivated. Contact support." });
     }
 
-    // Compare password
-    let passwordMatch = false;
-
-    if (user.status === "inactive" && user.tempPassword) {
-      passwordMatch = await bcrypt.compare(password, user.tempPassword);
-    } else if (user.password) {
-      passwordMatch = await bcrypt.compare(password, user.password);
+    // Check lock
+    if (user.isLocked && user.lockUntil && user.lockUntil > Date.now()) {
+      return res.status(403).json({
+        message:
+          "Account locked due to too many failed login attempts. Try again later.",
+      });
     }
 
+    // Handle inactive users separately
+    if (user.status === "inactive") {
+      if (!user.tempPasswordExpires || user.tempPasswordExpires < Date.now()) {
+        return res.status(401).json({
+          message: "Temporary password expired. Resend activation.",
+        });
+      }
+
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
+        return res.status(401).json({ message: "Invalid temporary password" });
+      }
+
+      return res.status(200).json({
+        message: "Temporary login successful. Proceed to security setup.",
+        requireSetup: true,
+        user: {
+          email: user.email,
+          id: user._id,
+          setupToken: user.rawSetupToken,
+        },
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       user.failedLoginAttempts += 1;
-
       if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
         user.isLocked = true;
         user.lockUntil = Date.now() + LOCK_TIME;
       }
-
       await user.save();
-
-      return res.status(401).json({
-        message: "Invalid credentials",
-      });
+      return res
+        .status(401)
+        .json({ message: "Invalid username/email or password" });
     }
 
-    // ✅ Reset failed attempts on success
+    // Reset failed login attempts
     user.failedLoginAttempts = 0;
     user.isLocked = false;
     user.lockUntil = undefined;
     await user.save();
 
-    // Create JWT
+    // Generate JWT
     const token = jwt.sign(
       {
         id: user._id,
@@ -105,47 +124,25 @@ const loginUser = async (req, res) => {
 
     await auditLog("User logged in", user._id);
 
-    // Inactive user → send raw setupToken
-    if (user.status === "inactive") {
-      // Generate raw setupToken
-      const rawSetupToken = crypto.randomBytes(32).toString("hex");
-      const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
+    const responseUser = {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      jobTitle: user.jobTitle,
+      status: user.status,
+      image: user.image,
+    };
 
-      user.setupToken = setupTokenHash;
-      user.setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-      await user.save();
-
-      return res.status(200).json({
-        message: "Login successful, security setup required",
-        token,
-        user: {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          status: user.status,
-          setupToken: rawSetupToken, // send raw token to frontend
-        },
-      });
-    }
-
-    // Active user → normal login
     return res.status(200).json({
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        jobTitle: user.jobTitle,
-        status: user.status,
-        image: user.image,
-      },
+      user: responseUser,
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Login failed" });
+    return res.status(500).json({ message: "Login failed" });
   }
 };
 
@@ -187,10 +184,9 @@ const logoutUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, jobTitle, access, image } =
-      req.body;
+    const { firstName, lastName, email, jobTitle, access } = req.body;
 
-    if (!firstName || !lastName || !email || !password || !jobTitle)
+    if (!firstName || !lastName || !email || !jobTitle)
       return res.status(400).json({ message: "All fields are required" });
 
     if (!validator.isEmail(email.trim()))
@@ -201,13 +197,12 @@ const createUser = async (req, res) => {
       return res.status(409).json({ message: "Email already registered" });
 
     const username = await generateUniqueUsername(firstName, lastName);
-    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate temp password for login
-    const tempPassword = Math.random().toString(36).slice(-8);
-    const tempPasswordHashed = await bcrypt.hash(tempPassword, 12);
+    // Generate temporary password
+    const tempPassword = Math.random().toString(36).slice(-8).trim();
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
-    // Generate setup token
+    const tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
     const rawSetupToken = crypto.randomBytes(32).toString("hex");
     const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
     const setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
@@ -216,13 +211,14 @@ const createUser = async (req, res) => {
     if (req.file) {
       imagePath = `/uploads/${req.file.filename}`;
     }
+
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
       username: username.trim(),
-      password: hashedPassword,
-      tempPassword: tempPasswordHashed,
+      password: hashedPassword, // temp password stored here
+      tempPasswordExpires,
       status: "inactive",
       setupToken: setupTokenHash,
       setupTokenExpires,
@@ -231,22 +227,26 @@ const createUser = async (req, res) => {
       access,
     });
 
-    const setupLink = `http://localhost:8081/#/security-setup?email=${email}&setupToken=${rawSetupToken}`;
+    const portalLink =
+      jobTitle === "Head of Maintenance" || jobTitle === "Admin"
+        ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
+        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: email,
-      subject: "AirMS Account Created – Security Setup Required",
+      subject: "AirMS Account Created – Temporary Password",
       html: `
-    <p>Hello ${firstName},</p>
-    <p>Your account <strong>${username}</strong> has been created.</p>
-    <p>Temporary password: <strong>${tempPassword}</strong></p>
-    <p>Use this to login: <a href="${setupLink}">Login & Setup Password</a></p>
-    <p>Valid for 1 hour.</p>
-  `,
+        <p>Hello <strong>${firstName}</strong>,</p>
+        <p>Your account has been created. Use these credentials to login:</p>
+        <p>Username: <strong>${username}</strong></p>
+        <p>Temporary password: <strong>${tempPassword}</strong></p>
+        ${portalLink}
+        <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>
+      `,
     });
 
     await auditLog(
-      `User created: ${username} (${email}), Temp password issued`,
+      `User created: ${username}, Temp password issued`,
       newUser._id,
     );
 
@@ -258,6 +258,7 @@ const createUser = async (req, res) => {
         email: newUser.email,
         jobTitle: newUser.jobTitle,
         status: newUser.status,
+        setupToken: rawSetupToken,
       },
     });
   } catch (err) {
@@ -269,37 +270,24 @@ const createUser = async (req, res) => {
 
 const completeSecuritySetup = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const user = req.userRecord; // from middleware
     const { newPassword } = req.body;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    if (!newPassword || newPassword.length < 8)
+      return res
+        .status(400)
+        .json({ message: "New password required (min 8 chars)" });
 
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      userId,
-      {
-        password: hashedPassword,
-        securitySetupCompleted: true,
-        status: "active",
-      },
-      { new: true },
-    );
+    user.password = await bcrypt.hash(newPassword, 12);
+    user.status = "active";
+    user.tempPasswordExpires = undefined;
+    user.securitySetupCompleted = true;
+    await user.save();
 
-    res.status(200).json({
-      message: "Security setup completed",
-      user: {
-        id: updatedUser._id,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        email: updatedUser.email,
-        username: updatedUser.username,
-        role: updatedUser.role,
-        status: updatedUser.status,
-      },
-    });
-  } catch (error) {
-    console.error("Security setup error:", error);
+    await auditLog("Security setup completed", user._id);
+    res.status(200).json({ message: "Security setup completed successfully" });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to complete security setup" });
   }
 };
@@ -511,36 +499,43 @@ const updatePassword = async (req, res) => {
 
 const activateUser = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, token, newPassword } = req.body;
 
-    if (!token || !newPassword) {
-      return res.status(400).json({ message: "All fields required" });
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const user = await UserModel.findOne({
-      setupToken: { $exists: true },
-      setupTokenExpires: { $gt: Date.now() },
-    }).select("+setupToken");
+    const user = await UserModel.findOne({ email: email.trim() }).select(
+      "+setupToken +setupTokenExpires",
+    );
 
-    if (!user)
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status === "active")
+      return res.status(400).json({ message: "Account already active" });
+
+    // Check if token exists and is not expired
+    if (
+      !user.setupToken ||
+      !user.setupTokenExpires ||
+      user.setupTokenExpires < Date.now()
+    ) {
       return res
-        .status(400)
-        .json({ message: "Activation token expired or invalid" });
+        .status(401)
+        .json({ message: "Setup token expired. Resend activation." });
+    }
 
-    // Verify token
-    const isTokenValid = await bcrypt.compare(token, user.setupToken);
-    if (!isTokenValid)
-      return res.status(400).json({ message: "Invalid activation token" });
+    const isValidToken = await bcrypt.compare(token, user.setupToken); // raw token vs hash
+    if (!isValidToken)
+      return res.status(401).json({ message: "Invalid setup token." });
 
+    // Update password and activate account
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
-    user.tempPassword = undefined;
     user.setupToken = undefined;
     user.setupTokenExpires = undefined;
-
     await user.save();
 
-    await auditLog(`User activated`, user._id);
+    await auditLog("User activated", user._id);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -556,31 +551,26 @@ const resendActivation = async (req, res) => {
 
     const user = await UserModel.findOne({ email: email.trim() });
     if (!user) return res.status(404).json({ message: "User not found" });
-
     if (user.status === "active")
-      return res.status(400).json({ message: "Account already active" });
+      return res.status(400).json({ message: "Account is already active" });
 
     const newTempPassword = Math.random().toString(36).slice(-8);
-    const tempHash = await bcrypt.hash(newTempPassword, 12);
-
-    const rawSetupToken = crypto.randomBytes(32).toString("hex");
-    const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
-
-    user.tempPassword = await bcrypt.hash(
-      Math.random().toString(36).slice(-8),
-      12,
-    );
-    user.setupToken = setupTokenHash;
-    user.setupTokenExpires = Date.now() + 60 * 60 * 1000;
-
+    user.password = await bcrypt.hash(newTempPassword, 12);
+    user.tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
     await user.save();
 
-    const setupLink = `http://localhost:8081/#/security-setup?email=${user.email}&setupToken=${rawSetupToken}`;
+    const portalLink = ["Admin", "Head of Maintenance"].includes(user.jobTitle)
+      ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
+      : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: user.email,
       subject: "AirMS Account Activation – Resend",
-      html: `<p>Click here to setup your password: <a href="${setupLink}">Security Setup</a></p>`,
+      html: `<p>Hello <strong>${user.firstName}</strong>,</p>
+             <p>Your temporary password has been reset. Use it to log in:</p>
+             <p>Temporary password: <strong>${newTempPassword}</strong></p>
+             ${portalLink}
+             <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
     });
 
     await auditLog("Activation email resent", user._id);

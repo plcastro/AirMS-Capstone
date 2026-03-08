@@ -18,8 +18,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const atlas_URL = process.env.atlas_URL;
-mongoose.connect(atlas_URL).then(() => console.log("Connected to MongoDB"));
+const atlas_URL = process.env.ATLAS_URL;
+mongoose
+  .connect(atlas_URL)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
