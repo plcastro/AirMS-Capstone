@@ -15,9 +15,6 @@ import SecuritySetup from "./screens/Auth/SecuritySetup";
 import Dashboard from "./Layout/Dashboard";
 import Profile from "./screens/Settings/Profile";
 
-import UserManagement from "./screens/Admin/UserManagement";
-import UserLogs from "./screens/Admin/UserLogs";
-
 import FlightLog from "./screens/Main/FlightLog";
 import TaskAssignment from "./screens/Main/TaskAssignment";
 import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
@@ -100,28 +97,17 @@ function DrawerNav() {
         ),
       })}
     >
-      {user.jobTitle?.toLowerCase() === "admin" && (
-        <>
-          <Drawer.Screen
-            name="User Management"
-            component={wrapWithDashboard(UserManagement)}
-          />
-          <Drawer.Screen
-            name="User Logs"
-            component={wrapWithDashboard(UserLogs)}
-          />
-        </>
-      )}
+
       {["head of maintenance", "pilot"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
-        <>
-          <Drawer.Screen
-            name="Flight Logbook"
-            component={wrapWithDashboard(FlightLog)}
-          />
-        </>
-      )}
+          <>
+            <Drawer.Screen
+              name="Flight Logbook"
+              component={wrapWithDashboard(FlightLog)}
+            />
+          </>
+        )}
 
       {user.jobTitle?.toLowerCase() === "head of maintenance" && (
         <Drawer.Screen
@@ -133,13 +119,13 @@ function DrawerNav() {
       {["head of maintenance", "mechanic"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
-        <>
-          <Drawer.Screen
-            name="Tasks"
-            component={wrapWithDashboard(TaskAssignment)}
-          />
-        </>
-      )}
+          <>
+            <Drawer.Screen
+              name="Tasks"
+              component={wrapWithDashboard(TaskAssignment)}
+            />
+          </>
+        )}
 
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
     </Drawer.Navigator>

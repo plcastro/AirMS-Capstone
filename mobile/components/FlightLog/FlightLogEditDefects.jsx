@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { styles } from "../../stylesheets/styles";
-import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
+//import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
 import AlertComp from "../AlertComp";
 
 export default function FlightLogEditDefects({

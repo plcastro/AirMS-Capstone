@@ -15,6 +15,7 @@ import Button from "../Button";
 import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
@@ -43,18 +44,31 @@ export default function AddTask({
 
   const [checklistItems, setChecklistItems] = useState([""]);
 
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+
   // Update end date when start date changes (keep 1 hour later)
   useEffect(() => {
     const newEndDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     setEndDate(newEndDate);
   }, [startDate]);
 
-  // Aircraft options
-  const aircraftOptions = [
-    { id: "2810", name: "2810" },
-    { id: "2811", name: "2811" },
-    { id: "2812", name: "2812" },
-  ];
+  // Fetch aircraft options
+  useEffect(() => {
+    const fetchAircraft = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/aircraft/aircraft-tail-numbers`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch aircraft');
+        }
+        const data = await response.json();
+        const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
+        setAircraftOptions(options);
+      } catch (error) {
+        console.error('Error fetching aircraft:', error);
+      }
+    };
+    fetchAircraft();
+  }, []);
 
   const handleAddChecklistItem = () => {
     setChecklistItems([...checklistItems, ""]);
