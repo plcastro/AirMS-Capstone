@@ -45,10 +45,10 @@ router.put(
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
-router.post("/complete-security-setup", verifyToken, completeSecuritySetup);
+router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-reset", requestPasswordReset);
 router.post("/verify-otp", verifyOtp);
-router.post("/reset-password/:token", resetPassword);
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

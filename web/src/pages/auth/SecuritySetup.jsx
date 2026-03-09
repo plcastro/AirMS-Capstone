@@ -6,10 +6,9 @@ import { API_BASE } from "../../utils/API_BASE";
 const SecuritySetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const params = location.state || {}; // equivalent to route.params in React Native
-
-  const email = params.email;
-  const token = params.setupToken;
+  const query = new URLSearchParams(location.search);
+  const email = query.get("email");
+  const token = query.get("setupToken");
 
   const [formData, setFormData] = useState({
     newPassword: "",
@@ -64,7 +63,6 @@ const SecuritySetup = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
           token,
           newPassword: formData.newPassword,
         }),

@@ -182,7 +182,9 @@ export default function UserModal({
         throw new Error(errorData.message || "Operation failed");
       }
 
-      antMessage.success(user ? "User updated" : "User added");
+      antMessage.success(
+        user ? "User updated successfully!" : "User added successfully!",
+      );
 
       if (!user) {
         Modal.success({

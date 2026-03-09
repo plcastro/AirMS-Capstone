@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Input, Button, Alert } from "antd";
+import { Input, Button, message as antMessage } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 
 const Login = () => {
@@ -78,9 +78,7 @@ const Login = () => {
       if (response.ok) {
         if (data.requireSetup) {
           navigate(
-            `/security-setup?email=${encodeURIComponent(
-              data.user.email,
-            )}&setupToken=${data.user.setupToken}`,
+            `/security-setup?setupToken=${encodeURIComponent(data.user.setupToken)}`,
           );
           return;
         }
@@ -102,7 +100,7 @@ const Login = () => {
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-
+        antMessage.success("Logged in successfully!");
         handleNavigate(data.user.jobTitle);
       } else {
         setError(data.message || "Login failed");

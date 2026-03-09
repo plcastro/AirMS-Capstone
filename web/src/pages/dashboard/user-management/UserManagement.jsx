@@ -105,14 +105,11 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
-  // Combined Search and Tree Filter Logic
   useEffect(() => {
     let filtered = [...allUsers];
 
-    // 1. Filter by TreeSelect Value
     if (treeValue) {
       filtered = filtered.filter((u) => {
-        // We check all three possible fields since the TreeSelect value is flat
         return (
           u.jobTitle === treeValue ||
           u.access === treeValue ||
@@ -121,7 +118,6 @@ export default function UserManagement() {
       });
     }
 
-    // 2. Filter by Search Query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>

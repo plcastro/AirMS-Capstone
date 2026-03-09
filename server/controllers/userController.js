@@ -46,7 +46,7 @@ const loginUser = async (req, res) => {
 
     const user = await UserModel.findOne({
       $or: [{ username: trimmed }, { email: trimmed }],
-    }).select("+password +tempPasswordExpires +setupToken +setupTokenExpires");
+    }).select("+password +tempPasswordExpires ");
 
     if (!user) {
       return res.status(401).json({ message: "Account does not exist" });
@@ -79,13 +79,19 @@ const loginUser = async (req, res) => {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
 
+      const setupToken = jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.JWT_SECRET || "fallback_secret",
+        { expiresIn: "1h" }, // 1 hour expiry
+      );
+
       return res.status(200).json({
         message: "Temporary login successful. Proceed to security setup.",
         requireSetup: true,
         user: {
-          email: user.email,
           id: user._id,
-          setupToken: user.rawSetupToken,
+          status: user.status,
+          setupToken, // send JWT to frontend
         },
       });
     }
@@ -203,9 +209,6 @@ const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
     const tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-    const rawSetupToken = crypto.randomBytes(32).toString("hex");
-    const setupTokenHash = await bcrypt.hash(rawSetupToken, 10);
-    const setupTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
     let imagePath = "";
     if (req.file) {
@@ -220,8 +223,6 @@ const createUser = async (req, res) => {
       password: hashedPassword, // temp password stored here
       tempPasswordExpires,
       status: "inactive",
-      setupToken: setupTokenHash,
-      setupTokenExpires,
       image: imagePath,
       jobTitle,
       access,
@@ -229,8 +230,8 @@ const createUser = async (req, res) => {
 
     const portalLink =
       jobTitle === "Head of Maintenance" || jobTitle === "Admin"
-        ? `<p>Login via web: <a href="${WEB_URL}/#/security-setup?email=${encodeURIComponent(email)}&setupToken=${rawSetupToken}">AirMS Web Login</a></p>`
-        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/security-setup?email=${encodeURIComponent(email)}&setupToken=${rawSetupToken}">AirMS Mobile Login</a></p>`;
+        ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
+        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: email,
@@ -258,7 +259,6 @@ const createUser = async (req, res) => {
         email: newUser.email,
         jobTitle: newUser.jobTitle,
         status: newUser.status,
-        setupToken: rawSetupToken,
       },
     });
   } catch (err) {
@@ -270,25 +270,40 @@ const createUser = async (req, res) => {
 
 const completeSecuritySetup = async (req, res) => {
   try {
-    const user = req.userRecord; // from middleware
-    const { newPassword } = req.body;
+    const { setupToken, newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 8)
-      return res
-        .status(400)
-        .json({ message: "New password required (min 8 chars)" });
+    if (!setupToken) {
+      return res.status(400).json({ message: "Setup token required" });
+    }
+
+    // VERIFY THE TOKEN HERE
+    const decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+
+    const user = await UserModel.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.status !== "inactive") {
+      return res.status(400).json({ message: "Setup already completed" });
+    }
 
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
     user.tempPasswordExpires = undefined;
-    user.securitySetupCompleted = true;
+
     await user.save();
 
-    await auditLog("Security setup completed", user._id);
-    res.status(200).json({ message: "Security setup completed successfully" });
+    return res.status(200).json({
+      message: "Security setup completed successfully",
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to complete security setup" });
+
+    return res.status(401).json({
+      message: "Invalid or expired setup token",
+    });
   }
 };
 
@@ -499,43 +514,36 @@ const updatePassword = async (req, res) => {
 
 const activateUser = async (req, res) => {
   try {
-    const { email, token, newPassword } = req.body;
+    const { token, newPassword } = req.body;
 
-    if (!email || !token || !newPassword) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Token and new password required" });
     }
 
-    const user = await UserModel.findOne({ email: email.trim() }).select(
-      "+setupToken +setupTokenExpires",
-    );
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+    } catch (err) {
+      return res
+        .status(401)
+        .json({ message: "Setup token invalid or expired" });
+    }
 
+    const user = await UserModel.findById(decoded.id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
     if (user.status === "active")
       return res.status(400).json({ message: "Account already active" });
 
-    // Check if token exists and is not expired
-    if (
-      !user.setupToken ||
-      !user.setupTokenExpires ||
-      user.setupTokenExpires < Date.now()
-    ) {
-      return res
-        .status(401)
-        .json({ message: "Setup token expired. Resend activation." });
-    }
-
-    const isValidToken = await bcrypt.compare(token, user.setupToken); // raw token vs hash
-    if (!isValidToken)
-      return res.status(401).json({ message: "Invalid setup token." });
-
-    // Update password and activate account
+    // Activate user
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
-    user.setupToken = undefined;
-    user.setupTokenExpires = undefined;
+    user.securitySetupCompleted = true;
     await user.save();
 
-    await auditLog("User activated", user._id);
+    await auditLog("User activated via JWT setup token", user._id);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -554,11 +562,13 @@ const resendActivation = async (req, res) => {
     if (user.status === "active")
       return res.status(400).json({ message: "Account is already active" });
 
+    // Reset temporary password
     const newTempPassword = Math.random().toString(36).slice(-8);
     user.password = await bcrypt.hash(newTempPassword, 12);
     user.tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
     await user.save();
 
+    // Portal link just goes to login page
     const portalLink = ["Admin", "Head of Maintenance"].includes(user.jobTitle)
       ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
       : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
