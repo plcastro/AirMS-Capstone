@@ -35,10 +35,6 @@ const userSchema = new mongoose.Schema({
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
 
-  // Security setup token
-  setupToken: { type: String, select: false },
-  setupTokenExpires: Date,
-
   // --- PASSWORD RESET / OTP ---
   resetPasswordToken: String,
   resetPasswordExpires: Date,
