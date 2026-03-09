@@ -79,28 +79,21 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        const { user, token, message } = data;
+        const { user, token } = data;
+
+        // Deactivated account
         if (user.status === "deactivated") {
           setMessage(
             "This account is deactivated. Please contact AirMS Support",
           );
-        }
-
-        if (user.status === "inactive") {
-          loginUser(user, rememberMe);
-          await AsyncStorage.setItem("currentUser", JSON.stringify(user));
-          await AsyncStorage.setItem("currentUserToken", token);
-          console.log(user.setupToken);
-          nav.replace("securitySetup", {
-            email: user.email,
-            setupToken: rawSetupToken,
-          });
           return;
         }
 
+        // Save token and user info
         await AsyncStorage.setItem("currentUserToken", token);
         await AsyncStorage.setItem("currentUser", JSON.stringify(user));
 
+        // Remember me logic
         if (rememberMe) {
           await AsyncStorage.setItem("rememberMe", "true");
           await AsyncStorage.setItem(
@@ -116,11 +109,17 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedIdentifier");
           await AsyncStorage.removeItem("rememberedPassword");
         }
-        Alert.alert("Success", "Logged in successfully");
-        loginUser(user, rememberMe);
-        setMessage("User logged in successfully");
-        setLoginSuccess(true);
 
+        loginUser(user, rememberMe);
+
+        // Inactive users go to security setup
+        if (user.status === "inactive" || user.setupToken) {
+          nav.replace("securitySetup", {
+            email: user.email,
+            setupToken: user.setupToken,
+          });
+          return;
+        }
         goToDashboard();
       } else {
         console.log("Login error message:", data.message);

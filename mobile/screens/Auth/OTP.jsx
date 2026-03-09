@@ -16,7 +16,8 @@ import { API_BASE } from "../../utilities/API_BASE";
 export default function OTP() {
   const route = useRoute();
   const navigation = useNavigation();
-  const token = route.params?.token; // OTP token passed from previous step
+  const token = route.params?.token;
+  const email = route.params?.email;
 
   const [code, setCode] = useState("");
   const [pinReady, setPinReady] = useState(false);

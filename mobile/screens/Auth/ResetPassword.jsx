@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,75 +15,103 @@ import { API_BASE } from "../../utilities/API_BASE";
 export default function ResetPassword() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { token } = route.params;
+  const { token } = route.params || {};
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordValid, setPasswordValid] = useState(false);
+  const [formData, setFormData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Password strength check
-  useEffect(() => {
-    const hasUppercase = /[A-Z]/.test(newPassword);
-    const hasLowercase = /[a-z]/.test(newPassword);
-    const hasNumber = /[0-9]/.test(newPassword);
-    const hasMinLength = newPassword.length >= 8;
-    setPasswordValid(hasUppercase && hasLowercase && hasNumber && hasMinLength);
-  }, [newPassword]);
-
-  const validatePasswords = () => {
-    if (!newPassword || !confirmPassword) {
-      return Alert.alert("Error", "Please fill in all fields.");
-    }
-    if (newPassword !== confirmPassword) {
-      return Alert.alert("Error", "Passwords do not match.");
-    }
-    if (!passwordValid) {
-      return Alert.alert(
-        "Error",
-        "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
-      );
-    }
-    resetPassword();
+  // Password requirements
+  const passwordRequirements = {
+    minLength: formData.newPassword.length >= 8,
+    hasUppercase: /[A-Z]/.test(formData.newPassword),
+    hasNumber: /\d/.test(formData.newPassword),
   };
 
-  const resetPassword = async () => {
+  const isFormValid =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    formData.confirmPassword &&
+    formData.newPassword === formData.confirmPassword;
+
+  const getRequirementStyle = (met) => ({
+    color: met ? "#26866F" : "#999",
+    fontSize: 12,
+    marginRight: 5,
+  });
+
+  const handleChange = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const validatePasswords = () => {
+    if (!formData.newPassword || !formData.confirmPassword) {
+      setError("Please fill in all fields.");
+      return false;
+    }
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return false;
+    }
+    if (!isFormValid) {
+      setError(
+        "Password must be at least 8 characters, contain one uppercase letter, and one number.",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
     if (!token) return Alert.alert("Error", "Invalid or missing reset token.");
+    if (!validatePasswords()) return;
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/api/user/reset-password/${token}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword }),
-        },
-      );
+      const res = await fetch(`${API_BASE}/api/user/reset-password/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: formData.newPassword }),
+      });
 
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.message || "Failed to reset password");
+      const data = await res.json();
 
-      setSuccessMessage(
-        "Password changed successfully. Redirecting to login...",
-      );
+      if (!res.ok) throw new Error(data.message || "Failed to reset password.");
 
+      setSuccessMessage("Password reset successfully! Redirecting to login...");
       setTimeout(() => navigation.replace("login"), 3000);
-    } catch (error) {
-      console.error("Reset password error:", error);
-      Alert.alert("Error", error.message || "Something went wrong.");
+    } catch (err) {
+      console.error("Reset password error:", err);
+      setError(err.message || "Network error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  if (!token) {
+    return (
+      <View style={styles.formCard}>
+        <View style={styles.formContainer}>
+          <Text style={styles.headerText}>Invalid Reset Link</Text>
+          <Text style={styles.subHeaderText}>
+            This password reset link is invalid or has expired.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={100}
     >
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Reset Password</Text>
@@ -94,9 +122,8 @@ export default function ResetPassword() {
           placeholder="New Password"
           secureTextEntry
           placeholderTextColor="gray"
-          value={newPassword}
-          onChangeText={setNewPassword}
-          maxLength={50}
+          value={formData.newPassword}
+          onChangeText={(text) => handleChange("newPassword", text)}
         />
 
         <TextInput
@@ -104,23 +131,58 @@ export default function ResetPassword() {
           placeholder="Confirm Password"
           secureTextEntry
           placeholderTextColor="gray"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          maxLength={50}
+          value={formData.confirmPassword}
+          onChangeText={(text) => handleChange("confirmPassword", text)}
         />
 
+        {/* Password requirements */}
+        <View style={{ marginVertical: 10 }}>
+          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+            Password Requirements:
+          </Text>
+          <View style={{ flexDirection: "row" }}>
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              ✓{" "}
+            </Text>
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              At least 8 characters
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row" }}>
+            <Text
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              ✓{" "}
+            </Text>
+            <Text
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              One uppercase letter
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row" }}>
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              ✓{" "}
+            </Text>
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              One number
+            </Text>
+          </View>
+        </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         {successMessage ? (
-          <Text style={{ marginTop: 10, color: "green" }}>
+          <Text style={{ color: "green", marginTop: 10 }}>
             {successMessage}
           </Text>
         ) : null}
 
         <Button
-          label={loading ? "RESETTING..." : "CHANGE PASSWORD"}
-          onPress={validatePasswords}
+          label={loading ? "RESETTING..." : "RESET PASSWORD"}
+          onPress={handleSubmit}
           buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
           buttonTextStyle={styles.primaryBtnTxt}
-          disabled={loading || !newPassword || !confirmPassword}
+          disabled={loading || !isFormValid}
         />
       </View>
     </KeyboardAvoidingView>

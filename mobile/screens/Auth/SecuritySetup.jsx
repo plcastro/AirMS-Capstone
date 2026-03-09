@@ -20,7 +20,8 @@ export default function SecuritySetup() {
 
   const email = route.params?.email || "";
   const token = route.params?.setupToken || "";
-
+  const [message, setMessage] = useState("");
+  const [setupSuccess, setSetupSuccess] = useState(false);
   console.log(token);
   const [formData, setFormData] = useState({
     newPassword: "",
@@ -31,8 +32,13 @@ export default function SecuritySetup() {
     hasUppercase: false,
     hasNumber: false,
   });
-  const [message, setMessage] = useState("");
-  const [setupSuccess, setSetupSuccess] = useState(false);
+  // inside SecuritySetup component
+  const isFormValid =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    formData.confirmPassword &&
+    formData.newPassword === formData.confirmPassword;
 
   const changeHandler = (key, value) => {
     setFormData({ ...formData, [key]: value });
@@ -195,6 +201,7 @@ export default function SecuritySetup() {
             label="SET PASSWORD"
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
             buttonTextStyle={styles.primaryBtnTxt}
+            disabled={!isFormValid}
           />
 
           <View style={{ marginTop: 15 }}>
