@@ -40,7 +40,6 @@ export default function UserModal({
   const handleBlur = (field) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
 
-  // Reset / populate form & generate username / access level
   useEffect(() => {
     if (!visible) return;
 
@@ -110,10 +109,19 @@ export default function UserModal({
 
   // Validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const nameRegex = /^[a-zA-Z'-]+$/;
   const errors = useMemo(
     () => ({
-      firstName: !firstName.trim() ? "First name is required" : null,
-      lastName: !lastName.trim() ? "Last name is required" : null,
+      firstName: !firstName.trim()
+        ? "First name is required"
+        : !nameRegex.test(firstName)
+          ? "First name can only contain letters, hyphens, or apostrophes"
+          : null,
+      lastName: !lastName.trim()
+        ? "Last name is required"
+        : !nameRegex.test(lastName)
+          ? "Last name can only contain letters, hyphens, or apostrophes"
+          : null,
       email: !email.trim()
         ? "Email is required"
         : !emailRegex.test(email)
@@ -253,7 +261,10 @@ export default function UserModal({
           <Input
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^a-zA-Z'-]/g, ""); // remove invalid chars
+              setFirstName(value);
+            }}
             onBlur={() => handleBlur("firstName")}
           />
           {touched.firstName && errors.firstName && (
@@ -268,7 +279,10 @@ export default function UserModal({
           <Input
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^a-zA-Z'-]/g, "");
+              setLastName(value);
+            }}
             onBlur={() => handleBlur("lastName")}
           />
           {touched.lastName && errors.lastName && (

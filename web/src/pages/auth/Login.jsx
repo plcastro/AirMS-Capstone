@@ -78,7 +78,7 @@ const Login = () => {
       if (response.ok) {
         if (data.requireSetup) {
           navigate(
-            `/security-setup?setupToken=${encodeURIComponent(data.user.setupToken)}`,
+            `/security-setup?setupToken=${encodeURIComponent(data.user.setupToken)}&email=${encodeURIComponent(data.user.email)}`,
           );
           return;
         }
@@ -101,7 +101,9 @@ const Login = () => {
           localStorage.removeItem("rememberMe");
         }
         antMessage.success("Logged in successfully!");
-        handleNavigate(data.user.jobTitle);
+        setTimeout(() => {
+          handleNavigate(data.user.jobTitle);
+        }, 1000);
       } else {
         setError(data.message || "Login failed");
       }
