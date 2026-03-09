@@ -7,8 +7,8 @@ const SecuritySetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
-  const email = query.get("email");
-  const token = query.get("setupToken");
+  const email = query.get("email") || "";
+  const token = query.get("setupToken") || "";
 
   const [formData, setFormData] = useState({
     newPassword: "",

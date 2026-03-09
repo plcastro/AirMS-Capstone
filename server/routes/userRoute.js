@@ -49,6 +49,6 @@ router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-reset", requestPasswordReset);
 router.post("/verify-otp", verifyOtp);
-router.post("/reset-password", resetPassword);
+router.post("/reset-password/:token", resetPassword);
 
 module.exports = router;
