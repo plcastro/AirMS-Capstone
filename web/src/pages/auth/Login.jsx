@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import { Input, Button, Alert } from "antd";
+import { API_BASE } from "../../utils/API_BASE";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/user/login", {
+      const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
