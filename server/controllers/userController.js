@@ -229,8 +229,8 @@ const createUser = async (req, res) => {
 
     const portalLink =
       jobTitle === "Head of Maintenance" || jobTitle === "Admin"
-        ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
-        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
+        ? `<p>Login via web: <a href="${WEB_URL}/#/security-setup?email=${encodeURIComponent(email)}&setupToken=${rawSetupToken}">AirMS Web Login</a></p>`
+        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/security-setup?email=${encodeURIComponent(email)}&setupToken=${rawSetupToken}">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: email,
