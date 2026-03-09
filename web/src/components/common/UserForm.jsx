@@ -17,7 +17,7 @@ import { API_BASE } from "../../utils/API_BASE";
 
 const { Text } = Typography;
 
-export default function UserModal({
+export default function UserForm({
   visible,
   onClose,
   onUserSaved,
@@ -109,7 +109,7 @@ export default function UserModal({
 
   // Validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const nameRegex = /^[a-zA-Z'-]+$/;
+  const nameRegex = /^[a-zA-Z'-\s]+$/;
   const errors = useMemo(
     () => ({
       firstName: !firstName.trim()
@@ -189,7 +189,7 @@ export default function UserModal({
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Operation failed");
       }
-
+      const savedUser = await res.json();
       antMessage.success(
         user ? "User updated successfully!" : "User added successfully!",
       );
@@ -201,7 +201,21 @@ export default function UserModal({
         });
       }
 
-      onUserSaved?.();
+      const updatedUser = {
+        _id: savedUser?.data?._id || user?._id, // use backend ID for new users
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        username,
+        jobTitle,
+
+        access: accessLevel,
+        dateCreated: joinedDate.toISOString(),
+        image: savedUser?.data?.image || imageUrl, // use uploaded or existing image
+        status: savedUser?.data?.status || "active",
+      };
+
+      onUserSaved?.(updatedUser); // <-- pass updated user back
       onClose();
     } catch (err) {
       console.error("Error saving user:", err);
@@ -259,10 +273,11 @@ export default function UserModal({
         <Col span={12}>
           <Text strong>First Name</Text>
           <Input
+            maxLength={128}
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
             onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z'-]/g, ""); // remove invalid chars
+              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, ""); // remove invalid chars
               setFirstName(value);
             }}
             onBlur={() => handleBlur("firstName")}
@@ -277,10 +292,11 @@ export default function UserModal({
         <Col span={12}>
           <Text strong>Last Name</Text>
           <Input
+            maxLength={128}
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
             onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z'-]/g, "");
+              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, "");
               setLastName(value);
             }}
             onBlur={() => handleBlur("lastName")}
