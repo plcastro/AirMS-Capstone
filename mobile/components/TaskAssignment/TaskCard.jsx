@@ -1,8 +1,10 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import React, { useContext } from "react";
+import * as Progress from 'react-native-progress';
 import { styles } from "../../stylesheets/styles";
 import Button from "../Button";
 import { AuthContext } from "../../Context/AuthContext";
+import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskCard({
   data,
@@ -26,8 +28,22 @@ export default function TaskCard({
     maintenanceType,
     assignedToName,
     returnComments,
+    checklistItems,
+    checklistState,
   } = data;
   const { user } = useContext(AuthContext);
+
+  // Calculate progress for ongoing tasks
+  const calculateProgress = () => {
+    if (!checklistItems || checklistItems.length === 0) return 0;
+    
+    // If we have saved checklistState, use that, otherwise assume none checked
+    const checkedCount = checklistState ? checklistState.filter(item => item).length : 0;
+    return checkedCount / checklistItems.length;
+  };
+
+  const progress = calculateProgress();
+  const progressPercentage = Math.round(progress * 100);
 
   const formatDateTime = (dateString) => {
     if (!dateString || dateString === "") return "Not set";
@@ -143,6 +159,7 @@ export default function TaskCard({
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "center",
+            marginBottom: (status === "Ongoing" || status === "Returned") ? 8 : 0,
           }}
         >
           <Text style={{ color: "#666", fontSize: 14 }}>
@@ -152,6 +169,31 @@ export default function TaskCard({
             Start: {formatDateTime(startDateTime)}
           </Text>
         </View>
+
+        {/* Progress Bar - Shows for ongoing and returned tasks */}
+        {(status === "Ongoing" || status === "Returned") && (
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <View style={{ 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              marginBottom: 4 
+            }}>
+              <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
+              <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
+                {progressPercentage}%
+              </Text>
+            </View>
+            <Progress.Bar 
+              progress={progress} 
+              width={null} 
+              height={6}
+              color={COLORS.primaryLight}
+              unfilledColor="#e0e0e0"
+              borderWidth={0}
+              borderRadius={3}
+            />
+          </View>
+        )}
       </>,
     );
   }
@@ -212,9 +254,34 @@ export default function TaskCard({
           Start: {formatDateTime(startDateTime)}
         </Text>
 
-        <Text style={{ color: "#ff6b6b", fontSize: 14 }}>
+        <Text style={{ color: "#ff6b6b", fontSize: 14, marginBottom: 8 }}>
           {overdueTime.text} • Due at {dueTime}
         </Text>
+
+        {/* Progress Bar - Shows for ongoing and returned tasks in past due */}
+        {(status === "Ongoing" || status === "Returned") && (
+          <View style={{ marginTop: 4, marginBottom: 4 }}>
+            <View style={{ 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              marginBottom: 4 
+            }}>
+              <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
+              <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
+                {progressPercentage}%
+              </Text>
+            </View>
+            <Progress.Bar 
+              progress={progress} 
+              width={null} 
+              height={6}
+              color={COLORS.primaryLight}
+              unfilledColor="#e0e0e0"
+              borderWidth={0}
+              borderRadius={3}
+            />
+          </View>
+        )}
       </>,
     );
   }
@@ -273,6 +340,7 @@ export default function TaskCard({
     );
   }
 
+  // Default card (used for head view and ongoing tasks)
   return renderBaseCard(
     <>
       <View
@@ -353,6 +421,31 @@ export default function TaskCard({
       <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
         Start: {formatDateTime(startDateTime)}
       </Text>
+
+      {/* Progress Bar - Shows for ongoing tasks only */}
+      {(status === "Ongoing" || status === "Returned") && (
+        <View style={{ marginTop: 8, marginBottom: 8 }}>
+          <View style={{ 
+            flexDirection: "row", 
+            justifyContent: "space-between", 
+            marginBottom: 4 
+          }}>
+            <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
+            <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
+              {progressPercentage}%
+            </Text>
+          </View>
+          <Progress.Bar 
+            progress={progress} 
+            width={null} 
+            height={6}
+            color={COLORS.primaryLight}
+            unfilledColor="#e0e0e0"
+            borderWidth={0}
+            borderRadius={3}
+          />
+        </View>
+      )}
 
       {/* Return comments if any */}
       {returnComments && isHeadView && (
