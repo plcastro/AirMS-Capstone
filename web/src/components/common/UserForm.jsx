@@ -202,7 +202,7 @@ export default function UserForm({
       }
 
       const updatedUser = {
-        _id: savedUser?.data?._id || user?._id, // use backend ID for new users
+        _id: savedUser?.data?._id || user?._id,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -211,11 +211,11 @@ export default function UserForm({
 
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
-        image: savedUser?.data?.image || imageUrl, // use uploaded or existing image
+        image: savedUser?.data?.image || imageUrl,
         status: savedUser?.data?.status || "active",
       };
 
-      onUserSaved?.(updatedUser); // <-- pass updated user back
+      onUserSaved?.(updatedUser);
       onClose();
     } catch (err) {
       console.error("Error saving user:", err);
