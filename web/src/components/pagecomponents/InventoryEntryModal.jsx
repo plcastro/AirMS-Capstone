@@ -5,7 +5,6 @@ import {
   Input,
   InputNumber,
   Button,
-  Space,
   message as AntMessage,
 } from "antd";
 
@@ -75,7 +74,21 @@ export function AddComponent({ visible, onClose, onComponentAdded }) {
           name="currQty"
           rules={[{ required: true, message: "Please enter quantity" }]}
         >
-          <InputNumber min={0} style={{ width: "100%" }} />
+          <InputNumber
+            min={0}
+            style={{ width: "100%" }}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9]/.test(e.key) &&
+                e.key !== "Backspace" &&
+                e.key !== "Delete" &&
+                e.key !== "ArrowLeft" &&
+                e.key !== "ArrowRight" &&
+                e.key !== "Tab"
+              )
+                e.preventDefault();
+            }}
+          />
         </Form.Item>
 
         <Form.Item
@@ -83,7 +96,21 @@ export function AddComponent({ visible, onClose, onComponentAdded }) {
           name="pricePerUnit"
           rules={[{ required: true, message: "Please enter price" }]}
         >
-          <InputNumber min={0} style={{ width: "100%" }} />
+          <InputNumber
+            min={0}
+            style={{ width: "100%" }}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9]/.test(e.key) &&
+                e.key !== "Backspace" &&
+                e.key !== "Delete" &&
+                e.key !== "ArrowLeft" &&
+                e.key !== "ArrowRight" &&
+                e.key !== "Tab"
+              )
+                e.preventDefault();
+            }}
+          />
         </Form.Item>
 
         <Form.Item
@@ -91,7 +118,21 @@ export function AddComponent({ visible, onClose, onComponentAdded }) {
           name="partsConsumed"
           rules={[{ required: true, message: "Please enter parts consumed" }]}
         >
-          <InputNumber min={0} style={{ width: "100%" }} />
+          <InputNumber
+            min={0}
+            style={{ width: "100%" }}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9]/.test(e.key) &&
+                e.key !== "Backspace" &&
+                e.key !== "Delete" &&
+                e.key !== "ArrowLeft" &&
+                e.key !== "ArrowRight" &&
+                e.key !== "Tab"
+              )
+                e.preventDefault();
+            }}
+          />
         </Form.Item>
       </Form>
     </Modal>
