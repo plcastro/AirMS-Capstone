@@ -13,6 +13,7 @@ import {
   EditComponent,
   AddComponent,
 } from "../../../components/pagecomponents/InventoryEntryModal";
+import { API_BASE } from "../../../utils/API_BASE";
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("Parts");
@@ -23,46 +24,90 @@ export default function Inventory() {
   const [componentToEdit, setComponentToEdit] = useState(null);
 
   // Sample data
+  // useEffect(() => {
+  //   const sampleData = [
+  //     {
+  //       id: 1,
+  //       partName: "Hydraulic Pump",
+  //       partLoc: "Hangar A - Shelf 1",
+  //       currQty: 3,
+  //       pricePerUnit: 2500,
+  //       partsConsumed: 500,
+  //       stockLevel: "Critical",
+  //     },
+  //     {
+  //       id: 2,
+  //       partName: "Landing Gear Tire",
+  //       partLoc: "Hangar B - Shelf 4",
+  //       currQty: 10,
+  //       pricePerUnit: 800,
+  //       partsConsumed: 1200,
+  //       stockLevel: "Adequate",
+  //     },
+  //     {
+  //       id: 3,
+  //       partName: "Avionics Display Unit",
+  //       partLoc: "Hangar C - Shelf 2",
+  //       currQty: 1,
+  //       pricePerUnit: 12000,
+  //       partsConsumed: 0,
+  //       stockLevel: "Low",
+  //     },
+  //   ];
+  //   setInventory(sampleData);
+  // }, []);
+
+  const fetchComponents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/component-inventory/components`);
+      console.log("Fetch response:", res);
+      const data = await res.json();
+      console.log("Data received:", data);
+
+      if (data.success) {
+        const formatted = data.data.map((item) => ({
+          id: item._id,
+          partName: item.name,
+          partLoc: item.source,
+          currQty: item.quantity_in_stock,
+          pricePerUnit: item.pricePerUnit || 0,
+          partsConsumed: item.partsConsumed || 0,
+          stockLevel: item.status,
+        }));
+
+        setInventory(formatted);
+      }
+    } catch (error) {
+      AntMessage.error("Failed to load components");
+    }
+  };
   useEffect(() => {
-    const sampleData = [
-      {
-        id: 1,
-        partName: "Hydraulic Pump",
-        partLoc: "Hangar A - Shelf 1",
-        currQty: 3,
-        pricePerUnit: 2500,
-        partsConsumed: 500,
-        stockLevel: "Critical",
-      },
-      {
-        id: 2,
-        partName: "Landing Gear Tire",
-        partLoc: "Hangar B - Shelf 4",
-        currQty: 10,
-        pricePerUnit: 800,
-        partsConsumed: 1200,
-        stockLevel: "Adequate",
-      },
-      {
-        id: 3,
-        partName: "Avionics Display Unit",
-        partLoc: "Hangar C - Shelf 2",
-        currQty: 1,
-        pricePerUnit: 12000,
-        partsConsumed: 0,
-        stockLevel: "Low",
-      },
-    ];
-    setInventory(sampleData);
+    fetchComponents();
   }, []);
 
-  const handleAddComponent = (newComponent) => {
-    setInventory((prev) => [
-      ...prev,
-      { ...newComponent, id: prev.length ? prev[prev.length - 1].id + 1 : 1 },
-    ]);
-    setShowAddModal(false);
-    AntMessage.success("Component added successfully");
+  const handleAddComponent = async (newComponent) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/component-inventory/add-component`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newComponent),
+        },
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        fetchComponents();
+        setShowAddModal(false);
+        AntMessage.success("Component added successfully");
+      }
+    } catch (error) {
+      AntMessage.error("Failed to add component");
+    }
   };
 
   const handleEditClick = (component) => {
@@ -70,15 +115,30 @@ export default function Inventory() {
     setShowEditModal(true);
   };
 
-  const handleComponentEdited = (updatedComponent) => {
-    setInventory((prev) =>
-      prev.map((c) =>
-        c.id === componentToEdit.id ? { ...c, ...updatedComponent } : c,
-      ),
-    );
-    setShowEditModal(false);
-    setComponentToEdit(null);
-    AntMessage.success("Component updated successfully");
+  const handleComponentEdited = async (updatedComponent) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/component-inventory/update-component/${componentToEdit.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedComponent),
+        },
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        fetchComponents();
+        setShowEditModal(false);
+        setComponentToEdit(null);
+        AntMessage.success("Component updated successfully");
+      }
+    } catch (error) {
+      AntMessage.error("Update failed");
+    }
   };
 
   const handleDeleteClick = (id) => {
@@ -88,9 +148,24 @@ export default function Inventory() {
       okText: "Yes, delete",
       cancelText: "Cancel",
       okType: "danger",
-      onOk: () => {
-        setInventory((prev) => prev.filter((c) => c.id !== id));
-        AntMessage.success("Component deleted");
+      onOk: async () => {
+        try {
+          const res = await fetch(
+            `${API_BASE}/api/component-inventory/delete-component/${id}`,
+            {
+              method: "DELETE",
+            },
+          );
+
+          const data = await res.json();
+
+          if (data.success) {
+            fetchComponents();
+            AntMessage.success("Component deleted");
+          }
+        } catch (error) {
+          AntMessage.error("Delete failed");
+        }
       },
     });
   };
