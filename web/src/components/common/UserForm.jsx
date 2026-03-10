@@ -342,6 +342,7 @@ export default function UserForm({
             }}
             options={[
               { label: "Admin", value: "Admin" },
+              { label: "Head of Maintenance", value: "Head of Maintenance" },
               { label: "Pilot", value: "Pilot" },
               { label: "Manager", value: "Manager" },
               { label: "Mechanic", value: "Mechanic" },
