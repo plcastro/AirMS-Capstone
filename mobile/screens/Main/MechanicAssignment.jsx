@@ -3,43 +3,9 @@ import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
-// Mock data for assigned tasks
-const ASSIGNED_TASKS = [
-  {
-    id: "1",
-    title: "Aileron Failure - Corrective Maintenance",
-    dueDate: "03/02/2026",
-    workHours: 8,
-    priority: "Due Soon",
-    status: "Pending",
-  },
-  {
-    id: "2",
-    title: "Engine Oil Change - Scheduled Maintenance",
-    dueDate: "03/05/2026",
-    workHours: 4,
-    priority: "Normal",
-    status: "Ongoing",
-  },
-  {
-    id: "3",
-    title: "Landing Gear Inspection",
-    dueDate: "02/28/2026",
-    workHours: 6,
-    priority: "Due Soon",
-    status: "Pending",
-  },
-  {
-    id: "4",
-    title: "Avionics System Check",
-    dueDate: "03/10/2026",
-    workHours: 5,
-    priority: "Normal",
-    status: "Completed",
-  },
-];
+export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
+  const assignedTasks = tasks.filter(task => task.assignedTo === mechanic.id);
 
-export default function MechanicAssignment({ mechanic, onBack }) {
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "Due Soon":
@@ -53,83 +19,138 @@ export default function MechanicAssignment({ mechanic, onBack }) {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Ongoing":
-        return "#c79d28";
-      case "Pending":
-        return "#1E88E5";
-      case "Completed":
-        return "#34A853";
-      default:
-        return "gray";
+  // Calculate overdue time (days or hours)
+  const calculateOverdueTime = (dueDate) => {
+    const now = new Date();
+    const due = new Date(dueDate);
+    const diffMs = now - due;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 24) {
+      return `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+    } else {
+      return `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
     }
   };
 
-  const renderTaskItem = ({ item }) => (
-    <TouchableOpacity
-      style={{
-        backgroundColor: COLORS.grayLight,
-        borderRadius: 4,
-        padding: 15,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-      }}
-    >
-      {/* Task Title and Status */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  // Format due time
+  const formatDueTime = (dueDate) => {
+    const date = new Date(dueDate);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const renderTaskItem = ({ item }) => {
+    const now = new Date();
+    const dueDate = new Date(item.dueDate);
+    const isPastDue = dueDate < now && item.status !== "Completed" && item.status !== "Turned in";
+    const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
+    const dueTime = formatDueTime(item.dueDate);
+
+    return (
+      <TouchableOpacity
+        style={[styles.taskCard, { marginBottom: 8, padding: 15 }]}
       >
-        <Text
-          style={{
-            fontWeight: "bold",
-            fontSize: 15,
-            flex: 1,
-            color: COLORS.black,
-          }}
-        >
-          {item.title}
-        </Text>
+        {/* Task Title and Status Badge */}
         <View
           style={{
-            backgroundColor: getStatusColor(item.status),
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            borderRadius: 4,
-            marginLeft: 10,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 8,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "500" }}>
-            {item.status}
+          <Text
+            style={{
+              fontWeight: "bold",
+              fontSize: 16,
+              color: "#000",
+              flex: 1,
+              marginRight: 10,
+            }}
+          >
+            {item.title} - {item.maintenanceType || "Corrective Maintenance"}
           </Text>
-        </View>
-      </View>
 
-      {/* Task Details */}
-      <Text style={{ color: COLORS.grayDark, marginBottom: 4, fontSize: 14 }}>
-        Date Due: {item.dueDate}
-      </Text>
-      <Text style={{ color: COLORS.grayDark, marginBottom: 4, fontSize: 14 }}>
-        Work Hours: {item.workHours}
-      </Text>
-      <Text
-        style={{
-          color: getPriorityColor(item.priority),
-          fontWeight: "600",
-          fontSize: 14,
-          marginTop: 4,
-        }}
-      >
-        {item.priority}
-      </Text>
-    </TouchableOpacity>
-  );
+          {/* Show Returned badge for returned tasks */}
+          {item.status === "Returned" && (
+            <View
+              style={{
+                backgroundColor: "#ffebee",
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 4,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#c62828",
+                  fontWeight: "500",
+                  fontSize: 12,
+                }}
+              >
+                Returned
+              </Text>
+            </View>
+          )}
+
+          {/* Show Completed/Turned in badge */}
+          {(item.status === "Completed" || item.status === "Turned in") && (
+            <View
+              style={{
+                backgroundColor: "#e8f5e9",
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 4,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#2e7d32",
+                  fontWeight: "500",
+                  fontSize: 12,
+                }}
+              >
+                Turned in
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Aircraft */}
+        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+          Aircraft: {item.aircraft}
+        </Text>
+
+        {/* Due Date */}
+        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+          Date Due: {formatDate(item.dueDate)}
+        </Text>
+
+        {/* Overdue Text - Only show if overdue */}
+        {isPastDue && (
+          <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
+            {overdueText} • Due at {dueTime}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingHorizontal: 15 }]}>
@@ -189,24 +210,26 @@ export default function MechanicAssignment({ mechanic, onBack }) {
 
       <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
         <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          Assigned Tasks
+          Assigned Tasks ({assignedTasks.length})
         </Text>
       </View>
 
       {/* Tasks List */}
-      <FlatList
-        data={ASSIGNED_TASKS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTaskItem}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this mechanic
-            </Text>
-          </View>
-        }
-      />
+      <View style={styles.taskTable}>
+        <FlatList
+          data={assignedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTaskItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+                No tasks assigned to this mechanic
+              </Text>
+            </View>
+          }
+        />
+      </View>
     </View>
   );
 }
