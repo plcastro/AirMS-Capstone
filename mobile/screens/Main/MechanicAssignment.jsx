@@ -1,9 +1,11 @@
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import { API_BASE } from "../../utilities/API_BASE";
 
-// Mock data for assigned tasks
+// Mock data for assigned tasks (fallback)
 const ASSIGNED_TASKS = [
   {
     id: "1",
@@ -40,6 +42,37 @@ const ASSIGNED_TASKS = [
 ];
 
 export default function MechanicAssignment({ mechanic, onBack }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const assignedTasks = data.data.filter(task => task.assignedTo === mechanic.id);
+          setTasks(assignedTasks);
+        } else {
+          console.error("Failed to fetch tasks");
+          setTasks(ASSIGNED_TASKS); // Fallback
+        }
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        setTasks(ASSIGNED_TASKS); // Fallback
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (mechanic?.id) {
+      fetchTasks();
+    }
+  }, [mechanic]);
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "Due Soon":
@@ -64,6 +97,15 @@ export default function MechanicAssignment({ mechanic, onBack }) {
       default:
         return "gray";
     }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   const renderTaskItem = ({ item }) => (
@@ -113,10 +155,10 @@ export default function MechanicAssignment({ mechanic, onBack }) {
 
       {/* Task Details */}
       <Text style={{ color: COLORS.grayDark, marginBottom: 4, fontSize: 14 }}>
-        Date Due: {item.dueDate}
+        Date Due: {formatDate(item.dueDate)}
       </Text>
       <Text style={{ color: COLORS.grayDark, marginBottom: 4, fontSize: 14 }}>
-        Work Hours: {item.workHours}
+        Aircraft: {item.aircraft}
       </Text>
       <Text
         style={{
@@ -195,14 +237,14 @@ export default function MechanicAssignment({ mechanic, onBack }) {
 
       {/* Tasks List */}
       <FlatList
-        data={ASSIGNED_TASKS}
+        data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={renderTaskItem}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this mechanic
+              {loading ? "Loading tasks..." : "No tasks assigned to this mechanic"}
             </Text>
           </View>
         }
