@@ -15,6 +15,7 @@ import Button from "../Button";
 import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
