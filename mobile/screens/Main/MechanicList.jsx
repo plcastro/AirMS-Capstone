@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MechanicAssignment from "./MechanicAssignment";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
-// Mock data for mechanics
+// Mock data for mechanics (fallback)
 const MECHANICS_DATA = [
   { id: "1", name: "John Doe", status: "Available", avatar: null },
   { id: "2", name: "Clara Bang", status: "Available", avatar: null },
@@ -25,10 +28,45 @@ const MECHANICS_DATA = [
 ];
 
 export default function MechanicList() {
+  const [mechanics, setMechanics] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanic, setSelectedMechanic] = useState(null);
 
-  const filteredMechanics = MECHANICS_DATA.filter((mechanic) => {
+  useEffect(() => {
+    const fetchMechanics = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const mechanicsData = data.data.filter(user => user.jobTitle === "Mechanic" && user.status === "active");
+          const mappedMechanics = mechanicsData.map((user) => ({
+            id: user._id,
+            name: `${user.firstName} ${user.lastName}`,
+            status: "Available", // Default status, can be updated based on tasks
+            avatar: user.image || null,
+          }));
+          setMechanics(mappedMechanics);
+        } else {
+          console.error("Failed to fetch users");
+          setMechanics(MECHANICS_DATA); // Fallback to mock data
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setMechanics(MECHANICS_DATA); // Fallback to mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMechanics();
+  }, []);
+
+  const filteredMechanics = mechanics.filter((mechanic) => {
     if (
       searchQuery &&
       !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -139,7 +177,7 @@ export default function MechanicList() {
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No mechanics found
+              {loading ? "Loading mechanics..." : "No mechanics found"}
             </Text>
           </View>
         }

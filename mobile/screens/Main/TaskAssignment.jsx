@@ -9,10 +9,6 @@ export default function TaskAssignment() {
   if (user?.jobTitle === "head of maintenance") {
     return (
       <HeadTaskScreen
-        employees={[
-          { id: "1", name: "John Doe" },
-          { id: "2", name: "Jane Smith" },
-        ]}
         taskOptions={[
           { id: "1", name: "Engine Inspection" },
           { id: "2", name: "Landing Gear Check" },
