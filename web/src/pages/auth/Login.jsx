@@ -2,7 +2,8 @@ import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Input, Button, Alert } from "antd";
+import { Input, Button, message as antMessage } from "antd";
+import { API_BASE } from "../../utils/API_BASE";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const Login = () => {
 
     if (!isChecked) {
       localStorage.setItem("rememberMe", "false"); // triggers other tabs
-      localStorage.removeItem("rememberedUsername");
+      localStorage.removeItem("rememberedIdentifier");
       localStorage.removeItem("rememberedPassword");
     } else {
       localStorage.setItem("rememberMe", "true");
@@ -55,16 +56,14 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     if (!formData.identifier.trim() || !formData.password.trim()) {
       setError("Username/email and password are required");
       return;
     }
-
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/user/login", {
+      const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,22 +72,22 @@ const Login = () => {
         }),
       });
 
-      const text = await response.text();
-      console.log("RAW RESPONSE:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-        console.log("PARSED DATA:", data);
-      } catch (err) {
-        console.error("JSON parse failed", err);
-      }
+      const data = await response.json();
+      console.log("Login response:", data);
 
       if (response.ok) {
-        // Store user data
+        if (data.requireSetup) {
+          navigate(
+            `/security-setup?setupToken=${encodeURIComponent(data.user.setupToken)}&email=${encodeURIComponent(data.user.email)}`,
+          );
+          return;
+        }
+
+        // Normal login
+        localStorage.setItem("jwtToken", data.token);
         localStorage.setItem("currentUser", JSON.stringify(data.user));
 
-        // Handle Remember Me functionality
+        // Remember Me
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
@@ -97,15 +96,16 @@ const Login = () => {
           localStorage.setItem("rememberedPassword", formData.password.trim());
           localStorage.setItem("rememberMe", "true");
         } else {
-          // Clear saved credentials if Remember Me is not checked
           localStorage.removeItem("rememberedIdentifier");
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-
-        handleNavigate(data.user.jobTitle);
+        antMessage.success("Logged in successfully!");
+        setTimeout(() => {
+          handleNavigate(data.user.jobTitle);
+        }, 1000);
       } else {
-        setError(data.error || "Login failed");
+        setError(data.message || "Login failed");
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -114,6 +114,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
   const handleNavigate = (jobTitle) => {
     // Normalize jobTitle to lowercase for comparison
     const pos = jobTitle?.toLowerCase() || "";
