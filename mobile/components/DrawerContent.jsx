@@ -14,13 +14,9 @@ import { API_BASE } from "../utilities/API_BASE";
 const DrawerList = [
   {
     icon: "book-open-page-variant",
-    label: "Aircraft Logbook",
+    label: "Flight Logbook",
     navigateTo: "Flight Logbook",
     jobTitle: ["pilot", "head of maintenance", "manager"],
-    children: [
-      { label: "Flight Logbook", navigateTo: "Flight Logbook" },
-      { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
-    ],
   },
   {
     icon: "clipboard-text",

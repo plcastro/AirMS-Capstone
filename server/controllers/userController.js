@@ -59,11 +59,21 @@ const loginUser = async (req, res) => {
     }
 
     // Check lock
-    if (user.isLocked && user.lockUntil && user.lockUntil > Date.now()) {
-      return res.status(403).json({
-        message:
-          "Account locked due to too many failed login attempts. Try again later.",
-      });
+    const currentTime = Date.now();
+    if (user.isLocked) {
+      if (user.lockUntil && currentTime > user.lockUntil) {
+        user.isLocked = false;
+        user.failedLoginAttempts = 0;
+        user.lockUntil = undefined;
+        await user.save();
+      } else {
+        const remainingTime = Math.round(
+          (user.lockUntil - currentTime) / 60000,
+        );
+        return res.status(403).json({
+          message: `Account locked. Try again in ${remainingTime} minutes.`,
+        });
+      }
     }
 
     // Handle inactive users separately
