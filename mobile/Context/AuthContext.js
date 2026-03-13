@@ -43,31 +43,17 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Login
-  const loginUser = async (userData) => {
-    try {
-      setLoading(true);
-      const normalizedUser = {
-        ...userData,
-        jobTitle: userData.jobTitle
-          ? userData.jobTitle.trim().toLowerCase()
-          : null,
-        access: userData.access ? userData.access.trim().toLowerCase() : null,
-      };
+  const loginUser = (userData) => {
+    const normalizedUser = { ...userData }; // keep case
+    setUser(normalizedUser); // update state immediately
 
-      setUser(normalizedUser);
-
-      if (Platform.OS === "web") {
-        localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
-      } else {
-        await AsyncStorage.setItem(
-          "currentUser",
-          JSON.stringify(normalizedUser),
-        );
-      }
-    } catch (err) {
-      console.error("Failed to store user:", err);
-    } finally {
-      setLoading(false);
+    // Async storage can be async
+    if (Platform.OS === "web") {
+      localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    } else {
+      AsyncStorage.setItem("currentUser", JSON.stringify(normalizedUser)).catch(
+        console.error,
+      );
     }
   };
 

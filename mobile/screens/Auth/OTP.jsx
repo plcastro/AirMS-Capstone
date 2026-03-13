@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from "react-native";
+import { View, Text, KeyboardAvoidingView, Platform } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 
 import { styles } from "../../stylesheets/styles";
@@ -16,12 +10,13 @@ import { API_BASE } from "../../utilities/API_BASE";
 export default function OTP() {
   const route = useRoute();
   const navigation = useNavigation();
-  const token = route.params?.token;
+  const [token, setToken] = useState(route.params?.token);
   const email = route.params?.email;
 
   const [code, setCode] = useState("");
   const [pinReady, setPinReady] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
+  const [message, setMessage] = useState("");
   const MAX_CODE_LENGTH = 6;
 
   // Countdown timer for resend button
@@ -37,7 +32,7 @@ export default function OTP() {
     if (!pinReady) return;
 
     if (!token) {
-      Alert.alert("Error", "Missing verification token.");
+      setMessage("Missing verification token.");
       return;
     }
 
@@ -55,11 +50,11 @@ export default function OTP() {
       if (res.ok) {
         navigation.navigate("resetPassword", { token });
       } else {
-        Alert.alert("Error", data.message || "Invalid OTP");
+        setMessage(data.message || "Invalid OTP");
       }
     } catch (err) {
       console.error("OTP verification error:", err);
-      Alert.alert("Error", "Failed to verify OTP. Try again.");
+      setMessage("Failed to verify OTP. Try again.");
     }
   };
 
@@ -68,7 +63,7 @@ export default function OTP() {
 
     const email = route.params?.email;
     if (!email) {
-      Alert.alert("Error", "Email not available to resend OTP.");
+      setMessage("Email not available to resend OTP.");
       return;
     }
 
@@ -81,14 +76,18 @@ export default function OTP() {
 
       const data = await res.json();
       if (res.ok) {
-        Alert.alert("Success", "OTP resent to your email.");
+        if (data.token) {
+          setToken(data.token);
+        }
+        setMessage("OTP resent to your email.");
         setResendTimer(60);
       } else {
-        Alert.alert("Error", data.message || "Failed to resend OTP.");
+        setMessage(data.message || "Failed to resend OTP.");
       }
     } catch (err) {
       console.error("Resend OTP error:", err);
-      Alert.alert("Error", "Failed to resend OTP. Try again.");
+      setError(data.message || "Failed to send reset link. Try again later.");
+      setMessage("");
     }
   };
 
@@ -101,7 +100,7 @@ export default function OTP() {
       <View style={styles.formContainer}>
         <Text style={styles.headerText}>Account Verification</Text>
         <Text style={styles.subHeaderText}>Enter OTP Code</Text>
-        <Text>
+        <Text style={{ textAlign: "center", marginVertical: 20 }}>
           Please enter the 6-digit code sent to{" "}
           {route.params?.email || "your email"}
         </Text>
@@ -133,6 +132,9 @@ export default function OTP() {
           buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
           buttonTextStyle={styles.secondaryBtnTxt}
         />
+        <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+          {pinReady ? message : ""}
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
