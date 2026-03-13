@@ -56,7 +56,9 @@ export default function MechanicAssignment({ mechanic, onBack }) {
         });
         if (response.ok) {
           const data = await response.json();
-          const assignedTasks = data.data.filter(task => task.assignedTo === mechanic.id);
+          const assignedTasks = data.data.filter(
+            (task) => task.assignedTo === mechanic.id,
+          );
           setTasks(assignedTasks);
         } else {
           console.error("Failed to fetch tasks");
@@ -229,7 +231,7 @@ export default function MechanicAssignment({ mechanic, onBack }) {
         </View>
       </View>
 
-      <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
+      <View style={styles.taskTableHeader}>
         <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
           Assigned Tasks
         </Text>
@@ -237,6 +239,11 @@ export default function MechanicAssignment({ mechanic, onBack }) {
 
       {/* Tasks List */}
       <FlatList
+        style={{
+          backgroundColor: COLORS.white,
+          padding: 10,
+          borderRadius: 4,
+        }}
         data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={renderTaskItem}
@@ -244,7 +251,9 @@ export default function MechanicAssignment({ mechanic, onBack }) {
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              {loading ? "Loading tasks..." : "No tasks assigned to this mechanic"}
+              {loading
+                ? "Loading tasks..."
+                : "No tasks assigned to this mechanic"}
             </Text>
           </View>
         }

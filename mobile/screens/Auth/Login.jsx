@@ -5,7 +5,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -24,7 +23,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
-
+  const [loading, setLoading] = useState(false);
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -51,7 +50,7 @@ export default function Login() {
   }, []);
 
   const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value.trim() });
+    setFormData({ ...formData, [key]: value });
   };
 
   const validate = () => {
@@ -110,8 +109,6 @@ export default function Login() {
           await AsyncStorage.removeItem("rememberedPassword");
         }
 
-        loginUser(user, rememberMe);
-
         // Inactive users go to security setup
         if (user.status === "inactive" || user.setupToken) {
           nav.replace("securitySetup", {
@@ -120,20 +117,17 @@ export default function Login() {
           });
           return;
         }
-        goToDashboard();
+        setLoginSuccess(true);
+        loginUser(user);
+        nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
-        Alert.alert("Login Failed", data.message || "Unauthorized");
-        setMessage(data.message || "Login failed");
+        setMessage("Login Failed", data.message || "Unauthorized");
       }
     } catch (err) {
       console.error(err);
       setMessage("Too many login attempts. Please try again later");
     }
-  };
-
-  const goToDashboard = () => {
-    setTimeout(() => nav.replace("dashboard"), 2000);
   };
 
   const goToForgotPassword = () => nav.navigate("forgotPassword");
@@ -190,7 +184,8 @@ export default function Login() {
         </View>
         <Button
           onPress={validate}
-          label="LOGIN"
+          label={loading ? "Logging in..." : "LOGIN"}
+          disabled={loading}
           buttonStyle={[styles.primaryBtn]}
           buttonTextStyle={styles.primaryBtnTxt}
         />

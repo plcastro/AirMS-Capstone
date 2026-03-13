@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import { CommonActions, useNavigation } from "@react-navigation/native";
-import { View, Image, Platform } from "react-native";
+import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
@@ -14,13 +14,9 @@ import { API_BASE } from "../utilities/API_BASE";
 const DrawerList = [
   {
     icon: "book-open-page-variant",
-    label: "Aircraft Logbook",
+    label: "Flight Logbook",
     navigateTo: "Flight Logbook",
     jobTitle: ["pilot", "head of maintenance", "manager"],
-    children: [
-      { label: "Flight Logbook", navigateTo: "Flight Logbook" },
-      { label: "Maintenance Logbook", navigateTo: "Maintenance Logbook" },
-    ],
   },
   {
     icon: "clipboard-text",
@@ -32,7 +28,7 @@ const DrawerList = [
     icon: "account-group",
     label: "Mechanic List",
     navigateTo: "Mechanics",
-    jobTitle: ["head of maintenance", "mechanic"],
+    jobTitle: ["head of maintenance"],
   },
   {
     icon: "account-circle",
@@ -143,7 +139,7 @@ function DrawerContent({ navigation }) {
                   }}
                   labelStyle={{ color: isActive ? "#fff" : "#777" }}
                   icon={({ color, size }) => (
-                    <Icon
+                    <MaterialCommunityIcons
                       name={
                         item.children
                           ? openMenu === item.label
@@ -203,7 +199,11 @@ function DrawerContent({ navigation }) {
         <DrawerItem
           style={{ borderRadius: 0 }}
           icon={({ color, size }) => (
-            <Icon name="exit-to-app" color={color} size={size} />
+            <MaterialCommunityIcons
+              name="exit-to-app"
+              color={color}
+              size={size}
+            />
           )}
           label="Log Out"
           onPress={() => setShowLogoutAlert(true)}

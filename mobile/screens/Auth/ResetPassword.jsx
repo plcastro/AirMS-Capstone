@@ -5,7 +5,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
@@ -70,7 +69,7 @@ export default function ResetPassword() {
   };
 
   const handleSubmit = async () => {
-    if (!token) return Alert.alert("Error", "Invalid or missing reset token.");
+    if (!token) return setError("Invalid or missing reset token.");
     if (!validatePasswords()) return;
 
     setLoading(true);
