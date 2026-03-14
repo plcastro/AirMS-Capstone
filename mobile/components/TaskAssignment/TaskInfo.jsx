@@ -9,6 +9,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     checklistItems: [
       "Inspect oil level",
       "Check spark plugs",
@@ -26,6 +28,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     checklistItems: [
       "Inspect struts",
       "Check hydraulic fluid",
@@ -42,6 +46,8 @@ const TaskInfo = [
     endDateTime: "2026-02-19 01:00 PM",
     priority: "Overdue",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     checklistItems: [
       "Test radios",
       "Check GPS navigation",
@@ -58,6 +64,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "3",
+    assignedToName: "Joe Bloggs",
     checklistItems: [
       "Inspect fuel tanks",
       "Check fuel lines",
@@ -74,6 +82,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     checklistItems: [
       "Remove old pump",
       "Install new pump",
@@ -91,6 +101,8 @@ const TaskInfo = [
     endDateTime: "2026-02-15 10:30 AM",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "4",
+    assignedToName: "Max Miller",
     checklistItems: [
       "Drain old oil",
       "Remove old filter",
@@ -108,6 +120,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "5",
+    assignedToName: "Liam Brown",
     checklistItems: [
       "Inspect brake pads",
       "Check brake fluid",
@@ -124,6 +138,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "6",
+    assignedToName: "Dilan Wolf",
     checklistItems: [
       "Check battery connections",
       "Inspect wiring harness",
@@ -140,6 +156,8 @@ const TaskInfo = [
     endDateTime: "2026-02-14 12:00 PM",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "7",
+    assignedToName: "Bob Rosfield",
     checklistItems: [
       "Remove propeller",
       "Mount on balancing machine",
@@ -156,6 +174,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     checklistItems: [
       "Seal cabin",
       "Pressurize system",
@@ -173,6 +193,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     checklistItems: ["Remove old bulb", "Install new bulb", "Test operation"],
   },
   {
@@ -185,6 +207,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "3",
+    assignedToName: "Joe Bloggs",
     checklistItems: [
       "Inspect hydraulic lines",
       "Check fluid level",
@@ -202,6 +226,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "4",
+    assignedToName: "Max Miller",
     checklistItems: [
       "Update navigation database",
       "Verify system functionality",
@@ -209,4 +235,5 @@ const TaskInfo = [
     ],
   },
 ];
+
 export default TaskInfo;

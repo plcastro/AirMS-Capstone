@@ -119,7 +119,7 @@ const DashboardLayout = () => {
 
         <Content
           style={{
-            minHeight: "100vh",
+            height: "100vh",
             background: "#efeeee",
             borderRadius: borderRadiusLG,
             padding: 24,
