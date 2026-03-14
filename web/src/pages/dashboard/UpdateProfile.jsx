@@ -253,7 +253,7 @@ export default function UpdateProfile({ visible, onClose }) {
       <Tabs activeKey={page} onChange={(key) => setPage(key)}>
         <TabPane tab="Profile" key="1">
           <Space
-            direction="vertical"
+            orientation="vertical"
             style={{ width: "100%", alignItems: "center" }}
           >
             <Avatar

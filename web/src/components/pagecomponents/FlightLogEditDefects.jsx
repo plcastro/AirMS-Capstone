@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Input, Button, Form } from "antd";
-import FlightLogApprove from "../MaintenanceLog/ApproveMaintenance";
-
+import FlightLogApprove from "./FlightLogApprove";
 export default function FlightLogEditDefects({
   visible,
   entry,
@@ -48,11 +47,11 @@ export default function FlightLogEditDefects({
       });
   };
 
-  const handleApproveConfirm = (username, password) => {
+  const handleApproveConfirm = (values) => {
     if (pendingUpdate) {
       const approvedUpdate = {
         ...pendingUpdate,
-        approvedBy: username,
+        ...values,
         approvedAt: new Date().toISOString(),
         status: "approved",
       };
@@ -66,7 +65,7 @@ export default function FlightLogEditDefects({
   return (
     <>
       <Modal
-        visible={visible}
+        open={visible}
         title="Edit Defect Entry"
         onCancel={onClose}
         footer={[
@@ -92,7 +91,7 @@ export default function FlightLogEditDefects({
           </Form.Item>
 
           <Form.Item
-            label="Description *"
+            label="Description"
             name="description"
             rules={[{ required: true, message: "Description is required" }]}
           >

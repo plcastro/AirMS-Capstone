@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import FlightLogApprove from "./FlightLogApprove";
-import "./FlightLogVerifyTechnical.css"; // your CSS file for styling
+import { Modal } from "antd";
 
 export default function FlightLogVerifyTechnical({
   visible,
@@ -307,7 +307,23 @@ export default function FlightLogVerifyTechnical({
   };
   const handleVorCheckSubmit = (vorCheckData) => {
     setShowVorCheckForm(false);
-    setShowFinalConfirm(true);
+
+    Modal.confirm({
+      title: "CONFIRM LOG",
+      content: "Are you sure you want to confirm this log?",
+      okText: "CONFIRM",
+      cancelText: "CANCEL",
+      onOk: () => {
+        const verifiedLog = {
+          ...entry,
+          status: "verified",
+          verifiedAt: new Date().toLocaleDateString(),
+          vorCheckData,
+        };
+        onApprove?.(verifiedLog);
+        onClose();
+      },
+    });
   };
   const handleVorCheckCancel = () => setShowVorCheckForm(false);
   const handleFinalConfirm = () => {
