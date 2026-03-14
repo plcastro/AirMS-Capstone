@@ -10,12 +10,23 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MechanicAssignment from "./MechanicAssignment";
+import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
+// Base mechanic data without status (will be calculated)
+const BASE_MECHANICS_DATA = [
+  { id: "1", name: "John Doe", avatar: null },
+  { id: "2", name: "Clara Bang", avatar: null },
+  { id: "3", name: "Joe Bloggs", avatar: null },
+  { id: "4", name: "Max Miller", avatar: null },
+  { id: "5", name: "Liam Brown", avatar: null },
+  { id: "6", name: "Dilan Wolf", avatar: null },
+  { id: "7", name: "Bob Rosfield", avatar: null },
+];
 // Mock data for mechanics (fallback)
 const MECHANICS_DATA = [
   { id: "1", name: "John Doe", status: "Available", avatar: null },
@@ -80,59 +91,81 @@ export default function MechanicList() {
     return status === "Available" ? "#34A853" : "#FF6B6B";
   };
 
-  const renderMechanicItem = ({ item }) => (
-    <TouchableOpacity
-      onPress={() => setSelectedMechanic(item)}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 15,
-        backgroundColor: "#fff",
-        borderRadius: 10,
-        marginBottom: 10,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-      }}
-    >
-      {/* Avatar Placeholder */}
-      <View
+  // Get task count for each mechanic
+  const getTaskCount = (mechanicId) => {
+    return tasks.filter(task => task.assignedTo === mechanicId).length;
+  };
+
+  const renderMechanicItem = ({ item }) => {
+    const taskCount = getTaskCount(item.id);
+    
+    return (
+      <TouchableOpacity
+        onPress={() => setSelectedMechanic(item)}
         style={{
-          width: 50,
-          height: 50,
-          borderRadius: 25,
-          backgroundColor: COLORS.primaryLight,
-          justifyContent: "center",
+          flexDirection: "row",
           alignItems: "center",
-          marginRight: 15,
+          padding: 15,
+          backgroundColor: "#fff",
+          borderRadius: 10,
+          marginBottom: 10,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 2,
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 20, fontWeight: "bold" }}>
-          {item.name.charAt(0)}
-        </Text>
-      </View>
+        {/* Avatar Placeholder */}
+        <View
+          style={{
+            width: 50,
+            height: 50,
+            borderRadius: 25,
+            backgroundColor: COLORS.primaryLight,
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 15,
+          }}
+        >
+          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "bold" }}>
+            {item.name.charAt(0)}
+          </Text>
+        </View>
 
-      {/* Mechanic Info */}
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 4 }}>
-          {item.name}
-        </Text>
-        <Text style={{ color: getStatusColor(item.status), fontWeight: "500" }}>
-          {item.status}
-        </Text>
-      </View>
+        {/* Mechanic Info */}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 4 }}>
+            {item.name}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: 4, 
+              backgroundColor: getStatusColor(item.status),
+              marginRight: 6 
+            }} />
+            <Text style={{ color: getStatusColor(item.status), fontWeight: "500", marginRight: 12 }}>
+              {item.status}
+            </Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
+              {taskCount} task{taskCount !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        </View>
 
-      {/* Arrow Icon */}
-      <Text style={{ fontSize: 20, color: COLORS.grayDark }}>›</Text>
-    </TouchableOpacity>
-  );
+        {/* Arrow Icon */}
+        <Text style={{ fontSize: 20, color: COLORS.grayDark }}>›</Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (selectedMechanic) {
     return (
       <MechanicAssignment
         mechanic={selectedMechanic}
+        tasks={tasks} // Pass tasks to MechanicAssignment
         onBack={() => setSelectedMechanic(null)}
       />
     );
@@ -141,6 +174,13 @@ export default function MechanicList() {
   // Otherwise show the list
   return (
     <View style={[styles.container, { paddingHorizontal: 15 }]}>
+      {/* Header */}
+      <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
+        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
+          Mechanics ({filteredMechanics.length})
+        </Text>
+      </View>
+
       {/* Search Bar */}
       <View
         style={{
