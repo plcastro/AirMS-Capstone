@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Input, Divider, Button, Tag } from "antd";
 import MLogTable from "../../../components/tables/MLogTable";
 import { PlusOutlined } from "@ant-design/icons";
+import MaintenanceEntryModal from "../../../components/pagecomponents/MaintenanceEntryModal";
+
 export default function MaintenanceLog() {
   const [allEntries, setAllEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
@@ -222,7 +224,12 @@ export default function MaintenanceLog() {
         >
           Maintenance History
         </Tag>
-        <Button type="primary" icon={<PlusOutlined />} style={{ width: 150 }}>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          style={{ width: 150 }}
+          onClick={() => setShowNewEntry(true)}
+        >
           New Entry
         </Button>
       </div>
@@ -231,6 +238,22 @@ export default function MaintenanceLog() {
         headers={headers}
         data={filteredEntries}
         onEditEntry={handleEditEntry}
+      />
+      <MaintenanceEntryModal
+        visible={showNewEntry}
+        entry={null}
+        onClose={() => setShowNewEntry(false)}
+        onSave={handleSaveNewEntry}
+      />
+
+      <MaintenanceEntryModal
+        visible={showEditEntry}
+        entry={selectedEntry}
+        onClose={() => {
+          setShowEditEntry(false);
+          setSelectedEntry(null);
+        }}
+        onSave={handleUpdateEntry}
       />
     </>
   );
