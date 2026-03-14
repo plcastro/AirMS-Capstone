@@ -343,7 +343,7 @@ export default function FlightLogVerifyTechnical({
             alignItems: "center",
           }}
         >
-          <strong>{field.label}:</strong>
+          {field.label ? <strong>{field.label}:</strong> : ""}
         </Col>
         <Col span={16}>
           <Input value={formData[field.key] ?? ""} readOnly />
