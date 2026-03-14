@@ -1,46 +1,57 @@
 import React from "react";
+import { Card, Row, Col } from "antd";
 
-import { Card } from "antd";
-import { AntDesignOutlined } from "@ant-design/icons";
+// Map card.icon keys to Google Material Symbols names
+const ICON_MAP = {
+  fuel: "local_gas_station",
+  oil: "oil_barrel",
+  "map-marker-distance": "distance",
+};
 
 export default function TechnicalSummaryCards({ cardData }) {
   return (
-    <div style={{ flexDirection: "row", marginBottom: 10 }}>
-      {cardData.map((card, i) => (
-        <Card
-          key={i}
-          style={{
-            backgroundColor: "#26866F",
-            borderRadius: 8,
-            padding: 7,
-            marginRight: 5,
-            alignItems: "center",
-            justifyContent: "center",
-            width: "30%",
-          }}
-        >
-          <p style={{ color: "#fff", fontSize: 14, textAlign: "center" }}>
-            {card.label}
-          </p>
-          <div
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 6,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={card.icon}
-              size={24}
-              color="#fff"
-              style={{ marginRight: 5 }}
-            />
-            <p style={{ color: "#fff", fontSize: 16, fontWeight: "500" }}>
-              {card.value}
-            </p>
-          </div>
-        </Card>
-      ))}
-    </div>
+    <Row gutter={[16, 16]} wrap={false} style={{ overflowX: "auto" }}>
+      {cardData.map((card, index) => {
+        const iconName = ICON_MAP[card.icon] || "";
+
+        return (
+          <Col key={index} flex="0 0 200px">
+            <Card
+              style={{
+                backgroundColor: "#26866F",
+                color: "#fff",
+                borderRadius: 8,
+                textAlign: "center",
+              }}
+              styles={{
+                body: {
+                  padding: "16px",
+                },
+              }}
+            >
+              <p style={{ fontSize: 16, marginBottom: 8 }}>{card.label}</p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: 24 }}
+                >
+                  {iconName}
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 500 }}>
+                  {card.value}
+                </span>
+              </div>
+            </Card>
+          </Col>
+        );
+      })}
+    </Row>
   );
 }

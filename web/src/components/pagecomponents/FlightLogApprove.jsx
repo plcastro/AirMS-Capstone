@@ -1,8 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, Form, Input, Button, Row, Col } from "antd";
 
-export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
+export default function FlightLogApprove({
+  visible,
+  entry,
+  onConfirm,
+  onCancel,
+}) {
   const [form] = Form.useForm();
+  useEffect(() => {
+    if (visible) {
+      form.setFieldsValue({
+        station: entry?.station || "",
+        frequency: entry?.frequency || "",
+        date: entry?.date || "",
+        vor1: entry?.vor1 || "",
+        vor2: entry?.vor2 || "",
+        dueNext: entry?.dueNext || "",
+        signature: "",
+        preFlightDate: "",
+        ap: "",
+        mmel: entry?.mmel || Array(6).fill(""),
+      });
+    }
+  }, [visible, entry, form]);
 
   const handleConfirm = () => {
     form
@@ -18,7 +39,7 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
   return (
     <Modal
       title="VOR Check & MMEL Verification"
-      visible={visible}
+      open={visible}
       onCancel={onCancel}
       width={720}
       okText="Confirm"

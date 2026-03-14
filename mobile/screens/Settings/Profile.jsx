@@ -20,6 +20,15 @@ export default function Profile() {
         : `${API_BASE}${image}`
       : `${API_BASE}/uploads/default_avatar.jpg`;
 
+  const capitalizeJobTitle = (jobTitle) => {
+    if (!jobTitle) return ""; // handle empty or undefined input
+
+    return jobTitle
+      .split(" ") // split by spaces
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // capitalize first letter
+      .join(" "); // join back into a string
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.profileCard}>
@@ -49,7 +58,8 @@ export default function Profile() {
               <Text style={{ fontWeight: "bold" }}>Username:</Text> {username}
             </Text>
             <Text>
-              <Text style={{ fontWeight: "bold" }}>Job Title:</Text> {jobTitle}
+              <Text style={{ fontWeight: "bold" }}>Job Title:</Text>{" "}
+              {capitalizeJobTitle(jobTitle)}
             </Text>
           </View>
           <Button

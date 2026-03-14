@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Input, Button, Row, Col } from "antd";
-import FlightLogApprove from "./FlightLogApprove"; // Your VOR check component
+import FlightLogApprove from "./FlightLogApprove";
 
 export default function FlightLogVerifyTechnical({
   visible,
@@ -299,18 +299,18 @@ export default function FlightLogVerifyTechnical({
     }
   }, [entry]);
 
-  const handleApprove = () => {
-    Modal.confirm({
-      title: "APPROVE LOG",
-      content: "Are you sure you want to approve this log?",
-      okText: "YES",
-      cancelText: "CANCEL",
-      onOk: () => setShowVorCheckForm(true),
-    });
+  const handleApprove = async () => {
+    // const result = Modal.confirm({
+    //   title: "APPROVE LOG",
+    //   content: "Are you sure you want to approve this log?",
+    //   okText: "YES",
+    //   cancelText: "CANCEL",
+    // });
+
+    setShowVorCheckForm(true);
   };
 
   const handleVorCheckSubmit = (vorCheckData) => {
-    setPendingVorCheckData(vorCheckData);
     setShowVorCheckForm(false);
 
     Modal.confirm({
@@ -323,10 +323,9 @@ export default function FlightLogVerifyTechnical({
           ...entry,
           status: "verified",
           verifiedAt: new Date().toLocaleDateString(),
-          vorCheckData: pendingVorCheckData,
+          vorCheckData,
         };
         onApprove?.(verifiedLog);
-        setPendingVorCheckData(null);
         onClose();
       },
     });
@@ -337,7 +336,13 @@ export default function FlightLogVerifyTechnical({
   const renderPage = (fields) =>
     fields.map((field) => (
       <Row key={field.key} style={{ marginBottom: 12 }}>
-        <Col span={8}>
+        <Col
+          span={8}
+          style={{
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
           <strong>{field.label}:</strong>
         </Col>
         <Col span={16}>
@@ -365,7 +370,12 @@ export default function FlightLogVerifyTechnical({
           >
             Previous
           </Button>
-          <span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
             Page {currentPage + 1} of {pages.length}
           </span>
           <Button

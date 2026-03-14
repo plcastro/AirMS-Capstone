@@ -18,6 +18,14 @@ export default function Profile() {
       ? user.image
       : `${API_BASE}${user.image}`;
   };
+  const capitalizeJobTitle = (jobTitle) => {
+    if (!jobTitle) return "";
+
+    return jobTitle
+      .split(" ") // split by spaces
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // capitalize first letter
+      .join(" ");
+  };
   return (
     <div
       style={{
@@ -69,7 +77,7 @@ export default function Profile() {
             <strong>Username:</strong> {user.username}
           </p>
           <p>
-            <strong>Job Title:</strong> {user.jobTitle}
+            <strong>Job Title:</strong> {capitalizeJobTitle(user.jobTitle)}
           </p>
         </Space>
 

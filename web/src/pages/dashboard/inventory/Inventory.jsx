@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from "react";
-import {
-  Input,
-  Button,
-  Space,
-  Table,
-  Tag,
-  message as AntMessage,
-  Tabs,
-  Modal,
-} from "antd";
-import {
-  EditComponent,
-  AddComponent,
-} from "../../../components/pagecomponents/InventoryEntryModal";
+import { Input, Button, Tabs, message as AntMessage } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
+import InventoryTable from "../../../components/tables/InventoryTable";
+import {
+  AddComponent,
+  EditComponent,
+} from "../../../components/pagecomponents/InventoryEntryModal";
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("Parts");
@@ -23,50 +16,14 @@ export default function Inventory() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [componentToEdit, setComponentToEdit] = useState(null);
 
-  // Sample data
-  // useEffect(() => {
-  //   const sampleData = [
-  //     {
-  //       id: 1,
-  //       partName: "Hydraulic Pump",
-  //       partLoc: "Hangar A - Shelf 1",
-  //       currQty: 3,
-  //       pricePerUnit: 2500,
-  //       partsConsumed: 500,
-  //       stockLevel: "Critical",
-  //     },
-  //     {
-  //       id: 2,
-  //       partName: "Landing Gear Tire",
-  //       partLoc: "Hangar B - Shelf 4",
-  //       currQty: 10,
-  //       pricePerUnit: 800,
-  //       partsConsumed: 1200,
-  //       stockLevel: "Adequate",
-  //     },
-  //     {
-  //       id: 3,
-  //       partName: "Avionics Display Unit",
-  //       partLoc: "Hangar C - Shelf 2",
-  //       currQty: 1,
-  //       pricePerUnit: 12000,
-  //       partsConsumed: 0,
-  //       stockLevel: "Low",
-  //     },
-  //   ];
-  //   setInventory(sampleData);
-  // }, []);
-
   const fetchComponents = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/component-inventory/components`);
-      console.log("Fetch response:", res);
       const data = await res.json();
-      console.log("Data received:", data);
-
       if (data.success) {
-        const formatted = data.data.map((item) => ({
+        const formatted = data.data.map((item, index) => ({
           id: item._id,
+          index: index + 1,
           partName: item.name,
           partLoc: item.source,
           currQty: item.quantity_in_stock,
@@ -74,13 +31,13 @@ export default function Inventory() {
           partsConsumed: item.partsConsumed || 0,
           stockLevel: item.status,
         }));
-
         setInventory(formatted);
       }
     } catch (error) {
       AntMessage.error("Failed to load components");
     }
   };
+
   useEffect(() => {
     fetchComponents();
   }, []);
@@ -91,15 +48,11 @@ export default function Inventory() {
         `${API_BASE}/api/component-inventory/add-component`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newComponent),
         },
       );
-
       const data = await res.json();
-
       if (data.success) {
         fetchComponents();
         setShowAddModal(false);
@@ -110,7 +63,7 @@ export default function Inventory() {
     }
   };
 
-  const handleEditClick = (component) => {
+  const handleEditComponent = (component) => {
     setComponentToEdit(component);
     setShowEditModal(true);
   };
@@ -121,15 +74,11 @@ export default function Inventory() {
         `${API_BASE}/api/component-inventory/update-component/${componentToEdit.id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedComponent),
         },
       );
-
       const data = await res.json();
-
       if (data.success) {
         fetchComponents();
         setShowEditModal(false);
@@ -141,101 +90,97 @@ export default function Inventory() {
     }
   };
 
-  const handleDeleteClick = (id) => {
-    Modal.confirm({
-      title: "Delete Component",
-      content: "Are you sure you want to delete this component?",
-      okText: "Yes, delete",
-      cancelText: "Cancel",
-      okType: "danger",
-      onOk: async () => {
-        try {
-          const res = await fetch(
-            `${API_BASE}/api/component-inventory/delete-component/${id}`,
-            {
-              method: "DELETE",
-            },
-          );
-
-          const data = await res.json();
-
-          if (data.success) {
-            fetchComponents();
-            AntMessage.success("Component deleted");
-          }
-        } catch (error) {
-          AntMessage.error("Delete failed");
-        }
-      },
-    });
+  const handleDeleteComponent = (id) => {
+    fetch(`${API_BASE}/api/component-inventory/delete-component/${id}`, {
+      method: "DELETE",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          fetchComponents();
+          AntMessage.success("Component deleted");
+        } else AntMessage.error("Delete failed");
+      })
+      .catch(() => AntMessage.error("Delete failed"));
   };
 
-  const columns = [
-    { title: "#", key: "index", render: (_, __, idx) => idx + 1, width: 50 },
-    { title: "Part Name", dataIndex: "partName", key: "partName" },
-    { title: "Part Location", dataIndex: "partLoc", key: "partLoc" },
-    { title: "Current Quantity", dataIndex: "currQty", key: "currQty" },
-    { title: "Price/Unit", dataIndex: "pricePerUnit", key: "pricePerUnit" },
-    {
-      title: "Parts Consumed",
-      dataIndex: "partsConsumed",
-      key: "partsConsumed",
-    },
-    {
-      title: "Stock Level",
-      dataIndex: "stockLevel",
-      key: "stockLevel",
-      render: (text) => {
-        let color = "green";
-        if (text.toLowerCase() === "critical") color = "red";
-        else if (text.toLowerCase() === "low") color = "orange";
-        return <Tag color={color}>{text}</Tag>;
-      },
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      render: (_, record) => (
-        <Space>
-          <Button type="primary" onClick={() => handleEditClick(record)}>
-            Edit
-          </Button>
-          <Button danger onClick={() => handleDeleteClick(record.id)}>
-            Delete
-          </Button>
-        </Space>
-      ),
-    },
-  ];
-
-  const filteredInventory = inventory.filter((item) =>
-    searchQuery
-      ? item.partName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.partLoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.stockLevel.toLowerCase().includes(searchQuery.toLowerCase())
-      : true,
+  const filteredInventory = inventory.filter(
+    (item) =>
+      !searchQuery ||
+      item.partName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.partLoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.stockLevel.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const headers = [
+    { label: "#", key: "index", numeric: true },
+    { label: "Part Name", key: "partName" },
+    { label: "Part Location", key: "partLoc" },
+    { label: "Current Quantity", key: "currQty", numeric: true },
+    { label: "Price/Unit", key: "pricePerUnit", numeric: true },
+    { label: "Parts Consumed", key: "partsConsumed", numeric: true },
+    { label: "Stock Level", key: "stockLevel" },
+    { label: "Actions", key: "actions" },
+  ];
+
   return (
-    <div style={{ justifyContent: "space-between" }}>
-      <Input
-        placeholder="Search by Part Name, Location, Stock Level..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        style={{ width: 300 }}
+    <div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
+        <Input
+          placeholder="Search by Part Name, Location, Stock Level..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ width: 300 }}
+        />
+        {activeTab === "Parts" && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Component
+          </Button>
+        )}
+      </div>
+
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: "Parts",
+            label: "Parts",
+            children: (
+              <InventoryTable
+                headers={headers}
+                data={filteredInventory}
+                onEditComponent={handleEditComponent}
+                onDeleteComponent={handleDeleteComponent}
+              />
+            ),
+          },
+          {
+            key: "Important",
+            label: "Important",
+            children: (
+              <InventoryTable
+                headers={headers}
+                data={filteredInventory.filter(
+                  (c) => c.stockLevel.toLowerCase() === "critical",
+                )}
+                onEditComponent={handleEditComponent}
+                onDeleteComponent={handleDeleteComponent}
+              />
+            ),
+          },
+        ]}
       />
-      {activeTab === "Parts" && (
-        <Button type="primary" onClick={() => setShowAddModal(true)}>
-          Add Component
-        </Button>
-      )}
-
-      <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <Tabs.TabPane tab="Parts" key="Parts" />
-        <Tabs.TabPane tab="Important" key="Important" />
-      </Tabs>
-
-      <Table rowKey="id" columns={columns} dataSource={filteredInventory} />
 
       <AddComponent
         visible={showAddModal}
