@@ -17,7 +17,7 @@ export default function MLogTable({
     // Action column
     if (header.key === "action") {
       return {
-        title: header.label,
+        title: header.title,
         key: header.key,
         width: columnWidths[header.key] || 140,
         align: "center",
@@ -37,7 +37,7 @@ export default function MLogTable({
     // Status column
     if (header.key === "status") {
       return {
-        title: header.label,
+        title: header.title,
         key: header.key,
         dataIndex: header.key,
         width: columnWidths[header.key] || 140,
@@ -52,7 +52,7 @@ export default function MLogTable({
 
     // Regular columns
     return {
-      title: header.label,
+      title: header.title,
       dataIndex: header.key,
       key: header.key,
       width: columnWidths[header.key] || 140,
@@ -80,7 +80,7 @@ export default function MLogTable({
     <Table
       columns={columns}
       dataSource={data}
-      rowKey={(record, index) => record.id || index}
+      rowKey={(record) => record.index}
       pagination={{
         current: currentPage,
         pageSize,

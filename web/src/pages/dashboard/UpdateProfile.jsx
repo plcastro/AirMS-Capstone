@@ -9,12 +9,11 @@ import {
   Space,
   message,
 } from "antd";
-import { UserOutlined, UploadOutlined } from "@ant-design/icons";
+import { UserOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
 const { Text } = Typography;
-const { TabPane } = Tabs;
 
 export default function UpdateProfile({ visible, onClose }) {
   const { user, setUser } = useContext(AuthContext);
@@ -100,7 +99,7 @@ export default function UpdateProfile({ visible, onClose }) {
     setFormData({ ...formData, [key]: value });
 
   const pickImage = (e) => {
-    const f = e.target.files[0];
+    const f = e.target.files?.[0];
     if (!f) return;
     setFile(f);
     setPreviewUri(URL.createObjectURL(f));
@@ -150,11 +149,9 @@ export default function UpdateProfile({ visible, onClose }) {
     try {
       let newImageUrl = user.image;
 
-      // 1️⃣ Update Image if changed
       if (file) {
         const form = new FormData();
         form.append("image", file);
-
         const res = await fetch(
           `${API_BASE}/api/user/updateUserImage/${user.id}`,
           {
@@ -165,7 +162,6 @@ export default function UpdateProfile({ visible, onClose }) {
             body: form,
           },
         );
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Image update failed");
 
@@ -174,7 +170,6 @@ export default function UpdateProfile({ visible, onClose }) {
           : `${API_BASE}${data.user.image}`;
       }
 
-      // 2️⃣ Update Name if changed
       const isNameChanged =
         formData.firstName.trim() !== user.firstName ||
         formData.lastName.trim() !== user.lastName;
@@ -200,7 +195,6 @@ export default function UpdateProfile({ visible, onClose }) {
           throw new Error(profileData.message || "Profile update failed");
       }
 
-      // 3️⃣ Update Password if changed
       const isPasswordChanged =
         currentPassword &&
         newPassword &&
@@ -225,7 +219,6 @@ export default function UpdateProfile({ visible, onClose }) {
           throw new Error(passData.message || "Password update failed");
       }
 
-      // 4️⃣ Update local user state
       setUser((prev) => ({
         ...prev,
         firstName: isNameChanged ? formData.firstName : prev.firstName,
@@ -250,86 +243,108 @@ export default function UpdateProfile({ visible, onClose }) {
       width={400}
       title="Update Profile"
     >
-      <Tabs activeKey={page} onChange={(key) => setPage(key)}>
-        <TabPane tab="Profile" key="1">
-          <Space
-            orientation="vertical"
-            style={{ width: "100%", alignItems: "center" }}
-          >
-            <Avatar
-              size={120}
-              src={previewUri}
-              icon={<UserOutlined />}
-              style={{ cursor: "pointer" }}
-              onClick={() => fileInputRef.current.click()}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={pickImage}
-            />
-            <Text type="secondary">Click avatar to change</Text>
-          </Space>
-        </TabPane>
-        <TabPane tab="Name" key="2">
-          <Space orientation="vertical" style={{ width: "100%" }}>
-            <Text>First Name</Text>
-            <Input
-              value={formData.firstName}
-              onChange={(e) => handleChange("firstName", e.target.value)}
-            />
-            {formErrors.firstName && (
-              <Text type="danger">{formErrors.firstName}</Text>
-            )}
+      <Tabs
+        activeKey={page}
+        onChange={(key) => setPage(key)}
+        items={[
+          {
+            key: "1",
+            label: "Profile",
+            children: (
+              <Space
+                orientation="vertical"
+                style={{ width: "100%", alignItems: "center" }}
+              >
+                <Avatar
+                  size={120}
+                  src={previewUri}
+                  icon={<UserOutlined />}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => fileInputRef.current.click()}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
+                  onChange={pickImage}
+                />
+                <Text type="secondary">Click avatar to change</Text>
+              </Space>
+            ),
+          },
+          {
+            key: "2",
+            label: "Name",
+            children: (
+              <Space orientation="vertical" style={{ width: "100%" }}>
+                <Text>First Name</Text>
+                <Input
+                  value={formData.firstName}
+                  onChange={(e) => handleChange("firstName", e.target.value)}
+                />
+                {formErrors.firstName && (
+                  <Text type="danger">{formErrors.firstName}</Text>
+                )}
 
-            <Text>Last Name</Text>
-            <Input
-              value={formData.lastName}
-              onChange={(e) => handleChange("lastName", e.target.value)}
-            />
-            {formErrors.lastName && (
-              <Text type="danger">{formErrors.lastName}</Text>
-            )}
-          </Space>
-        </TabPane>
-        <TabPane tab="Password" key="3">
-          <Space orientation="vertical" style={{ width: "100%" }}>
-            <Text>Current Password</Text>
-            <Input.Password
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-            <Text>New Password</Text>
-            <Input.Password
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-            <Text>Confirm Password</Text>
-            <Input.Password
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+                <Text>Last Name</Text>
+                <Input
+                  value={formData.lastName}
+                  onChange={(e) => handleChange("lastName", e.target.value)}
+                />
+                {formErrors.lastName && (
+                  <Text type="danger">{formErrors.lastName}</Text>
+                )}
+              </Space>
+            ),
+          },
+          {
+            key: "3",
+            label: "Password",
+            children: (
+              <Space orientation="vertical" style={{ width: "100%" }}>
+                <Text>Current Password</Text>
+                <Input.Password
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <Text>New Password</Text>
+                <Input.Password
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Text>Confirm Password</Text>
+                <Input.Password
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
 
-            <Text
-              type={passwordRequirements.minLength ? "success" : "secondary"}
-            >
-              ✓ At least 8 characters
-            </Text>
-            <Text
-              type={passwordRequirements.hasUppercase ? "success" : "secondary"}
-            >
-              ✓ One uppercase
-            </Text>
-            <Text
-              type={passwordRequirements.hasNumber ? "success" : "secondary"}
-            >
-              ✓ One number
-            </Text>
-          </Space>
-        </TabPane>
-      </Tabs>
+                <Text
+                  type={
+                    passwordRequirements.minLength ? "success" : "secondary"
+                  }
+                >
+                  ✓ At least 8 characters
+                </Text>
+                <Text
+                  type={
+                    passwordRequirements.hasUppercase ? "success" : "secondary"
+                  }
+                >
+                  ✓ One uppercase
+                </Text>
+                <Text
+                  type={
+                    passwordRequirements.hasNumber ? "success" : "secondary"
+                  }
+                >
+                  ✓ One number
+                </Text>
+              </Space>
+            ),
+          },
+        ]}
+      />
 
       <Space style={{ width: "100%", marginTop: 20 }} orientation="vertical">
         <Button
