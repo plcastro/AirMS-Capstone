@@ -44,7 +44,6 @@ export default function FlightLog() {
   ]);
 
   const [technicalLogData, setTechnicalLogData] = useState([]);
-
   // Technical summary cards
   const totalFuelPurchased = technicalLogData.reduce(
     (sum, log) => sum + (log.fuelPurchased || 0),
@@ -98,6 +97,74 @@ export default function FlightLog() {
     { title: "Description", dataIndex: "destination", key: "destination" },
     { title: "Action", key: "action" },
   ];
+
+  const tabItems = [];
+
+  if (user?.jobTitle === "pilot") {
+    tabItems.push(
+      {
+        key: "Defects",
+        label: "Defects",
+        children: (
+          <FLogTable
+            headers={Defheaders}
+            data={defectsData}
+            userJobTitle={user?.jobTitle}
+            onEditLog={(log) => handleEditLog(log, "Defects")}
+            onDeleteLog={(log) => handleDeleteLog(log, "Defects")}
+            onShowLog={(log) => handleShowLog(log, "Defects")}
+          />
+        ),
+      },
+      {
+        key: "TechnicalLog",
+        label: "Technical Log",
+        children: (
+          <>
+            <Row style={{ overflowX: "auto", marginBottom: 16 }}>
+              <TechnicalSummaryCards cardData={cardData} />
+            </Row>
+            <FLogTable
+              headers={TLheaders}
+              data={technicalLogData}
+              userJobTitle={user?.jobTitle}
+              onEditLog={(log) => handleEditLog(log, "TechnicalLog")}
+              onDeleteLog={(log) => handleDeleteLog(log, "TechnicalLog")}
+              onShowLog={(log) => handleShowLog(log, "TechnicalLog")}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              style={{ marginTop: 10 }}
+              onClick={() => setModalVisible(true)}
+            >
+              New Entry
+            </Button>
+          </>
+        ),
+      },
+    );
+  } else if (user?.jobTitle === "head of maintenance") {
+    tabItems.push({
+      key: "TechnicalLog",
+      label: "Technical Log",
+      children: (
+        <>
+          <Row style={{ overflowX: "auto", marginBottom: 16 }}>
+            <TechnicalSummaryCards cardData={cardData} />
+          </Row>
+          <FLogTable
+            headers={TLheaders}
+            data={technicalLogData}
+            userJobTitle={user?.jobTitle}
+            onEditLog={(log) => handleEditLog(log, "TechnicalLog")}
+            onDeleteLog={(log) => handleDeleteLog(log, "TechnicalLog")}
+            onShowLog={(log) => handleShowLog(log, "TechnicalLog")}
+          />
+        </>
+      ),
+    });
+  }
 
   const formatTime = (decimalTime) => {
     if (!decimalTime || decimalTime <= 0) return "---";
@@ -201,52 +268,8 @@ export default function FlightLog() {
       />
 
       <Tabs
-        defaultActiveKey="Defects"
-        items={[
-          {
-            key: "Defects",
-            label: "Defects",
-            children: (
-              <FLogTable
-                headers={Defheaders}
-                data={defectsData}
-                userJobTitle={user?.jobTitle}
-                onEditLog={(log) => handleEditLog(log, "Defects")}
-                onDeleteLog={(log) => handleDeleteLog(log, "Defects")}
-                onShowLog={(log) => handleShowLog(log, "Defects")}
-              />
-            ),
-          },
-          {
-            key: "TechnicalLog",
-            label: "Technical Log",
-            children: (
-              <>
-                <Row style={{ overflowX: "auto", marginBottom: 16 }}>
-                  <TechnicalSummaryCards cardData={cardData} />
-                </Row>
-                <FLogTable
-                  headers={TLheaders}
-                  data={technicalLogData}
-                  userJobTitle={user?.jobTitle}
-                  onEditLog={(log) => handleEditLog(log, "TechnicalLog")}
-                  onDeleteLog={(log) => handleDeleteLog(log, "TechnicalLog")}
-                  onShowLog={(log) => handleShowLog(log, "TechnicalLog")}
-                />
-                {user?.jobTitle === "pilot" && (
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    style={{ marginTop: 10 }}
-                    onClick={() => setModalVisible(true)}
-                  >
-                    New Entry
-                  </Button>
-                )}
-              </>
-            ),
-          },
-        ]}
+        defaultActiveKey={tabItems[0]?.key || "TechnicalLog"}
+        items={tabItems}
       />
 
       <FlightEntry

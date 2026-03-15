@@ -1,16 +1,28 @@
 import React, { useContext, useState } from "react";
-import { Card, Typography, Avatar, Button, Space } from "antd";
+import { Card, Typography, Avatar, Button } from "antd";
 import { UserOutlined } from "@ant-design/icons";
 
 import UpdateProfile from "./UpdateProfile";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const formatDate = (dateString) => {
+    if (!dateString) return "Never";
+    const date = new Date(dateString);
+    return date.toLocaleString("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  console.log(user.lastLogin);
   const getProfileImage = () => {
     if (!user.image) return null;
     // ensure we have the full URL
@@ -22,8 +34,8 @@ export default function Profile() {
     if (!jobTitle) return "";
 
     return jobTitle
-      .split(" ") // split by spaces
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // capitalize first letter
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
   };
   return (
@@ -62,10 +74,12 @@ export default function Profile() {
           />
         )}
 
-        <Space
-          orientation="vertical"
-          align="baseline"
-          style={{ width: "100%" }}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+          }}
         >
           <p>
             <strong>Name:</strong> {user.firstName} {user.lastName}
@@ -79,7 +93,10 @@ export default function Profile() {
           <p>
             <strong>Job Title:</strong> {capitalizeJobTitle(user.jobTitle)}
           </p>
-        </Space>
+          <p>
+            <strong>Last Login:</strong> {formatDate(user.lastLogin)}
+          </p>
+        </div>
 
         <Button
           type="primary"

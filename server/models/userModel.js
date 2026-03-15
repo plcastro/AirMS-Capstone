@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
   tempPasswordExpires: Date,
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
-
+  lastLogin: { type: Date, default: null },
   // --- PASSWORD RESET / OTP ---
   resetPasswordToken: String,
   resetPasswordExpires: Date,

@@ -15,10 +15,15 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 
 const deleteFile = (filePath) => {
-  const absolutePath = path.join(__dirname, "..", filePath);
-  fs.unlink(absolutePath, (err) => {
-    if (err) console.error(`Failed to delete file: ${absolutePath}`, err);
-    else console.log(`Successfully deleted file: ${absolutePath}`);
+  if (!filePath || filePath.includes("default_avatar")) return;
+
+  const absolutePath = path.join(__dirname, "..", filePath.replace(/^\//, ""));
+  fs.access(absolutePath, fs.constants.F_OK, (err) => {
+    if (err) return; // file doesn't exist
+    fs.unlink(absolutePath, (err) => {
+      if (err) console.error(`Failed to delete file: ${absolutePath}`, err);
+      else console.log(`Successfully deleted file: ${absolutePath}`);
+    });
   });
 };
 
@@ -123,6 +128,7 @@ const loginUser = async (req, res) => {
     user.failedLoginAttempts = 0;
     user.isLocked = false;
     user.lockUntil = undefined;
+    user.lastLogin = new Date();
     await user.save();
 
     // Generate JWT
@@ -149,6 +155,7 @@ const loginUser = async (req, res) => {
       jobTitle: user.jobTitle,
       status: user.status,
       image: user.image,
+      lastLogin: user.lastLogin,
     };
 
     return res.status(200).json({
@@ -462,15 +469,22 @@ const updateUserStatus = async (req, res) => {
 const updateUserImage = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!req.file)
+
+    // Make sure an image was uploaded
+    if (!req.file || !req.file.savedPath) {
       return res.status(400).json({ message: "No image file provided" });
+    }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.image) deleteFile(user.image);
+    // Delete old avatar if exists and is not default
+    if (user.image && !user.image.includes("default_avatar"))
+      deleteFile(user.image);
 
-    const newImagePath = `/uploads/${req.file.filename}`;
+    // Use the processed path from Sharp
+    const newImagePath = req.file.savedPath;
+
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { image: newImagePath },
@@ -482,14 +496,16 @@ const updateUserImage = async (req, res) => {
       updatedUser._id,
     );
 
-    res
-      .status(200)
-      .json({ message: "Avatar updated successfully", user: updatedUser });
+    res.status(200).json({
+      message: "Avatar updated successfully",
+      user: updatedUser,
+    });
   } catch (err) {
     console.error("Error updating avatar:", err);
     res.status(500).json({ message: "Failed to update avatar" });
   }
 };
+
 const updatePassword = async (req, res) => {
   try {
     const userId = req.params.id;

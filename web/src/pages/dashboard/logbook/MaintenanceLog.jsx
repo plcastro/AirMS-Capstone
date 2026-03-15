@@ -15,13 +15,13 @@ export default function MaintenanceLog() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const headers = [
-    { label: "Aircraft", key: "aircraft" },
-    { label: "Defects", key: "defects" },
-    { label: "Date Defect Discovered", key: "dateDefectDiscovered" },
-    { label: "Corrective Action Done", key: "correctiveActionDone" },
-    { label: "Date Defect Rectified", key: "dateDefectRectified" },
-    { label: "Action", key: "action" },
-    { label: "Status", key: "status" },
+    { title: "Aircraft", key: "aircraft" },
+    { title: "Defects", key: "defects" },
+    { title: "Date Defect Discovered", key: "dateDefectDiscovered" },
+    { title: "Corrective Action Done", key: "correctiveActionDone" },
+    { title: "Date Defect Rectified", key: "dateDefectRectified" },
+    { title: "Action", key: "action" },
+    { title: "Status", key: "status" },
   ];
 
   const mockData = [
