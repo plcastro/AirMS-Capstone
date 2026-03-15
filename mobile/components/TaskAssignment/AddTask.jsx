@@ -19,12 +19,6 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
-const inspections = [
-  { id: "inspection1", name: "150 Hours Inspection" },
-  { id: "inspection2", name: "300 Hours Inspection" },
-  { id: "inspection3", name: "12 Months Inspection" },
-];
-
 export default function AddTask({
   visible,
   onClose,
@@ -48,10 +42,13 @@ export default function AddTask({
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showDue1Picker, setShowDue1Picker] = useState(false);
   const [showDue2Picker, setShowDue2Picker] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [checklistItems, setChecklistItems] = useState([""]);
+  const [checklistItems, setChecklistItems] = useState([]);
 
   const [aircraftOptions, setAircraftOptions] = useState([]);
+
+  const [inspectionOptions, setInspectionOptions] = useState([]);
 
   // Update end date when start date changes (keep 1 hour later)
   useEffect(() => {
@@ -59,58 +56,85 @@ export default function AddTask({
     setEndDate(newEndDate);
   }, [startDate]);
 
-  // Fetch aircraft options
+  useEffect(() => {
+    setChecklistItems([]);
+    setInspectionOptions([]);
+    setInspectionType("");
+  }, [selectedAircraft]);
+
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
-        const response = await fetch(`${API_BASE}/aircraft/aircraft-tail-numbers`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch aircraft');
-        }
+        const response = await fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`);
+
+        if (!response.ok) throw new Error("Failed to fetch aircraft");
+
         const data = await response.json();
-        const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
+
+        const options = data.map(a => ({
+          id: a.tailNum,
+          name: a.tailNum
+        }));
+
         setAircraftOptions(options);
+
       } catch (error) {
-        console.error('Error fetching aircraft:', error);
+        console.error("Error fetching aircraft:", error);
       }
     };
+
     fetchAircraft();
   }, []);
 
-  // Add checklist items based on selected inspection type
   useEffect(() => {
-    if (inspectionType) {
-      let newItem = "";
-      switch (inspectionType) {
-        case "inspection1":
-          newItem = "Check engine oil levels";
-          break;
-        case "inspection2":
-          newItem = "Inspect landing gear";
-          break;
-        case "inspection3":
-          newItem = "Verify safety equipment";
-          break;
-        default:
-          return;
+
+    const fetchInspections = async () => {
+
+      if (!selectedAircraft) return;
+
+      try {
+
+        const response = await fetch(`${API_BASE}/api/inspections/schedules`);
+
+        if (!response.ok) throw new Error("Failed to fetch inspections");
+
+        const data = await response.json();
+
+        const options = data.map(i => ({
+          id: i._id,
+          name: i.inspectionName,
+          aircraftModel: i.aircraftModel
+        }));
+
+        setInspectionOptions(options);
+
+      } catch (error) {
+        console.error("Error fetching inspections:", error);
       }
-      // Add the item if it's not already in the list
-      setChecklistItems(prev => {
-        if (!prev.includes(newItem)) {
-          return [...prev, newItem];
-        }
-        return prev;
-      });
-    }
-  }, [inspectionType]);
+
+    };
+
+    fetchInspections();
+
+  }, [selectedAircraft]);
 
   const handleAddChecklistItem = () => {
-    setChecklistItems([...checklistItems, ""]);
+    setChecklistItems([
+      ...checklistItems,
+      {
+        taskId: "custom",
+        taskName: "",
+        inspectionTypeFull: "",
+      },
+    ]);
   };
 
   const handleUpdateChecklistItem = (index, text) => {
     const updated = [...checklistItems];
-    updated[index] = text;
+    updated[index] = {
+      ...updated[index],
+      taskName: text,
+    };
     setChecklistItems(updated);
   };
 
@@ -120,30 +144,48 @@ export default function AddTask({
   };
 
   const confirmAdd = () => {
-    const filteredChecklist = checklistItems.filter(
-      (item) => item.trim() !== "",
-    );
+  const filteredChecklist = checklistItems.filter(
+    (item) => item.taskName && item.taskName.trim() !== ""
+  );
 
-    const newTask = {
-      id: Date.now().toString(),
-      title: taskTitle,
-      aircraft: selectedAircraft,
-      dueDate: dueDate1.toISOString(),
-      startDateTime: startDate.toISOString(),
-      endDateTime: endDate.toISOString(),
-      status: "Pending",
-      priority: "Normal",
-      maintenanceType: "Corrective Maintenance",
-      assignedTo: selectedEmployee,
-      assignedToName:
-        employees.find((e) => e.id === selectedEmployee)?.name || "",
-      checklistItems:
-        filteredChecklist.length > 0
-          ? filteredChecklist
-          : ["New checklist item"],
-    };
-    onAddTask(newTask);
+  const newTask = {
+    id: Date.now().toString(),
+    title: inspectionOptions.find(i => i.id === inspectionType)?.name || "",
+    aircraft: selectedAircraft,
+    dueDate: dueDate1.toISOString(),
+    startDateTime: startDate.toISOString(),
+    endDateTime: endDate.toISOString(),
+    status: "Pending",
+    priority: "Normal",
+    maintenanceType: "LALALA",
+    assignedTo: selectedEmployee,
+    assignedToName: employees.find(e => e.id === selectedEmployee)?.name || "",
+    // checklistItems now holds full task documents
+    checklistItems: filteredChecklist.length > 0 ? filteredChecklist : [
+      {
+        inspectionName: "",
+        aircraftModel: selectedAircraftModel || "",
+        ata: { chapter: 0, chapterName: "", section: 0, sectionName: "" },
+        taskId: "custom",
+        taskName: "New checklist item",
+        component: "",
+        componentModel: "",
+        inspectionType: "",
+        inspectionTypeFull: "",
+        documentation: "",
+        description: "",
+        correctiveAction: "",
+        environmentalCondition: "",
+        engineModel: "",
+        conditions: { modificationStatus: "", modificationNumbers: [], effectivity: [] },
+        interval: { flightHours: 0, calendarMonths: 0, specificInterval: "" },
+        tailNumber: selectedAircraft,
+      }
+    ],
   };
+
+  onAddTask(newTask);
+};
 
   const confirmDiscard = () => {
     onClose();
@@ -207,7 +249,6 @@ export default function AddTask({
           ]}
         >
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Task Section */}
             <Text
               style={[
                 styles.alertTitle,
@@ -216,28 +257,6 @@ export default function AddTask({
             >
               Task
             </Text>
-
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Inspection
-            </Text>
-
-            <Picker
-                selectedValue={inspectionType}
-                onValueChange={(itemValue) => setInspectionType(itemValue)}
-                style={{ height: 40 , marginBottom: 15}}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item label="Pick Inspection" value="" />
-                {inspections.map((inspection) => (
-                  <Picker.Item
-                    key={inspection.id}
-                    label={inspection.name}
-                    value={inspection.id}
-                  />
-                ))}
-              </Picker>
 
             {/* Aircraft Section */}
             <Text
@@ -264,16 +283,57 @@ export default function AddTask({
                 style={{ height: 40 }}
                 dropdownIconColor={COLORS.primaryLight}
               >
-                <Picker.Item label="Tail No." value="" />
+                <Picker.Item key="placeholder-aircraft" label="Tail No." value="" />
                 {aircraftOptions.map((aircraft) => (
-                  <Picker.Item
-                    key={aircraft.id}
-                    label={aircraft.name}
-                    value={aircraft.id}
-                  />
+                  <Picker.Item key={aircraft.id} label={aircraft.name} value={aircraft.id} />
                 ))}
               </Picker>
             </View>
+
+            {/* Inspection Section */}
+            <Text
+              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+            >
+              Inspection
+            </Text>
+
+            <Picker
+              selectedValue={inspectionType}
+              onValueChange={async (itemValue) => {
+
+                setInspectionType(itemValue);
+
+                const selectedInspection = inspectionOptions.find(
+                  (i) => i.id === itemValue
+                );
+
+                if (!selectedInspection) return;
+                try {
+
+                  const response = await fetch(
+                    `${API_BASE}/api/inspections/tasks?tailNumber=${selectedAircraft}&inspectionName=${selectedInspection.name}`
+                  );
+
+                  if (!response.ok) {
+                    throw new Error("Failed to fetch tasks");
+                  }
+
+                  const tasks = await response.json();
+
+                  setChecklistItems(tasks);
+
+                } catch (error) {
+                  console.error("Error fetching tasks:", error);
+                }
+              }}
+              style={{ height: 40, marginBottom: 15 }}
+            >
+              <Picker.Item key="placeholder-inspection" label="Pick Inspection" value="" />
+              {inspectionOptions.map((inspection) => (
+                <Picker.Item key={inspection.id} label={inspection.name} value={inspection.id} />
+              ))}
+            </Picker>
+
 
             {/* Mechanic Section */}
             <Text
@@ -300,7 +360,7 @@ export default function AddTask({
                 style={{ height: 40 }}
                 dropdownIconColor={COLORS.primaryLight}
               >
-                <Picker.Item label="Pick Mechanic" value="" />
+                <Picker.Item key="placeholder-mechanic" label="Pick Mechanic" value="" />
                 {employees.map((emp) => (
                   <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
                 ))}
@@ -375,71 +435,35 @@ export default function AddTask({
             </Text>
 
             {checklistItems.map((item, index) => (
-              <View key={index} style={{ marginBottom: 12 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}
-                >
-                  <CheckBox
-                    value={false}
-                    onValueChange={() => {}}
-                    disabled={true}
-                    checkboxColor="#ccc"
-                  />
-                  <View
-                    style={{ flexDirection: "column", justifyContent: "space-evenly", alignItems: "flex-start", gap: 8 }}
-                  >
-                    <Text
-                      style={{
-                        color: "black",
-                        fontSize: 18,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ×
-                    </Text>
+
+              <View key={index} style={{ flexDirection: "row", marginTop: 10 }}>
+
+                <CheckBox value={false} disabled={true} />
+
+                <View style={{ flex: 1, marginLeft: 10 }}>
+
+                  <Text style={{ fontSize: 12, color: "#888" }}>
+                    {item.taskId} • {item.inspectionTypeFull}
+                  </Text>
+
                   <TextInput
-                    style={{
-                      flex: 1,
-                      padding: 4,
-                      borderBottomWidth: 1,
-                      borderBottomColor: COLORS.border,
-                      fontSize: 14,
-                    }}
-                    value={item}
-                    onChangeText={(text) =>
-                      handleUpdateChecklistItem(index, text)
-                    }
-                    placeholder="Checklist task"
-                    placeholderTextColor={COLORS.grayDark}
+                    style={{ borderBottomWidth: 1 }}
+                    value={item.taskName}
+                    onChangeText={(text) => handleUpdateChecklistItem(index, text)}
                   />
-                  <TouchableOpacity
-                    onPress={() => handleDeleteChecklistItem(index)}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 4,
-                      backgroundColor: COLORS.dangerBg,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: COLORS.dangerBorder,
-                        fontSize: 18,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ×
-                    </Text>
-                  </TouchableOpacity>
-                  </View>
+
                 </View>
+
+                <TouchableOpacity onPress={() => handleDeleteChecklistItem(index)}>
+                  <Text style={{ color: "red", fontSize: 18 }}>×</Text>
+                </TouchableOpacity>
+
               </View>
+
             ))}
 
             {/* Add Checklist Button */}
-            <TouchableOpacity
+            {/*<TouchableOpacity
               onPress={handleAddChecklistItem}
               style={{
                 flexDirection: "row",
@@ -460,7 +484,7 @@ export default function AddTask({
               <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
                 Add Checklist
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity>*/}
           </ScrollView>
 
           {/* Buttons */}

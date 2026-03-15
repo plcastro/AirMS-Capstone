@@ -415,7 +415,7 @@ export default function TaskChecklist({
                 return (
                   <View key={index} style={{ marginBottom: 10 }}>
                     <CheckBox
-                      title={item}
+                      title={item.taskName}
                       value={checklistState[index]}
                       onValueChange={() => toggleItem(index)}
                       checkboxStyle={styles.checkBox}

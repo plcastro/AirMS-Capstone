@@ -12,6 +12,7 @@ const technicalLogRoutes = require("./routes/technicalLogRoute");
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
 const taskRoutes = require("./routes/taskRoute");
+const inspectionRoutes = require("./routes/inspectionRoute");
 const sendEmail = require("./utilities/sendEmail");
 const app = express();
 
@@ -29,8 +30,9 @@ app.use("/api/defect-logs", defectLogRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
 app.use("/api/technical-logs", technicalLogRoutes);
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
-app.use("/aircraft", aircraftRoutes);
+app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/inspections", inspectionRoutes);
 app.use("/uploads", express.static("uploads"));
 
 const PORT = process.env.PORT || 8000;

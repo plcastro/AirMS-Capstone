@@ -59,7 +59,7 @@ export default function MechanicTaskScreen() {
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
-        const response = await fetch(`${API_BASE}/aircraft/aircraft-tail-numbers`);
+        const response = await fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`);
         if (response.ok) {
           const data = await response.json();
           const options = [
