@@ -18,12 +18,6 @@
   gap: 16px;
 }
 
-.add-aircraft-btn {
-  background-color: #008a70 !important;
-  border-color: #008a70 !important;
-  border-radius: 8px !important;
-}
-
 .search-input {
   width: 320px;
   border-radius: 10px !important;
