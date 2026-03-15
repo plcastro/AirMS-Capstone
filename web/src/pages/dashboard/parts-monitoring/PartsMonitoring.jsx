@@ -1,5 +1,14 @@
 import React from "react";
-import { Row, Col, Typography, Select, Button, Input, Card } from "antd";
+import {
+  Row,
+  Col,
+  Typography,
+  Select,
+  Button,
+  Input,
+  Card,
+  Divider,
+} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 import "./PartsMonitoring.css";
@@ -315,6 +324,14 @@ export default function PartsMonitoring() {
       <Row justify="space-between" align="middle" className="header-row">
         <Col>
           <div className="header-left">
+            <Input
+              placeholder="Search..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="search-input"
+              allowClear
+            />
             <Select
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
@@ -327,18 +344,9 @@ export default function PartsMonitoring() {
             </Button>
           </div>
         </Col>
-        <Col>
-          <Input
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className="search-input"
-            allowClear
-          />
-        </Col>
+        <Col></Col>
       </Row>
-
+      <Divider />
       {/* Info Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
         <Col span={6}>

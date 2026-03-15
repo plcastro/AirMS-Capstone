@@ -196,7 +196,7 @@ export default function MaintenanceLog() {
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
       />
-      <hr color="#d8d8d8" />
+      <Divider />
       <div
         style={{
           display: "flex",
