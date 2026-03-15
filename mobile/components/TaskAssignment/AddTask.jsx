@@ -19,6 +19,12 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
+const inspections = [
+  { id: "inspection1", name: "150 Hours Inspection" },
+  { id: "inspection2", name: "300 Hours Inspection" },
+  { id: "inspection3", name: "12 Months Inspection" },
+];
+
 export default function AddTask({
   visible,
   onClose,
@@ -29,6 +35,7 @@ export default function AddTask({
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [inspectionType, setInspectionType] = useState("");
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(
@@ -69,6 +76,33 @@ export default function AddTask({
     };
     fetchAircraft();
   }, []);
+
+  // Add checklist items based on selected inspection type
+  useEffect(() => {
+    if (inspectionType) {
+      let newItem = "";
+      switch (inspectionType) {
+        case "inspection1":
+          newItem = "Check engine oil levels";
+          break;
+        case "inspection2":
+          newItem = "Inspect landing gear";
+          break;
+        case "inspection3":
+          newItem = "Verify safety equipment";
+          break;
+        default:
+          return;
+      }
+      // Add the item if it's not already in the list
+      setChecklistItems(prev => {
+        if (!prev.includes(newItem)) {
+          return [...prev, newItem];
+        }
+        return prev;
+      });
+    }
+  }, [inspectionType]);
 
   const handleAddChecklistItem = () => {
     setChecklistItems([...checklistItems, ""]);
@@ -183,21 +217,27 @@ export default function AddTask({
               Task
             </Text>
 
-            <TextInput
-              style={[
-                styles.formInput,
-                {
-                  borderRadius: 8,
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  paddingHorizontal: 12,
-                },
-              ]}
-              placeholder="Maintenance Task Title"
-              placeholderTextColor={COLORS.grayDark}
-              value={taskTitle}
-              onChangeText={setTaskTitle}
-            />
+            <Text
+              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+            >
+              Inspection
+            </Text>
+
+            <Picker
+                selectedValue={inspectionType}
+                onValueChange={(itemValue) => setInspectionType(itemValue)}
+                style={{ height: 40 , marginBottom: 15}}
+                dropdownIconColor={COLORS.primaryLight}
+              >
+                <Picker.Item label="Pick Inspection" value="" />
+                {inspections.map((inspection) => (
+                  <Picker.Item
+                    key={inspection.id}
+                    label={inspection.name}
+                    value={inspection.id}
+                  />
+                ))}
+              </Picker>
 
             {/* Aircraft Section */}
             <Text
@@ -337,7 +377,7 @@ export default function AddTask({
             {checklistItems.map((item, index) => (
               <View key={index} style={{ marginBottom: 12 }}>
                 <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                  style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}
                 >
                   <CheckBox
                     value={false}
@@ -345,6 +385,18 @@ export default function AddTask({
                     disabled={true}
                     checkboxColor="#ccc"
                   />
+                  <View
+                    style={{ flexDirection: "column", justifyContent: "space-evenly", alignItems: "flex-start", gap: 8 }}
+                  >
+                    <Text
+                      style={{
+                        color: "black",
+                        fontSize: 18,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ×
+                    </Text>
                   <TextInput
                     style={{
                       flex: 1,
@@ -381,6 +433,7 @@ export default function AddTask({
                       ×
                     </Text>
                   </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             ))}
