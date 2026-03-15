@@ -86,27 +86,42 @@ export default function MechanicAssignment({ mechanic, onBack }) {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Ongoing":
-        return "#c79d28";
-      case "Pending":
-        return "#1E88E5";
-      case "Completed":
-        return "#34A853";
-      default:
-        return "gray";
+  // Calculate overdue time (days or hours)
+  const calculateOverdueTime = (dueDate) => {
+    const now = new Date();
+    const due = new Date(dueDate);
+    const diffMs = now - due;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 24) {
+      return `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+    } else {
+      return `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
     }
   };
 
+  // Format date
   const formatDate = (dateString) => {
+    if (!dateString) return "Not set";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
+    return date.toLocaleDateString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit',
+      year: 'numeric'
     });
   };
+
+  // Format due time
+  const formatDueTime = (dueDate) => {
+    const date = new Date(dueDate);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
 
   const renderTaskItem = ({ item }) => (
     <TouchableOpacity
@@ -231,24 +246,26 @@ export default function MechanicAssignment({ mechanic, onBack }) {
 
       <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
         <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          Assigned Tasks
+          Assigned Tasks ({assignedTasks.length})
         </Text>
       </View>
 
       {/* Tasks List */}
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTaskItem}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              {loading ? "Loading tasks..." : "No tasks assigned to this mechanic"}
-            </Text>
-          </View>
-        }
-      />
+      <View style={styles.taskTable}>
+        <FlatList
+          data={assignedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTaskItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+                No tasks assigned to this mechanic
+              </Text>
+            </View>
+          }
+        />
+      </View>
     </View>
   );
 }
