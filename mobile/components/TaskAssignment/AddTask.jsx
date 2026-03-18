@@ -34,7 +34,7 @@ export default function AddTask({
   const [endDate, setEndDate] = useState(
     new Date(new Date().getTime() + 60 * 60 * 1000),
   ); // 1 hour later
-  const [dueDate1, setDueDate1] = useState(new Date());
+  const [dueDate1, setDueDate1] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000)); // Tomorrow
   const [dueDate2, setDueDate2] = useState(new Date());
 
   const [showStartPicker, setShowStartPicker] = useState(false);

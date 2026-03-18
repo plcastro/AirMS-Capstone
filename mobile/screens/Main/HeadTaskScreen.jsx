@@ -1,5 +1,13 @@
-import React, { useState } from "react";
-import { View, TextInput, FlatList, Text, Dimensions } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  TextInput,
+  FlatList,
+  Text,
+  Dimensions,
+  Alert,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
 import AddTask from "../../components/TaskAssignment/AddTask";
@@ -7,10 +15,11 @@ import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import TaskInfo from "../../components/TaskAssignment/TaskInfo";
+import { API_BASE } from "../../utilities/API_BASE";
 const { width } = Dimensions.get("window");
 
-export default function HeadTaskScreen({ employees = [], taskOptions = [] }) {
-  const [tasks, setTasks] = useState(TaskInfo);
+export default function HeadTaskScreen({ taskOptions = [] }) {
+  const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
   const [checklistVisible, setChecklistVisible] = useState(false);
@@ -18,6 +27,60 @@ export default function HeadTaskScreen({ employees = [], taskOptions = [] }) {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const tabs = ["Assigned", "To Be Reviewed", "Reviewed"];
+  const [employees, setEmployees] = useState([]);
+
+  // Fetch tasks on mount
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTasks(data.data || []);
+        } else {
+          console.error("Failed to fetch tasks");
+        }
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+      }
+    };
+    fetchTasks();
+  }, []);
+
+  // Fetch employees (mechanics)
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const mechanics = data.data.filter(
+            (user) => user.jobTitle === "Mechanic" && user.status === "active",
+          );
+          const mappedEmployees = mechanics.map((user) => ({
+            id: user._id,
+            name: `${user.firstName} ${user.lastName}`,
+          }));
+          setEmployees(mappedEmployees);
+        } else {
+          console.error("Failed to fetch employees");
+        }
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   const filteredTasks = tasks.filter((task) => {
     if (
@@ -65,25 +128,83 @@ export default function HeadTaskScreen({ employees = [], taskOptions = [] }) {
     setChecklistVisible(true);
   };
 
-  const handleAddTask = (newTask) => {
-    setTasks([...tasks, newTask]);
-    setAddModalVisible(false);
+  const handleAddTask = async (newTask) => {
+    console.log("Adding task:", newTask);
+    try {
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newTask),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Task added:", data.data);
+        setTasks([...tasks, data.data]);
+        setAddModalVisible(false);
+      } else {
+        const errorData = await response.json();
+        console.error("Failed to add task:", errorData);
+        Alert.alert("Error", "Failed to add task");
+      }
+    } catch (error) {
+      console.error("Error adding task:", error);
+      Alert.alert("Error", "Failed to add task");
+    }
   };
 
-  const handleEditTask = (updatedTask) => {
-    const updatedTasks = tasks.map((t) =>
-      t.id === updatedTask.id ? updatedTask : t,
-    );
-    setTasks(updatedTasks);
-    setEditModalVisible(false);
+  const handleEditTask = async (updatedTask) => {
+    try {
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/${updatedTask.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedTask),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const updatedTasks = tasks.map((t) =>
+          t.id === updatedTask.id ? data.data : t,
+        );
+        setTasks(updatedTasks);
+        setEditModalVisible(false);
+      } else {
+        Alert.alert("Error", "Failed to update task");
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
+      Alert.alert("Error", "Failed to update task");
+    }
   };
 
-  const handleDeleteTask = (taskId) => {
-    const updatedTasks = tasks.filter((t) => t.id !== taskId);
-    setTasks(updatedTasks);
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const updatedTasks = tasks.filter((t) => t.id !== taskId);
+        setTasks(updatedTasks);
+      } else {
+        Alert.alert("Error", "Failed to delete task");
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      Alert.alert("Error", "Failed to delete task");
+    }
   };
 
-  const handleApproveTask = (task, approveData) => {
+  const handleApproveTask = async (task, approveData) => {
     const now = new Date();
     const formattedDate = now.toLocaleDateString("en-US", {
       month: "short",
@@ -96,36 +217,72 @@ export default function HeadTaskScreen({ employees = [], taskOptions = [] }) {
       hour12: true,
     });
 
-    const updatedTasks = tasks.map((t) => {
-      if (t.id === task.id) {
-        return {
-          ...t,
-          status: "Approved",
-          isApproved: true,
-          approvedBy: approveData?.signature || "You",
-          approvedDate: `${formattedDate} at ${formattedTime}`,
-        };
+    const updatedTask = {
+      ...task,
+      status: "Approved",
+      isApproved: true,
+      approvedBy: approveData?.signature || "You",
+      approvedDate: `${formattedDate} at ${formattedTime}`,
+    };
+
+    try {
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedTask),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const updatedTasks = tasks.map((t) =>
+          t.id === task.id ? data.data : t,
+        );
+        setTasks(updatedTasks);
+      } else {
+        Alert.alert("Error", "Failed to approve task");
       }
-      return t;
-    });
-    setTasks(updatedTasks);
+    } catch (error) {
+      console.error("Error approving task:", error);
+      Alert.alert("Error", "Failed to approve task");
+    }
   };
 
-  const handleReturnTask = (task, returnData) => {
-    const updatedTasks = tasks.map((t) => {
-      if (t.id === task.id) {
-        return {
-          ...t,
-          status: "Returned",
-          returnComments: returnData?.comments || "Please revise findings",
-          returnedBy: returnData?.signature || "Head Mechanic",
-          returnedDate: new Date().toISOString(),
-          isApproved: false,
-        };
+  const handleReturnTask = async (task, returnData) => {
+    const updatedTask = {
+      ...task,
+      status: "Returned",
+      returnComments: returnData?.comments || "Please revise findings",
+      returnedBy: returnData?.signature || "Head Mechanic",
+      returnedDate: new Date().toISOString(),
+      isApproved: false,
+    };
+
+    try {
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedTask),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const updatedTasks = tasks.map((t) =>
+          t.id === task.id ? data.data : t,
+        );
+        setTasks(updatedTasks);
+      } else {
+        Alert.alert("Error", "Failed to return task");
       }
-      return t;
-    });
-    setTasks(updatedTasks);
+    } catch (error) {
+      console.error("Error returning task:", error);
+      Alert.alert("Error", "Failed to return task");
+    }
   };
 
   const renderTask = ({ item }) => {
@@ -174,7 +331,7 @@ export default function HeadTaskScreen({ employees = [], taskOptions = [] }) {
         <TextInput
           placeholder="Search tasks"
           placeholderTextColor="gray"
-          style={[styles.searchInput, { flex: 1 }]}
+          style={[styles.searchInput, { flex: 1, backgroundColor: "#ffffff" }]}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />

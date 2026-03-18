@@ -1,5 +1,14 @@
 import React from "react";
-import { Row, Col, Typography, Select, Button, Input, Card } from "antd";
+import {
+  Row,
+  Col,
+  Typography,
+  Select,
+  Button,
+  Input,
+  Card,
+  Divider,
+} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 import "./PartsMonitoring.css";
@@ -9,7 +18,8 @@ const { Option } = Select;
 
 const columnHeader = [
   {
-    title: "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
+    title:
+      "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
     dataIndex: "componentName",
     key: "componentName",
     width: 300,
@@ -314,59 +324,94 @@ export default function PartsMonitoring() {
       <Row justify="space-between" align="middle" className="header-row">
         <Col>
           <div className="header-left">
-            <Select 
+            <Input
+              placeholder="Search..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="search-input"
+              allowClear
+            />
+            <Select
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
               style={{ width: 180 }}
             >
               <Option value="RP-C8912">RP-C8912</Option>
             </Select>
-            <Button type="primary" icon={<PlusOutlined />} className="add-aircraft-btn">
+            <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
             </Button>
           </div>
         </Col>
-        <Col>
-          <Input
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className="search-input"
-            allowClear
-          />
-        </Col>
+        <Col></Col>
       </Row>
-
+      <Divider />
       {/* Info Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
         <Col span={6}>
           <Card className="aircraft-card">
             <div className="card-content">
-              <div className="info-item"><Text className="info-label">Aircraft: </Text><Text className="info-value">RP-C8912</Text></div>
-              <div className="info-item"><Text className="info-label">Date Manufactured: </Text><Text className="info-value">DEC 18, 2020</Text></div>
-              <div className="info-item"><Text className="info-label">Acft. Type: </Text><Text className="info-value">AS350B3 SN: 8904</Text></div>
-              <div><Text className="info-label">Creep Damage: </Text><Text className="info-value">0.6%</Text></div>
+              <div className="info-item">
+                <Text className="info-label">Aircraft: </Text>
+                <Text className="info-value">RP-C8912</Text>
+              </div>
+              <div className="info-item">
+                <Text className="info-label">Date Manufactured: </Text>
+                <Text className="info-value">DEC 18, 2020</Text>
+              </div>
+              <div className="info-item">
+                <Text className="info-label">Acft. Type: </Text>
+                <Text className="info-value">AS350B3 SN: 8904</Text>
+              </div>
+              <div>
+                <Text className="info-label">Creep Damage: </Text>
+                <Text className="info-value">0.6%</Text>
+              </div>
             </div>
           </Card>
         </Col>
         <Col span={18}>
           <Card className="aircraft-card">
             <div className="input-row">
-              <div className="input-group"><Text className="card-input-label">Engine Cycle:</Text><Input size="small" className="card-input-field" /></div>
-              <div className="input-group"><Text className="card-input-label">Date:</Text><Input size="small" className="card-input-field" /></div>
+              <div className="input-group">
+                <Text className="card-input-label">Engine Cycle:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
+              <div className="input-group">
+                <Text className="card-input-label">Date:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
             </div>
             <div className="input-row">
-              <div className="input-group"><Text className="card-input-label">N1:</Text><Input size="small" className="card-input-field" /></div>
-              <div className="input-group"><Text className="card-input-label">Eng. TT:</Text><Input size="small" className="card-input-field" /></div>
+              <div className="input-group">
+                <Text className="card-input-label">N1:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
+              <div className="input-group">
+                <Text className="card-input-label">Eng. TT:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
             </div>
             <div className="input-row">
-              <div className="input-group"><Text className="card-input-label">N2:</Text><Input size="small" className="card-input-field" /></div>
-              <div className="input-group"><Text className="card-input-label">Acft. TT:</Text><Input size="small" className="card-input-field" /></div>
+              <div className="input-group">
+                <Text className="card-input-label">N2:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
+              <div className="input-group">
+                <Text className="card-input-label">Acft. TT:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
             </div>
             <div className="input-row">
-              <div className="input-group"><Text className="card-input-label">Landings:</Text><Input size="small" className="card-input-field" /></div>
-              <div className="input-group"><Text className="card-input-label">Sling:</Text><Input size="small" className="card-input-field" /></div>
+              <div className="input-group">
+                <Text className="card-input-label">Landings:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
+              <div className="input-group">
+                <Text className="card-input-label">Sling:</Text>
+                <Input size="small" className="card-input-field" />
+              </div>
             </div>
           </Card>
         </Col>
@@ -377,22 +422,34 @@ export default function PartsMonitoring() {
         <div className="legend-container">
           <Text className="note-title">NOTE:</Text>
           <div className="legend-grid">
-            <div className="legend-item"><Text strong>OC</Text> - ON CONDITION</div>
-            <div className="legend-item"><Text strong>H</Text> - HOURS</div>
-            <div className="legend-item"><Text strong>D</Text> - DAY</div>
-            <div className="legend-item"><span className="status-box status-removed" /><Text>- REMOVED</Text></div>
-            <div className="legend-item"><span className="status-box status-installed" /><Text>- INSTALLED</Text></div>
+            <div className="legend-item">
+              <Text strong>OC</Text> - ON CONDITION
+            </div>
+            <div className="legend-item">
+              <Text strong>H</Text> - HOURS
+            </div>
+            <div className="legend-item">
+              <Text strong>D</Text> - DAY
+            </div>
+            <div className="legend-item">
+              <span className="status-box status-removed" />
+              <Text>- REMOVED</Text>
+            </div>
+            <div className="legend-item">
+              <span className="status-box status-installed" />
+              <Text>- INSTALLED</Text>
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Table Section */}
       <div className="table-container">
-        <PMonitoringTable 
-          headers={columnHeader} 
-          data={data} 
+        <PMonitoringTable
+          headers={columnHeader}
+          data={data}
           loading={false}
-          scroll={{ x: 1500 }} 
+          scroll={{ x: 1500 }}
         />
       </div>
     </div>

@@ -45,6 +45,24 @@ export default function MechanicList() {
     status: getMechanicStatus(mechanic.id)
   }));
 
+  // Use tasks from TaskInfo
+  const tasks = TaskInfo;
+
+  // Calculate mechanic status based on task count
+  const getMechanicStatus = (mechanicId) => {
+    const taskCount = tasks.filter(
+      (task) => task.assignedTo === mechanicId,
+    ).length;
+    // Busy if 3 or more tasks, Available if 0-2 tasks
+    return taskCount >= 3 ? "Busy" : "Available";
+  };
+
+  // Build mechanics data with dynamic status
+  const MECHANICS_DATA = BASE_MECHANICS_DATA.map((mechanic) => ({
+    ...mechanic,
+    status: getMechanicStatus(mechanic.id),
+  }));
+
   const filteredMechanics = MECHANICS_DATA.filter((mechanic) => {
     if (
       searchQuery &&
@@ -61,12 +79,11 @@ export default function MechanicList() {
 
   // Get task count for each mechanic
   const getTaskCount = (mechanicId) => {
-    return tasks.filter(task => task.assignedTo === mechanicId).length;
+    return tasks.filter((task) => task.assignedTo === mechanicId).length;
   };
 
   const renderMechanicItem = ({ item }) => {
     const taskCount = getTaskCount(item.id);
-    
     return (
       <TouchableOpacity
         onPress={() => setSelectedMechanic(item)}
@@ -107,18 +124,26 @@ export default function MechanicList() {
             {item.name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={{ 
-              width: 8, 
-              height: 8, 
-              borderRadius: 4, 
-              backgroundColor: getStatusColor(item.status),
-              marginRight: 6 
-            }} />
-            <Text style={{ color: getStatusColor(item.status), fontWeight: "500", marginRight: 12 }}>
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: getStatusColor(item.status),
+                marginRight: 6,
+              }}
+            />
+            <Text
+              style={{
+                color: getStatusColor(item.status),
+                fontWeight: "500",
+                marginRight: 12,
+              }}
+            >
               {item.status}
             </Text>
             <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
-              {taskCount} task{taskCount !== 1 ? 's' : ''}
+              {taskCount} task{taskCount !== 1 ? "s" : ""}
             </Text>
           </View>
         </View>
