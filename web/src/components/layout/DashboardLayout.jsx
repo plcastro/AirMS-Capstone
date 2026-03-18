@@ -20,7 +20,6 @@ const DashboardLayout = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-
   const pageMap = {
     "/dashboard/user-management/view-users": "Users",
     "/dashboard/user-management/activity-logs": "Activity Logs",
@@ -85,7 +84,7 @@ const DashboardLayout = () => {
           >
             {user?.image ? (
               <img
-                src={user?.image ? `${user.image}` : ""}
+                src={user?.image ? `${API_BASE}${user.image}` : ""}
                 alt="User"
                 style={{
                   width: 40,
