@@ -69,7 +69,7 @@ const AppRouter = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
           <Route path="/otp" element={<OTP />} />
-          <Route path="/reset/:token" element={<ResetPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/security-setup" element={<SecuritySetup />} />
         </Route>
 
@@ -206,6 +206,11 @@ export default function App() {
             itemSelectedColor: "#fff",
             itemActiveBg: "#26866f",
             subMenuItemSelectedColor: "#002019",
+          },
+          Tabs: {
+            inkBarColor: "#006340",
+            itemSelectedColor: "#006340",
+            itemHoverColor: "#26866f",
           },
         },
       }}

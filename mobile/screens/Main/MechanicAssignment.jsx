@@ -4,7 +4,7 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
-  const assignedTasks = tasks.filter(task => task.assignedTo === mechanic.id);
+  const assignedTasks = tasks.filter((task) => task.assignedTo === mechanic.id);
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -38,27 +38,30 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   const formatDate = (dateString) => {
     if (!dateString) return "Not set";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: '2-digit', 
-      day: '2-digit',
-      year: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
     });
   };
 
   // Format due time
   const formatDueTime = (dueDate) => {
     const date = new Date(dueDate);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
   const renderTaskItem = ({ item }) => {
     const now = new Date();
     const dueDate = new Date(item.dueDate);
-    const isPastDue = dueDate < now && item.status !== "Completed" && item.status !== "Turned in";
+    const isPastDue =
+      dueDate < now &&
+      item.status !== "Completed" &&
+      item.status !== "Turned in";
     const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
     const dueTime = formatDueTime(item.dueDate);
 

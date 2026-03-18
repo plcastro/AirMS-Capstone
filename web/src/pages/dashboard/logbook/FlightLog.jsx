@@ -1,26 +1,37 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Button, Input, Tabs, Space } from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Tabs, Input, Row, Button } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import FLogTable from "../../../components/tables/FLogTable";
+
 import { AuthContext } from "../../../context/AuthContext";
+import TechnicalSummaryCards from "../../../components/pagecomponents/TechnicalSummaryCards";
+import FlightEntry from "../../../components/pagecomponents/FlightLogEntry";
+import FlightLogEditDefects from "../../../components/pagecomponents/FlightLogEditDefects";
+import FlightLogEditTechnical from "../../../components/pagecomponents/FlightLogEditTechnical";
+import FlightLogVerifyTechnical from "../../../components/pagecomponents/FlightLogVerifyTechnical";
+
+import { API_BASE } from "../../../utils/API_BASE";
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("Defects");
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Modals
   const [modalVisible, setModalVisible] = useState(false);
   const [editDefectModalVisible, setEditDefectModalVisible] = useState(false);
   const [editTechnicalModalVisible, setEditTechnicalModalVisible] =
     useState(false);
+  const [verifyDetailsModalVisible, setVerifyDetailsModalVisible] =
+    useState(false);
 
+  // Selected rows
   const [selectedDefect, setSelectedDefect] = useState(null);
   const [selectedTechnicalLog, setSelectedTechnicalLog] = useState(null);
-  const userJobTitle = user?.jobTitle?.toLowerCase() || "pilot";
-  useEffect(() => {
-    setActiveTab("Defects");
-  }, []);
+  const [selectedLogForVerification, setSelectedLogForVerification] =
+    useState(null);
 
+  // Data
   const [defectsData, setDefectsData] = useState([
     {
       index: 1,
@@ -32,82 +43,41 @@ export default function FlightLog() {
     },
   ]);
 
-  const [technicalLogData, setTechnicalLogData] = useState([
+  const [technicalLogData, setTechnicalLogData] = useState([]);
+  // Technical summary cards
+  const totalFuelPurchased = technicalLogData.reduce(
+    (sum, log) => sum + (log.fuelPurchased || 0),
+    0,
+  );
+  const totalFuelBurned = technicalLogData.reduce(
+    (sum, log) => sum + (log.fuelBurn || 0),
+    0,
+  );
+  const totalLegDistance = technicalLogData.reduce(
+    (sum, log) => sum + (log.legDistance || 0),
+    0,
+  );
+
+  const cardData = [
     {
-      index: 1,
-      tailNum: "---",
-      date: "15/03/2026",
-      depart: "Pasay",
-      arrive: "Mindanao",
-      offBlock: "08:25",
-      onBlock: "9:35",
-      blockTime: "1:25",
-      flightTime: "1:20",
-      technicalAction: "Routine flight, no issues",
+      label: "Total Fuel Purchased",
+      icon: "fuel",
+      value: totalFuelPurchased.toString(),
     },
-  ]);
-
-  const handleEditLog = (log) => {
-    if (activeTab === "Defects") {
-      setSelectedDefect(log);
-      setEditDefectModalVisible(true);
-    } else if (activeTab === "TechnicalLog") {
-      setSelectedTechnicalLog(log);
-      setEditTechnicalModalVisible(true);
-    }
-  };
-
-  const handleDeleteLog = (log) => {
-    if (activeTab === "Defects")
-      setDefectsData((prev) => prev.filter((item) => item.index !== log.index));
-    else if (activeTab === "TechnicalLog")
-      setTechnicalLogData((prev) =>
-        prev.filter((item) => item.index !== log.index),
-      );
-  };
-
-  // Columns with Action buttons directly
-  const defectColumns = [
-    { title: "#", dataIndex: "index", key: "index", align: "center" },
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "Reported By", dataIndex: "fullname", key: "fullname" },
     {
-      title: "Aircraft",
-      dataIndex: "aircraft",
-      key: "aircraft",
-      align: "center",
+      label: "Total Fuel Burned",
+      icon: "oil",
+      value: totalFuelBurned.toString(),
     },
-    { title: "Description", dataIndex: "destination", key: "destination" },
     {
-      title: "Action",
-      key: "action",
-      align: "center",
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="primary"
-            onClick={() => handleEditLog(record)}
-            style={{ width: 100 }}
-            icon={<EditOutlined />}
-          >
-            Edit
-          </Button>
-          <Button
-            type="default"
-            danger
-            onClick={() => handleDeleteLog(record)}
-            icon={<DeleteOutlined />}
-            style={{ width: 100 }}
-          >
-            Delete
-          </Button>
-        </Space>
-      ),
+      label: "Total Leg Distance",
+      icon: "map-marker-distance",
+      value: `${totalLegDistance} NM`,
     },
   ];
 
-  const technicalColumns = [
-    { title: "#", dataIndex: "index", key: "index", align: "center" },
+  const TLheaders = [
+    { title: "#", dataIndex: "index", key: "index" },
     { title: "Tail No.", dataIndex: "tailNum", key: "tailNum" },
     { title: "Date", dataIndex: "date", key: "date" },
     { title: "Depart", dataIndex: "depart", key: "depart" },
@@ -116,76 +86,215 @@ export default function FlightLog() {
     { title: "On Block", dataIndex: "onBlock", key: "onBlock" },
     { title: "Block Time", dataIndex: "blockTime", key: "blockTime" },
     { title: "Flight Time", dataIndex: "flightTime", key: "flightTime" },
-    {
-      title: "Action",
-      key: "action",
-      align: "center",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          style={{ width: 150 }}
-          onClick={() => handleEditLog(record)}
-          icon={<EditOutlined />}
-        >
-          Verify / Edit
-        </Button>
-      ),
-    },
+    { title: "Action", key: "action" },
   ];
 
+  const Defheaders = [
+    { title: "#", dataIndex: "index", key: "index" },
+    { title: "Date", dataIndex: "date", key: "date" },
+    { title: "Reported by", dataIndex: "fullname", key: "fullname" },
+    { title: "Aircraft", dataIndex: "aircraft", key: "aircraft" },
+    { title: "Description", dataIndex: "destination", key: "destination" },
+    { title: "Action", key: "action" },
+  ];
+
+  const tabItems = [];
+
+  if (user?.jobTitle === "pilot") {
+    tabItems.push(
+      {
+        key: "Defects",
+        label: "Defects",
+        children: (
+          <FLogTable
+            headers={Defheaders}
+            data={defectsData}
+            userJobTitle={user?.jobTitle}
+            onEditLog={(log) => handleEditLog(log, "Defects")}
+            onDeleteLog={(log) => handleDeleteLog(log, "Defects")}
+            onShowLog={(log) => handleShowLog(log, "Defects")}
+          />
+        ),
+      },
+      {
+        key: "TechnicalLog",
+        label: "Technical Log",
+        children: (
+          <>
+            <Row style={{ overflowX: "auto", marginBottom: 16 }}>
+              <TechnicalSummaryCards cardData={cardData} />
+            </Row>
+            <FLogTable
+              headers={TLheaders}
+              data={technicalLogData}
+              userJobTitle={user?.jobTitle}
+              onEditLog={(log) => handleEditLog(log, "TechnicalLog")}
+              onDeleteLog={(log) => handleDeleteLog(log, "TechnicalLog")}
+              onShowLog={(log) => handleShowLog(log, "TechnicalLog")}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              style={{ marginTop: 10 }}
+              onClick={() => setModalVisible(true)}
+            >
+              New Entry
+            </Button>
+          </>
+        ),
+      },
+    );
+  } else if (user?.jobTitle === "head of maintenance") {
+    tabItems.push({
+      key: "TechnicalLog",
+      label: "Technical Log",
+      children: (
+        <>
+          <Row style={{ overflowX: "auto", marginBottom: 16 }}>
+            <TechnicalSummaryCards cardData={cardData} />
+          </Row>
+          <FLogTable
+            headers={TLheaders}
+            data={technicalLogData}
+            userJobTitle={user?.jobTitle}
+            onEditLog={(log) => handleEditLog(log, "TechnicalLog")}
+            onDeleteLog={(log) => handleDeleteLog(log, "TechnicalLog")}
+            onShowLog={(log) => handleShowLog(log, "TechnicalLog")}
+          />
+        </>
+      ),
+    });
+  }
+
+  const formatTime = (decimalTime) => {
+    if (!decimalTime || decimalTime <= 0) return "---";
+    const hours = Math.floor(decimalTime);
+    const minutes = Math.round((decimalTime - hours) * 60);
+    return `${hours}:${minutes.toString().padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    // Fetch technical logs
+    const fetchTechnicalLogs = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/technical-logs/getAllTechnicalLogs`,
+        );
+        const result = await res.json();
+
+        if (result.status === "Ok") {
+          const transformed = result.data.map((log, index) => ({
+            ...log,
+            index: index + 1,
+            blockTime: formatTime(log.blockTime),
+            flightTime: formatTime(log.flightTime),
+          }));
+          setTechnicalLogData(transformed);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchTechnicalLogs();
+  }, []);
+
+  // Handlers
+  const handleEditLog = (log, type) => {
+    if (type === "Defects") {
+      setSelectedDefect(log);
+      setEditDefectModalVisible(true);
+    } else {
+      setSelectedTechnicalLog(log);
+      setEditTechnicalModalVisible(true);
+    }
+  };
+
+  const handleDeleteLog = (log, type) => {
+    if (type === "Defects") {
+      setDefectsData((prev) => prev.filter((item) => item.index !== log.index));
+    } else {
+      setTechnicalLogData((prev) =>
+        prev.filter((item) => item.index !== log.index),
+      );
+    }
+  };
+
+  const handleShowLog = (log, type) => {
+    if (type === "TechnicalLog" && user?.jobTitle === "head of maintenance") {
+      setSelectedLogForVerification(log);
+      setVerifyDetailsModalVisible(true);
+    }
+  };
+
+  const handleSaveNewEntry = (newEntry) => {
+    setTechnicalLogData((prev) => [
+      ...prev,
+      { ...newEntry, index: prev.length + 1 },
+    ]);
+    setModalVisible(false);
+  };
+
+  const handleSaveDefect = (updatedDefect) => {
+    setDefectsData((prev) =>
+      prev.map((d) => (d.index === updatedDefect.index ? updatedDefect : d)),
+    );
+    setEditDefectModalVisible(false);
+  };
+
+  const handleSaveTechnicalLog = (updatedLog) => {
+    setTechnicalLogData((prev) =>
+      prev.map((l) => (l.index === updatedLog.index ? updatedLog : l)),
+    );
+    setEditTechnicalModalVisible(false);
+  };
+
+  const handleApproveTechnicalLog = (verifiedLog) => {
+    setTechnicalLogData((prev) =>
+      prev.map((l) =>
+        l.index === verifiedLog.index ? { ...l, status: "verified" } : l,
+      ),
+    );
+    setVerifyDetailsModalVisible(false);
+  };
+
   return (
-    <>
+    <div>
       <Input
-        placeholder="Search logs"
+        placeholder="Search by date, origin, or destination..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        style={{ marginBottom: 16, width: 300 }}
+        style={{ width: 350, marginBottom: 16 }}
       />
 
       <Tabs
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key)}
-        items={[
-          { key: "Defects", label: "Defects" },
-          { key: "TechnicalLog", label: "Technical Log" },
-        ]}
+        defaultActiveKey={tabItems[0]?.key || "TechnicalLog"}
+        items={tabItems}
       />
 
-      <div
-        style={{
-          justifyContent: "space-between",
-          display: "flex",
-        }}
-      >
-        <Button
-          type="primary"
-          onClick={() => setModalVisible(true)}
-          style={{ marginBottom: 16, width: 150 }}
-          icon={<PlusOutlined />}
-        >
-          New Entry
-        </Button>
-      </div>
-
-      <div>
-        {activeTab === "Defects" ? (
-          <FLogTable
-            headers={defectColumns}
-            data={defectsData}
-            userJobTitle={userJobTitle}
-            onEditLog={handleEditLog}
-            onDeleteLog={handleDeleteLog}
-          />
-        ) : (
-          <FLogTable
-            headers={technicalColumns}
-            data={technicalLogData}
-            userJobTitle={userJobTitle}
-            onEditLog={handleEditLog}
-            onDeleteLog={handleDeleteLog}
-          />
-        )}
-      </div>
-    </>
+      <FlightEntry
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSave={handleSaveNewEntry}
+      />
+      <FlightLogEditDefects
+        visible={editDefectModalVisible}
+        entry={selectedDefect}
+        onClose={() => setEditDefectModalVisible(false)}
+        onSave={handleSaveDefect}
+      />
+      <FlightLogEditTechnical
+        visible={editTechnicalModalVisible}
+        entry={selectedTechnicalLog}
+        onClose={() => setEditTechnicalModalVisible(false)}
+        onSave={handleSaveTechnicalLog}
+      />
+      <FlightLogVerifyTechnical
+        visible={verifyDetailsModalVisible}
+        entry={selectedLogForVerification}
+        onClose={() => setVerifyDetailsModalVisible(false)}
+        onApprove={handleApproveTechnicalLog}
+      />
+    </div>
   );
 }

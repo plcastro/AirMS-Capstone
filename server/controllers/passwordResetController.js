@@ -15,11 +15,11 @@ const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await UserModel.findOne({ email });
-    if (!user)
-      return res.json({
-        message:
-          "If this email is registered and active, a reset link has been sent.",
+    if (!user) {
+      return res.status(404).json({
+        message: "Email is not registered.",
       });
+    }
 
     if (user.status?.toLowerCase() === "inactive") {
       return res.status(403).json({
@@ -27,12 +27,16 @@ const requestPasswordReset = async (req, res) => {
           "Your account is currently inactive. Please contact AirMS support.",
       });
     }
-    // Generate reset token & OTP
-    const token = crypto.randomBytes(32).toString("hex");
+    // Generate token only if needed
+    let token = user.resetPasswordToken;
+
+    if (!token || user.resetPasswordExpires < Date.now()) {
+      token = crypto.randomBytes(32).toString("hex");
+    }
+
     const otp = generateOTP();
     const hashedOtp = await bcrypt.hash(otp, 10);
 
-    // Save to user
     user.resetPasswordToken = token;
     user.resetPasswordExpires = Date.now() + TOKEN_EXPIRATION;
     user.otp = hashedOtp;
@@ -41,7 +45,6 @@ const requestPasswordReset = async (req, res) => {
     user.otpLockUntil = undefined;
 
     await user.save();
-
     await sendEmail({
       from: process.env.EMAIL_USER,
       to: user.email,
@@ -49,7 +52,7 @@ const requestPasswordReset = async (req, res) => {
       html: `
         <h2>Hello, <strong>${user.firstName}</strong></h2></br>
         <p>Your verification code is: <strong>${otp}</strong></p>
-        <p>Use this code in the app to reset your password.</p>
+        <p>Use this code in the app to reset your password. This is only valid for 15 minutes.</p>
         <p>If you did not request this, ignore this email.</p>
       `,
     });
