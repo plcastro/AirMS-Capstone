@@ -207,7 +207,15 @@ const logoutUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, jobTitle, access } = req.body;
+    const { firstName, lastName, email, jobTitle, access, licenseNo } =
+      req.body;
+
+    if (
+      ["head of maintenance", "pilot", "mechanic"].includes(
+        jobTitle.toLowerCase(),
+      )
+    )
+      return res.status(400).json({ message: "License no. is required" });
 
     if (!firstName || !lastName || !email || !jobTitle)
       return res.status(400).json({ message: "All fields are required" });
@@ -232,18 +240,28 @@ const createUser = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const newUser = await UserModel.create({
+    let newUserData = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
       username: username.trim(),
-      password: hashedPassword, // temp password stored here
+      password: hashedPassword,
       tempPasswordExpires,
       status: "inactive",
       image: imagePath,
       jobTitle,
       access,
-    });
+    };
+
+    if (
+      ["head of maintenance", "pilot", "mechanic"].includes(
+        jobTitle.toLowerCase(),
+      )
+    ) {
+      newUserData.licenseNo = licenseNo;
+    }
+
+    const newUser = await UserModel.create(newUserData);
 
     const portalLink =
       jobTitle === "Head of Maintenance" || jobTitle === "Admin"
@@ -538,6 +556,43 @@ const updatePassword = async (req, res) => {
   }
 };
 
+const updatePIN = async (req, res) => {
+  try {
+    const { PIN } = req.body;
+    if (!PIN) return res.status(400).json({ message: "PIN is required" });
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.params.id,
+      { PIN },
+      { new: true },
+    );
+
+    res.status(200).json({ message: "PIN updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const updateSignature = async (req, res) => {
+  try {
+    const { signature } = req.body;
+    if (!signature)
+      return res.status(400).json({ message: "Signature is required" });
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.params.id,
+      { signature },
+      { new: true },
+    );
+
+    res.status(200).json({ message: "Signature updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const activateUser = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -627,7 +682,9 @@ module.exports = {
   updateUserStatus,
   updateUserProfile,
   updatePassword,
+  updatePIN,
   updateUserImage,
+  updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,

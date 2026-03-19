@@ -30,6 +30,7 @@ export default function UserForm({
   const [username, setUsername] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [accessLevel, setAccessLevel] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
   const [joinedDate, setJoinedDate] = useState(new Date());
   const [imageUrl, setImageUrl] = useState(null);
   const [file, setFile] = useState(null);
@@ -154,6 +155,13 @@ export default function UserForm({
         body.append("access", accessLevel);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file); // only append if file exists
+        if (
+          ["head of maintenance", "pilot", "mechanic"].includes(
+            jobTitle.toLowerCase(),
+          )
+        ) {
+          body.append("licenseNo", licenseNo);
+        }
       } else {
         // No file, send JSON
         headers["Content-Type"] = "application/json";
@@ -208,7 +216,6 @@ export default function UserForm({
         email: email.trim(),
         username,
         jobTitle,
-
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
         image: savedUser?.data?.image || imageUrl,
@@ -355,11 +362,26 @@ export default function UserForm({
           )}
         </Col>
 
-        {/* Access Level / Date Joined */}
         <Col span={12}>
           <Text strong>Access Level</Text>
           <Input value={accessLevel} disabled />
         </Col>
+
+        {["head of maintenance", "pilot", "mechanic"].includes(
+          jobTitle.toLowerCase(),
+        ) ? (
+          <Col span={12}>
+            <Text strong>License #</Text>
+            <Input
+              placeholder="######"
+              value={licenseNo}
+              maxLength={6}
+              required={["head of maintenance", "pilot", "mechanic"].includes(
+                jobTitle.toLowerCase(),
+              )}
+            />
+          </Col>
+        ) : null}
 
         <Col span={12}>
           <Text strong>Date Joined</Text>
