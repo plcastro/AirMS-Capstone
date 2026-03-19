@@ -12,6 +12,7 @@ const {
   updateUserProfile,
   updatePassword,
   updateUserImage,
+  updateSignature,
   activateUser,
   resendActivation,
   completeSecuritySetup,
@@ -42,7 +43,7 @@ router.put(
   processImage,
   updateUserImage,
 );
-
+router.put("/update-signature/:id", updateSignature);
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
 router.post("/complete-security-setup", completeSecuritySetup);

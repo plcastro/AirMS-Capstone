@@ -16,6 +16,14 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, "Invalid email"],
   },
   password: { type: String, required: true, select: false },
+  PIN: {
+    type: String,
+    default: "",
+  },
+  signature: {
+    type: String,
+    default: "",
+  },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
@@ -30,6 +38,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["Admin", "Superuser", "User"],
     default: "User",
+  },
+  licenseNo: {
+    type: String,
+    unique: true,
+    trim: true,
   },
   tempPasswordExpires: Date,
   image: { type: String, default: "" },
