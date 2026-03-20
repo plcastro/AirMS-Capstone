@@ -2,6 +2,8 @@
   "expo": {
     "name": "AirMS",
     "slug": "AirMS",
+    "scheme": "airms",
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -13,10 +15,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.com.ngcp-aviation-dept.airms"
     },
     "android": {
-      "package": "com.arckexe-nu-moa.airms",
+      "package": "com.ngcp-aviation-dept.airms",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
@@ -27,9 +30,6 @@
     "web": {
       "favicon": "./assets/AirMS_mobile.png"
     },
-    "plugins": [
-      "@react-native-community/datetimepicker",
-      "expo-font"
-    ]
+    "plugins": ["@react-native-community/datetimepicker", "expo-font"]
   }
 }

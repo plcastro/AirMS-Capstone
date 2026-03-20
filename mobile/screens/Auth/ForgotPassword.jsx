@@ -14,28 +14,36 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function ForgotPassword() {
   const nav = useNavigation();
+
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const validateEmail = (email) => {
+  const isEmailValid = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setMessage("Email is required.");
-      return false;
-    }
-    if (!emailRegex.test(email)) {
-      setMessage("Invalid email format.");
-      return false;
-    }
-    return true;
+    return emailRegex.test(value.trim());
   };
 
+  const isFormValid = isEmailValid(email);
+
   const sendResetLink = async () => {
-    if (!validateEmail(email)) return;
+    if (!email.trim()) {
+      setError("Email is required.");
+      setMessage("");
+      return;
+    }
+
+    if (!isEmailValid(email)) {
+      setError("Please enter a valid email address.");
+      setMessage("");
+      return;
+    }
 
     try {
       setLoading(true);
+      setError("");
+
       const response = await fetch(`${API_BASE}/api/user/request-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,18 +55,25 @@ export default function ForgotPassword() {
 
       if (response.ok) {
         setMessage("Password reset email sent. Redirecting to OTP screen...");
+        setError("");
 
-        // Redirect to OTP screen with token
-        setTimeout(() => nav.replace("otpScreen", { token: data.token }), 2500);
-      } else {
-        setMessage(
-          data.message || "Failed to send reset link. Try again later.",
+        setTimeout(
+          () =>
+            nav.replace("otpScreen", {
+              token: data.token,
+              email,
+            }),
+          2500,
         );
+      } else {
+        setError(data.message || "Failed to send reset link. Try again later.");
+        setMessage("");
       }
     } catch (err) {
       console.error(err);
       setLoading(false);
-      setMessage("Failed to send reset link. Try again later.");
+      setError("Failed to send reset link. Try again later.");
+      setMessage("");
     }
   };
 
@@ -75,31 +90,53 @@ export default function ForgotPassword() {
         </Text>
 
         <TextInput
-          style={styles.formInput}
+          style={[styles.formInput, { marginBottom: 0 }]}
           maxLength={254}
           placeholder="Enter email address"
           placeholderTextColor="gray"
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(text) => {
+            setEmail(text);
+            setError("");
+            setMessage("");
+          }}
         />
-
-        {message ? (
-          <Text
-            style={{ color: "red", textAlign: "left", alignSelf: "flex-start" }}
-          >
-            {message}
-          </Text>
-        ) : null}
 
         <Button
           label={loading ? "SENDING..." : "SEND RESET LINK"}
           onPress={sendResetLink}
-          disabled={loading}
+          disabled={!isFormValid || loading}
           buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
           buttonTextStyle={styles.primaryBtnTxt}
         />
+
+        {error ? (
+          <Text
+            style={{
+              color: "red",
+              textAlign: "left",
+              alignSelf: "flex-start",
+              marginTop: 10,
+            }}
+          >
+            {error}
+          </Text>
+        ) : null}
+
+        {message ? (
+          <Text
+            style={{
+              color: "green",
+              textAlign: "left",
+              alignSelf: "flex-start",
+              marginTop: 10,
+            }}
+          >
+            {message}
+          </Text>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );

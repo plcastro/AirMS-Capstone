@@ -53,7 +53,7 @@ export default function OTP() {
 
       if (res.ok) {
         message.success("OTP verified. Redirecting...");
-        navigate("/reset-password", { state: { token } });
+        navigate(`/reset-password?token=${token}`);
       } else {
         message.error(data.message || "Invalid OTP");
       }
