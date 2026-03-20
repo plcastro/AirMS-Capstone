@@ -168,83 +168,6 @@ export default function Profile() {
     }
   };
 
-  // --- Password, PIN, Signature APIs ---
-  const savePassword = async () => {
-    try {
-      if (!currentPassword || !newPassword || !confirmPassword) return;
-      if (formErrors.confirmPassword) return;
-
-      const res = await fetch(
-        `${API_BASE}/api/user/updatePassword/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ currentPassword, newPassword }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Password update failed");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      message.success("Password updated!");
-    } catch (err) {
-      console.error(err);
-      message.error(err.message || "Password update failed");
-    }
-  };
-
-  const savePin = async () => {
-    try {
-      if (pin.length !== 6) return;
-      const res = await fetch(`${API_BASE}/api/user/updatePIN/${user.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ PIN: pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "PIN update failed");
-      setUser((prev) => ({ ...prev, pin }));
-      message.success("PIN updated!");
-    } catch (err) {
-      console.error(err);
-      message.error(err.message || "PIN update failed");
-    }
-  };
-
-  const saveSignature = async () => {
-    if (sigCanvasRef.current.isEmpty())
-      return message.warning("Signature is empty!");
-    const dataURL = sigCanvasRef.current.toDataURL("image/png");
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/user/updateSignature/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ signature: dataURL }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Signature update failed");
-      setUser((prev) => ({ ...prev, signature: dataURL }));
-      setSignatureData(dataURL);
-      message.success("Signature updated!");
-    } catch (err) {
-      console.error(err);
-      message.error(err.message || "Signature update failed");
-    }
-  };
-
   if (!user) return null;
 
   return (
@@ -365,7 +288,7 @@ export default function Profile() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          {/* <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="Signature">
                 <Input value={"######"} disabled />
@@ -376,7 +299,7 @@ export default function Profile() {
                 <Input value={"######"} disabled />
               </Form.Item>
             </Col>
-          </Row>
+          </Row> */}
 
           <Row justify="end" gutter={16}>
             {isEditing && (
