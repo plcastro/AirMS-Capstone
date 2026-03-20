@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Input, Divider, Button, Tag } from "antd";
 import MLogTable from "../../../components/tables/MLogTable";
 import { PlusOutlined } from "@ant-design/icons";
+import MaintenanceEntryModal from "../../../components/pagecomponents/MaintenanceEntryModal";
+
 export default function MaintenanceLog() {
   const [allEntries, setAllEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
@@ -13,13 +15,13 @@ export default function MaintenanceLog() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const headers = [
-    { label: "Aircraft", key: "aircraft" },
-    { label: "Defects", key: "defects" },
-    { label: "Date Defect Discovered", key: "dateDefectDiscovered" },
-    { label: "Corrective Action Done", key: "correctiveActionDone" },
-    { label: "Date Defect Rectified", key: "dateDefectRectified" },
-    { label: "Action", key: "action" },
-    { label: "Status", key: "status" },
+    { title: "Aircraft", key: "aircraft" },
+    { title: "Defects", key: "defects" },
+    { title: "Date Defect Discovered", key: "dateDefectDiscovered" },
+    { title: "Corrective Action Done", key: "correctiveActionDone" },
+    { title: "Date Defect Rectified", key: "dateDefectRectified" },
+    { title: "Action", key: "action" },
+    { title: "Status", key: "status" },
   ];
 
   const mockData = [
@@ -194,7 +196,7 @@ export default function MaintenanceLog() {
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
       />
-      <hr color="#d8d8d8" />
+      <Divider />
       <div
         style={{
           display: "flex",
@@ -222,7 +224,12 @@ export default function MaintenanceLog() {
         >
           Maintenance History
         </Tag>
-        <Button type="primary" icon={<PlusOutlined />} style={{ width: 150 }}>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          style={{ width: 150 }}
+          onClick={() => setShowNewEntry(true)}
+        >
           New Entry
         </Button>
       </div>
@@ -231,6 +238,22 @@ export default function MaintenanceLog() {
         headers={headers}
         data={filteredEntries}
         onEditEntry={handleEditEntry}
+      />
+      <MaintenanceEntryModal
+        visible={showNewEntry}
+        entry={null}
+        onClose={() => setShowNewEntry(false)}
+        onSave={handleSaveNewEntry}
+      />
+
+      <MaintenanceEntryModal
+        visible={showEditEntry}
+        entry={selectedEntry}
+        onClose={() => {
+          setShowEditEntry(false);
+          setSelectedEntry(null);
+        }}
+        onSave={handleUpdateEntry}
       />
     </>
   );

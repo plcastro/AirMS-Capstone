@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   Dimensions,
-  Alert,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import MechanicAssignment from "./MechanicAssignment";
 import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
-import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
 
@@ -27,57 +24,30 @@ const BASE_MECHANICS_DATA = [
   { id: "6", name: "Dilan Wolf", avatar: null },
   { id: "7", name: "Bob Rosfield", avatar: null },
 ];
-// Mock data for mechanics (fallback)
-const MECHANICS_DATA = [
-  { id: "1", name: "John Doe", status: "Available", avatar: null },
-  { id: "2", name: "Clara Bang", status: "Available", avatar: null },
-  { id: "3", name: "Joe Bloggs", status: "Available", avatar: null },
-  { id: "4", name: "Max Miller", status: "Available", avatar: null },
-  { id: "5", name: "Liam Brown", status: "Busy", avatar: null },
-  { id: "6", name: "Dilan Wolf", status: "Busy", avatar: null },
-  { id: "7", name: "Bob Rosfield", status: "Busy", avatar: null },
-];
 
 export default function MechanicList() {
-  const [mechanics, setMechanics] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanic, setSelectedMechanic] = useState(null);
 
-  useEffect(() => {
-    const fetchMechanics = async () => {
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const mechanicsData = data.data.filter(user => user.jobTitle === "Mechanic" && user.status === "active");
-          const mappedMechanics = mechanicsData.map((user) => ({
-            id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
-            status: "Available", // Default status, can be updated based on tasks
-            avatar: user.image || null,
-          }));
-          setMechanics(mappedMechanics);
-        } else {
-          console.error("Failed to fetch users");
-          setMechanics(MECHANICS_DATA); // Fallback to mock data
-        }
-      } catch (error) {
-        console.error("Error fetching users:", error);
-        setMechanics(MECHANICS_DATA); // Fallback to mock data
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMechanics();
-  }, []);
+  // Use tasks from TaskInfo
+  const tasks = TaskInfo;
 
-  const filteredMechanics = mechanics.filter((mechanic) => {
+  // Calculate mechanic status based on task count
+  const getMechanicStatus = (mechanicId) => {
+    const taskCount = tasks.filter(
+      (task) => task.assignedTo === mechanicId,
+    ).length;
+    // Busy if 3 or more tasks, Available if 0-2 tasks
+    return taskCount >= 3 ? "Busy" : "Available";
+  };
+
+  // Build mechanics data with dynamic status
+  const MECHANICS_DATA = BASE_MECHANICS_DATA.map((mechanic) => ({
+    ...mechanic,
+    status: getMechanicStatus(mechanic.id),
+  }));
+
+  const filteredMechanics = MECHANICS_DATA.filter((mechanic) => {
     if (
       searchQuery &&
       !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -93,12 +63,11 @@ export default function MechanicList() {
 
   // Get task count for each mechanic
   const getTaskCount = (mechanicId) => {
-    return tasks.filter(task => task.assignedTo === mechanicId).length;
+    return tasks.filter((task) => task.assignedTo === mechanicId).length;
   };
 
   const renderMechanicItem = ({ item }) => {
     const taskCount = getTaskCount(item.id);
-    
     return (
       <TouchableOpacity
         onPress={() => setSelectedMechanic(item)}
@@ -139,18 +108,26 @@ export default function MechanicList() {
             {item.name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={{ 
-              width: 8, 
-              height: 8, 
-              borderRadius: 4, 
-              backgroundColor: getStatusColor(item.status),
-              marginRight: 6 
-            }} />
-            <Text style={{ color: getStatusColor(item.status), fontWeight: "500", marginRight: 12 }}>
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: getStatusColor(item.status),
+                marginRight: 6,
+              }}
+            />
+            <Text
+              style={{
+                color: getStatusColor(item.status),
+                fontWeight: "500",
+                marginRight: 12,
+              }}
+            >
               {item.status}
             </Text>
             <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
-              {taskCount} task{taskCount !== 1 ? 's' : ''}
+              {taskCount} task{taskCount !== 1 ? "s" : ""}
             </Text>
           </View>
         </View>
@@ -217,7 +194,7 @@ export default function MechanicList() {
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              {loading ? "Loading mechanics..." : "No mechanics found"}
+              No mechanics found
             </Text>
           </View>
         }

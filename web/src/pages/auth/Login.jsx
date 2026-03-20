@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import { Input, Button, message as antMessage } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 
 const Login = () => {
+  const { setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: "",
@@ -82,12 +84,10 @@ const Login = () => {
           );
           return;
         }
-
-        // Normal login
+        setUser(data.user);
         localStorage.setItem("jwtToken", data.token);
         localStorage.setItem("currentUser", JSON.stringify(data.user));
 
-        // Remember Me
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
