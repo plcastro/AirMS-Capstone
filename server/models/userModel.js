@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, "Invalid email"],
   },
   password: { type: String, required: true, select: false },
-  PIN: {
+  pin: {
     type: String,
     default: "",
   },
@@ -31,8 +31,14 @@ const userSchema = new mongoose.Schema({
   },
   jobTitle: {
     type: String,
-    enum: ["Head of Maintenance", "Pilot", "Admin", "Manager", "Mechanic"],
-    default: "Mechanic",
+    enum: [
+      "Maintenance Manager",
+      "Pilot",
+      "Admin",
+      "Officer-In-Charge",
+      "Engineer",
+    ],
+    default: "Engineer",
   },
   access: {
     type: String,

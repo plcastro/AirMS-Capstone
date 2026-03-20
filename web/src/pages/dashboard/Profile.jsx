@@ -256,7 +256,7 @@ export default function Profile() {
           borderRadius: 12,
           maxHeight: "85vh",
           overflowY: "auto",
-          padding: "20px",
+          padding: "2%",
         }}
       >
         {/* PROFILE PICTURE */}
