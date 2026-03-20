@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import {
-  Card,
+  Space,
   Input,
   Button,
   Typography,
@@ -29,7 +29,10 @@ export default function UpdateSecurity() {
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // PIN
-  const [pin, setPin] = useState(user?.pin || "");
+  const [currentPin, setCurrentPin] = useState(user?.pin || "");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinErrors, setPinErrors] = useState({});
 
   // Signature
   const [signatureData, setSignatureData] = useState(user?.signature || "");
@@ -39,45 +42,63 @@ export default function UpdateSecurity() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPin(user?.pin || "");
+      setNewPin("");
+      setConfirmPin("");
+      setCurrentPin(user?.pin || "");
       setSignatureData(user?.signature || "");
       setPasswordErrors({});
+      setPinErrors({});
     }
   }, [isEditing, user]);
 
-  // --- Validate password live ---
+  // --- Live password validation ---
   useEffect(() => {
     const errors = {};
-    if (newPassword && newPassword.length < 8)
-      errors.minLength = "At least 8 characters";
-    if (newPassword && !/[A-Z]/.test(newPassword))
-      errors.uppercase = "One uppercase letter";
-    if (newPassword && !/\d/.test(newPassword)) errors.number = "One number";
-    if (confirmPassword && newPassword !== confirmPassword)
-      errors.match = "Passwords do not match";
+    if (newPassword) {
+      errors.minLength = newPassword.length >= 8;
+      errors.uppercase = /[A-Z]/.test(newPassword);
+      errors.number = /\d/.test(newPassword);
+      errors.match = confirmPassword === newPassword && confirmPassword !== "";
+    } else {
+      errors.minLength = false;
+      errors.uppercase = false;
+      errors.number = false;
+      errors.match = false;
+    }
     setPasswordErrors(errors);
   }, [newPassword, confirmPassword]);
 
+  // --- Live PIN validation ---
+  useEffect(() => {
+    const errors = {};
+    errors.isSixDigits = newPin.length === 6;
+    errors.match = newPin === confirmPin && newPin.length === 6;
+    setPinErrors(errors);
+  }, [newPin, confirmPin]);
+
+  // --- Save handlers ---
   const savePassword = async () => {
     if (
-      Object.keys(passwordErrors).length > 0 ||
       !currentPassword ||
       !newPassword ||
-      !confirmPassword
+      !confirmPassword ||
+      Object.values(passwordErrors).some((v) => !v)
     ) {
-      message.error("Check your password inputs");
-      return;
+      return message.error("Check your password inputs");
     }
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/updatePassword/${user.id}`,
+        `${API_BASE}/api/user/change-password/${user.id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
           },
-          body: JSON.stringify({ currentPassword, newPassword }),
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
         },
       );
       const data = await res.json();
@@ -92,20 +113,34 @@ export default function UpdateSecurity() {
   };
 
   const savePin = async () => {
-    if (pin.length !== 6) return message.error("PIN must be 6 digits");
+    if (Object.values(pinErrors).some((v) => !v)) {
+      return message.error("Check your PIN inputs");
+    }
+
+    if (!currentPin) {
+      return message.error("Enter your current PIN");
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/updatePIN/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
         },
-        body: JSON.stringify({ PIN: pin }),
+        body: JSON.stringify({ currentPin, newPin }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setUser((prev) => ({ ...prev, pin }));
-      message.success("PIN updated!");
+
+      if (!res.ok) throw new Error(data.message || "Failed to update PIN");
+
+      setUser((prev) => ({ ...prev, pin: newPin }));
+      message.success("PIN updated successfully!");
+
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
     } catch (err) {
       message.error(err.message || "Update failed");
     }
@@ -122,7 +157,7 @@ export default function UpdateSecurity() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
           },
           body: JSON.stringify({ signature: dataURL }),
         },
@@ -143,50 +178,51 @@ export default function UpdateSecurity() {
       label: "Password",
       children: (
         <>
-          <Row gutter={16}>
-            <Col xs={24} md={8}>
-              <Text>Current Password</Text>
-              <Input.Password
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-            </Col>
-            <Col xs={24} md={8}>
-              <Text>New Password</Text>
-              <Input.Password
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </Col>
-            <Col xs={24} md={8}>
-              <Text>Confirm Password</Text>
-              <Input.Password
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </Col>
-          </Row>
+          <Space
+            orientation="vertical"
+            size={12}
+            style={{ minWidth: "100%", maxWidth: 400 }}
+          >
+            <Text>Current Password</Text>
+            <Input.Password
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+
+            <Text>New Password</Text>
+            <Input.Password
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+
+            <Text>Confirm Password</Text>
+            <Input.Password
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </Space>
           <div style={{ marginTop: 10 }}>
-            <Text type={newPassword.length >= 8 ? "success" : "secondary"}>
-              {newPassword.length >= 8 ? "✓" : "✗"} At least 8 characters
+            <Text type={passwordErrors.minLength ? "success" : "secondary"}>
+              {passwordErrors.minLength ? "✓" : "✗"} At least 8 characters
             </Text>
             <br />
-            <Text type={/[A-Z]/.test(newPassword) ? "success" : "secondary"}>
-              {/[A-Z]/.test(newPassword) ? "✓" : "✗"} One uppercase letter
+            <Text type={passwordErrors.uppercase ? "success" : "secondary"}>
+              {passwordErrors.uppercase ? "✓" : "✗"} One uppercase letter
             </Text>
             <br />
-            <Text type={/\d/.test(newPassword) ? "success" : "secondary"}>
-              {/\d/.test(newPassword) ? "✓" : "✗"} One number
+            <Text type={passwordErrors.number ? "success" : "secondary"}>
+              {passwordErrors.number ? "✓" : "✗"} One number
             </Text>
             <br />
-            <Text type={newPassword === confirmPassword ? "success" : "danger"}>
-              {newPassword === confirmPassword ? "✓" : "✗"} Passwords match
+            <Text type={passwordErrors.match ? "success" : "secondary"}>
+              {passwordErrors.match ? "✓" : "✗"} Passwords match
             </Text>
           </div>
           <Button
             type="primary"
             style={{ marginTop: 10 }}
             onClick={savePassword}
+            disabled={Object.values(passwordErrors).some((v) => !v)}
           >
             Save Password
           </Button>
@@ -197,19 +233,72 @@ export default function UpdateSecurity() {
       key: "pin",
       label: "PIN",
       children: (
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
-            <Text>PIN</Text>
-            <Input
-              value={pin}
+        <>
+          <Row>
+            <Text style={{ width: 300 }}>Current PIN</Text>
+          </Row>
+          <Row>
+            <Input.Password
+              style={{ width: 300 }}
+              placeholder="Enter Current PIN"
+              value={currentPin}
               maxLength={6}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
             />
-            <Button type="primary" style={{ marginTop: 10 }} onClick={savePin}>
-              Save PIN
-            </Button>
-          </Col>
-        </Row>
+          </Row>
+          <Row>
+            <Text style={{ width: 300 }}>New PIN</Text>
+          </Row>
+          <Row>
+            <Input.Password
+              style={{ width: 300 }}
+              placeholder="Enter New PIN"
+              value={newPin}
+              maxLength={6}
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            />
+          </Row>
+          <Row>
+            <Text style={{ width: 300 }}>Confirm New PIN</Text>
+          </Row>
+          <Row>
+            <Input.Password
+              style={{ width: 300 }}
+              placeholder="Confirm New PIN"
+              value={confirmPin}
+              maxLength={6}
+              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+            />
+          </Row>
+          <Row>
+            <Text
+              type="secondary"
+              style={{ width: 300, textDecoration: "italic" }}
+            >
+              Note: Please do not use sensitive info like birthdate or phone
+              number.
+            </Text>
+          </Row>
+
+          <div style={{ marginTop: 5 }}>
+            <Text type={pinErrors.isSixDigits ? "success" : "secondary"}>
+              {pinErrors.isSixDigits ? "✓" : "✗"} 6 digits
+            </Text>
+            <br />
+            <Text type={pinErrors.match ? "success" : "secondary"}>
+              {pinErrors.match ? "✓" : "✗"} PINs match
+            </Text>
+          </div>
+
+          <Button
+            type="primary"
+            style={{ marginTop: 10 }}
+            onClick={savePin}
+            disabled={Object.values(pinErrors).some((v) => !v)}
+          >
+            Save PIN
+          </Button>
+        </>
       ),
     },
     {
@@ -217,19 +306,30 @@ export default function UpdateSecurity() {
       label: "Signature",
       children: (
         <Row>
-          <Col span={24}>
-            <Text>Signature</Text>
+          <Text>Signature</Text>
+          <Col xs={24}>
             <SignatureCanvas
               ref={sigCanvasRef}
               penColor="black"
               canvasProps={{
-                width: 400,
+                width: 320,
+                minWidth: "100%",
                 height: 150,
                 style: { border: "1px solid #ccc" },
               }}
             />
-            <Button style={{ marginTop: 10 }} onClick={saveSignature}>
+          </Col>
+          <Col span={24}>
+            <Button
+              type="primary"
+              onClick={saveSignature}
+              style={{ marginRight: 10 }}
+              disabled={sigCanvasRef.current?.isEmpty()}
+            >
               Save Signature
+            </Button>
+            <Button onClick={() => sigCanvasRef.current.clear()}>
+              Clear Signature
             </Button>
           </Col>
         </Row>
@@ -241,8 +341,8 @@ export default function UpdateSecurity() {
     <div style={{ marginBottom: 100 }}>
       <Row justify="space-between" align="middle">
         <Title level={4}>Update Security Information</Title>
-        <Button onClick={() => setIsEditing(!isEditing)}>
-          {isEditing ? "Cancel" : "Update Password / PIN / Signature"}
+        <Button onClick={() => setIsEditing(!isEditing)} disabled={!user}>
+          {isEditing ? "Cancel" : "Update Security"}
         </Button>
       </Row>
 

@@ -254,9 +254,12 @@ const createUser = async (req, res) => {
     };
 
     if (
-      ["head of maintenance", "pilot", "mechanic"].includes(
-        jobTitle.toLowerCase(),
-      )
+      [
+        "maintenance manager",
+        "pilot",
+        "engineer",
+        "officer-in-charge",
+      ].includes(jobTitle.toLowerCase())
     ) {
       newUserData.licenseNo = licenseNo;
     }
@@ -264,7 +267,9 @@ const createUser = async (req, res) => {
     const newUser = await UserModel.create(newUserData);
 
     const portalLink =
-      jobTitle === "Head of Maintenance" || jobTitle === "Admin"
+      jobTitle === "Maintenance Manager" ||
+      jobTitle === "Officer-In-Charge" ||
+      jobTitle === "Admin"
         ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
         : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
@@ -526,8 +531,12 @@ const updateUserImage = async (req, res) => {
 
 const updatePassword = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
 
     if (!currentPassword || !newPassword) {
       return res
@@ -535,10 +544,25 @@ const updatePassword = async (req, res) => {
         .json({ message: "Both current and new passwords are required." });
     }
 
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(id).select("+password");
     if (!user) return res.status(404).json({ message: "User not found." });
 
+    if (!user.password) {
+      return res.status(400).json({ message: "User has no password set." });
+    }
+
+    const isCurrentAndNewMatch = await bcrypt.compare(
+      user.password,
+      newPassword,
+    );
+    if (currentPassword === newPassword || isCurrentAndNewMatch) {
+      return res
+        .status(400)
+        .json({ message: "Cannot reuse the same password." });
+    }
+
     const isMatch = await bcrypt.compare(currentPassword, user.password);
+
     if (!isMatch) {
       return res
         .status(401)
@@ -547,7 +571,7 @@ const updatePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    await UserModel.updateOne({ _id: userId }, { password: hashedPassword });
+    await UserModel.updateOne({ _id: id }, { password: hashedPassword });
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -558,15 +582,29 @@ const updatePassword = async (req, res) => {
 
 const updatePIN = async (req, res) => {
   try {
-    const { PIN } = req.body;
-    if (!PIN) return res.status(400).json({ message: "PIN is required" });
+    const { currentPin, newPin } = req.body;
+    if (!currentPin)
+      return res.status(400).json({ message: "PIN is required" });
 
-    const user = await UserModel.findByIdAndUpdate(
-      req.params.id,
-      { PIN },
-      { new: true },
-    );
+    const user = await UserModel.findById(req.params.id).select("+pin");
 
+    if (!user.password) {
+      return res.status(400).json({ message: "User has no PIN set." });
+    }
+    const isCurrentAndNewMatch = await bcrypt.compare(user.pin, newPin);
+    if (currentPin === newPin || isCurrentAndNewMatch) {
+      return res.status(400).json({ message: "Cannot reuse the same PIN." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPin, user.pin);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Current PIN is incorrect." });
+    }
+
+    const hashedPIN = await bcrypt.hash(newPin, 12);
+
+    await UserModel.updateOne({ _id: id }, { pin: hashedPIN });
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
     console.error(err);
@@ -595,12 +633,12 @@ const updateSignature = async (req, res) => {
 
 const activateUser = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword, pin } = req.body;
 
-    if (!token || !newPassword) {
+    if (!token || !newPassword || !pin) {
       return res
         .status(400)
-        .json({ message: "Token and new password required" });
+        .json({ message: "Token, new password, and PIN is required" });
     }
 
     let decoded;
@@ -620,6 +658,7 @@ const activateUser = async (req, res) => {
 
     // Activate user
     user.password = await bcrypt.hash(newPassword, 12);
+    user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
     user.securitySetupCompleted = true;
     await user.save();

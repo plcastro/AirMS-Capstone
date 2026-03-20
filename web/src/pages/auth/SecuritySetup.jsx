@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import "./login.css";
-import { Input, Button } from "antd";
+import { Form, Input, Button, Card, message as antMessage } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
+import "./login.css";
+
 const SecuritySetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,51 +14,59 @@ const SecuritySetup = () => {
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
+    pin: "",
+    confirmPin: "",
   });
-  const [message, setMessage] = useState("");
   const [setupSuccess, setSetupSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [resendMessage, setResendMessage] = useState("");
 
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
     hasUppercase: /[A-Z]/.test(formData.newPassword),
     hasNumber: /\d/.test(formData.newPassword),
   };
+
+  const pinRequirements = {
+    isSixDigits: /^\d{6}$/.test(formData.pin),
+    match: formData.pin === formData.confirmPin,
+  };
+
   const isFormValid =
     passwordRequirements.minLength &&
     passwordRequirements.hasUppercase &&
     passwordRequirements.hasNumber &&
-    formData.confirmPassword &&
-    formData.newPassword === formData.confirmPassword;
+    formData.newPassword === formData.confirmPassword &&
+    pinRequirements.isSixDigits &&
+    pinRequirements.match;
 
   const changeHandler = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const validate = () => {
-    const { newPassword, confirmPassword } = formData;
-
-    if (!newPassword.trim() || !confirmPassword.trim()) {
-      return setMessage("Please fill all fields.");
+  const validateAndSubmit = async () => {
+    // Password checks
+    if (!passwordRequirements.minLength) {
+      return antMessage.error("Password must be at least 8 characters.");
     }
-    if (!passwordRequirements.minLength)
-      return setMessage("Password must be at least 8 characters.");
-    if (!passwordRequirements.hasUppercase)
-      return setMessage("Password must contain an uppercase letter.");
-    if (!passwordRequirements.hasNumber)
-      return setMessage("Password must contain a number.");
-    if (newPassword !== confirmPassword)
-      return setMessage("Passwords do not match.");
+    if (!passwordRequirements.hasUppercase) {
+      return antMessage.error("Password must contain an uppercase letter.");
+    }
+    if (!passwordRequirements.hasNumber) {
+      return antMessage.error("Password must contain a number.");
+    }
+    if (formData.newPassword !== formData.confirmPassword) {
+      return antMessage.error("Passwords do not match.");
+    }
 
-    setMessage("");
-    handleSetup();
-  };
+    // PIN checks
+    if (!pinRequirements.isSixDigits) {
+      return antMessage.error("PIN must be exactly 6 digits.");
+    }
+    if (!pinRequirements.match) {
+      return antMessage.error("PINs do not match.");
+    }
 
-  const handleSetup = async () => {
+    // Submit
     try {
       const res = await fetch(`${API_BASE}/api/user/activate`, {
         method: "POST",
@@ -65,29 +74,30 @@ const SecuritySetup = () => {
         body: JSON.stringify({
           token,
           newPassword: formData.newPassword,
+          pin: formData.pin,
         }),
       });
-
       const data = await res.json();
-
-      if (res.ok) {
-        setSetupSuccess(true);
-        setMessage("Password set successfully! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 2500);
-      } else {
-        setMessage(data.message || "Failed to activate account.");
-      }
+      if (!res.ok) throw new Error(data.message || "Activation failed");
+      setSetupSuccess(true);
+      antMessage.success(
+        "Password and PIN set successfully! Redirecting to login...",
+      );
+      setTimeout(() => navigate("/login"), 2500);
     } catch (err) {
       console.error(err);
-      setMessage("Failed to activate account. Try again later.");
+      antMessage.error(err.message || "Activation failed. Try again later.");
     }
   };
 
   const handleResendActivation = async () => {
-    if (!email) return;
+    if (!email)
+      return antMessage.error(
+        "No email provided for resending activation link.",
+      );
 
     setResendLoading(true);
-    setResendMessage("");
+    antMessage.destroy(); // Clear previous messages
 
     try {
       const res = await fetch(`${API_BASE}/api/user/resend-activation`, {
@@ -95,17 +105,15 @@ const SecuritySetup = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-
       const data = await res.json();
-
       if (res.ok) {
-        setResendMessage(data.message || "Activation link sent!");
+        antMessage.success(data.message || "Activation link sent!");
       } else {
-        setResendMessage(data.message || "Failed to resend activation link.");
+        antMessage.error(data.message || "Failed to resend activation link.");
       }
     } catch (err) {
       console.error(err);
-      setResendMessage("Failed to resend activation link. Try again later.");
+      antMessage.error("Failed to resend activation link. Try again later.");
     } finally {
       setResendLoading(false);
     }
@@ -118,102 +126,95 @@ const SecuritySetup = () => {
   });
 
   return (
-    <div className="login-container">
+    <Card style={{ margin: "20px 0" }}>
       <div className="login-content">
         <h1 className="title">Security Setup</h1>
-        <p className="subtitle">Set your new password to proceed</p>
+        <p className="subtitle">Set your new password and PIN to proceed</p>
 
-        <form
-          className="login-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            validate();
-          }}
-        >
-          <div className="form-group">
-            <label htmlFor="newPassword">New Password</label>
-            <Input
-              type="password"
-              id="newPassword"
-              placeholder="Enter new password"
+        <Form layout="vertical" onFinish={validateAndSubmit}>
+          <Form.Item label="New Password" required>
+            <Input.Password
               value={formData.newPassword}
               onChange={(e) => changeHandler("newPassword", e.target.value)}
-              required
-              minLength={8}
             />
-          </div>
+          </Form.Item>
 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
-            <Input
-              type="password"
-              id="confirmPassword"
-              placeholder="Confirm new password"
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
               value={formData.confirmPassword}
               onChange={(e) => changeHandler("confirmPassword", e.target.value)}
-              required
-              minLength={8}
             />
-          </div>
+          </Form.Item>
 
+          {/* Live password requirements */}
           <div style={{ marginBottom: "15px" }}>
-            <p style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-              Create a password that meets the following requirements:
-            </p>
-            <div>
-              <span style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓ At least 8 characters
-              </span>
-            </div>
-            <div>
-              <span
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                ✓ One uppercase letter
-              </span>
-            </div>
-            <div>
-              <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓ One number
-              </span>
-            </div>
+            <span style={getRequirementStyle(passwordRequirements.minLength)}>
+              {passwordRequirements.minLength ? "✓" : "✗"} At least 8 characters
+            </span>
+            <br />
+            <span
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              {passwordRequirements.hasUppercase ? "✓" : "✗"} One uppercase
+              letter
+            </span>
+            <br />
+            <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              {passwordRequirements.hasNumber ? "✓" : "✗"} One number
+            </span>
           </div>
 
-          {message && !setupSuccess && <div className="error">{message}</div>}
+          {/* PIN */}
+          <Form.Item label="Set 6-digit PIN" required>
+            <Input.Password
+              value={formData.pin}
+              maxLength={6}
+              onChange={(e) =>
+                changeHandler("pin", e.target.value.replace(/\D/g, ""))
+              }
+              placeholder="Enter 6-digit PIN"
+            />
+          </Form.Item>
 
-          <Button
-            type="primary"
-            className="login-btn"
-            disabled={!isFormValid}
-            htmlType="submit"
-          >
-            SET PASSWORD
-          </Button>
+          <Form.Item label="Confirm PIN" required>
+            <Input.Password
+              value={formData.confirmPin}
+              maxLength={6}
+              onChange={(e) =>
+                changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
+              }
+              placeholder="Confirm 6-digit PIN"
+            />
+          </Form.Item>
 
-          <div style={{ marginTop: "10px" }}>
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              disabled={!isFormValid}
+              block
+            >
+              SET PASSWORD & PIN
+            </Button>
+          </Form.Item>
+
+          <Form.Item>
             <Button
               type="default"
-              className="recovery-btn"
               onClick={handleResendActivation}
-              disabled={resendLoading}
+              loading={resendLoading}
+              block
             >
-              {resendLoading ? "SENDING..." : "RESEND ACTIVATION LINK"}
+              RESEND ACTIVATION LINK
             </Button>
-            {resendMessage && (
-              <div
-                style={{ fontSize: "12px", color: "#8f8e8e", marginTop: "5px" }}
-              >
-                {resendMessage}
-              </div>
-            )}
-          </div>
+          </Form.Item>
 
           <div style={{ marginTop: "20px" }}>
             Already activated? <Link to="/login">Go to Login</Link>
           </div>
-        </form>
+        </Form>
       </div>
-    </div>
+    </Card>
   );
 };
 

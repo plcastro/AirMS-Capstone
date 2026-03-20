@@ -47,10 +47,10 @@ export default function UserForm({
     setTouched({});
     const roleMap = {
       Admin: "Admin",
-      Pilot: "Superuser",
-      Manager: "Superuser",
-      "Head of Maintenance": "Superuser",
-      Mechanic: "User",
+      Pilot: "User",
+      "Maintenance Manager": "Superuser",
+      "Officer-In-Charge": "Superuser",
+      Engineer: "User",
     };
 
     if (user) {
@@ -281,6 +281,7 @@ export default function UserForm({
           <Text strong>First Name</Text>
           <Input
             maxLength={128}
+            placeholder="Enter first name"
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
             onChange={(e) => {
@@ -300,6 +301,7 @@ export default function UserForm({
           <Text strong>Last Name</Text>
           <Input
             maxLength={128}
+            placeholder="Enter last name"
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
             onChange={(e) => {
@@ -319,6 +321,8 @@ export default function UserForm({
         <Col span={24}>
           <Text strong>Email Address</Text>
           <Input
+            placeholder="Enter email address"
+            maxLength={256}
             status={touched.email && errors.email ? "error" : ""}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -349,10 +353,10 @@ export default function UserForm({
             }}
             options={[
               { label: "Admin", value: "Admin" },
-              { label: "Head of Maintenance", value: "Head of Maintenance" },
+              { label: "Maintenance Manager", value: "Maintenance Manager" },
               { label: "Pilot", value: "Pilot" },
-              { label: "Manager", value: "Manager" },
-              { label: "Mechanic", value: "Mechanic" },
+              { label: "Officer-In-Charge", value: "Officer-In-Charge" },
+              { label: "Engineer", value: "Engineer" },
             ]}
           />
           {touched.jobTitle && errors.jobTitle && (
@@ -367,16 +371,20 @@ export default function UserForm({
           <Input value={accessLevel} disabled />
         </Col>
 
-        {["head of maintenance", "pilot", "mechanic"].includes(
-          jobTitle.toLowerCase(),
-        ) ? (
+        {[
+          "maintenance manager",
+          "pilot",
+          "engineer",
+          "officer-in-charge",
+        ].includes(jobTitle.toLowerCase()) ? (
           <Col span={12}>
-            <Text strong>License #</Text>
+            <Text strong>License No.</Text>
             <Input
-              placeholder="######"
+              placeholder="Enter license number"
               value={licenseNo}
+              onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
               maxLength={6}
-              required={["head of maintenance", "pilot", "mechanic"].includes(
+              required={["maintenance manager", "pilot", "engineer"].includes(
                 jobTitle.toLowerCase(),
               )}
             />
