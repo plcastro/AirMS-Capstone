@@ -35,7 +35,7 @@ const componentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["available", "low_stock", "critical"],
+    enum: ["available", "low stock", "critical"],
     default: "available",
   },
   last_updated: {

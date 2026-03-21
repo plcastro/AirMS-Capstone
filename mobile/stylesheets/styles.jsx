@@ -17,7 +17,10 @@ export const styles = StyleSheet.create({
   },
   codeInput: {
     borderColor: COLORS.border,
-    minWidth: "15%",
+    minWidth: "14%",
+    maxWidth: "16%",
+    width: "14%",
+    height: 50,
     borderWidth: 1,
     borderRadius: 5,
     padding: 12,
@@ -289,9 +292,9 @@ export const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   searchInput: {
-    width: 500,
+    width: 300,
     minWidth: width < 768 ? "100%" : 300,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: COLORS.white,
     borderColor: COLORS.grayMedium,
     borderWidth: 1,
     borderRadius: 8,

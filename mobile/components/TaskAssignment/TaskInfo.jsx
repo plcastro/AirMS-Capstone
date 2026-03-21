@@ -11,6 +11,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "1",
     assignedToName: "John Doe",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     checklistItems: [
       "Inspect oil level",
       "Check spark plugs",
@@ -28,6 +30,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     assignedTo: "2",
     assignedToName: "Clara Bang",
     checklistItems: [
@@ -48,6 +52,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "1",
     assignedToName: "John Doe",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     checklistItems: [
       "Test radios",
       "Check GPS navigation",
@@ -66,6 +72,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "3",
     assignedToName: "Joe Bloggs",
+    assignedTo: "3",
+    assignedToName: "Joe Bloggs",
     checklistItems: [
       "Inspect fuel tanks",
       "Check fuel lines",
@@ -82,6 +90,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     assignedTo: "2",
     assignedToName: "Clara Bang",
     checklistItems: [
@@ -103,6 +113,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "4",
     assignedToName: "Max Miller",
+    assignedTo: "4",
+    assignedToName: "Max Miller",
     checklistItems: [
       "Drain old oil",
       "Remove old filter",
@@ -120,6 +132,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "5",
+    assignedToName: "Liam Brown",
     assignedTo: "5",
     assignedToName: "Liam Brown",
     checklistItems: [
@@ -140,6 +154,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "6",
     assignedToName: "Dilan Wolf",
+    assignedTo: "6",
+    assignedToName: "Dilan Wolf",
     checklistItems: [
       "Check battery connections",
       "Inspect wiring harness",
@@ -158,6 +174,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "7",
     assignedToName: "Bob Rosfield",
+    assignedTo: "7",
+    assignedToName: "Bob Rosfield",
     checklistItems: [
       "Remove propeller",
       "Mount on balancing machine",
@@ -174,6 +192,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "1",
+    assignedToName: "John Doe",
     assignedTo: "1",
     assignedToName: "John Doe",
     checklistItems: [
@@ -195,6 +215,8 @@ const TaskInfo = [
     maintenanceType: "Corrective Maintenance",
     assignedTo: "2",
     assignedToName: "Clara Bang",
+    assignedTo: "2",
+    assignedToName: "Clara Bang",
     checklistItems: ["Remove old bulb", "Install new bulb", "Test operation"],
   },
   {
@@ -207,6 +229,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Normal",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "3",
+    assignedToName: "Joe Bloggs",
     assignedTo: "3",
     assignedToName: "Joe Bloggs",
     checklistItems: [
@@ -226,6 +250,8 @@ const TaskInfo = [
     endDateTime: "",
     priority: "Due Soon",
     maintenanceType: "Corrective Maintenance",
+    assignedTo: "4",
+    assignedToName: "Max Miller",
     assignedTo: "4",
     assignedToName: "Max Miller",
     checklistItems: [

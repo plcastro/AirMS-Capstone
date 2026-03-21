@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Input, Button, Divider, TreeSelect } from "antd";
 import UserTable from "../../../components/tables/UserTable";
-import UserModal from "../../../components/common/UserForm";
+import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined } from "@ant-design/icons";
 
-// Updated data: Values now match the actual strings in your User objects
 const accessLevelData = [
   {
     title: "Job Title",
     value: "pos-parent",
-    selectable: false, // Prevents selecting the category header
+    selectable: false,
     children: [
       { title: "Admin", value: "Admin" },
       { title: "Head of Maintenance", value: "Head of Maintenance" },
@@ -106,14 +105,11 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
-  // Combined Search and Tree Filter Logic
   useEffect(() => {
     let filtered = [...allUsers];
 
-    // 1. Filter by TreeSelect Value
     if (treeValue) {
       filtered = filtered.filter((u) => {
-        // We check all three possible fields since the TreeSelect value is flat
         return (
           u.jobTitle === treeValue ||
           u.access === treeValue ||
@@ -122,7 +118,6 @@ export default function UserManagement() {
       });
     }
 
-    // 2. Filter by Search Query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>
@@ -168,8 +163,35 @@ export default function UserManagement() {
     setShowModal(false);
     setEditingUser(null);
   };
-  const handleUserSaved = () => {
-    fetchUsers();
+  const handleUserSaved = (updatedUser) => {
+    setAllUsers((prevUsers) => {
+      if (!updatedUser._id) return prevUsers;
+
+      // Check if user exists (edit)
+      const index = prevUsers.findIndex((u) => u._id === updatedUser._id);
+      if (index !== -1) {
+        // Replace existing user
+        const newUsers = [...prevUsers];
+        newUsers[index] = {
+          ...updatedUser,
+          fullname: `${updatedUser.firstName} ${updatedUser.lastName}`,
+          dateCreated: new Date(updatedUser.dateCreated).toLocaleString(),
+        };
+        return newUsers;
+      }
+
+      // Add new user
+      return [
+        ...prevUsers,
+        {
+          ...updatedUser,
+          index: prevUsers.length + 1,
+          fullname: `${updatedUser.firstName} ${updatedUser.lastName}`,
+          dateCreated: new Date(updatedUser.dateCreated).toLocaleString(),
+        },
+      ];
+    });
+
     handleModalClose();
   };
 
@@ -249,7 +271,7 @@ export default function UserManagement() {
       </div>
 
       {showModal && (
-        <UserModal
+        <UserForm
           visible={showModal}
           user={editingUser}
           onClose={handleModalClose}

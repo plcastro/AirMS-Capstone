@@ -7,8 +7,8 @@ export default function PMonitoringTable({
   loading = false,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10); 
-  
+  const [pageSize, setPageSize] = useState(10);
+
   const processColumns = (headers) => {
     return headers.map((header) => {
       if (header.children) {
@@ -17,7 +17,6 @@ export default function PMonitoringTable({
           children: processColumns(header.children),
         };
       }
-      
       if (header.key === "daysRemaining") {
         return {
           title: header.title,
@@ -29,10 +28,10 @@ export default function PMonitoringTable({
             if (value === undefined || value === null) return "-";
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return value;
-            
+
             let color = "inherit";
             let fontWeight = "normal";
-            
+
             if (numValue <= 0) {
               color = "#ea0000";
               fontWeight = "bold";
@@ -40,12 +39,14 @@ export default function PMonitoringTable({
               color = "#f4ab00";
               fontWeight = "bold";
             }
-            
-            return <span style={{ color, fontWeight }}>{Math.round(numValue)}</span>;
+
+            return (
+              <span style={{ color, fontWeight }}>{Math.round(numValue)}</span>
+            );
           },
         };
       }
-      
+
       if (header.key === "due") {
         return {
           title: header.title,
@@ -54,7 +55,6 @@ export default function PMonitoringTable({
           width: header.width,
           render: (value) => {
             if (!value) return null;
-            
             return (
               <Tag color="#ea0000" style={{ fontWeight: "bold" }}>
                 DUE
@@ -66,18 +66,20 @@ export default function PMonitoringTable({
 
       const getColumnStyle = (key) => {
         const darkGrayColumns = [
-          'hourLimit1', 'hourLimit2', 'hourLimit3',
-          'dayType',
-          'hoursCW',
-          'timeRemaining',
-          'ttCycleDue'
+          "hourLimit1",
+          "hourLimit2",
+          "hourLimit3",
+          "dayType",
+          "hoursCW",
+          "timeRemaining",
+          "ttCycleDue",
         ];
-        
+
         if (darkGrayColumns.includes(key)) {
           return {
-            style: { 
-              backgroundColor: '#f0f0f0'
-            }
+            style: {
+              backgroundColor: "#f0f0f0",
+            },
           };
         }
         return {};
@@ -105,35 +107,35 @@ export default function PMonitoringTable({
   const columns = useMemo(() => {
     return processColumns(headers);
   }, [headers]);
-  
+
   return (
-  <Table
-    columns={columns}
-    dataSource={data}
-    rowKey={(record) => record._id || record.id || record.componentName}
-    loading={loading}
-    scroll={{ x: 1500, y: 'calc(100vh - 400px)' }} 
-    sticky={true}
-    pagination={{
-      pageSize: pageSize,
-      showSizeChanger: true,
-      pageSizeOptions: ["10", "20", "50"],
-      current: currentPage,
-      onChange: (page, size) => {
-        setCurrentPage(page);
-        setPageSize(size);
-      },
-      placement: "bottomEnd",
-    }}
-    size="small"
-    bordered
-    style={{ 
-      backgroundColor: "#fff",
-      borderRadius: "4px",
-    }}
-    rowClassName={(record, index) => {
-      return index % 2 === 0 ? "table-row-light" : "table-row-dark";
-    }}
-  />
-);
+    <Table
+      columns={columns}
+      dataSource={data}
+      rowKey={(record) => record._id || record.id || record.componentName}
+      loading={loading}
+      scroll={{ x: 1500, y: "calc(100vh - 400px)" }}
+      sticky={true}
+      pagination={{
+        pageSize: pageSize,
+        showSizeChanger: true,
+        pageSizeOptions: ["10", "20", "50"],
+        current: currentPage,
+        onChange: (page, size) => {
+          setCurrentPage(page);
+          setPageSize(size);
+        },
+        placement: "bottomEnd",
+      }}
+      size="small"
+      bordered
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: "4px",
+      }}
+      rowClassName={(record, index) => {
+        return index % 2 === 0 ? "table-row-light" : "table-row-dark";
+      }}
+    />
+  );
 }
