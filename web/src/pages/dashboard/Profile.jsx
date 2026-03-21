@@ -2,21 +2,19 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   Card,
   Typography,
-  Avatar,
   Button,
   Input,
   Form,
-  Divider,
   Row,
   Col,
   Tabs,
-  Space,
   message,
 } from "antd";
-import { EditOutlined } from "@ant-design/icons";
+import { EditOutlined, LockOutlined, UserOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
+
 const { Title, Text } = Typography;
 
 export default function Profile() {
@@ -24,21 +22,21 @@ export default function Profile() {
   const [form] = Form.useForm();
 
   const [isEditing, setIsEditing] = useState(false);
-
-  const [showUpdateSecurity, setShowUpdateSecurity] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [formErrors, setFormErrors] = useState({});
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
 
-  const sigCanvasRef = useRef(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pin, setPin] = useState(user?.pin || "");
-  const [signatureData, setSignatureData] = useState(user?.signature || "");
-
+  const maskEmail = (email) => {
+    if (!email) return "";
+    const [user, domain] = email.split("@");
+    if (user.length <= 2) return "*".repeat(user.length) + "@" + domain;
+    const first = user[0];
+    const last = user[user.length - 1];
+    const masked = first + "*".repeat(user.length - 2) + last;
+    return masked + "@" + domain;
+  };
   // --- Profile image ---
   const getProfileImage = () => {
     if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
@@ -69,29 +67,7 @@ export default function Profile() {
 
     setPreviewUri(getProfileImage());
     setFile(null);
-    setPin(user?.pin || "");
-    setSignatureData(user?.signature || "");
-
-    if (sigCanvasRef.current && user?.signature) {
-      sigCanvasRef.current.fromDataURL(user.signature);
-    }
   }, [user]);
-
-  // --- Validation ---
-  useEffect(() => {
-    const errors = {};
-    if (currentPassword.includes(" "))
-      errors.currentPassword = "Password cannot have spaces";
-    if (newPassword.includes(" "))
-      errors.newPassword = "Password cannot have spaces";
-    if (confirmPassword.includes(" "))
-      errors.confirmPassword = "Password cannot have spaces";
-    if (newPassword && confirmPassword && newPassword !== confirmPassword)
-      errors.confirmPassword = "Passwords do not match";
-    if (pin && pin.length !== 6) errors.pin = "PIN must be 6 digits";
-
-    setFormErrors(errors);
-  }, [currentPassword, newPassword, confirmPassword, pin]);
 
   // --- Profile editing ---
   const handleChange = (key, value) =>
@@ -106,33 +82,12 @@ export default function Profile() {
 
   const isProfileChanged =
     formData.firstName !== user?.firstName ||
-    formData.lastName !== user?.lastName ||
-    file;
+    formData.lastName !== user?.lastName;
+
+  const isPictureChanged = file;
 
   const handleSaveProfile = async () => {
     try {
-      let newImageUrl = user.image;
-      if (file) {
-        const formDataObj = new FormData();
-        formDataObj.append("image", file);
-
-        const res = await fetch(
-          `${API_BASE}/api/user/updateUserImage/${user.id}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            body: formDataObj,
-          },
-        );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-        newImageUrl = data.user.image.startsWith("http")
-          ? data.user.image
-          : `${API_BASE}${data.user.image}`;
-      }
-
       if (
         formData.firstName !== user.firstName ||
         formData.lastName !== user.lastName
@@ -156,87 +111,60 @@ export default function Profile() {
         ...prev,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        image: newImageUrl,
       }));
 
       setIsEditing(false);
-      setFile(null);
+
       message.success("Profile updated successfully!");
     } catch (err) {
       console.error(err);
       message.error(err.message || "Profile update failed");
     }
   };
+  const handleSaveImage = async () => {
+    if (!file) return;
 
-  if (!user) return null;
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append("image", file);
 
-  return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
-      <Card
-        style={{
-          width: 800,
-          minWidth: "95%",
-          borderRadius: 12,
-          maxHeight: "85vh",
-          overflowY: "auto",
-          padding: "2%",
-        }}
-      >
-        {/* PROFILE PICTURE */}
-        <Title level={4}>Profile Picture</Title>
-        <Row align="middle" gutter={16}>
-          <Col>
-            <img
-              src={previewUri}
-              alt="Profile"
-              style={{
-                width: 150,
-                height: 150,
-                borderRadius: "50%",
-                objectFit: "cover",
-                cursor: isEditing ? "pointer" : "default",
-              }}
-              onClick={() => isEditing && fileInputRef.current.click()}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={pickImage}
-            />
-          </Col>
-          <Col>
-            <Row>
-              <Button
-                type="primary"
-                onClick={() => fileInputRef.current.click()}
-                style={{ marginBottom: 5 }}
-              >
-                Change Picture
-              </Button>
-            </Row>
-            <Row>
-              <Button
-                danger
-                onClick={() => {
-                  setFile(null);
-                  setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
-                }}
-              >
-                Remove Picture
-              </Button>
-            </Row>
-          </Col>
-        </Row>
+      const res = await fetch(
+        `${API_BASE}/api/user/updateUserImage/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: formDataObj,
+        },
+      );
 
-        <Divider />
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
 
-        {/* USER INFO */}
+      const newImageUrl = data.user.image.startsWith("http")
+        ? data.user.image
+        : `${API_BASE}${data.user.image}`;
+
+      setUser((prev) => ({ ...prev, image: newImageUrl }));
+      setFile(null);
+      message.success("Profile picture updated!");
+    } catch (err) {
+      message.error(err.message || "Image update failed");
+    }
+  };
+
+  const tabItems = [];
+
+  tabItems.push(
+    {
+      key: "UserInformation",
+      label: "User Information",
+      icon: <UserOutlined />,
+      children: (
         <Form layout="vertical" form={form}>
-          <Title level={4}>User Information</Title>
           <Row gutter={16}>
-            <Col xs={24} md={12}>
+            <Col xs={24} s={24} md={12}>
               <Form.Item label="First Name">
                 <Input
                   value={isEditing ? formData.firstName : user.firstName}
@@ -265,7 +193,7 @@ export default function Profile() {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="Email">
-                <Input value={user.email} disabled />
+                <Input value={maskEmail(user.email)} disabled />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -288,19 +216,6 @@ export default function Profile() {
             </Col>
           </Row>
 
-          {/* <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item label="Signature">
-                <Input value={"######"} disabled />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="PIN">
-                <Input value={"######"} disabled />
-              </Form.Item>
-            </Col>
-          </Row> */}
-
           <Row justify="end" gutter={16}>
             {isEditing && (
               <Button
@@ -320,10 +235,102 @@ export default function Profile() {
             </Button>
           </Row>
         </Form>
+      ),
+    },
+    {
+      key: "SecurityInformation",
+      label: "Security",
+      icon: <LockOutlined />,
+      children: (
+        <>
+          {/* <Row style={{ overflowX: "auto", marginBottom: 16 }}> */}
+          <UpdateSecurity />
+        </>
+      ),
+    },
+  );
 
-        <Divider />
+  if (!user) return null;
 
-        <UpdateSecurity />
+  return (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <Card
+        style={{
+          width: 800,
+          minWidth: "95%",
+          borderRadius: 12,
+          maxHeight: "85vh",
+          overflowY: "auto",
+        }}
+      >
+        {/* PROFILE PICTURE */}
+        <Title level={4}>Profile Picture</Title>
+        <Row gutter={21} align={"top"} justify={"center"}>
+          <Col
+            xs={24}
+            s={24}
+            md={10}
+            lg={8}
+            style={{ display: "flex", flexDirection: "column" }}
+          >
+            <img
+              src={previewUri}
+              alt="Profile"
+              style={{
+                margin: "auto",
+                width: 250,
+                height: "auto",
+                borderRadius: "50%",
+                objectFit: "cover",
+                cursor: isEditing ? "pointer" : "default",
+              }}
+              onClick={() => isEditing && fileInputRef.current.click()}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={pickImage}
+            />
+            <Row
+              gutter={16}
+              align={"middle"}
+              justify={"space-evenly"}
+              style={{ marginBottom: 20 }}
+            >
+              <Col>
+                <Button
+                  type="primary"
+                  onClick={() =>
+                    file ? handleSaveImage() : fileInputRef.current.click()
+                  }
+                  style={{ marginRight: 10, marginBottom: 10 }}
+                >
+                  {file ? "Save Picture" : "Change Picture"}
+                </Button>
+
+                <Button
+                  danger
+                  onClick={() => {
+                    setFile(null);
+                    setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
+                  }}
+                >
+                  Remove Picture
+                </Button>
+              </Col>
+            </Row>
+          </Col>
+          <Col></Col>
+          <Col xs={24} s={24} md={10} lg={12}>
+            {/* USER INFO */}
+            <Tabs
+              defaultActiveKey={tabItems[0]?.key || "UserInformation"}
+              items={tabItems}
+            />
+          </Col>
+        </Row>
       </Card>
     </div>
   );

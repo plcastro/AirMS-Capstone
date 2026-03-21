@@ -144,7 +144,7 @@ export default function FlightLog() {
         ),
       },
     );
-  } else if (user?.jobTitle === "head of maintenance") {
+  } else if (user?.jobTitle === "maintenance manager") {
     tabItems.push({
       key: "TechnicalLog",
       label: "Technical Log",
