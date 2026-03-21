@@ -183,15 +183,12 @@ export default function FlightTable({
   const renderTable = () => (
     <View
       style={{
-        width: "100%",
         flexDirection: "row",
-        maxWidth: "100%",
+
         minWidth: totalWidth,
       }}
     >
-      <DataTable
-        style={{ width: "100%", maxWidth: "100%", minWidth: totalWidth }}
-      >
+      <DataTable style={{ minWidth: totalWidth }}>
         {/* HEADER */}
         <DataTable.Header style={styles.tableHeader}>
           {headers.map((header, i) => (
@@ -333,17 +330,9 @@ export default function FlightTable({
 
   return (
     <>
-      {needsHorizontalScroll ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          style={{ flex: 1 }}
-        >
-          {renderTable()}
-        </ScrollView>
-      ) : (
-        renderTable()
-      )}
+      <ScrollView horizontal showsHorizontalScrollIndicator style={{ flex: 1 }}>
+        {renderTable()}
+      </ScrollView>
 
       {/* CONFIRM DELETE MODAL */}
       {showConfirm && (
@@ -358,7 +347,6 @@ export default function FlightTable({
           cancelText="CANCEL"
         />
       )}
-     
     </>
   );
 }

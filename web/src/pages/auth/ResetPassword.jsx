@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./login.css";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
+import { Button } from "antd";
 
 const ResetPassword = () => {
-  const { token } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const token = query.get("token");
 
   const [formData, setFormData] = useState({
     newPassword: "",
@@ -14,29 +17,47 @@ const ResetPassword = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tokenValid, setTokenValid] = useState(true);
-  const isPasswordStrong = (password) => {
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasLowercase = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasMinLength = password.length >= 8;
-    return hasUppercase && hasLowercase && hasNumber && hasMinLength;
+
+  const passwordRequirements = {
+    minLength: formData.newPassword.length >= 8,
+    hasUppercase: /[A-Z]/.test(formData.newPassword),
+    hasNumber: /\d/.test(formData.newPassword),
+  };
+
+  const isFormValid =
+    passwordRequirements.minLength &&
+    passwordRequirements.hasUppercase &&
+    passwordRequirements.hasNumber &&
+    formData.confirmPassword &&
+    formData.newPassword === formData.confirmPassword;
+
+  const getRequirementStyle = (met) => ({
+    color: met ? "#26866F" : "#999",
+    fontSize: "12px",
+    marginRight: "5px",
+  });
+
+  const handleChange = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    setError("");
+    setMessage("");
   };
 
   const validatePasswords = () => {
-    const { newPassword, confirmPassword } = formData;
-    if (!newPassword || !confirmPassword) {
+    if (!formData.newPassword || !formData.confirmPassword) {
       setError("Please fill in all fields.");
       return false;
     }
-    if (newPassword !== confirmPassword) {
+    if (formData.newPassword !== formData.confirmPassword) {
       setError("Passwords do not match.");
       return false;
     }
-    if (!isPasswordStrong(newPassword)) {
-      setError(
-        "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
-      );
+    if (
+      !passwordRequirements.minLength ||
+      !passwordRequirements.hasUppercase ||
+      !passwordRequirements.hasNumber
+    ) {
+      setError("Password does not meet requirements.");
       return false;
     }
     return true;
@@ -44,40 +65,32 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
-
     if (!validatePasswords()) return;
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/api/user/reset-password/${token}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword: formData.newPassword }),
-        },
-      );
+      const res = await fetch(`${API_BASE}/api/user/reset-password/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: formData.newPassword }),
+      });
+      const data = await res.json();
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage("Password changed successfully! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 2000);
+      if (res.ok) {
+        setMessage("Password reset successfully! Redirecting to login...");
+        setTimeout(() => navigate("/login"), 3000);
       } else {
         setError(data.message || "Failed to reset password.");
       }
     } catch (err) {
-      console.error("Reset password error:", err);
+      console.error(err);
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Show invalid token if missing
-  if (!tokenValid) {
+  if (!token) {
     return (
       <div className="reset-password-container">
         <div className="reset-password-content">
@@ -106,9 +119,7 @@ const ResetPassword = () => {
               type="password"
               placeholder="New Password"
               value={formData.newPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, newPassword: e.target.value })
-              }
+              onChange={(e) => handleChange("newPassword", e.target.value)}
               minLength={8}
               required
             />
@@ -119,21 +130,41 @@ const ResetPassword = () => {
               type="password"
               placeholder="Confirm Password"
               value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
-              }
+              onChange={(e) => handleChange("confirmPassword", e.target.value)}
               minLength={8}
               required
             />
           </div>
 
-          <button
-            type="submit"
-            className="recovery-btn"
-            disabled={loading || !tokenValid}
+          {/* Password requirements */}
+          <div style={{ marginBottom: "15px" }}>
+            <div>
+              <span style={getRequirementStyle(passwordRequirements.minLength)}>
+                ✓ At least 8 characters
+              </span>
+            </div>
+            <div>
+              <span
+                style={getRequirementStyle(passwordRequirements.hasUppercase)}
+              >
+                ✓ One uppercase letter
+              </span>
+            </div>
+            <div>
+              <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
+                ✓ One number
+              </span>
+            </div>
+          </div>
+
+          <Button
+            type="primary"
+            className="login-btn"
+            htmlType="submit"
+            disabled={loading || !isFormValid}
           >
             {loading ? "Resetting..." : "RESET PASSWORD"}
-          </button>
+          </Button>
 
           {error && <div className="error">{error}</div>}
           {message && <div className="info">{message}</div>}

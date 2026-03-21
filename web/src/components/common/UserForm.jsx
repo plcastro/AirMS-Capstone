@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { API_BASE } from "../../utils/API_BASE";
 import {
   Modal,
   Upload,
@@ -14,10 +13,11 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
+import { API_BASE } from "../../utils/API_BASE";
 
 const { Text } = Typography;
 
-export default function UserModal({
+export default function UserForm({
   visible,
   onClose,
   onUserSaved,
@@ -35,39 +35,67 @@ export default function UserModal({
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Track which fields have been touched for validation messages
   const [touched, setTouched] = useState({});
 
-  const handleBlur = (field) => {
+  const handleBlur = (field) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
-  };
 
   useEffect(() => {
-    if (user) return;
+    if (!visible) return;
 
-    if (!firstName || !lastName) {
+    setTouched({});
+    const roleMap = {
+      Admin: "Admin",
+      Pilot: "Superuser",
+      Manager: "Superuser",
+      "Head of Maintenance": "Superuser",
+      Mechanic: "User",
+    };
+
+    if (user) {
+      // Editing user
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setEmail(user.email || "");
+      setUsername(user.username || "");
+      setJobTitle(user.jobTitle || "");
+      setAccessLevel(roleMap[user.jobTitle] || "");
+      setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
+      setImageUrl(user.image || null);
+      setFile(null);
+    } else {
+      // New user
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setJobTitle("");
+      setAccessLevel("");
+      setJoinedDate(new Date());
+      setImageUrl(null);
+      setFile(null);
       setUsername("");
-      return;
     }
+  }, [visible, user]);
 
-    const baseUsername = `${lastName}${firstName[0]}`
+  // Generate username for new users
+  useEffect(() => {
+    if (user) return; // skip for editing
+    if (!firstName || !lastName || !allUsers) return;
+
+    let base = `${lastName}${firstName[0]}`
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[^a-z0-9]/g, "");
-
-    let finalUsername = baseUsername;
+    let finalUsername = base;
     let counter = 1;
-
-    const usernameExists = (name) => allUsers.some((u) => u.username === name);
-
-    while (usernameExists(finalUsername)) {
+    while (allUsers.some((u) => u.username === finalUsername)) {
       counter++;
-      finalUsername = `${baseUsername}${counter}`;
+      finalUsername = `${base}${counter}`;
     }
-
     setUsername(finalUsername);
   }, [firstName, lastName, user, allUsers]);
 
+  // Auto-assign access level based on jobTitle
   useEffect(() => {
     const roleMap = {
       Admin: "Admin",
@@ -79,41 +107,21 @@ export default function UserModal({
     setAccessLevel(roleMap[jobTitle] || "");
   }, [jobTitle]);
 
-  // 3. Reset/Populate form
-  useEffect(() => {
-    if (visible) {
-      setTouched({});
-      if (user) {
-        setFirstName(user.firstName || "");
-        setLastName(user.lastName || "");
-        setEmail(user.email || "");
-        setUsername(user.username || "");
-        setJobTitle(user.jobTitle || "");
-        setAccessLevel(user.access || "");
-        setJoinedDate(
-          user.dateCreated ? new Date(user.dateCreated) : new Date(),
-        );
-        setImageUrl(user.image || null);
-      } else {
-        setFirstName("");
-        setLastName("");
-        setEmail("");
-        setUsername("");
-        setJobTitle("");
-        setAccessLevel("");
-        setJoinedDate(new Date());
-        setImageUrl(null);
-        setFile(null);
-      }
-    }
-  }, [user, visible]);
-
-  // 4. Validation Logic
+  // Validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const nameRegex = /^[a-zA-Z'-\s]+$/;
   const errors = useMemo(
     () => ({
-      firstName: !firstName.trim() ? "First name is required" : null,
-      lastName: !lastName.trim() ? "Last name is required" : null,
+      firstName: !firstName.trim()
+        ? "First name is required"
+        : !nameRegex.test(firstName)
+          ? "First name can only contain letters, hyphens, or apostrophes"
+          : null,
+      lastName: !lastName.trim()
+        ? "Last name is required"
+        : !nameRegex.test(lastName)
+          ? "Last name can only contain letters, hyphens, or apostrophes"
+          : null,
       email: !email.trim()
         ? "Email is required"
         : !emailRegex.test(email)
@@ -126,32 +134,92 @@ export default function UserModal({
 
   const isFormInvalid = Object.values(errors).some((err) => err !== null);
 
+  // Save user
   const handleSave = async () => {
     setLoading(true);
-    const formData = new FormData();
-    formData.append("firstName", firstName.trim());
-    formData.append("lastName", lastName.trim());
-    formData.append("email", email.trim());
-    formData.append("username", username.trim());
-    formData.append("jobTitle", jobTitle);
-    formData.append("access", accessLevel);
-    formData.append("dateCreated", joinedDate.toISOString());
-    if (file) formData.append("image", file);
 
     try {
+      // --- Prepare payload ---
+      let body;
+      let headers = {};
+
+      if (file) {
+        // If image/file is uploaded, use FormData
+        body = new FormData();
+        body.append("firstName", firstName.trim());
+        body.append("lastName", lastName.trim());
+        body.append("email", email.trim());
+        body.append("username", username.trim());
+        body.append("jobTitle", jobTitle);
+        body.append("access", accessLevel);
+        body.append("dateCreated", joinedDate.toISOString());
+        body.append("image", file); // only append if file exists
+      } else {
+        // No file, send JSON
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          username: username.trim(),
+          jobTitle,
+          access: accessLevel,
+          dateCreated: joinedDate.toISOString(),
+        });
+      }
+
+      // --- Debug log: see what’s being sent ---
+      console.log(
+        "Sending payload:",
+        file ? [...body.entries()] : JSON.parse(body),
+      );
+
       const url = user
         ? `${API_BASE}/api/user/updateUser/${user._id}`
         : `${API_BASE}/api/user/create`;
+
       const res = await fetch(url, {
         method: user ? "PUT" : "POST",
-        body: formData,
+        headers,
+        body,
       });
-      if (!res.ok) throw new Error("Operation failed");
-      antMessage.success(user ? "User updated" : "User added");
-      onUserSaved?.();
+
+      if (!res.ok) {
+        // Try to read backend error message
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Operation failed");
+      }
+      const savedUser = await res.json();
+      antMessage.success(
+        user ? "User updated successfully!" : "User added successfully!",
+      );
+
+      if (!user) {
+        Modal.success({
+          title: "Email Sent",
+          content: `An invitation email has been sent to ${email}.`,
+        });
+      }
+
+      const updatedUser = {
+        _id: savedUser?.data?._id || user?._id,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        username,
+        jobTitle,
+
+        access: accessLevel,
+        dateCreated: joinedDate.toISOString(),
+        image: savedUser?.data?.image || imageUrl,
+        status: savedUser?.data?.status || "active",
+      };
+
+      onUserSaved?.(updatedUser);
       onClose();
     } catch (err) {
-      antMessage.error("Server error. Please try again.");
+      console.error("Error saving user:", err);
+      antMessage.error(err.message || "Server error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -180,17 +248,16 @@ export default function UserModal({
     >
       <Divider />
       <Row gutter={[16, 16]}>
+        {/* Avatar */}
         <Col span={24} style={{ textAlign: "center" }}>
           <ImgCrop rotationSlider aspect={1 / 1}>
             <Upload
               listType="picture-card"
               showUploadList={false}
-              action="https://660d2bd96ddfa2943b33731c.mockapi.io/api/upload"
-              onChange={(info) => {
-                if (info.file.originFileObj) {
-                  setFile(info.file.originFileObj);
-                  setImageUrl(URL.createObjectURL(info.file.originFileObj));
-                }
+              beforeUpload={(file) => {
+                setFile(file);
+                setImageUrl(URL.createObjectURL(file));
+                return false; // prevent auto upload
               }}
             >
               {imageUrl ? (
@@ -202,16 +269,21 @@ export default function UserModal({
           </ImgCrop>
         </Col>
 
+        {/* First / Last Name */}
         <Col span={12}>
           <Text strong>First Name</Text>
           <Input
+            maxLength={128}
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, ""); // remove invalid chars
+              setFirstName(value);
+            }}
             onBlur={() => handleBlur("firstName")}
           />
           {touched.firstName && errors.firstName && (
-            <Text type="danger" style={{ fontSize: "11px" }}>
+            <Text type="danger" style={{ fontSize: 11 }}>
               {errors.firstName}
             </Text>
           )}
@@ -220,18 +292,23 @@ export default function UserModal({
         <Col span={12}>
           <Text strong>Last Name</Text>
           <Input
+            maxLength={128}
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, "");
+              setLastName(value);
+            }}
             onBlur={() => handleBlur("lastName")}
           />
           {touched.lastName && errors.lastName && (
-            <Text type="danger" style={{ fontSize: "11px" }}>
+            <Text type="danger" style={{ fontSize: 11 }}>
               {errors.lastName}
             </Text>
           )}
         </Col>
 
+        {/* Email */}
         <Col span={24}>
           <Text strong>Email Address</Text>
           <Input
@@ -241,19 +318,20 @@ export default function UserModal({
             onBlur={() => handleBlur("email")}
           />
           {touched.email && errors.email && (
-            <Text type="danger" style={{ fontSize: "11px" }}>
+            <Text type="danger" style={{ fontSize: 11 }}>
               {errors.email}
             </Text>
           )}
         </Col>
 
+        {/* Username / Job Title */}
         <Col span={12}>
           <Text strong>Generated Username</Text>
           <Input value={username} disabled />
         </Col>
 
         <Col span={12}>
-          <Text strong>JobTitle</Text>
+          <Text strong>Job Title</Text>
           <Select
             status={touched.jobTitle && errors.jobTitle ? "error" : ""}
             style={{ width: "100%" }}
@@ -264,18 +342,20 @@ export default function UserModal({
             }}
             options={[
               { label: "Admin", value: "Admin" },
+              { label: "Head of Maintenance", value: "Head of Maintenance" },
               { label: "Pilot", value: "Pilot" },
               { label: "Manager", value: "Manager" },
               { label: "Mechanic", value: "Mechanic" },
             ]}
           />
           {touched.jobTitle && errors.jobTitle && (
-            <Text type="danger" style={{ fontSize: "11px" }}>
+            <Text type="danger" style={{ fontSize: 11 }}>
               {errors.jobTitle}
             </Text>
           )}
         </Col>
 
+        {/* Access Level / Date Joined */}
         <Col span={12}>
           <Text strong>Access Level</Text>
           <Input value={accessLevel} disabled />
