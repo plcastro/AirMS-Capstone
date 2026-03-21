@@ -395,7 +395,7 @@ const updateUser = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { firstName, lastName, email, username, access, jobTitle },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (Object.keys(changes).length > 0) {
@@ -441,7 +441,7 @@ const updateUserProfile = async (req, res) => {
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
     });
 
     await auditLog(
@@ -469,7 +469,7 @@ const updateUserStatus = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { status },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     await auditLog(
@@ -511,7 +511,7 @@ const updateUserImage = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { image: newImagePath },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     await auditLog(
@@ -621,7 +621,7 @@ const updateSignature = async (req, res) => {
     const user = await UserModel.findByIdAndUpdate(
       req.params.id,
       { signature },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     res.status(200).json({ message: "Signature updated", user });

@@ -1,91 +1,56 @@
-import React, { useContext, useRef, useState, useEffect } from "react";
-import {
-  Space,
-  Input,
-  Button,
-  Typography,
-  Divider,
-  Row,
-  Col,
-  Tabs,
-  message,
-} from "antd";
-import SignatureCanvas from "react-signature-canvas";
+import React, { useState, useEffect, useContext } from "react";
+import { Row, Space, Input, Button, Typography, Tabs, message } from "antd";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export default function UpdateSecurity() {
   const { user, setUser } = useContext(AuthContext);
-  const sigCanvasRef = useRef(null);
 
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Password
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
 
-  // PIN
-  const [currentPin, setCurrentPin] = useState(user?.pin || "");
+  const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinErrors, setPinErrors] = useState({});
+  const [forgotPinMode, setForgotPinMode] = useState(false);
 
-  // Signature
-  const [signatureData, setSignatureData] = useState(user?.signature || "");
+  const [verifyEmail, setVerifyEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [resetToken, setResetToken] = useState("");
 
   useEffect(() => {
-    if (!isEditing) {
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setNewPin("");
-      setConfirmPin("");
-      setCurrentPin(user?.pin || "");
-      setSignatureData(user?.signature || "");
-      setPasswordErrors({});
-      setPinErrors({});
-    }
-  }, [isEditing, user]);
-
-  // --- Live password validation ---
-  useEffect(() => {
-    const errors = {};
-    if (newPassword) {
-      errors.minLength = newPassword.length >= 8;
-      errors.uppercase = /[A-Z]/.test(newPassword);
-      errors.number = /\d/.test(newPassword);
-      errors.match = confirmPassword === newPassword && confirmPassword !== "";
-    } else {
-      errors.minLength = false;
-      errors.uppercase = false;
-      errors.number = false;
-      errors.match = false;
-    }
-    setPasswordErrors(errors);
+    setPasswordErrors({
+      minLength: newPassword.length >= 8,
+      uppercase: /[A-Z]/.test(newPassword),
+      number: /\d/.test(newPassword),
+      match: newPassword === confirmPassword && confirmPassword !== "",
+    });
   }, [newPassword, confirmPassword]);
 
-  // --- Live PIN validation ---
   useEffect(() => {
-    const errors = {};
-    errors.isSixDigits = newPin.length === 6;
-    errors.match = newPin === confirmPin && newPin.length === 6;
-    setPinErrors(errors);
+    setPinErrors({
+      isSixDigits: newPin.length === 6,
+      match: newPin === confirmPin && newPin.length === 6,
+    });
   }, [newPin, confirmPin]);
 
-  // --- Save handlers ---
+  const resetAll = () => {
+    setVerifyEmail("");
+    setOtp("");
+    setOtpSent(false);
+    setOtpVerified(false);
+    setResetToken("");
+  };
+
   const savePassword = async () => {
-    if (
-      !currentPassword ||
-      !newPassword ||
-      !confirmPassword ||
-      Object.values(passwordErrors).some((v) => !v)
-    ) {
-      return message.error("Check your password inputs");
-    }
     try {
       const res = await fetch(
         `${API_BASE}/api/user/change-password/${user.id}`,
@@ -95,32 +60,79 @@ export default function UpdateSecurity() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
           },
-          body: JSON.stringify({
-            currentPassword,
-            newPassword,
-          }),
+          body: JSON.stringify({ currentPassword, newPassword }),
         },
       );
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
+
       message.success("Password updated!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      message.error(err.message || "Update failed");
+      message.error(err.message);
+    }
+  };
+
+  const requestPasswordOtp = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/request-password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: verifyEmail, id: user.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setResetToken(data.token);
+      setOtpSent(true);
+      message.success("OTP sent");
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const verifyPasswordOtp = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, otp }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setOtpVerified(true);
+      message.success("OTP verified");
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const resetPassword = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, newPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      message.success("Password reset successful!");
+      setForgotPasswordMode(false);
+      resetAll();
+    } catch (err) {
+      message.error(err.message);
     }
   };
 
   const savePin = async () => {
-    if (Object.values(pinErrors).some((v) => !v)) {
-      return message.error("Check your PIN inputs");
-    }
-
-    if (!currentPin) {
-      return message.error("Enter your current PIN");
-    }
-
     try {
       const res = await fetch(`${API_BASE}/api/user/updatePIN/${user.id}`, {
         method: "PUT",
@@ -132,226 +144,242 @@ export default function UpdateSecurity() {
       });
 
       const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message || "Failed to update PIN");
+      if (!res.ok) throw new Error(data.message);
 
       setUser((prev) => ({ ...prev, pin: newPin }));
-      message.success("PIN updated successfully!");
-
-      setCurrentPin("");
-      setNewPin("");
-      setConfirmPin("");
+      message.success("PIN updated!");
     } catch (err) {
-      message.error(err.message || "Update failed");
+      message.error(err.message);
     }
   };
 
-  const saveSignature = async () => {
-    if (!sigCanvasRef.current || sigCanvasRef.current.isEmpty())
-      return message.warning("Signature is empty!");
-    const dataURL = sigCanvasRef.current.toDataURL("image/png");
+  const requestPinOtp = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/user/updateSignature/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-          body: JSON.stringify({ signature: dataURL }),
-        },
-      );
+      const res = await fetch(`${API_BASE}/api/user/request-pin-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: verifyEmail, id: user.id }),
+      });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      setUser((prev) => ({ ...prev, signature: dataURL }));
-      setSignatureData(dataURL);
-      message.success("Signature updated!");
+
+      setResetToken(data.token);
+      setOtpSent(true);
+      message.success("OTP sent");
     } catch (err) {
-      message.error(err.message || "Update failed");
+      message.error(err.message);
     }
   };
 
-  const items = [
-    {
-      key: "password",
-      label: "Password",
-      children: (
+  const verifyPinOtp = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, otp }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setOtpVerified(true);
+      message.success("OTP verified");
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const resetPin = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, newPin }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setUser((prev) => ({ ...prev, pin: newPin }));
+      message.success("PIN reset successful!");
+      setForgotPinMode(false);
+      resetAll();
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const PasswordTab = (
+    <Space orientation="vertical">
+      {!forgotPasswordMode ? (
         <>
-          <Space
-            orientation="vertical"
-            size={12}
-            style={{ minWidth: "100%", maxWidth: 400 }}
-          >
-            <Text>Current Password</Text>
-            <Input.Password
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
+          <Input.Password
+            size="large"
+            placeholder="Current Password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
 
-            <Text>New Password</Text>
-            <Input.Password
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-
-            <Text>Confirm Password</Text>
-            <Input.Password
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </Space>
-          <div style={{ marginTop: 10 }}>
-            <Text type={passwordErrors.minLength ? "success" : "secondary"}>
-              {passwordErrors.minLength ? "✓" : "✗"} At least 8 characters
-            </Text>
-            <br />
-            <Text type={passwordErrors.uppercase ? "success" : "secondary"}>
-              {passwordErrors.uppercase ? "✓" : "✗"} One uppercase letter
-            </Text>
-            <br />
-            <Text type={passwordErrors.number ? "success" : "secondary"}>
-              {passwordErrors.number ? "✓" : "✗"} One number
-            </Text>
-            <br />
-            <Text type={passwordErrors.match ? "success" : "secondary"}>
-              {passwordErrors.match ? "✓" : "✗"} Passwords match
-            </Text>
-          </div>
-          <Button
-            type="primary"
-            style={{ marginTop: 10 }}
-            onClick={savePassword}
-            disabled={Object.values(passwordErrors).some((v) => !v)}
+          <Text
+            style={{ color: "#1677ff", cursor: "pointer" }}
+            onClick={() => setForgotPasswordMode(true)}
           >
+            Forgot Password?
+          </Text>
+
+          <Input.Password
+            placeholder="New Password"
+            size="large"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <Input.Password
+            placeholder="Confirm Password"
+            size="large"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+
+          <Text
+            type={
+              Object.values(passwordErrors).every(Boolean)
+                ? "success"
+                : "secondary"
+            }
+          >
+            Password should be at least 8 characters long, include 1 uppercase
+            letter, 1 lowercase letter, and 1 number.
+          </Text>
+          <Button type="primary" onClick={savePassword}>
             Save Password
           </Button>
         </>
-      ),
-    },
-    {
-      key: "pin",
-      label: "PIN",
-      children: (
+      ) : (
         <>
-          <Row>
-            <Text style={{ width: 300 }}>Current PIN</Text>
-          </Row>
-          <Row>
-            <Input.Password
-              style={{ width: 300 }}
-              placeholder="Enter Current PIN"
-              value={currentPin}
-              maxLength={6}
-              onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
-            />
-          </Row>
-          <Row>
-            <Text style={{ width: 300 }}>New PIN</Text>
-          </Row>
-          <Row>
-            <Input.Password
-              style={{ width: 300 }}
-              placeholder="Enter New PIN"
-              value={newPin}
-              maxLength={6}
-              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
-            />
-          </Row>
-          <Row>
-            <Text style={{ width: 300 }}>Confirm New PIN</Text>
-          </Row>
-          <Row>
-            <Input.Password
-              style={{ width: 300 }}
-              placeholder="Confirm New PIN"
-              value={confirmPin}
-              maxLength={6}
-              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-            />
-          </Row>
-          <Row>
-            <Text
-              type="secondary"
-              style={{ width: 300, textDecoration: "italic" }}
-            >
-              Note: Please do not use sensitive info like birthdate or phone
-              number.
-            </Text>
-          </Row>
+          {!otpSent ? (
+            <>
+              <Input
+                placeholder="Enter Email"
+                value={verifyEmail}
+                onChange={(e) => setVerifyEmail(e.target.value)}
+              />
+              <Button onClick={requestPasswordOtp}>Send OTP</Button>
+            </>
+          ) : !otpVerified ? (
+            <>
+              <Input
+                placeholder="Enter OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+              <Button onClick={verifyPasswordOtp}>Verify OTP</Button>
+            </>
+          ) : (
+            <>
+              <Input.Password
+                size="large"
+                placeholder="New Password"
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <Input.Password
+                size="large"
+                placeholder="Confirm Password"
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <Button onClick={resetPassword}>Reset Password</Button>
+            </>
+          )}
 
-          <div style={{ marginTop: 5 }}>
-            <Text type={pinErrors.isSixDigits ? "success" : "secondary"}>
-              {pinErrors.isSixDigits ? "✓" : "✗"} 6 digits
-            </Text>
-            <br />
-            <Text type={pinErrors.match ? "success" : "secondary"}>
-              {pinErrors.match ? "✓" : "✗"} PINs match
-            </Text>
-          </div>
+          <Button onClick={() => setForgotPasswordMode(false)}>Back</Button>
+        </>
+      )}
+    </Space>
+  );
 
-          <Button
-            type="primary"
-            style={{ marginTop: 10 }}
-            onClick={savePin}
-            disabled={Object.values(pinErrors).some((v) => !v)}
+  const PinTab = (
+    <Space orientation="vertical">
+      {!forgotPinMode ? (
+        <>
+          <Input.Password
+            size="large"
+            placeholder="Current PIN"
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value)}
+          />
+
+          <Text
+            style={{ color: "#1677ff", cursor: "pointer" }}
+            onClick={() => setForgotPinMode(true)}
           >
+            Forgot PIN?
+          </Text>
+
+          <Input.Password
+            size="large"
+            placeholder="New PIN"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value)}
+          />
+          <Input.Password
+            size="large"
+            placeholder="Confirm PIN"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value)}
+          />
+
+          <Button type="primary" onClick={savePin}>
             Save PIN
           </Button>
         </>
-      ),
-    },
-    {
-      key: "signature",
-      label: "Signature",
-      children: (
-        <Row>
-          <Text>Signature</Text>
-          <Col xs={24}>
-            <SignatureCanvas
-              ref={sigCanvasRef}
-              penColor="black"
-              canvasProps={{
-                width: 320,
-                minWidth: "100%",
-                height: 150,
-                style: { border: "1px solid #ccc" },
-              }}
-            />
-          </Col>
-          <Col span={24}>
-            <Button
-              type="primary"
-              onClick={saveSignature}
-              style={{ marginRight: 10 }}
-              disabled={sigCanvasRef.current?.isEmpty()}
-            >
-              Save Signature
-            </Button>
-            <Button onClick={() => sigCanvasRef.current.clear()}>
-              Clear Signature
-            </Button>
-          </Col>
-        </Row>
-      ),
-    },
-  ];
-
-  return (
-    <div style={{ marginBottom: 100 }}>
-      <Row justify="space-between" align="middle">
-        <Title level={4}>Update Security Information</Title>
-        <Button onClick={() => setIsEditing(!isEditing)} disabled={!user}>
-          {isEditing ? "Cancel" : "Update Security"}
-        </Button>
-      </Row>
-
-      {isEditing && (
+      ) : (
         <>
-          <Divider />
-          <Tabs items={items} />
+          {!otpSent ? (
+            <>
+              <Input
+                placeholder="Enter Email"
+                value={verifyEmail}
+                onChange={(e) => setVerifyEmail(e.target.value)}
+              />
+              <Button onClick={requestPinOtp}>Send OTP</Button>
+            </>
+          ) : !otpVerified ? (
+            <>
+              <Input
+                placeholder="Enter OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+              <Button onClick={verifyPinOtp}>Verify OTP</Button>
+            </>
+          ) : (
+            <>
+              <Input.Password
+                placeholder="New PIN"
+                onChange={(e) => setNewPin(e.target.value)}
+              />
+              <Input.Password
+                placeholder="Confirm PIN"
+                onChange={(e) => setConfirmPin(e.target.value)}
+              />
+              <Button onClick={resetPin}>Reset PIN</Button>
+            </>
+          )}
+
+          <Button onClick={() => setForgotPinMode(false)}>Back</Button>
         </>
       )}
-    </div>
+    </Space>
+  );
+
+  return (
+    <Row>
+      <Tabs
+        items={[
+          { key: "1", label: "Password", children: PasswordTab },
+          { key: "2", label: "PIN", children: PinTab },
+        ]}
+      />
+    </Row>
   );
 }
