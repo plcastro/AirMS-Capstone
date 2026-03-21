@@ -20,7 +20,6 @@ const DashboardLayout = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-
   const pageMap = {
     "/dashboard/user-management/view-users": "Users",
     "/dashboard/user-management/activity-logs": "Activity Logs",
@@ -119,7 +118,7 @@ const DashboardLayout = () => {
 
         <Content
           style={{
-            minHeight: "100vh",
+            height: "100vh",
             background: "#efeeee",
             borderRadius: borderRadiusLG,
             padding: 24,

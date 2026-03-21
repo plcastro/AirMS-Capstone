@@ -72,19 +72,15 @@ export default function FLogTable({
 
   const columns = headers.map((col) => ({
     ...col,
-    render: (text, record) =>
-      col.key === "action"
-        ? renderActions(record)
-        : col.render
-          ? col.render(text, record)
-          : text || "-",
+    render:
+      col.key === "action" ? (_, record) => renderActions(record) : undefined,
   }));
 
   return (
     <Table
       columns={columns}
       dataSource={data}
-      rowKey={(record, index) => record.id || index}
+      rowKey={(record) => record.index}
       pagination={{
         current: currentPage,
         pageSize,

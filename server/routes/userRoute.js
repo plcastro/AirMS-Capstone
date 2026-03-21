@@ -21,7 +21,10 @@ const {
   resetPassword,
   verifyOtp,
 } = require("../controllers/passwordResetController");
-const { verifyToken } = require("../middleware/authMiddleware");
+const {
+  verifyToken,
+  verifySetupToken,
+} = require("../middleware/authMiddleware");
 const { upload, processImage } = require("../middleware/upload");
 
 router.post("/login", rateLimiter, loginUser);
@@ -42,7 +45,7 @@ router.put(
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
-router.post("/complete-security-setup", verifyToken, completeSecuritySetup);
+router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-reset", requestPasswordReset);
 router.post("/verify-otp", verifyOtp);
