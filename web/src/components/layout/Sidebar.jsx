@@ -49,7 +49,7 @@ const Sidebar = ({ collapsed }) => {
       icon: <BookOutlined />,
       roles: ["head of maintenance", "manager"],
       children: [
-        { key: "5", label: "PM Table", icon: <BookOutlined /> },
+        { key: "5", label: "Parts Monitoring Table", icon: <BookOutlined /> },
         { key: "6", label: "Maintenance Tracking", icon: <BookOutlined /> },
       ],
     },

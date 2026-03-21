@@ -1,16 +1,14 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-
 import "./login.css";
 import { Input, Button } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 const SecuritySetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const params = location.state || {}; // equivalent to route.params in React Native
-
-  const email = params.email || "";
-  const token = params.setupToken || "";
+  const query = new URLSearchParams(location.search);
+  const email = query.get("email") || "";
+  const token = query.get("setupToken") || "";
 
   const [formData, setFormData] = useState({
     newPassword: "",

@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { View, Text, TextInput, Platform, ScrollView } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
+
 import FlightTable from "../../components/FlightLog/FlightTable";
 import FlightLogEditDefects from "../../components/FlightLog/FlightLogEditDefects";
 import FlightLogEditTechnical from "../../components/FlightLog/FlightLogEditTechnical";
@@ -11,6 +12,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import FlightEntry from "../../components/FlightLog/FlightLogEntry";
 
 import { API_BASE } from "../../utilities/API_BASE";
+import TechnicalSummaryCards from "../../components/FlightLog/TechnicalSummaryCards";
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
@@ -57,18 +59,20 @@ export default function FlightLog() {
     if (!decimalTime || decimalTime <= 0) return "---";
     const hours = Math.floor(decimalTime);
     const minutes = Math.round((decimalTime - hours) * 60);
-    return `${hours}:${minutes.toString().padStart(2, '0')}`;
+    return `${hours}:${minutes.toString().padStart(2, "0")}`;
   };
 
   useEffect(() => {
     const fetchTechnicalLogs = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/technical-logs/getAllTechnicalLogs`);
+        const response = await fetch(
+          `${API_BASE}/api/technical-logs/getAllTechnicalLogs`,
+        );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const result = await response.json();
-        if (result.status === 'Ok') {
+        if (result.status === "Ok") {
           const transformedData = result.data.map((log, index) => {
             return {
               ...log,
@@ -78,31 +82,48 @@ export default function FlightLog() {
               onBlock: log.onBlock || "---",
               blockTime: formatTime(log.blockTime),
               flightTime: formatTime(log.flightTime),
-              technicalAction: 'Routine flight, no issues', // Placeholder, adjust as needed
+              technicalAction: "Routine flight, no issues", // Placeholder, adjust as needed
             };
           });
           setTechnicalLogData(transformedData);
         } else {
-          console.error('API returned status:', result.status);
+          console.error("API returned status:", result.status);
         }
       } catch (error) {
-        console.error('Error fetching technical logs:', error);
+        console.error("Error fetching technical logs:", error);
       }
     };
     fetchTechnicalLogs();
   }, []);
 
-  const totalFuelPurchased = technicalLogData.reduce((sum, log) => sum + (log.fuelPurchased || 0), 0);
-  const totalFuelBurned = technicalLogData.reduce((sum, log) => sum + (log.fuelBurn || 0), 0);
-  const totalLegDistance = technicalLogData.reduce((sum, log) => sum + (log.legDistance || 0), 0);
+  const totalFuelPurchased = technicalLogData.reduce(
+    (sum, log) => sum + (log.fuelPurchased || 0),
+    0,
+  );
+  const totalFuelBurned = technicalLogData.reduce(
+    (sum, log) => sum + (log.fuelBurn || 0),
+    0,
+  );
+  const totalLegDistance = technicalLogData.reduce(
+    (sum, log) => sum + (log.legDistance || 0),
+    0,
+  );
 
   // Card Data for Technical Log Summary
   const cardData = [
-    { label: "Total Fuel Purchased", iconName: "fuel", value: totalFuelPurchased.toString() },
-    { label: "Total Fuel Burned", iconName: "oil", value: totalFuelBurned.toString() },
+    {
+      label: "Total Fuel Purchased",
+      icon: "fuel",
+      value: totalFuelPurchased.toString(),
+    },
+    {
+      label: "Total Fuel Burned",
+      icon: "oil",
+      value: totalFuelBurned.toString(),
+    },
     {
       label: "Total Leg Distance",
-      iconName: "map-marker-distance",
+      icon: "map-marker-distance",
       value: `${totalLegDistance} NM`,
     },
   ];
@@ -251,7 +272,7 @@ export default function FlightLog() {
   return (
     <View style={styles.container}>
       {/* Search */}
-      <View style={[styles.searchRow, { maxWidth: 350 }]}>
+      <View style={styles.searchRow}>
         <TextInput
           placeholderTextColor={"gray"}
           placeholder="Search by date, origin, or destination..."
@@ -334,49 +355,7 @@ export default function FlightLog() {
         {activeTab === "TechnicalLog" && (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View
-                style={{
-                  flexDirection: "row",
-
-                  marginBottom: 10,
-                }}
-              >
-                {cardData.map((card, i) => (
-                  <View
-                    key={i}
-                    style={{
-                      backgroundColor: "#26866F",
-                      borderRadius: 8,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: isMobile ? "30%" : 110,
-                    }}
-                  >
-                    <Text style={[styles.primaryBtnTxt, { fontSize: 14 }]}>
-                      {card.label}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginTop: 6,
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={card.iconName}
-                        size={1}
-                        color="#fff"
-                        style={{ marginRight: 5 }}
-                      />
-                      <Text
-                        style={{ color: "#fff", fontSize: 16, fontWeight: 500 }}
-                      >
-                        {card.value}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
+              <TechnicalSummaryCards cardData={cardData} isMobile={isMobile} />
             </ScrollView>
             <FlightTable
               headers={TLheaders}

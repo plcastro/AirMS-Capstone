@@ -9,15 +9,18 @@ export default function Button({
   buttonStyle = {},
   buttonTextStyle = {},
   iconStyle = {},
+  disabled = false, // add disabled prop
 }) {
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={disabled ? null : onPress} // prevent press if disabled
+      activeOpacity={disabled ? 1 : 0.7} // optional visual feedback
       style={[
         {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
+          opacity: disabled ? 0.5 : 1, // dim button if disabled
         },
         buttonStyle,
       ]}

@@ -1,0 +1,149 @@
+.parts-monitoring-container {
+  /* height: calc(100vh - 40px); */
+  /* overflow-y: auto; */
+  /* display: block;
+  width: 100%; */
+  overflow-y: auto;
+  height: calc(100vh - 100px);
+  width: 100%;
+}
+
+.header-row {
+  margin-bottom: 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-input {
+  width: 320px;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+}
+
+.aircraft-card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.aircraft-card .ant-card-body {
+  padding: 20px !important;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-label {
+  color: #434343;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.info-value {
+  font-weight: 700;
+  color: #000;
+}
+
+.info-item {
+  margin-bottom: 4px;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  margin-right: 20px;
+}
+
+.input-group:last-child {
+  margin-right: 0;
+}
+
+.card-input-label {
+  font-weight: 500;
+  color: #434343;
+  font-size: 13px;
+  white-space: nowrap;
+  width: 100px;
+}
+
+.card-input-field {
+  background-color: #f5f5f5 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  height: 30px !important;
+  width: 100% !important;
+  max-width: 300px;
+  margin-left: 8px;
+}
+
+.legend-card {
+  margin-bottom: 24px;
+}
+
+.legend-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.note-title {
+  font-weight: bold;
+  color: #006d75;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.legend-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  flex: 1;
+}
+
+.legend-item {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.status-box {
+  display: inline-block;
+  width: 35px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
+.status-removed {
+  background-color: #ff4d4f;
+}
+
+.status-installed {
+  background-color: #95de64;
+}
+
+.table-container {
+  background: white;
+  border-radius: 15px;
+  width: 100%;
+  padding-bottom: 40px;
+}
+
+.table-container .ant-table-body {
+  overflow-x: auto !important;
+}

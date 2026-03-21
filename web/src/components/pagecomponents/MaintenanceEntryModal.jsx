@@ -88,7 +88,7 @@ export default function MaintenanceEntryModal({
     >
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         <Form.Item
-          label="Aircraft *"
+          label="Aircraft"
           name="aircraft"
           rules={[{ required: true }]}
         >
@@ -96,7 +96,7 @@ export default function MaintenanceEntryModal({
         </Form.Item>
 
         <Form.Item
-          label="Defect Description *"
+          label="Defect Description"
           name="defectDescription"
           rules={[{ required: true }]}
         >

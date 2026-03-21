@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, TextInput, FlatList, Text, Dimensions, Alert } from "react-native";
+import {
+  View,
+  TextInput,
+  FlatList,
+  Text,
+  Dimensions,
+  Alert,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -57,8 +64,10 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         });
         if (response.ok) {
           const data = await response.json();
-          const mechanics = data.data.filter(user => user.jobTitle === "Mechanic" && user.status === "active");
-          const mappedEmployees = mechanics.map(user => ({
+          const mechanics = data.data.filter(
+            (user) => user.jobTitle === "Mechanic" && user.status === "active",
+          );
+          const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
           }));
@@ -120,7 +129,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
   };
 
   const handleAddTask = async (newTask) => {
-    console.log('Adding task:', newTask);
+    console.log("Adding task:", newTask);
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
@@ -133,12 +142,12 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('Task added:', data.data);
+        console.log("Task added:", data.data);
         setTasks([...tasks, data.data]);
         setAddModalVisible(false);
       } else {
         const errorData = await response.json();
-        console.error('Failed to add task:', errorData);
+        console.error("Failed to add task:", errorData);
         Alert.alert("Error", "Failed to add task");
       }
     } catch (error) {
@@ -322,7 +331,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         <TextInput
           placeholder="Search tasks"
           placeholderTextColor="gray"
-          style={[styles.searchInput, { flex: 1 }]}
+          style={[styles.searchInput, { flex: 1, backgroundColor: "#ffffff" }]}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
