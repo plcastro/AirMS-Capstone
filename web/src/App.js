@@ -35,8 +35,8 @@ const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
 );
 const Inventory = lazy(() => import("./pages/dashboard/inventory/Inventory"));
-const MaintenanceReport = lazy(
-  () => import("./pages/dashboard/reports/MaintenanceReport"),
+const MaintenanceDashboard = lazy(
+  () => import("./pages/dashboard/reports/MaintenanceDashboard"),
 );
 const PartsMonitoring = lazy(
   () => import("./pages/dashboard/parts-monitoring/PartsMonitoring"),
@@ -95,7 +95,11 @@ const AppRouter = () => {
             path="flight-log"
             element={
               <ProtectedRoute
-                allowedRoles={["head of maintenance", "pilot", "manager"]}
+                allowedRoles={[
+                  "maintenance manager",
+                  "pilot",
+                  "officer-in-charge",
+                ]}
               >
                 <FlightLog />
               </ProtectedRoute>
@@ -105,7 +109,11 @@ const AppRouter = () => {
             path="maintenance-log"
             element={
               <ProtectedRoute
-                allowedRoles={["head of maintenance", "pilot", "manager"]}
+                allowedRoles={[
+                  "maintenance manager",
+                  "pilot",
+                  "officer-in-charge",
+                ]}
               >
                 <MaintenanceLog />
               </ProtectedRoute>
@@ -114,7 +122,9 @@ const AppRouter = () => {
           <Route
             path="parts-monitoring/pm-table"
             element={
-              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+              <ProtectedRoute
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
+              >
                 <PartsMonitoring />
               </ProtectedRoute>
             }
@@ -122,7 +132,9 @@ const AppRouter = () => {
           <Route
             path="parts-monitoring/maintenance-tracking"
             element={
-              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+              <ProtectedRoute
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
+              >
                 <MaintenanceTracking />
               </ProtectedRoute>
             }
@@ -131,7 +143,7 @@ const AppRouter = () => {
           <Route
             path="maintenance-priority"
             element={
-              <ProtectedRoute allowedRoles={["head of maintenance"]}>
+              <ProtectedRoute allowedRoles={["maintenance manager"]}>
                 <MaintenancePriority />
               </ProtectedRoute>
             }
@@ -139,16 +151,20 @@ const AppRouter = () => {
           <Route
             path="inventory-management"
             element={
-              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
+              <ProtectedRoute
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
+              >
                 <Inventory />
               </ProtectedRoute>
             }
           />
           <Route
-            path="maintenance-report"
+            path="maintenance-dashboard"
             element={
-              <ProtectedRoute allowedRoles={["head of maintenance", "manager"]}>
-                <MaintenanceReport />
+              <ProtectedRoute
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
+              >
+                <MaintenanceDashboard />
               </ProtectedRoute>
             }
           />
@@ -158,9 +174,9 @@ const AppRouter = () => {
               <ProtectedRoute
                 allowedRoles={[
                   "admin",
-                  "head of maintenance",
+                  "maintenance manager",
                   "pilot",
-                  "manager",
+                  "officer-in-charge",
                   "mechanic",
                 ]}
               >

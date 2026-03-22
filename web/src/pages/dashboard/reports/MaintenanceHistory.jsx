@@ -4,12 +4,13 @@ import { ExportOutlined } from "@ant-design/icons";
 export default function MaintenanceHistory() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Input placeholder="Search by..." style={{ width: 200 }} />
-      <div>
-        <Button type="primary" icon={<ExportOutlined />}>
-          Export
-        </Button>
-      </div>
+      <Row style={{ justifyContent: "flex-end" }}>
+        <div>
+          <Button type="primary" icon={<ExportOutlined />}>
+            Export
+          </Button>
+        </div>
+      </Row>
     </div>
   );
 }

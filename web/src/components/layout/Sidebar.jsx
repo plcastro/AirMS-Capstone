@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import { Menu, Button, Modal } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -37,7 +37,7 @@ const Sidebar = ({ collapsed }) => {
       key: "sub2",
       label: "Aircraft Logbook",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "pilot", "manager"],
+      roles: ["maintenance manager", "pilot", "officer-in-charge", "engineer"],
       children: [
         { key: "3", label: "Flight Logs", icon: <BookOutlined /> },
         { key: "4", label: "Maintenance Logs", icon: <BookOutlined /> },
@@ -47,7 +47,7 @@ const Sidebar = ({ collapsed }) => {
       key: "sub3",
       label: "Parts Monitoring",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "manager"],
+      roles: ["maintenance manager"],
       children: [
         { key: "5", label: "Parts Monitoring Table", icon: <BookOutlined /> },
         { key: "6", label: "Maintenance Tracking", icon: <BookOutlined /> },
@@ -57,25 +57,25 @@ const Sidebar = ({ collapsed }) => {
       key: "7",
       label: "Inventory Management",
       icon: <UnorderedListOutlined />,
-      roles: ["head of maintenance", "manager"],
+      roles: ["maintenance manager"],
     },
     {
       key: "8",
       label: "Maintenance Priority",
       icon: <FlagOutlined />,
-      roles: ["head of maintenance", "manager"],
+      roles: ["maintenance manager"],
     },
     {
       key: "9",
-      label: "Maintenance Report",
+      label: "Maintenance Dashboard",
       icon: <BookOutlined />,
-      roles: ["head of maintenance", "manager"],
+      roles: ["maintenance manager"],
     },
     {
       key: "10",
       label: "Profile",
       icon: <UserOutlined />,
-      roles: ["admin", "head of maintenance", "pilot"],
+      roles: ["admin", "maintenance manager", "pilot"],
     },
   ];
 
@@ -94,24 +94,26 @@ const Sidebar = ({ collapsed }) => {
       return item;
     });
 
-  const routeToKey = {
-    "/dashboard/user-management/view-users": "1",
-    "/dashboard/user-management/activity-logs": "2",
-    "/dashboard/flight-log": "3",
-    "/dashboard/maintenance-log": "4",
-    "/dashboard/parts-monitoring/pm-table": "5",
-    "/dashboard/parts-monitoring/maintenance-tracking": "6",
-    "/dashboard/inventory-management": "7",
-    "/dashboard/maintenance-priority": "8",
-    "/dashboard/maintenance-report": "9",
-    "/dashboard/profile": "10",
-  };
+  const routeToKey = useMemo(
+    () => ({
+      "/dashboard/user-management/view-users": "1",
+      "/dashboard/user-management/activity-logs": "2",
+      "/dashboard/flight-log": "3",
+      "/dashboard/maintenance-log": "4",
+      "/dashboard/parts-monitoring/pm-table": "5",
+      "/dashboard/parts-monitoring/maintenance-tracking": "6",
+      "/dashboard/inventory-management": "7",
+      "/dashboard/maintenance-priority": "8",
+      "/dashboard/maintenance-dashboard": "9",
+      "/dashboard/profile": "10",
+    }),
+    [],
+  ); // Empty array means it's created only once
 
-  // --- automatically select menu based on current route ---
   useEffect(() => {
     const key = routeToKey[location.pathname] || "10";
     setCurrent(key);
-  }, [location.pathname]);
+  }, [location.pathname, routeToKey]);
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
