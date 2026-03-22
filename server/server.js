@@ -14,6 +14,7 @@ const aircraftRoutes = require("./routes/aircraftRoute");
 const inventoryRoutes = require("./routes/componentRoute");
 const taskRoutes = require("./routes/taskRoute");
 const sendEmail = require("./utilities/sendEmail");
+const flightlogRoutes = require("./routes/flightlogRoute");
 const app = express();
 
 app.use(cors());
@@ -34,6 +35,8 @@ app.use("/aircraft", aircraftRoutes);
 app.use("/api/component-inventory", inventoryRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/api/flightlogs", flightlogRoutes);
+
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

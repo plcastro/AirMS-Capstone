@@ -29,38 +29,20 @@ export default function MechanicList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanic, setSelectedMechanic] = useState(null);
   
-  // Use tasks from TaskInfo
+  // Use tasks from TaskInfo - declared ONCE
   const tasks = TaskInfo;
 
-  // Calculate mechanic status based on task count
+  // Calculate mechanic status based on task count - declared ONCE
   const getMechanicStatus = (mechanicId) => {
     const taskCount = tasks.filter(task => task.assignedTo === mechanicId).length;
     // Busy if 3 or more tasks, Available if 0-2 tasks
     return taskCount >= 3 ? "Busy" : "Available";
   };
 
-  // Build mechanics data with dynamic status
+  // Build mechanics data with dynamic status - declared ONCE
   const MECHANICS_DATA = BASE_MECHANICS_DATA.map(mechanic => ({
     ...mechanic,
     status: getMechanicStatus(mechanic.id)
-  }));
-
-  // Use tasks from TaskInfo
-  const tasks = TaskInfo;
-
-  // Calculate mechanic status based on task count
-  const getMechanicStatus = (mechanicId) => {
-    const taskCount = tasks.filter(
-      (task) => task.assignedTo === mechanicId,
-    ).length;
-    // Busy if 3 or more tasks, Available if 0-2 tasks
-    return taskCount >= 3 ? "Busy" : "Available";
-  };
-
-  // Build mechanics data with dynamic status
-  const MECHANICS_DATA = BASE_MECHANICS_DATA.map((mechanic) => ({
-    ...mechanic,
-    status: getMechanicStatus(mechanic.id),
   }));
 
   const filteredMechanics = MECHANICS_DATA.filter((mechanic) => {
