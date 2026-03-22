@@ -26,7 +26,8 @@ const { Option } = Select;
 // =========================================================================
 const columnHeader = [
   {
-    title: "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
+    title:
+      "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
     dataIndex: "componentName",
     key: "componentName",
     width: 300,

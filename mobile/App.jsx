@@ -98,7 +98,7 @@ function DrawerNav() {
       })}
     >
 
-      {["head of maintenance", "pilot"].includes(
+      {["head of maintenance", "pilot", "mechanic"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
           <>
