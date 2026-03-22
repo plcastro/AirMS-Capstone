@@ -29,6 +29,7 @@ export default function MaintenancePerformance() {
         display: "flex",
         flexDirection: "column",
         gap: 20,
+        marginBottom: 300,
       }}
     >
       <Row style={{ justifyContent: "flex-end" }}>
