@@ -100,7 +100,6 @@ const Login = () => {
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-
         antMessage.success("Logged in successfully!");
         setTimeout(() => {
           handleNavigate(data.user.jobTitle);

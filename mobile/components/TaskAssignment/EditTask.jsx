@@ -43,22 +43,22 @@ export default function EditTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
 
   // Fetch aircraft options
-    useEffect(() => {
-      const fetchAircraft = async () => {
-        try {
-          const response = await fetch(`${API_BASE}/aircraft/aircraft-tail-numbers`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch aircraft');
-          }
-          const data = await response.json();
-          const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
-          setAircraftOptions(options);
-        } catch (error) {
-          console.error('Error fetching aircraft:', error);
-        }
-      };
-      fetchAircraft();
-    }, []);
+   useEffect(() => {
+       const fetchAircraft = async () => {
+         try {
+           const response = await fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`);
+           if (!response.ok) {
+             throw new Error('Failed to fetch aircraft');
+           }
+           const data = await response.json();
+           const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
+           setAircraftOptions(options);
+         } catch (error) {
+           console.error('Error fetching aircraft:', error);
+         }
+       };
+       fetchAircraft();
+     }, []);
 
   useEffect(() => {
     if (task) {
@@ -361,7 +361,7 @@ export default function EditTask({
               />
             )}
 
-            {/* Checklist Section */}
+            {/* Checklist Section 
             <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
               Checklist
             </Text>
@@ -415,9 +415,9 @@ export default function EditTask({
                   </TouchableOpacity>
                 </View>
               </View>
-            ))}
+            ))} */}
 
-            {/* Add Checklist Button */}
+            {/* Add Checklist Button 
             <TouchableOpacity
               onPress={handleAddChecklistItem}
               style={{
@@ -439,7 +439,7 @@ export default function EditTask({
               <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
                 Add Checklist
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity>*/}
           </ScrollView>
 
           {/* Buttons */}

@@ -1,10 +1,14 @@
-import { Table, Tag } from "antd";
+import { Table, Tag, Input } from "antd";
 import React, { useState, useMemo } from "react";
 
 export default function PMonitoringTable({
   headers = [],
   data = [],
   loading = false,
+  editable = false,
+  isCellEditable = () => false,
+  onCellEdit = () => {},
+  rowKey = "_id",
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -17,7 +21,6 @@ export default function PMonitoringTable({
           children: processColumns(header.children),
         };
       }
-
       if (header.key === "daysRemaining") {
         return {
           title: header.title,
@@ -25,7 +28,7 @@ export default function PMonitoringTable({
           key: "daysRemaining",
           width: header.width,
           sorter: (a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0),
-          render: (value) => {
+          render: (value, record) => {
             if (value === undefined || value === null) return "-";
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return value;
@@ -56,7 +59,6 @@ export default function PMonitoringTable({
           width: header.width,
           render: (value) => {
             if (!value) return null;
-
             return (
               <Tag color="#ea0000" style={{ fontWeight: "bold" }}>
                 DUE
@@ -66,6 +68,7 @@ export default function PMonitoringTable({
         };
       }
 
+      // Helper to apply dark gray background to specific columns (optional)
       const getColumnStyle = (key) => {
         const darkGrayColumns = [
           "hourLimit1",
@@ -76,7 +79,6 @@ export default function PMonitoringTable({
           "timeRemaining",
           "ttCycleDue",
         ];
-
         if (darkGrayColumns.includes(key)) {
           return {
             style: {
@@ -87,13 +89,28 @@ export default function PMonitoringTable({
         return {};
       };
 
+      // Default column rendering – editable if needed
+      const renderCell = (value, record) => {
+        if (!editable) return value || "";
+        if (!isCellEditable(record, header.key)) return value || "";
+
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) => onCellEdit(record[rowKey], header.key, e.target.value)}
+            size="small"
+            style={{ width: "100%" }}
+          />
+        );
+      };
+
       return {
         title: header.title,
         dataIndex: header.key,
         key: header.key,
         width: header.width,
         onCell: (_, index) => getColumnStyle(header.key),
-        render: (value) => value || "",
+        render: renderCell,
         sorter: (a, b) => {
           const valA = a[header.key] ?? "";
           const valB = b[header.key] ?? "";
@@ -108,13 +125,13 @@ export default function PMonitoringTable({
 
   const columns = useMemo(() => {
     return processColumns(headers);
-  }, [headers]);
+  }, [headers, editable, isCellEditable]);
 
   return (
     <Table
       columns={columns}
       dataSource={data}
-      rowKey={(record) => record._id || record.id || record.componentName}
+      rowKey={rowKey}
       loading={loading}
       scroll={{ x: 1500, y: "calc(100vh - 400px)" }}
       sticky={true}

@@ -65,6 +65,26 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
     const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
     const dueTime = formatDueTime(item.dueDate);
 
+  // Format due time
+  const formatDueTime = (dueDate) => {
+    const date = new Date(dueDate);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const renderTaskItem = ({ item }) => {
+    const now = new Date();
+    const dueDate = new Date(item.dueDate);
+    const isPastDue =
+      dueDate < now &&
+      item.status !== "Completed" &&
+      item.status !== "Turned in";
+    const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
+    const dueTime = formatDueTime(item.dueDate);
+
     return (
       <TouchableOpacity
         style={[styles.taskCard, { marginBottom: 8, padding: 15 }]}
@@ -214,6 +234,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
       <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
         <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
           Assigned Tasks ({assignedTasks.length})
+          Assigned Tasks ({assignedTasks.length})
         </Text>
       </View>
 
@@ -233,6 +254,22 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           }
         />
       </View>
+      <View style={styles.taskTable}>
+        <FlatList
+          data={assignedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTaskItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+                No tasks assigned to this mechanic
+              </Text>
+            </View>
+          }
+        />
+      </View>
     </View>
   );
+}
 }
