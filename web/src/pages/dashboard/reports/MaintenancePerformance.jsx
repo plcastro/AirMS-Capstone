@@ -18,6 +18,11 @@ export default function MaintenancePerformance() {
     month: "long",
     year: "numeric",
   });
+
+  const exportDocument = () => {
+    message.success("Exported successfully");
+  };
+
   return (
     <div
       style={{
@@ -31,7 +36,7 @@ export default function MaintenancePerformance() {
           <Button
             type="primary"
             icon={<ExportOutlined />}
-            onClick={() => message.success("Exported successfully")}
+            onClick={() => exportDocument()}
           >
             Export
           </Button>
@@ -72,7 +77,7 @@ export default function MaintenancePerformance() {
 
       <Card>
         <Space orientation="vertical" size={0}>
-          <Title level={2} style={{ margin: 0 }}>
+          <Title level={3} style={{ margin: 0 }}>
             Maintenance Performance
           </Title>
           <Text type="secondary">{currentMonthYear}</Text>
