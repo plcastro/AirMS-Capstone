@@ -21,8 +21,6 @@ export default function PMonitoringTable({
           children: processColumns(header.children),
         };
       }
-
-      // Special handling for daysRemaining column
       if (header.key === "daysRemaining") {
         return {
           title: header.title,
@@ -53,7 +51,6 @@ export default function PMonitoringTable({
         };
       }
 
-      // Special handling for due column (Tag)
       if (header.key === "due") {
         return {
           title: header.title,
@@ -83,7 +80,11 @@ export default function PMonitoringTable({
           "ttCycleDue",
         ];
         if (darkGrayColumns.includes(key)) {
-          return { style: { backgroundColor: "#f0f0f0" } };
+          return {
+            style: {
+              backgroundColor: "#f0f0f0",
+            },
+          };
         }
         return {};
       };
