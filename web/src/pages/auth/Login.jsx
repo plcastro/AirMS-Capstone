@@ -126,11 +126,11 @@ const Login = () => {
       case "pilot":
         navigate("/dashboard/flight-log");
         break;
-      case "head of maintenance":
+      case "maintenance manager":
         navigate("/dashboard/maintenance-log");
         break;
-      case "manager":
-        navigate("/dashboard/inventory-management");
+      case "officer-in-charge":
+        navigate("/dashboard/parts-monitoring/pm-table");
         break;
       default:
         navigate("/dashboard/profile"); // fallback dashboard

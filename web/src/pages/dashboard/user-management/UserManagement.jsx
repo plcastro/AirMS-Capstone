@@ -3,7 +3,7 @@ import { Input, Button, Divider, TreeSelect } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
-import { UserAddOutlined } from "@ant-design/icons";
+import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 
 const accessLevelData = [
   {
@@ -12,10 +12,10 @@ const accessLevelData = [
     selectable: false,
     children: [
       { title: "Admin", value: "Admin" },
-      { title: "Head of Maintenance", value: "Head of Maintenance" },
+      { title: "Maintenance Manager", value: "Maintenance Manager" },
       { title: "Pilot", value: "Pilot" },
-      { title: "Manager", value: "Manager" },
-      { title: "Mechanic", value: "Mechanic" },
+      { title: "Officer-In-Charge", value: "Officer-In-Charge" },
+      { title: "Engineer", value: "Engineer" },
     ],
   },
   {
@@ -23,7 +23,7 @@ const accessLevelData = [
     value: "access-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin-access" }, // Note: unique value if overlaps with jobTitle
+      { title: "Admin", value: "Admin" }, // Note: unique value if overlaps with jobTitle
       { title: "Superuser", value: "Superuser" },
       { title: "User", value: "User" },
     ],
@@ -166,11 +166,8 @@ export default function UserManagement() {
   const handleUserSaved = (updatedUser) => {
     setAllUsers((prevUsers) => {
       if (!updatedUser._id) return prevUsers;
-
-      // Check if user exists (edit)
       const index = prevUsers.findIndex((u) => u._id === updatedUser._id);
       if (index !== -1) {
-        // Replace existing user
         const newUsers = [...prevUsers];
         newUsers[index] = {
           ...updatedUser,
@@ -179,8 +176,6 @@ export default function UserManagement() {
         };
         return newUsers;
       }
-
-      // Add new user
       return [
         ...prevUsers,
         {
@@ -222,10 +217,11 @@ export default function UserManagement() {
             },
           }}
           treeData={accessLevelData}
-          placeholder="Filter by Category"
+          placeholder="Filter"
           treeDefaultExpandAll
           onChange={setTreeValue}
           allowClear
+          icon={<FilterOutlined />}
         />
         <Button
           onClick={() => {

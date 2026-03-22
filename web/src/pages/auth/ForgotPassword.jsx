@@ -32,11 +32,14 @@ export default function ForgotPassword() {
     }
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/user/request-reset`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/user/request-password-reset`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
 
       const data = await response.json();
       setLoading(false);

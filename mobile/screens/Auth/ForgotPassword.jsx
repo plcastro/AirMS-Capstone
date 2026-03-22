@@ -14,7 +14,6 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function ForgotPassword() {
   const nav = useNavigation();
-
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -44,11 +43,14 @@ export default function ForgotPassword() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_BASE}/api/user/request-reset`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/user/request-password-reset`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
 
       const data = await response.json();
       setLoading(false);

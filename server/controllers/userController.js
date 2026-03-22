@@ -170,7 +170,7 @@ const loginUser = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(req.params.id);
+  const user = await UserModel.findById(c);
 
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -207,7 +207,18 @@ const logoutUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, jobTitle, access } = req.body;
+    const { firstName, lastName, email, jobTitle, access, licenseNo } =
+      req.body;
+
+    if (
+      [
+        "maintenance manager",
+        "pilot",
+        "engineer",
+        "officer-in-charge",
+      ].includes(jobTitle.toLowerCase())
+    )
+      return res.status(400).json({ message: "License no. is required" });
 
     if (!firstName || !lastName || !email || !jobTitle)
       return res.status(400).json({ message: "All fields are required" });
@@ -232,35 +243,73 @@ const createUser = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const newUser = await UserModel.create({
+    let newUserData = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
       username: username.trim(),
-      password: hashedPassword, // temp password stored here
+      password: hashedPassword,
       tempPasswordExpires,
       status: "inactive",
       image: imagePath,
       jobTitle,
       access,
-    });
+    };
+
+    if (
+      [
+        "maintenance manager",
+        "pilot",
+        "engineer",
+        "officer-in-charge",
+      ].includes(jobTitle.toLowerCase())
+    ) {
+      newUserData.licenseNo = licenseNo;
+    }
+
+    const newUser = await UserModel.create(newUserData);
 
     const portalLink =
-      jobTitle === "Head of Maintenance" || jobTitle === "Admin"
+      jobTitle === "Maintenance Manager" ||
+      jobTitle === "Officer-In-Charge" ||
+      jobTitle === "Admin"
         ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
         : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: email,
-      subject: "AirMS Account Created – Temporary Password",
+      subject: "Welcome to AirMS – Your Account Details",
       html: `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+      <div style="background-color: #0056b3; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
+      </div>
+      
+      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
         <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your account has been created. Use these credentials to login:</p>
-        <p>Username: <strong>${username}</strong></p>
-        <p>Temporary password: <strong>${tempPassword}</strong></p>
-        ${portalLink}
-        <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>
-      `,
+        <p>Your AirMS account has been successfully created. You can now log in using the temporary credentials provided below:</p>
+        
+        <div style="background: #f8f9fa; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
+          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalLink}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+        </div>
+
+        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
+          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>. You will be prompted to set a permanent password upon your first login.
+        </p>
+        
+        <p style="margin-top: 25px;">If you didn't expect this email, please contact your administrator.</p>
+      </div>
+      
+      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
+      </p>
+    </div>
+  `,
     });
 
     await auditLog(
@@ -372,7 +421,7 @@ const updateUser = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { firstName, lastName, email, username, access, jobTitle },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (Object.keys(changes).length > 0) {
@@ -418,7 +467,7 @@ const updateUserProfile = async (req, res) => {
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
     });
 
     await auditLog(
@@ -446,7 +495,7 @@ const updateUserStatus = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { status },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     await auditLog(
@@ -488,7 +537,7 @@ const updateUserImage = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { image: newImagePath },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     await auditLog(
@@ -508,8 +557,12 @@ const updateUserImage = async (req, res) => {
 
 const updatePassword = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
 
     if (!currentPassword || !newPassword) {
       return res
@@ -517,10 +570,25 @@ const updatePassword = async (req, res) => {
         .json({ message: "Both current and new passwords are required." });
     }
 
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(id).select("+password");
     if (!user) return res.status(404).json({ message: "User not found." });
 
+    if (!user.password) {
+      return res.status(400).json({ message: "User has no password set." });
+    }
+
+    const isCurrentAndNewMatch = await bcrypt.compare(
+      user.password,
+      newPassword,
+    );
+    if (currentPassword === newPassword || isCurrentAndNewMatch) {
+      return res
+        .status(400)
+        .json({ message: "Cannot reuse the same password." });
+    }
+
     const isMatch = await bcrypt.compare(currentPassword, user.password);
+
     if (!isMatch) {
       return res
         .status(401)
@@ -529,7 +597,7 @@ const updatePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    await UserModel.updateOne({ _id: userId }, { password: hashedPassword });
+    await UserModel.updateOne({ _id: id }, { password: hashedPassword });
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -538,14 +606,65 @@ const updatePassword = async (req, res) => {
   }
 };
 
+const updatePIN = async (req, res) => {
+  try {
+    const { currentPin, newPin } = req.body;
+    if (!currentPin || !newPin)
+      return res.status(400).json({ message: "PIN is required" });
+
+    const user = await UserModel.findById(req.params.id).select("+pin");
+
+    if (!user.pin) {
+      return res.status(400).json({ message: "User has no PIN set." });
+    }
+    const isSamePin = await bcrypt.compare(newPin, user.pin);
+    if (currentPin === newPin || isSamePin) {
+      return res.status(400).json({ message: "Cannot reuse the same PIN." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPin, user.pin);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Current PIN is incorrect." });
+    }
+
+    const hashedPIN = await bcrypt.hash(newPin, 12);
+
+    await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
+    res.status(200).json({ message: "PIN updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const updateSignature = async (req, res) => {
+  try {
+    const { signature } = req.body;
+    if (!signature)
+      return res.status(400).json({ message: "Signature is required" });
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.params.id,
+      { signature },
+      { returnDocument: "after" },
+    );
+
+    res.status(200).json({ message: "Signature updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const activateUser = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword, pin } = req.body;
 
-    if (!token || !newPassword) {
+    if (!token || !newPassword || !pin) {
       return res
         .status(400)
-        .json({ message: "Token and new password required" });
+        .json({ message: "Token, new password, and PIN is required" });
     }
 
     let decoded;
@@ -565,6 +684,7 @@ const activateUser = async (req, res) => {
 
     // Activate user
     user.password = await bcrypt.hash(newPassword, 12);
+    user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
     user.securitySetupCompleted = true;
     await user.save();
@@ -627,7 +747,9 @@ module.exports = {
   updateUserStatus,
   updateUserProfile,
   updatePassword,
+  updatePIN,
   updateUserImage,
+  updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,

@@ -35,7 +35,11 @@ const data = [
 ];
 export default function MaintenanceTracking() {
   return (
-    <>
+    <div
+      style={{
+        padding: 20,
+      }}
+    >
       <Row gutter={16}>
         <Col span={8}>
           <Card title="Flight Hours Remaining" variant="borderless"></Card>
@@ -55,6 +59,6 @@ export default function MaintenanceTracking() {
           <MTrackingTable headers={columnHeader} data={data} loading={false} />
         </Col>
       </Row>
-    </>
+    </div>
   );
 }

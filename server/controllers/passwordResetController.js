@@ -2,154 +2,198 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
 const sendEmail = require("../utilities/sendEmail");
-const { auditLog } = require("./logsController");
-
-const TOKEN_EXPIRATION = 60 * 60 * 1000; // 1 hour
-const OTP_EXPIRATION = 15 * 60 * 1000; // 15 mins
-const MAX_OTP_ATTEMPTS = 5;
-const LOCK_DURATION = 30 * 60 * 1000; // 30 mins
 const generateOTP = require("../utilities/generateOTP");
 
-// --- Request Password Reset ---
+const TOKEN_EXPIRATION = 60 * 60 * 1000;
+const OTP_EXPIRATION = 15 * 60 * 1000;
+
+// ---------------- PASSWORD ----------------
+
+// REQUEST
 const requestPasswordReset = async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await UserModel.findOne({ email });
+    const { email, id } = req.body;
+
+    const query = id
+      ? { _id: id, email: email.toLowerCase() }
+      : { email: email.toLowerCase() };
+    const user = await UserModel.findOne(query);
+
     if (!user) {
       return res.status(404).json({
-        message: "Email is not registered.",
+        message: id ? "Email does not match this account." : "User not found.",
       });
     }
 
-    if (user.status?.toLowerCase() === "inactive") {
-      return res.status(403).json({
-        message:
-          "Your account is currently inactive. Please contact AirMS support.",
-      });
-    }
-    // Generate token only if needed
-    let token = user.resetPasswordToken;
-
-    if (!token || user.resetPasswordExpires < Date.now()) {
-      token = crypto.randomBytes(32).toString("hex");
-    }
-
+    const token = crypto.randomBytes(32).toString("hex");
     const otp = generateOTP();
-    const hashedOtp = await bcrypt.hash(otp, 10);
 
     user.resetPasswordToken = token;
     user.resetPasswordExpires = Date.now() + TOKEN_EXPIRATION;
-    user.otp = hashedOtp;
+    user.otp = await bcrypt.hash(otp, 10);
     user.otpExpires = Date.now() + OTP_EXPIRATION;
-    user.otpAttempts = 0;
-    user.otpLockUntil = undefined;
 
     await user.save();
+
     await sendEmail({
-      from: process.env.EMAIL_USER,
       to: user.email,
-      subject: "AirMS Password Reset Request",
+      subject: "Reset your password",
       html: `
-        <h2>Hello, <strong>${user.firstName}</strong></h2></br>
-        <p>Your verification code is: <strong>${otp}</strong></p>
-        <p>Use this code in the app to reset your password. This is only valid for 15 minutes.</p>
-        <p>If you did not request this, ignore this email.</p>
-      `,
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+      <h2 style="color: #333;">Password Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset the password for your account. Use the following One-Time Password (OTP) to proceed:</p>
+      
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
+      </div>
+
+      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
+    </div>
+  `,
     });
 
-    await auditLog(`Password reset email sent to ${user.username}`, user._id);
-
-    res.json({ message: "Password reset email and OTP sent.", token });
+    res.json({ token });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// --- Verify OTP ---
+// VERIFY
 const verifyOtp = async (req, res) => {
-  try {
-    const { token, otp } = req.body;
+  const { token, otp } = req.body;
 
-    const user = await UserModel.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-    });
+  const user = await UserModel.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
 
-    if (!user)
-      return res.status(400).json({ message: "Invalid or expired token" });
+  if (!user) return res.status(400).json({ message: "Invalid token" });
 
-    if (user.otpLockUntil && user.otpLockUntil > Date.now())
-      return res
-        .status(403)
-        .json({ message: "Too many OTP attempts. Try later." });
+  const valid = await bcrypt.compare(otp, user.otp);
+  if (!valid) return res.status(400).json({ message: "Invalid OTP" });
 
-    if (!user.otp || !user.otpExpires || user.otpExpires < Date.now())
-      return res
-        .status(400)
-        .json({ message: "OTP expired. Request a new one." });
-
-    const isValidOtp = await bcrypt.compare(otp, user.otp);
-    if (!isValidOtp) {
-      user.otpAttempts += 1;
-      if (user.otpAttempts >= MAX_OTP_ATTEMPTS) {
-        user.otpLockUntil = Date.now() + LOCK_DURATION;
-      }
-      await user.save();
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    // Success: invalidate OTP for security
-    user.otpAttempts = 0;
-    user.otpLockUntil = undefined;
-    await user.save();
-
-    res.json({ message: "OTP verified", token });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
+  res.json({ message: "OTP verified" });
 };
 
-// --- Reset Password ---
+// RESET
 const resetPassword = async (req, res) => {
-  try {
-    const { token } = req.params;
-    const { newPassword } = req.body;
+  const { token, newPassword } = req.body;
 
-    if (!newPassword)
-      return res.status(400).json({ message: "New password required" });
+  const user = await UserModel.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
 
-    const user = await UserModel.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-    });
+  if (!user) return res.status(400).json({ message: "Invalid token" });
 
-    if (!user)
-      return res.status(400).json({ message: "Invalid or expired token" });
+  user.password = await bcrypt.hash(newPassword, 12);
 
-    // Save new password
-    user.password = await bcrypt.hash(newPassword, 12);
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  user.otp = undefined;
+  user.otpExpires = undefined;
 
-    // Clear token and OTP to prevent reuse
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    user.otpAttempts = 0;
-    user.otpLockUntil = undefined;
+  await user.save();
 
-    await user.save();
-    await auditLog(
-      `Password reset successfully for ${user.username}`,
-      user._id,
-    );
-
-    res.json({ message: "Password reset successful" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
+  res.json({ message: "Password reset successful" });
 };
 
-module.exports = { requestPasswordReset, verifyOtp, resetPassword };
+// ---------------- PIN ----------------
+
+// REQUEST
+const requestPinReset = async (req, res) => {
+  const { email, id } = req.body;
+  const user = await UserModel.findOne({ _id: id });
+
+  if (!user)
+    return res.status(404).json({ message: "User ID does not exists!" });
+
+  if (user.email !== email)
+    return res.status(404).json({ message: "Email is not registered!" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const otp = generateOTP();
+
+  user.resetPinToken = token;
+  user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
+  user.pinOtp = await bcrypt.hash(otp, 10);
+  user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+
+  await user.save();
+
+  await sendEmail({
+    to: user.email,
+    subject: "Reset your PIN",
+    html: `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+      <h2 style="color: #333;">PIN Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset the PIN for your account. Use the following One-Time Password (OTP) to proceed:</p>
+      
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
+      </div>
+
+      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
+    </div>
+  `,
+  });
+
+  res.json({ token });
+};
+
+// VERIFY PIN OTP
+const verifyPinOtp = async (req, res) => {
+  const { token, otp } = req.body;
+
+  const user = await UserModel.findOne({
+    resetPinToken: token,
+    resetPinExpires: { $gt: Date.now() },
+  });
+
+  if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  const valid = await bcrypt.compare(otp, user.pinOtp);
+  if (!valid) return res.status(400).json({ message: "Invalid OTP" });
+
+  res.json({ message: "OTP verified" });
+};
+
+// RESET PIN
+const resetPin = async (req, res) => {
+  const { token, newPin } = req.body;
+
+  const user = await UserModel.findOne({
+    resetPinToken: token,
+    resetPinExpires: { $gt: Date.now() },
+  });
+
+  if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  user.pin = await bcrypt.hash(newPin, 12);
+
+  user.resetPinToken = undefined;
+  user.resetPinExpires = undefined;
+  user.pinOtp = undefined;
+  user.pinOtpExpires = undefined;
+
+  await user.save();
+
+  res.json({ message: "PIN reset successful" });
+};
+
+module.exports = {
+  requestPasswordReset,
+  verifyOtp,
+  resetPassword,
+  requestPinReset,
+  verifyPinOtp,
+  resetPin,
+};
