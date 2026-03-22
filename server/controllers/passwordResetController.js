@@ -13,13 +13,17 @@ const OTP_EXPIRATION = 15 * 60 * 1000;
 const requestPasswordReset = async (req, res) => {
   try {
     const { email, id } = req.body;
-    const user = await UserModel.findOne({ _id: id });
 
-    if (!user)
-      return res.status(404).json({ message: "User ID does not exists!" });
+    const query = id
+      ? { _id: id, email: email.toLowerCase() }
+      : { email: email.toLowerCase() };
+    const user = await UserModel.findOne(query);
 
-    if (user.email !== email)
-      return res.status(400).json({ message: "Email does not match account" });
+    if (!user) {
+      return res.status(404).json({
+        message: id ? "Email does not match this account." : "User not found.",
+      });
+    }
 
     const token = crypto.randomBytes(32).toString("hex");
     const otp = generateOTP();
@@ -33,8 +37,23 @@ const requestPasswordReset = async (req, res) => {
 
     await sendEmail({
       to: user.email,
-      subject: "Password Reset OTP",
-      html: `<p>Your OTP: <b>${otp}</b></p>`,
+      subject: "Reset your password",
+      html: `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+      <h2 style="color: #333;">Password Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset the password for your account. Use the following One-Time Password (OTP) to proceed:</p>
+      
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
+      </div>
+
+      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
+    </div>
+  `,
     });
 
     res.json({ token });
@@ -108,8 +127,23 @@ const requestPinReset = async (req, res) => {
 
   await sendEmail({
     to: user.email,
-    subject: "PIN Reset OTP",
-    html: `<p>Your OTP: <b>${otp}</b></p>`,
+    subject: "Reset your PIN",
+    html: `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+      <h2 style="color: #333;">PIN Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset the PIN for your account. Use the following One-Time Password (OTP) to proceed:</p>
+      
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
+      </div>
+
+      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
+      
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
+    </div>
+  `,
   });
 
   res.json({ token });

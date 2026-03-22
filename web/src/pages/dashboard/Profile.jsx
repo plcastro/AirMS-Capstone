@@ -243,7 +243,6 @@ export default function Profile() {
       icon: <LockOutlined />,
       children: (
         <>
-          {/* <Row style={{ overflowX: "auto", marginBottom: 16 }}> */}
           <UpdateSecurity />
         </>
       ),

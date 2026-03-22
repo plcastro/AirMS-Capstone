@@ -170,7 +170,7 @@ const loginUser = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(req.params.id);
+  const user = await UserModel.findById(c);
 
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -211,9 +211,12 @@ const createUser = async (req, res) => {
       req.body;
 
     if (
-      ["head of maintenance", "pilot", "mechanic"].includes(
-        jobTitle.toLowerCase(),
-      )
+      [
+        "maintenance manager",
+        "pilot",
+        "engineer",
+        "officer-in-charge",
+      ].includes(jobTitle.toLowerCase())
     )
       return res.status(400).json({ message: "License no. is required" });
 
@@ -275,15 +278,38 @@ const createUser = async (req, res) => {
 
     await sendEmail({
       to: email,
-      subject: "AirMS Account Created – Temporary Password",
+      subject: "Welcome to AirMS – Your Account Details",
       html: `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+      <div style="background-color: #0056b3; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
+      </div>
+      
+      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
         <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your account has been created. Use these credentials to login:</p>
-        <p>Username: <strong>${username}</strong></p>
-        <p>Temporary password: <strong>${tempPassword}</strong></p>
-        ${portalLink}
-        <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>
-      `,
+        <p>Your AirMS account has been successfully created. You can now log in using the temporary credentials provided below:</p>
+        
+        <div style="background: #f8f9fa; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
+          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalLink}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+        </div>
+
+        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
+          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>. You will be prompted to set a permanent password upon your first login.
+        </p>
+        
+        <p style="margin-top: 25px;">If you didn't expect this email, please contact your administrator.</p>
+      </div>
+      
+      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
+      </p>
+    </div>
+  `,
     });
 
     await auditLog(
@@ -583,16 +609,16 @@ const updatePassword = async (req, res) => {
 const updatePIN = async (req, res) => {
   try {
     const { currentPin, newPin } = req.body;
-    if (!currentPin)
+    if (!currentPin || !newPin)
       return res.status(400).json({ message: "PIN is required" });
 
     const user = await UserModel.findById(req.params.id).select("+pin");
 
-    if (!user.password) {
+    if (!user.pin) {
       return res.status(400).json({ message: "User has no PIN set." });
     }
-    const isCurrentAndNewMatch = await bcrypt.compare(user.pin, newPin);
-    if (currentPin === newPin || isCurrentAndNewMatch) {
+    const isSamePin = await bcrypt.compare(newPin, user.pin);
+    if (currentPin === newPin || isSamePin) {
       return res.status(400).json({ message: "Cannot reuse the same PIN." });
     }
 
@@ -604,7 +630,7 @@ const updatePIN = async (req, res) => {
 
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
-    await UserModel.updateOne({ _id: id }, { pin: hashedPIN });
+    await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
     console.error(err);

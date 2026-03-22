@@ -12,6 +12,7 @@ const {
   updateUserProfile,
   updatePassword,
   updateUserImage,
+  updatePIN,
   updateSignature,
   activateUser,
   resendActivation,
@@ -38,6 +39,7 @@ router.get("/getAllUsers", getAllUsers);
 router.put("/updateUser/:id", upload.single("image"), processImage, updateUser);
 router.put("/updateUserProfile/:id", updateUserProfile);
 router.put("/change-password/:id", updatePassword);
+router.put("/updatePIN/:id", updatePIN);
 router.put("/updateUserStatus/:id", updateUserStatus);
 router.put(
   "/updateUserImage/:id",
@@ -46,6 +48,10 @@ router.put(
   updateUserImage,
 );
 router.put("/updateSignature/:id", updateSignature);
+
+router.post("/activate", activateUser);
+router.post("/resend-activation", resendActivation);
+router.post("/complete-security-setup", completeSecuritySetup);
 
 // --- Password & PIN reset routes ---
 router.post("/request-password-reset", requestPasswordReset);
