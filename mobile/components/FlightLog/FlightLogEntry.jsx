@@ -1,474 +1,408 @@
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  TextInput,
-  ScrollView,
-  Platform,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  Alert,
 } from "react-native";
-import React, { useState } from "react";
-import { styles } from "../../stylesheets/styles";
-import SignatureScreen from "../SignatureScreen";
-import AlertComp from "../AlertComp";
-//import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
 
-export default function FlightLogEntry({ visible, onClose, onSave, role }) {
-  const [page, setPage] = useState(0);
-  const [formData, setFormData] = useState({});
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const isPilot = role === "Pilot";
-  const pages = [
-    [
-      {
-        label: "Tail No.",
-        key: "tailNum",
-        editable: { isPilot },
-        value: "---",
-      },
-      {
-        label: "Pilot in Command",
-        key: "pilotInCommand",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Second Pilot in Command",
-        key: "secondPilotInCommand",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Depart (Station ID)",
-        key: "depart",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Arrive (Station ID)",
-        key: "arrive",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Off Block",
-        key: "offBlock",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "On Block",
-        key: "onBlock",
-        editable: { isPilot },
-        value: "",
-      },
+import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "../../stylesheets/colors";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import FlightLogModalInfo from "./FlightLogModalInfo";
+import FlightLogModalDestinations from "./FlightLogModalDestinations";
+import FlightLogModalComponentTimes from "./FlightLogModalComponentTimes";
+import FlightLogModalFuelServicing from "./FlightLogModalFuelServicing";
+import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
+import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
+import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
+import { API_BASE } from "../../utilities/API_BASE";
 
-      {
-        label: "Date Zulu",
-        key: "dateZulu",
-        editable: { isPilot },
-        value: "",
-      },
-      { label: "Date", key: "date", editable: { isPilot }, value: "" },
-    ],
-    [
-      {
-        label: "Flight Time",
-        key: "flightTime",
-        editable: { isPilot },
-        value: "",
-      },
+export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
+  const [currentPage, setCurrentPage] = useState(0);
+  const scrollViewRef = useRef(null);
+  const isPilot = userRole === "pilot";
+  const isMechanic = userRole === "mechanic" || userRole === "head of maintenance";
 
+  // Start with 1 leg only
+  const [formData, setFormData] = useState({
+    aircraftType: "",
+    rpc: "",
+    date: new Date(),
+    controlNo: "",
+    legs: [
       {
-        label: "Block Time",
-        key: "blockTime",
-        editable: { isPilot },
-        value: "",
-      },
-      { label: "Cycles", key: "cycles", editable: { isPilot }, value: "" },
-      {
-        label: "Night (Flight Specific)",
-        key: "nightFlightSpecific",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "N. Ldg (Flight Specific)",
-        key: "nLdgFlightSpecific",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "App (Flight Specific)",
-        key: "appFlightSpecific",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Inst (Flight Specific)",
-        key: "instFlightSpecific",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Pilot (Flight Specific)",
-        key: "pilotFlightSpecific",
-        editable: { isPilot },
-        value: "",
+        stations: [{ from: "", to: "" }],
+        blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
+        date: "", passengers: "",
       },
     ],
-    [
-      {
-        label: "Engine 1 (Times Forward)",
-        key: "engine1TForward",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 2 (Times Forward)",
-        key: "engine2TForward",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "APLI (Times Forward)",
-        key: "apliTForward",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 1 (Current Times)",
-        key: "engine1CTimes",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 2 (Current Times)",
-        key: "engine2CTimes",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "APLI (Current Times)",
-        key: "apliTCTimes",
-        editable: { isPilot },
-        value: "",
-      },
-    ],
-    [
-      {
-        label: "Totals This Flight Log",
-        key: "totalsThisFlightLog",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "totalsThisFlightLog1",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "totalsThisFlightLog2",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Airframe Forward",
-        key: "airframeForward",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "airframeForward1",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "airframeForward2",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Airframe Total Time",
-        key: "airframeTotalTime",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "airframeTotalTime1",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "",
-        key: "airframeTotalTime2",
-        editable: { isPilot },
-        value: "",
-      },
-    ],
-    [
-      {
-        label: "Engine 1 (Cyc. PWD)",
-        key: "engine1CycPWD",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 2 (Cyc. PWD)",
-        key: "engine2CycPWD",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 1 (Cycles)",
-        key: "engine1Cycles",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "Engine 2 (Cycles)",
-        key: "engine2Cycles",
-        editable: { isPilot },
-        value: "",
-      },
-    ],
-    [
-      {
-        label: "Departure",
-        key: "departure",
-        editable: { isPilot },
-        value: "",
-      },
-      { label: "PAX", key: "pax", editable: { isPilot }, value: "" },
-      {
-        label: "Fuel Purchased",
-        key: "fuelPurchased",
-        editable: { isPilot },
-        value: "",
-      },
-      { label: "Fuel Out", key: "fuelOut", editable: { isPilot }, value: "" },
-      { label: "Fuel In", key: "fuelIn", editable: { isPilot }, value: "" },
-      { label: "Fuel Burn", key: "fuelBurn", editable: { isPilot }, value: "" },
-      {
-        label: "Leg Distance",
-        key: "legDistance",
-        editable: { isPilot },
-        value: "",
-      },
-      {
-        label: "FBO Handler",
-        key: "fboHandler",
-        editable: { isPilot },
-        value: "",
-      },
-    ],
-  ];
+    remarks: "",
+    sling: "",
+    fuelServicing: [],
+    oilServicing: [],
+    workItems: [],
+    createdBy: userRole,
+    status: isPilot ? "pending_release" : "pending_acceptance",
+    notifiedForCompletion: false,
+    broughtForwardLocked: false,
+    releasedBy: { name: "", signature: "", timestamp: "" },
+    acceptedBy: { name: "", signature: "", timestamp: "" },
+  });
 
-  if (!visible) return null;
+  const [componentData, setComponentData] = useState({
+    broughtForwardData: {
+      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+    },
+    thisFlightData: {
+      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+    },
+    toDateData: {
+      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+    },
+  });
 
-  const handleDiscard = () => {
-    setShowDiscardConfirm(true);
+  const hasDiscrepancy = () => {
+    return formData.remarks && formData.remarks.trim() !== "";
   };
 
-  const confirmDiscard = () => {
-    setFormData({});
-    setShowDiscardConfirm(false);
-    onClose();
+  const getPilotTabs = () => {
+    return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
+  };
+
+  const getMechanicTabs = () => {
+    let tabs = [
+      "Basic Information",
+      "Component Times",
+      "Fuel Servicing",
+      "Oil Servicing",
+      "Discrepancy/Remarks",
+    ];
+    if (hasDiscrepancy()) {
+      tabs.push("Work Done");
+    }
+    return tabs;
+  };
+
+  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
+  const totalPages = tabs.length;
+
+  useEffect(() => {
+    const legCount = formData.legs.length;
+    
+    if (formData.fuelServicing.length !== legCount) {
+      const newFuelServicing = [];
+      for (let i = 0; i < legCount; i++) {
+        newFuelServicing.push(formData.fuelServicing[i] || {
+          date: "", contCheck: "", mainRemG: "", mainAdd: "", mainTotal: "", fuelType: "drum", refuelerName: "", signature: ""
+        });
+      }
+      setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
+    }
+    
+    if (formData.oilServicing.length !== legCount) {
+      const newOilServicing = [];
+      for (let i = 0; i < legCount; i++) {
+        newOilServicing.push(formData.oilServicing[i] || {
+          date: "", engineRem: "", engineAdd: "", engineTot: "", mrGboxRem: "", mrGboxAdd: "", mrGboxTot: "", trGboxRem: "", trGboxAdd: "", trGboxTot: "", remarks: "", signature: ""
+        });
+      }
+      setFormData(prev => ({ ...prev, oilServicing: newOilServicing }));
+    }
+  }, [formData.legs.length]);
+
+  useEffect(() => {
+    if (!visible) {
+      setCurrentPage(0);
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ y: 0, animated: false });
+      }
+      setFormData({
+        aircraftType: "",
+        rpc: "",
+        date: new Date(),
+        controlNo: "",
+        legs: [
+          {
+            stations: [{ from: "", to: "" }],
+            blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
+            date: "", passengers: "",
+          },
+        ],
+        remarks: "",
+        sling: "",
+        fuelServicing: [],
+        oilServicing: [],
+        workItems: [],
+        createdBy: userRole,
+        status: isPilot ? "pending_release" : "pending_acceptance",
+        notifiedForCompletion: false,
+        broughtForwardLocked: false,
+        releasedBy: { name: "", signature: "", timestamp: "" },
+        acceptedBy: { name: "", signature: "", timestamp: "" },
+      });
+      setComponentData({
+        broughtForwardData: {
+          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+        },
+        thisFlightData: {
+          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+        },
+        toDateData: {
+          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
+          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+        },
+      });
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: false });
+    }
+  }, [currentPage]);
+
+  const updateForm = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateLeg = (updatedLegData) => {
+    setFormData(updatedLegData);
+  };
+
+  const updateFuelServicing = (legIndex, data) => {
+    const newFuelServicing = [...formData.fuelServicing];
+    newFuelServicing[legIndex] = data;
+    setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
+  };
+
+  const updateOilServicing = (legIndex, data) => {
+    const newOilServicing = [...formData.oilServicing];
+    newOilServicing[legIndex] = data;
+    setFormData(prev => ({ ...prev, oilServicing: newOilServicing }));
+  };
+
+  const updateComponent = (section, field, value) => {
+    setComponentData(prev => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value }
+    }));
+  };
+
+  const updateWorkItems = (workItems) => {
+    setFormData(prev => ({ ...prev, workItems }));
+  };
+
+  const formatDateForSave = (date) => {
+    return date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
   };
 
   const handleSave = () => {
-    setShowSaveConfirm(true);
+  // 1. Keep the Validation
+  if (!formData.rpc || formData.rpc.trim() === "") {
+    Alert.alert("Validation Error", "Aircraft RPC is required");
+    return;
+  }
+
+  // 2. Prepare the data object (No fetch here!)
+  const { _id, id, ...cleanFormData } = formData;
+  
+  const flightLogData = {
+    ...cleanFormData,
+    componentData,
+    date: formatDateForSave(formData.date),
+    dateAdded: formatDateForSave(new Date()),
+    status: isPilot ? "pending_release" : "pending_acceptance",
+    createdBy: userRole,
   };
 
-  const confirmSave = () => {
-    setShowSaveConfirm(false);
-    setShowApproveModal(true);
-  };
+  // 3. Just call onSave and let the parent handle the API
+  onSave(flightLogData); 
+  // onClose(); // You can call this here or in the parent
+};
 
-  const handleApproveSubmit = (username, password) => {
-    console.log("New entry approved with:", { username, password });
-
-    // Create the new entry
-    const newEntry = {
-      id: Date.now(),
-      index: Date.now(),
-      tailNum: formData.tailNum || "---",
-      date: formData.date || new Date().toLocaleDateString(),
-      depart: formData.depart || "",
-      arrive: formData.arrive || "",
-      offBlock: formData.offBlock || "",
-      onBlock: formData.onBlock || "",
-      blockTime: formData.blockTime || "",
-      flightTime: formData.flightTime || "",
-      technicalAction: "Submitted for review",
-      status: "pending",
-      submittedBy: username,
-      submittedAt: new Date().toISOString(),
-    };
-
-    // Call onSave with the new entry
-    onSave?.(newEntry);
-
-    setShowApproveModal(false);
-    setFormData({});
-    onClose();
-  };
-
-  const handleApproveCancel = () => {
-    setShowApproveModal(false);
-  };
-
-  const renderPage = (fields) => {
-    return fields.map((field, index) => (
-      <View key={index} style={{ marginBottom: 10 }}>
-        <Text>{field.label}</Text>
-        <TextInput
-          style={styles.flightFormInput}
-          value={formData[field.key] ?? field.value ?? ""}
-          editable={field.editable}
-          onChangeText={(text) =>
-            setFormData((prev) => ({ ...prev, [field.key]: text }))
-          }
-        />
-      </View>
-    ));
+  const renderPage = () => {
+    const currentTab = tabs[currentPage];
+    
+    switch (currentTab) {
+      case "Basic Information":
+        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} />;
+      
+      case "Destination/s":
+        return (
+          <FlightLogModalDestinations
+            legData={formData}
+            onUpdateLeg={updateLeg}
+            isEditable={true}
+            userRole={userRole}
+          />
+        );
+      
+      case "Component Times":
+        return (
+          <FlightLogModalComponentTimes
+            currentComponentPage={0}
+            componentData={componentData.broughtForwardData}
+            onUpdateComponent={(field, value) => updateComponent("broughtForwardData", field, value)}
+            isEditable={true}
+            isLocked={formData.broughtForwardLocked}
+          />
+        );
+      
+      case "Fuel Servicing":
+        return (
+          <FlightLogModalFuelServicing
+            legs={formData.legs}
+            fuelServicingData={formData.fuelServicing}
+            onUpdateFuelServicing={updateFuelServicing}
+            isEditable={true}
+          />
+        );
+      
+      case "Oil Servicing":
+        return (
+          <FlightLogModalOilServicing
+            legs={formData.legs}
+            oilServicingData={formData.oilServicing}
+            onUpdateOilServicing={updateOilServicing}
+            isEditable={true}
+          />
+        );
+      
+      case "Discrepancy/Remarks":
+        return (
+          <FlightLogDiscrepancyRemarks
+            remarks={formData.remarks}
+            sling={formData.sling}
+            onUpdateRemarks={(text) => updateForm("remarks", text)}
+            onUpdateSling={(text) => updateForm("sling", text)}
+            isEditable={true}
+          />
+        );
+      
+      case "Work Done":
+        return (
+          <FlightLogModalWorkDone
+            workItems={formData.workItems}
+            onUpdateWorkItems={updateWorkItems}
+            isEditable={true}
+          />
+        );
+      
+      default:
+        return null;
+    }
   };
 
   return (
-    <>
-      <Modal
-        transparent
-        visible={visible}
-        animationType="fade"
-        onRequestClose={onClose}
-      >
-        <View style={styles.modalOverlay}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.newFlightEntryCard}>
-              <TouchableOpacity
-                onPress={handleDiscard}
-                style={{ alignSelf: "flex-end" }}
-              >
-                <Text style={{ fontSize: 18, fontWeight: "600" }}>✕</Text>
-              </TouchableOpacity>
-              {renderPage(pages[page])}
+    <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-              {page === pages.length - 1 && (
-                <View
-                  style={{ flexDirection: "row", gap: 10, marginLeft: "auto" }}
-                >
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    style={styles.primaryAlertBtn}
-                  >
-                    <Text style={styles.primaryBtnTxt}>Save</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleDiscard}
-                    style={styles.secondaryBtn}
-                  >
-                    <Text style={styles.secondaryBtnTxt}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              <View
+        <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          >
+            {tabs.map((tab, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => setCurrentPage(index)}
                 style={{
-                  flexDirection: "row",
-                  gap: 10,
-                  marginLeft: "auto",
-                  marginBottom: 20,
-                  marginTop: 20,
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: currentPage === index ? COLORS.primaryLight : COLORS.grayMedium,
+                  backgroundColor: currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <TouchableOpacity
-                  onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                  disabled={page === 0}
-                  style={{
-                    opacity: page === 0 ? 0.5 : 1,
-                    borderWidth: 1,
-                    borderColor: "#acacac",
-                    padding: 7,
-                    width: 100,
-                  }}
-                >
-                  <Text style={{ textAlign: "center" }}>Previous</Text>
-                </TouchableOpacity>
-
-                <View
-                  style={{ backgroundColor: "#26866F", padding: 7, width: 50 }}
-                >
-                  <Text style={{ color: "#fff", textAlign: "center" }}>
-                    {page + 1}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() =>
-                    setPage((prev) => Math.min(prev + 1, pages.length - 1))
-                  }
-                  disabled={page === pages.length - 1}
-                  style={{
-                    opacity: page === pages.length - 1 ? 0.5 : 1,
-                    borderWidth: 1,
-                    borderColor: "#acacac",
-                    padding: 7,
-                    width: 100,
-                  }}
-                >
-                  <Text style={{ textAlign: "center" }}>Next</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {Platform.OS !== "web" && <SignatureScreen />}
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: "500",
+                  color: currentPage === index ? COLORS.white : COLORS.grayDark,
+                }}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
+
+          <View style={{ height: 1, backgroundColor: COLORS.grayMedium, marginTop: 12 }} />
+
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
+          >
+            <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+          </TouchableOpacity>
         </View>
-        {/* Discard Confirmation */}
-        {showDiscardConfirm && (
-          <AlertComp
-            title="DISCARD LOG"
-            message="Are you sure you discard this log?"
-            type="confirm"
-            visible={showDiscardConfirm}
-            onConfirm={confirmDiscard}
-            onCancel={() => setShowDiscardConfirm(false)}
-            confirmText="YES"
-            cancelText="CANCEL"
-          />
-        )}
 
-        {/* Save Confirmation */}
-        {showSaveConfirm && (
-          <AlertComp
-            title="SUBMIT LOG"
-            message="Are you sure you want to submit log?"
-            type="confirm"
-            visible={showSaveConfirm}
-            onConfirm={confirmSave}
-            onCancel={() => setShowSaveConfirm(false)}
-            confirmText="YES"
-            cancelText="CANCEL"
-          />
-        )}
+        <ScrollView
+          ref={scrollViewRef}
+          style={{ flex: 1, paddingHorizontal: 20 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingTop: 16 }}
+        >
+          {renderPage()}
+        </ScrollView>
 
-        {/* Approval Maintenance Modal */}
-        <ApproveMaintenance
-          visible={showApproveModal}
-          aircraftNumber={formData.tailNum || "---"}
-          onConfirm={handleApproveSubmit}
-          onCancel={handleApproveCancel}
-        />
-      </Modal>
-    </>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", padding: 20, backgroundColor: "#F9F9F9", gap: 10 }}>
+          <TouchableOpacity
+            onPress={handlePrevious}
+            disabled={currentPage === 0}
+            style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: currentPage === 0 ? 0.5 : 1 }}
+          >
+            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
+          </TouchableOpacity>
+
+          <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 4 }}>
+            <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}>{currentPage + 1}</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={currentPage === totalPages - 1 ? handleSave : handleNext}
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 24,
+              borderRadius: 4,
+              backgroundColor: COLORS.primaryLight,
+              opacity: 1
+            }}
+          >
+            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
+              {currentPage === totalPages - 1 ? "Add" : "Next"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 }
