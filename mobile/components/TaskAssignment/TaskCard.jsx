@@ -33,6 +33,8 @@ export default function TaskCard({
   } = data;
   const { user } = useContext(AuthContext);
 
+  console.log(title);
+
   // Calculate progress for ongoing tasks
   const calculateProgress = () => {
     if (!checklistItems || checklistItems.length === 0) return 0;
@@ -131,7 +133,7 @@ export default function TaskCard({
               marginRight: 10,
             }}
           >
-            {title} - {maintenanceType || "Corrective Maintenance"}
+            {aircraft} - {title || "Corrective Maintenance"}
           </Text>
 
           {status === "Returned" && (
@@ -366,7 +368,7 @@ export default function TaskCard({
             marginRight: 10,
           }}
         >
-          {title} - {maintenanceType || "Corrective Maintenance"}
+          {aircraft} - {title || "Corrective Maintenance"}
         </Text>
 
         {/* Show Returned badge for returned tasks */}

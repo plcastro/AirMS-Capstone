@@ -52,6 +52,8 @@ export default function TaskTabs({
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const isPastDue = dueDate < today;
 
+         console.log(`Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`);
+
         switch (activeTab) {
           case "Upcoming":
             return (

@@ -147,3 +147,70 @@
 .table-container .ant-table-body {
   overflow-x: auto !important;
 }
+
+/* Extra large table inputs */
+.table-container .ant-table-tbody .ant-input,
+.table-container .ant-table-tbody input[type="number"],
+.table-container .ant-table-tbody input[type="date"],
+.table-container .ant-table-tbody input[type="text"] {
+  padding: 10px 14px;
+  font-size: 15px;
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+.table-container .ant-table-tbody .ant-input-number {
+  min-height: 44px;
+}
+
+.table-container .ant-table-tbody .ant-input-number-input {
+  padding: 10px 14px;
+  font-size: 15px;
+  min-height: 44px;
+}
+
+.table-container .ant-table-tbody .ant-select-selector {
+  min-height: 44px;
+  padding: 6px 12px;
+}
+
+.table-container .ant-table-tbody .ant-select-selection-item {
+  line-height: 32px;
+  font-size: 15px;
+}
+
+.table-container .ant-table-tbody .ant-select-selection-placeholder {
+  line-height: 32px;
+  font-size: 15px;
+}
+
+/* Increase table cell padding for larger inputs */
+.table-container .ant-table-tbody > tr > td {
+  padding: 14px 10px;
+  vertical-align: middle;
+}
+
+/* Allow text to wrap in table cells */
+.table-container .ant-table-tbody > tr > td {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+/* Ensure input fields don't get cut off */
+.table-container .ant-table-tbody .ant-input,
+.table-container .ant-table-tbody input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* For cells that might have longer numbers */
+.table-container .ant-table-tbody td {
+  min-width: 80px;
+}
+
+/* Better scroll behavior */
+.table-container .ant-table-wrapper {
+  overflow-x: auto;
+}
