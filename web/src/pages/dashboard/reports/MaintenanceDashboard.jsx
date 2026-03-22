@@ -40,11 +40,15 @@ export default function MaintenanceDashboard() {
         flexDirection: "column",
         gap: 20,
         width: "100%",
-        minHeight: "100%",
+        height: "100vh",
+        overflowY: "auto",
+        padding: 20,
       }}
     >
       <Input size="large" placeholder="Search by..." style={{ width: 300 }} />
-      <Tabs defaultActiveKey="1" items={items} onChange={onChange} />
+      <div style={{ flex: 1 }}>
+        <Tabs defaultActiveKey="1" items={items} onChange={onChange} />
+      </div>
     </div>
   );
 }

@@ -124,7 +124,11 @@ export default function Inventory() {
   ];
 
   return (
-    <div>
+    <div
+      style={{
+        padding: 20,
+      }}
+    >
       <div
         style={{
           display: "flex",

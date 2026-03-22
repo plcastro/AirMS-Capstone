@@ -252,7 +252,7 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
+    <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
       <Card
         style={{
           width: 800,

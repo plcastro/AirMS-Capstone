@@ -189,7 +189,11 @@ export default function MaintenanceLog() {
     fetchEntries();
   }, []);
   return (
-    <>
+    <div
+      style={{
+        padding: 20,
+      }}
+    >
       <Input
         placeholder="Search by aircraft, defect, or date"
         value={searchQuery}
@@ -255,6 +259,6 @@ export default function MaintenanceLog() {
         }}
         onSave={handleUpdateEntry}
       />
-    </>
+    </div>
   );
 }

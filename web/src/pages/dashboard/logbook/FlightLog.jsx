@@ -259,7 +259,11 @@ export default function FlightLog() {
   };
 
   return (
-    <div>
+    <div
+      style={{
+        padding: 20,
+      }}
+    >
       <Input
         placeholder="Search by date, origin, or destination..."
         value={searchQuery}
