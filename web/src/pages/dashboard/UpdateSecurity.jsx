@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { Row, Space, Input, Button, Typography, Tabs, message } from "antd";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-
+import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
@@ -21,10 +21,18 @@ export default function UpdateSecurity() {
   const [forgotPinMode, setForgotPinMode] = useState(false);
 
   const [verifyEmail, setVerifyEmail] = useState("");
+  const [verifyEmailPin, setVerifyEmailPin] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [resetToken, setResetToken] = useState("");
+
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+  const isValidPin = (pin) => {
+    return /^\d*$/.test(pin);
+  };
 
   useEffect(() => {
     setPasswordErrors({
@@ -44,10 +52,18 @@ export default function UpdateSecurity() {
 
   const resetAll = () => {
     setVerifyEmail("");
+    setVerifyEmailPin("");
     setOtp("");
     setOtpSent(false);
     setOtpVerified(false);
     setResetToken("");
+
+    setCurrentPassword("");
+    setCurrentPin("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setNewPin("");
+    setConfirmPin("");
   };
 
   const savePassword = async () => {
@@ -89,7 +105,7 @@ export default function UpdateSecurity() {
 
       setResetToken(data.token);
       setOtpSent(true);
-      message.success("OTP sent");
+      message.success(`OTP successfully sent to your email`);
     } catch (err) {
       message.error(err.message);
     }
@@ -166,7 +182,7 @@ export default function UpdateSecurity() {
 
       setResetToken(data.token);
       setOtpSent(true);
-      message.success("OTP sent");
+      message.success("OTP successfully sent to your email");
     } catch (err) {
       message.error(err.message);
     }
@@ -251,29 +267,78 @@ export default function UpdateSecurity() {
             Password should be at least 8 characters long, include 1 uppercase
             letter, 1 lowercase letter, and 1 number.
           </Text>
-          <Button type="primary" onClick={savePassword}>
-            Save Password
-          </Button>
+          <Row>
+            <Button
+              type="primary"
+              onClick={savePassword}
+              disabled={!Object.values(passwordErrors).every(Boolean)}
+              style={{ marginRight: 10 }}
+            >
+              Save Password
+            </Button>
+            <Button type="default" onClick={resetAll}>
+              <ClearOutlined />
+            </Button>
+          </Row>
         </>
       ) : (
         <>
           {!otpSent ? (
             <>
               <Input
+                size="large"
                 placeholder="Enter Email"
                 value={verifyEmail}
                 onChange={(e) => setVerifyEmail(e.target.value)}
               />
-              <Button onClick={requestPasswordOtp}>Send OTP</Button>
+              {verifyEmail && !isValidEmail(verifyEmail) && (
+                <Text type="danger">Invalid email format</Text>
+              )}
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={requestPasswordOtp}
+                  disabled={!verifyEmail || !isValidEmail(verifyEmail)}
+                  style={{ marginRight: 10 }}
+                >
+                  Send OTP
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPasswordMode(false);
+                    resetAll();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
             </>
           ) : !otpVerified ? (
             <>
               <Input
+                maxLength={6}
+                size="large"
                 placeholder="Enter OTP"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
               />
-              <Button onClick={verifyPasswordOtp}>Verify OTP</Button>
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={verifyPasswordOtp}
+                  style={{ marginRight: 10 }}
+                >
+                  Verify OTP
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPasswordMode(false);
+                    resetAll();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
             </>
           ) : (
             <>
@@ -287,11 +352,36 @@ export default function UpdateSecurity() {
                 placeholder="Confirm Password"
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-              <Button onClick={resetPassword}>Reset Password</Button>
+              <Text
+                type={
+                  Object.values(passwordErrors).every(Boolean)
+                    ? "success"
+                    : "secondary"
+                }
+              >
+                Password should be at least 8 characters long, include 1
+                uppercase letter, 1 lowercase letter, and 1 number.
+              </Text>
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={resetPassword}
+                  disabled={!Object.values(passwordErrors).every(Boolean)}
+                  style={{ marginRight: 10 }}
+                >
+                  Reset Password
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPasswordMode(false);
+                    resetAll();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
             </>
           )}
-
-          <Button onClick={() => setForgotPasswordMode(false)}>Back</Button>
         </>
       )}
     </Space>
@@ -302,10 +392,15 @@ export default function UpdateSecurity() {
       {!forgotPinMode ? (
         <>
           <Input.Password
+            maxLength={6}
+            inputMode="numeric"
             size="large"
             placeholder="Current PIN"
             value={currentPin}
-            onChange={(e) => setCurrentPin(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+              setCurrentPin(value);
+            }}
           />
 
           <Text
@@ -316,57 +411,148 @@ export default function UpdateSecurity() {
           </Text>
 
           <Input.Password
+            maxLength={6}
+            inputMode="numeric"
             size="large"
             placeholder="New PIN"
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+              setNewPin(value);
+            }}
           />
           <Input.Password
+            maxLength={6}
+            inputMode="numeric"
             size="large"
             placeholder="Confirm PIN"
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+              setConfirmPin(value);
+            }}
           />
-
-          <Button type="primary" onClick={savePin}>
-            Save PIN
-          </Button>
+          <Row>
+            <Button
+              type="primary"
+              onClick={savePin}
+              disabled={!Object.values(pinErrors).every(Boolean)}
+              style={{ marginRight: 10 }}
+            >
+              Save PIN
+            </Button>
+            <Button type="default" onClick={resetAll}>
+              <ClearOutlined />
+            </Button>
+          </Row>
         </>
       ) : (
         <>
           {!otpSent ? (
             <>
               <Input
+                size="large"
+                type="primary"
                 placeholder="Enter Email"
-                value={verifyEmail}
-                onChange={(e) => setVerifyEmail(e.target.value)}
+                value={verifyEmailPin}
+                onChange={(e) => setVerifyEmailPin(e.target.value)}
               />
-              <Button onClick={requestPinOtp}>Send OTP</Button>
+              {verifyEmailPin && !isValidEmail(verifyEmailPin) && (
+                <Text type="danger">Invalid email format</Text>
+              )}
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={requestPinOtp}
+                  disabled={!verifyEmailPin || !isValidEmail(verifyEmailPin)}
+                  style={{ marginRight: 10 }}
+                >
+                  Send OTP
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPinMode(false);
+                    resetAll();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
             </>
           ) : !otpVerified ? (
             <>
               <Input
+                maxLength={6}
+                inputMode="numeric"
+                size="large"
+                type="primary"
                 placeholder="Enter OTP"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+                  setOtp(value);
+                }}
               />
-              <Button onClick={verifyPinOtp}>Verify OTP</Button>
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={verifyPinOtp}
+                  style={{ marginRight: 10 }}
+                >
+                  Verify OTP
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPinMode(false);
+                    resetAll();
+                  }}
+                >
+                  Back
+                </Button>
+              </Row>
             </>
           ) : (
             <>
               <Input.Password
+                size="large"
                 placeholder="New PIN"
-                onChange={(e) => setNewPin(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+                  setNewPin(value);
+                }}
+                maxLength={6}
+                inputMode="numeric"
               />
               <Input.Password
+                size="large"
                 placeholder="Confirm PIN"
-                onChange={(e) => setConfirmPin(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+                  setConfirmPin(value);
+                }}
+                maxLength={6}
+                inputMode="numeric"
               />
-              <Button onClick={resetPin}>Reset PIN</Button>
+              <Row>
+                <Button
+                  type="primary"
+                  onClick={resetPin}
+                  disabled={!Object.values(pinErrors).every(Boolean)}
+                  style={{ marginRight: 10 }}
+                >
+                  Reset PIN
+                </Button>
+                <Button
+                  onClick={() => {
+                    setForgotPinMode(false);
+                    resetAll();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Row>
             </>
           )}
-
-          <Button onClick={() => setForgotPinMode(false)}>Back</Button>
         </>
       )}
     </Space>

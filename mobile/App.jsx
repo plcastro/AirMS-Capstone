@@ -97,35 +97,37 @@ function DrawerNav() {
         ),
       })}
     >
+      {[
+        "maintenance manager",
+        "pilot",
+        "engineer",
+        "officer-in-charge",
+      ].includes(user.jobTitle?.toLowerCase()) && (
+        <>
+          <Drawer.Screen
+            name="Flight Logbook"
+            component={wrapWithDashboard(FlightLog)}
+          />
+        </>
+      )}
 
-      {["head of maintenance", "pilot"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
-          <>
-            <Drawer.Screen
-              name="Flight Logbook"
-              component={wrapWithDashboard(FlightLog)}
-            />
-          </>
-        )}
-
-      {user.jobTitle?.toLowerCase() === "head of maintenance" && (
+      {user.jobTitle?.toLowerCase() === "maintenance manager" && (
         <Drawer.Screen
           name="Mechanics"
           component={wrapWithDashboard(MechanicList)}
         />
       )}
 
-      {["head of maintenance", "mechanic"].includes(
+      {["maintenance manager", "engineer"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
-          <>
-            <Drawer.Screen
-              name="Tasks"
-              component={wrapWithDashboard(TaskAssignment)}
-            />
-          </>
-        )}
+        <>
+          <Drawer.Screen
+            name="Tasks"
+            component={wrapWithDashboard(TaskAssignment)}
+          />
+        </>
+      )}
 
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
     </Drawer.Navigator>

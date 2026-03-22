@@ -168,6 +168,7 @@ const SecuritySetup = () => {
           <Form.Item label="Set 6-digit PIN" required>
             <Input.Password
               value={formData.pin}
+              inputMode="numeric"
               maxLength={6}
               onChange={(e) =>
                 changeHandler("pin", e.target.value.replace(/\D/g, ""))
@@ -180,6 +181,7 @@ const SecuritySetup = () => {
             <Input.Password
               value={formData.confirmPin}
               maxLength={6}
+              inputMode="numeric"
               onChange={(e) =>
                 changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
               }

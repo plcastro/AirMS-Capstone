@@ -6,9 +6,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
-import { AuthContext } from "../Context/AuthContext";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AlertComp from "./AlertComp";
+
+import { AuthContext } from "../Context/AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 
 const DrawerList = [
@@ -16,25 +18,31 @@ const DrawerList = [
     icon: "book-open-page-variant",
     label: "Flight Logbook",
     navigateTo: "Flight Logbook",
-    jobTitle: ["pilot", "head of maintenance", "manager"],
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
   },
   {
     icon: "clipboard-text",
     label: "Tasks",
     navigateTo: "Tasks",
-    jobTitle: ["head of maintenance", "mechanic"],
+    jobTitle: ["maintenance manager", "engineer"],
   },
   {
     icon: "account-group",
     label: "Mechanic List",
     navigateTo: "Mechanics",
-    jobTitle: ["head of maintenance"],
+    jobTitle: ["maintenance manager"],
   },
   {
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
-    jobTitle: ["admin", "pilot", "head of maintenance", "manager", "mechanic"],
+    jobTitle: [
+      "admin",
+      "pilot",
+      "maintenance manager",
+      "engineer",
+      "officer-in-charge",
+    ],
   },
 ];
 
