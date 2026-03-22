@@ -6,7 +6,14 @@ export default function ComponentUsage() {
     message.success("Exported successfully");
   };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+        marginBottom: 300,
+      }}
+    >
       <Row style={{ justifyContent: "flex-end" }}>
         <div>
           <Button

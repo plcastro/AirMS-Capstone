@@ -15,6 +15,7 @@ export default function MaintenanceHistory() {
         display: "flex",
         flexDirection: "column",
         gap: 20,
+        marginBottom: 300,
       }}
     >
       <Row style={{ justifyContent: "flex-end" }}>
@@ -30,7 +31,7 @@ export default function MaintenanceHistory() {
       </Row>
       <Row gutter={24}>
         <Col xs={24} md={12}>
-          <Card>
+          <Card style={{ padding: 16 }}>
             <Title level={4} style={{ margin: 0 }}>
               Same-day Repairs (Last 30 days)
             </Title>
@@ -38,7 +39,7 @@ export default function MaintenanceHistory() {
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card>
+          <Card style={{ padding: 16 }}>
             <Title level={4} style={{ margin: 0 }}>
               Average Rectification Time
             </Title>

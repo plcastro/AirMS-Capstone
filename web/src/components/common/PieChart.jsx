@@ -43,8 +43,8 @@ export const ARTChart = () => {
     { name: "0 - 10 days", value: 3, fill: "#881fe5" },
     { name: "11 - 20 days", value: 7, fill: "#1890ff" },
     { name: "21 - 30 days", value: 5, fill: "#058b4a" },
-    { name: "31 - 40 days", value: 10, fill: "#cebc14" },
-    { name: "More than 40 days", value: 2, fill: "#ffae18" },
+    { name: "31 - 40 days", value: 10, fill: "#d78f2b" },
+    { name: "More than 40 days", value: 2, fill: "#9b1104" },
   ];
 
   const fastestTask = data.reduce((prev, curr) =>
@@ -82,7 +82,7 @@ export const ARTChart = () => {
       <div
         style={{
           position: "absolute",
-          top: "45%",
+          top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           textAlign: "center",

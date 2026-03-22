@@ -43,6 +43,7 @@ export default function MaintenanceDashboard() {
         height: "100vh",
         overflowY: "auto",
         padding: 20,
+        marginBottom: 300,
       }}
     >
       <Input size="large" placeholder="Search by..." style={{ width: 300 }} />
