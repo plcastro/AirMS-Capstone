@@ -29,7 +29,7 @@ const DashboardLayout = () => {
     "/dashboard/parts-monitoring/maintenance-tracking": "Maintenance Tracking",
     "/dashboard/inventory-management": "Inventory Management",
     "/dashboard/maintenance-priority": "Maintenance Priority",
-    "/dashboard/maintenance-report": "Maintenance Report",
+    "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
     "/dashboard/profile": "Profile",
   };
   const pageTitle = pageMap[location.pathname] || "Dashboard";
