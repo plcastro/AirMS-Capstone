@@ -1,5 +1,5 @@
 import React, { useState, useContext } from "react";
-import { Layout, Button, theme, Avatar } from "antd";
+import { Layout, Button, theme, Avatar, Grid } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -11,8 +11,11 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
 const { Header, Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 const DashboardLayout = () => {
+  const screens = useBreakpoint();
+  const titleFontSize = screens.md ? 20 : 16;
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useContext(AuthContext);
   const location = useLocation();
@@ -29,7 +32,7 @@ const DashboardLayout = () => {
     "/dashboard/parts-monitoring/maintenance-tracking": "Maintenance Tracking",
     "/dashboard/inventory-management": "Inventory Management",
     "/dashboard/maintenance-priority": "Maintenance Priority",
-    "/dashboard/maintenance-report": "Maintenance Report",
+    "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
     "/dashboard/profile": "Profile",
   };
   const pageTitle = pageMap[location.pathname] || "Dashboard";
@@ -76,7 +79,18 @@ const DashboardLayout = () => {
                 }}
               />
             </div>
-            <h2>{pageTitle}</h2>
+            <h2
+              style={{
+                fontSize: titleFontSize,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontWeight: 600,
+                transition: "all 0.3s",
+              }}
+            >
+              {pageTitle}
+            </h2>
           </div>
           <div
             style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
@@ -96,32 +110,33 @@ const DashboardLayout = () => {
             ) : (
               <Avatar size="large" icon={<UserOutlined />} />
             )}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                lineHeight: 1.2,
-                marginRight: 10,
-                marginLeft: 10,
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>
-                {user?.firstName + " " + user?.lastName || "Unknown User"}
-              </span>
-              <span style={{ fontSize: 12, color: "#888" }}>
-                {user?.jobTitle || "Unknown Job Title"}
-              </span>
-            </div>
+            {screens.md && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  lineHeight: 1.2,
+                  marginRight: 10,
+                  marginLeft: 10,
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>
+                  {user?.firstName + " " + user?.lastName || "Unknown User"}
+                </span>
+                <span style={{ fontSize: 12, color: "#888" }}>
+                  {user?.jobTitle || "Unknown Job Title"}
+                </span>
+              </div>
+            )}
           </div>
         </Header>
 
         <Content
           style={{
-            height: "100vh",
+            minHeight: "calc(100vh - 64px)",
             background: "#efeeee",
             borderRadius: borderRadiusLG,
-            padding: 24,
           }}
         >
           <Outlet />

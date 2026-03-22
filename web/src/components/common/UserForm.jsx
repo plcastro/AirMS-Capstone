@@ -30,6 +30,7 @@ export default function UserForm({
   const [username, setUsername] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [accessLevel, setAccessLevel] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
   const [joinedDate, setJoinedDate] = useState(new Date());
   const [imageUrl, setImageUrl] = useState(null);
   const [file, setFile] = useState(null);
@@ -46,10 +47,10 @@ export default function UserForm({
     setTouched({});
     const roleMap = {
       Admin: "Admin",
-      Pilot: "Superuser",
-      Manager: "Superuser",
-      "Head of Maintenance": "Superuser",
-      Mechanic: "User",
+      Pilot: "User",
+      "Maintenance Manager": "Superuser",
+      "Officer-In-Charge": "Superuser",
+      Engineer: "User",
     };
 
     if (user) {
@@ -154,6 +155,13 @@ export default function UserForm({
         body.append("access", accessLevel);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file); // only append if file exists
+        if (
+          ["head of maintenance", "pilot", "mechanic"].includes(
+            jobTitle.toLowerCase(),
+          )
+        ) {
+          body.append("licenseNo", licenseNo);
+        }
       } else {
         // No file, send JSON
         headers["Content-Type"] = "application/json";
@@ -208,7 +216,6 @@ export default function UserForm({
         email: email.trim(),
         username,
         jobTitle,
-
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
         image: savedUser?.data?.image || imageUrl,
@@ -274,6 +281,7 @@ export default function UserForm({
           <Text strong>First Name</Text>
           <Input
             maxLength={128}
+            placeholder="Enter first name"
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
             onChange={(e) => {
@@ -293,6 +301,7 @@ export default function UserForm({
           <Text strong>Last Name</Text>
           <Input
             maxLength={128}
+            placeholder="Enter last name"
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
             onChange={(e) => {
@@ -312,6 +321,8 @@ export default function UserForm({
         <Col span={24}>
           <Text strong>Email Address</Text>
           <Input
+            placeholder="Enter email address"
+            maxLength={256}
             status={touched.email && errors.email ? "error" : ""}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -342,10 +353,10 @@ export default function UserForm({
             }}
             options={[
               { label: "Admin", value: "Admin" },
-              { label: "Head of Maintenance", value: "Head of Maintenance" },
+              { label: "Maintenance Manager", value: "Maintenance Manager" },
               { label: "Pilot", value: "Pilot" },
-              { label: "Manager", value: "Manager" },
-              { label: "Mechanic", value: "Mechanic" },
+              { label: "Officer-In-Charge", value: "Officer-In-Charge" },
+              { label: "Engineer", value: "Engineer" },
             ]}
           />
           {touched.jobTitle && errors.jobTitle && (
@@ -355,11 +366,30 @@ export default function UserForm({
           )}
         </Col>
 
-        {/* Access Level / Date Joined */}
         <Col span={12}>
           <Text strong>Access Level</Text>
           <Input value={accessLevel} disabled />
         </Col>
+
+        {[
+          "maintenance manager",
+          "pilot",
+          "engineer",
+          "officer-in-charge",
+        ].includes(jobTitle.toLowerCase()) ? (
+          <Col span={12}>
+            <Text strong>License No.</Text>
+            <Input
+              placeholder="Enter license number"
+              value={licenseNo}
+              onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
+              maxLength={6}
+              required={["maintenance manager", "pilot", "engineer"].includes(
+                jobTitle.toLowerCase(),
+              )}
+            />
+          </Col>
+        ) : null}
 
         <Col span={12}>
           <Text strong>Date Joined</Text>

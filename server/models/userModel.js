@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, "Invalid email"],
   },
   password: { type: String, required: true, select: false },
+  pin: { type: String, default: "", select: false },
+  signature: { type: String, default: "" },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
@@ -23,8 +25,14 @@ const userSchema = new mongoose.Schema({
   },
   jobTitle: {
     type: String,
-    enum: ["Head of Maintenance", "Pilot", "Admin", "Manager", "Mechanic"],
-    default: "Mechanic",
+    enum: [
+      "Maintenance Manager",
+      "Pilot",
+      "Admin",
+      "Officer-In-Charge",
+      "Engineer",
+    ],
+    default: "Engineer",
   },
   access: {
     type: String,
@@ -32,10 +40,12 @@ const userSchema = new mongoose.Schema({
     default: "User",
   },
   tempPasswordExpires: Date,
+  licenseNo: { type: String, unique: true, trim: true },
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
-  // --- PASSWORD RESET / OTP ---
+
+  // --- PASSWORD RESET ---
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   otp: String,
@@ -43,26 +53,18 @@ const userSchema = new mongoose.Schema({
   otpAttempts: { type: Number, default: 0 },
   otpLockUntil: Date,
 
+  // --- PIN RESET ---
+  resetPinToken: String,
+  resetPinExpires: Date,
+  pinOtp: String,
+  pinOtpExpires: Date,
+  pinOtpAttempts: { type: Number, default: 0 },
+  pinOtpLockUntil: Date,
+
   // --- Account lockout for security ---
-  failedLoginAttempts: {
-    type: Number,
-    default: 0,
-  },
-
-  lockUntil: {
-    type: Date,
-  },
-
-  isLocked: {
-    type: Boolean,
-    default: false,
-  },
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: Date,
+  isLocked: { type: Boolean, default: false },
 });
 
-// userSchema.pre("save", async function () {
-//   if (!this.isModified("password")) return;
-//   this.password = await bcrypt.hash(this.password, 12);
-// });
-
-const User = mongoose.model("users", userSchema);
-module.exports = User;
+module.exports = mongoose.model("User", userSchema);

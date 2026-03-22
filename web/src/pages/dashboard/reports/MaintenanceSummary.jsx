@@ -1,15 +1,30 @@
 import React from "react";
-import { Card, Col, Row, Statistic, Input, Button } from "antd";
+import { Row, message, Button } from "antd";
 import { ExportOutlined } from "@ant-design/icons";
 export default function MaintenanceSummary() {
+  const exportDocument = () => {
+    message.success("Exported successfully");
+  };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Input placeholder="Search by..." style={{ width: 200 }} />
-      <div>
-        <Button type="primary" icon={<ExportOutlined />}>
-          Export
-        </Button>
-      </div>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+        marginBottom: 300,
+      }}
+    >
+      <Row style={{ justifyContent: "flex-end" }}>
+        <div>
+          <Button
+            type="primary"
+            icon={<ExportOutlined />}
+            onClick={() => exportDocument()}
+          >
+            Export
+          </Button>
+        </div>
+      </Row>
     </div>
   );
 }

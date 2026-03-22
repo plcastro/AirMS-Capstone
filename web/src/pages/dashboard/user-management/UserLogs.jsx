@@ -91,7 +91,7 @@ export default function UserLogs() {
   }, []);
 
   return (
-    <div style={{ padding: "24px", maxWidth: "100%", overflow: "hidden" }}>
+    <div style={{ padding: 20, maxWidth: "100%", overflow: "hidden" }}>
       <Input
         placeholder="Search logs..."
         value={searchQuery}
