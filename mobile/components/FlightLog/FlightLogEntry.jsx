@@ -25,7 +25,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
-  const isMechanic = userRole === "mechanic" || userRole === "head of maintenance";
+  const isMechanic =
+    userRole === "engineer" || userRole === "maintenance manager";
 
   // Start with 1 leg only
   const [formData, setFormData] = useState({
@@ -36,8 +37,14 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     legs: [
       {
         stations: [{ from: "", to: "" }],
-        blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
-        date: "", passengers: "",
+        blockTimeOn: "",
+        blockTimeOff: "",
+        flightTimeOn: "",
+        flightTimeOff: "",
+        totalTimeOn: "",
+        totalTimeOff: "",
+        date: "",
+        passengers: "",
       },
     ],
     remarks: "",
@@ -55,16 +62,46 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   const [componentData, setComponentData] = useState({
     broughtForwardData: {
-      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+      airframe: "",
+      gearBoxMain: "",
+      gearBoxTail: "",
+      rotorMain: "",
+      rotorTail: "",
+      airframeNextInsp: "",
+      engine: "",
+      cycleN1: "",
+      cycleN2: "",
+      usage: "",
+      landingCycle: "",
+      engineNextInsp: "",
     },
     thisFlightData: {
-      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+      airframe: "",
+      gearBoxMain: "",
+      gearBoxTail: "",
+      rotorMain: "",
+      rotorTail: "",
+      airframeNextInsp: "",
+      engine: "",
+      cycleN1: "",
+      cycleN2: "",
+      usage: "",
+      landingCycle: "",
+      engineNextInsp: "",
     },
     toDateData: {
-      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-      engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+      airframe: "",
+      gearBoxMain: "",
+      gearBoxTail: "",
+      rotorMain: "",
+      rotorTail: "",
+      airframeNextInsp: "",
+      engine: "",
+      cycleN1: "",
+      cycleN2: "",
+      usage: "",
+      landingCycle: "",
+      engineNextInsp: "",
     },
   });
 
@@ -95,25 +132,47 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   useEffect(() => {
     const legCount = formData.legs.length;
-    
+
     if (formData.fuelServicing.length !== legCount) {
       const newFuelServicing = [];
       for (let i = 0; i < legCount; i++) {
-        newFuelServicing.push(formData.fuelServicing[i] || {
-          date: "", contCheck: "", mainRemG: "", mainAdd: "", mainTotal: "", fuelType: "drum", refuelerName: "", signature: ""
-        });
+        newFuelServicing.push(
+          formData.fuelServicing[i] || {
+            date: "",
+            contCheck: "",
+            mainRemG: "",
+            mainAdd: "",
+            mainTotal: "",
+            fuelType: "drum",
+            refuelerName: "",
+            signature: "",
+          },
+        );
       }
-      setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
+      setFormData((prev) => ({ ...prev, fuelServicing: newFuelServicing }));
     }
-    
+
     if (formData.oilServicing.length !== legCount) {
       const newOilServicing = [];
       for (let i = 0; i < legCount; i++) {
-        newOilServicing.push(formData.oilServicing[i] || {
-          date: "", engineRem: "", engineAdd: "", engineTot: "", mrGboxRem: "", mrGboxAdd: "", mrGboxTot: "", trGboxRem: "", trGboxAdd: "", trGboxTot: "", remarks: "", signature: ""
-        });
+        newOilServicing.push(
+          formData.oilServicing[i] || {
+            date: "",
+            engineRem: "",
+            engineAdd: "",
+            engineTot: "",
+            mrGboxRem: "",
+            mrGboxAdd: "",
+            mrGboxTot: "",
+            trGboxRem: "",
+            trGboxAdd: "",
+            trGboxTot: "",
+            remarks: "",
+            signature: "",
+          },
+        );
       }
-      setFormData(prev => ({ ...prev, oilServicing: newOilServicing }));
+      setFormData((prev) => ({ ...prev, oilServicing: newOilServicing }));
     }
   }, [formData.legs.length]);
 
@@ -131,8 +190,14 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         legs: [
           {
             stations: [{ from: "", to: "" }],
-            blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
-            date: "", passengers: "",
+            blockTimeOn: "",
+            blockTimeOff: "",
+            flightTimeOn: "",
+            flightTimeOff: "",
+            totalTimeOn: "",
+            totalTimeOff: "",
+            date: "",
+            passengers: "",
           },
         ],
         remarks: "",
@@ -149,16 +214,46 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       });
       setComponentData({
         broughtForwardData: {
-          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+          airframe: "",
+          gearBoxMain: "",
+          gearBoxTail: "",
+          rotorMain: "",
+          rotorTail: "",
+          airframeNextInsp: "",
+          engine: "",
+          cycleN1: "",
+          cycleN2: "",
+          usage: "",
+          landingCycle: "",
+          engineNextInsp: "",
         },
         thisFlightData: {
-          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+          airframe: "",
+          gearBoxMain: "",
+          gearBoxTail: "",
+          rotorMain: "",
+          rotorTail: "",
+          airframeNextInsp: "",
+          engine: "",
+          cycleN1: "",
+          cycleN2: "",
+          usage: "",
+          landingCycle: "",
+          engineNextInsp: "",
         },
         toDateData: {
-          airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "", airframeNextInsp: "",
-          engine: "", cycleN1: "", cycleN2: "", usage: "", landingCycle: "", engineNextInsp: "",
+          airframe: "",
+          gearBoxMain: "",
+          gearBoxTail: "",
+          rotorMain: "",
+          rotorTail: "",
+          airframeNextInsp: "",
+          engine: "",
+          cycleN1: "",
+          cycleN2: "",
+          usage: "",
+          landingCycle: "",
+          engineNextInsp: "",
         },
       });
     }
@@ -171,7 +266,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   }, [currentPage]);
 
   const updateForm = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const updateLeg = (updatedLegData) => {
@@ -181,24 +276,24 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const updateFuelServicing = (legIndex, data) => {
     const newFuelServicing = [...formData.fuelServicing];
     newFuelServicing[legIndex] = data;
-    setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
+    setFormData((prev) => ({ ...prev, fuelServicing: newFuelServicing }));
   };
 
   const updateOilServicing = (legIndex, data) => {
     const newOilServicing = [...formData.oilServicing];
     newOilServicing[legIndex] = data;
-    setFormData(prev => ({ ...prev, oilServicing: newOilServicing }));
+    setFormData((prev) => ({ ...prev, oilServicing: newOilServicing }));
   };
 
   const updateComponent = (section, field, value) => {
-    setComponentData(prev => ({
+    setComponentData((prev) => ({
       ...prev,
-      [section]: { ...prev[section], [field]: value }
+      [section]: { ...prev[section], [field]: value },
     }));
   };
 
   const updateWorkItems = (workItems) => {
-    setFormData(prev => ({ ...prev, workItems }));
+    setFormData((prev) => ({ ...prev, workItems }));
   };
 
   const formatDateForSave = (date) => {
@@ -222,36 +317,42 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   };
 
   const handleSave = () => {
-  // 1. Keep the Validation
-  if (!formData.rpc || formData.rpc.trim() === "") {
-    Alert.alert("Validation Error", "Aircraft RPC is required");
-    return;
-  }
+    // 1. Keep the Validation
+    if (!formData.rpc || formData.rpc.trim() === "") {
+      Alert.alert("Validation Error", "Aircraft RPC is required");
+      return;
+    }
 
-  // 2. Prepare the data object (No fetch here!)
-  const { _id, id, ...cleanFormData } = formData;
-  
-  const flightLogData = {
-    ...cleanFormData,
-    componentData,
-    date: formatDateForSave(formData.date),
-    dateAdded: formatDateForSave(new Date()),
-    status: isPilot ? "pending_release" : "pending_acceptance",
-    createdBy: userRole,
+    // 2. Prepare the data object (No fetch here!)
+    const { _id, id, ...cleanFormData } = formData;
+
+    const flightLogData = {
+      ...cleanFormData,
+      componentData,
+      date: formatDateForSave(formData.date),
+      dateAdded: formatDateForSave(new Date()),
+      status: isPilot ? "pending_release" : "pending_acceptance",
+      createdBy: userRole,
+    };
+
+    // 3. Just call onSave and let the parent handle the API
+    onSave(flightLogData);
+    // onClose(); // You can call this here or in the parent
   };
-
-  // 3. Just call onSave and let the parent handle the API
-  onSave(flightLogData); 
-  // onClose(); // You can call this here or in the parent
-};
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
-    
+
     switch (currentTab) {
       case "Basic Information":
-        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} />;
-      
+        return (
+          <FlightLogModalInfo
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+
       case "Destination/s":
         return (
           <FlightLogModalDestinations
@@ -261,18 +362,20 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             userRole={userRole}
           />
         );
-      
+
       case "Component Times":
         return (
           <FlightLogModalComponentTimes
             currentComponentPage={0}
             componentData={componentData.broughtForwardData}
-            onUpdateComponent={(field, value) => updateComponent("broughtForwardData", field, value)}
+            onUpdateComponent={(field, value) =>
+              updateComponent("broughtForwardData", field, value)
+            }
             isEditable={true}
             isLocked={formData.broughtForwardLocked}
           />
         );
-      
+
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
@@ -282,7 +385,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
@@ -292,7 +395,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Discrepancy/Remarks":
         return (
           <FlightLogDiscrepancyRemarks
@@ -303,7 +406,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Work Done":
         return (
           <FlightLogModalWorkDone
@@ -312,7 +415,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       default:
         return null;
     }
@@ -338,29 +441,46 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
                   paddingHorizontal: 16,
                   borderRadius: 20,
                   borderWidth: 1,
-                  borderColor: currentPage === index ? COLORS.primaryLight : COLORS.grayMedium,
-                  backgroundColor: currentPage === index ? COLORS.primaryLight : "transparent",
+                  borderColor:
+                    currentPage === index
+                      ? COLORS.primaryLight
+                      : COLORS.grayMedium,
+                  backgroundColor:
+                    currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: "500",
-                  color: currentPage === index ? COLORS.white : COLORS.grayDark,
-                }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    color:
+                      currentPage === index ? COLORS.white : COLORS.grayDark,
+                  }}
+                >
                   {tab}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <View style={{ height: 1, backgroundColor: COLORS.grayMedium, marginTop: 12 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: COLORS.grayMedium,
+              marginTop: 12,
+            }}
+          />
 
           <TouchableOpacity
             onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
           >
-            <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+            <MaterialCommunityIcons
+              name="close"
+              size={24}
+              color={COLORS.grayDark}
+            />
           </TouchableOpacity>
         </View>
 
@@ -374,17 +494,47 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
           {renderPage()}
         </ScrollView>
 
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", padding: 20, backgroundColor: "#F9F9F9", gap: 10 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            padding: 20,
+            backgroundColor: "#F9F9F9",
+            gap: 10,
+          }}
+        >
           <TouchableOpacity
             onPress={handlePrevious}
             disabled={currentPage === 0}
-            style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: currentPage === 0 ? 0.5 : 1 }}
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 4,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: COLORS.grayMedium,
+              opacity: currentPage === 0 ? 0.5 : 1,
+            }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+              Previous
+            </Text>
           </TouchableOpacity>
 
-          <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 4 }}>
-            <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}>{currentPage + 1}</Text>
+          <View
+            style={{
+              backgroundColor: COLORS.primaryLight,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 4,
+            }}
+          >
+            <Text
+              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
+            >
+              {currentPage + 1}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -394,10 +544,12 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1
+              opacity: 1,
             }}
           >
-            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
+            <Text
+              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+            >
               {currentPage === totalPages - 1 ? "Add" : "Next"}
             </Text>
           </TouchableOpacity>

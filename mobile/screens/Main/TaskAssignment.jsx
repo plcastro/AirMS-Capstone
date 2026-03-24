@@ -6,7 +6,7 @@ export default function TaskAssignment() {
   const { user } = useContext(AuthContext);
 
   // Head sees HeadTaskScreen
-  if (user?.jobTitle === "head of maintenance") {
+  if (user?.jobTitle.toLowerCase() === "maintenance manager") {
     return (
       <HeadTaskScreen
         taskOptions={[

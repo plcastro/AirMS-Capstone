@@ -10,7 +10,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 const { width } = Dimensions.get("window");
 
-export default function MechanicTaskScreen() {
+export default function EngineerTaskScreen() {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -21,10 +21,10 @@ export default function MechanicTaskScreen() {
     { id: "all", name: "All Aircraft" },
   ]);
 
-  // Fetch tasks assigned to the current mechanic
+  // Fetch tasks assigned to the current engineer
   useEffect(() => {
     const fetchTasks = async () => {
-      console.log('User:', user);
+      console.log("User:", user);
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
@@ -32,12 +32,15 @@ export default function MechanicTaskScreen() {
             Authorization: `Bearer ${token}`,
           },
         });
-        console.log('Response status:', response.status);
+        console.log("Response status:", response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log('Fetched tasks:', data.data);
-          const assignedTasks = data.data.filter(task => task.assignedToName === `${user?.firstName} ${user?.lastName}`);
-          console.log('Assigned tasks:', assignedTasks);
+          console.log("Fetched tasks:", data.data);
+          const assignedTasks = data.data.filter(
+            (task) =>
+              task.assignedToName === `${user?.firstName} ${user?.lastName}`,
+          );
+          console.log("Assigned tasks:", assignedTasks);
           setTasks(assignedTasks || []);
         } else {
           console.error("Failed to fetch tasks, status:", response.status);
@@ -59,12 +62,17 @@ export default function MechanicTaskScreen() {
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`);
+        const response = await fetch(
+          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+        );
         if (response.ok) {
           const data = await response.json();
           const options = [
             { id: "all", name: "All Aircraft" },
-            ...data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum })),
+            ...data.map((aircraft) => ({
+              id: aircraft.tailNum,
+              name: aircraft.tailNum,
+            })),
           ];
           setAircraftOptions(options);
         } else {

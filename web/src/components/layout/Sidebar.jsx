@@ -34,25 +34,31 @@ const Sidebar = ({ collapsed }) => {
       ],
     },
     {
-      key: "sub2",
-      label: "Aircraft Logbook",
+      key: "3",
+      label: "Flight Logs",
       icon: <BookOutlined />,
       roles: ["maintenance manager", "pilot", "officer-in-charge", "engineer"],
-      children: [
-        { key: "3", label: "Flight Logs", icon: <BookOutlined /> },
-        { key: "4", label: "Maintenance Logs", icon: <BookOutlined /> },
-      ],
     },
     {
-      key: "sub3",
-      label: "Parts Monitoring",
+      key: "4",
+      label: "Maintenance Logs",
+      icon: <BookOutlined />,
+      roles: ["maintenance manager", "pilot", "officer-in-charge", "engineer"],
+    },
+
+    {
+      key: "5",
+      label: "Parts Monitoring Table",
       icon: <BookOutlined />,
       roles: ["maintenance manager"],
-      children: [
-        { key: "5", label: "Parts Monitoring Table", icon: <BookOutlined /> },
-        { key: "6", label: "Maintenance Tracking", icon: <BookOutlined /> },
-      ],
     },
+    {
+      key: "6",
+      label: "Maintenance Tracking",
+      icon: <BookOutlined />,
+      roles: ["maintenance manager"],
+    },
+
     {
       key: "7",
       label: "Inventory Management",
