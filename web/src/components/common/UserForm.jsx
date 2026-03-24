@@ -100,10 +100,10 @@ export default function UserForm({
   useEffect(() => {
     const roleMap = {
       Admin: "Admin",
-      Pilot: "Superuser",
-      Manager: "Superuser",
-      "Head of Maintenance": "Superuser",
-      Mechanic: "User",
+      Pilot: "User",
+      "Officer-In-Charge": "Superuser",
+      "Maintenance Manager": "Superuser",
+      Engineer: "User",
     };
     setAccessLevel(roleMap[jobTitle] || "");
   }, [jobTitle]);
@@ -156,7 +156,7 @@ export default function UserForm({
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file); // only append if file exists
         if (
-          ["head of maintenance", "pilot", "mechanic"].includes(
+          ["maintenance manager", "pilot", "engineer"].includes(
             jobTitle.toLowerCase(),
           )
         ) {

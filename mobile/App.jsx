@@ -63,7 +63,7 @@ function DrawerNav() {
         drawerStyle: { width: 260 },
         overlayColor: "transparent",
         headerRight: () => (
-          <View style={{ marginHorizontal: 20 }}>
+          <View style={{ marginHorizontal: 7 }}>
             <TouchableOpacity
               style={{
                 flexDirection: "row",

@@ -43,22 +43,27 @@ export default function EditTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
 
   // Fetch aircraft options
-   useEffect(() => {
-       const fetchAircraft = async () => {
-         try {
-           const response = await fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`);
-           if (!response.ok) {
-             throw new Error('Failed to fetch aircraft');
-           }
-           const data = await response.json();
-           const options = data.map(aircraft => ({ id: aircraft.tailNum, name: aircraft.tailNum }));
-           setAircraftOptions(options);
-         } catch (error) {
-           console.error('Error fetching aircraft:', error);
-         }
-       };
-       fetchAircraft();
-     }, []);
+  useEffect(() => {
+    const fetchAircraft = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch aircraft");
+        }
+        const data = await response.json();
+        const options = data.map((aircraft) => ({
+          id: aircraft.tailNum,
+          name: aircraft.tailNum,
+        }));
+        setAircraftOptions(options);
+      } catch (error) {
+        console.error("Error fetching aircraft:", error);
+      }
+    };
+    fetchAircraft();
+  }, []);
 
   useEffect(() => {
     if (task) {
@@ -240,7 +245,7 @@ export default function EditTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Mechanic
+              Engineer
             </Text>
             <View
               style={[

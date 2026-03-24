@@ -40,13 +40,20 @@ const parseDate = (dateValue) => {
   return new Date();
 };
 
-export default function FlightLogEditEntry({ visible, logData, onClose, onSave, userRole }) {
+export default function FlightLogEditEntry({
+  visible,
+  logData,
+  onClose,
+  onSave,
+  userRole,
+}) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
-  const isMechanic = userRole === "mechanic" || userRole === "head of maintenance";
+  const isMechanic =
+    userRole === "engineer" || userRole === "maintenance manager";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -59,11 +66,13 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
         ...logData,
         date: parseDate(logData.date),
       });
-      setComponentData(logData.componentData || {
-        broughtForwardData: {},
-        thisFlightData: {},
-        toDateData: {},
-      });
+      setComponentData(
+        logData.componentData || {
+          broughtForwardData: {},
+          thisFlightData: {},
+          toDateData: {},
+        },
+      );
       setWorkItems(logData.workItems || []);
       setIsLoading(false);
     }
@@ -85,14 +94,23 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   }, [currentPage]);
 
   const hasDiscrepancy = () => {
-    return (formData.remarks && formData.remarks.trim() !== "") ||
-      (formData.sling && formData.sling.trim() !== "");
+    return (
+      (formData.remarks && formData.remarks.trim() !== "") ||
+      (formData.sling && formData.sling.trim() !== "")
+    );
   };
 
   const showThisFlightToDate = formData.notifiedForCompletion === true;
 
   const getTabs = () => {
-    const tabs = ["Basic Information", "Destination/s", "Component Times", "Fuel Servicing", "Oil Servicing", "Discrepancy/Remarks"];
+    const tabs = [
+      "Basic Information",
+      "Destination/s",
+      "Component Times",
+      "Fuel Servicing",
+      "Oil Servicing",
+      "Discrepancy/Remarks",
+    ];
     if (hasDiscrepancy()) {
       tabs.push("Work Done");
     }
@@ -103,11 +121,13 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const isBasicInfoEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "mechanic");
+  const isBasicInfoEditable =
+    (isPilot && formData.createdBy === "pilot") ||
+    (isMechanic && formData.createdBy === "engineer");
 
-  const isDestinationsEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "mechanic");
+  const isDestinationsEditable =
+    (isPilot && formData.createdBy === "pilot") ||
+    (isPilot && formData.createdBy === "engineer");
 
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
@@ -117,7 +137,7 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   const isWorkDoneEditable = isMechanic;
 
   const updateForm = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const updateLeg = (updatedLegData) => {
@@ -127,55 +147,66 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   const updateFuelServicing = (legIndex, data) => {
     const newFuelServicing = [...(formData.fuelServicing || [])];
     newFuelServicing[legIndex] = data;
-    setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
+    setFormData((prev) => ({ ...prev, fuelServicing: newFuelServicing }));
   };
 
   const updateOilServicing = (legIndex, data) => {
     const newOilServicing = [...(formData.oilServicing || [])];
     newOilServicing[legIndex] = data;
-    setFormData(prev => ({ ...prev, oilServicing: newOilServicing }));
+    setFormData((prev) => ({ ...prev, oilServicing: newOilServicing }));
   };
 
   const updateComponent = (section, field, value) => {
-    setComponentData(prev => ({
+    setComponentData((prev) => ({
       ...prev,
-      [section]: { ...prev[section], [field]: value }
+      [section]: { ...prev[section], [field]: value },
     }));
   };
 
   const updateWorkItems = (newWorkItems) => {
     setWorkItems(newWorkItems);
-    setFormData(prev => ({ ...prev, workItems: newWorkItems }));
+    setFormData((prev) => ({ ...prev, workItems: newWorkItems }));
   };
 
   const handleRelease = (signature) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      releasedBy: { name: "Mechanic", signature, timestamp: new Date().toISOString() },
+      releasedBy: {
+        name: "Mechanic",
+        signature,
+        timestamp: new Date().toISOString(),
+      },
       status: "ongoing",
     }));
     Alert.alert("Success", "Flight log has been released");
   };
 
   const handleAccept = (signature) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      acceptedBy: { name: "Pilot", signature, timestamp: new Date().toISOString() },
+      acceptedBy: {
+        name: "Pilot",
+        signature,
+        timestamp: new Date().toISOString(),
+      },
       status: "ongoing",
     }));
     Alert.alert("Success", "Flight log has been accepted");
   };
 
   const handleNotifyMechanic = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       notifiedForCompletion: true,
     }));
-    Alert.alert("Success", "Mechanic has been notified to complete the flight log");
+    Alert.alert(
+      "Success",
+      "Mechanic has been notified to complete the flight log",
+    );
   };
 
   const handleComplete = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       status: "completed",
     }));
@@ -183,8 +214,9 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   };
 
   const handleSave = () => {
-    const allFieldsFilled = componentData.broughtForwardData &&
-      Object.values(componentData.broughtForwardData).every(v => v !== "");
+    const allFieldsFilled =
+      componentData.broughtForwardData &&
+      Object.values(componentData.broughtForwardData).every((v) => v !== "");
 
     onSave({
       ...formData,
@@ -211,8 +243,12 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
 
   const showReleaseButton = isMechanic && formData.status === "pending_release";
   const showAcceptButton = isPilot && formData.status === "pending_acceptance";
-  const showNotifyButton = isPilot && formData.status === "ongoing" && !formData.notifiedForCompletion;
-  const showCompleteButton = isMechanic && formData.status === "ongoing" && formData.notifiedForCompletion;
+  const showNotifyButton =
+    isPilot && formData.status === "ongoing" && !formData.notifiedForCompletion;
+  const showCompleteButton =
+    isMechanic &&
+    formData.status === "ongoing" &&
+    formData.notifiedForCompletion;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -243,7 +279,9 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
             <FlightLogModalComponentTimes
               currentComponentPage={0}
               componentData={componentData.broughtForwardData}
-              onUpdateComponent={(field, value) => updateComponent("broughtForwardData", field, value)}
+              onUpdateComponent={(field, value) =>
+                updateComponent("broughtForwardData", field, value)
+              }
               isEditable={isComponentEditable}
               isLocked={isBroughtForwardLocked}
             />
@@ -253,7 +291,9 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                   <FlightLogModalComponentTimes
                     currentComponentPage={1}
                     componentData={componentData.thisFlightData}
-                    onUpdateComponent={(field, value) => updateComponent("thisFlightData", field, value)}
+                    onUpdateComponent={(field, value) =>
+                      updateComponent("thisFlightData", field, value)
+                    }
                     isEditable={isComponentEditable}
                     isLocked={false}
                   />
@@ -262,7 +302,9 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                   <FlightLogModalComponentTimes
                     currentComponentPage={2}
                     componentData={componentData.toDateData}
-                    onUpdateComponent={(field, value) => updateComponent("toDateData", field, value)}
+                    onUpdateComponent={(field, value) =>
+                      updateComponent("toDateData", field, value)
+                    }
                     isEditable={isComponentEditable}
                     isLocked={false}
                   />
@@ -341,29 +383,46 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                   paddingHorizontal: 16,
                   borderRadius: 20,
                   borderWidth: 1,
-                  borderColor: currentPage === index ? COLORS.primaryLight : COLORS.grayMedium,
-                  backgroundColor: currentPage === index ? COLORS.primaryLight : "transparent",
+                  borderColor:
+                    currentPage === index
+                      ? COLORS.primaryLight
+                      : COLORS.grayMedium,
+                  backgroundColor:
+                    currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: "500",
-                  color: currentPage === index ? COLORS.white : COLORS.grayDark,
-                }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    color:
+                      currentPage === index ? COLORS.white : COLORS.grayDark,
+                  }}
+                >
                   {tab}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <View style={{ height: 1, backgroundColor: COLORS.grayMedium, marginTop: 12 }} />
+          <View
+            style={{
+              height: 1,
+              backgroundColor: COLORS.grayMedium,
+              marginTop: 12,
+            }}
+          />
 
           <TouchableOpacity
             onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
           >
-            <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+            <MaterialCommunityIcons
+              name="close"
+              size={24}
+              color={COLORS.grayDark}
+            />
           </TouchableOpacity>
         </View>
 
@@ -389,7 +448,13 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Release
                   </Text>
                 </TouchableOpacity>
@@ -406,7 +471,13 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Accept
                   </Text>
                 </TouchableOpacity>
@@ -423,7 +494,13 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Notify Mechanic for Completing Flights
                   </Text>
                 </TouchableOpacity>
@@ -440,57 +517,111 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Complete
                   </Text>
                 </TouchableOpacity>
               )}
 
               {formData.releasedBy?.signature && (
-                <View style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  marginBottom: 20,
-                  overflow: "hidden",
-                }}>
-                  <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
                       RELEASED BY:
                     </Text>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: COLORS.black,
+                        marginBottom: 8,
+                      }}
+                    >
                       {formData.releasedBy?.name || "Unknown"}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {formData.releasedBy?.timestamp ? new Date(formData.releasedBy.timestamp).toLocaleString() : ""}
+                      {formData.releasedBy?.timestamp
+                        ? new Date(
+                            formData.releasedBy.timestamp,
+                          ).toLocaleString()
+                        : ""}
                     </Text>
                   </View>
                 </View>
               )}
 
               {formData.acceptedBy?.signature && (
-                <View style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  marginBottom: 20,
-                  overflow: "hidden",
-                }}>
-                  <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
                       ACCEPTED BY:
                     </Text>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: COLORS.black,
+                        marginBottom: 8,
+                      }}
+                    >
                       {formData.acceptedBy?.name || "Unknown"}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {formData.acceptedBy?.timestamp ? new Date(formData.acceptedBy.timestamp).toLocaleString() : ""}
+                      {formData.acceptedBy?.timestamp
+                        ? new Date(
+                            formData.acceptedBy.timestamp,
+                          ).toLocaleString()
+                        : ""}
                     </Text>
                   </View>
                 </View>
@@ -499,17 +630,47 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
           )}
         </ScrollView>
 
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", padding: 20, backgroundColor: "#F9F9F9", gap: 10 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            padding: 20,
+            backgroundColor: "#F9F9F9",
+            gap: 10,
+          }}
+        >
           <TouchableOpacity
             onPress={handlePrevious}
             disabled={currentPage === 0}
-            style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: currentPage === 0 ? 0.5 : 1 }}
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 4,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: COLORS.grayMedium,
+              opacity: currentPage === 0 ? 0.5 : 1,
+            }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+              Previous
+            </Text>
           </TouchableOpacity>
 
-          <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 4 }}>
-            <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}>{currentPage + 1}</Text>
+          <View
+            style={{
+              backgroundColor: COLORS.primaryLight,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 4,
+            }}
+          >
+            <Text
+              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
+            >
+              {currentPage + 1}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -519,10 +680,12 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1
+              opacity: 1,
             }}
           >
-            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
+            <Text
+              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+            >
               {isLastPage ? "Save" : "Next"}
             </Text>
           </TouchableOpacity>

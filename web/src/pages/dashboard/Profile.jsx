@@ -154,6 +154,31 @@ export default function Profile() {
     }
   };
 
+  const handleRemoveImage = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user/updateUserImage/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ image: null }),
+        },
+      );
+
+      if (!res.ok) throw new Error("Failed to remove image from server");
+
+      setUser((prev) => ({ ...prev, image: null }));
+
+      setFile(null);
+      message.success("Profile picture removed and space cleared!");
+    } catch (err) {
+      message.error(err.message || "Failed to remove picture");
+    }
+  };
+
   const tabItems = [];
 
   tabItems.push(
@@ -309,13 +334,7 @@ export default function Profile() {
                   {file ? "Save Picture" : "Change Picture"}
                 </Button>
 
-                <Button
-                  danger
-                  onClick={() => {
-                    setFile(null);
-                    setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
-                  }}
-                >
+                <Button danger onClick={handleRemoveImage}>
                   Remove Picture
                 </Button>
               </Col>

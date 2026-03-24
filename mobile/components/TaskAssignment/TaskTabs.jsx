@@ -14,7 +14,7 @@ export default function TaskTabs({
   onTaskPress,
 }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle === "head of maintenance";
+  const isHead = user?.jobTitle === "maintenance manager";
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];
@@ -49,10 +49,16 @@ export default function TaskTabs({
     } else {
       return tasks.filter((task) => {
         const dueDate = new Date(task.dueDate);
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
         const isPastDue = dueDate < today;
 
-         console.log(`Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`);
+        console.log(
+          `Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`,
+        );
 
         switch (activeTab) {
           case "Upcoming":

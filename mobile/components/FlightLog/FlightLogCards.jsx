@@ -11,8 +11,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
 
     if (dateString instanceof Date) {
       date = dateString;
-    }
-    else if (typeof dateString === "string") {
+    } else if (typeof dateString === "string") {
       const parts = dateString.split("/");
       if (parts.length === 3) {
         const month = parseInt(parts[0], 10) - 1;
@@ -22,11 +21,9 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
       } else {
         date = new Date(dateString);
       }
-    }
-    else if (typeof dateString === "number") {
+    } else if (typeof dateString === "number") {
       date = new Date(dateString);
-    }
-    else {
+    } else {
       return "Invalid date";
     }
 
@@ -43,38 +40,46 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
       return {
         backgroundColor: "#E8F5E9",
         textColor: "#2E7D32",
-        label: "Completed"
+        label: "Completed",
       };
     }
     // pending_release, pending_acceptance, ongoing all show as "Ongoing"
     return {
       backgroundColor: "#FFF3E0",
       textColor: "#ED6C02",
-      label: "Ongoing"
+      label: "Ongoing",
     };
   };
 
   if (!logs || logs.length === 0) {
     return (
-      <View style={{
-        backgroundColor: COLORS.white,
-        borderRadius: 20,
-        padding: 40,
-        alignItems: "center",
-        marginTop: 20,
-        elevation: 8,
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-      }}>
-        <MaterialCommunityIcons name="file-document-outline" size={60} color={COLORS.grayMedium} />
-        <Text style={{
-          color: COLORS.grayDark,
-          fontSize: 16,
-          marginTop: 12,
-          textAlign: "center",
-        }}>
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 20,
+          padding: 40,
+          alignItems: "center",
+          marginTop: 20,
+          elevation: 8,
+          shadowColor: COLORS.black,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="file-document-outline"
+          size={60}
+          color={COLORS.grayMedium}
+        />
+        <Text
+          style={{
+            color: COLORS.grayDark,
+            fontSize: 16,
+            marginTop: 12,
+            textAlign: "center",
+          }}
+        >
           No flight logs found
         </Text>
       </View>
@@ -91,7 +96,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             key={log._id}
             style={{
               backgroundColor: COLORS.white,
-              borderRadius: 25,
+              borderRadius: 7,
               marginBottom: 20,
               elevation: 3,
               shadowColor: "#000",
@@ -102,44 +107,64 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             }}
           >
             {/* Green Header with RP/C, Export Button, and Status Badge */}
-            <View style={{
-              backgroundColor: COLORS.primaryLight,
-              paddingVertical: 18,
-              paddingHorizontal: 20,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}>
-              <Text style={{
-                color: COLORS.white,
-                fontSize: 18,
-                fontWeight: "600"
-              }}>
+            <View
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: COLORS.white,
+                  fontSize: 18,
+                  fontWeight: "600",
+                }}
+              >
                 RP/C: {log.rpc || "N/A"}
               </Text>
-              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <View
+                style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
+              >
                 {/* Status Badge */}
-                <View style={{
-                  backgroundColor: statusStyle.backgroundColor,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 20,
-                }}>
-                  <Text style={{
-                    color: statusStyle.textColor,
-                    fontSize: 12,
-                    fontWeight: "600",
-                  }}>
+                <View
+                  style={{
+                    backgroundColor: statusStyle.backgroundColor,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: statusStyle.textColor,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
                     {statusStyle.label}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => onExport?.(log)}>
-                  <MaterialCommunityIcons name="export-variant" size={22} color={COLORS.white} />
+                  <MaterialCommunityIcons
+                    name="export-variant"
+                    size={22}
+                    color={COLORS.white}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
+            <View
+              style={{
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: 8,
+              }}
+            >
               <Text style={{ color: "#777", fontSize: 14, fontWeight: "500" }}>
                 {formatDate(log.dateAdded || log.date)}
               </Text>
@@ -150,19 +175,22 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
               onPress={() => onEdit(log)}
               style={{ paddingHorizontal: 20, paddingBottom: 20 }}
             >
-              <View style={{
-                backgroundColor: "#F5F5F5",
-                borderWidth: 1,
-                borderColor: "#E0E0E0",
-                borderRadius: 5,
-                padding: 15,
-                position: "relative",
-              }}>
+              <View
+                style={{
+                  backgroundColor: "#F5F5F5",
+                  borderWidth: 1,
+                  borderColor: "#E0E0E0",
+                  borderRadius: 5,
+                  padding: 15,
+                  position: "relative",
+                }}
+              >
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
                     Aircraft Type : {log.aircraftType || "N/A"}
                   </Text>
                 </View>
+
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
                     RP/C: {log.rpc || "N/A"}
@@ -173,35 +201,49 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     Control: {log.control || "N/A"}
                   </Text>
                 </View>
-
                 {/* Created By Badge */}
-                <View style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                }}>
-                  <View style={{
-                    backgroundColor: log.createdBy === "pilot" ? "#E3F2FD" : "#F3E5F5",
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                  }}>
-                    <Text style={{
-                      fontSize: 10,
-                      color: log.createdBy === "pilot" ? "#1976D2" : "#7B1FA2",
-                      fontWeight: "500",
-                    }}>
-                      {log.createdBy === "pilot" ? "Pilot Created" : "Mechanic Created"}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor:
+                        log.createdBy === "pilot" ? "#E3F2FD" : "#F3E5F5",
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color:
+                          log.createdBy === "pilot" ? "#1976D2" : "#7B1FA2",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {log.createdBy === "pilot"
+                        ? "Pilot Created"
+                        : "Engineer Created"}
                     </Text>
                   </View>
                 </View>
-
-                <View style={{
-                  position: "absolute",
-                  bottom: 10,
-                  right: 10,
-                }}>
-                  <MaterialCommunityIcons name="pencil" size={20} color="#777" />
+                <View
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="pencil"
+                    size={20}
+                    color="#777"
+                  />
                 </View>
               </View>
             </TouchableOpacity>

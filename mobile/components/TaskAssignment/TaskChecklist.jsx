@@ -389,7 +389,7 @@ export default function TaskChecklist({
                         ⏳ Not Yet Approved
                       </Text>
                       <Text style={{ fontSize: 13, color: "#666" }}>
-                        Pending review by Head of Maintenance
+                        Pending review by Maintenance Manager
                       </Text>
                     </View>
                   )}

@@ -19,7 +19,7 @@ export const flightLogsMockData = [
         totalTimeOff: "1:00",
         date: "02/24/2026",
         passengers: "12",
-      }
+      },
     ],
     remarks: "Minor vibration noticed during climb",
     sling: "",
@@ -33,7 +33,7 @@ export const flightLogsMockData = [
         fuelType: "drum",
         refuelerName: "",
         signature: "",
-      }
+      },
     ],
     oilServicing: [
       {
@@ -49,7 +49,7 @@ export const flightLogsMockData = [
         trGboxTot: "3",
         remarks: "",
         signature: "",
-      }
+      },
     ],
     componentData: {
       broughtForwardData: {
@@ -82,7 +82,7 @@ export const flightLogsMockData = [
     date: "02/23/2026",
     control: "Control value here",
     status: "pending_acceptance",
-    createdBy: "mechanic",
+    createdBy: "engineer",
     dateAdded: "02/23/2026",
     legs: [],
     remarks: "",
@@ -97,7 +97,7 @@ export const flightLogsMockData = [
         fuelType: "truck",
         refuelerName: "",
         signature: "",
-      }
+      },
     ],
     oilServicing: [
       {
@@ -113,7 +113,7 @@ export const flightLogsMockData = [
         trGboxTot: "4",
         remarks: "",
         signature: "",
-      }
+      },
     ],
     componentData: {
       broughtForwardData: {
@@ -150,7 +150,10 @@ export const flightLogsMockData = [
     dateAdded: "02/22/2026",
     legs: [
       {
-        stations: [{ from: "Cebu", to: "Davao" }, { from: "Davao", to: "Cebu" }],
+        stations: [
+          { from: "Cebu", to: "Davao" },
+          { from: "Davao", to: "Cebu" },
+        ],
         blockTimeOn: "10:00",
         blockTimeOff: "12:30",
         flightTimeOn: "10:15",
@@ -159,7 +162,7 @@ export const flightLogsMockData = [
         totalTimeOff: "2:00",
         date: "02/22/2026",
         passengers: "15",
-      }
+      },
     ],
     remarks: "",
     sling: "",
@@ -173,7 +176,7 @@ export const flightLogsMockData = [
         fuelType: "drum",
         refuelerName: "",
         signature: "",
-      }
+      },
     ],
     oilServicing: [
       {
@@ -189,7 +192,7 @@ export const flightLogsMockData = [
         trGboxTot: "4",
         remarks: "",
         signature: "",
-      }
+      },
     ],
     componentData: {
       broughtForwardData: {
@@ -212,7 +215,11 @@ export const flightLogsMockData = [
     workItems: [],
     broughtForwardLocked: true,
     notifiedForCompletion: false,
-    releasedBy: { name: "John Mechanic", signature: "mock_signature_1", timestamp: "2026-02-22T10:00:00Z" },
+    releasedBy: {
+      name: "John Mechanic",
+      signature: "mock_signature_1",
+      timestamp: "2026-02-22T10:00:00Z",
+    },
     acceptedBy: { name: "", signature: "", timestamp: "" },
   },
   {
@@ -222,7 +229,7 @@ export const flightLogsMockData = [
     date: "02/21/2026",
     control: "Control value here",
     status: "completed",
-    createdBy: "mechanic",
+    createdBy: "engineer",
     dateAdded: "02/21/2026",
     legs: [
       {
@@ -235,7 +242,7 @@ export const flightLogsMockData = [
         totalTimeOff: "0:30",
         date: "02/21/2026",
         passengers: "8",
-      }
+      },
     ],
     remarks: "Check engine oil level low",
     sling: "Cargo sling used for equipment",
@@ -249,7 +256,7 @@ export const flightLogsMockData = [
         fuelType: "truck",
         refuelerName: "",
         signature: "mock_signature_2",
-      }
+      },
     ],
     oilServicing: [
       {
@@ -265,7 +272,7 @@ export const flightLogsMockData = [
         trGboxTot: "4",
         remarks: "Added oil to engine",
         signature: "mock_signature_3",
-      }
+      },
     ],
     componentData: {
       broughtForwardData: {
@@ -321,12 +328,20 @@ export const flightLogsMockData = [
         name: "John Mechanic",
         certificateNumber: "A&P-12345",
         signature: "mock_signature_4",
-      }
+      },
     ],
     broughtForwardLocked: true,
     notifiedForCompletion: true,
-    releasedBy: { name: "John Mechanic", signature: "mock_signature_1", timestamp: "2026-02-21T15:00:00Z" },
-    acceptedBy: { name: "Jane Pilot", signature: "mock_signature_5", timestamp: "2026-02-21T16:00:00Z" },
+    releasedBy: {
+      name: "John Mechanic",
+      signature: "mock_signature_1",
+      timestamp: "2026-02-21T15:00:00Z",
+    },
+    acceptedBy: {
+      name: "Jane Pilot",
+      signature: "mock_signature_5",
+      timestamp: "2026-02-21T16:00:00Z",
+    },
   },
   {
     id: "5",
@@ -348,7 +363,7 @@ export const flightLogsMockData = [
         totalTimeOff: "0:20",
         date: "02/20/2026",
         passengers: "6",
-      }
+      },
     ],
     remarks: "GPS interference during approach",
     sling: "",
@@ -362,7 +377,7 @@ export const flightLogsMockData = [
         fuelType: "drum",
         refuelerName: "",
         signature: "",
-      }
+      },
     ],
     oilServicing: [
       {
@@ -378,7 +393,7 @@ export const flightLogsMockData = [
         trGboxTot: "4",
         remarks: "",
         signature: "",
-      }
+      },
     ],
     componentData: {
       broughtForwardData: {

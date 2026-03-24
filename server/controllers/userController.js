@@ -715,7 +715,7 @@ const resendActivation = async (req, res) => {
     await user.save();
 
     // Portal link just goes to login page
-    const portalLink = ["Admin", "Head of Maintenance"].includes(user.jobTitle)
+    const portalLink = ["Admin", "Maintenance Manager"].includes(user.jobTitle)
       ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
       : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 

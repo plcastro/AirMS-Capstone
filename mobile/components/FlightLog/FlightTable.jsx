@@ -131,8 +131,8 @@ export default function FlightTable({
       );
     }
 
-    // For head of maintenance, show "Verify Details" button
-    if (userJobTitle === "Head of Maintenance") {
+    // For maintenance manager, show "Verify Details" button
+    if (userJobTitle === "Maintenance Manager") {
       return (
         <Button
           label="Verify Details"

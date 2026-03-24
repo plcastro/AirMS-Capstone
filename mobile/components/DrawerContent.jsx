@@ -105,8 +105,8 @@ function DrawerContent({ navigation }) {
       switch (userjobTitle) {
         case "pilot":
           return child.label === "Flight Logbook";
-        case "head of maintenance":
-        case "manager":
+        case "maintenance manager":
+        case "officer-in-charge":
           return ["Flight Logbook", "Maintenance Logbook"].includes(
             child.label,
           );
