@@ -20,7 +20,7 @@ const { Title, Text } = Typography;
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
   const [form] = Form.useForm();
-
+  console.log(user.image);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [formErrors, setFormErrors] = useState({});
@@ -31,6 +31,7 @@ export default function Profile() {
   // --- Profile image ---
   const getProfileImage = () => {
     if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
+
     return user.image.startsWith("http")
       ? user.image
       : `${API_BASE}${user.image}`;
@@ -133,11 +134,10 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      const newImageUrl = data.user.image.startsWith("http")
-        ? data.user.image
-        : `${API_BASE}${data.user.image}`;
-
-      setUser((prev) => ({ ...prev, image: newImageUrl }));
+      setUser((prev) => ({
+        ...prev,
+        image: data.user.image,
+      }));
       setFile(null);
       message.success("Profile picture updated!");
     } catch (err) {
@@ -159,14 +159,19 @@ export default function Profile() {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to remove image from server");
+      const data = await res.json();
 
-      setUser((prev) => ({ ...prev, image: null }));
-
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to remove image");
+      }
       setFile(null);
-      message.success("Profile picture removed and space cleared!");
+      setUser((prev) => ({ ...prev, image: null }));
+      setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
+
+      message.success("Profile picture removed!");
     } catch (err) {
-      message.error(err.message || "Failed to remove picture");
+      console.error(err);
+      message.error(err.message);
     }
   };
 
@@ -294,7 +299,7 @@ export default function Profile() {
               style={{
                 margin: "auto",
                 width: 250,
-                height: "auto",
+                height: 250,
                 borderRadius: "50%",
                 objectFit: "cover",
                 cursor: isEditing ? "pointer" : "default",
@@ -331,7 +336,11 @@ export default function Profile() {
                   {file ? "Save Picture" : "Change Picture"}
                 </Button>
 
-                <Button danger onClick={handleRemoveImage}>
+                <Button
+                  danger
+                  onClick={handleRemoveImage}
+                  disabled={!user?.image && !file}
+                >
                   Remove Picture
                 </Button>
               </Col>

@@ -114,14 +114,10 @@ export default function Profile() {
         return;
       }
     }
-    const options = { mediaType: "photo", quality: 1, includeBase64: false };
+    const options = { mediaType: "photo", quality: 0.8, includeBase64: false };
 
     ImagePicker.launchImageLibrary(options, async (response) => {
-      if (response.didCancel) return;
-      if (response.errorCode) {
-        Alert.alert("Error", response.errorMessage);
-        return;
-      }
+      if (response.didCancel || response.errorCode) return;
 
       const asset = response.assets[0];
       const data = new FormData();
@@ -140,7 +136,6 @@ export default function Profile() {
           {
             method: "PUT",
             headers: {
-              "Content-Type": "multipart/form-data",
               Authorization: `Bearer ${user.token}`,
             },
             body: data,
@@ -150,8 +145,10 @@ export default function Profile() {
         const result = await res.json();
         if (!res.ok) throw new Error(result.message || "Upload failed");
 
-        setPreviewUri(`${API_BASE}${result.image}`);
-        setUser({ ...user, image: result.image });
+        const newPath = result.user?.image || result.image;
+
+        setPreviewUri(`${API_BASE}${newPath}`);
+        setUser({ ...user, image: newPath });
         Alert.alert("Success", "Profile picture updated!");
       } catch (err) {
         Alert.alert("Upload Error", err.message);

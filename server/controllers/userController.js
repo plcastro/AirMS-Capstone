@@ -518,21 +518,29 @@ const updateUserStatus = async (req, res) => {
 const updateUserImage = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Make sure an image was uploaded
-    if (!req.file || !req.file.savedPath) {
-      return res.status(400).json({ message: "No image file provided" });
-    }
-
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+    let newImagePath;
 
-    // Delete old avatar if exists and is not default
-    if (user.image && !user.image.includes("default_avatar"))
-      deleteFile(user.image);
-
-    // Use the processed path from Sharp
-    const newImagePath = req.file.savedPath;
+    // 1. CASE: User uploaded a NEW file
+    if (req.file && req.file.savedPath) {
+      // Delete old file if it exists
+      if (user.image && !user.image.includes("default_avatar")) {
+        deleteFile(user.image);
+      }
+      newImagePath = req.file.savedPath;
+    }
+    // 2. CASE: User sent { image: null } to REMOVE the picture
+    else if (req.body.image === null || req.body.image === "null") {
+      if (user.image && !user.image.includes("default_avatar")) {
+        deleteFile(user.image);
+      }
+      newImagePath = null; // This clears it in MongoDB
+    }
+    // 3. CASE: Error (No file and no null flag)
+    else {
+      return res.status(400).json({ message: "No image file provided" });
+    }
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
@@ -541,12 +549,12 @@ const updateUserImage = async (req, res) => {
     );
 
     await auditLog(
-      `User avatar updated: ${updatedUser.username}`,
+      `User avatar ${newImagePath ? "updated" : "removed"}: ${updatedUser.username}`,
       updatedUser._id,
     );
 
     res.status(200).json({
-      message: "Avatar updated successfully",
+      message: newImagePath ? "Avatar updated" : "Avatar removed",
       user: updatedUser,
     });
   } catch (err) {
