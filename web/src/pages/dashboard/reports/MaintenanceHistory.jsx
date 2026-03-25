@@ -47,7 +47,7 @@ export default function MaintenanceHistory() {
         display: "flex",
         flexDirection: "column",
         gap: 20,
-        marginBottom: 300,
+        marginBottom: 100,
       }}
     >
       <Row style={{ justifyContent: "flex-end" }}>
