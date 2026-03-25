@@ -7,7 +7,7 @@ import {
   Button,
   Input,
   Card,
-  Divider,
+  message,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
@@ -16,12 +16,16 @@ import {
   getToday,
 } from "../../../utils/partsFormula-AS350B3";
 import "./PartsMonitoring.css";
-import { message, Modal } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 
 const { Text } = Typography;
-const { Option } = Select;
+
+const aircraftOptions = [
+  { value: "RP-C8912", label: "RP-C8912 (AS350 B3)" },
+  { value: "RP-C1234", label: "RP-C1234 (Bell 407)" },
+  { value: "RP-C5567", label: "RP-C5567 (H130)" },
+];
 
 const columnHeader = [
   {
@@ -88,9 +92,6 @@ const columnHeader = [
   },
 ];
 
-// =========================================================================
-// Main component
-// =========================================================================
 export default function PartsMonitoring() {
   // Reference values (editable by user)
   const [refs, setRefs] = useState({
@@ -3954,41 +3955,54 @@ export default function PartsMonitoring() {
   return (
     <div className="parts-monitoring-container" style={{ padding: 20 }}>
       {/* Header row with search, select, and button */}
-      <Row justify="space-between" align="middle" className="header-row">
-        <Col>
-          <div className="header-left">
+      <Row
+        style={{
+          marginBottom: 20,
+          gap: 5,
+        }}
+        justify={"space-between"}
+      >
+        <Row gutter={21}>
+          <Col xs={24} sm={12} md={18}>
             <Input
               placeholder="Search..."
               prefix={<SearchOutlined />}
               size="large"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="search-input"
               allowClear
             />
+          </Col>
+          <Col xs={24} md={6}>
             <Select
+              size="large"
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
-              style={{ width: 180 }}
-            >
-              <Option value="RP-C8912">RP-C8912</Option>
-            </Select>
-            <Button type="primary" icon={<PlusOutlined />}>
+              style={{ width: 220 }}
+              options={aircraftOptions}
+              variant="filled"
+            />
+          </Col>
+        </Row>
+        <Row gutter={21}>
+          <Col xs={24} md={12}>
+            <Button type="primary" size="large" icon={<PlusOutlined />}>
               Add Aircraft
             </Button>
-
-            {/* Save Button */}
+          </Col>
+          <Col xs={24} md={12}>
             <Button
               type="primary"
+              size="large"
               icon={<SaveOutlined />}
               onClick={handleSaveToDatabase}
               loading={saving}
               style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
             >
-              Save to Database
+              Save
             </Button>
-
-            {/* Optional: Show last saved time */}
+          </Col>
+          <Col xs={24} md={6}>
             {lastSaved && (
               <Text
                 type="secondary"
@@ -3997,15 +4011,13 @@ export default function PartsMonitoring() {
                 Last saved: {lastSaved.toLocaleTimeString()}
               </Text>
             )}
-          </div>
-        </Col>
-        <Col></Col>
+          </Col>
+        </Row>
       </Row>
-      <Divider />
 
       {/* Info Cards with reference inputs - same as before */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-        <Col span={6}>
+        <Col xs={24} md={6}>
           <Card className="aircraft-card">
             <div className="card-content">
               <div className="info-item">
@@ -4027,7 +4039,7 @@ export default function PartsMonitoring() {
             </div>
           </Card>
         </Col>
-        <Col span={18}>
+        <Col xs={24} md={18}>
           <Card className="aircraft-card">
             <div className="input-row">
               <div className="input-group">

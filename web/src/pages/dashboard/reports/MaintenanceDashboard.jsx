@@ -1,11 +1,11 @@
 import React from "react";
 
-import { Tabs } from "antd";
+import { Tabs, Input, Row, Col } from "antd";
 import MaintenancePerformance from "./MaintenancePerformance";
 import MaintenanceSummary from "./MaintenanceSummary";
 import ComponentUsage from "./ComponentUsage";
 import MaintenanceHistory from "./MaintenanceHistory";
-import { Input } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 
 const onChange = (key) => {
   console.log(key);
@@ -46,7 +46,15 @@ export default function MaintenanceDashboard() {
         marginBottom: 300,
       }}
     >
-      <Input size="large" placeholder="Search by..." style={{ width: 300 }} />
+      <Row>
+        <Col xs={24} md={8}>
+          <Input
+            size="large"
+            placeholder="Search by..."
+            prefix={<SearchOutlined />}
+          />
+        </Col>
+      </Row>
       <div style={{ flex: 1 }}>
         <Tabs defaultActiveKey="1" items={items} onChange={onChange} />
       </div>

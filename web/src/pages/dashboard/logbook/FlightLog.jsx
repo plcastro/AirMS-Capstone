@@ -1,5 +1,16 @@
 import React, { useState, useContext, useEffect } from "react";
-import { Tabs, Input, Button, Table, Space, Modal, message, Tag } from "antd";
+import {
+  Tabs,
+  Input,
+  Button,
+  Table,
+  Space,
+  Modal,
+  message,
+  Tag,
+  Row,
+  Col,
+} from "antd";
 import {
   PlusOutlined,
   SearchOutlined,
@@ -847,26 +858,28 @@ export default function FlightLog() {
 
   return (
     <div className="flightlog-container">
-      <div className="flightlog-header">
-        <Input
-          placeholder="Search by date, origin, or destination..."
-          value={searchQuery}
-          size="large"
-          onChange={(e) => setSearchQuery(e.target.value)}
-          prefix={<SearchOutlined />}
-          className="flightlog-search"
-        />
-        {isPilot && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setNewEntryModalVisible(true)}
-            className="flightlog-new-entry-btn"
-          >
-            New Entry
-          </Button>
-        )}
-      </div>
+      <Row>
+        <Col xs={24} md={8}>
+          <Input
+            placeholder="Search by date, origin, or destination..."
+            value={searchQuery}
+            size="large"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+        </Col>
+      </Row>
+
+      {isPilot && (
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setNewEntryModalVisible(true)}
+          className="flightlog-new-entry-btn"
+        >
+          New Entry
+        </Button>
+      )}
 
       <Tabs
         activeKey={activeTab}

@@ -45,46 +45,64 @@ export default function MaintenancePerformance() {
       </Row>
 
       <div style={{ display: "flex" }}>
-        <Row gutter={24} style={{ flex: 1 }}>
-          <Col span={8}>
+        <Row gutter={24} style={{ flex: 1, gap: 5 }}>
+          <Col xs={24} sm={10} md={6}>
             <Card variant="borderless">
               <Statistic
                 title="Total Tasks"
                 value={534}
-                styles={{ content: { color: "#000000" } }}
+                styles={{
+                  content: {
+                    color: "#000000",
+                    fontSize: "clamp(16px, 3.2vw, 32px)",
+                  },
+                }}
               />
             </Card>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={10} md={6}>
             <Card variant="borderless">
               <Statistic
                 title="Completed Tasks"
                 value={34}
-                styles={{ content: { color: "#048a25" } }}
+                styles={{
+                  content: {
+                    color: "#048a25",
+                    fontSize: "clamp(16px, 3.2vw, 32px)",
+                  },
+                }}
               />
             </Card>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={10} md={6}>
             <Card variant="borderless">
               <Statistic
                 title="Overdue"
                 value={5}
-                styles={{ content: { color: "#cf1322" } }}
+                styles={{
+                  content: {
+                    color: "#cf1322",
+                    fontSize: "clamp(16px, 3.2vw, 32px)",
+                  },
+                }}
               />
             </Card>
           </Col>
         </Row>
       </div>
-
-      <Card>
-        <Space orientation="vertical" size={0}>
-          <Title level={3} style={{ margin: 0 }}>
-            Maintenance Performance
-          </Title>
-          <Text type="secondary">{currentMonthYear}</Text>
-        </Space>
-        <AreaChartComponent />
-      </Card>
+      <Row gutter={21}>
+        <Col xs={24} md={24}>
+          <Card>
+            <Space orientation="vertical" size={0}>
+              <Title level={4} style={{ margin: 0 }}>
+                Maintenance Performance
+              </Title>
+              <Text type="secondary">{currentMonthYear}</Text>
+            </Space>
+            <AreaChartComponent />
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

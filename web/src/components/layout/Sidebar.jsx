@@ -24,15 +24,18 @@ const Sidebar = ({ collapsed }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const menuItems = [
     {
-      key: "sub1",
-      label: "User Management",
-      icon: <BookOutlined />,
+      key: "1",
+      label: "View Users",
+      icon: <TeamOutlined />,
       roles: ["admin"],
-      children: [
-        { key: "1", label: "View Users", icon: <TeamOutlined /> },
-        { key: "2", label: "Activity Logs", icon: <AuditOutlined /> },
-      ],
     },
+    {
+      key: "2",
+      label: "Activity Logs",
+      icon: <AuditOutlined />,
+      roles: ["admin"],
+    },
+
     {
       key: "3",
       label: "Flight Logs",
