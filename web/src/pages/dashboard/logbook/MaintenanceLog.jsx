@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Input, Divider, Button, Tag } from "antd";
+import { Input, Divider, Button, Tag, Row, Col } from "antd";
 import MLogTable from "../../../components/tables/MLogTable";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import MaintenanceEntryModal from "../../../components/pagecomponents/MaintenanceEntryModal";
 
 export default function MaintenanceLog() {
@@ -194,14 +194,17 @@ export default function MaintenanceLog() {
         padding: 20,
       }}
     >
-      <Input
-        placeholder="Search by aircraft, defect, or date"
-        value={searchQuery}
-        size="large"
-        onChange={(e) => handleSearchChange(e.target.value)}
-        style={{ marginBottom: 16, width: 300 }}
-      />
-      <Divider />
+      <Row>
+        <Col xs={24} md={8}>
+          <Input
+            placeholder="Search by aircraft, defect, or date"
+            value={searchQuery}
+            size="large"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+        </Col>
+      </Row>
       <div
         style={{
           display: "flex",
