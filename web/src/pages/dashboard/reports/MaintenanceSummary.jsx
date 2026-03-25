@@ -157,7 +157,7 @@ export default function MaintenanceSummary() {
       </Row>
 
       <RepairFrequencyChart
-        data={filteredData}
+        data={repairData}
         title={`Aircraft repair frequency ${getRangeLabel()}`}
       />
 
