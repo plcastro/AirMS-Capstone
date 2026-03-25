@@ -1,6 +1,5 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
-import { useState } from "react";
 import { API_BASE } from "../../../utils/API_BASE";
 import { Input } from "antd";
 

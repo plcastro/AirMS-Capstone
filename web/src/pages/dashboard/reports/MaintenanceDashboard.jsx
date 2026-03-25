@@ -38,12 +38,11 @@ export default function MaintenanceDashboard() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 20,
+
         width: "100%",
         height: "100vh",
         overflowY: "auto",
         padding: 20,
-        marginBottom: 300,
       }}
     >
       <Row>
