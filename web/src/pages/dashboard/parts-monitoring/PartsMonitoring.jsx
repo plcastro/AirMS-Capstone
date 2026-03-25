@@ -23,9 +23,6 @@ import { API_BASE } from "../../../utils/API_BASE";
 const { Text } = Typography;
 const { Option } = Select;
 
-// =========================================================================
-// Column headers
-// =========================================================================
 const columnHeader = [
   {
     title:
@@ -3963,6 +3960,7 @@ export default function PartsMonitoring() {
             <Input
               placeholder="Search..."
               prefix={<SearchOutlined />}
+              size="large"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="search-input"

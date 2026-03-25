@@ -13,12 +13,19 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     rpc: "",
     date: new Date(),
     controlNo: "",
-    legs: [{
-      stations: [{ from: "", to: "" }],
-      blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "",
-      totalTimeOn: "", totalTimeOff: "",
-      date: "", passengers: ""
-    }],
+    legs: [
+      {
+        stations: [{ from: "", to: "" }],
+        blockTimeOn: "",
+        blockTimeOff: "",
+        flightTimeOn: "",
+        flightTimeOff: "",
+        totalTimeOn: "",
+        totalTimeOff: "",
+        date: "",
+        passengers: "",
+      },
+    ],
     remarks: "",
     sling: "",
     workItems: [],
@@ -26,12 +33,21 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   const [componentData, setComponentData] = useState({
     broughtForwardData: {
-      airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "",
-      airframeNextInsp: "", engine: "", cycleN1: "", cycleN2: "", usage: "",
-      landingCycle: "", engineNextInsp: ""
+      airframe: "",
+      gearBoxMain: "",
+      gearBoxTail: "",
+      rotorMain: "",
+      rotorTail: "",
+      airframeNextInsp: "",
+      engine: "",
+      cycleN1: "",
+      cycleN2: "",
+      usage: "",
+      landingCycle: "",
+      engineNextInsp: "",
     },
     thisFlightData: {},
-    toDateData: {}
+    toDateData: {},
   });
 
   const isPilot = userRole === "pilot";
@@ -43,7 +59,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const getPilotTabs = () => [
     { key: "0", label: "Basic Information" },
     { key: "1", label: "Destination/s" },
-    { key: "2", label: "Discrepancy/Remarks" }
+    { key: "2", label: "Discrepancy/Remarks" },
   ];
 
   const getMechanicTabs = () => {
@@ -52,7 +68,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       { key: "1", label: "Component Times" },
       { key: "2", label: "Fuel Servicing" },
       { key: "3", label: "Oil Servicing" },
-      { key: "4", label: "Discrepancy/Remarks" }
+      { key: "4", label: "Discrepancy/Remarks" },
     ];
     if (hasDiscrepancy()) {
       tabs.push({ key: "5", label: "Work Done" });
@@ -65,60 +81,69 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const isLastTab = currentTabIndex === tabs.length - 1;
 
   const updateForm = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const updateLeg = (legIndex, field, value) => {
     const newLegs = [...formData.legs];
     newLegs[legIndex] = { ...newLegs[legIndex], [field]: value };
-    setFormData(prev => ({ ...prev, legs: newLegs }));
+    setFormData((prev) => ({ ...prev, legs: newLegs }));
   };
 
   const addLeg = () => {
     const newLeg = {
       stations: [{ from: "", to: "" }],
-      blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "",
-      totalTimeOn: "", totalTimeOff: "",
-      date: "", passengers: ""
+      blockTimeOn: "",
+      blockTimeOff: "",
+      flightTimeOn: "",
+      flightTimeOff: "",
+      totalTimeOn: "",
+      totalTimeOff: "",
+      date: "",
+      passengers: "",
     };
-    setFormData(prev => ({ ...prev, legs: [...prev.legs, newLeg] }));
+    setFormData((prev) => ({ ...prev, legs: [...prev.legs, newLeg] }));
   };
 
   const removeLeg = (legIndex) => {
     if (formData.legs.length > 1) {
       const newLegs = [...formData.legs];
       newLegs.splice(legIndex, 1);
-      setFormData(prev => ({ ...prev, legs: newLegs }));
+      setFormData((prev) => ({ ...prev, legs: newLegs }));
     }
   };
 
   const addStation = (legIndex) => {
     const newLegs = [...formData.legs];
-    const lastStation = newLegs[legIndex].stations[newLegs[legIndex].stations.length - 1];
+    const lastStation =
+      newLegs[legIndex].stations[newLegs[legIndex].stations.length - 1];
     newLegs[legIndex].stations.push({ from: lastStation.to, to: "" });
-    setFormData(prev => ({ ...prev, legs: newLegs }));
+    setFormData((prev) => ({ ...prev, legs: newLegs }));
   };
 
   const removeStation = (legIndex, stationIndex) => {
     const newLegs = [...formData.legs];
     if (newLegs[legIndex].stations.length > 1) {
       newLegs[legIndex].stations.splice(stationIndex, 1);
-      setFormData(prev => ({ ...prev, legs: newLegs }));
+      setFormData((prev) => ({ ...prev, legs: newLegs }));
     }
   };
 
   const updateStation = (legIndex, stationIndex, field, value) => {
     const newLegs = [...formData.legs];
     newLegs[legIndex].stations[stationIndex][field] = value;
-    
-    if (field === "to" && stationIndex < newLegs[legIndex].stations.length - 1) {
+
+    if (
+      field === "to" &&
+      stationIndex < newLegs[legIndex].stations.length - 1
+    ) {
       newLegs[legIndex].stations[stationIndex + 1].from = value;
     }
     if (field === "from" && stationIndex > 0) {
       newLegs[legIndex].stations[stationIndex - 1].to = value;
     }
-    
-    setFormData(prev => ({ ...prev, legs: newLegs }));
+
+    setFormData((prev) => ({ ...prev, legs: newLegs }));
   };
 
   const handleNext = () => {
@@ -135,12 +160,12 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   const handleSave = () => {
     const aircraft = formData.rpc || "Aircraft";
-    const msg = isPilot 
+    const msg = isPilot
       ? `Flight log has been added for ${aircraft}. Wait for the mechanic to release it.`
       : `Flight log has been added for ${aircraft}. Wait for pilot to accept.`;
-    
+
     message.success(msg);
-    
+
     onSave({
       ...formData,
       componentData,
@@ -148,15 +173,15 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       date: formData.date.toLocaleDateString("en-US", {
         month: "2-digit",
         day: "2-digit",
-        year: "numeric"
+        year: "numeric",
       }),
       dateAdded: new Date().toLocaleDateString("en-US", {
         month: "2-digit",
         day: "2-digit",
-        year: "numeric"
+        year: "numeric",
       }),
       status: isPilot ? "pending_release" : "pending_acceptance",
-      createdBy: userRole
+      createdBy: userRole,
     });
     onClose();
   };
@@ -165,7 +190,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     <div className="flightlog-form">
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">Aircraft Type:</label>
-        <Input 
+        <Input
           value={formData.aircraftType}
           onChange={(e) => updateForm("aircraftType", e.target.value)}
           placeholder="Select Aircraft Type"
@@ -173,7 +198,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       </div>
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">RP-C:</label>
-        <Input 
+        <Input
           value={formData.rpc}
           onChange={(e) => updateForm("rpc", e.target.value)}
           placeholder="Select RP/C"
@@ -181,14 +206,11 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       </div>
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">Date:</label>
-        <Input 
-          value={formData.date.toLocaleDateString()}
-          disabled
-        />
+        <Input value={formData.date.toLocaleDateString()} disabled />
       </div>
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">Control No.:</label>
-        <Input 
+        <Input
           value={formData.controlNo}
           onChange={(e) => updateForm("controlNo", e.target.value)}
           placeholder="Enter control number"
@@ -201,76 +223,143 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     <div className="flightlog-destinations">
       {formData.legs.map((leg, legIdx) => {
         const legNumber = legIdx + 1;
-        const suffix = legNumber === 1 ? "st" : legNumber === 2 ? "nd" : legNumber === 3 ? "rd" : "th";
-        
+        const suffix =
+          legNumber === 1
+            ? "st"
+            : legNumber === 2
+              ? "nd"
+              : legNumber === 3
+                ? "rd"
+                : "th";
+
         return (
           <div key={legIdx} className="flightlog-leg-card">
             <div className="flightlog-leg-header">
-              <span>{legNumber}{suffix} Leg</span>
+              <span>
+                {legNumber}
+                {suffix} Leg
+              </span>
               {formData.legs.length > 1 && (
-                <Button type="text" danger icon={<CloseOutlined />} onClick={() => removeLeg(legIdx)} />
+                <Button
+                  type="text"
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => removeLeg(legIdx)}
+                />
               )}
             </div>
             <div className="flightlog-leg-content">
               <label className="flightlog-form-label">Station</label>
               {leg.stations.map((station, stationIdx) => (
                 <div key={stationIdx} className="flightlog-station-row">
-                  <Input 
+                  <Input
                     className="flightlog-station-input"
                     value={station.from}
-                    onChange={(e) => updateStation(legIdx, stationIdx, "from", e.target.value)}
+                    onChange={(e) =>
+                      updateStation(legIdx, stationIdx, "from", e.target.value)
+                    }
                     placeholder="From"
                   />
                   <span className="flightlog-station-separator">-</span>
-                  <Input 
+                  <Input
                     className="flightlog-station-input"
                     value={station.to}
-                    onChange={(e) => updateStation(legIdx, stationIdx, "to", e.target.value)}
+                    onChange={(e) =>
+                      updateStation(legIdx, stationIdx, "to", e.target.value)
+                    }
                     placeholder="To"
                   />
                   {leg.stations.length > 1 && (
-                    <Button type="text" icon={<MinusOutlined />} onClick={() => removeStation(legIdx, stationIdx)} />
+                    <Button
+                      type="text"
+                      icon={<MinusOutlined />}
+                      onClick={() => removeStation(legIdx, stationIdx)}
+                    />
                   )}
                 </div>
               ))}
-              
-              <Button type="dashed" block icon={<PlusOutlined />} onClick={() => addStation(legIdx)}>
+
+              <Button
+                type="dashed"
+                block
+                icon={<PlusOutlined />}
+                onClick={() => addStation(legIdx)}
+              >
                 Add Station
               </Button>
-              
+
               <div className="flightlog-time-section">
                 <h4>Time Information</h4>
                 <div className="flightlog-form-row">
                   <label>Block Time (ON):</label>
-                  <Input value={leg.blockTimeOn} onChange={(e) => updateLeg(legIdx, "blockTimeOn", e.target.value)} />
+                  <Input
+                    value={leg.blockTimeOn}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "blockTimeOn", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Block Time (OFF):</label>
-                  <Input value={leg.blockTimeOff} onChange={(e) => updateLeg(legIdx, "blockTimeOff", e.target.value)} />
+                  <Input
+                    value={leg.blockTimeOff}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "blockTimeOff", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Flight Time (ON):</label>
-                  <Input value={leg.flightTimeOn} onChange={(e) => updateLeg(legIdx, "flightTimeOn", e.target.value)} />
+                  <Input
+                    value={leg.flightTimeOn}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "flightTimeOn", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Flight Time (OFF):</label>
-                  <Input value={leg.flightTimeOff} onChange={(e) => updateLeg(legIdx, "flightTimeOff", e.target.value)} />
+                  <Input
+                    value={leg.flightTimeOff}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "flightTimeOff", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Total Time (ON):</label>
-                  <Input value={leg.totalTimeOn} onChange={(e) => updateLeg(legIdx, "totalTimeOn", e.target.value)} />
+                  <Input
+                    value={leg.totalTimeOn}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "totalTimeOn", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Total Time (OFF):</label>
-                  <Input value={leg.totalTimeOff} onChange={(e) => updateLeg(legIdx, "totalTimeOff", e.target.value)} />
+                  <Input
+                    value={leg.totalTimeOff}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "totalTimeOff", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Date:</label>
-                  <Input value={leg.date} onChange={(e) => updateLeg(legIdx, "date", e.target.value)} placeholder="MM/DD/YYYY" />
+                  <Input
+                    value={leg.date}
+                    onChange={(e) => updateLeg(legIdx, "date", e.target.value)}
+                    placeholder="MM/DD/YYYY"
+                  />
                 </div>
                 <div className="flightlog-form-row">
                   <label>Passengers:</label>
-                  <Input value={leg.passengers} onChange={(e) => updateLeg(legIdx, "passengers", e.target.value)} />
+                  <Input
+                    value={leg.passengers}
+                    onChange={(e) =>
+                      updateLeg(legIdx, "passengers", e.target.value)
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -287,7 +376,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     <div className="flightlog-form">
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">Discrepancy/Remarks:</label>
-        <TextArea 
+        <TextArea
           rows={4}
           value={formData.remarks}
           onChange={(e) => updateForm("remarks", e.target.value)}
@@ -296,7 +385,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       </div>
       <div className="flightlog-form-row">
         <label className="flightlog-form-label">Sling:</label>
-        <TextArea 
+        <TextArea
           rows={4}
           value={formData.sling}
           onChange={(e) => updateForm("sling", e.target.value)}
@@ -311,67 +400,97 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       <h3>Brought Forward</h3>
       <div className="flightlog-form-row">
         <label>A/Frame:</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.airframe}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, airframe: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                airframe: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter A/Frame"
         />
       </div>
       <div className="flightlog-form-row">
         <label>Gear Box (MAIN):</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.gearBoxMain}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, gearBoxMain: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                gearBoxMain: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter Gear Box (MAIN)"
         />
       </div>
       <div className="flightlog-form-row">
         <label>Gear Box (TAIL):</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.gearBoxTail}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, gearBoxTail: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                gearBoxTail: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter Gear Box (TAIL)"
         />
       </div>
       <div className="flightlog-form-row">
         <label>Rotor (MAIN):</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.rotorMain}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, rotorMain: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                rotorMain: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter Rotor (MAIN)"
         />
       </div>
       <div className="flightlog-form-row">
         <label>Rotor (TAIL):</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.rotorTail}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, rotorTail: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                rotorTail: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter Rotor (TAIL)"
         />
       </div>
       <div className="flightlog-form-row">
         <label>Airframe Next Insp. Due At:</label>
-        <Input 
+        <Input
           value={componentData.broughtForwardData.airframeNextInsp}
-          onChange={(e) => setComponentData(prev => ({
-            ...prev,
-            broughtForwardData: { ...prev.broughtForwardData, airframeNextInsp: e.target.value }
-          }))}
+          onChange={(e) =>
+            setComponentData((prev) => ({
+              ...prev,
+              broughtForwardData: {
+                ...prev.broughtForwardData,
+                airframeNextInsp: e.target.value,
+              },
+            }))
+          }
           placeholder="Enter Airframe Next Insp. Due At"
         />
       </div>
@@ -383,7 +502,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       {formData.legs.map((leg, idx) => (
         <div key={idx} className="flightlog-leg-card">
           <div className="flightlog-leg-header">
-            {idx + 1}{idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
+            {idx + 1}
+            {idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
           </div>
           <div className="flightlog-leg-content">
             <div className="flightlog-form-row">
@@ -417,7 +537,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       {formData.legs.map((leg, idx) => (
         <div key={idx} className="flightlog-leg-card">
           <div className="flightlog-leg-header">
-            {idx + 1}{idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
+            {idx + 1}
+            {idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
           </div>
           <div className="flightlog-leg-content">
             <div className="flightlog-form-row">
@@ -513,25 +634,32 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       footer={null}
       width={800}
       className="flightlog-modal"
-      destroyOnClose
+      destroyOnHidden
     >
-      <Tabs 
-        activeKey={currentTab} 
+      <Tabs
+        activeKey={currentTab}
         onChange={setCurrentTab}
         className="flightlog-modal-tabs"
       >
-        {tabs.map(tab => (
+        {tabs.map((tab) => (
           <TabPane tab={tab.label} key={tab.key} />
         ))}
       </Tabs>
-      
-      <div style={{ minHeight: 400, maxHeight: 500, overflowY: "auto", padding: "16px 0" }}>
+
+      <div
+        style={{
+          minHeight: 400,
+          maxHeight: 500,
+          overflowY: "auto",
+          padding: "16px 0",
+        }}
+      >
         {renderCurrentTab()}
       </div>
-      
+
       <div className="flightlog-pagination">
-        <button 
-          className="prev-btn" 
+        <button
+          className="prev-btn"
           onClick={handlePrevious}
           disabled={currentTabIndex === 0}
         >

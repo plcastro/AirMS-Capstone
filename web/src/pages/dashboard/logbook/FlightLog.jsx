@@ -851,6 +851,7 @@ export default function FlightLog() {
         <Input
           placeholder="Search by date, origin, or destination..."
           value={searchQuery}
+          size="large"
           onChange={(e) => setSearchQuery(e.target.value)}
           prefix={<SearchOutlined />}
           className="flightlog-search"
@@ -874,20 +875,6 @@ export default function FlightLog() {
       >
         {isPilot && (
           <TabPane tab="Defects" key="Defects">
-            <div className="flightlog-table-container">
-              <Table
-                columns={columns}
-                dataSource={filteredLogs}
-                loading={loading}
-                rowKey="id"
-                pagination={{ pageSize: 10 }}
-                className="flightlog-table"
-              />
-            </div>
-          </TabPane>
-        )}
-        <TabPane tab="Technical Log" key="TechnicalLog">
-          <div className="flightlog-table-container">
             <Table
               columns={columns}
               dataSource={filteredLogs}
@@ -895,8 +882,20 @@ export default function FlightLog() {
               rowKey="id"
               pagination={{ pageSize: 10 }}
               className="flightlog-table"
+              scroll={{ x: "max-content" }}
             />
-          </div>
+          </TabPane>
+        )}
+        <TabPane tab="Technical Log" key="TechnicalLog">
+          <Table
+            columns={columns}
+            dataSource={filteredLogs}
+            loading={loading}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            className="flightlog-table"
+            scroll={{ x: "max-content" }}
+          />
         </TabPane>
       </Tabs>
 
@@ -908,7 +907,7 @@ export default function FlightLog() {
         footer={null}
         width={800}
         className="flightlog-modal"
-        destroyOnClose
+        destroyOnHidden
       >
         <Tabs
           activeKey={newEntryCurrentTab}
@@ -1109,7 +1108,7 @@ export default function FlightLog() {
         footer={null}
         width={800}
         className="flightlog-modal"
-        destroyOnClose
+        destroyOnHidden
       >
         {editFormData && (
           <>
@@ -1128,7 +1127,6 @@ export default function FlightLog() {
                 minHeight: 400,
                 maxHeight: 500,
                 overflowY: "auto",
-                padding: "16px 0",
               }}
             >
               {editTabs[editCurrentIndex] === "Basic Information" &&

@@ -197,6 +197,7 @@ export default function MaintenanceLog() {
       <Input
         placeholder="Search by aircraft, defect, or date"
         value={searchQuery}
+        size="large"
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
       />

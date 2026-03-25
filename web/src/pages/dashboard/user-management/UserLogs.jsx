@@ -49,15 +49,13 @@ export default function UserLogs() {
         console.log("Unexpected response:", json);
         return;
       }
-
-      // Map logs to match table headers
       const mappedLogs = json.data.map((log, index) => ({
         index: index + 1,
         dateTime: log.dateTime
           ? new Date(log.dateTime).toLocaleString()
           : "N/A",
         actionMade: log.actionMade || log.action || "N/A",
-        username: log.username || "Unknown", // use username field
+        username: log.username || "Unknown",
       }));
 
       setAllUserLogs(mappedLogs);
@@ -72,7 +70,6 @@ export default function UserLogs() {
   useEffect(() => {
     let filtered = [...allUserLogs];
 
-    // Apply search filter if searchQuery exists
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(
@@ -99,12 +96,11 @@ export default function UserLogs() {
         style={{ marginBottom: 16, width: 300 }}
       />
 
-      {/* This wrapper ensures the table never pushes past the screen edge */}
       <div style={{ width: "100%", overflowX: "auto" }}>
         <ActivityLogTable
           headers={headers}
           data={filteredUsers}
-          loading={loading} // Make sure to pass your loading state!
+          loading={loading}
         />
       </div>
     </div>

@@ -28,15 +28,6 @@ export default function Profile() {
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
 
-  const maskEmail = (email) => {
-    if (!email) return "";
-    const [user, domain] = email.split("@");
-    if (user.length <= 2) return "*".repeat(user.length) + "@" + domain;
-    const first = user[0];
-    const last = user[user.length - 1];
-    const masked = first + "*".repeat(user.length - 2) + last;
-    return masked + "@" + domain;
-  };
   // --- Profile image ---
   const getProfileImage = () => {
     if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
@@ -218,7 +209,7 @@ export default function Profile() {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="Email">
-                <Input value={maskEmail(user.email)} disabled />
+                <Input value={user.email} disabled />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -323,13 +314,19 @@ export default function Profile() {
               justify={"space-evenly"}
               style={{ marginBottom: 20 }}
             >
-              <Col>
+              <Col
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
                 <Button
                   type="primary"
                   onClick={() =>
                     file ? handleSaveImage() : fileInputRef.current.click()
                   }
-                  style={{ marginRight: 10, marginBottom: 10 }}
                 >
                   {file ? "Save Picture" : "Change Picture"}
                 </Button>
@@ -341,7 +338,7 @@ export default function Profile() {
             </Row>
           </Col>
           <Col></Col>
-          <Col xs={24} s={24} md={10} lg={12}>
+          <Col xs={24} s={24} md={24} lg={12}>
             {/* USER INFO */}
             <Tabs
               defaultActiveKey={tabItems[0]?.key || "UserInformation"}

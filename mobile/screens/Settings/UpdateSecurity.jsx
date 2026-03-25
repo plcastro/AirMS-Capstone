@@ -20,27 +20,42 @@ export default function UpdateSecurity() {
   const [activeTab, setActiveTab] = useState("password");
   const [needScrollHeight, setNeedScrollHeight] = useState(0);
 
-  // --- STATE MANAGEMENT ---
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
-  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
 
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinErrors, setPinErrors] = useState({});
-  const [forgotPinMode, setForgotPinMode] = useState(false);
-
-  const [verifyEmail, setVerifyEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // --- VALIDATION EFFECTS ---
+  const getPasswordStrength = () => {
+    if (!newPassword) return { text: "", color: "transparent" };
+
+    const requirements = [
+      newPassword.length >= 8,
+      /[A-Z]/.test(newPassword),
+      /\d/.test(newPassword),
+      /[a-z]/.test(newPassword),
+    ];
+
+    const passedCount = requirements.filter(Boolean).length;
+
+    // Matching your Web colors
+    if (passedCount <= 2) return { text: "Weak Password", color: "#ff4d4f" };
+    if (passedCount === 3)
+      return { text: "Moderate Password", color: "#faad14" };
+    if (passedCount === 4) return { text: "Strong Password", color: "#00c88c" };
+
+    return { text: "", color: "transparent" };
+  };
+
+  const strength = getPasswordStrength();
+
   useEffect(() => {
     setPasswordErrors({
       minLength: newPassword.length >= 8,
@@ -59,18 +74,12 @@ export default function UpdateSecurity() {
 
   // --- UI HANDLERS ---
   const resetAll = () => {
-    setVerifyEmail("");
-    setOtp("");
-    setOtpSent(false);
-    setOtpVerified(false);
     setCurrentPassword("");
     setCurrentPin("");
     setNewPassword("");
     setConfirmPassword("");
     setNewPin("");
     setConfirmPin("");
-    setForgotPasswordMode(false);
-    setForgotPinMode(false);
     scrollToInput(0);
   };
 
@@ -78,64 +87,8 @@ export default function UpdateSecurity() {
     scrollRef.current?.scrollTo({ y: y, animated: true });
   };
 
-  // --- API HANDLERS ---
-  const requestOtp = async (type) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/user/request-reset-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verifyEmail, type: type.toLowerCase() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to send OTP");
-      Alert.alert("Success", `OTP sent to ${verifyEmail}`);
-      setOtpSent(true);
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    }
-  };
-
-  const verifyOtp = async (type) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/user/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: verifyEmail,
-          otp,
-          type: type.toLowerCase(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Invalid OTP");
-      setOtpVerified(true);
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    }
-  };
-
-  const handleReset = async (type) => {
-    try {
-      const endpoint = type === "Password" ? "reset-password" : "reset-pin";
-      const payload =
-        type === "Password"
-          ? { email: verifyEmail, newPassword }
-          : { email: verifyEmail, newPin };
-
-      const res = await fetch(`${API_BASE}/api/user/${endpoint}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`Failed to reset ${type}`);
-      Alert.alert("Success", `${type} updated via Reset!`);
-      resetAll();
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    }
-  };
-
-  const handleSaveStandard = async (type) => {
+  const handleSave = async (type) => {
+    setValidationMessage("");
     try {
       const endpoint = type === "Password" ? "change-password" : "change-pin";
       const payload =
@@ -151,15 +104,18 @@ export default function UpdateSecurity() {
         },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Update failed. Check current credentials.");
-      Alert.alert("Success", `${type} updated!`);
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Update failed.");
+
+      setValidationMessage(`${type} updated successfully!`);
       resetAll();
     } catch (err) {
+      setValidationMessage(err.message);
       Alert.alert("Error", err.message);
     }
   };
 
-  // --- RENDER HELPERS ---
   const renderForgotFlow = (type) => (
     <View style={styles.section}>
       {!otpSent ? (
@@ -270,60 +226,80 @@ export default function UpdateSecurity() {
           style={styles.tabs}
         />
         {activeTab === "password" ? (
-          forgotPasswordMode ? (
-            renderForgotFlow("Password")
-          ) : (
-            <View style={styles.section}>
-              <Text style={styles.label}>Current Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="********"
-              />
-              <TouchableOpacity onPress={() => setForgotPasswordMode(true)}>
-                <Text style={styles.link}>Forgot Password?</Text>
-              </TouchableOpacity>
-              <Text style={styles.label}>New Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="********"
-              />
-              <Text style={styles.label}>Confirm Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="********"
-                onFocus={() => {
-                  scrollToInput(250);
-                  setNeedScrollHeight(300);
-                }}
-                onBlur={() => {
-                  scrollToInput(0);
-                  setNeedScrollHeight(10);
-                }}
-              />
-              <HelperText type="info">
-                Min 8 chars, 1 uppercase, 1 number.
-              </HelperText>
-              <Button
-                mode="contained"
-                style={styles.mainBtn}
-                disabled={!Object.values(passwordErrors).every(Boolean)}
-                onPress={() => handleSaveStandard("Password")}
-              >
-                Save Password
-              </Button>
+          <View style={styles.section}>
+            <Text style={styles.label}>Current Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Enter current password"
+            />
+
+            <Text style={styles.label}>New Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Enter new password"
+            />
+
+            <View style={{ height: 20, justifyContent: "center" }}>
+              {newPassword ? (
+                <Text
+                  style={{
+                    color: strength.color,
+                    fontWeight: "bold",
+                    fontSize: 12,
+                  }}
+                >
+                  {strength.text}
+                </Text>
+              ) : null}
             </View>
-          )
-        ) : forgotPinMode ? (
-          renderForgotFlow("PIN")
+
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Re-type new password"
+              onFocus={() => {
+                scrollToInput(250);
+                setNeedScrollHeight(300);
+              }}
+              onBlur={() => {
+                scrollToInput(0);
+                setNeedScrollHeight(10);
+              }}
+            />
+
+            {validationMessage ? (
+              <View style={{ marginTop: 10 }}>
+                <Text
+                  style={{
+                    color: validationMessage.includes("successfully")
+                      ? "#00c88c"
+                      : "#ff4d4f",
+                    textAlign: "center",
+                  }}
+                >
+                  {validationMessage}
+                </Text>
+              </View>
+            ) : null}
+
+            <Button
+              mode="contained"
+              style={styles.mainBtn}
+              disabled={!Object.values(passwordErrors).every(Boolean)}
+              onPress={() => handleSave("Password")}
+            >
+              Save Password
+            </Button>
+          </View>
         ) : (
           <View style={styles.section}>
             <Text style={styles.label}>Current 6-Digit PIN</Text>
@@ -371,7 +347,7 @@ export default function UpdateSecurity() {
               mode="contained"
               style={styles.mainBtn}
               disabled={!Object.values(pinErrors).every(Boolean)}
-              onPress={() => handleSaveStandard("PIN")}
+              onPress={() => handleSave("PIN")}
             >
               Save PIN
             </Button>

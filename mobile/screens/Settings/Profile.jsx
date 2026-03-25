@@ -40,14 +40,6 @@ export default function Profile() {
     formData.lastName.trim() === "" ||
     !hasChanges;
 
-  // --- HELPERS ---
-  const maskEmail = (email) => {
-    if (!email) return "";
-    const [name, domain] = email.split("@");
-    if (name.length <= 2) return `${name}***@${domain}`;
-    return `${name.substring(0, 2)}*******${name.slice(-1)}@${domain}`;
-  };
-
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -237,7 +229,7 @@ export default function Profile() {
           <Text style={styles.label}>Email Address</Text>
           <TextInput
             style={[styles.input, styles.disabledInput]}
-            value={maskEmail(user?.email)}
+            value={user?.email}
             editable={false}
           />
 
