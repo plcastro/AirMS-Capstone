@@ -21,7 +21,7 @@ export const SDMChart = () => {
           cy="50%"
           //   innerRadius={70}
           outerRadius={100}
-          paddingAngle={5}
+          paddingAngle={0}
           dataKey="value"
           stroke="none"
         />
@@ -65,7 +65,7 @@ export const ARTChart = () => {
             cy="50%"
             innerRadius={70}
             outerRadius={100}
-            paddingAngle={5}
+            paddingAngle={0}
             dataKey="value"
             stroke="none"
           />
