@@ -4020,22 +4020,22 @@ export default function PartsMonitoring() {
         <Col xs={24} md={6}>
           <Card className="aircraft-card">
             <div className="card-content">
-              <div className="info-item">
-                <Text className="info-label">Aircraft: </Text>
-                <Text className="info-value">RP-C8912</Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Date Manufactured: </Text>
+              <Text className="info-label">
+                Aircraft: <Text className="info-value">RP-C8912</Text>
+              </Text>
+
+              <Text className="info-label">
+                Date Manufactured:{" "}
                 <Text className="info-value">DEC 18, 2020</Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Acft. Type: </Text>
-                <Text className="info-value">AS350B3 SN: 8904</Text>
-              </div>
-              <div>
-                <Text className="info-label">Creep Damage: </Text>
-                <Text className="info-value">0.6%</Text>
-              </div>
+              </Text>
+
+              <Text className="info-label">
+                Acft. Type: <Text className="info-value">AS350B3 SN: 8904</Text>
+              </Text>
+
+              <Text className="info-label">
+                Creep Damage: <Text className="info-value">0.6%</Text>
+              </Text>
             </div>
           </Card>
         </Col>
