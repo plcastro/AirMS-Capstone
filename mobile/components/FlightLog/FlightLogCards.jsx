@@ -115,7 +115,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                 fontSize: 18,
                 fontWeight: "600"
               }}>
-                RP/C: {log.rpc || "N/A"}
+                RP-C: {log.rpc || "N/A"}
               </Text>
               <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
                 {/* Status Badge */}
@@ -165,7 +165,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                 </View>
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
-                    RP/C: {log.rpc || "N/A"}
+                    RP-C: {log.rpc || "N/A"}
                   </Text>
                 </View>
                 <View style={{ marginBottom: 6 }}>

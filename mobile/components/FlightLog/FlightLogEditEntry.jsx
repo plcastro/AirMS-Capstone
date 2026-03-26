@@ -46,7 +46,7 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
-  const isMechanic = userRole === "mechanic" || userRole === "head of maintenance";
+  const isMechanic = userRole.toLowerCase() === "engineer" || userRole === "maintenance";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -104,10 +104,10 @@ export default function FlightLogEditEntry({ visible, logData, onClose, onSave, 
   const isLastPage = currentPage === totalPages - 1;
 
   const isBasicInfoEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "mechanic");
+    (isMechanic && formData.createdBy === "engineer");
 
   const isDestinationsEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "mechanic");
+    (isPilot && formData.createdBy === "engineer");
 
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;

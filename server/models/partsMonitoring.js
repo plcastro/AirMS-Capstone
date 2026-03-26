@@ -5,7 +5,20 @@ const partsMonitoringSchema = new mongoose.Schema({
   aircraft: {
     type: String,
     required: true,
-    default: 'RP-C8912'
+    unique: true
+  },
+  dateManufactured: {
+    type: Date,
+    required: true,
+  },
+  aircraftType: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  creepDamage:{
+    type: String,
+    required: true,
   },
   referenceData: {
     today: { type: Date, default: Date.now },
@@ -60,7 +73,6 @@ const partsMonitoringSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-partsMonitoringSchema.index({ aircraft: 1 });
 partsMonitoringSchema.index({ lastUpdated: -1 });
 
 module.exports = mongoose.model('PartsMonitoring', partsMonitoringSchema);

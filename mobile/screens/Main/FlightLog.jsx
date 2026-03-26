@@ -322,7 +322,7 @@ const handleSaveNewEntry = async (newEntry) => {
                 color: selectedAircraft && selectedAircraft !== "all" ? COLORS.black : COLORS.grayDark 
               }}>
                 {selectedAircraft && selectedAircraft !== "all" 
-                  ? `RP/C: ${selectedAircraft}` 
+                  ? `RP-C: ${selectedAircraft}` 
                   : "Choose Aircraft"}
               </Text>
               <MaterialCommunityIcons 

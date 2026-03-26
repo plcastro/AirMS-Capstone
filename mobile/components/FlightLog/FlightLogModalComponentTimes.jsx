@@ -14,13 +14,37 @@ export default function FlightLogModalComponentTimes({
   onUpdateComponent,
   isEditable = true,
   isLocked = false,
+  aircraftData = null
 }) {
+  // Define the mapping between component fields and aircraft data fields
+  const getAircraftValue = (fieldKey) => {
+    if (!aircraftData) return "";
+    
+    // Map component fields to aircraft data structure
+    const fieldMapping = {
+      airframe: aircraftData.referenceData.acftTT || "",
+      gearBoxMain: aircraftData.referenceData.gbmTT || "",
+      gearBoxTail: aircraftData.referenceData.gbtTT || "",
+      rotorMain: aircraftData.referenceData.mrbTT || "",
+      rotorTail: aircraftData.referenceData.trbTT || "",
+      airframeNextInsp: aircraftData.referenceData.acrfNextInsp || "",
+      engine: aircraftData.referenceData.engTT || "",
+      cycleN1: aircraftData.referenceData.n1Cycles || "",
+      cycleN2: aircraftData.referenceData.n2Cycles || "",
+      usage: aircraftData.referenceData.usage || "",
+      landingCycle: aircraftData.referenceData.landings || "",
+      engineNextInsp: aircraftData.referenceData.engNextInsp || "",
+    };
+    
+    return fieldMapping[fieldKey] || "";
+  };
+
   const maintenanceFields = [
     { label: "A/Frame", key: "airframe" },
     { label: "Gear Box (MAIN)", key: "gearBoxMain" },
     { label: "Gear Box (TAIL)", key: "gearBoxTail" },
     { label: "Rotor (MAIN)", key: "rotorMain" },
-    { label: "Rotor (TAIL)", key: "rotorTail" },
+    { label: "Rotor (TAIL)", key: "rotorTail" },  
     { label: "Airframe Next Insp. Due At", key: "airframeNextInsp" },
     { label: "Engine", key: "engine" },
     { label: "Cycle (N1)", key: "cycleN1" },
@@ -32,6 +56,9 @@ export default function FlightLogModalComponentTimes({
 
   const renderField = (label, fieldKey) => {
     const isFieldEditable = isEditable && !isLocked;
+    
+    // Get value from componentData first, then from aircraftData
+    const value = componentData[fieldKey] || getAircraftValue(fieldKey) || "";
     
     return (
       <View style={{ marginBottom: 16 }}>
@@ -47,7 +74,7 @@ export default function FlightLogModalComponentTimes({
             fontSize: 14,
             color: isFieldEditable ? COLORS.black : COLORS.grayDark,
           }}
-          value={componentData[fieldKey] || ""}
+          value={value}
           onChangeText={(text) => onUpdateComponent(fieldKey, text)}
           keyboardType="numeric"
           editable={isFieldEditable}

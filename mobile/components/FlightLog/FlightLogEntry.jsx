@@ -23,9 +23,15 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
+  const [isLoadingAircraftData, setIsLoadingAircraftData] = useState(false);
+  const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
-  const isMechanic = userRole === "mechanic" || userRole === "head of maintenance";
+  const isMechanic = userRole === "engineer" || userRole === "maintenance manager";
+
+  const handleAircraftDataLoaded = (data) => {
+    setLoadedAircraftData(data);
+  };
 
   // Start with 1 leg only
   const [formData, setFormData] = useState({
@@ -95,7 +101,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   useEffect(() => {
     const legCount = formData.legs.length;
-    
+
     if (formData.fuelServicing.length !== legCount) {
       const newFuelServicing = [];
       for (let i = 0; i < legCount; i++) {
@@ -105,7 +111,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       }
       setFormData(prev => ({ ...prev, fuelServicing: newFuelServicing }));
     }
-    
+
     if (formData.oilServicing.length !== legCount) {
       const newOilServicing = [];
       for (let i = 0; i < legCount; i++) {
@@ -222,36 +228,36 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   };
 
   const handleSave = () => {
-  // 1. Keep the Validation
-  if (!formData.rpc || formData.rpc.trim() === "") {
-    Alert.alert("Validation Error", "Aircraft RPC is required");
-    return;
-  }
+    // 1. Keep the Validation
+    if (!formData.rpc || formData.rpc.trim() === "") {
+      Alert.alert("Validation Error", "Aircraft RPC is required");
+      return;
+    }
 
-  // 2. Prepare the data object (No fetch here!)
-  const { _id, id, ...cleanFormData } = formData;
-  
-  const flightLogData = {
-    ...cleanFormData,
-    componentData,
-    date: formatDateForSave(formData.date),
-    dateAdded: formatDateForSave(new Date()),
-    status: isPilot ? "pending_release" : "pending_acceptance",
-    createdBy: userRole,
+    // 2. Prepare the data object (No fetch here!)
+    const { _id, id, ...cleanFormData } = formData;
+
+    const flightLogData = {
+      ...cleanFormData,
+      componentData,
+      date: formatDateForSave(formData.date),
+      dateAdded: formatDateForSave(new Date()),
+      status: isPilot ? "pending_release" : "pending_acceptance",
+      createdBy: userRole,
+    };
+
+    // 3. Just call onSave and let the parent handle the API
+    onSave(flightLogData);
+    // onClose(); // You can call this here or in the parent
   };
-
-  // 3. Just call onSave and let the parent handle the API
-  onSave(flightLogData); 
-  // onClose(); // You can call this here or in the parent
-};
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
-    
+
     switch (currentTab) {
       case "Basic Information":
-        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} />;
-      
+        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} onAircraftDataLoaded={handleAircraftDataLoaded} />;
+
       case "Destination/s":
         return (
           <FlightLogModalDestinations
@@ -261,7 +267,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             userRole={userRole}
           />
         );
-      
+
       case "Component Times":
         return (
           <FlightLogModalComponentTimes
@@ -269,10 +275,11 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             componentData={componentData.broughtForwardData}
             onUpdateComponent={(field, value) => updateComponent("broughtForwardData", field, value)}
             isEditable={true}
+            aircraftData={loadedAircraftData}
             isLocked={formData.broughtForwardLocked}
           />
         );
-      
+
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
@@ -282,7 +289,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
@@ -292,7 +299,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Discrepancy/Remarks":
         return (
           <FlightLogDiscrepancyRemarks
@@ -303,7 +310,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       case "Work Done":
         return (
           <FlightLogModalWorkDone
@@ -312,7 +319,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-      
+
       default:
         return null;
     }

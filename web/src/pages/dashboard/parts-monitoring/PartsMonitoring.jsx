@@ -36,8 +36,7 @@ const columnHeader = [
     title: "HOUR/ CYC LIMIT",
     children: [
       { title: "", dataIndex: "hourLimit1", key: "hourLimit1", width: 90 },
-      { title: "", dataIndex: "hourLimit2", key: "hourLimit2", width: 90 },
-      { title: "H/C/OC", dataIndex: "hourLimit3", key: "hourLimit3", width: 90 },
+      { title: "H/C/OC", dataIndex: "hourLimit2", key: "hourLimit2", width: 90 },
     ],
   },
   { title: "DAY LIMIT", dataIndex: "dayLimit", key: "dayLimit", width: 100 },
@@ -70,8 +69,59 @@ export default function PartsMonitoring() {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
-  const [selectedAircraft, setSelectedAircraft] = useState("RP-C8912");
+  const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [loadingAircraft, setLoadingAircraft] = useState(false);
+  const [aircraftDetails, setAircraftDetails] = useState({
+    dateManufactured: null,
+    aircraftType: "",
+    creepDamage: "",
+    serialNumber: ""
+  });
+
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === 'N/A') return dateString;
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear().toString().slice(-2);
+
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const fetchAircraftList = async () => {
+
+    setLoadingAircraft(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAircraftOptions(data.data);
+
+        console.log('Fetched data: ', data.data);
+      } else {
+        message.error(data.message || 'Failed to load aircraft list');
+      }
+    } catch (error) {
+      console.error('Error fetching aircraft list:', error);
+      message.error('Error loading aircraft list');
+    } finally {
+      setLoadingAircraft(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAircraftList();
+  }, []);
 
   // Save function using fetch
   const handleSaveToDatabase = async () => {
@@ -115,12 +165,23 @@ export default function PartsMonitoring() {
       const response = await fetch(`${API_BASE}/api/parts-monitoring/${aircraft}`);
       const data = await response.json();
 
+      console.log('Fetched data for aircraft:', data);
+
       if (response.ok && data.success && data.data) {
-        const { referenceData, parts } = data.data;
+        const { referenceData, parts, dateManufactured, aircraftType, creepDamage, serialNumber } = data.data;
+
+        setAircraftDetails({
+          dateManufactured: dateManufactured ? new Date(dateManufactured) : null,
+          aircraftType: aircraftType || '',
+          creepDamage: creepDamage || '',
+          serialNumber: serialNumber || ''
+        });
 
         if (referenceData) {
+
+          const currentDate = new Date();
           setRefs({
-            today: new Date(referenceData.today),
+            today: currentDate,
             acftTT: referenceData.acftTT,
             n1Cycles: referenceData.n1Cycles,
             n2Cycles: referenceData.n2Cycles,
@@ -700,15 +761,22 @@ export default function PartsMonitoring() {
 
   // Compute derived data using formulas whenever rawData or refs change
   const computedData = useMemo(() => {
-    return processDataWithFormulas(rawData, refs);
-  }, [rawData, refs]);
+  const processedData = processDataWithFormulas(rawData, refs);
+  
+  // Format dates in the processed data
+  return processedData.map(row => ({
+    ...row,
+    dateCW: formatDate(row.dateCW),
+    dateDue: formatDate(row.dateDue)
+  }));
+}, [rawData, refs]);
 
   // Determine if a cell is editable
   const isCellEditable = (record, dataIndex) => {
     // Only part rows are editable
     if (record.rowType !== 'part') return false;
     // Derived columns are not editable (they are recalculated)
-    const nonEditable = ['daysRemaining', 'timeRemaining', 'dateDue', 'ttCycleDue', 'due'];
+    const nonEditable = ['componentName','hourLimit1', 'hourLimit2', 'daysRemaining', 'timeRemaining', 'dateDue', 'ttCycleDue', 'due'];
     return !nonEditable.includes(dataIndex);
   };
 
@@ -739,8 +807,13 @@ export default function PartsMonitoring() {
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
               style={{ width: 180 }}
+              loading={loadingAircraft}
             >
-              <Option value="RP-C8912">RP-C8912</Option>
+              {aircraftOptions.map((aircraft) => (
+                <Option key={aircraft} value={aircraft}>
+                  {aircraft}
+                </Option>
+              ))}
             </Select>
             <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
@@ -776,19 +849,19 @@ export default function PartsMonitoring() {
             <div className="card-content">
               <div className="info-item">
                 <Text className="info-label">Aircraft: </Text>
-                <Text className="info-value">RP-C8912</Text>
+                <Text className="info-value">{selectedAircraft || 'Not selected'}</Text>
               </div>
               <div className="info-item">
                 <Text className="info-label">Date Manufactured: </Text>
-                <Text className="info-value">DEC 18, 2020</Text>
+                <Text className="info-value">{aircraftDetails.dateManufactured ? aircraftDetails.dateManufactured.toLocaleDateString() : 'Not available'}</Text>
               </div>
               <div className="info-item">
                 <Text className="info-label">Acft. Type: </Text>
-                <Text className="info-value">AS350B3 SN: 8904</Text>
+                <Text className="info-value">{aircraftDetails.aircraftType || 'Not available'}</Text>
               </div>
               <div>
                 <Text className="info-label">Creep Damage: </Text>
-                <Text className="info-value">0.6%</Text>
+                <Text className="info-value">{aircraftDetails.creepDamage || 'Not available'}</Text>
               </div>
             </div>
           </Card>
