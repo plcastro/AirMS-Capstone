@@ -14,9 +14,7 @@ export default function ComponentUsage() {
     month: "long",
     year: "numeric",
   });
-  const exportDocument = () => {
-    message.success("Exported successfully");
-  };
+
   const headers = [
     {
       title: "Aircraft",
@@ -77,24 +75,12 @@ export default function ComponentUsage() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 20,
-        marginBottom: 100,
+        gap: 10,
+        marginBottom: "5%",
       }}
     >
-      <Row style={{ justifyContent: "flex-end" }}>
-        <div>
-          <Button
-            type="primary"
-            icon={<ExportOutlined />}
-            onClick={() => exportDocument()}
-          >
-            Export
-          </Button>
-        </div>
-      </Row>
-
-      <Row>
-        <Col span={24}>
+      <Row gutter={12}>
+        <Col xs={24} md={12}>
           <Card>
             <Space orientation="vertical">
               <Title level={3} style={{ margin: 0 }}>
@@ -105,9 +91,13 @@ export default function ComponentUsage() {
             <FailureAnalysisChart />
           </Card>
         </Col>
-      </Row>
-      <Row>
-        <CUsageTable headers={headers} data={componentData} loading={loading} />
+        <Col xs={24} md={12}>
+          <CUsageTable
+            headers={headers}
+            data={componentData}
+            loading={loading}
+          />
+        </Col>
       </Row>
     </div>
   );

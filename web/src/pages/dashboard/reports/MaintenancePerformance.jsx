@@ -1,15 +1,6 @@
 import React from "react";
-import {
-  Card,
-  Col,
-  Row,
-  Statistic,
-  Space,
-  Typography,
-  Button,
-  message,
-} from "antd";
-import { ExportOutlined } from "@ant-design/icons";
+import { Card, Col, Row, Statistic, Space, Typography } from "antd";
+
 import AreaChartComponent from "../../../components/common/AreaChart";
 const { Title, Text } = Typography;
 
@@ -19,34 +10,18 @@ export default function MaintenancePerformance() {
     year: "numeric",
   });
 
-  const exportDocument = () => {
-    message.success("Exported successfully");
-  };
-
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
         gap: 20,
-        marginBottom: 100,
+        marginBottom: 10,
       }}
     >
-      <Row style={{ justifyContent: "flex-end" }}>
-        <div>
-          <Button
-            type="primary"
-            icon={<ExportOutlined />}
-            onClick={() => exportDocument()}
-          >
-            Export
-          </Button>
-        </div>
-      </Row>
-
       <div style={{ display: "flex" }}>
-        <Row gutter={24} style={{ flex: 1, gap: 5 }}>
-          <Col xs={24} sm={10} md={6}>
+        <Row gutter={12} style={{ flex: 1 }}>
+          <Col xs={24} sm={10} md={8}>
             <Card variant="borderless">
               <Statistic
                 title="Total Tasks"
@@ -60,7 +35,7 @@ export default function MaintenancePerformance() {
               />
             </Card>
           </Col>
-          <Col xs={24} sm={10} md={6}>
+          <Col xs={24} sm={10} md={8}>
             <Card variant="borderless">
               <Statistic
                 title="Completed Tasks"
@@ -74,7 +49,7 @@ export default function MaintenancePerformance() {
               />
             </Card>
           </Col>
-          <Col xs={24} sm={10} md={6}>
+          <Col xs={24} sm={10} md={8}>
             <Card variant="borderless">
               <Statistic
                 title="Overdue"
@@ -91,7 +66,7 @@ export default function MaintenancePerformance() {
         </Row>
       </div>
       <Row gutter={21}>
-        <Col xs={24} md={24}>
+        <Col xs={24} md={12}>
           <Card>
             <Space orientation="vertical" size={0}>
               <Title level={4} style={{ margin: 0 }}>

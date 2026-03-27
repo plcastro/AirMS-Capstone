@@ -9,6 +9,7 @@ import {
   LogoutOutlined,
   AuditOutlined,
   TeamOutlined,
+  AreaChartOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
@@ -77,7 +78,7 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "9",
       label: "Maintenance Dashboard",
-      icon: <BookOutlined />,
+      icon: <AreaChartOutlined />,
       roles: ["maintenance manager"],
     },
     {

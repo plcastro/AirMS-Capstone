@@ -19,7 +19,6 @@ export const SDMChart = () => {
           data={data}
           cx="50%"
           cy="50%"
-          //   innerRadius={70}
           outerRadius={100}
           paddingAngle={0}
           dataKey="value"

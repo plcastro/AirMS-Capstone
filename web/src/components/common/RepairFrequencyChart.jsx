@@ -20,10 +20,7 @@ const RepairFrequencyChart = ({ data, title }) => {
     >
       <div style={{ width: "100%", height: 300 }}>
         <ResponsiveContainer>
-          <AreaChart
-            data={data}
-            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-          >
+          <AreaChart data={data}>
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}

@@ -119,12 +119,11 @@ export default function MaintenanceSummary() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 24,
-        padding: "20px",
-        marginBottom: 100,
+        gap: 10,
+        marginBottom: 10,
       }}
     >
-      <Row gutter={[16, 16]} align="middle" justify="space-between">
+      <Row gutter={16} align="middle" justify="space-between">
         <Col xs={24} lg={16}>
           <Space size="large" wrap>
             <RangePicker
@@ -138,30 +137,28 @@ export default function MaintenanceSummary() {
                   setSearchText("");
                   setDateRange(null);
                 }}
-                style={{ padding: 0 }}
               >
                 Reset Filters
               </Button>
             )}
           </Space>
         </Col>
-        <Col>
-          <Button
-            type="primary"
-            icon={<ExportOutlined />}
-            onClick={exportDocument}
-          >
-            Export Report
-          </Button>
+      </Row>
+      <Row gutter={21}>
+        <Col xs={24} md={12}>
+          <RepairFrequencyChart
+            data={repairData}
+            title={`Aircraft repair frequency ${getRangeLabel()}`}
+          />
+        </Col>
+        <Col xs={24} md={12}>
+          <MSummaryTable
+            headers={headers}
+            data={summarydata}
+            loading={loading}
+          />
         </Col>
       </Row>
-
-      <RepairFrequencyChart
-        data={repairData}
-        title={`Aircraft repair frequency ${getRangeLabel()}`}
-      />
-
-      <MSummaryTable headers={headers} data={summarydata} loading={loading} />
     </div>
   );
 }
