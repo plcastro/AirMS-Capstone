@@ -5,8 +5,7 @@ import MechanicTaskScreen from "./MechanicTaskScreen";
 export default function TaskAssignment() {
   const { user } = useContext(AuthContext);
 
-  // Head sees HeadTaskScreen
-  if (user?.jobTitle.toLowerCase() === "maintenance manager") {
+  if (user?.jobTitle === "Maintenance Manager") {
     return (
       <HeadTaskScreen
         taskOptions={[
@@ -17,6 +16,5 @@ export default function TaskAssignment() {
     );
   }
 
-  // Mechanics see MechanicTaskScreen
   return <MechanicTaskScreen />;
 }

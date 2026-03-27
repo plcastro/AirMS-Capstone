@@ -23,10 +23,16 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
+  const [isLoadingAircraftData, setIsLoadingAircraftData] = useState(false);
+  const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic =
     userRole === "engineer" || userRole === "maintenance manager";
+
+  const handleAircraftDataLoaded = (data) => {
+    setLoadedAircraftData(data);
+  };
 
   // Start with 1 leg only
   const [formData, setFormData] = useState({
@@ -350,6 +356,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            onAircraftDataLoaded={handleAircraftDataLoaded}
           />
         );
 
@@ -372,6 +379,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               updateComponent("broughtForwardData", field, value)
             }
             isEditable={true}
+            aircraftData={loadedAircraftData}
             isLocked={formData.broughtForwardLocked}
           />
         );

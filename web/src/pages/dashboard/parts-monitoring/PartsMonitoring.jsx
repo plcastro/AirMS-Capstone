@@ -7,7 +7,7 @@ import {
   Button,
   Input,
   Card,
-  message,
+  Divider,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
@@ -16,17 +16,16 @@ import {
   getToday,
 } from "../../../utils/partsFormula-AS350B3";
 import "./PartsMonitoring.css";
+import { message, Modal } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 
 const { Text } = Typography;
+const { Option } = Select;
 
-const aircraftOptions = [
-  { value: "RP-C8912", label: "RP-C8912 (AS350 B3)" },
-  { value: "RP-C1234", label: "RP-C1234 (Bell 407)" },
-  { value: "RP-C5567", label: "RP-C5567 (H130)" },
-];
-
+// =========================================================================
+// Column headers
+// =========================================================================
 const columnHeader = [
   {
     title:
@@ -39,11 +38,10 @@ const columnHeader = [
     title: "HOUR/ CYC LIMIT",
     children: [
       { title: "", dataIndex: "hourLimit1", key: "hourLimit1", width: 90 },
-      { title: "", dataIndex: "hourLimit2", key: "hourLimit2", width: 90 },
       {
         title: "H/C/OC",
-        dataIndex: "hourLimit3",
-        key: "hourLimit3",
+        dataIndex: "hourLimit2",
+        key: "hourLimit2",
         width: 90,
       },
     ],
@@ -92,6 +90,9 @@ const columnHeader = [
   },
 ];
 
+// =========================================================================
+// Main component
+// =========================================================================
 export default function PartsMonitoring() {
   // Reference values (editable by user)
   const [refs, setRefs] = useState({
@@ -105,8 +106,60 @@ export default function PartsMonitoring() {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
-  const [selectedAircraft, setSelectedAircraft] = useState("RP-C8912");
+  const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [loadingAircraft, setLoadingAircraft] = useState(false);
+  const [aircraftDetails, setAircraftDetails] = useState({
+    dateManufactured: null,
+    aircraftType: "",
+    creepDamage: "",
+    serialNumber: "",
+  });
+
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === "N/A") return dateString;
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const day = date.getDate().toString().padStart(2, "0");
+      const year = date.getFullYear().toString().slice(-2);
+
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const fetchAircraftList = async () => {
+    setLoadingAircraft(true);
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAircraftOptions(data.data);
+
+        console.log("Fetched data: ", data.data);
+      } else {
+        message.error(data.message || "Failed to load aircraft list");
+      }
+    } catch (error) {
+      console.error("Error fetching aircraft list:", error);
+      message.error("Error loading aircraft list");
+    } finally {
+      setLoadingAircraft(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAircraftList();
+  }, []);
 
   // Save function using fetch
   const handleSaveToDatabase = async () => {
@@ -152,12 +205,31 @@ export default function PartsMonitoring() {
       );
       const data = await response.json();
 
+      console.log("Fetched data for aircraft:", data);
+
       if (response.ok && data.success && data.data) {
-        const { referenceData, parts } = data.data;
+        const {
+          referenceData,
+          parts,
+          dateManufactured,
+          aircraftType,
+          creepDamage,
+          serialNumber,
+        } = data.data;
+
+        setAircraftDetails({
+          dateManufactured: dateManufactured
+            ? new Date(dateManufactured)
+            : null,
+          aircraftType: aircraftType || "",
+          creepDamage: creepDamage || "",
+          serialNumber: serialNumber || "",
+        });
 
         if (referenceData) {
+          const currentDate = new Date();
           setRefs({
-            today: new Date(referenceData.today),
+            today: currentDate,
             acftTT: referenceData.acftTT,
             n1Cycles: referenceData.n1Cycles,
             n2Cycles: referenceData.n2Cycles,
@@ -3925,7 +3997,14 @@ export default function PartsMonitoring() {
 
   // Compute derived data using formulas whenever rawData or refs change
   const computedData = useMemo(() => {
-    return processDataWithFormulas(rawData, refs);
+    const processedData = processDataWithFormulas(rawData, refs);
+
+    // Format dates in the processed data
+    return processedData.map((row) => ({
+      ...row,
+      dateCW: formatDate(row.dateCW),
+      dateDue: formatDate(row.dateDue),
+    }));
   }, [rawData, refs]);
 
   // Determine if a cell is editable
@@ -3934,6 +4013,9 @@ export default function PartsMonitoring() {
     if (record.rowType !== "part") return false;
     // Derived columns are not editable (they are recalculated)
     const nonEditable = [
+      "componentName",
+      "hourLimit1",
+      "hourLimit2",
       "daysRemaining",
       "timeRemaining",
       "dateDue",
@@ -3954,55 +4036,45 @@ export default function PartsMonitoring() {
 
   return (
     <div className="parts-monitoring-container" style={{ padding: 20 }}>
-      {/* Header row with search, select, and button */}
-      <Row
-        style={{
-          marginBottom: 20,
-          gap: 5,
-        }}
-        justify={"space-between"}
-      >
-        <Row gutter={21}>
-          <Col xs={24} sm={12} md={18}>
+      <Row justify="space-between" align="middle" className="header-row">
+        <Col>
+          <div className="header-left">
             <Input
               placeholder="Search..."
               prefix={<SearchOutlined />}
-              size="large"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
+              className="search-input"
               allowClear
             />
-          </Col>
-          <Col xs={24} md={6}>
             <Select
-              size="large"
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
-              style={{ width: 220 }}
-              options={aircraftOptions}
-              variant="filled"
-            />
-          </Col>
-        </Row>
-        <Row gutter={21}>
-          <Col xs={24} md={12}>
-            <Button type="primary" size="large" icon={<PlusOutlined />}>
+              style={{ width: 180 }}
+              loading={loadingAircraft}
+            >
+              {aircraftOptions.map((aircraft) => (
+                <Option key={aircraft} value={aircraft}>
+                  {aircraft}
+                </Option>
+              ))}
+            </Select>
+            <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
             </Button>
-          </Col>
-          <Col xs={24} md={12}>
+
+            {/* Save Button */}
             <Button
               type="primary"
-              size="large"
               icon={<SaveOutlined />}
               onClick={handleSaveToDatabase}
               loading={saving}
               style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
             >
-              Save
+              Save to Database
             </Button>
-          </Col>
-          <Col xs={24} md={6}>
+
+            {/* Optional: Show last saved time */}
             {lastSaved && (
               <Text
                 type="secondary"
@@ -4011,35 +4083,47 @@ export default function PartsMonitoring() {
                 Last saved: {lastSaved.toLocaleTimeString()}
               </Text>
             )}
-          </Col>
-        </Row>
+          </div>
+        </Col>
+        <Col></Col>
       </Row>
+      <Divider />
 
       {/* Info Cards with reference inputs - same as before */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-        <Col xs={24} md={6}>
+        <Col span={6}>
           <Card className="aircraft-card">
             <div className="card-content">
-              <Text className="info-label">
-                Aircraft: <Text className="info-value">RP-C8912</Text>
-              </Text>
-
-              <Text className="info-label">
-                Date Manufactured:{" "}
-                <Text className="info-value">DEC 18, 2020</Text>
-              </Text>
-
-              <Text className="info-label">
-                Acft. Type: <Text className="info-value">AS350B3 SN: 8904</Text>
-              </Text>
-
-              <Text className="info-label">
-                Creep Damage: <Text className="info-value">0.6%</Text>
-              </Text>
+              <div className="info-item">
+                <Text className="info-label">Aircraft: </Text>
+                <Text className="info-value">
+                  {selectedAircraft || "Not selected"}
+                </Text>
+              </div>
+              <div className="info-item">
+                <Text className="info-label">Date Manufactured: </Text>
+                <Text className="info-value">
+                  {aircraftDetails.dateManufactured
+                    ? aircraftDetails.dateManufactured.toLocaleDateString()
+                    : "Not available"}
+                </Text>
+              </div>
+              <div className="info-item">
+                <Text className="info-label">Acft. Type: </Text>
+                <Text className="info-value">
+                  {aircraftDetails.aircraftType || "Not available"}
+                </Text>
+              </div>
+              <div>
+                <Text className="info-label">Creep Damage: </Text>
+                <Text className="info-value">
+                  {aircraftDetails.creepDamage || "Not available"}
+                </Text>
+              </div>
             </div>
           </Card>
         </Col>
-        <Col xs={24} md={18}>
+        <Col span={18}>
           <Card className="aircraft-card">
             <div className="input-row">
               <div className="input-group">

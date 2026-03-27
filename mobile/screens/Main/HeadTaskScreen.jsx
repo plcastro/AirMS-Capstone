@@ -52,7 +52,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
     fetchTasks();
   }, []);
 
-  // Fetch employees (engineers)
+  // Fetch employees (mechanics)
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -64,10 +64,10 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         });
         if (response.ok) {
           const data = await response.json();
-          const engineers = data.data.filter(
+          const mechanics = data.data.filter(
             (user) => user.jobTitle === "Engineer" && user.status === "active",
           );
-          const mappedEmployees = engineers.map((user) => ({
+          const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
           }));

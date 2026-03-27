@@ -96,7 +96,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             key={log._id}
             style={{
               backgroundColor: COLORS.white,
-              borderRadius: 7,
+              borderRadius: 25,
               marginBottom: 20,
               elevation: 3,
               shadowColor: "#000",
@@ -124,7 +124,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                   fontWeight: "600",
                 }}
               >
-                RP/C: {log.rpc || "N/A"}
+                RP-C: {log.rpc || "N/A"}
               </Text>
               <View
                 style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
@@ -190,10 +190,9 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     Aircraft Type : {log.aircraftType || "N/A"}
                   </Text>
                 </View>
-
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
-                    RP/C: {log.rpc || "N/A"}
+                    RP-C: {log.rpc || "N/A"}
                   </Text>
                 </View>
                 <View style={{ marginBottom: 6 }}>
@@ -201,6 +200,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     Control: {log.control || "N/A"}
                   </Text>
                 </View>
+
                 {/* Created By Badge */}
                 <View
                   style={{
@@ -228,15 +228,16 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     >
                       {log.createdBy === "pilot"
                         ? "Pilot Created"
-                        : "Engineer Created"}
+                        : "Mechanic Created"}
                     </Text>
                   </View>
                 </View>
+
                 <View
                   style={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    justifyContent: "flex-end",
+                    position: "absolute",
+                    bottom: 10,
+                    right: 10,
                   }}
                 >
                   <MaterialCommunityIcons

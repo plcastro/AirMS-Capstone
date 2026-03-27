@@ -69,7 +69,7 @@ export default function FlightLog() {
 
       // Read response ONLY ONCE - use json() directly
       const data = await response.json();
-      // console.log("Raw Server Response:", JSON.stringify(data));
+      console.log("Raw Server Response:", JSON.stringify(data));
 
       if (response.ok) {
         setFlightLogs(data.data || []);
@@ -262,7 +262,7 @@ export default function FlightLog() {
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <View style={{ flex: 1, paddingHorizontal: 7 }}>
+      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
         {/* Search Bar Row with New Entry Button */}
         <View style={{ flexDirection: "row", marginBottom: 12, gap: 12 }}>
           <View
@@ -284,7 +284,7 @@ export default function FlightLog() {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Search"
+              placeholder="Search by aircraft, type, or date"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,
@@ -364,7 +364,7 @@ export default function FlightLog() {
                 }}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? `RP-C: ${selectedAircraft}`
                   : "Choose Aircraft"}
               </Text>
               <MaterialCommunityIcons

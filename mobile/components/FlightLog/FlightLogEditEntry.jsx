@@ -53,7 +53,7 @@ export default function FlightLogEditEntry({
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "engineer" || userRole === "maintenance manager";
+    userRole.toLowerCase() === "engineer" || userRole === "maintenance";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
