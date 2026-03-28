@@ -21,11 +21,7 @@ import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 
 const { Text } = Typography;
-const { Option } = Select;
 
-// =========================================================================
-// Column headers
-// =========================================================================
 const columnHeader = [
   {
     title:
@@ -4036,56 +4032,68 @@ export default function PartsMonitoring() {
 
   return (
     <div className="parts-monitoring-container" style={{ padding: 20 }}>
-      <Row justify="space-between" align="middle" className="header-row">
-        <Col>
-          <div className="header-left">
-            <Input
-              placeholder="Search..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="search-input"
-              allowClear
-            />
-            <Select
-              value={selectedAircraft}
-              onChange={(value) => setSelectedAircraft(value)}
-              style={{ width: 180 }}
-              loading={loadingAircraft}
-            >
-              {aircraftOptions.map((aircraft) => (
-                <Option key={aircraft} value={aircraft}>
-                  {aircraft}
-                </Option>
-              ))}
-            </Select>
-            <Button type="primary" icon={<PlusOutlined />}>
+      <Row gutter={[16, 16]} align="middle">
+        {/* Search */}
+        <Col xs={24} lg={7}>
+          <Input
+            placeholder="Search..."
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            size="large"
+            allowClear
+            style={{ width: "100%" }}
+          />
+        </Col>
+
+        {/* Select */}
+        <Col xs={24} lg={5}>
+          <Select
+            value={selectedAircraft}
+            onChange={(value) => setSelectedAircraft(value)}
+            loading={loadingAircraft}
+            size="large"
+            style={{ width: "100%" }}
+            options={aircraftOptions.map((aircraft) => ({
+              label: aircraft,
+              value: aircraft,
+            }))}
+          />
+        </Col>
+
+        {/* Actions */}
+        <Col xs={24} lg={12}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <Button type="primary" icon={<PlusOutlined />} size="large">
               Add Aircraft
             </Button>
 
-            {/* Save Button */}
             <Button
               type="primary"
               icon={<SaveOutlined />}
               onClick={handleSaveToDatabase}
               loading={saving}
               style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              size="large"
             >
-              Save to Database
+              Save
             </Button>
 
-            {/* Optional: Show last saved time */}
             {lastSaved && (
-              <Text
-                type="secondary"
-                style={{ fontSize: "12px", marginLeft: "8px" }}
-              >
+              <Text type="secondary" style={{ fontSize: 12 }}>
                 Last saved: {lastSaved.toLocaleTimeString()}
               </Text>
             )}
           </div>
         </Col>
-        <Col></Col>
       </Row>
       <Divider />
 
@@ -4240,45 +4248,48 @@ export default function PartsMonitoring() {
         </Col>
       </Row>
 
-      {/* Legend */}
-      <Card className="aircraft-card legend-card">
-        <div className="legend-container">
+      <Card size="medium" style={{ marginBottom: 10 }}>
+        <Row
+          align="middle"
+          gutter={[12, 8]}
+          style={{ flexWrap: "wrap", gap: "16px" }}
+        >
           <Text className="note-title">NOTE:</Text>
-          <div className="legend-grid">
-            <div className="legend-item">
-              <Text strong>OC</Text> - ON CONDITION
-            </div>
-            <div className="legend-item">
-              <Text strong>H</Text> - HOURS
-            </div>
-            <div className="legend-item">
-              <Text strong>D</Text> - DAY
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-removed" />
-              <Text>- REMOVED</Text>
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-installed" />
-              <Text>- INSTALLED</Text>
-            </div>
+
+          <div>
+            <Text style={{ fontWeight: "bold" }}>OC</Text> - ON CONDITION
           </div>
-        </div>
+          <div>
+            <Text style={{ fontWeight: "bold" }}>H</Text> - HOURS
+          </div>
+          <div>
+            <Text style={{ fontWeight: "bold" }}>D</Text> - DAY
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="status-box status-removed" />
+            <Text>- REMOVED</Text>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="status-box status-installed" />
+            <Text>- INSTALLED</Text>
+          </div>
+        </Row>
       </Card>
 
       {/* Editable Table */}
-      <div className="table-container">
-        <PMonitoringTable
-          headers={columnHeader}
-          data={computedData}
-          loading={false}
-          editable={true}
-          isCellEditable={isCellEditable}
-          onCellEdit={handleCellEdit}
-          rowKey="_id"
-          scroll={{ x: 1500 }}
-        />
-      </div>
+      {/* <div className="table-container"> */}
+      <PMonitoringTable
+        headers={columnHeader}
+        data={computedData}
+        loading={false}
+        editable={true}
+        isCellEditable={isCellEditable}
+        onCellEdit={handleCellEdit}
+        rowKey="_id"
+        scroll={{ x: 1500 }}
+      />
     </div>
   );
 }

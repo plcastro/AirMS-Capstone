@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { Row, Col, Button, message, Card, Typography, Space, Tag } from "antd";
 
-import { ExportOutlined } from "@ant-design/icons";
 import { FailureAnalysisChart } from "../../../components/common/FailureAnalysisChart";
 import CUsageTable from "../../../components/tables/CUsageTable";
-import { componentData } from "../../../components/common/MockData";
 
 const { Title, Text } = Typography;
-export default function ComponentUsage() {
+export default function ComponentUsage({ data }) {
   const [loading, setLoading] = useState(false);
 
   const currentMonthYear = new Date().toLocaleString("en-PH", {
@@ -92,11 +90,7 @@ export default function ComponentUsage() {
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <CUsageTable
-            headers={headers}
-            data={componentData}
-            loading={loading}
-          />
+          <CUsageTable headers={headers} data={data} loading={loading} />
         </Col>
       </Row>
     </div>

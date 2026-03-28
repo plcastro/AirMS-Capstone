@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import { Row, Col, message, Button, Card, Typography } from "antd";
-import { ExportOutlined } from "@ant-design/icons";
+
 import { SDMChart, ARTChart } from "../../../components/common/PieChart";
 import MHistoryTable from "../../../components/tables/MHistoryTable";
-import { mhistorydata } from "../../../components/common/MockData";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-export default function MaintenanceHistory() {
+export default function MaintenanceHistory({ data }) {
   const [loading, setLoading] = useState(false);
 
   const headers = [
@@ -48,17 +47,17 @@ export default function MaintenanceHistory() {
       }}
     >
       <Row gutter={24}>
-        <Col xs={24} md={6}>
-          <Card>
-            <Title level={4} style={{ margin: 0 }}>
+        <Col xs={24}>
+          <Card size="small">
+            <Title level={5} style={{ margin: 0 }}>
               Same-day Repairs (Last 30 days)
             </Title>
             <SDMChart />
           </Card>
         </Col>
-        <Col xs={24} md={6}>
-          <Card>
-            <Title level={4} style={{ margin: 0 }}>
+        <Col xs={24}>
+          <Card size="small">
+            <Title level={5} style={{ margin: 0 }}>
               Average Rectification Time
             </Title>
             <ARTChart />
@@ -66,11 +65,7 @@ export default function MaintenanceHistory() {
         </Col>
       </Row>
       <Row>
-        <MHistoryTable
-          headers={headers}
-          data={mhistorydata}
-          loading={loading}
-        />
+        <MHistoryTable headers={headers} data={data} loading={loading} />
       </Row>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Input, Button, Tabs, message as AntMessage } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Row, Col, Input, Button, Tabs, message as AntMessage } from "antd";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import InventoryTable from "../../../components/tables/InventoryTable";
 import {
@@ -129,29 +129,30 @@ export default function Inventory() {
         padding: 20,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}
-      >
-        <Input
-          placeholder="Search by Part Name, Location, Stock Level..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: 300 }}
-        />
-        {activeTab === "Parts" && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setShowAddModal(true)}
-          >
-            Add Component
-          </Button>
-        )}
-      </div>
+      <Row justify={"space-between"} style={{ display: "flex" }}>
+        <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+          <Input
+            placeholder="Search by Part Name, Location, Stock Level..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={<SearchOutlined />}
+            size="large"
+          />
+        </Col>
+        <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+          {activeTab === "Parts" && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              size="large"
+              onClick={() => setShowAddModal(true)}
+              style={{ justifySelf: "flex-end" }}
+            >
+              Add Component
+            </Button>
+          )}
+        </Col>
+      </Row>
 
       <Tabs
         activeKey={activeTab}

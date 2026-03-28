@@ -28,11 +28,12 @@ const DashboardLayout = () => {
     "/dashboard/user-management/activity-logs": "Activity Logs",
     "/dashboard/flight-log": "Flight Logs",
     "/dashboard/maintenance-log": "Maintenance Logs",
-    "/dashboard/parts-monitoring/pm-table": "PM Table",
-    "/dashboard/parts-monitoring/maintenance-tracking": "Maintenance Tracking",
+    "/dashboard/parts-monitoring": "Parts Monitoring",
+    "/dashboard/maintenance-tracking": "Maintenance Tracking",
     "/dashboard/inventory-management": "Inventory Management",
     "/dashboard/maintenance-priority": "Maintenance Priority",
     "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
+    "/dashboard/compliance-tracking": "Compliance Tracking",
     "/dashboard/profile": "Profile",
   };
   const pageTitle = pageMap[location.pathname] || "Dashboard";
@@ -79,18 +80,6 @@ const DashboardLayout = () => {
                 }}
               />
             </div>
-            <h2
-              style={{
-                fontSize: titleFontSize,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontWeight: 600,
-                transition: "all 0.3s",
-              }}
-            >
-              {pageTitle}
-            </h2>
           </div>
           <div
             style={{ display: "flex", alignItems: "center", cursor: "pointer" }}

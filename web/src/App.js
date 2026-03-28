@@ -48,6 +48,9 @@ const MaintenanceTracking = lazy(
 const MaintenancePriority = lazy(
   () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
 );
+const ComplianceTracking = lazy(
+  () => import("./pages/dashboard/parts-monitoring/ComplianceTracking"),
+);
 
 const Profile = lazy(() => import("./pages/dashboard/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -120,7 +123,7 @@ const AppRouter = () => {
             }
           />
           <Route
-            path="parts-monitoring/pm-table"
+            path="parts-monitoring"
             element={
               <ProtectedRoute
                 allowedRoles={["maintenance manager", "officer-in-charge"]}
@@ -130,7 +133,7 @@ const AppRouter = () => {
             }
           />
           <Route
-            path="parts-monitoring/maintenance-tracking"
+            path="maintenance-tracking"
             element={
               <ProtectedRoute
                 allowedRoles={["maintenance manager", "officer-in-charge"]}
@@ -169,6 +172,16 @@ const AppRouter = () => {
             }
           />
           <Route
+            path="compliance-tracking"
+            element={
+              <ProtectedRoute
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
+              >
+                <ComplianceTracking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="profile"
             element={
               <ProtectedRoute
@@ -177,7 +190,7 @@ const AppRouter = () => {
                   "maintenance manager",
                   "pilot",
                   "officer-in-charge",
-                  "mechanic",
+                  "engineer",
                 ]}
               >
                 <Profile />
@@ -211,6 +224,9 @@ export default function App() {
           Table: {
             headerBg: "#26866f",
             headerColor: "#fff",
+            headerSortHoverBg: "#1f6654",
+            headerSortActiveBg: "#1f6654",
+            headerFilterHoverBg: "#1f6654",
           },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {

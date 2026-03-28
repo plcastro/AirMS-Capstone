@@ -9,11 +9,9 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { PACChartMock } from "./MockData";
 
-const AreaChartComponent = () => {
+const AreaChartComponent = ({ data }) => {
   // Mapping data to maintenance context
-  const data = PACChartMock;
 
   return (
     // Height 300-400px is usually best for dashcards

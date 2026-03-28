@@ -1,41 +1,25 @@
 import React, { useState } from "react";
-import {
-  Row,
-  Col,
-  message,
-  Button,
-  Tag,
-  DatePicker,
-  Input,
-  Space,
-  Card,
-} from "antd";
-import {
-  ExportOutlined,
-  CheckCircleOutlined,
-  SyncOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
+import { Row, Col, Button, Tag, DatePicker, Space } from "antd";
+import { CheckCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import MSummaryTable from "../../../components/tables/MSummaryTable";
-import { repairData, summarydata } from "../../../components/common/MockData";
+
 import RepairFrequencyChart from "../../../components/common/RepairFrequencyChart";
 
 dayjs.extend(isBetween);
 
 const { RangePicker } = DatePicker;
 
-export default function MaintenanceSummary() {
+export default function MaintenanceSummary({
+  summaryData = [],
+  repairData = [],
+}) {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [dateRange, setDateRange] = useState(null);
 
-  const exportDocument = () => {
-    message.success("Exported successfully");
-  };
-
-  const filteredData = summarydata.filter((item) => {
+  const filteredData = summaryData.filter((item) => {
     const matchesSearch =
       item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
       item.task.toLowerCase().includes(searchText.toLowerCase());
@@ -145,16 +129,16 @@ export default function MaintenanceSummary() {
         </Col>
       </Row>
       <Row gutter={21}>
-        <Col xs={24} md={12}>
+        <Col xs={24}>
           <RepairFrequencyChart
             data={repairData}
             title={`Aircraft repair frequency ${getRangeLabel()}`}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24}>
           <MSummaryTable
             headers={headers}
-            data={summarydata}
+            data={filteredData}
             loading={loading}
           />
         </Col>
