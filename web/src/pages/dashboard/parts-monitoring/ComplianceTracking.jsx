@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Layout,
   Tabs,
@@ -33,7 +33,6 @@ import dayjs from "dayjs";
 const { Content } = Layout;
 
 const ComplianceTracking = () => {
-  // --- State Management ---
   const [requirements, setRequirements] = useState([
     {
       id: 1,
@@ -68,7 +67,7 @@ const ComplianceTracking = () => {
       aircraft: "RP-C7226",
       requirementId: 2,
       issueDate: "2026-03-01",
-      expiryDate: "2026-04-10", // Expiring soon
+      expiryDate: "2026-04-10",
     },
   ]);
 
@@ -76,7 +75,7 @@ const ComplianceTracking = () => {
   const [isRecordModalVisible, setIsRecordModalVisible] = useState(false);
   const [form] = Form.useForm();
 
-  // --- Logic: Status Calculation ---
+  // --- Status Calculation ---
   const getComplianceStatus = (expiryDate) => {
     const today = dayjs();
     const expiry = dayjs(expiryDate);
@@ -101,7 +100,7 @@ const ComplianceTracking = () => {
     };
   };
 
-  // --- Logic: Summary Dashboard Data ---
+  // --- Summary Dashboard ---
   const getAircraftSummary = () => {
     const aircraftList = ["RP-C7057", "RP-C7226", "2810"];
     return aircraftList.map((ac) => {
@@ -109,7 +108,6 @@ const ComplianceTracking = () => {
       const statuses = acRecords.map(
         (r) => getComplianceStatus(r.expiryDate).label,
       );
-
       return {
         aircraft: ac,
         total: acRecords.length,
@@ -169,13 +167,12 @@ const ComplianceTracking = () => {
   ];
 
   return (
-    <Content
-      style={{ padding: "24px", background: "#f5f7fa", minHeight: "100vh" }}
-    >
+    <Content style={{ padding: 24, minHeight: "100vh" }}>
+      {/* Header */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={24}>
-          <Card bordered={false} style={{ borderRadius: 8 }}>
-            <Space direction="vertical" style={{ width: "100%" }}>
+          <Card variant={"borderless"} style={{ borderRadius: 8 }}>
+            <Space orientation="vertical" style={{ width: "100%" }}>
               <div
                 style={{
                   display: "flex",
@@ -205,9 +202,9 @@ const ComplianceTracking = () => {
         </Col>
       </Row>
 
+      {/* Tabs */}
       <Tabs
         defaultActiveKey="1"
-        type="card"
         items={[
           {
             key: "1",
@@ -220,7 +217,7 @@ const ComplianceTracking = () => {
               <Row gutter={[16, 16]}>
                 {getAircraftSummary().map((ac) => (
                   <Col xs={24} md={8} key={ac.aircraft}>
-                    <Card title={ac.aircraft} bordered={false} hoverable>
+                    <Card title={ac.aircraft} variant="borderless" hoverable>
                       <Statistic title="Total Docs" value={ac.total} />
                       <div style={{ marginTop: 15 }}>
                         <Tooltip title="Compliant">
@@ -247,7 +244,7 @@ const ComplianceTracking = () => {
               </span>
             ),
             children: (
-              <Card bordered={false}>
+              <Card variant={"borderless"}>
                 <Table
                   columns={recordColumns}
                   dataSource={records}
@@ -260,11 +257,11 @@ const ComplianceTracking = () => {
             key: "3",
             label: (
               <span>
-                <RocketOutlined /> Requirements Lib
+                <RocketOutlined /> Requirements Library
               </span>
             ),
             children: (
-              <Card bordered={false}>
+              <Card variant={"borderless"}>
                 <Table
                   dataSource={requirements}
                   rowKey="id"
@@ -280,7 +277,7 @@ const ComplianceTracking = () => {
         ]}
       />
 
-      {/* --- Modals --- */}
+      {/* Modals */}
       <Modal
         title="Create New Requirement"
         open={isReqModalVisible}
@@ -323,24 +320,27 @@ const ComplianceTracking = () => {
             label="Aircraft"
             rules={[{ required: true }]}
           >
-            <Select placeholder="Select Aircraft">
-              <Select.Option value="RP-C7057">RP-C7057</Select.Option>
-              <Select.Option value="RP-C7226">RP-C7226</Select.Option>
-              <Select.Option value="2810">2810</Select.Option>
-            </Select>
+            <Select
+              placeholder="Select Aircraft"
+              options={[
+                { label: "RP-C7057", value: "RP-C7057" },
+                { label: "RP-C7226", value: "RP-C7226" },
+                { label: "2810", value: "2810" },
+              ]}
+            />
           </Form.Item>
           <Form.Item
             name="requirementId"
             label="Requirement Type"
             rules={[{ required: true }]}
           >
-            <Select placeholder="Select Type">
-              {requirements.map((r) => (
-                <Select.Option key={r.id} value={r.id}>
-                  {r.name}
-                </Select.Option>
-              ))}
-            </Select>
+            <Select
+              placeholder="Select Type"
+              options={requirements.map((r) => ({
+                label: r.name,
+                value: r.id,
+              }))}
+            />
           </Form.Item>
           <Form.Item
             name="issueDate"

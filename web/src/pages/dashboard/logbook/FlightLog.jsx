@@ -866,6 +866,7 @@ export default function FlightLog() {
             size="large"
             onChange={(e) => setSearchQuery(e.target.value)}
             prefix={<SearchOutlined />}
+            allowClear
           />
         </Col>
       </Row>

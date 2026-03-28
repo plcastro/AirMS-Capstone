@@ -93,6 +93,7 @@ export default function UserLogs() {
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         style={{ marginBottom: 16, width: 300 }}
+        allowClear
       />
 
       <div style={{ width: "100%", overflowX: "auto" }}>

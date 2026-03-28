@@ -21,7 +21,6 @@ const NotFound = () => {
 
   return (
     <div className="first-row">
-      {/* <img src={notfoundimg} alt="Book Torn Page" /> */}
       <h1 id="errorMessage">404 | OOPS! PAGE NOT FOUND</h1>
       <p>Sorry, the page that you were looking for doesn't exist.</p>
       <Button type="primary" onClick={goBackToPrevPage} className="primary-btn">

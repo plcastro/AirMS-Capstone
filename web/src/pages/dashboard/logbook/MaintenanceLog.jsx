@@ -202,6 +202,7 @@ export default function MaintenanceLog() {
             size="large"
             onChange={(e) => handleSearchChange(e.target.value)}
             prefix={<SearchOutlined />}
+            allowClear
           />
         </Col>
       </Row>

@@ -31,13 +31,66 @@ import {
 const { Title } = Typography;
 
 export default function MaintenanceDashboard() {
+  const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions, setFileTypeOptions] = useState(["PDF", "Excel"]);
-  if (selectedFileType === "PDF") {
-    exportToPDF();
-  } else {
-    exportToExcel();
-  }
+
+  const cards = [
+    {
+      key: "performance",
+      title: "Performance Overview",
+      component: <MaintenancePerformance data={PACChartMock} />,
+      keywords: ["performance", "overview", "pac"],
+    },
+    {
+      key: "summary",
+      title: "Maintenance Insights",
+      component: (
+        <MaintenanceSummary summaryData={summarydata} repairData={repairData} />
+      ),
+      keywords: ["summary", "insights", "repair"],
+    },
+    {
+      key: "component",
+      title: "Component Analysis",
+      component: <ComponentUsage data={componentData} />,
+      keywords: ["component", "usage", "analysis"],
+    },
+    {
+      key: "history",
+      title: "Maintenance History",
+      component: <MaintenanceHistory data={mhistorydata} />,
+      keywords: ["history", "maintenance", "record"],
+    },
+  ];
+
+  const filteredCards = cards
+    .map((card) => ({
+      ...card,
+      relevance: card.keywords.some((kw) =>
+        kw.toLowerCase().includes(searchText.toLowerCase()),
+      )
+        ? 1
+        : 0,
+    }))
+    .sort((a, b) => b.relevance - a.relevance) // most relevant first
+    .filter((card) => searchText === "" || card.relevance > 0); // optionally hide non-relevant cards
+
+  const filteredSummary = summarydata.filter(
+    (item) =>
+      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.task.toLowerCase().includes(searchText.toLowerCase()),
+  );
+
+  const filteredHistory = mhistorydata.filter(
+    (item) =>
+      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.task.toLowerCase().includes(searchText.toLowerCase()),
+  );
+
+  const filteredComponents = componentData.filter((item) =>
+    item.component.toLowerCase().includes(searchText.toLowerCase()),
+  );
   return (
     <div
       style={{
@@ -60,10 +113,13 @@ export default function MaintenanceDashboard() {
               size="large"
               placeholder="Search..."
               prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
             />
           </Col>
 
-          <Col xs={24} md={4}>
+          <Col xs={24} md={2}>
             <Select
               value={selectedFileType}
               onChange={(value) => setSelectedFileType(value)}
@@ -74,6 +130,8 @@ export default function MaintenanceDashboard() {
                 value: type,
               }))}
             />
+          </Col>
+          <Col xs={24} md={4}>
             <Button
               type="primary"
               icon={<ExportOutlined />}
@@ -120,7 +178,7 @@ export default function MaintenanceDashboard() {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]}>
+      {/* <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Space orientation="vertical" size="large" style={{ width: "100%" }}>
             <Card title="Performance Overview">
@@ -132,14 +190,14 @@ export default function MaintenanceDashboard() {
             <Card title="Maintenance Insights">
               <div id="summaryChart">
                 <MaintenanceSummary
-                  summaryData={summarydata}
+                  summaryData={filteredSummary}
                   repairData={repairData}
                 />
               </div>
             </Card>
             <Card title="Component Analysis">
               <div id="componentChart">
-                <ComponentUsage data={componentData} />
+                <ComponentUsage data={filteredComponents} />
               </div>
             </Card>
           </Space>
@@ -149,11 +207,60 @@ export default function MaintenanceDashboard() {
           <Space orientation="vertical" size="large" style={{ width: "100%" }}>
             <Card title="Maintenance History">
               <div id="historyChart">
-                <MaintenanceHistory data={mhistorydata} />
+                <MaintenanceHistory data={filteredHistory} />
               </div>
             </Card>
           </Space>
         </Col>
+      </Row> */}
+      <Row gutter={[16, 16]}>
+        {/* Determine left and right columns */}
+        {filteredCards.length === 1 ? (
+          // Single card spans full width
+          <Col xs={24} lg={24}>
+            <Card title={filteredCards[0].title}>
+              {filteredCards[0].component}
+            </Card>
+          </Col>
+        ) : (
+          <>
+            {/* Left Column: Performance, Summary, Component */}
+            <Col xs={24} lg={16}>
+              <Space
+                orientation="vertical"
+                size="large"
+                style={{ width: "100%" }}
+              >
+                {filteredCards
+                  .filter((card) =>
+                    ["performance", "summary", "component"].includes(card.key),
+                  )
+                  .map((card) => (
+                    <Card title={card.title} key={card.key}>
+                      {card.component}
+                    </Card>
+                  ))}
+              </Space>
+            </Col>
+
+            {/* Right Column: History */}
+            <Col xs={24} lg={8}>
+              <Space
+                orientation="vertical"
+                size="large"
+                style={{ width: "100%" }}
+              >
+                {filteredCards
+                  .filter((card) => card.key === "history")
+                  .map((card) => (
+                    <Card title={card.title} key={card.key}>
+                      {card.component}
+                    </Card>
+                  ))}
+              </Space>
+            </Col>
+          </>
+        )}
       </Row>
     </div>
   );
