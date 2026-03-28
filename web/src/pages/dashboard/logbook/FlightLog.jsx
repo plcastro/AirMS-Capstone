@@ -834,10 +834,10 @@ export default function FlightLog() {
 
   const canEditBasicInfo =
     (isPilot && editFormData?.createdBy === "pilot") ||
-    (isMechanic && editFormData?.createdBy === "mechanic");
+    (isMechanic && editFormData?.createdBy === "engineer");
   const canEditDestinations =
     (isPilot && editFormData?.createdBy === "pilot") ||
-    (isPilot && editFormData?.createdBy === "mechanic");
+    (isPilot && editFormData?.createdBy === "engineer");
   const canEditComponent = isMechanic && !editFormData?.broughtForwardLocked;
   const canEditFuelOil = isMechanic;
   const canEditDiscrepancy = true;
