@@ -1,7 +1,6 @@
 import React from "react";
 import { Card, Row, Col } from "antd";
 
-// Map card.icon keys to Google Material Symbols names
 const ICON_MAP = {
   fuel: "local_gas_station",
   oil: "oil_barrel",

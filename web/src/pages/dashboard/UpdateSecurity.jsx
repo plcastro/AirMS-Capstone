@@ -80,7 +80,7 @@ export default function UpdateSecurity() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({ currentPassword, newPassword }),
         },
@@ -104,7 +104,7 @@ export default function UpdateSecurity() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({ currentPin, newPin }),
       });
@@ -128,7 +128,7 @@ export default function UpdateSecurity() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({ currentPassword: passwordForPin }),
         },
@@ -150,7 +150,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({ otp, token: pinResetToken }), // use token from state
       });
@@ -179,7 +179,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({ token: pinResetToken, newPin }),
       });
@@ -382,8 +382,9 @@ export default function UpdateSecurity() {
   );
 
   return (
-    <Row>
+    <Row align={"middle"} justify={"center"}>
       <Tabs
+        centered
         items={[
           { key: "1", label: "Password", children: PasswordTab },
           { key: "2", label: "PIN", children: PinTab },

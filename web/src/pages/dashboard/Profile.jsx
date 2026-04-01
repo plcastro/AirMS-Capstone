@@ -250,33 +250,42 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        padding: 20,
+        height: "100vh",
+        overflowY: "auto",
+      }}
+    >
       <Card
         style={{
-          width: 800,
-          minWidth: "95%",
+          width: "95%",
           borderRadius: 12,
-          maxHeight: "85vh",
-          overflowY: "auto",
+          height: "fit-content",
         }}
       >
         {/* PROFILE PICTURE */}
         <Title level={4}>Profile Picture</Title>
-        <Row gutter={21} align="top" justify="center">
+        <Row align="center">
           <Col
             xs={24}
             s={24}
             md={10}
-            lg={8}
-            style={{ display: "flex", flexDirection: "column" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
           >
             <img
               src={previewUri}
               alt="Profile"
               style={{
                 margin: "auto",
-                width: 250,
-                height: 250,
+                width: 200,
+                height: 200,
                 borderRadius: "50%",
                 objectFit: "cover",
                 cursor: isEditing ? "pointer" : "default",
@@ -291,7 +300,6 @@ export default function Profile() {
               onChange={pickImage}
             />
             <Row
-              gutter={16}
               align="middle"
               justify="space-evenly"
               style={{ marginBottom: 20 }}
@@ -327,8 +335,10 @@ export default function Profile() {
           <Col xs={24} s={24} md={24} lg={12}>
             {/* USER INFO */}
             <Tabs
+              centered
               defaultActiveKey={tabItems[0]?.key || "UserInformation"}
               items={tabItems}
+              size="large"
             />
           </Col>
         </Row>

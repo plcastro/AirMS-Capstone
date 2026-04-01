@@ -108,7 +108,7 @@ const Sidebar = ({ collapsed }) => {
       "/dashboard/user-management/activity-logs": "2",
       "/dashboard/flight-log": "3",
       "/dashboard/maintenance-log": "4",
-      "/dashboard/parts-monitoring": "5",
+      "/dashboard/parts-lifespan-monitoring": "5",
       "/dashboard/maintenance-tracking": "6",
       "/dashboard/parts-requisition": "7",
       "/dashboard/maintenance-priority": "8",

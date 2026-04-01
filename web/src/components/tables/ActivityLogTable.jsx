@@ -1,7 +1,36 @@
 import React, { useState } from "react";
 import { Table } from "antd";
+const headers = [
+  {
+    title: "#",
+    dataIndex: "index",
+    key: "index",
+    width: 60,
+  },
 
-export default function ActivityLogTable({ headers = [], data = [], loading }) {
+  {
+    title: "Action Made",
+    dataIndex: "actionMade",
+    key: "actionMade",
+    width: 500,
+    ellipsis: true,
+  },
+  {
+    title: "Performed by",
+    dataIndex: "username",
+    key: "username",
+    width: 260,
+    render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
+  },
+  {
+    title: "Date and Time",
+    dataIndex: "dateTime",
+    key: "dateTime",
+    sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
+    width: 260,
+  },
+];
+export default function ActivityLogTable({ data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 

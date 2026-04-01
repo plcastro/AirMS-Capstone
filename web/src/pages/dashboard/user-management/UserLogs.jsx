@@ -8,36 +8,6 @@ export default function UserLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const headers = [
-    {
-      title: "#",
-      dataIndex: "index",
-      key: "index",
-      width: 60,
-    },
-
-    {
-      title: "Action Made",
-      dataIndex: "actionMade",
-      key: "actionMade",
-      width: 500,
-      ellipsis: true,
-    },
-    {
-      title: "Performed by",
-      dataIndex: "username",
-      key: "username",
-      width: 260,
-      render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
-    },
-    {
-      title: "Date and Time",
-      dataIndex: "dateTime",
-      key: "dateTime",
-      sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
-      width: 260,
-    },
-  ];
 
   const fetchUserLogs = async () => {
     try {
@@ -97,11 +67,7 @@ export default function UserLogs() {
       />
 
       <div style={{ width: "100%", overflowX: "auto" }}>
-        <ActivityLogTable
-          headers={headers}
-          data={filteredUsers}
-          loading={loading}
-        />
+        <ActivityLogTable data={filteredUsers} loading={loading} />
       </div>
     </div>
   );
