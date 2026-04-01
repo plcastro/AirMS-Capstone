@@ -1,8 +1,56 @@
 import React, { useState, useEffect } from "react";
-import { Input, Divider, Button, Tag, Row, Col } from "antd";
+import { Input, Button, Tag, Row, Col } from "antd";
 import MLogTable from "../../../components/tables/MLogTable";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import MaintenanceEntryModal from "../../../components/pagecomponents/MaintenanceEntryModal";
+
+const mockData = [
+  {
+    id: 1,
+    aircraft: "2810",
+    defects: "Oxygen pressure low in main cabin supply system",
+    dateDefectDiscovered: "01/04/2026",
+    correctiveActionDone: "Fixed area and replaced seal",
+    dateDefectRectified: "01/05/2026",
+    status: "Verified",
+  },
+  {
+    id: 2,
+    aircraft: "2810",
+    defects: "Aileron control surface failure during pre-flight check",
+    dateDefectDiscovered: "01/08/2026",
+    correctiveActionDone: "N/A",
+    dateDefectRectified: "N/A",
+    status: "Unverified",
+  },
+  {
+    id: 3,
+    aircraft: "2810",
+    defects: "Airframe dented on left wing due to ground equipment contact",
+    dateDefectDiscovered: "01/03/2026",
+    correctiveActionDone: "Inspected and scheduled for repair",
+    dateDefectRectified: "01/10/2026",
+    status: "Verified",
+  },
+  {
+    id: 4,
+    aircraft: "2811",
+    defects: "Engine oil leak detected during post-flight inspection",
+    dateDefectDiscovered: "02/15/2026",
+    correctiveActionDone: "Replaced main oil seal and tested",
+    dateDefectRectified: "02/20/2026",
+    status: "Verified",
+  },
+  {
+    id: 5,
+    aircraft: "2812",
+    defects: "Landing gear sensor intermittent failure readings",
+    dateDefectDiscovered: "01/01/2026",
+    correctiveActionDone: "N/A",
+    dateDefectRectified: "N/A",
+    status: "Unverified",
+  },
+];
 
 export default function MaintenanceLog() {
   const [allEntries, setAllEntries] = useState([]);
@@ -10,8 +58,6 @@ export default function MaintenanceLog() {
   const [showNewEntry, setShowNewEntry] = useState(false);
   const [showEditEntry, setShowEditEntry] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [aircraftFilter, setAircraftFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const headers = [
@@ -24,54 +70,6 @@ export default function MaintenanceLog() {
     { title: "Status", key: "status" },
   ];
 
-  const mockData = [
-    {
-      id: 1,
-      aircraft: "2810",
-      defects: "Oxygen pressure low in main cabin supply system",
-      dateDefectDiscovered: "01/04/2026",
-      correctiveActionDone: "Fixed area and replaced seal",
-      dateDefectRectified: "01/05/2026",
-      status: "Verified",
-    },
-    {
-      id: 2,
-      aircraft: "2810",
-      defects: "Aileron control surface failure during pre-flight check",
-      dateDefectDiscovered: "01/08/2026",
-      correctiveActionDone: "N/A",
-      dateDefectRectified: "N/A",
-      status: "Unverified",
-    },
-    {
-      id: 3,
-      aircraft: "2810",
-      defects: "Airframe dented on left wing due to ground equipment contact",
-      dateDefectDiscovered: "01/03/2026",
-      correctiveActionDone: "Inspected and scheduled for repair",
-      dateDefectRectified: "01/10/2026",
-      status: "Verified",
-    },
-    {
-      id: 4,
-      aircraft: "2811",
-      defects: "Engine oil leak detected during post-flight inspection",
-      dateDefectDiscovered: "02/15/2026",
-      correctiveActionDone: "Replaced main oil seal and tested",
-      dateDefectRectified: "02/20/2026",
-      status: "Verified",
-    },
-    {
-      id: 5,
-      aircraft: "2812",
-      defects: "Landing gear sensor intermittent failure readings",
-      dateDefectDiscovered: "01/01/2026",
-      correctiveActionDone: "N/A",
-      dateDefectRectified: "N/A",
-      status: "Unverified",
-    },
-  ];
-
   const calculateStatus = (entry) => {
     const hasRealCorrectiveAction =
       entry.correctiveActionDone &&
@@ -82,20 +80,13 @@ export default function MaintenanceLog() {
       entry.dateDefectRectified !== "N/A" &&
       entry.dateDefectRectified.trim() !== "";
 
-    if (hasRealCorrectiveAction && hasRealRectifiedDate) {
-      return "Verified";
-    }
-    return "Unverified";
+    return hasRealCorrectiveAction && hasRealRectifiedDate
+      ? "Verified"
+      : "Unverified";
   };
 
-  const parseDate = (dateString) => {
-    if (!dateString || dateString === "N/A") return null;
-    const [month, day, year] = dateString.split("/");
-    return new Date(year, month - 1, day);
-  };
-
-  const fetchEntries = async () => {
-    try {
+  useEffect(() => {
+    const fetchEntries = async () => {
       const entriesWithCalculatedStatus = mockData.map((entry) => ({
         ...entry,
         status: calculateStatus(entry),
@@ -103,23 +94,12 @@ export default function MaintenanceLog() {
 
       setAllEntries(entriesWithCalculatedStatus);
       setFilteredEntries(entriesWithCalculatedStatus);
-    } catch (error) {
-      console.error("Error fetching maintenance entries:", error);
-      setAllEntries([]);
-      setFilteredEntries([]);
-    }
-  };
+    };
+    fetchEntries();
+  }, []);
 
   useEffect(() => {
     let filtered = [...allEntries];
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((entry) => entry.status === statusFilter);
-    }
-
-    if (aircraftFilter !== "all") {
-      filtered = filtered.filter((entry) => entry.aircraft === aircraftFilter);
-    }
 
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase().trim();
@@ -137,7 +117,7 @@ export default function MaintenanceLog() {
     }
 
     setFilteredEntries(filtered);
-  }, [allEntries, statusFilter, aircraftFilter, searchQuery]);
+  }, [allEntries, searchQuery]);
 
   const handleEditEntry = (entry) => {
     setSelectedEntry(entry);
@@ -159,7 +139,12 @@ export default function MaintenanceLog() {
 
   const handleSaveNewEntry = (MaintenanceNewEntry) => {
     const today = new Date();
-    const todayFormatted = `${(today.getMonth() + 1).toString().padStart(2, "0")}/${today.getDate().toString().padStart(2, "0")}/${today.getFullYear()}`;
+    const todayFormatted = `${(today.getMonth() + 1)
+      .toString()
+      .padStart(
+        2,
+        "0",
+      )}/${today.getDate().toString().padStart(2, "0")}/${today.getFullYear()}`;
 
     const entryToAdd = {
       id: allEntries.length + 1,
@@ -176,24 +161,10 @@ export default function MaintenanceLog() {
     setShowNewEntry(false);
   };
 
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-  };
+  const handleSearchChange = (text) => setSearchQuery(text);
 
-  const uniqueAircraft = [
-    "all",
-    ...new Set(allEntries.map((entry) => entry.aircraft)),
-  ];
-
-  useEffect(() => {
-    fetchEntries();
-  }, []);
   return (
-    <div
-      style={{
-        padding: 20,
-      }}
-    >
+    <div style={{ padding: 20 }}>
       <Row>
         <Col xs={24} md={8}>
           <Input
@@ -206,6 +177,7 @@ export default function MaintenanceLog() {
           />
         </Col>
       </Row>
+
       <div
         style={{
           display: "flex",
@@ -217,8 +189,7 @@ export default function MaintenanceLog() {
         }}
       >
         <Tag
-          color={"#26866f"}
-          variant={"solid"}
+          color="#26866f"
           style={{
             height: 40,
             width: 300,
@@ -226,7 +197,6 @@ export default function MaintenanceLog() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-
             textAlign: "center",
             borderRadius: 4,
           }}
@@ -248,6 +218,7 @@ export default function MaintenanceLog() {
         data={filteredEntries}
         onEditEntry={handleEditEntry}
       />
+
       <MaintenanceEntryModal
         visible={showNewEntry}
         entry={null}

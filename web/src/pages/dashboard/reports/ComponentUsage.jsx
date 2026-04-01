@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Row, Col, Button, message, Card, Typography, Space, Tag } from "antd";
+import { Row, Col, Card, Typography, Space, Tag } from "antd";
 
 import { FailureAnalysisChart } from "../../../components/common/FailureAnalysisChart";
 import CUsageTable from "../../../components/tables/CUsageTable";
 
 const { Title, Text } = Typography;
 export default function ComponentUsage({ data }) {
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   const currentMonthYear = new Date().toLocaleString("en-PH", {
     month: "long",

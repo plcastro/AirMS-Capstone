@@ -11,10 +11,7 @@ import {
 } from "recharts";
 
 const AreaChartComponent = ({ data }) => {
-  // Mapping data to maintenance context
-
   return (
-    // Height 300-400px is usually best for dashcards
     <ResponsiveContainer width="100%" height={350}>
       <AreaChart
         data={data}

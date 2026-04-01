@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Table } from "antd";
 export default function MSummaryTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const handlePageChange = (page, pageSize) => {

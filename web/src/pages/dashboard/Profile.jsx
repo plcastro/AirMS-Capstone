@@ -15,27 +15,16 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
   const [form] = Form.useForm();
-  console.log(user.image);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
-  const [formErrors, setFormErrors] = useState({});
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
-
-  // --- Profile image ---
-  const getProfileImage = () => {
-    if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
-
-    return user.image.startsWith("http")
-      ? user.image
-      : `${API_BASE}${user.image}`;
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -51,6 +40,13 @@ export default function Profile() {
   // --- Load user info ---
   useEffect(() => {
     if (!user) return;
+
+    const getProfileImage = () => {
+      if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
+      return user.image.startsWith("http")
+        ? user.image
+        : `${API_BASE}${user.image}`;
+    };
 
     setFormData({
       firstName: user.firstName || "",
@@ -71,12 +67,6 @@ export default function Profile() {
     setFile(f);
     setPreviewUri(URL.createObjectURL(f));
   };
-
-  const isProfileChanged =
-    formData.firstName !== user?.firstName ||
-    formData.lastName !== user?.lastName;
-
-  const isPictureChanged = file;
 
   const handleSaveProfile = async () => {
     try {
@@ -106,13 +96,13 @@ export default function Profile() {
       }));
 
       setIsEditing(false);
-
       message.success("Profile updated successfully!");
     } catch (err) {
       console.error(err);
       message.error(err.message || "Profile update failed");
     }
   };
+
   const handleSaveImage = async () => {
     if (!file) return;
 
@@ -134,10 +124,7 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      setUser((prev) => ({
-        ...prev,
-        image: data.user.image,
-      }));
+      setUser((prev) => ({ ...prev, image: data.user.image }));
       setFile(null);
       message.success("Profile picture updated!");
     } catch (err) {
@@ -160,10 +147,8 @@ export default function Profile() {
       );
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to remove image");
 
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to remove image");
-      }
       setFile(null);
       setUser((prev) => ({ ...prev, image: null }));
       setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
@@ -175,9 +160,8 @@ export default function Profile() {
     }
   };
 
-  const tabItems = [];
-
-  tabItems.push(
+  // --- Tabs setup ---
+  const tabItems = [
     {
       key: "UserInformation",
       label: "User Information",
@@ -192,9 +176,6 @@ export default function Profile() {
                   disabled={!isEditing}
                   onChange={(e) => handleChange("firstName", e.target.value)}
                 />
-                {formErrors.firstName && (
-                  <Text type="danger">{formErrors.firstName}</Text>
-                )}
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -204,9 +185,6 @@ export default function Profile() {
                   disabled={!isEditing}
                   onChange={(e) => handleChange("lastName", e.target.value)}
                 />
-                {formErrors.lastName && (
-                  <Text type="danger">{formErrors.lastName}</Text>
-                )}
               </Form.Item>
             </Col>
           </Row>
@@ -243,7 +221,10 @@ export default function Profile() {
                 type="primary"
                 onClick={handleSaveProfile}
                 style={{ marginRight: 10 }}
-                disabled={!isProfileChanged}
+                disabled={
+                  formData.firstName === user.firstName &&
+                  formData.lastName === user.lastName
+                }
               >
                 Save
               </Button>
@@ -262,13 +243,9 @@ export default function Profile() {
       key: "SecurityInformation",
       label: "Security",
       icon: <LockOutlined />,
-      children: (
-        <>
-          <UpdateSecurity />
-        </>
-      ),
+      children: <UpdateSecurity />,
     },
-  );
+  ];
 
   if (!user) return null;
 
@@ -285,7 +262,7 @@ export default function Profile() {
       >
         {/* PROFILE PICTURE */}
         <Title level={4}>Profile Picture</Title>
-        <Row gutter={21} align={"top"} justify={"center"}>
+        <Row gutter={21} align="top" justify="center">
           <Col
             xs={24}
             s={24}
@@ -315,8 +292,8 @@ export default function Profile() {
             />
             <Row
               gutter={16}
-              align={"middle"}
-              justify={"space-evenly"}
+              align="middle"
+              justify="space-evenly"
               style={{ marginBottom: 20 }}
             >
               <Col
@@ -346,7 +323,7 @@ export default function Profile() {
               </Col>
             </Row>
           </Col>
-          <Col></Col>
+
           <Col xs={24} s={24} md={24} lg={12}>
             {/* USER INFO */}
             <Tabs

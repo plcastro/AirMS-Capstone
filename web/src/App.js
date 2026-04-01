@@ -34,7 +34,6 @@ const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
 );
-const Inventory = lazy(() => import("./pages/dashboard/inventory/Inventory"));
 const MaintenanceDashboard = lazy(
   () => import("./pages/dashboard/reports/MaintenanceDashboard"),
 );
@@ -148,16 +147,6 @@ const AppRouter = () => {
             element={
               <ProtectedRoute allowedRoles={["maintenance manager"]}>
                 <MaintenancePriority />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="inventory-management"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <Inventory />
               </ProtectedRoute>
             }
           />

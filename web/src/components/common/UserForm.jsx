@@ -87,9 +87,11 @@ export default function UserForm({
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[^a-z0-9]/g, "");
-    let finalUsername = base;
+
     let counter = 1;
-    while (allUsers.some((u) => u.username === finalUsername)) {
+    let finalUsername = base;
+    const usernameExists = (name) => allUsers.some((u) => u.username === name);
+    while (usernameExists(finalUsername)) {
       counter++;
       finalUsername = `${base}${counter}`;
     }
@@ -109,10 +111,11 @@ export default function UserForm({
   }, [jobTitle]);
 
   // Validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const nameRegex = /^[a-zA-Z'-\s]+$/;
-  const errors = useMemo(
-    () => ({
+  const errors = useMemo(() => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const nameRegex = /^[a-zA-Z'-\s]+$/;
+
+    return {
       firstName: !firstName.trim()
         ? "First name is required"
         : !nameRegex.test(firstName)
@@ -129,9 +132,8 @@ export default function UserForm({
           ? "Invalid email format"
           : null,
       jobTitle: !jobTitle ? "Job Title is required" : null,
-    }),
-    [firstName, lastName, email, jobTitle],
-  );
+    };
+  }, [firstName, lastName, email, jobTitle]);
 
   const isFormInvalid = Object.values(errors).some((err) => err !== null);
 

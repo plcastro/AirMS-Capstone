@@ -6,7 +6,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 
@@ -15,28 +15,25 @@ const { useBreakpoint } = Grid;
 
 const DashboardLayout = () => {
   const screens = useBreakpoint();
-  const titleFontSize = screens.md ? 20 : 16;
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useContext(AuthContext);
-  const location = useLocation();
   const nav = useNavigate();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  const pageMap = {
-    "/dashboard/user-management/view-users": "Users",
-    "/dashboard/user-management/activity-logs": "Activity Logs",
-    "/dashboard/flight-log": "Flight Logs",
-    "/dashboard/maintenance-log": "Maintenance Logs",
-    "/dashboard/parts-monitoring": "Parts Monitoring",
-    "/dashboard/maintenance-tracking": "Maintenance Tracking",
-    "/dashboard/inventory-management": "Inventory Management",
-    "/dashboard/maintenance-priority": "Maintenance Priority",
-    "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
-    "/dashboard/compliance-tracking": "Compliance Tracking",
-    "/dashboard/profile": "Profile",
-  };
-  const pageTitle = pageMap[location.pathname] || "Dashboard";
+  // const pageMap = {
+  //   "/dashboard/user-management/view-users": "Users",
+  //   "/dashboard/user-management/activity-logs": "Activity Logs",
+  //   "/dashboard/flight-log": "Flight Logs",
+  //   "/dashboard/maintenance-log": "Maintenance Logs",
+  //   "/dashboard/parts-monitoring": "Parts Monitoring",
+  //   "/dashboard/maintenance-tracking": "Maintenance Tracking",
+  //   "/dashboard/inventory-management": "Inventory Management",
+  //   "/dashboard/maintenance-priority": "Maintenance Priority",
+  //   "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
+  //   "/dashboard/compliance-tracking": "Compliance Tracking",
+  //   "/dashboard/profile": "Profile",
+  // };
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>

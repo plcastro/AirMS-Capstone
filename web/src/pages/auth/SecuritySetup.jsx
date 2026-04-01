@@ -17,7 +17,7 @@ const SecuritySetup = () => {
     pin: "",
     confirmPin: "",
   });
-  const [setupSuccess, setSetupSuccess] = useState(false);
+  const [, setSetupSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
 
   const passwordRequirements = {
@@ -78,7 +78,10 @@ const SecuritySetup = () => {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Activation failed");
+      if (!res.ok) {
+        setSetupSuccess(false);
+        throw new Error(data.message || "Activation failed");
+      }
       setSetupSuccess(true);
       antMessage.success(
         "Password and PIN set successfully! Redirecting to login...",

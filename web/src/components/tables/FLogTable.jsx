@@ -10,7 +10,6 @@ export default function FLogTable({
   onShowLog,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const [logToModify, setLogToModify] = useState(null);

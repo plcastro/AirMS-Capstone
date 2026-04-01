@@ -8,7 +8,6 @@ import {
   Typography,
   Space,
   Statistic,
-  message,
   Select,
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";

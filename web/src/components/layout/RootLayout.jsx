@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Flex, Layout } from "antd";
+import { Layout } from "antd";
 import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
 

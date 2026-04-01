@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   BookOutlined,
   UserOutlined,
-  UnorderedListOutlined,
   FlagOutlined,
   LogoutOutlined,
   AuditOutlined,
@@ -62,13 +61,6 @@ const Sidebar = ({ collapsed }) => {
       icon: <BookOutlined />,
       roles: ["maintenance manager"],
     },
-
-    {
-      key: "7",
-      label: "Inventory Management",
-      icon: <UnorderedListOutlined />,
-      roles: ["maintenance manager"],
-    },
     {
       key: "8",
       label: "Maintenance Priority",
@@ -118,7 +110,7 @@ const Sidebar = ({ collapsed }) => {
       "/dashboard/maintenance-log": "4",
       "/dashboard/parts-monitoring": "5",
       "/dashboard/maintenance-tracking": "6",
-      "/dashboard/inventory-management": "7",
+
       "/dashboard/maintenance-priority": "8",
       "/dashboard/maintenance-dashboard": "9",
       "/dashboard/compliance-tracking": "10",

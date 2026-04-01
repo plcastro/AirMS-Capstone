@@ -20,13 +20,6 @@ export default function UpdateSecurity() {
 
   const [validationMessage, setValidationMessage] = useState("");
 
-  const isValidEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-  const isValidPin = (pin) => {
-    return /^\d*$/.test(pin);
-  };
-
   useEffect(() => {
     setPasswordErrors({
       minLength: newPassword.length >= 8,

@@ -18,64 +18,45 @@ const ResetPassword = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const passwordRequirements = {
-    minLength: formData.newPassword.length >= 8,
-    hasUppercase: /[A-Z]/.test(formData.newPassword),
-    hasNumber: /\d/.test(formData.newPassword),
-  };
-
-  const isFormValid =
-    passwordRequirements.minLength &&
-    passwordRequirements.hasUppercase &&
-    passwordRequirements.hasNumber &&
-    formData.confirmPassword &&
-    formData.newPassword === formData.confirmPassword;
-
-  const getRequirementStyle = (met) => ({
-    color: met ? "#26866F" : "#999",
-    fontSize: "12px",
-    marginRight: "5px",
-  });
-
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-    setError("");
     setMessage("");
   };
 
-  const validatePasswords = () => {
-    if (!formData.newPassword || !formData.confirmPassword) {
-      setError("Please fill in all fields.");
-      return false;
+  // Real-time validation
+  useEffect(() => {
+    const { newPassword, confirmPassword } = formData;
+
+    if (!newPassword && !confirmPassword) {
+      setError("");
+      return;
     }
-    if (formData.newPassword !== formData.confirmPassword) {
+
+    const validLength = newPassword.length >= 8;
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasNumber = /\d/.test(newPassword);
+
+    if (!validLength || !hasUppercase || !hasNumber) {
+      setError(
+        "Password must be at least 8 characters, contain an uppercase letter, and include a number.",
+      );
+    } else if (confirmPassword && newPassword !== confirmPassword) {
       setError("Passwords do not match.");
-      return false;
+    } else {
+      setError("");
     }
-    if (
-      !passwordRequirements.minLength ||
-      !passwordRequirements.hasUppercase ||
-      !passwordRequirements.hasNumber
-    ) {
-      setError("Password does not meet requirements.");
-      return false;
-    }
-    return true;
-  };
+  }, [formData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validatePasswords()) return;
+    if (error) return;
 
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/user/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token,
-          newPassword: formData.newPassword,
-        }),
+        body: JSON.stringify({ token, newPassword: formData.newPassword }),
       });
       const data = await res.json();
 
@@ -123,7 +104,6 @@ const ResetPassword = () => {
               placeholder="New Password"
               value={formData.newPassword}
               onChange={(e) => handleChange("newPassword", e.target.value)}
-              minLength={8}
               required
             />
           </div>
@@ -134,37 +114,15 @@ const ResetPassword = () => {
               placeholder="Confirm Password"
               value={formData.confirmPassword}
               onChange={(e) => handleChange("confirmPassword", e.target.value)}
-              minLength={8}
               required
             />
-          </div>
-
-          {/* Password requirements */}
-          <div style={{ marginBottom: "15px" }}>
-            <div>
-              <span style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓ At least 8 characters
-              </span>
-            </div>
-            <div>
-              <span
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                ✓ One uppercase letter
-              </span>
-            </div>
-            <div>
-              <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓ One number
-              </span>
-            </div>
           </div>
 
           <Button
             type="primary"
             className="login-btn"
             htmlType="submit"
-            disabled={loading || !isFormValid}
+            disabled={loading || !!error}
           >
             {loading ? "Resetting..." : "RESET PASSWORD"}
           </Button>

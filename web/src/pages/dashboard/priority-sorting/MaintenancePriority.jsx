@@ -44,7 +44,7 @@ const defaultWeights = {
 };
 
 export default function MaintenancePriority() {
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks] = useState(mockTasks); //setTasks
   const [weights, setWeights] = useState(defaultWeights);
 
   const daysUntilDue = (dueDate) => {
@@ -53,22 +53,21 @@ export default function MaintenancePriority() {
     return Math.max(0, (due - today) / (1000 * 60 * 60 * 24));
   };
 
-  const calculateScore = (task) => {
-    const urgencyScore = 1 / (daysUntilDue(task.dueDate) + 1);
-    const remainingHoursScore = 1 / (task.remainingFlightHours + 1);
-    const turnaroundScore = task.estimatedTurnaround / 24;
-    const safetyScore = task.safetyCritical ? 1 : 0;
-
-    return (
-      weights.urgency * urgencyScore +
-      weights.remainingHours * remainingHoursScore +
-      weights.turnaround * turnaroundScore +
-      weights.safety * safetyScore
-    );
-  };
-
-  const [sortedTasks, setSortedTasks] = useState([]);
   useEffect(() => {
+    const calculateScore = (task) => {
+      const urgencyScore = 1 / (daysUntilDue(task.dueDate) + 1);
+      const remainingHoursScore = 1 / (task.remainingFlightHours + 1);
+      const turnaroundScore = task.estimatedTurnaround / 24;
+      const safetyScore = task.safetyCritical ? 1 : 0;
+
+      return (
+        weights.urgency * urgencyScore +
+        weights.remainingHours * remainingHoursScore +
+        weights.turnaround * turnaroundScore +
+        weights.safety * safetyScore
+      );
+    };
+
     const tasksWithScore = tasks.map((task) => ({
       ...task,
       priorityScore: calculateScore(task),
@@ -76,6 +75,8 @@ export default function MaintenancePriority() {
     tasksWithScore.sort((a, b) => b.priorityScore - a.priorityScore);
     setSortedTasks(tasksWithScore);
   }, [tasks, weights]);
+
+  const [sortedTasks, setSortedTasks] = useState([]);
 
   const columns = [
     {

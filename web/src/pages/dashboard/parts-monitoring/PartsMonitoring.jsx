@@ -8,6 +8,7 @@ import {
   Input,
   Card,
   Divider,
+  message,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
@@ -16,7 +17,7 @@ import {
   getToday,
 } from "../../../utils/partsFormula-AS350B3";
 import "./PartsMonitoring.css";
-import { message, Modal } from "antd";
+
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 
@@ -103,7 +104,7 @@ export default function PartsMonitoring() {
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [loadingAircraft, setLoadingAircraft] = useState(false);
   const [aircraftDetails, setAircraftDetails] = useState({
