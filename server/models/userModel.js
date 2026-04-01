@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
       "Admin",
       "Officer-In-Charge",
       "Engineer",
+      "Warehouse Department",
     ],
     default: "Engineer",
   },
