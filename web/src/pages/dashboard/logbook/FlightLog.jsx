@@ -37,7 +37,7 @@ export default function FlightLog() {
   // Modal states
   const [newEntryModalVisible, setNewEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
+  const [setSelectedLog] = useState(null); // remove selectedLog because it wasnt used
 
   // New Entry Form State
   const [newEntryCurrentTab, setNewEntryCurrentTab] = useState("0");
