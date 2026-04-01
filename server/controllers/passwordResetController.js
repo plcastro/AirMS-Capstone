@@ -7,9 +7,6 @@ const generateOTP = require("../utilities/generateOTP");
 const TOKEN_EXPIRATION = 60 * 60 * 1000;
 const OTP_EXPIRATION = 15 * 60 * 1000;
 
-// ---------------- PASSWORD ----------------
-
-// REQUEST
 const requestPasswordReset = async (req, res) => {
   try {
     const { email, id } = req.body;

@@ -57,7 +57,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
     const fetchEmployees = async () => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+        const response = await fetch(`${API_BASE}/api/user/get-all-users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

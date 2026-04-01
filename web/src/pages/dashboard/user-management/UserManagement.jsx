@@ -80,7 +80,7 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/getAllUsers`);
+      const res = await fetch(`${API_BASE}/api/user/get-all-users`);
       const json = await res.json();
       if (Array.isArray(json.data)) {
         const formatted = json.data.map((u, idx) => ({
@@ -142,7 +142,7 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     if (user._id === currentUserId) return;
-    await fetch(`${API_BASE}/api/user/updateUserStatus/${user._id}`, {
+    await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "deactivated" }),
@@ -151,7 +151,7 @@ export default function UserManagement() {
   };
 
   const handleReactivateUser = async (user) => {
-    await fetch(`${API_BASE}/api/user/updateUserStatus/${user._id}`, {
+    await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "active" }),

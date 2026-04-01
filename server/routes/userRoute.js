@@ -35,14 +35,19 @@ router.post("/login", rateLimiter, loginUser);
 router.post("/logout", logoutUser);
 router.post("/create", upload.single("image"), processImage, createUser);
 router.get("/username-exists", checkUsernameExists);
-router.get("/getAllUsers", getAllUsers);
-router.put("/updateUser/:id", upload.single("image"), processImage, updateUser);
-router.put("/updateUserProfile/:id", updateUserProfile);
-router.put("/change-password/:id", updatePassword);
-router.put("/updatePIN/:id", updatePIN);
-router.put("/updateUserStatus/:id", updateUserStatus);
+router.get("/get-all-users", getAllUsers);
 router.put(
-  "/updateUserImage/:id",
+  "/update-user/:id",
+  upload.single("image"),
+  processImage,
+  updateUser,
+);
+router.put("/update-user-profile/:id", updateUserProfile);
+router.put("/change-password/:id", updatePassword);
+router.put("/update-pin/:id", updatePIN);
+router.put("/update-user-status/:id", updateUserStatus);
+router.put(
+  "/update-user-image/:id",
   upload.single("image"),
   processImage,
   updateUserImage,

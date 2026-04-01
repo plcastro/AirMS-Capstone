@@ -75,7 +75,7 @@ export default function Profile() {
         formData.lastName !== user.lastName
       ) {
         const res = await fetch(
-          `${API_BASE}/api/user/updateUserProfile/${user.id}`,
+          `${API_BASE}/api/user/update-user-profile/${user.id}`,
           {
             method: "PUT",
             headers: {
@@ -111,7 +111,7 @@ export default function Profile() {
       formDataObj.append("image", file);
 
       const res = await fetch(
-        `${API_BASE}/api/user/updateUserImage/${user.id}`,
+        `${API_BASE}/api/user/update-user-image/${user.id}`,
         {
           method: "PUT",
           headers: {
@@ -135,7 +135,7 @@ export default function Profile() {
   const handleRemoveImage = async () => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/updateUserImage/${user.id}`,
+        `${API_BASE}/api/user/update-user-image/${user.id}`,
         {
           method: "PUT",
           headers: {

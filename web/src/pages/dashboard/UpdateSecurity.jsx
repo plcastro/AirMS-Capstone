@@ -17,7 +17,15 @@ export default function UpdateSecurity() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinErrors, setPinErrors] = useState({});
+  const [forgotPinMode, setForgotPinMode] = useState(false);
+  const [passwordForPin, setPasswordForPin] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
 
+  const isValidPin = (pin) => {
+    return /^\d*$/.test(pin);
+  };
   const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
@@ -95,7 +103,7 @@ export default function UpdateSecurity() {
 
   const savePin = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/user/updatePIN/${user.id}`, {
+      const res = await fetch(`${API_BASE}/api/user/update-pin/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -109,6 +117,54 @@ export default function UpdateSecurity() {
 
       setUser((prev) => ({ ...prev, pin: newPin }));
       setValidationMessage("PIN successfully updated!");
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const requestOtpForPin = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user/verify-password-for-pin/${user.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          },
+          body: JSON.stringify({ password: passwordForPin }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setOtpSent(true);
+      message.success("Verification OTP sent to your email!");
+    } catch (err) {
+      message.error(err.message);
+    }
+  };
+
+  const verifyOtp = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user/verify-pin-otp/${user.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          },
+          body: JSON.stringify({ otp }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setOtpVerified(true);
+      message.success("OTP verified! You can now reset your PIN.");
     } catch (err) {
       message.error(err.message);
     }
@@ -170,54 +226,117 @@ export default function UpdateSecurity() {
 
   const PinTab = (
     <Space orientation="vertical">
-      <Input.Password
-        maxLength={6}
-        inputMode="numeric"
-        size="large"
-        placeholder="Current PIN"
-        value={currentPin}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, ""); // remove non-digits
-          setCurrentPin(value);
-        }}
-      />
+      {/* --- User remembers their current PIN --- */}
+      {!forgotPinMode && (
+        <>
+          <Input.Password
+            maxLength={6}
+            inputMode="numeric"
+            size="large"
+            placeholder="Current PIN"
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <Button type="link" onClick={() => setForgotPinMode(true)}>
+            Forgot PIN?
+          </Button>
+          <Input.Password
+            maxLength={6}
+            inputMode="numeric"
+            size="large"
+            placeholder="New PIN"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <Input.Password
+            maxLength={6}
+            inputMode="numeric"
+            size="large"
+            placeholder="Confirm New PIN"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <Row style={{ display: "flex", flexDirection: "row" }}>
+            <Button
+              type="primary"
+              onClick={savePin}
+              disabled={!Object.values(pinErrors).every(Boolean)}
+              style={{ marginRight: 10 }}
+            >
+              Save PIN
+            </Button>
+            <Button type="default" onClick={resetAll}>
+              <ClearOutlined />
+            </Button>
+          </Row>
+        </>
+      )}
 
-      <Input.Password
-        maxLength={6}
-        inputMode="numeric"
-        size="large"
-        placeholder="New PIN"
-        value={newPin}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, ""); // remove non-digits
-          setNewPin(value);
-        }}
-      />
-      <Input.Password
-        maxLength={6}
-        inputMode="numeric"
-        size="large"
-        placeholder="Confirm PIN"
-        value={confirmPin}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, ""); // remove non-digits
-          setConfirmPin(value);
-        }}
-      />
-      <Text></Text>
-      <Row>
-        <Button
-          type="primary"
-          onClick={savePin}
-          disabled={!Object.values(pinErrors).every(Boolean)}
-          style={{ marginRight: 10 }}
-        >
-          Save PIN
-        </Button>
-        <Button type="default" onClick={resetAll}>
-          <ClearOutlined />
-        </Button>
-      </Row>
+      {/* --- Forgot PIN flow --- */}
+      {forgotPinMode && !otpSent && (
+        <>
+          <Input.Password
+            size="large"
+            placeholder="Enter your account password"
+            value={passwordForPin}
+            onChange={(e) => setPasswordForPin(e.target.value)}
+          />
+          <Button
+            type="primary"
+            onClick={requestOtpForPin}
+            disabled={!passwordForPin}
+          >
+            Send OTP
+          </Button>
+        </>
+      )}
+
+      {forgotPinMode && otpSent && !otpVerified && (
+        <>
+          <Input
+            size="large"
+            placeholder="Enter OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
+          <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+            Verify OTP
+          </Button>
+        </>
+      )}
+
+      {forgotPinMode && otpVerified && (
+        <>
+          <Input.Password
+            maxLength={6}
+            inputMode="numeric"
+            size="large"
+            placeholder="New PIN"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <Input.Password
+            maxLength={6}
+            inputMode="numeric"
+            size="large"
+            placeholder="Confirm New PIN"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <Row style={{ display: "flex", flexDirection: "row" }}>
+            <Button
+              type="primary"
+              onClick={savePin}
+              disabled={!Object.values(pinErrors).every(Boolean)}
+            >
+              Save PIN
+            </Button>
+            <Button type="default" onClick={resetAll}>
+              <ClearOutlined />
+            </Button>
+          </Row>
+        </>
+      )}
     </Space>
   );
 

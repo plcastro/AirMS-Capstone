@@ -185,7 +185,7 @@ export default function UserForm({
       );
 
       const url = user
-        ? `${API_BASE}/api/user/updateUser/${user._id}`
+        ? `${API_BASE}/api/user/update-user/${user._id}`
         : `${API_BASE}/api/user/create`;
 
       const res = await fetch(url, {

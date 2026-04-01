@@ -68,7 +68,7 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/updateUserProfile/${user.id}`,
+        `${API_BASE}/api/user/update-user-profile/${user.id}`,
         {
           method: "PUT",
           headers: {
@@ -132,7 +132,7 @@ export default function Profile() {
 
       try {
         const res = await fetch(
-          `${API_BASE}/api/user/updateUserImage/${user.id}`,
+          `${API_BASE}/api/user/update-user-image/${user.id}`,
           {
             method: "PUT",
             headers: {
