@@ -4,34 +4,54 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  TouchableOpacity,
   Text,
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { Button, SegmentedButtons, HelperText } from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function UpdateSecurity() {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const scrollRef = useRef(null);
+
   const [activeTab, setActiveTab] = useState("password");
   const [needScrollHeight, setNeedScrollHeight] = useState(0);
 
+  // --- Password States ---
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
 
+  // --- PIN States ---
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinErrors, setPinErrors] = useState({});
+
+  // --- Forgot PIN Flow ---
+  const [forgotPinMode, setForgotPinMode] = useState(false);
+  const [passwordForPin, setPasswordForPin] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [pinResetToken, setPinResetToken] = useState("");
+
   const [validationMessage, setValidationMessage] = useState("");
 
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // --- Password Validation & Strength ---
+  useEffect(() => {
+    setPasswordErrors({
+      minLength: newPassword.length >= 8,
+      uppercase: /[A-Z]/.test(newPassword),
+      number: /\d/.test(newPassword),
+      match: newPassword === confirmPassword && confirmPassword !== "",
+    });
+  }, [newPassword, confirmPassword]);
 
   const getPasswordStrength = () => {
     if (!newPassword) return { text: "", color: "transparent" };
@@ -42,29 +62,18 @@ export default function UpdateSecurity() {
       /\d/.test(newPassword),
       /[a-z]/.test(newPassword),
     ];
-
     const passedCount = requirements.filter(Boolean).length;
 
-    // Matching your Web colors
     if (passedCount <= 2) return { text: "Weak Password", color: "#ff4d4f" };
     if (passedCount === 3)
       return { text: "Moderate Password", color: "#faad14" };
     if (passedCount === 4) return { text: "Strong Password", color: "#00c88c" };
-
     return { text: "", color: "transparent" };
   };
 
   const strength = getPasswordStrength();
 
-  useEffect(() => {
-    setPasswordErrors({
-      minLength: newPassword.length >= 8,
-      uppercase: /[A-Z]/.test(newPassword),
-      number: /\d/.test(newPassword),
-      match: newPassword === confirmPassword && confirmPassword !== "",
-    });
-  }, [newPassword, confirmPassword]);
-
+  // --- PIN Validation ---
   useEffect(() => {
     setPinErrors({
       isSixDigits: newPin.length === 6,
@@ -72,7 +81,7 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
-  // --- UI HANDLERS ---
+  // --- Reset All Fields ---
   const resetAll = () => {
     setCurrentPassword("");
     setCurrentPin("");
@@ -80,6 +89,13 @@ export default function UpdateSecurity() {
     setConfirmPassword("");
     setNewPin("");
     setConfirmPin("");
+    setPasswordForPin("");
+    setOtp("");
+    setOtpSent(false);
+    setOtpVerified(false);
+    setPinResetToken("");
+    setForgotPinMode(false);
+    setValidationMessage("");
     scrollToInput(0);
   };
 
@@ -87,10 +103,11 @@ export default function UpdateSecurity() {
     scrollRef.current?.scrollTo({ y: y, animated: true });
   };
 
+  // --- Save Password or PIN ---
   const handleSave = async (type) => {
     setValidationMessage("");
     try {
-      const endpoint = type === "Password" ? "change-password" : "change-pin";
+      const endpoint = type === "Password" ? "change-password" : "update-pin";
       const payload =
         type === "Password"
           ? { currentPassword, newPassword }
@@ -109,6 +126,9 @@ export default function UpdateSecurity() {
       if (!res.ok) throw new Error(data.message || "Update failed.");
 
       setValidationMessage(`${type} updated successfully!`);
+
+      if (type === "PIN") setUser((prev) => ({ ...prev, pin: newPin }));
+
       resetAll();
     } catch (err) {
       setValidationMessage(err.message);
@@ -116,91 +136,84 @@ export default function UpdateSecurity() {
     }
   };
 
-  const renderForgotFlow = (type) => (
-    <View style={styles.section}>
-      {!otpSent ? (
-        <>
-          <Text style={styles.label}>Verify Email to Reset {type}</Text>
-          <TextInput
-            style={styles.input}
-            value={verifyEmail}
-            onChangeText={setVerifyEmail}
-            placeholder="Enter email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <Button
-            mode="contained"
-            style={styles.mainBtn}
-            disabled={!isValidEmail(verifyEmail)}
-            onPress={() => requestOtp(type)}
-          >
-            Send OTP
-          </Button>
-          <Button onPress={resetAll}>Cancel</Button>
-        </>
-      ) : !otpVerified ? (
-        <>
-          <Text style={styles.label}>Enter 6-Digit OTP</Text>
-          <TextInput
-            style={styles.input}
-            value={otp}
-            onChangeText={setOtp}
-            keyboardType="numeric"
-            maxLength={6}
-            placeholder="000000"
-          />
-          <Button
-            mode="contained"
-            style={styles.mainBtn}
-            onPress={() => verifyOtp(type)}
-          >
-            Verify OTP
-          </Button>
-          <Button onPress={() => setOtpSent(false)}>Back</Button>
-        </>
-      ) : (
-        <>
-          <Text style={styles.label}>New {type}</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={type === "Password" ? newPassword : newPin}
-            onChangeText={type === "Password" ? setNewPassword : setNewPin}
-            keyboardType={type === "PIN" ? "numeric" : "default"}
-            maxLength={type === "PIN" ? 6 : undefined}
-            placeholder={`New ${type}`}
-          />
-          <Text style={styles.label}>Confirm New {type}</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={type === "Password" ? confirmPassword : confirmPin}
-            onChangeText={
-              type === "Password" ? setConfirmPassword : setConfirmPin
-            }
-            keyboardType={type === "PIN" ? "numeric" : "default"}
-            maxLength={type === "PIN" ? 6 : undefined}
-            placeholder={`Confirm ${type}`}
-            onFocus={() => scrollToInput(250)}
-            onBlur={() => scrollToInput(0)}
-          />
-          <Button
-            mode="contained"
-            style={styles.mainBtn}
-            disabled={
-              type === "Password"
-                ? !Object.values(passwordErrors).every(Boolean)
-                : !Object.values(pinErrors).every(Boolean)
-            }
-            onPress={() => handleReset(type)}
-          >
-            Reset {type}
-          </Button>
-        </>
-      )}
-    </View>
-  );
+  // --- Forgot PIN OTP Flow ---
+  const requestOtp = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user/request-pin-reset/${user.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({ currentPassword: passwordForPin }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setOtpSent(true);
+      setPinResetToken(data.token);
+      setValidationMessage("OTP sent to your email.");
+    } catch (err) {
+      setValidationMessage(err.message);
+    }
+  };
+
+  const verifyOtp = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ otp, token: pinResetToken }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.message.includes("expired")) {
+          setOtpSent(false);
+          setValidationMessage("OTP expired! Request a new one.");
+        } else throw new Error(data.message);
+        return;
+      }
+
+      setOtpVerified(true);
+      setValidationMessage("OTP verified! You can now reset your PIN.");
+    } catch (err) {
+      setValidationMessage(err.message);
+    }
+  };
+
+  const handleReset = async (type) => {
+    if (type === "PIN") {
+      try {
+        const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({ token: pinResetToken, newPin }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
+
+        setUser((prev) => ({ ...prev, pin: newPin }));
+        Alert.alert("Success", "PIN successfully reset!");
+        resetAll();
+      } catch (err) {
+        Alert.alert("Error", err.message);
+      }
+    }
+  };
+
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   return (
     <KeyboardAvoidingView
@@ -225,7 +238,9 @@ export default function UpdateSecurity() {
           ]}
           style={styles.tabs}
         />
-        {activeTab === "password" ? (
+
+        {/* --- Password Tab --- */}
+        {activeTab === "password" && (
           <View style={styles.section}>
             <Text style={styles.label}>Current Password</Text>
             <TextInput
@@ -235,7 +250,6 @@ export default function UpdateSecurity() {
               onChangeText={setCurrentPassword}
               placeholder="Enter current password"
             />
-
             <Text style={styles.label}>New Password</Text>
             <TextInput
               style={styles.input}
@@ -244,21 +258,17 @@ export default function UpdateSecurity() {
               onChangeText={setNewPassword}
               placeholder="Enter new password"
             />
-
-            <View style={{ height: 20, justifyContent: "center" }}>
-              {newPassword ? (
-                <Text
-                  style={{
-                    color: strength.color,
-                    fontWeight: "bold",
-                    fontSize: 12,
-                  }}
-                >
-                  {strength.text}
-                </Text>
-              ) : null}
-            </View>
-
+            {newPassword ? (
+              <Text
+                style={{
+                  color: strength.color,
+                  fontWeight: "bold",
+                  fontSize: 12,
+                }}
+              >
+                {strength.text}
+              </Text>
+            ) : null}
             <Text style={styles.label}>Confirm Password</Text>
             <TextInput
               style={styles.input}
@@ -266,93 +276,169 @@ export default function UpdateSecurity() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-type new password"
-              onFocus={() => {
-                scrollToInput(250);
-                setNeedScrollHeight(300);
-              }}
-              onBlur={() => {
-                scrollToInput(0);
-                setNeedScrollHeight(10);
-              }}
             />
-
             {validationMessage ? (
-              <View style={{ marginTop: 10 }}>
-                <Text
-                  style={{
-                    color: validationMessage.includes("successfully")
-                      ? "#00c88c"
-                      : "#ff4d4f",
-                    textAlign: "center",
-                  }}
-                >
-                  {validationMessage}
-                </Text>
-              </View>
+              <Text
+                style={{
+                  color: validationMessage.includes("successfully")
+                    ? "#00c88c"
+                    : "#ff4d4f",
+                  textAlign: "center",
+                  marginTop: 10,
+                }}
+              >
+                {validationMessage}
+              </Text>
             ) : null}
-
             <Button
               mode="contained"
-              style={styles.mainBtn}
               disabled={!Object.values(passwordErrors).every(Boolean)}
               onPress={() => handleSave("Password")}
+              style={styles.mainBtn}
             >
               Save Password
             </Button>
           </View>
-        ) : (
+        )}
+
+        {/* --- PIN Tab --- */}
+        {activeTab === "pin" && (
           <View style={styles.section}>
-            <Text style={styles.label}>Current 6-Digit PIN</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={currentPin}
-              onChangeText={setCurrentPin}
-              keyboardType="numeric"
-              maxLength={6}
-              placeholder="000000"
-            />
-            <TouchableOpacity onPress={() => setForgotPinMode(true)}>
-              <Text style={styles.link}>Forgot PIN?</Text>
-            </TouchableOpacity>
-            <Text style={styles.label}>New PIN</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={newPin}
-              onChangeText={setNewPin}
-              keyboardType="numeric"
-              maxLength={6}
-              placeholder="000000"
-            />
-            <Text style={styles.label}>Confirm PIN</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={confirmPin}
-              onChangeText={setConfirmPin}
-              keyboardType="numeric"
-              maxLength={6}
-              placeholder="000000"
-              onFocus={() => {
-                scrollToInput(250);
-                setNeedScrollHeight(300);
-              }}
-              onBlur={() => {
-                scrollToInput(0);
-                setNeedScrollHeight(10);
-              }}
-            />
-            <Button
-              mode="contained"
-              style={styles.mainBtn}
-              disabled={!Object.values(pinErrors).every(Boolean)}
-              onPress={() => handleSave("PIN")}
-            >
-              Save PIN
-            </Button>
+            {!forgotPinMode && (
+              <>
+                <Text style={styles.label}>Current PIN</Text>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  value={currentPin}
+                  onChangeText={setCurrentPin}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                />
+                <TouchableOpacity onPress={() => setForgotPinMode(true)}>
+                  <Text style={styles.link}>Forgot PIN?</Text>
+                </TouchableOpacity>
+                <Text style={styles.label}>New PIN</Text>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  value={newPin}
+                  onChangeText={setNewPin}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                />
+                <Text style={styles.label}>Confirm PIN</Text>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  value={confirmPin}
+                  onChangeText={setConfirmPin}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                />
+                <Button
+                  mode="contained"
+                  disabled={!Object.values(pinErrors).every(Boolean)}
+                  onPress={() => handleSave("PIN")}
+                  style={styles.mainBtn}
+                >
+                  Save PIN
+                </Button>
+              </>
+            )}
+
+            {/* --- Forgot PIN Flow --- */}
+            {forgotPinMode && !otpSent && (
+              <View style={styles.section}>
+                <Text style={styles.label}>
+                  Enter Current Password to Reset PIN
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  value={passwordForPin}
+                  onChangeText={setPasswordForPin}
+                  placeholder="Current password"
+                />
+                {validationMessage ? (
+                  <Text style={{ color: "#ff4d4f" }}>{validationMessage}</Text>
+                ) : null}
+                <Button
+                  mode="contained"
+                  onPress={requestOtp}
+                  disabled={!passwordForPin}
+                  style={styles.mainBtn}
+                >
+                  Send OTP
+                </Button>
+                <Button onPress={resetAll}>Cancel</Button>
+              </View>
+            )}
+
+            {forgotPinMode && otpSent && !otpVerified && (
+              <View style={styles.section}>
+                <Text style={styles.label}>Enter OTP</Text>
+                <TextInput
+                  style={styles.input}
+                  value={otp}
+                  onChangeText={setOtp}
+                  placeholder="000000"
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                {validationMessage ? (
+                  <Text style={{ color: "#ff4d4f" }}>{validationMessage}</Text>
+                ) : null}
+                <Button
+                  mode="contained"
+                  onPress={verifyOtp}
+                  disabled={!otp}
+                  style={styles.mainBtn}
+                >
+                  Verify OTP
+                </Button>
+                <Button onPress={() => setOtpSent(false)}>Back</Button>
+              </View>
+            )}
+
+            {forgotPinMode && otpVerified && (
+              <View style={styles.section}>
+                <Text style={styles.label}>New PIN</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newPin}
+                  onChangeText={setNewPin}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  secureTextEntry
+                  placeholder="000000"
+                />
+                <Text style={styles.label}>Confirm New PIN</Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPin}
+                  onChangeText={setConfirmPin}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  secureTextEntry
+                  placeholder="000000"
+                />
+                <Button
+                  mode="contained"
+                  disabled={!Object.values(pinErrors).every(Boolean)}
+                  onPress={() => handleReset("PIN")}
+                  style={styles.mainBtn}
+                >
+                  Reset PIN
+                </Button>
+              </View>
+            )}
           </View>
         )}
+
         <View style={{ height: needScrollHeight }} />
       </ScrollView>
     </KeyboardAvoidingView>

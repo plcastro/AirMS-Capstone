@@ -22,11 +22,8 @@ export default function UpdateSecurity() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
-
-  const isValidPin = (pin) => {
-    return /^\d*$/.test(pin);
-  };
   const [validationMessage, setValidationMessage] = useState("");
+  const [pinResetToken, setPinResetToken] = useState("");
 
   useEffect(() => {
     setPasswordErrors({
@@ -116,7 +113,8 @@ export default function UpdateSecurity() {
       if (!res.ok) throw new Error(data.message);
 
       setUser((prev) => ({ ...prev, pin: newPin }));
-      setValidationMessage("PIN successfully updated!");
+      message.success("PIN successfully updated!");
+      resetAll();
     } catch (err) {
       message.error(err.message);
     }
@@ -125,14 +123,14 @@ export default function UpdateSecurity() {
   const requestOtpForPin = async () => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/verify-password-for-pin/${user.id}`,
+        `${API_BASE}/api/user/request-pin-reset/${user.id}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
           },
-          body: JSON.stringify({ password: passwordForPin }),
+          body: JSON.stringify({ currentPassword: passwordForPin }),
         },
       );
 
@@ -140,36 +138,67 @@ export default function UpdateSecurity() {
       if (!res.ok) throw new Error(data.message);
 
       setOtpSent(true);
-      message.success("Verification OTP sent to your email!");
+      setPinResetToken(data.token); // store the token here
+      setValidationMessage("Verification OTP sent to your email.");
     } catch (err) {
-      message.error(err.message);
+      setValidationMessage(err.message);
     }
   };
-
   const verifyOtp = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/user/verify-pin-otp/${user.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-          body: JSON.stringify({ otp }),
+      const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
         },
-      );
+        body: JSON.stringify({ otp, token: pinResetToken }), // use token from state
+      });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+
+      if (!res.ok) {
+        if (data.message.includes("expired")) {
+          setOtpSent(false); // allow resending
+          setValidationMessage("OTP expired! Please request a new one.");
+        } else {
+          throw new Error(data.message);
+        }
+        return;
+      }
 
       setOtpVerified(true);
       message.success("OTP verified! You can now reset your PIN.");
     } catch (err) {
+      setValidationMessage(err.message);
+    }
+  };
+  const resetForgottenPin = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+        },
+        body: JSON.stringify({ token: pinResetToken, newPin }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      message.success("PIN successfully reset!");
+
+      // Reset flow state
+      setOtpVerified(false);
+      setOtpSent(false);
+      setForgotPinMode(false); // exit forgot PIN mode
+      resetAll(); // clear all inputs
+      setPinResetToken("");
+    } catch (err) {
       message.error(err.message);
     }
   };
-
   const PasswordTab = (
     <Space orientation="vertical">
       <Input.Password
@@ -277,10 +306,11 @@ export default function UpdateSecurity() {
         <>
           <Input.Password
             size="large"
-            placeholder="Enter your account password"
+            placeholder="Enter your current password"
             value={passwordForPin}
             onChange={(e) => setPasswordForPin(e.target.value)}
           />
+          {validationMessage && <Text type="danger">{validationMessage}</Text>}
           <Button
             type="primary"
             onClick={requestOtpForPin}
@@ -299,9 +329,19 @@ export default function UpdateSecurity() {
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
           />
-          <Button type="primary" onClick={verifyOtp} disabled={!otp}>
-            Verify OTP
-          </Button>
+          {validationMessage && <Text type="danger">{validationMessage}</Text>}
+          <Row style={{ display: "flex", flexDirection: "row" }}>
+            <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+              Verify OTP
+            </Button>
+            <Button
+              type="default"
+              onClick={requestOtpForPin}
+              style={{ marginLeft: 10 }}
+            >
+              Resend OTP
+            </Button>
+          </Row>
         </>
       )}
 
@@ -326,10 +366,10 @@ export default function UpdateSecurity() {
           <Row style={{ display: "flex", flexDirection: "row" }}>
             <Button
               type="primary"
-              onClick={savePin}
+              onClick={resetForgottenPin}
               disabled={!Object.values(pinErrors).every(Boolean)}
             >
-              Save PIN
+              Reset PIN
             </Button>
             <Button type="default" onClick={resetAll}>
               <ClearOutlined />

@@ -63,7 +63,7 @@ router.post("/request-password-reset", requestPasswordReset);
 router.post("/verify-otp", verifyOtp);
 router.post("/reset-password", resetPassword);
 
-router.post("/request-pin-reset", requestPinReset);
+router.post("/request-pin-reset/:id", requestPinReset);
 router.post("/verify-pin-otp", verifyPinOtp);
 router.post("/reset-pin", resetPin);
 

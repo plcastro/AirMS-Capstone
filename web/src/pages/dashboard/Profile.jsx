@@ -36,8 +36,8 @@ export default function Profile() {
       minute: "2-digit",
     });
   };
+  console.log(user.image);
 
-  // --- Load user info ---
   useEffect(() => {
     if (!user) return;
 

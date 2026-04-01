@@ -88,7 +88,6 @@ const resetPassword = async (req, res) => {
   if (!user) return res.status(400).json({ message: "Invalid token" });
 
   user.password = await bcrypt.hash(newPassword, 12);
-
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
   user.otp = undefined;
@@ -99,33 +98,36 @@ const resetPassword = async (req, res) => {
   res.json({ message: "Password reset successful" });
 };
 
-// ---------------- PIN ----------------
-
 // REQUEST
 const requestPinReset = async (req, res) => {
-  const { email, id } = req.body;
-  const user = await UserModel.findOne({ _id: id });
+  try {
+    const { currentPassword } = req.body;
+    const { id } = req.params;
 
-  if (!user)
-    return res.status(404).json({ message: "User ID does not exists!" });
+    const user = await UserModel.findById(id).select("+password");
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  if (user.email !== email)
-    return res.status(404).json({ message: "Email is not registered!" });
+    if (!user.password) {
+      return res.status(400).json({ message: "User has no password set" });
+    }
 
-  const token = crypto.randomBytes(32).toString("hex");
-  const otp = generateOTP();
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Incorrect password" });
 
-  user.resetPinToken = token;
-  user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
-  user.pinOtp = await bcrypt.hash(otp, 10);
-  user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+    const token = crypto.randomBytes(32).toString("hex");
+    const otp = generateOTP();
 
-  await user.save();
+    user.resetPinToken = token;
+    user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
+    user.pinOtp = await bcrypt.hash(otp, 10);
+    user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+    await user.save();
 
-  await sendEmail({
-    to: user.email,
-    subject: "Reset your PIN",
-    html: `
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your PIN",
+      html: `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
       <h2 style="color: #333;">PIN Reset Request</h2>
       <p>Hello,</p>
@@ -141,26 +143,29 @@ const requestPinReset = async (req, res) => {
       <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
     </div>
   `,
-  });
+    });
 
-  res.json({ token });
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 // VERIFY PIN OTP
 const verifyPinOtp = async (req, res) => {
   const { token, otp } = req.body;
 
-  const user = await UserModel.findOne({
-    resetPinToken: token,
-    resetPinExpires: { $gt: Date.now() },
-  });
-
+  const user = await UserModel.findOne({ resetPinToken: token });
   if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  if (user.pinOtpExpires < Date.now())
+    return res.status(400).json({ message: "OTP expired" });
 
   const valid = await bcrypt.compare(otp, user.pinOtp);
   if (!valid) return res.status(400).json({ message: "Invalid OTP" });
 
-  res.json({ message: "OTP verified" });
+  res.json({ message: "OTP verified", token: user.resetPinToken });
 };
 
 // RESET PIN
