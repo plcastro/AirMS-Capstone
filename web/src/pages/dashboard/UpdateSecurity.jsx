@@ -189,11 +189,10 @@ export default function UpdateSecurity() {
 
       message.success("PIN successfully reset!");
 
-      // Reset flow state
       setOtpVerified(false);
       setOtpSent(false);
-      setForgotPinMode(false); // exit forgot PIN mode
-      resetAll(); // clear all inputs
+      setForgotPinMode(false);
+      resetAll();
       setPinResetToken("");
     } catch (err) {
       message.error(err.message);
@@ -258,32 +257,38 @@ export default function UpdateSecurity() {
       {/* --- User remembers their current PIN --- */}
       {!forgotPinMode && (
         <>
-          <Input.Password
-            maxLength={6}
-            inputMode="numeric"
-            size="large"
-            placeholder="Current PIN"
+          <Text>Current PIN</Text>
+          <Input.OTP
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
             value={currentPin}
-            onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
           />
-          <Button type="link" onClick={() => setForgotPinMode(true)}>
-            Forgot PIN?
-          </Button>
-          <Input.Password
-            maxLength={6}
-            inputMode="numeric"
-            size="large"
-            placeholder="New PIN"
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+            }}
+          >
+            <Button
+              type="link"
+              onClick={() => setForgotPinMode(true)}
+              style={{ alignSelf: "flex-end" }}
+            >
+              Forgot PIN?
+            </Button>
+          </div>
+          <Text>New PIN</Text>
+          <Input.OTP
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
           />
-          <Input.Password
-            maxLength={6}
-            inputMode="numeric"
-            size="large"
-            placeholder="Confirm New PIN"
+          <Text>Confirm PIN</Text>
+          <Input.OTP
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
           />
           <Row style={{ display: "flex", flexDirection: "row" }}>
             <Button
@@ -323,11 +328,11 @@ export default function UpdateSecurity() {
 
       {forgotPinMode && otpSent && !otpVerified && (
         <>
-          <Input
-            size="large"
-            placeholder="Enter OTP"
+          <Text>Enter the OTP sent to your email</Text>
+          <Input.OTP
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
           />
           {validationMessage && <Text type="danger">{validationMessage}</Text>}
           <Row style={{ display: "flex", flexDirection: "row" }}>
@@ -347,21 +352,17 @@ export default function UpdateSecurity() {
 
       {forgotPinMode && otpVerified && (
         <>
-          <Input.Password
-            maxLength={6}
-            inputMode="numeric"
-            size="large"
-            placeholder="New PIN"
+          <Text>New PIN</Text>
+          <Input.OTP
+            length={6}
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            formatter={(str) => str.replace(/\D/g, "")}
           />
-          <Input.Password
-            maxLength={6}
-            inputMode="numeric"
-            size="large"
-            placeholder="Confirm New PIN"
+          <Text>Confirm PIN</Text>
+          <Input.OTP
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
           />
           <Row style={{ display: "flex", flexDirection: "row" }}>
             <Button
