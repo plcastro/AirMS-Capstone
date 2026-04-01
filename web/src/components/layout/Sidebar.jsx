@@ -62,6 +62,12 @@ const Sidebar = ({ collapsed }) => {
       roles: ["maintenance manager"],
     },
     {
+      key: "7",
+      label: "Parts Requisition Monitoring",
+      icon: <BookOutlined />,
+      roles: ["maintenance manager", "officer-in-charge"],
+    },
+    {
       key: "8",
       label: "Maintenance Priority",
       icon: <FlagOutlined />,
@@ -75,12 +81,6 @@ const Sidebar = ({ collapsed }) => {
     },
     {
       key: "10",
-      label: "Compliance Tracking",
-      icon: <AreaChartOutlined />,
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
-      key: "11",
       label: "Profile",
       icon: <UserOutlined />,
       roles: ["admin", "maintenance manager", "pilot"],
@@ -110,11 +110,10 @@ const Sidebar = ({ collapsed }) => {
       "/dashboard/maintenance-log": "4",
       "/dashboard/parts-monitoring": "5",
       "/dashboard/maintenance-tracking": "6",
-
+      "/dashboard/parts-requisition": "7",
       "/dashboard/maintenance-priority": "8",
       "/dashboard/maintenance-dashboard": "9",
-      "/dashboard/compliance-tracking": "10",
-      "/dashboard/profile": "11",
+      "/dashboard/profile": "10",
     }),
     [],
   ); // Empty array means it's created only once

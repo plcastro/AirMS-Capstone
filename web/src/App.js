@@ -37,8 +37,11 @@ const MaintenanceLog = lazy(
 const MaintenanceDashboard = lazy(
   () => import("./pages/dashboard/reports/MaintenanceDashboard"),
 );
-const PartsMonitoring = lazy(
-  () => import("./pages/dashboard/parts-monitoring/PartsMonitoring"),
+const PartsLifespanMonitoring = lazy(
+  () => import("./pages/dashboard/parts-monitoring/PartsLifespanMonitoring"),
+);
+const PartsRequisition = lazy(
+  () => import("./pages/dashboard/parts-monitoring/PartsReqMonitoring"),
 );
 const MaintenanceTracking = lazy(
   () => import("./pages/dashboard/parts-monitoring/MaintenanceTracking"),
@@ -47,10 +50,6 @@ const MaintenanceTracking = lazy(
 const MaintenancePriority = lazy(
   () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
 );
-const ComplianceTracking = lazy(
-  () => import("./pages/dashboard/parts-monitoring/ComplianceTracking"),
-);
-
 const Profile = lazy(() => import("./pages/dashboard/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -122,12 +121,12 @@ const AppRouter = () => {
             }
           />
           <Route
-            path="parts-monitoring"
+            path="parts-lifespan-monitoring"
             element={
               <ProtectedRoute
                 allowedRoles={["maintenance manager", "officer-in-charge"]}
               >
-                <PartsMonitoring />
+                <PartsLifespanMonitoring />
               </ProtectedRoute>
             }
           />
@@ -161,12 +160,12 @@ const AppRouter = () => {
             }
           />
           <Route
-            path="compliance-tracking"
+            path="parts-requisition"
             element={
               <ProtectedRoute
                 allowedRoles={["maintenance manager", "officer-in-charge"]}
               >
-                <ComplianceTracking />
+                <PartsRequisition />
               </ProtectedRoute>
             }
           />

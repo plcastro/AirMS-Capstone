@@ -16,7 +16,7 @@ import {
   processDataWithFormulas,
   getToday,
 } from "../../../utils/partsFormula-AS350B3";
-import "./PartsMonitoring.css";
+import "./PartsLifespanMonitoring.css";
 
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -90,7 +90,7 @@ const columnHeader = [
 // =========================================================================
 // Main component
 // =========================================================================
-export default function PartsMonitoring() {
+export default function PartsLifespanMonitoring() {
   // Reference values (editable by user)
   const [refs, setRefs] = useState({
     today: getToday(),

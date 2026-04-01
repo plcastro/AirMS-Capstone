@@ -28,10 +28,9 @@ const DashboardLayout = () => {
   //   "/dashboard/maintenance-log": "Maintenance Logs",
   //   "/dashboard/parts-monitoring": "Parts Monitoring",
   //   "/dashboard/maintenance-tracking": "Maintenance Tracking",
-  //   "/dashboard/inventory-management": "Inventory Management",
+  //   "/dashboard/parts-requisition": "Parts Requisition Monitoring",
   //   "/dashboard/maintenance-priority": "Maintenance Priority",
   //   "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
-  //   "/dashboard/compliance-tracking": "Compliance Tracking",
   //   "/dashboard/profile": "Profile",
   // };
 

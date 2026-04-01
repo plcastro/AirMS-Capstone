@@ -80,4 +80,7 @@ const partsMonitoringSchema = new mongoose.Schema(
 // Index for faster queries
 partsMonitoringSchema.index({ lastUpdated: -1 });
 
-module.exports = mongoose.model("PartsMonitoring", partsMonitoringSchema);
+module.exports = mongoose.model(
+  "PartsLifespanMonitoring",
+  partsMonitoringSchema,
+);
