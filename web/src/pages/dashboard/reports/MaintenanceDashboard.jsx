@@ -32,7 +32,7 @@ const { Title } = Typography;
 export default function MaintenanceDashboard() {
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
-  const [fileTypeOptions, setFileTypeOptions] = useState(["PDF", "Excel"]);
+  const [fileTypeOptions] = useState(["PDF", "Excel"]);
 
   const cards = [
     {
@@ -75,21 +75,21 @@ export default function MaintenanceDashboard() {
     .sort((a, b) => b.relevance - a.relevance) // most relevant first
     .filter((card) => searchText === "" || card.relevance > 0); // optionally hide non-relevant cards
 
-  const filteredSummary = summarydata.filter(
-    (item) =>
-      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.task.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  // const filteredSummary = summarydata.filter(
+  //   (item) =>
+  //     item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+  //     item.task.toLowerCase().includes(searchText.toLowerCase()),
+  // );
 
-  const filteredHistory = mhistorydata.filter(
-    (item) =>
-      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.task.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  // const filteredHistory = mhistorydata.filter(
+  //   (item) =>
+  //     item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+  //     item.task.toLowerCase().includes(searchText.toLowerCase()),
+  // );
 
-  const filteredComponents = componentData.filter((item) =>
-    item.component.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  // const filteredComponents = componentData.filter((item) =>
+  //   item.component.toLowerCase().includes(searchText.toLowerCase()),
+  // );
   return (
     <div
       style={{
@@ -102,7 +102,7 @@ export default function MaintenanceDashboard() {
       <Card style={{ marginBottom: 20 }}>
         <Row justify="space-between" align="middle" gutter={[16, 16]}>
           <Col xs={24} md={6}>
-            <Title level={3} style={{ margin: 0 }}>
+            <Title level={4} style={{ margin: 0 }}>
               Maintenance Dashboard
             </Title>
           </Col>
@@ -177,43 +177,7 @@ export default function MaintenanceDashboard() {
         </Col>
       </Row>
 
-      {/* <Row gutter={[16, 16]}>
-        <Col xs={24} lg={16}>
-          <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-            <Card title="Performance Overview">
-              <div id="performanceChart">
-                <MaintenancePerformance data={PACChartMock} />
-              </div>
-            </Card>
-
-            <Card title="Maintenance Insights">
-              <div id="summaryChart">
-                <MaintenanceSummary
-                  summaryData={filteredSummary}
-                  repairData={repairData}
-                />
-              </div>
-            </Card>
-            <Card title="Component Analysis">
-              <div id="componentChart">
-                <ComponentUsage data={filteredComponents} />
-              </div>
-            </Card>
-          </Space>
-        </Col>
-
-        <Col xs={24} lg={8}>
-          <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-            <Card title="Maintenance History">
-              <div id="historyChart">
-                <MaintenanceHistory data={filteredHistory} />
-              </div>
-            </Card>
-          </Space>
-        </Col>
-      </Row> */}
       <Row gutter={[16, 16]}>
-        {/* Determine left and right columns */}
         {filteredCards.length === 1 ? (
           // Single card spans full width
           <Col xs={24} lg={24}>

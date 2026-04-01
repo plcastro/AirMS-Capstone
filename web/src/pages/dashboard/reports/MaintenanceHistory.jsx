@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Row, Col, message, Button, Card, Typography } from "antd";
+import { Row, Col, Card, Typography } from "antd";
 
 import { SDMChart, ARTChart } from "../../../components/common/PieChart";
 import MHistoryTable from "../../../components/tables/MHistoryTable";
@@ -7,7 +7,7 @@ import MHistoryTable from "../../../components/tables/MHistoryTable";
 const { Title } = Typography;
 
 export default function MaintenanceHistory({ data }) {
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   const headers = [
     {
@@ -46,9 +46,9 @@ export default function MaintenanceHistory({ data }) {
         marginBottom: 10,
       }}
     >
-      <Row gutter={24}>
+      <Row gutter={24} align={"center"} style={{ gap: 10 }}>
         <Col xs={24}>
-          <Card size="small">
+          <Card>
             <Title level={5} style={{ margin: 0 }}>
               Same-day Repairs (Last 30 days)
             </Title>
@@ -56,7 +56,7 @@ export default function MaintenanceHistory({ data }) {
           </Card>
         </Col>
         <Col xs={24}>
-          <Card size="small">
+          <Card>
             <Title level={5} style={{ margin: 0 }}>
               Average Rectification Time
             </Title>
