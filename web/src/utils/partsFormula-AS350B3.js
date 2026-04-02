@@ -1,4 +1,3 @@
-// Helper to parse date strings
 export const parseDate = (dateStr) => {
   if (!dateStr || dateStr === "N/A" || dateStr === "") return null;
 
@@ -25,7 +24,6 @@ export const parseDate = (dateStr) => {
   return null;
 };
 
-// Format date to mm/dd/yy
 export const formatDate = (date) => {
   if (!date || isNaN(date.getTime())) return "";
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -34,27 +32,42 @@ export const formatDate = (date) => {
   return `${mm}/${dd}/${yy}`;
 };
 
-// Get today's date
 export const getToday = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today;
 };
 
-// Calculate days between dates
 export const daysBetween = (date1, date2) => {
   if (!date1 || !date2) return null;
   const diffTime = date2 - date1;
   return Math.round(diffTime / (1000 * 60 * 60 * 24));
 };
 
-// Parse Excel formula and evaluate
+const safeEvaluate = (expression) => {
+  const expr = expression.replace(/\s/g, "");
+
+  if (!/^[\d+\-*/().]+$/.test(expr)) {
+    throw new Error("Invalid expression");
+  }
+
+  try {
+    const fn = new Function(`return (${expr})`);
+    const result = fn();
+    if (typeof result !== "number" || isNaN(result)) {
+      throw new Error("Result is not a number");
+    }
+    return result;
+  } catch (err) {
+    throw new Error("Evaluation error");
+  }
+};
+
 const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
   if (!formula || !formula.startsWith("=")) return formula;
 
   const expression = formula.substring(1);
 
-  // Handle cell references like K20, L$1
   const cellRegex = /([A-Z]+)(\$?)(\d+)/g;
   let evaluatedExpression = expression;
 
@@ -68,16 +81,13 @@ const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
     let value;
 
     if (isAbsolute && rowNum === 1) {
-      // Reference to header row like L$1 - these are reference values
       if (colLetter === "L") value = refs.today;
       else if (colLetter === "K") value = "";
       else value = "";
     } else {
-      // Reference to another row
-      const targetRowIndex = rowNum - 1; // Convert to 0-based index
+      const targetRowIndex = rowNum - 1;
       if (targetRowIndex >= 0 && targetRowIndex < allData.length) {
         const targetRow = allData[targetRowIndex];
-        // Map column letters to dataIndex
         const colMap = {
           A: "componentName",
           B: "hourLimit1",
@@ -103,28 +113,23 @@ const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
       }
     }
 
-    // Replace the cell reference with its value
     evaluatedExpression = evaluatedExpression.replace(
       cellRef,
       value !== undefined ? value : "0",
     );
   }
 
-  // Evaluate the expression
   try {
-    // Handle date arithmetic
     if (
       evaluatedExpression.includes("+") ||
       evaluatedExpression.includes("-")
     ) {
-      // Check if it's date arithmetic
-      const parts = evaluatedExpression.split(/([+\-])/);
+      const parts = evaluatedExpression.split(/([+-])/);
       if (parts.length >= 3) {
         const left = parts[0].trim();
         const operator = parts[1];
         const right = parts[2].trim();
 
-        // If left side is a date string
         const leftDate = parseDate(left);
         if (leftDate && !isNaN(right)) {
           const resultDate = new Date(leftDate);
@@ -138,8 +143,7 @@ const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
       }
     }
 
-    // Regular arithmetic
-    const result = eval(evaluatedExpression);
+    const result = safeEvaluate(evaluatedExpression);
     return result;
   } catch (error) {
     console.error("Error evaluating formula:", formula, error);
@@ -147,7 +151,6 @@ const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
   }
 };
 
-// Calculate TT/CYC due with formula support
 export const calculateTTCycleDue = (
   hourLimit,
   hoursCW,
@@ -156,7 +159,6 @@ export const calculateTTCycleDue = (
   rowIndex,
   refs,
 ) => {
-  // Check if hourLimit is a formula
   if (hourLimit && hourLimit.startsWith("=")) {
     hourLimit = evaluateFormula(hourLimit, row, allData, rowIndex, refs);
   }
@@ -171,7 +173,6 @@ export const calculateTTCycleDue = (
   return (limit + hrs).toFixed(1);
 };
 
-// Calculate days remaining with formula support
 export const calculateDaysRemaining = (
   dateCW,
   dayLimit,
@@ -196,7 +197,6 @@ export const calculateDaysRemaining = (
   return daysBetween(today, dueDate);
 };
 
-// Calculate date due with formula support
 export const calculateDateDue = (
   dateCW,
   dayLimit,
@@ -220,7 +220,6 @@ export const calculateDateDue = (
   return formatDate(dueDate);
 };
 
-// Calculate time remaining with formula support
 export const calculateTimeRemaining = (
   ttCycleDue,
   acftTT,
@@ -250,13 +249,11 @@ export const calculateTimeRemaining = (
   }
 };
 
-// Apply all formulas to a row
 export const applyFormulas = (row, allData, rowIndex, refs) => {
   const { today, acftTT, n1Cycles, n2Cycles } = refs;
 
   let newRow = { ...row };
 
-  // Calculate days remaining and date due
   if (
     (row.dateCW && row.dateCW !== "N/A" && row.dateCW !== "") ||
     (row.dayLimit && row.dayLimit !== "")
@@ -281,7 +278,6 @@ export const applyFormulas = (row, allData, rowIndex, refs) => {
     );
   }
 
-  // Calculate ttCycleDue
   if (
     (row.hourLimit1 && row.hourLimit1 !== "") ||
     (row.hoursCW && row.hoursCW !== "")
@@ -296,7 +292,6 @@ export const applyFormulas = (row, allData, rowIndex, refs) => {
     );
   }
 
-  // Calculate time remaining
   if (newRow.ttCycleDue) {
     newRow.timeRemaining = calculateTimeRemaining(
       newRow.ttCycleDue,
@@ -311,27 +306,22 @@ export const applyFormulas = (row, allData, rowIndex, refs) => {
     );
   }
 
-  // Check if due
   newRow.due = checkDue(newRow.timeRemaining, newRow.daysRemaining);
 
   return newRow;
 };
 
-// Determine if item is due
 export const checkDue = (timeRemaining, daysRemaining) => {
   if (timeRemaining && parseFloat(timeRemaining) <= 30) return "DUE";
   if (daysRemaining && daysRemaining <= 30) return "DUE";
   return "";
 };
 
-// Process entire dataset with formulas
 export const processDataWithFormulas = (data, refs) => {
-  // First pass: apply formulas that don't depend on other calculated values
   let processedData = data.map((row, index) => {
     return applyFormulas(row, data, index, refs);
   });
 
-  // Second pass: apply formulas that might depend on previously calculated values
   processedData = processedData.map((row, index) => {
     return applyFormulas(row, processedData, index, refs);
   });
