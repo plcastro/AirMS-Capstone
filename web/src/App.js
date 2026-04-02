@@ -50,7 +50,9 @@ const MaintenanceTracking = lazy(
 const MaintenancePriority = lazy(
   () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
 );
-const Profile = lazy(() => import("./pages/dashboard/Profile"));
+const Profile = lazy(
+  () => import("./pages/dashboard/account-settings/Profile"),
+);
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AppRouter = () => {

@@ -130,7 +130,7 @@ const Login = () => {
         navigate("/dashboard/maintenance-log");
         break;
       case "officer-in-charge":
-        navigate("/dashboard/parts-monitoring/pm-table");
+        navigate("/dashboard/parts-lifespan-monitoring");
         break;
       default:
         navigate("/dashboard/profile"); // fallback dashboard

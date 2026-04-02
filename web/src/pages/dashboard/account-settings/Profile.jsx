@@ -11,8 +11,8 @@ import {
   message,
 } from "antd";
 import { EditOutlined, LockOutlined, UserOutlined } from "@ant-design/icons";
-import { AuthContext } from "../../context/AuthContext";
-import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
+import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 
 const { Title } = Typography;

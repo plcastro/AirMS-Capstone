@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Row, Space, Input, Button, Typography, Tabs, message } from "antd";
-import { AuthContext } from "../../context/AuthContext";
-import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
+import { API_BASE } from "../../../utils/API_BASE";
 import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
