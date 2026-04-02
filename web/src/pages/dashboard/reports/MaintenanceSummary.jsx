@@ -15,7 +15,7 @@ export default function MaintenanceSummary({
   summaryData = [],
   repairData = [],
 }) {
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [dateRange, setDateRange] = useState(null);
 

@@ -7,7 +7,7 @@ import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 
 const Login = () => {
-  const { loginUser, setUser } = useContext(AuthContext);
+  const { setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: "",

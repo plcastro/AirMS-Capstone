@@ -27,7 +27,7 @@ const { Title, Text } = Typography;
 export default function WRSModal({ visible, onClose, selectedRecord }) {
   const { user } = useContext(AuthContext);
   const [, setLoading] = useState(false);
-  const [packedItems, setPackedItems] = useState([]);
+  const [packedItems] = useState([]);
 
   if (!selectedRecord) return null;
   const isWD = user.jobTitle.toLowerCase() === "warehouse department";

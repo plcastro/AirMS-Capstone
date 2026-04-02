@@ -19,7 +19,7 @@ export default function UpdateSecurity() {
   const [pinErrors, setPinErrors] = useState({});
   const [forgotPinMode, setForgotPinMode] = useState(false);
   const [passwordForPin, setPasswordForPin] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
