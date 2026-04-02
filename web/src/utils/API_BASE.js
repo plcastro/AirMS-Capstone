@@ -1,5 +1,5 @@
 const localUrl = "http://localhost:8000";
-const productionUrl = "https://your-api-domain.com";
+const productionUrl = "https://airms.online";
 
 export const API_BASE =
   process.env.NODE_ENV === "development" ? localUrl : productionUrl;
