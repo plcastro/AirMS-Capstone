@@ -35,15 +35,11 @@ const tableColumns = [
   },
 ];
 
-export default function PRMTable({
-  data = [],
-  onShowDetails,
-  selectedRequisition,
-  loading = false,
-}) {
+export default function PRMTable({ data = [], loading = false }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedWRS, setSelectedWRS] = useState(null);
+
   const pageSize = 10;
   const columns = useMemo(() => {
     return tableColumns.map((column) => {
@@ -56,7 +52,7 @@ export default function PRMTable({
               <Button
                 type="link"
                 icon={<EyeOutlined />}
-                onClick={() => handleShowModal(record.wrsNo)}
+                onClick={() => handleShowModal(record)}
               >
                 View Details
               </Button>
@@ -84,14 +80,18 @@ export default function PRMTable({
           key: "status",
           filters: [
             { text: "Pending", value: "Pending" },
-            { text: "Delivered", value: "Delivered" },
+            { text: "Approved", value: "Approved" },
+            { text: "In Progress", value: "In Progress" },
+            { text: "Completed", value: "Completed" },
             { text: "Cancelled", value: "Cancelled" },
           ],
           onFilter: (value, record) => record.status === value,
           render: (status) => {
             let color = "default";
             if (status === "Pending") color = "blue";
-            if (status === "Delivered") color = "green";
+            if (status === "Approved") color = "cyan";
+            if (status === "In Progress") color = "orange";
+            if (status === "Completed") color = "green";
             if (status === "Cancelled") color = "red";
             return <Tag color={color}>{status}</Tag>;
           },
@@ -108,10 +108,10 @@ export default function PRMTable({
           ),
       };
     });
-  }, [tableColumns, selectedRequisition, onShowDetails]);
+  }, [tableColumns]);
 
-  const handleShowModal = (wrsNo) => {
-    setSelectedWRS(wrsNo);
+  const handleShowModal = (record) => {
+    setSelectedWRS(record);
     setIsModalVisible(true);
   };
   return (
@@ -133,7 +133,7 @@ export default function PRMTable({
       />
       <WRSModal
         visible={isModalVisible}
-        wrsNo={selectedWRS}
+        selectedRecord={selectedWRS}
         onClose={() => {
           setIsModalVisible(false);
           setSelectedWRS(null);

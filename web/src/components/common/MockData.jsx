@@ -146,3 +146,66 @@ export const repairData = [
   { date: "Dec 5", 2810: 6, "RP-C7057": 5, "RP-C7226": 6 },
   { date: "Dec 15", 2810: 5, "RP-C7057": 5, "RP-C7226": 5 },
 ];
+
+export const MOCK_WRS_RECORDS = [
+  {
+    _id: "wrs_req_001",
+    wrsNo: "WRS-001",
+    aircraft: "RP-1819",
+    status: "Pending",
+    slocNameCode: "AVIATION/H001",
+    dateRequested: "4/02/2026",
+    staff: {
+      employeeName: "Jeonghan Yoon",
+      cchead: "Joshua Hong",
+      enduser: "Junhui Wen",
+      notedby: "Mingyu Kim",
+    },
+    // The items inside this specific WRS
+    items: [
+      {
+        _id: "item_001",
+        itemNo: 1,
+        matCodeNo: "AV-BOLT-992",
+        particular: "Hex Head Bolt - Grade 8",
+        quantity: 12,
+        unitOfMeasure: "pcs",
+        purpose: "Engine Cowling Replacement",
+      },
+      {
+        _id: "item_002",
+        itemNo: 2,
+        matCodeNo: "AV-SEAL-104",
+        particular: "O-Ring, High Temp Silicone",
+        quantity: 5,
+        unitOfMeasure: "pcs",
+        purpose: "Hydraulic System Leak Repair",
+      },
+    ],
+  },
+  {
+    _id: "wrs_req_002",
+    wrsNo: "WRS-002",
+    aircraft: "RP-C1234",
+    status: "Completed",
+    slocNameCode: "AVIATION/H002",
+    dateRequested: "4/01/2026",
+    staff: {
+      employeeName: "S.Coups Choi",
+      cchead: "Woozi Lee",
+      enduser: "Hoshi Kwon",
+      notedby: "Wonwoo Jeon",
+    },
+    items: [
+      {
+        _id: "item_003",
+        itemNo: 1,
+        matCodeNo: "AV-WIRE-22G",
+        particular: "Shielded Wire 22G",
+        quantity: 50,
+        unitOfMeasure: "ft",
+        purpose: "Avionics Repair",
+      },
+    ],
+  },
+];

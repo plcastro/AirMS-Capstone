@@ -1,88 +1,112 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useMemo } from "react";
 import { Input, Statistic, Card, Row, Col } from "antd";
 import {
   SearchOutlined,
   FileDoneOutlined,
-  HourglassOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import PRMTable from "../../../components/tables/PRMTable";
-const requisitions = [
-  {
-    id: 1,
-    wrsNo: "WRS-001",
-    noOfItems: 5,
-    dateRequested: "2024-06-01",
-    aircraft: "Boeing 737",
-    status: "Pending",
-  },
-  {
-    id: 2,
-    wrsNo: "WRS-002",
-    noOfItems: 3,
-    dateRequested: "2024-06-02",
-    aircraft: "Airbus A320",
-    status: "Delivered",
-  },
-];
+import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
 
 export default function PartsRequisition() {
   const [searchText, setSearchText] = useState("");
-  const [cardsData] = useState({
-    totalRequisitions: requisitions.length,
-    pending: requisitions.filter((req) => req.status === "Pending").length,
-    delivered: requisitions.filter((req) => req.status === "Delivered").length,
-  });
+  const allRequisitionsWithCounts = useMemo(() => {
+    return MOCK_WRS_RECORDS.map((record) => ({
+      ...record,
+      noOfItems: record.items?.length || 0,
+    }));
+  }, []);
 
-  const filteredRequisitions = requisitions.filter(
-    (r) =>
-      r.wrsNo.toLowerCase().includes(searchText.toLowerCase()) ||
-      r.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-      r.status.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  const filteredRequisitions = useMemo(() => {
+    return allRequisitionsWithCounts.filter(
+      (r) =>
+        r.wrsNo.toLowerCase().includes(searchText.toLowerCase()) ||
+        r.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+        r.status.toLowerCase().includes(searchText.toLowerCase()),
+    );
+  }, [searchText, allRequisitionsWithCounts]);
+
+  const stats = useMemo(() => {
+    return {
+      total: filteredRequisitions.length,
+      pending: filteredRequisitions.filter((r) => r.status === "Pending")
+        .length,
+      approved: filteredRequisitions.filter((r) => r.status === "Approved")
+        .length,
+      inProgress: filteredRequisitions.filter((r) => r.status === "In Progress")
+        .length,
+      completed: filteredRequisitions.filter((r) => r.status === "Completed")
+        .length,
+    };
+  }, [filteredRequisitions]);
   return (
     <div style={{ padding: 20 }}>
       <Row>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={12} lg={8}>
           <Input
             size="large"
-            placeholder="Search by date, parts, or status..."
+            placeholder="Search by WRS No, aircraft, or status..."
             prefix={<SearchOutlined />}
             allowClear
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
       </Row>
-      <Row gutter={10} style={{ marginTop: 10 }}>
-        <Col span={8}>
-          <Card>
+      <Row gutter={[10, 10]} style={{ marginTop: 20 }}>
+        <Col xs={24} sm={12} md={4}>
+          <Card variant={"borderless"}>
             <Statistic
-              title="Total Requisitions"
-              value={cardsData.totalRequisitions}
+              title="Total"
+              value={stats.total}
               prefix={<FileDoneOutlined />}
             />
           </Card>
         </Col>
-        <Col span={8}>
-          <Card>
+        <Col xs={24} sm={12} md={5}>
+          <Card variant={"borderless"}>
             <Statistic
               title="Pending"
-              value={cardsData.pending}
-              prefix={<HourglassOutlined />}
+              value={stats.pending}
+              prefix={<ClockCircleOutlined />}
+              styles={{ content: { color: "#1890ff" } }}
             />
           </Card>
         </Col>
-        <Col span={8}>
-          <Card>
+        <Col xs={24} sm={12} md={5}>
+          <Card variant={"borderless"}>
             <Statistic
-              title="Delivered"
-              value={cardsData.delivered}
+              title="Approved"
+              value={stats.approved}
               prefix={<CheckCircleOutlined />}
+              styles={{ content: { color: "#13c2c2" } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={5}>
+          <Card variant={"borderless"}>
+            <Statistic
+              title="In Progress"
+              value={stats.inProgress}
+              prefix={<SyncOutlined />}
+              styles={{ content: { color: "#faad14" } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={5}>
+          <Card variant={"borderless"}>
+            <Statistic
+              title="Completed"
+              value={stats.completed}
+              prefix={<FileDoneOutlined />}
+              styles={{ content: { color: "#52c41a" } }}
             />
           </Card>
         </Col>
       </Row>
-      <Row style={{ marginTop: 10 }}>
+
+      <Row style={{ marginTop: 20 }}>
         <Col span={24}>
           <PRMTable data={filteredRequisitions} />
         </Col>
