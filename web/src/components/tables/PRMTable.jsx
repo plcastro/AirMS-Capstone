@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
 import { EyeOutlined } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
@@ -41,74 +41,70 @@ export default function PRMTable({ data = [], loading = false }) {
   const [selectedWRS, setSelectedWRS] = useState(null);
 
   const pageSize = 10;
-  const columns = useMemo(() => {
-    return tableColumns.map((column) => {
-      if (column.key === "actions") {
-        return {
-          title: column.title,
-          key: "actions",
-          render: (_, record) => (
-            <Space>
-              <Button
-                type="link"
-                icon={<EyeOutlined />}
-                onClick={() => handleShowModal(record)}
-              >
-                View Details
-              </Button>
-              {["Pending"].includes(record.status) && (
-                <Popconfirm
-                  title="Cancel this requisition?"
-                  onConfirm={() => {
-                    message.success("Requisition cancelled");
-                  }}
-                >
-                  <Button danger type="link">
-                    Cancel
-                  </Button>
-                </Popconfirm>
-              )}
-            </Space>
-          ),
-        };
-      }
-
-      if (column.key === "status") {
-        return {
-          title: column.title,
-          dataIndex: "status",
-          key: "status",
-          filters: [
-            { text: "Pending", value: "Pending" },
-            { text: "Approved", value: "Approved" },
-            { text: "In Progress", value: "In Progress" },
-            { text: "Completed", value: "Completed" },
-            { text: "Cancelled", value: "Cancelled" },
-          ],
-          onFilter: (value, record) => record.status === value,
-          render: (status) => {
-            let color = "default";
-            if (status === "Pending") color = "blue";
-            if (status === "Approved") color = "cyan";
-            if (status === "In Progress") color = "orange";
-            if (status === "Completed") color = "green";
-            if (status === "Cancelled") color = "red";
-            return <Tag color={color}>{status}</Tag>;
-          },
-        };
-      }
-
+  const columns = tableColumns.map((column) => {
+    if (column.key === "actions") {
       return {
         title: column.title,
-        dataIndex: column.dataIndex,
-        key: column.key,
-        sorter: (a, b) =>
-          String(a[column.key] ?? "").localeCompare(
-            String(b[column.key] ?? ""),
-          ),
+        key: "actions",
+        render: (_, record) => (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleShowModal(record)}
+            >
+              View Details
+            </Button>
+            {["Pending"].includes(record.status) && (
+              <Popconfirm
+                title="Cancel this requisition?"
+                onConfirm={() => {
+                  message.success("Requisition cancelled");
+                }}
+              >
+                <Button danger type="link">
+                  Cancel
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
+        ),
       };
-    });
-  }, [tableColumns]);
+    }
+
+    if (column.key === "status") {
+      return {
+        title: column.title,
+        dataIndex: "status",
+        key: "status",
+        filters: [
+          { text: "Pending", value: "Pending" },
+          { text: "Approved", value: "Approved" },
+          { text: "In Progress", value: "In Progress" },
+          { text: "Completed", value: "Completed" },
+          { text: "Cancelled", value: "Cancelled" },
+        ],
+        onFilter: (value, record) => record.status === value,
+        render: (status) => {
+          let color = "default";
+          if (status === "Pending") color = "blue";
+          if (status === "Approved") color = "cyan";
+          if (status === "In Progress") color = "orange";
+          if (status === "Completed") color = "green";
+          if (status === "Cancelled") color = "red";
+          return <Tag color={color}>{status}</Tag>;
+        },
+      };
+    }
+
+    return {
+      title: column.title,
+      dataIndex: column.dataIndex,
+      key: column.key,
+      sorter: (a, b) =>
+        String(a[column.key] ?? "").localeCompare(String(b[column.key] ?? "")),
+    };
+  });
 
   const handleShowModal = (record) => {
     setSelectedWRS(record);

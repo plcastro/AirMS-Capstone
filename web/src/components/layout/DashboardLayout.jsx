@@ -21,18 +21,6 @@ const DashboardLayout = () => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
-  // const pageMap = {
-  //   "/dashboard/user-management/view-users": "Users",
-  //   "/dashboard/user-management/activity-logs": "Activity Logs",
-  //   "/dashboard/flight-log": "Flight Logs",
-  //   "/dashboard/maintenance-log": "Maintenance Logs",
-  //   "/dashboard/parts-monitoring": "Parts Monitoring",
-  //   "/dashboard/maintenance-tracking": "Maintenance Tracking",
-  //   "/dashboard/parts-requisition": "Parts Requisition Monitoring",
-  //   "/dashboard/maintenance-priority": "Maintenance Priority",
-  //   "/dashboard/maintenance-dashboard": "Maintenance Dashboard",
-  //   "/dashboard/profile": "Profile",
-  // };
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -42,6 +30,11 @@ const DashboardLayout = () => {
         collapsed={collapsed}
         trigger={null}
         theme="light"
+        breakpoint="lg"
+        collapsedWidth={screens.xs ? 0 : 80}
+        onBreakpoint={(broken) => {
+          setCollapsed(broken);
+        }}
       >
         <Sidebar collapsed={collapsed} />
       </Sider>

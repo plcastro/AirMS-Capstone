@@ -1,42 +1,80 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import { Table, Tag, Checkbox } from "antd";
 
-const tableColumns = [
-  {
-    title: "ITEM NO.",
-    dataIndex: "itemNo",
-    key: "itemNo",
-  },
-  {
-    title: "MATCODE NO.",
-    dataIndex: "matCodeNo",
-    key: "matCodeNo",
-  },
-  {
-    title: "PARTICULAR",
-    dataIndex: "particular",
-    key: "particular",
-  },
-  {
-    title: "QUANTITY",
-    dataIndex: "quantity",
-    key: "quantity",
-  },
-  {
-    title: "UNIT OF MEASURE",
-    dataIndex: "unitOfMeasure",
-    key: "unitOfMeasure",
-  },
-  {
-    title: "PURPOSE",
-    dataIndex: "purpose",
-    key: "purpose",
-  },
-];
-
-export default function WRSTable({ data = [], loading = false }) {
+export default function WRSTable({ data = [], loading = false, isWD }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [packedItems, setPackedItems] = useState([]);
   const pageSize = 10;
+  const handleCheck = (id) => {
+    setPackedItems((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const tableColumns = [
+    {
+      title: "ITEM NO.",
+      dataIndex: "itemNo",
+      key: "itemNo",
+      width: 100,
+    },
+    {
+      title: "MATCODE NO.",
+      dataIndex: "matCodeNo",
+      key: "matCodeNo",
+    },
+    {
+      title: "PARTICULAR",
+      dataIndex: "particular",
+      key: "particular",
+    },
+    {
+      title: "QUANTITY",
+      dataIndex: "quantity",
+      key: "quantity",
+      width: 90,
+    },
+    {
+      title: "UNIT OF MEASURE",
+      dataIndex: "unitOfMeasure",
+      key: "unitOfMeasure",
+      width: 90,
+    },
+    {
+      title: "PURPOSE",
+      dataIndex: "purpose",
+      key: "purpose",
+    },
+  ];
+
+  if (isWD) {
+    tableColumns.unshift({
+      title: "PACKED",
+      key: "manual-checkbox",
+      width: 80,
+      align: "center",
+      render: (_, record) => (
+        <Checkbox
+          checked={packedItems.includes(record._id)}
+          onChange={() => handleCheck(record._id)}
+        />
+      ),
+    });
+
+    tableColumns.push({
+      title: "STATUS",
+      key: "status-tag",
+      width: 150,
+      render: (_, record) => {
+        const isPacked = packedItems.includes(record._id);
+        return (
+          <Tag color={isPacked ? "green" : "blue"}>
+            {isPacked ? "PACKED" : "PENDING"}
+          </Tag>
+        );
+      },
+    });
+  }
 
   return (
     <Table
@@ -47,8 +85,6 @@ export default function WRSTable({ data = [], loading = false }) {
       scroll={{ x: "max-content" }}
       pagination={{
         pageSize: pageSize,
-        showSizeChanger: true,
-        pageSizeOptions: ["10", "20", "50"],
         current: currentPage,
         onChange: (page) => setCurrentPage(page),
         placement: "bottomEnd",

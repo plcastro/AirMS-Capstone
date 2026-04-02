@@ -42,9 +42,17 @@ export default function PartsRequisition() {
     };
   }, [filteredRequisitions]);
   return (
-    <div style={{ padding: 20 }}>
+    <div
+      style={{
+        padding: 20,
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+      }}
+    >
       <Row>
-        <Col xs={24} md={12} lg={8}>
+        <Col xs={24} md={6}>
           <Input
             size="large"
             placeholder="Search by WRS No, aircraft, or status..."
@@ -54,59 +62,78 @@ export default function PartsRequisition() {
           />
         </Col>
       </Row>
-      <Row gutter={[10, 10]} style={{ marginTop: 20 }}>
-        <Col xs={24} sm={12} md={4}>
-          <Card variant={"borderless"}>
-            <Statistic
-              title="Total"
-              value={stats.total}
-              prefix={<FileDoneOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant={"borderless"}>
-            <Statistic
-              title="Pending"
-              value={stats.pending}
-              prefix={<ClockCircleOutlined />}
-              styles={{ content: { color: "#1890ff" } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant={"borderless"}>
-            <Statistic
-              title="Approved"
-              value={stats.approved}
-              prefix={<CheckCircleOutlined />}
-              styles={{ content: { color: "#13c2c2" } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant={"borderless"}>
-            <Statistic
-              title="In Progress"
-              value={stats.inProgress}
-              prefix={<SyncOutlined />}
-              styles={{ content: { color: "#faad14" } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant={"borderless"}>
-            <Statistic
-              title="Completed"
-              value={stats.completed}
-              prefix={<FileDoneOutlined />}
-              styles={{ content: { color: "#52c41a" } }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div
+        style={{
+          overflowX: "auto",
+          whiteSpace: "wrap",
+          paddingBottom: "10px",
+          msOverflowStyle: "none",
+          scrollbarWidth: "none",
+        }}
+        className="hide-scrollbar"
+      >
+        <Row
+          gutter={[10, 10]}
+          style={{
+            marginTop: 20,
+            flexWrap: "nowrap",
+            marginRight: 0,
+            marginLeft: 0,
+          }}
+        >
+          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
+            <Card variant={"borderless"} size="small">
+              <Statistic
+                title="Total"
+                value={stats.total}
+                prefix={<FileDoneOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
+            <Card variant={"borderless"} size="small">
+              <Statistic
+                title="Pending"
+                value={stats.pending}
+                prefix={<ClockCircleOutlined />}
+                styles={{ content: { color: "#1890ff" } }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
+            <Card variant={"borderless"} size="small">
+              <Statistic
+                title="Approved"
+                value={stats.approved}
+                prefix={<CheckCircleOutlined />}
+                styles={{ content: { color: "#13c2c2" } }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Card variant={"borderless"} size="small">
+              <Statistic
+                title="In Progress"
+                value={stats.inProgress}
+                prefix={<SyncOutlined />}
+                styles={{ content: { color: "#faad14" } }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
+            <Card variant={"borderless"} size="small">
+              <Statistic
+                title="Completed"
+                value={stats.completed}
+                prefix={<FileDoneOutlined />}
+                styles={{ content: { color: "#52c41a" } }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      </div>
 
-      <Row style={{ marginTop: 20 }}>
+      <Row style={{ marginTop: 10 }}>
         <Col span={24}>
           <PRMTable data={filteredRequisitions} />
         </Col>

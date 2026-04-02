@@ -14,14 +14,14 @@ const aircraftRoutes = require("./routes/aircraftRoute");
 const inventoryRoutes = require("./routes/componentRoute");
 const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
-const sendEmail = require("./utilities/sendEmail");
-const partsMonitoringRoutes = require('./routes/partsMonitoringRoute');
+const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
+const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightlogRoutes = require("./routes/flightlogRoute");
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 const ATLAS_URL = process.env.ATLAS_URL;
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
@@ -30,6 +30,7 @@ mongoose.connect(ATLAS_URL).then(() => console.log("Connected to MongoDB"));
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
+app.use("/api/parts-requisition", partsRequisitionRoutes);
 app.use("/api/defect-logs", defectLogRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
 app.use("/api/technical-logs", technicalLogRoutes);
@@ -40,7 +41,6 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/flightlogs", flightlogRoutes);
-
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

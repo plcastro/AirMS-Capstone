@@ -51,7 +51,7 @@ const Sidebar = ({ collapsed }) => {
 
     {
       key: "5",
-      label: "Parts Monitoring",
+      label: "Parts Lifespan Monitoring",
       icon: <BookOutlined />,
       roles: ["maintenance manager"],
     },
@@ -65,7 +65,11 @@ const Sidebar = ({ collapsed }) => {
       key: "7",
       label: "Parts Requisition Monitoring",
       icon: <BookOutlined />,
-      roles: ["maintenance manager", "officer-in-charge"],
+      roles: [
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse department",
+      ],
     },
     {
       key: "8",
@@ -83,7 +87,7 @@ const Sidebar = ({ collapsed }) => {
       key: "10",
       label: "Profile",
       icon: <UserOutlined />,
-      roles: ["admin", "maintenance manager", "pilot"],
+      roles: ["admin", "maintenance manager", "pilot", "warehouse department"],
     },
   ];
 

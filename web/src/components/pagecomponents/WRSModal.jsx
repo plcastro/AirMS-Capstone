@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import {
   Modal,
   Typography,
@@ -10,6 +10,8 @@ import {
   Divider,
   Space,
   Card,
+  message,
+  Popconfirm,
 } from "antd";
 import WRSTable from "../tables/WRSTable";
 import {
@@ -18,14 +20,19 @@ import {
   ClockCircleOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
+import { AuthContext } from "../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
 export default function WRSModal({ visible, onClose, selectedRecord }) {
+  const { user } = useContext(AuthContext);
+  const [, setLoading] = useState(false);
+  const [packedItems, setPackedItems] = useState([]);
+
   if (!selectedRecord) return null;
-
+  const isWD = user.jobTitle.toLowerCase() === "warehouse department";
+  const allItemsPacked = packedItems.length === selectedRecord?.items?.length;
   const STATUS_ORDER = ["Pending", "Approved", "In Progress", "Completed"];
-
   const currentIndex = STATUS_ORDER.indexOf(selectedRecord.status);
 
   const getStepStatus = () => {
@@ -35,15 +42,42 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
 
   const ICON_STYLE = { fontSize: "24px" };
 
+  const handleDispatch = async () => {
+    setLoading(true);
+    try {
+      // API Call: Update status to "Out for Delivery"
+
+      message.success("Package handed over to engi! Status: Out for Delivery");
+      onClose();
+    } catch (error) {
+      message.error("Dispatch failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkDelivered = async () => {
+    setLoading(true);
+    try {
+      // API Call: Final status update
+
+      message.success("WRS marked as DELIVERED successfully.");
+      onClose();
+    } catch (error) {
+      message.error("Update failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Modal
       title={
         <Space size="middle">
-          <Title level={4} style={{ margin: 0 }}>
-            Warehouse Requisition Slip Details
-          </Title>
-          <Text type="secondary" strong style={{ fontSize: "18px" }}>
-            # {selectedRecord.wrsNo}
+          <Title level={3}>Warehouse Requisition Slip</Title>
+
+          <Text type="secondary" strong>
+            {selectedRecord.wrsNo}
           </Text>
         </Space>
       }
@@ -53,11 +87,36 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
         <Button key="close" type="primary" onClick={onClose} size="large">
           Close
         </Button>,
+        isWD && selectedRecord.status === "Approved" && (
+          <Button
+            type="primary"
+            disabled={!allItemsPacked}
+            onClick={handleDispatch}
+          >
+            Dispatch to Rider
+          </Button>
+        ),
+        selectedRecord.status === "Out for Delivery" && (
+          <Popconfirm
+            title="Confirm Delivery"
+            description="Are you sure the items have reached the aviation base?"
+            onConfirm={handleMarkDelivered}
+          >
+            <Button
+              type="primary"
+              color="green"
+              variant="solid"
+              icon={<CheckCircleOutlined />}
+            >
+              Mark as Delivered
+            </Button>
+          </Popconfirm>
+        ),
       ]}
       width={"85%"}
       centered
     >
-      <div style={{ padding: "20px 0 40px" }}>
+      <div style={{ padding: "20px 40px" }}>
         <Steps
           current={currentIndex}
           status={getStepStatus()}
@@ -95,7 +154,7 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
         variant="soft"
         style={{ marginBottom: 24, backgroundColor: "#fafafa" }}
       >
-        <Row gutter={[24, 16]}>
+        <Row gutter={[16, 16]}>
           <Col xs={24} md={12} lg={6}>
             <Text type="secondary" strong>
               SLOC NAME/CODE
@@ -116,6 +175,8 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
               style={{ marginTop: 8, color: "black" }}
             />
           </Col>
+        </Row>
+        <Row gutter={[16, 16]}>
           <Col xs={24} md={12} lg={6}>
             <Text type="secondary" strong>
               Requisitioned By
@@ -164,7 +225,7 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
       </Divider>
 
       <div style={{ minHeight: "200px" }}>
-        <WRSTable data={selectedRecord.items} loading={false} />
+        <WRSTable data={selectedRecord.items} loading={false} isWD={isWD} />
       </div>
     </Modal>
   );

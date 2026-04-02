@@ -163,7 +163,11 @@ const AppRouter = () => {
             path="parts-requisition"
             element={
               <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
+                allowedRoles={[
+                  "maintenance manager",
+                  "officer-in-charge",
+                  "warehouse department",
+                ]}
               >
                 <PartsRequisition />
               </ProtectedRoute>
@@ -179,6 +183,7 @@ const AppRouter = () => {
                   "pilot",
                   "officer-in-charge",
                   "engineer",
+                  "warehouse department",
                 ]}
               >
                 <Profile />
@@ -231,6 +236,9 @@ export default function App() {
             inkBarColor: "#006340",
             itemSelectedColor: "#006340",
             itemHoverColor: "#26866f",
+          },
+          Statistic: {
+            fontSize: "clamp(14px, 16px)",
           },
         },
       }}

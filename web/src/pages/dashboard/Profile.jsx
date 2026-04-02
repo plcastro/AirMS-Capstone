@@ -168,12 +168,14 @@ export default function Profile() {
       icon: <UserOutlined />,
       children: (
         <Form layout="vertical" form={form}>
-          <Row gutter={16}>
+          <Row gutter={[10, 10]}>
             <Col xs={24} s={24} md={12}>
               <Form.Item label="First Name">
                 <Input
                   value={isEditing ? formData.firstName : user.firstName}
                   disabled={!isEditing}
+                  size="large"
+                  style={{ marginTop: 8, color: "black" }}
                   onChange={(e) => handleChange("firstName", e.target.value)}
                 />
               </Form.Item>
@@ -183,6 +185,8 @@ export default function Profile() {
                 <Input
                   value={isEditing ? formData.lastName : user.lastName}
                   disabled={!isEditing}
+                  size="large"
+                  style={{ marginTop: 8, color: "black" }}
                   onChange={(e) => handleChange("lastName", e.target.value)}
                 />
               </Form.Item>
@@ -192,12 +196,22 @@ export default function Profile() {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="Email">
-                <Input value={user.email} disabled />
+                <Input
+                  value={user.email}
+                  size="large"
+                  disabled
+                  style={{ marginTop: 8, color: "black" }}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item label="Username">
-                <Input value={user.username} disabled />
+                <Input
+                  value={user.username}
+                  size="large"
+                  disabled
+                  style={{ marginTop: 8, color: "black" }}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -205,12 +219,22 @@ export default function Profile() {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item label="Job Title">
-                <Input value={user.jobTitle} disabled />
+                <Input
+                  value={user.jobTitle}
+                  size="large"
+                  disabled
+                  style={{ marginTop: 8, color: "black" }}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item label="Last Login">
-                <Input value={formatDate(user.lastLogin)} disabled />
+                <Input
+                  size="large"
+                  value={formatDate(user.lastLogin)}
+                  disabled
+                  style={{ marginTop: 8, color: "black" }}
+                />
               </Form.Item>
             </Col>
           </Row>

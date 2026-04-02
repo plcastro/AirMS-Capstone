@@ -51,6 +51,7 @@ export default function UserForm({
       "Maintenance Manager": "Superuser",
       "Officer-In-Charge": "Superuser",
       Engineer: "User",
+      "Warehouse Department": "User",
     };
 
     if (user) {
@@ -106,6 +107,7 @@ export default function UserForm({
       "Officer-In-Charge": "Superuser",
       "Maintenance Manager": "Superuser",
       Engineer: "User",
+      "Warehouse Department": "User",
     };
     setAccessLevel(roleMap[jobTitle] || "");
   }, [jobTitle]);
@@ -137,17 +139,14 @@ export default function UserForm({
 
   const isFormInvalid = Object.values(errors).some((err) => err !== null);
 
-  // Save user
   const handleSave = async () => {
     setLoading(true);
 
     try {
-      // --- Prepare payload ---
       let body;
       let headers = {};
 
       if (file) {
-        // If image/file is uploaded, use FormData
         body = new FormData();
         body.append("firstName", firstName.trim());
         body.append("lastName", lastName.trim());
@@ -156,7 +155,7 @@ export default function UserForm({
         body.append("jobTitle", jobTitle);
         body.append("access", accessLevel);
         body.append("dateCreated", joinedDate.toISOString());
-        body.append("image", file); // only append if file exists
+        body.append("image", file);
         if (
           ["maintenance manager", "pilot", "engineer"].includes(
             jobTitle.toLowerCase(),
@@ -178,11 +177,10 @@ export default function UserForm({
         });
       }
 
-      // --- Debug log: see what’s being sent ---
-      console.log(
-        "Sending payload:",
-        file ? [...body.entries()] : JSON.parse(body),
-      );
+      // console.log(
+      //   "Sending payload:",
+      //   file ? [...body.entries()] : JSON.parse(body),
+      // );
 
       const url = user
         ? `${API_BASE}/api/user/update-user/${user._id}`
@@ -195,7 +193,6 @@ export default function UserForm({
       });
 
       if (!res.ok) {
-        // Try to read backend error message
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Operation failed");
       }
@@ -257,7 +254,6 @@ export default function UserForm({
     >
       <Divider />
       <Row gutter={[16, 16]}>
-        {/* Avatar */}
         <Col span={24} style={{ textAlign: "center" }}>
           <ImgCrop rotationSlider aspect={1 / 1}>
             <Upload
@@ -266,7 +262,7 @@ export default function UserForm({
               beforeUpload={(file) => {
                 setFile(file);
                 setImageUrl(URL.createObjectURL(file));
-                return false; // prevent auto upload
+                return false;
               }}
             >
               {imageUrl ? (
@@ -278,11 +274,11 @@ export default function UserForm({
           </ImgCrop>
         </Col>
 
-        {/* First / Last Name */}
         <Col span={12}>
           <Text strong>First Name</Text>
           <Input
             maxLength={128}
+            size="large"
             placeholder="Enter first name"
             status={touched.firstName && errors.firstName ? "error" : ""}
             value={firstName}
@@ -303,6 +299,7 @@ export default function UserForm({
           <Text strong>Last Name</Text>
           <Input
             maxLength={128}
+            size="large"
             placeholder="Enter last name"
             status={touched.lastName && errors.lastName ? "error" : ""}
             value={lastName}
@@ -324,6 +321,7 @@ export default function UserForm({
           <Text strong>Email Address</Text>
           <Input
             placeholder="Enter email address"
+            size="large"
             maxLength={256}
             status={touched.email && errors.email ? "error" : ""}
             value={email}
@@ -337,16 +335,16 @@ export default function UserForm({
           )}
         </Col>
 
-        {/* Username / Job Title */}
         <Col span={12}>
           <Text strong>Generated Username</Text>
-          <Input value={username} disabled />
+          <Input size="large" value={username} disabled />
         </Col>
 
         <Col span={12}>
           <Text strong>Job Title</Text>
           <Select
             status={touched.jobTitle && errors.jobTitle ? "error" : ""}
+            size="large"
             style={{ width: "100%" }}
             value={jobTitle || undefined}
             onChange={(val) => {
@@ -359,6 +357,7 @@ export default function UserForm({
               { label: "Pilot", value: "Pilot" },
               { label: "Officer-In-Charge", value: "Officer-In-Charge" },
               { label: "Engineer", value: "Engineer" },
+              { label: "Warehouse Department", value: "Warehouse Department" },
             ]}
           />
           {touched.jobTitle && errors.jobTitle && (
@@ -378,11 +377,13 @@ export default function UserForm({
           "pilot",
           "engineer",
           "officer-in-charge",
+          "warehouse department",
         ].includes(jobTitle.toLowerCase()) ? (
           <Col span={12}>
             <Text strong>License No.</Text>
             <Input
               placeholder="Enter license number"
+              size="large"
               value={licenseNo}
               onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
               maxLength={6}
@@ -395,7 +396,11 @@ export default function UserForm({
 
         <Col span={12}>
           <Text strong>Date Joined</Text>
-          <Input value={joinedDate.toLocaleDateString()} disabled />
+          <Input
+            size="large"
+            value={joinedDate.toLocaleDateString()}
+            disabled
+          />
         </Col>
       </Row>
     </Modal>

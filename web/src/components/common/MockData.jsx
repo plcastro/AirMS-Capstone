@@ -155,6 +155,7 @@ export const MOCK_WRS_RECORDS = [
     status: "Pending",
     slocNameCode: "AVIATION/H001",
     dateRequested: "4/02/2026",
+    dateReceived: "4/03/2026",
     staff: {
       employeeName: "Jeonghan Yoon",
       cchead: "Joshua Hong",
