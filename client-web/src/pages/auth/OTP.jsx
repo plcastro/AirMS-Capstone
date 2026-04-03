@@ -1,7 +1,7 @@
 // WEB
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button, message, Input, Card, Typography, Row } from "antd";
+import { Button, message, Input, Card, Typography, Row, Col } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 
 import "./login.css";
@@ -21,7 +21,15 @@ export default function OTP() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const MAX_CODE_LENGTH = 6;
 
-  // Countdown timer for resend button
+  const maskEmail = (email) => {
+    const [localPart, domain] = email.split("@");
+    const maskedLocal =
+      localPart.length > 2
+        ? localPart[0] + "*".repeat(localPart.length - 2) + localPart.slice(-1)
+        : localPart[0] + "*";
+    return `${maskedLocal}@${domain}`;
+  };
+
   useEffect(() => {
     let timer;
     if (resendTimer > 0) {
@@ -97,18 +105,23 @@ export default function OTP() {
   return (
     <Card className="login-container">
       <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Title level={2}>Account Verification</Title>
-        <Text>
-          Please enter the 6-digit code sent to {email || "your email"}
-        </Text>
-        <Input.OTP
-          value={code}
-          onChange={setCode}
-          autoFocus
-          style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
-          length={6}
-          formatter={(str) => str.replace(/\D/g, "")}
-        />
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Title level={2}>Account Verification</Title>
+          <Text>
+            Please enter the 6-digit code sent to{" "}
+            {maskEmail(email) || "your email"}
+          </Text>
+        </Col>
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Input.OTP
+            value={code}
+            onChange={setCode}
+            autoFocus
+            style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
+            length={6}
+            formatter={(str) => str.replace(/\D/g, "")}
+          />
+        </Col>
       </Row>
 
       <Button

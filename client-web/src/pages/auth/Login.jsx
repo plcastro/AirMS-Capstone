@@ -2,10 +2,21 @@ import React, { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Card, Input, Checkbox, Button, message as antMessage } from "antd";
+import {
+  Card,
+  Input,
+  Checkbox,
+  Button,
+  message as antMessage,
+  Typography,
+  Row,
+  Col,
+  Form,
+} from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 
+const { Title, Text } = Typography;
 const Login = () => {
   const { setUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -56,7 +67,6 @@ const Login = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
     setError("");
     if (!formData.identifier.trim() || !formData.password.trim()) {
       setError("Username/email and password are required");
@@ -75,7 +85,6 @@ const Login = () => {
       });
 
       const data = await response.json();
-      console.log("Login response:", data);
 
       if (response.ok) {
         if (data.requireSetup) {
@@ -141,14 +150,17 @@ const Login = () => {
   };
   return (
     <Card className="login-container">
-      <h1 className="title">Login</h1>
-      <p className="subtitle">
-        Please enter your AirMS account details to log in
-      </p>
+      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Title level={2} className="title">
+            Login
+          </Title>
+          <Text>Please enter your AirMS account details to log in</Text>
+        </Col>
+      </Row>
 
-      <form className="login-form" onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="username">Username/Email</label>
+      <Form layout="vertical" className="login-form" onFinish={handleSubmit}>
+        <Form.Item label="Username/Email" required>
           <Input
             type="text"
             id="identifier"
@@ -160,10 +172,9 @@ const Login = () => {
             required
             allowClear
           />
-        </div>
+        </Form.Item>
 
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
+        <Form.Item label="Password" required>
           <Input.Password
             id="password"
             placeholder="Enter password"
@@ -174,7 +185,7 @@ const Login = () => {
             required
             allowClear
           />
-        </div>
+        </Form.Item>
 
         <div className="remember-forgot">
           <div className="remember-me">
@@ -205,7 +216,7 @@ const Login = () => {
             {error}
           </div>
         )}
-      </form>
+      </Form>
     </Card>
   );
 };

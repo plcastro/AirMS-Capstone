@@ -177,7 +177,7 @@ const Sidebar = ({ collapsed }) => {
         mode="inline"
         selectedKeys={[current]}
         onClick={onClickMenu}
-        style={{ flex: 1, borderRight: 0 }}
+        style={{ flex: 1, borderRight: 0, textAlign: "left" }}
         items={filteredItems}
       />
 

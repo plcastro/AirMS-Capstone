@@ -7,6 +7,8 @@ import {
   message as Antmessage,
   Form,
   Typography,
+  Row,
+  Col,
 } from "antd";
 import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
@@ -26,7 +28,6 @@ export default function ForgotPassword() {
   const isFormValid = isEmailValid(email);
 
   const sendResetLink = async (e) => {
-    e.preventDefault();
     if (!email.trim()) {
       setMessage("Email is required.");
       return;
@@ -50,8 +51,9 @@ export default function ForgotPassword() {
       setLoading(false);
 
       if (response.ok) {
-        setMessage("Redirecting to OTP...");
-        Antmessage.success("Password reset email sent.");
+        Antmessage.success(
+          "Password reset email sent. Redirecting to OTP verification...",
+        );
         setTimeout(
           () => nav("/otp", { state: { token: data.token, email } }),
           2500,
@@ -70,10 +72,18 @@ export default function ForgotPassword() {
 
   return (
     <Card className="forgot-password-container">
-      <Title level={2}>Forgot Password</Title>
-      <Text>Please provide your email to proceed</Text>
+      <Row justify="center" style={{ marginBottom: 20 }}>
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Title level={2}>Forgot Password</Title>
+          <Text>Please provide your email to proceed</Text>
+        </Col>
+      </Row>
 
-      <Form className="forgot-password-form" onSubmit={sendResetLink}>
+      <Form
+        layout="vertical"
+        className="forgot-password-form"
+        onFinish={sendResetLink}
+      >
         <Form.Item label="Email" required>
           <Input
             type="email"

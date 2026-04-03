@@ -177,11 +177,6 @@ export default function UserForm({
         });
       }
 
-      // console.log(
-      //   "Sending payload:",
-      //   file ? [...body.entries()] : JSON.parse(body),
-      // );
-
       const url = user
         ? `${API_BASE}/api/user/update-user/${user._id}`
         : `${API_BASE}/api/user/create`;

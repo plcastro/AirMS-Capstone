@@ -47,7 +47,6 @@ const ResetPassword = () => {
   }, [formData]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
     if (error) return;
 
     setLoading(true);
@@ -103,7 +102,7 @@ const ResetPassword = () => {
       <Form
         layout="vertical"
         className="reset-password-form"
-        onSubmit={handleSubmit}
+        onFinish={handleSubmit}
       >
         <Form.Item label="New Password" required>
           <Input.Password

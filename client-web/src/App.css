@@ -25,7 +25,7 @@
 }
 
 /* Main OTP container */
-.code-input-section {
+/* .code-input-section {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -86,8 +86,7 @@
 input:focus {
   scroll-behavior: auto;
 }
-
-.primary-btn {
+*/ .primary-btn {
   background-color: var(--color-primary);
   color: var(--color-white);
 }

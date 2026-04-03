@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Row, Space, Input, Button, Typography, Tabs, message } from "antd";
+import {
+  Row,
+  Col,
+  Space,
+  Input,
+  Button,
+  Typography,
+  Tabs,
+  message,
+} from "antd";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { ClearOutlined } from "@ant-design/icons";
@@ -19,7 +28,7 @@ export default function UpdateSecurity() {
   const [pinErrors, setPinErrors] = useState({});
   const [forgotPinMode, setForgotPinMode] = useState(false);
   const [passwordForPin, setPasswordForPin] = useState("");
-  const [otp] = useState("");
+  const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
@@ -65,11 +74,15 @@ export default function UpdateSecurity() {
 
   const resetAll = () => {
     setCurrentPassword("");
-    setCurrentPin("");
     setNewPassword("");
     setConfirmPassword("");
+    setCurrentPin("");
     setNewPin("");
     setConfirmPin("");
+    setPasswordForPin("");
+    setOtp("");
+    setPinResetToken("");
+    setValidationMessage("");
   };
 
   const savePassword = async () => {
@@ -205,6 +218,8 @@ export default function UpdateSecurity() {
         placeholder="Current Password"
         value={currentPassword}
         onChange={(e) => setCurrentPassword(e.target.value)}
+        required
+        allowClear
       />
 
       <Input.Password
@@ -212,12 +227,16 @@ export default function UpdateSecurity() {
         size="large"
         value={newPassword}
         onChange={(e) => setNewPassword(e.target.value)}
+        required
+        allowClear
       />
       <Input.Password
         placeholder="Confirm Password"
         size="large"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
+        required
+        allowClear
       />
 
       <div style={{ height: "20px" }}>
@@ -253,8 +272,7 @@ export default function UpdateSecurity() {
   );
 
   const PinTab = (
-    <Space orientation="vertical">
-      {/* --- User remembers their current PIN --- */}
+    <Space orientation="vertical" align="start">
       {!forgotPinMode && (
         <>
           <Text>Current PIN</Text>
@@ -262,6 +280,10 @@ export default function UpdateSecurity() {
             length={6}
             formatter={(str) => str.replace(/\D/g, "")}
             value={currentPin}
+            onChange={(val) => setCurrentPin(val)}
+            type="password"
+            required
+            allowClear
           />
           <div
             style={{
@@ -281,14 +303,22 @@ export default function UpdateSecurity() {
           <Text>New PIN</Text>
           <Input.OTP
             length={6}
+            type="password"
             formatter={(str) => str.replace(/\D/g, "")}
             value={newPin}
+            onChange={(val) => setNewPin(val)}
+            required
+            allowClear
           />
           <Text>Confirm PIN</Text>
           <Input.OTP
             length={6}
+            type="password"
             formatter={(str) => str.replace(/\D/g, "")}
             value={confirmPin}
+            onChange={(val) => setConfirmPin(val)}
+            required
+            allowClear
           />
           <Row style={{ display: "flex", flexDirection: "row" }}>
             <Button
@@ -314,15 +344,26 @@ export default function UpdateSecurity() {
             placeholder="Enter your current password"
             value={passwordForPin}
             onChange={(e) => setPasswordForPin(e.target.value)}
+            required
+            allowClear
           />
           {validationMessage && <Text type="danger">{validationMessage}</Text>}
-          <Button
-            type="primary"
-            onClick={requestOtpForPin}
-            disabled={!passwordForPin}
-          >
-            Send OTP
-          </Button>
+          <Row style={{ gap: 10 }}>
+            <Col span={24}>
+              <Button
+                type="primary"
+                onClick={requestOtpForPin}
+                disabled={!passwordForPin}
+                style={{ marginRight: 10 }}
+              >
+                Send OTP to Email
+              </Button>
+
+              <Button type="default" onClick={() => setForgotPinMode(false)}>
+                Cancel
+              </Button>
+            </Col>
+          </Row>
         </>
       )}
 
@@ -333,6 +374,8 @@ export default function UpdateSecurity() {
             length={6}
             formatter={(str) => str.replace(/\D/g, "")}
             value={otp}
+            onChange={(val) => setOtp(val)}
+            required
           />
           {validationMessage && <Text type="danger">{validationMessage}</Text>}
           <Row style={{ display: "flex", flexDirection: "row" }}>
@@ -357,12 +400,18 @@ export default function UpdateSecurity() {
             length={6}
             value={newPin}
             formatter={(str) => str.replace(/\D/g, "")}
+            onChange={(val) => setNewPin(val)}
+            required
+            allowClear
           />
           <Text>Confirm PIN</Text>
           <Input.OTP
             length={6}
             formatter={(str) => str.replace(/\D/g, "")}
             value={confirmPin}
+            onChange={(val) => setConfirmPin(val)}
+            required
+            allowClear
           />
           <Row style={{ display: "flex", flexDirection: "row" }}>
             <Button
