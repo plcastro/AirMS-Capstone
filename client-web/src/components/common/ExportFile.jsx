@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable"; // registers autoTable globally
 import html2canvas from "html2canvas";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import {
   mhistorydata,
@@ -74,42 +74,46 @@ export const exportToPDF = async () => {
   }
 };
 
-export const exportToExcel = () => {
+export const exportToExcel = async () => {
   try {
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(PACChartMock),
-      "Performance",
-    );
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(summarydata),
-      "Summary",
-    );
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(mhistorydata),
-      "History",
-    );
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(componentData),
-      "Components",
-    );
+    const workbook = new ExcelJS.Workbook();
 
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
+    // Helper function to add a sheet and data quickly
+    const addSheet = (name, data) => {
+      const sheet = workbook.addWorksheet(name);
+      if (data && data.length > 0) {
+        // Define columns based on keys of the first object
+        sheet.columns = Object.keys(data[0]).map((key) => ({
+          header: key.charAt(0).toUpperCase() + key.slice(1),
+          key: key,
+          width: 20,
+        }));
+        // Add the rows
+        sheet.addRows(data);
+
+        // Optional: Make header row bold
+        sheet.getRow(1).font = { bold: true };
+      }
+    };
+
+    // Add your 4 sheets
+    addSheet("Performance", PACChartMock);
+    addSheet("Summary", summarydata);
+    addSheet("History", mhistorydata);
+    addSheet("Components", componentData);
+
+    // Generate the buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Save the file
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(
-      new Blob([excelBuffer], { type: "application/octet-stream" }),
-      "MaintenanceDashboard.xlsx",
-    );
+    saveAs(blob, "MaintenanceDashboard.xlsx");
 
     message.success("Excel exported successfully!");
   } catch (err) {
-    console.error(err);
+    console.error("Excel export failed:", err);
     message.error("Excel export failed: " + err.message);
   }
 };
