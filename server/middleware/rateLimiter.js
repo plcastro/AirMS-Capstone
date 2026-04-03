@@ -9,4 +9,13 @@ const rateLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-module.exports = rateLimiter;
+const otpRequestLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 3,
+  message: "Too many OTP requests, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+});
+
+module.exports = { rateLimiter, otpRequestLimiter };

@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
@@ -43,8 +43,6 @@ const Login = () => {
     }
   }, []);
 
-  const isFormValid =
-    formData.identifier.trim() !== "" && formData.password.trim() !== "";
   const handleInputChange = (e) => {
     const { id, value } = e.target;
     setFormData((prevState) => ({
@@ -159,7 +157,7 @@ const Login = () => {
         </Col>
       </Row>
 
-      <Form layout="vertical" className="login-form" onFinish={handleSubmit}>
+      <Form layout="vertical" onFinish={handleSubmit}>
         <Form.Item label="Username/Email" required>
           <Input
             type="text"
@@ -185,9 +183,19 @@ const Login = () => {
             required
             allowClear
           />
+          <Row>{error && <Text type="danger">{error}</Text>}</Row>
         </Form.Item>
-        <Row style={{ marginBottom: 10 }}>
-          <Col xs={12}>
+
+        <Row
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: 10,
+          }}
+        >
+          <Col lg={12}>
             <Checkbox
               id="remember"
               checked={rememberMe}
@@ -196,7 +204,7 @@ const Login = () => {
               Remember Me
             </Checkbox>
           </Col>
-          <Col xs={12} style={{ textAlign: "right" }}>
+          <Col lg={12} style={{ textAlign: "right" }}>
             <Link to="/forgot" className="forgot-password">
               Forgot password?
             </Link>
@@ -207,16 +215,10 @@ const Login = () => {
           htmlType="submit"
           type="primary"
           className="login-btn"
-          disabled={!isFormValid || loading}
+          disabled={loading}
         >
           {loading ? "PLEASE WAIT..." : "LOGIN"}
         </Button>
-
-        {error && (
-          <div className="error" style={{ color: "red" }}>
-            {error}
-          </div>
-        )}
       </Form>
     </Card>
   );

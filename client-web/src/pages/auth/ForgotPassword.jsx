@@ -19,13 +19,27 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const [touched, setTouched] = useState(false);
   const isEmailValid = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(value.trim());
   };
 
-  const isFormValid = isEmailValid(email);
+  const handleEmailBlur = () => {
+    setTouched(true);
+
+    if (!email.trim()) {
+      setMessage("Email is required.");
+      return;
+    }
+
+    if (!isEmailValid(email)) {
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+
+    setMessage("");
+  };
 
   const sendResetLink = async (e) => {
     if (!email.trim()) {
@@ -90,25 +104,26 @@ export default function ForgotPassword() {
             id="email"
             placeholder="Enter email"
             inputMode="email"
+            onBlur={handleEmailBlur}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{ marginBottom: 30 }}
             maxLength={254}
             size="large"
             allowClear
             required
           />
+          <Row style={{ marginBottom: 10 }}>
+            {message && <Text type="danger">{message}</Text>}
+          </Row>
           <Button
             htmlType="submit"
             type="primary"
             size="large"
             className="login-btn"
-            disabled={!isFormValid || loading}
+            disabled={loading}
           >
             {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
           </Button>
-
-          {message && <div className="info">{message}</div>}
 
           <div className="signup-link" style={{ marginTop: "20px" }}>
             Remembered your password? <Link to="/login">Log in</Link>

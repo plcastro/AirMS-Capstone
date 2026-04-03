@@ -9,7 +9,6 @@ import {
   Steps,
   Divider,
   Space,
-  Card,
   message,
   Popconfirm,
 } from "antd";
@@ -26,30 +25,33 @@ const { Title, Text } = Typography;
 
 export default function WRSModal({ visible, onClose, selectedRecord }) {
   const { user } = useContext(AuthContext);
-  const [, setLoading] = useState(false);
-  const [packedItems] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [packedItems, setPackedItems] = useState([]);
 
   if (!selectedRecord) return null;
+
   const isWD = user.jobTitle.toLowerCase() === "warehouse department";
-  const allItemsPacked = packedItems.length === selectedRecord?.items?.length;
+
   const STATUS_ORDER = ["Pending", "Approved", "In Progress", "Completed"];
-  const currentIndex = STATUS_ORDER.indexOf(selectedRecord.status);
+  const currentStatusIndex = STATUS_ORDER.indexOf(selectedRecord.status);
 
-  const getStepStatus = () => {
-    if (selectedRecord.status === "Cancelled") return "error";
-    return "process";
-  };
+  const allItemsPacked =
+    selectedRecord.status === "Completed" ||
+    packedItems.length === selectedRecord?.items?.length;
 
-  const ICON_STYLE = { fontSize: "24px" };
+  const next = () => setCurrentStep((prev) => prev + 1);
+  const prev = () => setCurrentStep((prev) => prev - 1);
+
+  const ICON_STYLE = { fontSize: "20px" };
 
   const handleDispatch = async () => {
     setLoading(true);
     try {
-      // API Call: Update status to "Out for Delivery"
-
-      message.success("Package handed over to engi! Status: Out for Delivery");
+      message.success("Dispatched successfully!");
       onClose();
-    } catch (error) {
+    } catch {
       message.error("Dispatch failed.");
     } finally {
       setLoading(false);
@@ -59,11 +61,9 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
   const handleMarkDelivered = async () => {
     setLoading(true);
     try {
-      // API Call: Final status update
-
-      message.success("WRS marked as DELIVERED successfully.");
+      message.success("Marked as delivered!");
       onClose();
-    } catch (error) {
+    } catch {
       message.error("Update failed.");
     } finally {
       setLoading(false);
@@ -72,54 +72,66 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
 
   return (
     <Modal
-      title={
-        <Space size="middle">
-          <Title level={3}>Warehouse Requisition Slip</Title>
-
-          <Text type="secondary" strong>
-            {selectedRecord.wrsNo}
-          </Text>
-        </Space>
-      }
       open={visible}
       onCancel={onClose}
+      width="85%"
+      centered
+      title={
+        <Space>
+          <Title level={4} style={{ margin: 0 }}>
+            Warehouse Requisition Slip
+          </Title>
+          <Text type="secondary">{selectedRecord.wrsNo}</Text>
+        </Space>
+      }
       footer={[
-        <Button key="close" type="primary" onClick={onClose} size="large">
-          Close
-        </Button>,
-        isWD && selectedRecord.status === "Approved" && (
-          <Button
-            type="primary"
-            disabled={!allItemsPacked}
-            onClick={handleDispatch}
-          >
-            Dispatch to Rider
+        currentStep > 0 && <Button onClick={prev}>Previous</Button>,
+
+        currentStep < 2 && (
+          <Button type="primary" onClick={next}>
+            Next
           </Button>
         ),
-        selectedRecord.status === "Out for Delivery" && (
-          <Popconfirm
-            title="Confirm Delivery"
-            description="Are you sure the items have reached the aviation base?"
-            onConfirm={handleMarkDelivered}
-          >
-            <Button
-              type="primary"
-              color="green"
-              variant="solid"
-              icon={<CheckCircleOutlined />}
-            >
-              Mark as Delivered
-            </Button>
-          </Popconfirm>
+
+        currentStep === 2 && (
+          <>
+            {isWD && selectedRecord.status === "Approved" && (
+              <Button
+                type="primary"
+                disabled={!allItemsPacked}
+                loading={loading}
+                onClick={handleDispatch}
+              >
+                Dispatch
+              </Button>
+            )}
+
+            {selectedRecord.status === "Out for Delivery" && (
+              <Popconfirm
+                title="Confirm Delivery"
+                onConfirm={handleMarkDelivered}
+              >
+                <Button
+                  type="primary"
+                  icon={<CheckCircleOutlined />}
+                  loading={loading}
+                >
+                  Mark Delivered
+                </Button>
+              </Popconfirm>
+            )}
+
+            <Button onClick={onClose}>Close</Button>
+          </>
         ),
       ]}
-      width={"85%"}
-      centered
     >
-      <div style={{ padding: "20px 40px" }}>
+      {" "}
+      <div style={{ marginBottom: 20 }}>
+        <Text strong>Status</Text>
         <Steps
-          current={currentIndex}
-          status={getStepStatus()}
+          responsive
+          current={currentStatusIndex}
           items={[
             {
               title: "Pending",
@@ -145,87 +157,77 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
           ]}
         />
       </div>
+      <Steps
+        current={currentStep}
+        items={[
+          { title: "General Info" },
+          { title: "Items" },
+          { title: "Finalize" },
+        ]}
+        style={{ marginBottom: 20 }}
+      />
+      <div style={{ minHeight: 300 }}>
+        {currentStep === 0 && (
+          <>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={12}>
+                <Text type="secondary">SLOC NAME/CODE</Text>
+                <Input value={selectedRecord.slocNameCode} disabled />
+              </Col>
 
-      <Divider orientation="left" plain>
-        General Information
-      </Divider>
+              <Col xs={24} lg={12}>
+                <Text type="secondary">Date Requested</Text>
+                <Input value={selectedRecord.dateRequested} disabled />
+              </Col>
+            </Row>
 
-      <Card
-        variant="soft"
-        style={{ marginBottom: 24, backgroundColor: "#fafafa" }}
-      >
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              SLOC NAME/CODE
-            </Text>
-            <Input
-              value={selectedRecord.slocNameCode}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              Date Requested
-            </Text>
-            <Input
-              value={selectedRecord.dateRequested}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-        </Row>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              Requisitioned By
-            </Text>
-            <Input
-              value={selectedRecord.staff.employeeName}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              Approved By
-            </Text>
-            <Input
-              value={selectedRecord.staff.cchead}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              Received By
-            </Text>
-            <Input
-              value={selectedRecord.staff.enduser}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text type="secondary" strong>
-              Noted By
-            </Text>
-            <Input
-              value={selectedRecord.staff.notedby}
-              disabled
-              style={{ marginTop: 8, color: "black" }}
-            />
-          </Col>
-        </Row>
-      </Card>
+            <Row gutter={[16, 16]} style={{ marginTop: 10 }}>
+              <Col xs={24} lg={12}>
+                <Text type="secondary">Requisitioned By</Text>
+                <Input value={selectedRecord.staff.employeeName} disabled />
+              </Col>
 
-      <Divider orientation="left" plain>
-        Requisitioned Items
-      </Divider>
+              <Col xs={24} lg={12}>
+                <Text type="secondary">Approved By</Text>
+                <Input value={selectedRecord.staff.cchead} disabled />
+              </Col>
 
-      <div style={{ minHeight: "200px" }}>
-        <WRSTable data={selectedRecord.items} loading={false} isWD={isWD} />
+              <Col xs={24} lg={12}>
+                <Text type="secondary">Received By</Text>
+                <Input value={selectedRecord.staff.enduser} disabled />
+              </Col>
+
+              <Col xs={24} lg={12}>
+                <Text type="secondary">Noted By</Text>
+                <Input value={selectedRecord.staff.notedby} disabled />
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {/* STEP 2 */}
+        {currentStep === 1 && (
+          <WRSTable
+            data={selectedRecord.items}
+            loading={false}
+            isWD={isWD}
+            status={selectedRecord.status}
+            packedItems={packedItems}
+            setPackedItems={setPackedItems}
+          />
+        )}
+
+        {/* STEP 3 */}
+        {currentStep === 2 && (
+          <>
+            <Text strong>Notes</Text>
+            <Input.TextArea rows={4} placeholder="Enter notes..." />
+
+            <Divider />
+
+            <Text type="secondary">Review items and complete the process.</Text>
+          </>
+        )}
       </div>
     </Modal>
   );

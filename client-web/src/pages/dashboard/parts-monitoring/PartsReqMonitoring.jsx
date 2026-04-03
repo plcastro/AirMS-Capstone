@@ -52,7 +52,7 @@ export default function PartsRequisition() {
       }}
     >
       <Row>
-        <Col xs={24} md={6}>
+        <Col xs={24} md={8}>
           <Input
             size="large"
             placeholder="Search by WRS No, aircraft, or status..."
@@ -70,7 +70,6 @@ export default function PartsRequisition() {
           msOverflowStyle: "none",
           scrollbarWidth: "none",
         }}
-        className="hide-scrollbar"
       >
         <Row
           gutter={[10, 10]}

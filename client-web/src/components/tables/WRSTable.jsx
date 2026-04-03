@@ -1,7 +1,12 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Table, Tag, Checkbox } from "antd";
 
-export default function WRSTable({ data = [], loading = false, isWD }) {
+export default function WRSTable({
+  data = [],
+  loading = false,
+  isWD,
+  status = "Pending",
+}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [packedItems, setPackedItems] = useState([]);
   const pageSize = 10;
@@ -49,14 +54,16 @@ export default function WRSTable({ data = [], loading = false, isWD }) {
 
   if (isWD) {
     tableColumns.unshift({
-      title: "PACKED",
+      title: "",
       key: "manual-checkbox",
-      width: 80,
+      width: 50,
       align: "center",
+      fixed: "left",
       render: (_, record) => (
         <Checkbox
-          checked={packedItems.includes(record._id)}
+          checked={status === "Completed" || packedItems.includes(record._id)}
           onChange={() => handleCheck(record._id)}
+          disabled={status !== "Approved"}
         />
       ),
     });

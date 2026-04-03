@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const rateLimiter = require("../middleware/rateLimiter");
+const { rateLimiter, otpRequestLimiter } = require("../middleware/rateLimiter");
 const {
   loginUser,
   logoutUser,
@@ -59,11 +59,11 @@ router.post("/resend-activation", resendActivation);
 router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-password-reset", requestPasswordReset);
-router.post("/verify-otp", verifyOtp);
+router.post("/verify-otp", otpRequestLimiter, verifyOtp);
 router.post("/reset-password", resetPassword);
 
 router.post("/request-pin-reset/:id", requestPinReset);
-router.post("/verify-pin-otp", verifyPinOtp);
+router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
 router.post("/reset-pin", resetPin);
 
 module.exports = router;
