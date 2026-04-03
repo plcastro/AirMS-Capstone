@@ -19,7 +19,7 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
-import DefaultAvatar from "../../../assets/default_avatar.jpg";
+import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
 const { Title } = Typography;
 
 export default function Profile() {
