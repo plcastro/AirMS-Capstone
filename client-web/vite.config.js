@@ -9,11 +9,25 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Put all export-related heavy lifting in one separate file
-          "export-libs": ["jspdf", "jspdf-autotable", "exceljs", "html2canvas"],
-          // Put react internals in another
-          vendor: ["react", "react-dom", "react-router-dom"],
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            // Group export-heavy libraries together
+            if (
+              id.includes("jspdf") ||
+              id.includes("exceljs") ||
+              id.includes("html2canvas")
+            ) {
+              return "export-libs";
+            }
+            // Group core React/Router libraries
+            if (
+              id.includes("react") ||
+              id.includes("react-dom") ||
+              id.includes("react-router-dom")
+            ) {
+              return "vendor";
+            }
+          }
         },
       },
     },
