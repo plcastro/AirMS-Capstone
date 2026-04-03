@@ -186,9 +186,8 @@ const Login = () => {
             allowClear
           />
         </Form.Item>
-
-        <div className="remember-forgot">
-          <div className="remember-me">
+        <Row style={{ marginBottom: 10 }}>
+          <Col xs={12}>
             <Checkbox
               id="remember"
               checked={rememberMe}
@@ -196,11 +195,13 @@ const Login = () => {
             >
               Remember Me
             </Checkbox>
-          </div>
-          <Link to="/forgot" className="forgot-password">
-            Forgot password?
-          </Link>
-        </div>
+          </Col>
+          <Col xs={12} style={{ textAlign: "right" }}>
+            <Link to="/forgot" className="forgot-password">
+              Forgot password?
+            </Link>
+          </Col>
+        </Row>
 
         <Button
           htmlType="submit"
