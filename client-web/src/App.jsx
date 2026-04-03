@@ -72,7 +72,7 @@ const AppRouter = () => {
         <Route element={<RootLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
-          <Route path="/otp" element={<OTP />} />
+          <Route path="/verification" element={<OTP />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/security-setup" element={<SecuritySetup />} />
         </Route>

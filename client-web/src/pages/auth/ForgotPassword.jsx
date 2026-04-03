@@ -55,7 +55,7 @@ export default function ForgotPassword() {
           "Password reset email sent. Redirecting to OTP verification...",
         );
         setTimeout(
-          () => nav("/otp", { state: { token: data.token, email } }),
+          () => nav("/verification", { state: { token: data.token, email } }),
           2500,
         );
       } else {

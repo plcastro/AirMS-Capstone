@@ -41,7 +41,6 @@ export default function Profile() {
       minute: "2-digit",
     });
   };
-  console.log(user.image);
 
   useEffect(() => {
     if (!user) return;
@@ -62,7 +61,6 @@ export default function Profile() {
     setFile(null);
   }, [user]);
 
-  // --- Profile editing ---
   const handleChange = (key, value) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
 
