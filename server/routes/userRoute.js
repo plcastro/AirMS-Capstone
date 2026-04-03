@@ -58,7 +58,6 @@ router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
 router.post("/complete-security-setup", completeSecuritySetup);
 
-// --- Password & PIN reset routes ---
 router.post("/request-password-reset", requestPasswordReset);
 router.post("/verify-otp", verifyOtp);
 router.post("/reset-password", resetPassword);
