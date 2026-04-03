@@ -75,7 +75,7 @@ exports.savePartsLifespanMonitoring = async (req, res) => {
       success: false,
       message: "Error saving data",
       error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      stack: process.env.NODE_ENV === "production" ? error.stack : undefined,
     });
   }
 };
