@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Input, Button, message as antMessage } from "antd";
+import { Card, Input, Checkbox, Button, message as antMessage } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 
@@ -116,7 +116,6 @@ const Login = () => {
   };
 
   const handleNavigate = (jobTitle) => {
-    // Normalize jobTitle to lowercase for comparison
     const pos = jobTitle?.toLowerCase() || "";
 
     switch (pos) {
@@ -132,78 +131,82 @@ const Login = () => {
       case "officer-in-charge":
         navigate("/dashboard/parts-lifespan-monitoring");
         break;
+      case "warehouse department":
+        navigate("/dashboard/parts-requisition");
+        break;
       default:
         navigate("/dashboard/profile"); // fallback dashboard
         break;
     }
   };
   return (
-    <div className="login-container">
-      <div className="login-content">
-        <h1 className="title">Login</h1>
-        <p className="subtitle">
-          Please enter your AirMS account details to log in
-        </p>
+    <Card className="login-container">
+      <h1 className="title">Login</h1>
+      <p className="subtitle">
+        Please enter your AirMS account details to log in
+      </p>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">Username/Email</label>
-            <Input
-              type="text"
-              id="identifier"
-              placeholder="Enter your username/email"
-              value={formData.identifier}
-              onChange={handleInputChange}
-              autoComplete="username"
-              required
-            />
+      <form className="login-form" onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="username">Username/Email</label>
+          <Input
+            type="text"
+            id="identifier"
+            size="large"
+            placeholder="Enter username/email"
+            value={formData.identifier}
+            onChange={handleInputChange}
+            autoComplete="username"
+            required
+            allowClear
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="password">Password</label>
+          <Input.Password
+            id="password"
+            placeholder="Enter password"
+            size="large"
+            value={formData.password}
+            onChange={handleInputChange}
+            autoComplete="current-password"
+            required
+            allowClear
+          />
+        </div>
+
+        <div className="remember-forgot">
+          <div className="remember-me">
+            <Checkbox
+              id="remember"
+              checked={rememberMe}
+              onChange={handleRememberMeChange}
+            >
+              Remember Me
+            </Checkbox>
           </div>
+          <Link to="/forgot" className="forgot-password">
+            Forgot password?
+          </Link>
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <Input
-              type="password"
-              id="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleInputChange}
-              autoComplete="current-password"
-              required
-            />
+        <Button
+          htmlType="submit"
+          type="primary"
+          className="login-btn"
+          disabled={!isFormValid || loading}
+        >
+          {loading ? "PLEASE WAIT..." : "LOGIN"}
+        </Button>
+
+        {error && (
+          <div className="error" style={{ color: "red" }}>
+            {error}
           </div>
-
-          <div className="remember-forgot">
-            <div className="remember-me">
-              <input
-                type="checkbox"
-                id="remember"
-                checked={rememberMe}
-                onChange={handleRememberMeChange}
-              />
-              <label htmlFor="remember">Remember me</label>
-            </div>
-            <Link to="/forgot" className="forgot-password">
-              Forgot password?
-            </Link>
-          </div>
-
-          <Button
-            htmlType="submit"
-            type="primary"
-            className="login-btn"
-            disabled={!isFormValid || loading}
-          >
-            {loading ? "Logging in..." : "LOGIN"}
-          </Button>
-
-          {error && (
-            <div className="error" style={{ color: "red" }}>
-              {error}
-            </div>
-          )}
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Card>
   );
 };
 

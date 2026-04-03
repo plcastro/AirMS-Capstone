@@ -1,8 +1,19 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Form, Input, Button, Card, message as antMessage } from "antd";
+import {
+  Form,
+  Input,
+  Button,
+  Card,
+  message as antMessage,
+  Typography,
+  Row,
+  Col,
+} from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import "./login.css";
+
+const { Title, Text } = Typography;
 
 const SecuritySetup = () => {
   const navigate = useNavigate();
@@ -130,95 +141,98 @@ const SecuritySetup = () => {
 
   return (
     <Card style={{ margin: "20px 0" }}>
-      <div className="login-content">
-        <h1 className="title">Security Setup</h1>
-        <p className="subtitle">Set your new password and PIN to proceed</p>
+      <Row align={"middle"} justify={"center"}>
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Title level={2}>Security Setup</Title>
+        </Col>
+        <Col span={24} style={{ textAlign: "center" }}>
+          <Text>Set your new password and PIN to proceed</Text>
+        </Col>
+      </Row>
 
-        <Form layout="vertical" onFinish={validateAndSubmit}>
-          <Form.Item label="New Password" required>
-            <Input.Password
-              value={formData.newPassword}
-              onChange={(e) => changeHandler("newPassword", e.target.value)}
-            />
-          </Form.Item>
+      <Form layout="vertical" onFinish={validateAndSubmit}>
+        <Form.Item label="New Password" required>
+          <Input.Password
+            value={formData.newPassword}
+            onChange={(e) => changeHandler("newPassword", e.target.value)}
+          />
+        </Form.Item>
 
-          <Form.Item label="Confirm Password" required>
-            <Input.Password
-              value={formData.confirmPassword}
-              onChange={(e) => changeHandler("confirmPassword", e.target.value)}
-            />
-          </Form.Item>
+        <Form.Item label="Confirm Password" required>
+          <Input.Password
+            value={formData.confirmPassword}
+            onChange={(e) => changeHandler("confirmPassword", e.target.value)}
+          />
+        </Form.Item>
 
-          {/* Live password requirements */}
-          <div style={{ marginBottom: "15px" }}>
-            <span style={getRequirementStyle(passwordRequirements.minLength)}>
-              {passwordRequirements.minLength ? "✓" : "✗"} At least 8 characters
-            </span>
-            <br />
-            <span
-              style={getRequirementStyle(passwordRequirements.hasUppercase)}
-            >
-              {passwordRequirements.hasUppercase ? "✓" : "✗"} One uppercase
-              letter
-            </span>
-            <br />
-            <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
-              {passwordRequirements.hasNumber ? "✓" : "✗"} One number
-            </span>
-          </div>
+        {/* Live password requirements */}
+        <div style={{ marginBottom: "15px" }}>
+          <span style={getRequirementStyle(passwordRequirements.minLength)}>
+            {passwordRequirements.minLength ? "✓" : "✗"} At least 8 characters
+          </span>
+          <br />
+          <span style={getRequirementStyle(passwordRequirements.hasUppercase)}>
+            {passwordRequirements.hasUppercase ? "✓" : "✗"} One uppercase letter
+          </span>
+          <br />
+          <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            {passwordRequirements.hasNumber ? "✓" : "✗"} One number
+          </span>
+        </div>
 
-          {/* PIN */}
-          <Form.Item label="Set 6-digit PIN" required>
-            <Input.Password
-              value={formData.pin}
-              inputMode="numeric"
-              maxLength={6}
-              onChange={(e) =>
-                changeHandler("pin", e.target.value.replace(/\D/g, ""))
-              }
-              placeholder="Enter 6-digit PIN"
-            />
-          </Form.Item>
+        {/* PIN */}
+        <Form.Item label="Set 6-digit PIN" required>
+          <Input.Password
+            value={formData.pin}
+            inputMode="numeric"
+            maxLength={6}
+            onChange={(e) =>
+              changeHandler("pin", e.target.value.replace(/\D/g, ""))
+            }
+            placeholder="Enter 6-digit PIN"
+          />
+        </Form.Item>
 
-          <Form.Item label="Confirm PIN" required>
-            <Input.Password
-              value={formData.confirmPin}
-              maxLength={6}
-              inputMode="numeric"
-              onChange={(e) =>
-                changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
-              }
-              placeholder="Confirm 6-digit PIN"
-            />
-          </Form.Item>
+        <Form.Item label="Confirm PIN" required>
+          <Input.Password
+            value={formData.confirmPin}
+            maxLength={6}
+            inputMode="numeric"
+            onChange={(e) =>
+              changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
+            }
+            placeholder="Confirm 6-digit PIN"
+          />
+        </Form.Item>
 
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              disabled={!isFormValid}
-              block
-            >
-              SET PASSWORD & PIN
-            </Button>
-          </Form.Item>
+        <Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            size="large"
+            disabled={!isFormValid}
+            block
+          >
+            SET PASSWORD & PIN
+          </Button>
+        </Form.Item>
 
-          <Form.Item>
-            <Button
-              type="default"
-              onClick={handleResendActivation}
-              loading={resendLoading}
-              block
-            >
-              RESEND ACTIVATION LINK
-            </Button>
-          </Form.Item>
+        <Form.Item>
+          <Button
+            type="default"
+            size="large"
+            onClick={handleResendActivation}
+            loading={resendLoading}
+            block
+          >
+            RESEND ACTIVATION LINK
+          </Button>
+        </Form.Item>
 
-          <div style={{ marginTop: "20px" }}>
-            Already activated? <Link to="/login">Go to Login</Link>
-          </div>
-        </Form>
-      </div>
+        <div style={{ marginTop: "20px" }}>
+          Already activated? <Link to="/login">Go to Login</Link>
+        </div>
+      </Form>
     </Card>
   );
 };

@@ -10,7 +10,12 @@ import {
   Tabs,
   message,
 } from "antd";
-import { EditOutlined, LockOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  EditOutlined,
+  LockOutlined,
+  UserOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
@@ -281,17 +286,18 @@ export default function Profile() {
         padding: 20,
         height: "100vh",
         overflowY: "auto",
+        paddingBottom: 100,
       }}
     >
       <Card
         style={{
-          width: "95%",
+          width: "100%",
           borderRadius: 12,
-          height: "fit-content",
+          height: "max-content",
         }}
       >
         {/* PROFILE PICTURE */}
-        <Title level={4}>Profile Picture</Title>
+
         <Row align="center">
           <Col
             xs={24}
@@ -300,14 +306,17 @@ export default function Profile() {
             style={{
               display: "flex",
               flexDirection: "column",
+              alignItems: "center",
               gap: 20,
             }}
           >
+            <Title level={4} style={{ alignSelf: "center" }}>
+              Profile Picture
+            </Title>
             <img
               src={previewUri}
               alt="Profile"
               style={{
-                margin: "auto",
                 width: 200,
                 height: 200,
                 borderRadius: "50%",
@@ -323,16 +332,11 @@ export default function Profile() {
               style={{ display: "none" }}
               onChange={pickImage}
             />
-            <Row
-              align="middle"
-              justify="space-evenly"
-              style={{ marginBottom: 20 }}
-            >
+            <Row align="middle" justify="space-evenly">
               <Col
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
+                  flexDirection: "row",
                   gap: 10,
                 }}
               >
@@ -350,19 +354,18 @@ export default function Profile() {
                   onClick={handleRemoveImage}
                   disabled={!user?.image && !file}
                 >
-                  Remove Picture
+                  <DeleteOutlined />
                 </Button>
               </Col>
             </Row>
           </Col>
 
           <Col xs={24} s={24} md={24} lg={12}>
-            {/* USER INFO */}
             <Tabs
               centered
               defaultActiveKey={tabItems[0]?.key || "UserInformation"}
               items={tabItems}
-              size="large"
+              size="medium"
             />
           </Col>
         </Row>

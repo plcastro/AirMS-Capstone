@@ -1,11 +1,13 @@
 // WEB
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button, message } from "antd";
+import { Button, message, Input, Card, Typography, Row } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
+
 import "./login.css";
 import "../../App.css";
-import CodeInputField from "../../components/common/CodeInputField";
+const { Title, Text } = Typography;
+
 export default function OTP() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,36 +95,42 @@ export default function OTP() {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-content">
-        <h1 className="title">Account Verification</h1>
-        <p className="subtitle">Enter OTP Code</p>
-        <p>Please enter the 6-digit code sent to {email || "your email"}</p>
-        <CodeInputField
-          code={code}
-          setCode={setCode}
-          maxLength={MAX_CODE_LENGTH}
-          setPinReady={setPinReady}
+    <Card className="login-container">
+      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
+        <Title level={2}>Account Verification</Title>
+        <Text>
+          Please enter the 6-digit code sent to {email || "your email"}
+        </Text>
+        <Input.OTP
+          value={code}
+          onChange={setCode}
+          autoFocus
+          style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
+          length={6}
+          formatter={(str) => str.replace(/\D/g, "")}
         />
-        <Button
-          type="primary"
-          onClick={handleVerify}
-          disabled={!pinReady}
-          loading={confirmLoading}
-          style={{ width: "100%", marginBottom: 10 }}
-          className="primary-btn"
-        >
-          Verify
-        </Button>
-        <Button
-          type="default"
-          onClick={handleResend}
-          disabled={resendTimer > 0}
-          style={{ width: "100%" }}
-        >
-          {resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
-        </Button>
-      </div>
-    </div>
+      </Row>
+
+      <Button
+        type="primary"
+        size="large"
+        onClick={handleVerify}
+        disabled={!pinReady}
+        loading={confirmLoading}
+        style={{ width: "100%", marginBottom: 10 }}
+        className="primary-btn"
+      >
+        Verify
+      </Button>
+      <Button
+        type="default"
+        size="large"
+        onClick={handleResend}
+        disabled={resendTimer > 0}
+        style={{ width: "100%" }}
+      >
+        {resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
+      </Button>
+    </Card>
   );
 }
