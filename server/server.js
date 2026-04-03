@@ -11,7 +11,6 @@ const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
 const technicalLogRoutes = require("./routes/technicalLogRoute");
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
-const inventoryRoutes = require("./routes/componentRoute");
 const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
 const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
@@ -43,11 +42,11 @@ app.use("/api/maintenance-logs", maintenanceLogRoutes);
 app.use("/api/technical-logs", technicalLogRoutes);
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
-app.use("/api/component-inventory", inventoryRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/flightlogs", flightlogRoutes);
+app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

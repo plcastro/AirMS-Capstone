@@ -1,5 +1,11 @@
 const LinkingConfig = {
-  prefixes: ["airms://", "http://localhost:8081"],
+  prefixes: [
+    "airms://",
+    "http://localhost:8081",
+    "https://airms.online",
+    "https://www.airms.online",
+    "https://api.airms.online",
+  ],
   config: {
     screens: {
       login: "login",
