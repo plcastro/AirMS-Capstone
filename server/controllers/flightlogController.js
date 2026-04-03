@@ -1,4 +1,4 @@
-const FlightLog = require("../models/flightLogModel");
+const FlightLog = require("../models/flightlogModel");
 
 // Helper function to get user role from token
 const getUserRole = (user) => {
@@ -17,8 +17,8 @@ exports.createFlightLog = async (req, res) => {
 
     const flightLogData = req.body;
 
-        // Remove ID fields to prevent duplicate key errors on creation
-    delete flightLogData._id; 
+    // Remove ID fields to prevent duplicate key errors on creation
+    delete flightLogData._id;
     delete flightLogData.id;
 
     // Validate required fields
@@ -26,13 +26,14 @@ exports.createFlightLog = async (req, res) => {
       console.log("Validation failed: Missing or empty rpc");
       return res.status(400).json({
         success: false,
-        message: "Aircraft RPC is required"
+        message: "Aircraft RPC is required",
       });
     }
 
     // Set status based on user role from frontend
     const userRole = flightLogData.createdBy;
-    flightLogData.status = userRole === "pilot" ? "pending_release" : "pending_acceptance";
+    flightLogData.status =
+      userRole === "pilot" ? "pending_release" : "pending_acceptance";
 
     console.log("Processed data:", JSON.stringify(flightLogData, null, 2));
 
@@ -46,7 +47,7 @@ exports.createFlightLog = async (req, res) => {
     res.status(201).json({
       success: true,
       data: flightLog,
-      message: "Flight log created successfully"
+      message: "Flight log created successfully",
     });
   } catch (error) {
     console.error("=== ERROR CREATING FLIGHT LOG ===");
@@ -55,17 +56,19 @@ exports.createFlightLog = async (req, res) => {
 
     // Check for duplicate key error
     if (error.code === 11000) {
-      console.error("Duplicate key error - this happens when you try to save with the same ID");
+      console.error(
+        "Duplicate key error - this happens when you try to save with the same ID",
+      );
       return res.status(400).json({
         success: false,
-        message: "Duplicate entry - please try again"
+        message: "Duplicate entry - please try again",
       });
     }
 
     res.status(500).json({
       success: false,
       message: "Error creating flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -84,7 +87,7 @@ exports.getFlightLogs = async (req, res) => {
       startDate,
       endDate,
       sortBy = "date",
-      sortOrder = "desc"
+      sortOrder = "desc",
     } = req.query;
 
     console.log("Query params:", req.query);
@@ -124,15 +127,15 @@ exports.getFlightLogs = async (req, res) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit))
-      }
+        pages: Math.ceil(total / parseInt(limit)),
+      },
     });
   } catch (error) {
     console.error("Error fetching flight logs:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching flight logs",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -147,20 +150,20 @@ exports.getFlightLogById = async (req, res) => {
     if (!flightLog) {
       return res.status(404).json({
         success: false,
-        message: "Flight log not found"
+        message: "Flight log not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      data: flightLog
+      data: flightLog,
     });
   } catch (error) {
     console.error("Error fetching flight log:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -180,14 +183,14 @@ exports.getFlightLogsByAircraft = async (req, res) => {
     res.status(200).json({
       success: true,
       count: flightLogs.length,
-      data: flightLogs
+      data: flightLogs,
     });
   } catch (error) {
     console.error("Error fetching aircraft flight logs:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching aircraft flight logs",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -210,27 +213,27 @@ exports.updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!flightLog) {
       return res.status(404).json({
         success: false,
-        message: "Flight log not found"
+        message: "Flight log not found",
       });
     }
 
     res.status(200).json({
       success: true,
       data: flightLog,
-      message: "Flight log updated successfully"
+      message: "Flight log updated successfully",
     });
   } catch (error) {
     console.error("Error updating flight log:", error);
     res.status(500).json({
       success: false,
       message: "Error updating flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -249,7 +252,7 @@ exports.releaseFlightLog = async (req, res) => {
     if (!flightLog) {
       return res.status(404).json({
         success: false,
-        message: "Flight log not found"
+        message: "Flight log not found",
       });
     }
 
@@ -257,7 +260,7 @@ exports.releaseFlightLog = async (req, res) => {
     if (flightLog.status !== "pending_release") {
       return res.status(400).json({
         success: false,
-        message: `Cannot release flight log in ${flightLog.status} status`
+        message: `Cannot release flight log in ${flightLog.status} status`,
       });
     }
 
@@ -268,14 +271,14 @@ exports.releaseFlightLog = async (req, res) => {
     res.status(200).json({
       success: true,
       data: flightLog,
-      message: "Flight log released successfully"
+      message: "Flight log released successfully",
     });
   } catch (error) {
     console.error("Error releasing flight log:", error);
     res.status(500).json({
       success: false,
       message: "Error releasing flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -292,7 +295,7 @@ exports.acceptFlightLog = async (req, res) => {
     if (userRole !== "pilot") {
       return res.status(403).json({
         success: false,
-        message: "Only pilots can accept flight logs"
+        message: "Only pilots can accept flight logs",
       });
     }
 
@@ -301,7 +304,7 @@ exports.acceptFlightLog = async (req, res) => {
     if (!flightLog) {
       return res.status(404).json({
         success: false,
-        message: "Flight log not found"
+        message: "Flight log not found",
       });
     }
 
@@ -309,7 +312,7 @@ exports.acceptFlightLog = async (req, res) => {
     if (flightLog.status !== "pending_acceptance") {
       return res.status(400).json({
         success: false,
-        message: `Cannot accept flight log in ${flightLog.status} status`
+        message: `Cannot accept flight log in ${flightLog.status} status`,
       });
     }
 
@@ -320,14 +323,14 @@ exports.acceptFlightLog = async (req, res) => {
     res.status(200).json({
       success: true,
       data: flightLog,
-      message: "Flight log accepted successfully"
+      message: "Flight log accepted successfully",
     });
   } catch (error) {
     console.error("Error accepting flight log:", error);
     res.status(500).json({
       success: false,
       message: "Error accepting flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -344,7 +347,7 @@ exports.completeFlightLog = async (req, res) => {
     if (!flightLog) {
       return res.status(404).json({
         success: false,
-        message: "Flight log not found"
+        message: "Flight log not found",
       });
     }
 
@@ -352,7 +355,7 @@ exports.completeFlightLog = async (req, res) => {
     if (flightLog.status !== "accepted") {
       return res.status(400).json({
         success: false,
-        message: `Cannot complete flight log in ${flightLog.status} status`
+        message: `Cannot complete flight log in ${flightLog.status} status`,
       });
     }
 
@@ -363,14 +366,14 @@ exports.completeFlightLog = async (req, res) => {
     res.status(200).json({
       success: true,
       data: flightLog,
-      message: "Flight log completed successfully"
+      message: "Flight log completed successfully",
     });
   } catch (error) {
     console.error("Error completing flight log:", error);
     res.status(500).json({
       success: false,
       message: "Error completing flight log",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -386,21 +389,21 @@ exports.getFlightLogStats = async (req, res) => {
           _id: null,
           totalLogs: { $sum: 1 },
           pendingRelease: {
-            $sum: { $cond: [{ $eq: ["$status", "pending_release"] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$status", "pending_release"] }, 1, 0] },
           },
           pendingAcceptance: {
-            $sum: { $cond: [{ $eq: ["$status", "pending_acceptance"] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$status", "pending_acceptance"] }, 1, 0] },
           },
           released: {
-            $sum: { $cond: [{ $eq: ["$status", "released"] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$status", "released"] }, 1, 0] },
           },
           accepted: {
-            $sum: { $cond: [{ $eq: ["$status", "accepted"] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$status", "accepted"] }, 1, 0] },
           },
           completed: {
-            $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] }
-          }
-        }
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+          },
+        },
       },
       {
         $project: {
@@ -410,9 +413,9 @@ exports.getFlightLogStats = async (req, res) => {
           pendingAcceptance: 1,
           released: 1,
           accepted: 1,
-          completed: 1
-        }
-      }
+          completed: 1,
+        },
+      },
     ]);
 
     // Get logs by aircraft
@@ -421,12 +424,12 @@ exports.getFlightLogStats = async (req, res) => {
         $group: {
           _id: "$rpc",
           count: { $sum: 1 },
-          lastFlight: { $max: "$date" }
-        }
+          lastFlight: { $max: "$date" },
+        },
       },
       {
-        $sort: { count: -1 }
-      }
+        $sort: { count: -1 },
+      },
     ]);
 
     res.status(200).json({
@@ -438,17 +441,17 @@ exports.getFlightLogStats = async (req, res) => {
           pendingAcceptance: 0,
           released: 0,
           accepted: 0,
-          completed: 0
+          completed: 0,
         },
-        byAircraft: aircraftStats
-      }
+        byAircraft: aircraftStats,
+      },
     });
   } catch (error) {
     console.error("Error fetching flight log stats:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching statistics",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -463,7 +466,7 @@ exports.searchFlightLogs = async (req, res) => {
     if (!q) {
       return res.status(400).json({
         success: false,
-        message: "Search query is required"
+        message: "Search query is required",
       });
     }
 
@@ -474,8 +477,8 @@ exports.searchFlightLogs = async (req, res) => {
         { controlNo: { $regex: q, $options: "i" } },
         { remarks: { $regex: q, $options: "i" } },
         { "legs.stations.from": { $regex: q, $options: "i" } },
-        { "legs.stations.to": { $regex: q, $options: "i" } }
-      ]
+        { "legs.stations.to": { $regex: q, $options: "i" } },
+      ],
     })
       .sort({ date: -1 })
       .limit(parseInt(limit));
@@ -483,14 +486,14 @@ exports.searchFlightLogs = async (req, res) => {
     res.status(200).json({
       success: true,
       count: flightLogs.length,
-      data: flightLogs
+      data: flightLogs,
     });
   } catch (error) {
     console.error("Error searching flight logs:", error);
     res.status(500).json({
       success: false,
       message: "Error searching flight logs",
-      error: error.message
+      error: error.message,
     });
   }
 };
