@@ -9,17 +9,18 @@ const OTP_EXPIRATION = 15 * 60 * 1000;
 
 const requestPasswordReset = async (req, res) => {
   try {
-    const { email, id } = req.body;
+    const { email } = req.body;
 
-    const query = id
-      ? { _id: id, email: email.toLowerCase() }
-      : { email: email.toLowerCase() };
-    const user = await UserModel.findOne(query);
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await UserModel.findOne({
+      email: email.toLowerCase(),
+    });
 
     if (!user) {
-      return res.status(404).json({
-        message: id ? "Email does not match this account." : "User not found.",
-      });
+      return res.status(404).json({ message: "User not found." });
     }
 
     const token = crypto.randomBytes(32).toString("hex");

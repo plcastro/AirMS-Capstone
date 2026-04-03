@@ -19,7 +19,7 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
-
+import DefaultAvatar from "../../../assets/default_avatar.jpg";
 const { Title } = Typography;
 
 export default function Profile() {
@@ -46,7 +46,7 @@ export default function Profile() {
     if (!user) return;
 
     const getProfileImage = () => {
-      if (!user?.image) return `${API_BASE}/uploads/default_avatar.jpg`;
+      if (!user?.image) return DefaultAvatar;
       return user.image.startsWith("http")
         ? user.image
         : `${API_BASE}${user.image}`;
