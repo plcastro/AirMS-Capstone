@@ -40,16 +40,29 @@ const loginUser = async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
+    if (typeof identifier !== "string" || typeof password !== "string") {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+
+    identifier = identifier.trim();
+    password = password.trim();
+
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
     }
 
-    const trimmed = identifier.trim();
+    if (identifier.includes("$") || identifier.includes("{")) {
+      return res.status(400).json({
+        message: "Invalid input",
+      });
+    }
 
     const user = await UserModel.findOne({
-      $or: [{ username: trimmed }, { email: trimmed }],
+      $or: [{ username: identifier }, { email: identifier }],
     }).select("+password +tempPasswordExpires ");
 
     if (!user) {
@@ -93,10 +106,14 @@ const loginUser = async (req, res) => {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
 
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET not set in environment variables");
+      }
+
       const setupToken = jwt.sign(
         { id: user._id, email: user.email },
-        process.env.JWT_SECRET || "fallback_secret",
-        { expiresIn: "1h" }, // 1 hour expiry
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" },
       );
 
       return res.status(200).json({
@@ -105,7 +122,7 @@ const loginUser = async (req, res) => {
         user: {
           id: user._id,
           status: user.status,
-          setupToken, // send JWT to frontend
+          setupToken,
         },
       });
     }
@@ -139,7 +156,7 @@ const loginUser = async (req, res) => {
         jobTitle: user.jobTitle,
         status: user.status,
       },
-      process.env.JWT_SECRET || "fallback_secret",
+      process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
 
@@ -187,7 +204,7 @@ const logoutUser = async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
@@ -340,12 +357,36 @@ const completeSecuritySetup = async (req, res) => {
     if (!setupToken) {
       return res.status(400).json({ message: "Setup token required" });
     }
+    setupToken = setupToken.trim();
+    newPassword = newPassword.trim();
 
-    // VERIFY THE TOKEN HERE
-    const decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    if (newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 8 characters long" });
+    }
+    const passwordRegex = /^[A-Za-z0-9]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and contain only letters and numbers",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not set in environment variables");
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired setup token" });
+    }
 
     const user = await UserModel.findById(decoded.id);
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -364,11 +405,10 @@ const completeSecuritySetup = async (req, res) => {
       message: "Security setup completed successfully",
     });
   } catch (err) {
-    console.error(err);
-
-    return res.status(401).json({
-      message: "Invalid or expired setup token",
-    });
+    console.error("Security setup error:", err);
+    return res
+      .status(500)
+      .json({ message: "Server error during security setup" });
   }
 };
 
@@ -399,6 +439,56 @@ const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { firstName, lastName, email, username, access, jobTitle } = req.body;
+
+    if (
+      typeof firstName !== "string" ||
+      typeof lastName !== "string" ||
+      typeof email !== "string" ||
+      typeof username !== "string" ||
+      typeof access !== "string" ||
+      typeof jobTitle !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+
+    firstName = firstName.trim();
+    lastName = lastName.trim();
+    email = email.trim();
+    username = username.trim();
+    access = access.trim();
+    jobTitle = jobTitle.trim();
+
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !access ||
+      !jobTitle
+    ) {
+      return res.status(400).json({ message: "Employee information required" });
+    }
+
+    if (
+      firstName.includes("$") ||
+      firstName.includes("{") ||
+      lastName.includes("$") ||
+      lastName.includes("{") ||
+      email.includes("$") ||
+      email.includes("{") ||
+      username.includes("$") ||
+      username.includes("{") ||
+      access.includes("$") ||
+      access.includes("{") ||
+      jobTitle.includes("$") ||
+      jobTitle.includes("{")
+    ) {
+      return res.status(400).json({
+        message: "Invalid input",
+      });
+    }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -450,8 +540,28 @@ const updateUserProfile = async (req, res) => {
     const { id } = req.params;
     const { firstName, lastName } = req.body;
 
+    if (typeof firstName !== "string" || typeof lastName !== "string") {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+    firstName = firstName.trim();
+    lastName = lastName.trim();
+
+    if (!firstName || !lastName) {
+      return res
+        .status(400)
+        .json({ message: "First and Last name is required" });
+    }
+
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (firstName.includes("$") || lastName.includes("{")) {
+      return res.status(400).json({
+        message: "Invalid input",
+      });
+    }
 
     const updateData = {};
     if (firstName && firstName.trim() !== user.firstName)
@@ -566,15 +676,36 @@ const updatePassword = async (req, res) => {
   try {
     const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ message: "User ID is required." });
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
     }
+
+    currentPassword = currentPassword.trim();
+    newPassword = newPassword.trim();
 
     if (!currentPassword || !newPassword) {
       return res
         .status(400)
         .json({ message: "Both current and new passwords are required." });
+    }
+
+    if (
+      currentPassword.includes("$") ||
+      currentPassword.includes("{") ||
+      newPassword.includes("$") ||
+      newPassword.includes("{")
+    ) {
+      return res.status(400).json({
+        message: "Invalid input",
+      });
+    }
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required." });
     }
 
     const user = await UserModel.findById(id).select("+password");
@@ -676,7 +807,7 @@ const activateUser = async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res
         .status(401)
@@ -689,7 +820,6 @@ const activateUser = async (req, res) => {
     if (user.status === "active")
       return res.status(400).json({ message: "Account already active" });
 
-    // Activate user
     user.password = await bcrypt.hash(newPassword, 12);
     user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
@@ -722,7 +852,12 @@ const resendActivation = async (req, res) => {
     await user.save();
 
     // Portal link just goes to login page
-    const portalLink = ["Admin", "Maintenance Manager"].includes(user.jobTitle)
+    const portalLink = [
+      "Admin",
+      "Maintenance Manager",
+      "Officer-In-Charge",
+      "Warehouse Department",
+    ].includes(user.jobTitle)
       ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
       : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 
