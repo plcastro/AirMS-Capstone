@@ -4279,8 +4279,6 @@ export default function PartsLifespanMonitoring() {
         </Row>
       </Card>
 
-      {/* Editable Table */}
-      {/* <div className="table-container"> */}
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}
