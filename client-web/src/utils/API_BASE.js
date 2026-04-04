@@ -1,5 +1,9 @@
 const localUrl = "http://localhost:8000";
-const productionUrl = process.env.BACKEND_URL;
+const productionUrl = import.meta.env.VITE_BACKEND_URL;
+
+if (!productionUrl && import.meta.env.MODE !== "development") {
+  console.warn("BACKEND_URL is not set in production!");
+}
 
 export const API_BASE =
-  process.env.NODE_ENV === "development" ? localUrl : productionUrl;
+  import.meta.env.MODE === "development" ? localUrl : productionUrl || localUrl;
