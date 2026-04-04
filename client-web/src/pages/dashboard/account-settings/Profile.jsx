@@ -9,6 +9,7 @@ import {
   Col,
   Tabs,
   message,
+  Popconfirm,
 } from "antd";
 import {
   EditOutlined,
@@ -30,7 +31,6 @@ export default function Profile() {
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
-
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -45,19 +45,18 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
 
-    const getProfileImage = () => {
-      if (!user?.image) return DefaultAvatar;
-      return user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`;
-    };
-
     setFormData({
       firstName: user.firstName || "",
       lastName: user.lastName || "",
     });
 
-    setPreviewUri(getProfileImage());
+    const imageUrl = user.image
+      ? user.image.startsWith("http")
+        ? user.image
+        : `${API_BASE}${user.image}`
+      : DefaultAvatar;
+    console.log(user.image);
+    setPreviewUri(imageUrl);
     setFile(null);
   }, [user]);
 
@@ -65,10 +64,10 @@ export default function Profile() {
     setFormData((prev) => ({ ...prev, [key]: value }));
 
   const pickImage = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreviewUri(URL.createObjectURL(f));
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    setPreviewUri(URL.createObjectURL(selectedFile));
   };
 
   const handleSaveProfile = async () => {
@@ -109,10 +108,10 @@ export default function Profile() {
   const handleSaveImage = async () => {
     if (!file) return;
 
-    try {
-      const formDataObj = new FormData();
-      formDataObj.append("image", file);
+    const formData = new FormData();
+    formData.append("image", file);
 
+    try {
       const res = await fetch(
         `${API_BASE}/api/user/update-user-image/${user.id}`,
         {
@@ -120,18 +119,19 @@ export default function Profile() {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: formDataObj,
+          body: formData,
         },
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || "Failed to upload");
 
-      setUser((prev) => ({ ...prev, image: data.user.image }));
+      setUser(data.user);
+      setPreviewUri(`${API_BASE}${data.user.image}`);
       setFile(null);
-      message.success("Profile picture updated!");
+      message.success("Image updated!");
     } catch (err) {
-      message.error(err.message || "Image update failed");
+      message.error(err.message);
     }
   };
 
@@ -152,18 +152,17 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to remove image");
 
-      setFile(null);
       setUser((prev) => ({ ...prev, image: null }));
-      setPreviewUri(`${API_BASE}/uploads/default_avatar.jpg`);
+      setPreviewUri(DefaultAvatar);
+      setFile(null);
 
       message.success("Profile picture removed!");
     } catch (err) {
-      console.error(err);
-      message.error(err.message);
+      console.error("Error removing profile image:", err);
+      message.error(err.message || "Image removal failed");
     }
   };
 
-  // --- Tabs setup ---
   const tabItems = [
     {
       key: "UserInformation",
@@ -294,8 +293,6 @@ export default function Profile() {
           height: "max-content",
         }}
       >
-        {/* PROFILE PICTURE */}
-
         <Row align="center">
           <Col
             xs={24}
@@ -312,7 +309,7 @@ export default function Profile() {
               Profile Picture
             </Title>
             <img
-              src={previewUri}
+              src={previewUri || DefaultAvatar}
               alt="Profile"
               style={{
                 width: 200,
@@ -347,13 +344,17 @@ export default function Profile() {
                   {file ? "Save Picture" : "Change Picture"}
                 </Button>
 
-                <Button
-                  danger
-                  onClick={handleRemoveImage}
-                  disabled={!user?.image && !file}
+                <Popconfirm
+                  title="Delete image"
+                  description="Are you sure you want to delete your image?"
+                  onConfirm={handleRemoveImage}
+                  okText="Yes"
+                  cancelText="No"
                 >
-                  <DeleteOutlined />
-                </Button>
+                  <Button danger disabled={!user?.image && !file}>
+                    <DeleteOutlined />
+                  </Button>
+                </Popconfirm>
               </Col>
             </Row>
           </Col>
