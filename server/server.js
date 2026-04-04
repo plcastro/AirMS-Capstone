@@ -20,27 +20,40 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightlogRoutes = require("./routes/flightlogRoute");
 const app = express();
 
+const allowedOrigins =
+  process.env.NODE_ENV === "development"
+    ? ["http://localhost:5173"] || ["http://localhost:8000"]
+    : ["https://www.airms.online", "https://airms.online"];
+
 app.use(
   cors({
-    origin: ["https://www.airms.online", "https://airms.online"],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(helmet());
-// app.use(xssClean());
-app.use(
-  mongoSanitize({
-    replaceWith: "_",
-    onSanitize: ({ key }) => {
-      console.log(`Sanitized key: ${key}`);
-    },
-  }),
-);
+app.use((req, res, next) => {
+  try {
+    mongoSanitize({
+      replaceWith: "_",
+      properties: ["body", "params"],
+    })(req, res, next);
+  } catch (err) {
+    console.warn("Skipping query sanitization due to read-only query");
+    next();
+  }
+});
 
 const ATLAS_URL = process.env.ATLAS_URL;
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
@@ -49,7 +62,6 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
-    process.exit(1);
   });
 
 app.use("/api/user", userRoutes);
@@ -72,7 +84,6 @@ app.use((err, req, res, next) => {
   const statusCode = err.status || 500;
 
   if (process.env.NODE_ENV === "development") {
-    // In development, show the full error so you can fix it
     return res.status(statusCode).json({
       status: "error",
       message: err.message,

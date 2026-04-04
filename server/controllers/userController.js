@@ -39,7 +39,7 @@ const getAllUsers = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    let { identifier, password } = req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
       return res.status(400).json({
@@ -184,7 +184,7 @@ const loginUser = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(c);
+  const user = await UserModel.findById(req.body.id);
 
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -350,7 +350,7 @@ const createUser = async (req, res) => {
 
 const completeSecuritySetup = async (req, res) => {
   try {
-    const { setupToken, newPassword } = req.body;
+    let { setupToken, newPassword } = req.body;
 
     if (!setupToken) {
       return res.status(400).json({ message: "Setup token required" });
@@ -436,7 +436,7 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, username, access, jobTitle } = req.body;
+    let { firstName, lastName, email, username, access, jobTitle } = req.body;
 
     if (
       typeof firstName !== "string" ||
@@ -517,7 +517,7 @@ const updateUser = async (req, res) => {
 const updateUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName } = req.body;
+    let { firstName, lastName } = req.body;
 
     if (typeof firstName !== "string" || typeof lastName !== "string") {
       return res.status(400).json({
@@ -648,7 +648,7 @@ const updateUserImage = async (req, res) => {
 const updatePassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { currentPassword, newPassword } = req.body;
+    let { currentPassword, newPassword } = req.body;
     if (
       typeof currentPassword !== "string" ||
       typeof newPassword !== "string"
@@ -679,8 +679,8 @@ const updatePassword = async (req, res) => {
     }
 
     const isCurrentAndNewMatch = await bcrypt.compare(
-      user.password,
       newPassword,
+      user.password,
     );
     if (currentPassword === newPassword || isCurrentAndNewMatch) {
       return res
@@ -709,7 +709,7 @@ const updatePassword = async (req, res) => {
 
 const updatePIN = async (req, res) => {
   try {
-    const { currentPin, newPin } = req.body;
+    let { currentPin, newPin } = req.body;
     if (!currentPin || !newPin)
       return res.status(400).json({ message: "PIN is required" });
 
