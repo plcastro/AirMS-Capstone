@@ -28,7 +28,6 @@ export default function FlightLog() {
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
-
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

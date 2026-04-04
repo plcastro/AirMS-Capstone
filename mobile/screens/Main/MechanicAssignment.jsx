@@ -62,7 +62,6 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
       dueDate < now &&
       item.status !== "Completed" &&
       item.status !== "Turned in";
-
     const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
     const dueTime = formatDueTime(item.dueDate);
 

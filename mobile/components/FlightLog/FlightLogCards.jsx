@@ -190,7 +190,6 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     Aircraft Type : {log.aircraftType || "N/A"}
                   </Text>
                 </View>
-
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
                     RP/C: {log.rpc || "N/A"}
