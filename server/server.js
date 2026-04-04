@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
@@ -20,21 +21,23 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightlogRoutes = require("./routes/flightlogRoute");
 const app = express();
 
-const allowedOrigins =
-  process.env.NODE_ENV === "development"
-    ? ["http://localhost:5173"] || ["http://localhost:8000"]
-    : ["https://www.airms.online", "https://airms.online"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8000",
+  "https://airms.online",
+];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log("Blocked by CORS:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
@@ -42,17 +45,21 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 app.use((req, res, next) => {
-  try {
-    mongoSanitize({
-      replaceWith: "_",
-      properties: ["body", "params"],
-    })(req, res, next);
-  } catch (err) {
-    console.warn("Skipping query sanitization due to read-only query");
-    next();
+  if (req.body) {
+    mongoSanitize.sanitize(req.body, { replaceWith: "_" });
   }
+  if (req.params) {
+    mongoSanitize.sanitize(req.params, { replaceWith: "_" });
+  }
+  // We leave req.query untouched to prevent the crash
+  next();
 });
 
 const ATLAS_URL = process.env.ATLAS_URL;
@@ -75,14 +82,21 @@ app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
-app.use("/uploads", express.static("uploads"));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    },
+  }),
+);
 app.use("/api/flightlogs", flightlogRoutes);
 
 app.set("trust proxy", 1);
 
 app.use((err, req, res, next) => {
   const statusCode = err.status || 500;
-
+  console.error("Error: ", err);
   if (process.env.NODE_ENV === "development") {
     return res.status(statusCode).json({
       status: "error",

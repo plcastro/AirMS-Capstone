@@ -1,4 +1,4 @@
-const localUrl = "http://localhost:8000";
+const localUrl = "http://localhost:8000" || "http://localhost:5173";
 const productionUrl = import.meta.env.VITE_BACKEND_URL;
 
 if (!productionUrl && import.meta.env.MODE !== "development") {
@@ -6,4 +6,4 @@ if (!productionUrl && import.meta.env.MODE !== "development") {
 }
 
 export const API_BASE =
-  import.meta.env.MODE === "development" ? localUrl : productionUrl || localUrl;
+  import.meta.env.MODE === "development" ? localUrl : productionUrl;
