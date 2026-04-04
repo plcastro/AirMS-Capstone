@@ -1,626 +1,247 @@
-import React, { useState } from "react";
-import { Modal, Input, Button, Tabs, message } from "antd";
-import { PlusOutlined, CloseOutlined, MinusOutlined } from "@ant-design/icons";
-import "../../pages/dashboard/logbook/flightlog.css";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Button, Input, message, Modal, Space, Spin } from "antd";
+import {
+  InfoCircleOutlined,
+  EnvironmentOutlined,
+  ClockCircleOutlined,
+  ThunderboltOutlined,
+  ExperimentOutlined,
+  CheckSquareOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
 
-const { TabPane } = Tabs;
-const { TextArea } = Input;
+import FlightLogModalInfo from "./FlightLogModalInfo";
+import FlightLogModalDestinations from "./FlightLogModalDestinations";
+import FlightLogModalComponentTimes from "./FlightLogModalComponentTimes";
+import FlightLogModalFuelServicing from "./FlightLogModalFuelServicing";
+import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
+import FlightLogDiscrepancyRemarks from "./FlightLogModalDiscrepancyRemarks";
+import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 
-export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
-  const [currentTab, setCurrentTab] = useState("0");
-  const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
-    date: new Date(),
-    controlNo: "",
-    legs: [
-      {
-        stations: [{ from: "", to: "" }],
-        blockTimeOn: "",
-        blockTimeOff: "",
-        flightTimeOn: "",
-        flightTimeOff: "",
-        totalTimeOn: "",
-        totalTimeOff: "",
-        date: "",
-        passengers: "",
-      },
-    ],
-    remarks: "",
-    sling: "",
-    workItems: [],
-  });
+const resolveRole = (role = "") => {
+  const r = role.toLowerCase();
+  if (r === "pilot") return "pilot";
+  if (r === "engineer" || r === "maintenance manager") return "mechanic";
+  return "pilot";
+};
 
-  const [componentData, setComponentData] = useState({
-    broughtForwardData: {
-      airframe: "",
-      gearBoxMain: "",
-      gearBoxTail: "",
-      rotorMain: "",
-      rotorTail: "",
-      airframeNextInsp: "",
-      engine: "",
-      cycleN1: "",
-      cycleN2: "",
-      usage: "",
-      landingCycle: "",
-      engineNextInsp: "",
-    },
-    thisFlightData: {},
-    toDateData: {},
-  });
+const emptyComponentSection = () => ({
+  airframe: "", gearBoxMain: "", gearBoxTail: "", rotorMain: "", rotorTail: "",
+  airframeNextInsp: "", engine: "", cycleN1: "", cycleN2: "", usage: "",
+  landingCycle: "", engineNextInsp: "",
+});
 
-  const isPilot = userRole === "pilot";
+const emptyFuelItem = () => ({ date: "", contCheck: "", mainRemG: "", mainAdd: "", mainTotal: "", fuelType: "drum", refuelerName: "", signature: "" });
+const emptyOilItem = () => ({ date: "", engineRem: "", engineAdd: "", engineTot: "", mrGboxRem: "", mrGboxAdd: "", mrGboxTot: "", trGboxRem: "", trGboxAdd: "", trGboxTot: "", remarks: "", signature: "" });
+const emptyLeg = () => ({ stations: [{ from: "", to: "" }], blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "", date: "", passengers: "" });
+const emptyWorkItem = () => ({ id: `${Date.now()}-${Math.random()}`, selectedWorkTypes: [], date: "", aircraft: "", workDone: "", name: "", certificateNumber: "", signature: "" });
 
-  const hasDiscrepancy = () => {
-    return formData.remarks && formData.remarks.trim() !== "";
+const syncServicingToLegs = (fd) => {
+  const n = fd.legs?.length || 1;
+  return {
+    ...fd,
+    fuelServicing: Array.from({ length: n }, (_, i) => fd.fuelServicing?.[i] || emptyFuelItem()),
+    oilServicing: Array.from({ length: n }, (_, i) => fd.oilServicing?.[i] || emptyOilItem()),
   };
+};
 
-  const getPilotTabs = () => [
-    { key: "0", label: "Basic Information" },
-    { key: "1", label: "Destination/s" },
-    { key: "2", label: "Discrepancy/Remarks" },
-  ];
+// ALL TABS - for displaying in edit mode
+const ALL_TABS = [
+  { key: "info", label: "Basic Information", icon: <InfoCircleOutlined /> },
+  { key: "destinations", label: "Destination/s", icon: <EnvironmentOutlined /> },
+  { key: "component", label: "Component Times", icon: <ClockCircleOutlined /> },
+  { key: "fuel", label: "Fuel Servicing", icon: <ThunderboltOutlined /> },
+  { key: "oil", label: "Oil Servicing", icon: <ExperimentOutlined /> },
+  { key: "discrepancy", label: "Discrepancy/Remarks", icon: <WarningOutlined /> },
+];
 
-  const getMechanicTabs = () => {
-    const tabs = [
-      { key: "0", label: "Basic Information" },
-      { key: "1", label: "Component Times" },
-      { key: "2", label: "Fuel Servicing" },
-      { key: "3", label: "Oil Servicing" },
-      { key: "4", label: "Discrepancy/Remarks" },
-    ];
-    if (hasDiscrepancy()) {
-      tabs.push({ key: "5", label: "Work Done" });
+const WORK_DONE_TAB = { key: "workdone", label: "Work Done", icon: <CheckSquareOutlined /> };
+
+export default function FlightLogEntry({
+  visible,
+  onClose,
+  onSave,
+  userRole,
+  editMode = false,
+  initialData = null,
+  initialComponentData = null,
+}) {
+  const resolvedRole = resolveRole(userRole);
+  const isPilot = resolvedRole === "pilot";
+  const isMechanic = resolvedRole === "mechanic";
+
+  const initForm = () =>
+    initialData
+      ? syncServicingToLegs({ ...initialData, workItems: initialData.workItems || [] })
+      : { aircraftType: "", rpc: "", date: new Date(), controlNo: "", legs: [emptyLeg()], remarks: "", sling: "", fuelServicing: [emptyFuelItem()], oilServicing: [emptyOilItem()], workItems: [], createdBy: userRole };
+
+  const initComponent = () =>
+    initialComponentData || { broughtForwardData: emptyComponentSection(), thisFlightData: emptyComponentSection(), toDateData: emptyComponentSection() };
+
+  const [formData, setFormData] = useState(initForm);
+  const [componentData, setComponentData] = useState(initComponent);
+  const [activeTab, setActiveTab] = useState("info");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setFormData(initForm());
+      setComponentData(initComponent());
+      setActiveTab("info");
     }
-    return tabs;
-  };
+  }, [visible]);
 
-  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
-  const currentTabIndex = parseInt(currentTab);
-  const isLastTab = currentTabIndex === tabs.length - 1;
+  const legCount = formData.legs?.length;
+  useEffect(() => {
+    setFormData((prev) => syncServicingToLegs(prev));
+  }, [legCount]);
 
-  const updateForm = (field, value) => {
+  // Determine which tabs to show based on role and edit mode
+  const tabs = useMemo(() => {
+    const hasDisc = formData.remarks?.trim() !== "";
+    
+    // EDIT MODE - show ALL tabs (both pilot and mechanic can see everything)
+    if (editMode) {
+      const baseTabs = [...ALL_TABS];
+      // Add Work Done tab if discrepancy exists
+      if (hasDisc && !baseTabs.find((t) => t.key === "workdone")) {
+        baseTabs.push(WORK_DONE_TAB);
+      }
+      return baseTabs;
+    }
+    
+    // CREATE MODE - only show tabs relevant to the role
+    if (isPilot) {
+      // Pilot creating: Basic Info, Destinations, Discrepancy
+      const pilotTabs = [
+        { key: "info", label: "Basic Information", icon: <InfoCircleOutlined /> },
+        { key: "destinations", label: "Destination/s", icon: <EnvironmentOutlined /> },
+        { key: "discrepancy", label: "Discrepancy/Remarks", icon: <WarningOutlined /> },
+      ];
+      return pilotTabs;
+    } else {
+      // Mechanic creating: Basic Info, Component, Fuel, Oil, Discrepancy
+      const mechanicTabs = [
+        { key: "info", label: "Basic Information", icon: <InfoCircleOutlined /> },
+        { key: "component", label: "Component Times", icon: <ClockCircleOutlined /> },
+        { key: "fuel", label: "Fuel Servicing", icon: <ThunderboltOutlined /> },
+        { key: "oil", label: "Oil Servicing", icon: <ExperimentOutlined /> },
+        { key: "discrepancy", label: "Discrepancy/Remarks", icon: <WarningOutlined /> },
+      ];
+      // Add Work Done tab if discrepancy exists during creation
+      if (hasDisc && !mechanicTabs.find((t) => t.key === "workdone")) {
+        mechanicTabs.push(WORK_DONE_TAB);
+      }
+      return mechanicTabs;
+    }
+  }, [isPilot, editMode, formData.remarks]);
+
+  const tabKeys = tabs.map((t) => t.key);
+  const currentIdx = Math.max(0, tabKeys.indexOf(activeTab));
+  const isFirst = currentIdx === 0;
+  const isLast = currentIdx === tabKeys.length - 1;
+
+  const updateForm = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
-  };
 
-  const updateLeg = (legIndex, field, value) => {
-    const newLegs = [...formData.legs];
-    newLegs[legIndex] = { ...newLegs[legIndex], [field]: value };
-    setFormData((prev) => ({ ...prev, legs: newLegs }));
-  };
+  const updateComponent = (section, field, value) =>
+    setComponentData((prev) => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
 
-  const addLeg = () => {
-    const newLeg = {
-      stations: [{ from: "", to: "" }],
-      blockTimeOn: "",
-      blockTimeOff: "",
-      flightTimeOn: "",
-      flightTimeOff: "",
-      totalTimeOn: "",
-      totalTimeOff: "",
-      date: "",
-      passengers: "",
-    };
-    setFormData((prev) => ({ ...prev, legs: [...prev.legs, newLeg] }));
-  };
-
-  const removeLeg = (legIndex) => {
-    if (formData.legs.length > 1) {
-      const newLegs = [...formData.legs];
-      newLegs.splice(legIndex, 1);
-      setFormData((prev) => ({ ...prev, legs: newLegs }));
-    }
-  };
-
-  const addStation = (legIndex) => {
-    const newLegs = [...formData.legs];
-    const lastStation =
-      newLegs[legIndex].stations[newLegs[legIndex].stations.length - 1];
-    newLegs[legIndex].stations.push({ from: lastStation.to, to: "" });
-    setFormData((prev) => ({ ...prev, legs: newLegs }));
-  };
-
-  const removeStation = (legIndex, stationIndex) => {
-    const newLegs = [...formData.legs];
-    if (newLegs[legIndex].stations.length > 1) {
-      newLegs[legIndex].stations.splice(stationIndex, 1);
-      setFormData((prev) => ({ ...prev, legs: newLegs }));
-    }
-  };
-
-  const updateStation = (legIndex, stationIndex, field, value) => {
-    const newLegs = [...formData.legs];
-    newLegs[legIndex].stations[stationIndex][field] = value;
-
-    if (
-      field === "to" &&
-      stationIndex < newLegs[legIndex].stations.length - 1
-    ) {
-      newLegs[legIndex].stations[stationIndex + 1].from = value;
-    }
-    if (field === "from" && stationIndex > 0) {
-      newLegs[legIndex].stations[stationIndex - 1].to = value;
-    }
-
-    setFormData((prev) => ({ ...prev, legs: newLegs }));
-  };
-
-  const handleNext = () => {
-    if (currentTabIndex < tabs.length - 1) {
-      setCurrentTab(String(currentTabIndex + 1));
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentTabIndex > 0) {
-      setCurrentTab(String(currentTabIndex - 1));
-    }
-  };
-
-  const handleSave = () => {
-    const aircraft = formData.rpc || "Aircraft";
-    const msg = isPilot
-      ? `Flight log has been added for ${aircraft}. Wait for the mechanic to release it.`
-      : `Flight log has been added for ${aircraft}. Wait for pilot to accept.`;
-
-    message.success(msg);
-
-    onSave({
-      ...formData,
-      componentData,
-      id: Date.now().toString(),
-      date: formData.date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      }),
-      dateAdded: new Date().toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      }),
-      status: isPilot ? "pending_release" : "pending_acceptance",
-      createdBy: userRole,
+  const updateFuel = (legIdx, field, value) =>
+    setFormData((prev) => {
+      const next = [...(prev.fuelServicing || [])];
+      next[legIdx] = { ...next[legIdx], [field]: value };
+      return { ...prev, fuelServicing: next };
     });
-    onClose();
+
+  const updateOil = (legIdx, field, value) =>
+    setFormData((prev) => {
+      const next = [...(prev.oilServicing || [])];
+      next[legIdx] = { ...next[legIdx], [field]: value };
+      return { ...prev, oilServicing: next };
+    });
+
+  const legHandlers = {
+    updateLeg: (legIdx, field, value) =>
+      setFormData((prev) => {
+        const legs = [...prev.legs];
+        legs[legIdx] = { ...legs[legIdx], [field]: value };
+        return { ...prev, legs };
+      }),
+    addLeg: () => setFormData((prev) => ({ ...prev, legs: [...prev.legs, emptyLeg()] })),
+    removeLeg: (legIdx) =>
+      setFormData((prev) => ({
+        ...prev,
+        legs: prev.legs.length > 1 ? prev.legs.filter((_, i) => i !== legIdx) : prev.legs,
+      })),
+    addStation: (legIdx) =>
+      setFormData((prev) => {
+        const legs = [...prev.legs];
+        const last = legs[legIdx].stations[legs[legIdx].stations.length - 1];
+        legs[legIdx] = { ...legs[legIdx], stations: [...legs[legIdx].stations, { from: last.to, to: "" }] };
+        return { ...prev, legs };
+      }),
+    removeStation: (legIdx, stIdx) =>
+      setFormData((prev) => {
+        const legs = [...prev.legs];
+        if (legs[legIdx].stations.length > 1) {
+          legs[legIdx] = { ...legs[legIdx], stations: legs[legIdx].stations.filter((_, i) => i !== stIdx) };
+        }
+        return { ...prev, legs };
+      }),
+    updateStation: (legIdx, stIdx, field, value) =>
+      setFormData((prev) => {
+        const legs = [...prev.legs];
+        const stations = [...legs[legIdx].stations];
+        stations[stIdx] = { ...stations[stIdx], [field]: value };
+        if (field === "to" && stIdx < stations.length - 1) stations[stIdx + 1] = { ...stations[stIdx + 1], from: value };
+        if (field === "from" && stIdx > 0) stations[stIdx - 1] = { ...stations[stIdx - 1], to: value };
+        legs[legIdx] = { ...legs[legIdx], stations };
+        return { ...prev, legs };
+      }),
   };
 
-  const renderBasicInfoTab = () => (
-    <div className="flightlog-form">
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">Aircraft Type:</label>
-        <Input
-          value={formData.aircraftType}
-          onChange={(e) => updateForm("aircraftType", e.target.value)}
-          placeholder="Select Aircraft Type"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">RP-C:</label>
-        <Input
-          value={formData.rpc}
-          onChange={(e) => updateForm("rpc", e.target.value)}
-          placeholder="Select RP/C"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">Date:</label>
-        <Input value={formData.date.toLocaleDateString()} disabled />
-      </div>
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">Control No.:</label>
-        <Input
-          value={formData.controlNo}
-          onChange={(e) => updateForm("controlNo", e.target.value)}
-          placeholder="Enter control number"
-        />
-      </div>
-    </div>
-  );
+  // EDIT PERMISSIONS (who can edit what)
+  const canEditBasicInfo = !editMode || (formData.createdBy === userRole);
+  const canEditDestinations = !editMode ? isPilot : (isPilot && editMode);
+  const canEditComponent = !editMode ? isMechanic : (isMechanic && editMode && !formData.broughtForwardLocked);
+  const canEditFuelOil = !editMode ? isMechanic : (isMechanic && editMode);
+  const canEditWorkDone = !editMode ? isMechanic : (isMechanic && editMode);
+  const canEditDiscrepancy = true; // Anyone can edit discrepancy
 
-  const renderDestinationsTab = () => (
-    <div className="flightlog-destinations">
-      {formData.legs.map((leg, legIdx) => {
-        const legNumber = legIdx + 1;
-        const suffix =
-          legNumber === 1
-            ? "st"
-            : legNumber === 2
-              ? "nd"
-              : legNumber === 3
-                ? "rd"
-                : "th";
+  const handleSave = async () => {
+    if (!formData.rpc?.trim()) {
+      message.error("Aircraft RPC is required");
+      return;
+    }
+    const dateStr = formData.date instanceof Date
+      ? formData.date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" })
+      : formData.date;
+    setSubmitting(true);
+    try {
+      await onSave({ ...formData, componentData, date: dateStr });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-        return (
-          <div key={legIdx} className="flightlog-leg-card">
-            <div className="flightlog-leg-header">
-              <span>
-                {legNumber}
-                {suffix} Leg
-              </span>
-              {formData.legs.length > 1 && (
-                <Button
-                  type="text"
-                  danger
-                  icon={<CloseOutlined />}
-                  onClick={() => removeLeg(legIdx)}
-                />
-              )}
-            </div>
-            <div className="flightlog-leg-content">
-              <label className="flightlog-form-label">Station</label>
-              {leg.stations.map((station, stationIdx) => (
-                <div key={stationIdx} className="flightlog-station-row">
-                  <Input
-                    className="flightlog-station-input"
-                    value={station.from}
-                    onChange={(e) =>
-                      updateStation(legIdx, stationIdx, "from", e.target.value)
-                    }
-                    placeholder="From"
-                  />
-                  <span className="flightlog-station-separator">-</span>
-                  <Input
-                    className="flightlog-station-input"
-                    value={station.to}
-                    onChange={(e) =>
-                      updateStation(legIdx, stationIdx, "to", e.target.value)
-                    }
-                    placeholder="To"
-                  />
-                  {leg.stations.length > 1 && (
-                    <Button
-                      type="text"
-                      icon={<MinusOutlined />}
-                      onClick={() => removeStation(legIdx, stationIdx)}
-                    />
-                  )}
-                </div>
-              ))}
-
-              <Button
-                type="dashed"
-                block
-                icon={<PlusOutlined />}
-                onClick={() => addStation(legIdx)}
-              >
-                Add Station
-              </Button>
-
-              <div className="flightlog-time-section">
-                <h4>Time Information</h4>
-                <div className="flightlog-form-row">
-                  <label>Block Time (ON):</label>
-                  <Input
-                    value={leg.blockTimeOn}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "blockTimeOn", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Block Time (OFF):</label>
-                  <Input
-                    value={leg.blockTimeOff}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "blockTimeOff", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Flight Time (ON):</label>
-                  <Input
-                    value={leg.flightTimeOn}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "flightTimeOn", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Flight Time (OFF):</label>
-                  <Input
-                    value={leg.flightTimeOff}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "flightTimeOff", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Total Time (ON):</label>
-                  <Input
-                    value={leg.totalTimeOn}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "totalTimeOn", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Total Time (OFF):</label>
-                  <Input
-                    value={leg.totalTimeOff}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "totalTimeOff", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Date:</label>
-                  <Input
-                    value={leg.date}
-                    onChange={(e) => updateLeg(legIdx, "date", e.target.value)}
-                    placeholder="MM/DD/YYYY"
-                  />
-                </div>
-                <div className="flightlog-form-row">
-                  <label>Passengers:</label>
-                  <Input
-                    value={leg.passengers}
-                    onChange={(e) =>
-                      updateLeg(legIdx, "passengers", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-      <Button type="dashed" block icon={<PlusOutlined />} onClick={addLeg}>
-        Add Leg
-      </Button>
-    </div>
-  );
-
-  const renderDiscrepancyTab = () => (
-    <div className="flightlog-form">
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">Discrepancy/Remarks:</label>
-        <TextArea
-          rows={4}
-          value={formData.remarks}
-          onChange={(e) => updateForm("remarks", e.target.value)}
-          placeholder="Enter any discrepancies or remarks"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label className="flightlog-form-label">Sling:</label>
-        <TextArea
-          rows={4}
-          value={formData.sling}
-          onChange={(e) => updateForm("sling", e.target.value)}
-          placeholder="Enter sling information"
-        />
-      </div>
-    </div>
-  );
-
-  const renderComponentTimesTab = () => (
-    <div className="flightlog-form">
-      <h3>Brought Forward</h3>
-      <div className="flightlog-form-row">
-        <label>A/Frame:</label>
-        <Input
-          value={componentData.broughtForwardData.airframe}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                airframe: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter A/Frame"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Gear Box (MAIN):</label>
-        <Input
-          value={componentData.broughtForwardData.gearBoxMain}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                gearBoxMain: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter Gear Box (MAIN)"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Gear Box (TAIL):</label>
-        <Input
-          value={componentData.broughtForwardData.gearBoxTail}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                gearBoxTail: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter Gear Box (TAIL)"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Rotor (MAIN):</label>
-        <Input
-          value={componentData.broughtForwardData.rotorMain}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                rotorMain: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter Rotor (MAIN)"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Rotor (TAIL):</label>
-        <Input
-          value={componentData.broughtForwardData.rotorTail}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                rotorTail: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter Rotor (TAIL)"
-        />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Airframe Next Insp. Due At:</label>
-        <Input
-          value={componentData.broughtForwardData.airframeNextInsp}
-          onChange={(e) =>
-            setComponentData((prev) => ({
-              ...prev,
-              broughtForwardData: {
-                ...prev.broughtForwardData,
-                airframeNextInsp: e.target.value,
-              },
-            }))
-          }
-          placeholder="Enter Airframe Next Insp. Due At"
-        />
-      </div>
-    </div>
-  );
-
-  const renderFuelServicingTab = () => (
-    <div className="flightlog-form">
-      {formData.legs.map((leg, idx) => (
-        <div key={idx} className="flightlog-leg-card">
-          <div className="flightlog-leg-header">
-            {idx + 1}
-            {idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
-          </div>
-          <div className="flightlog-leg-content">
-            <div className="flightlog-form-row">
-              <label>Date:</label>
-              <Input placeholder="MM/DD/YYYY" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Cont Check:</label>
-              <Input placeholder="Enter contamination check" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Main (REM/G):</label>
-              <Input placeholder="Remaining/Gallons" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Main (ADD):</label>
-              <Input placeholder="Added Gallons" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Main (TOTAL):</label>
-              <Input placeholder="Total Gallons" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderOilServicingTab = () => (
-    <div className="flightlog-form">
-      {formData.legs.map((leg, idx) => (
-        <div key={idx} className="flightlog-leg-card">
-          <div className="flightlog-leg-header">
-            {idx + 1}
-            {idx === 0 ? "st" : idx === 1 ? "nd" : idx === 2 ? "rd" : "th"} Leg
-          </div>
-          <div className="flightlog-leg-content">
-            <div className="flightlog-form-row">
-              <label>Date:</label>
-              <Input placeholder="MM/DD/YYYY" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Engine (REM):</label>
-              <Input placeholder="Remaining" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Engine (ADD):</label>
-              <Input placeholder="Added" />
-            </div>
-            <div className="flightlog-form-row">
-              <label>Engine (TOT):</label>
-              <Input placeholder="Total" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderWorkDoneTab = () => (
-    <div className="flightlog-form">
-      <div className="flightlog-checkbox-group">
-        <label className="flightlog-checkbox">
-          <input type="checkbox" /> Discrepancy Correction
-        </label>
-        <label className="flightlog-checkbox">
-          <input type="checkbox" /> SB/AD Compliance
-        </label>
-        <label className="flightlog-checkbox">
-          <input type="checkbox" /> Inspection
-        </label>
-        <label className="flightlog-checkbox">
-          <input type="checkbox" /> Others
-        </label>
-      </div>
-      <div className="flightlog-form-row">
-        <label>Date:</label>
-        <Input placeholder="MM/DD/YYYY" />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Aircraft/T/:</label>
-        <Input placeholder="Aircraft type" />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Work Done:</label>
-        <TextArea rows={3} placeholder="Describe work done" />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Name:</label>
-        <Input placeholder="Technician name" />
-      </div>
-      <div className="flightlog-form-row">
-        <label>Certificate Number:</label>
-        <Input placeholder="Certificate number" />
-      </div>
-      <Button type="dashed" block icon={<PlusOutlined />}>
-        Add Work Done
-      </Button>
-    </div>
-  );
-
-  const renderCurrentTab = () => {
-    switch (tabs[currentTabIndex]?.label) {
-      case "Basic Information":
-        return renderBasicInfoTab();
-      case "Destination/s":
-        return renderDestinationsTab();
-      case "Component Times":
-        return renderComponentTimesTab();
-      case "Fuel Servicing":
-        return renderFuelServicingTab();
-      case "Oil Servicing":
-        return renderOilServicingTab();
-      case "Discrepancy/Remarks":
-        return renderDiscrepancyTab();
-      case "Work Done":
-        return renderWorkDoneTab();
+  const renderContent = () => {
+    switch (activeTab) {
+      case "info":
+        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={canEditBasicInfo} />;
+      case "destinations":
+        return <FlightLogModalDestinations formData={formData} handlers={legHandlers} isEditable={canEditDestinations} />;
+      case "component":
+        return <FlightLogModalComponentTimes componentData={componentData} updateComponent={updateComponent} isEditable={canEditComponent} isLocked={formData.broughtForwardLocked} />;
+      case "fuel":
+        return <FlightLogModalFuelServicing formData={formData} updateFuel={updateFuel} isEditable={canEditFuelOil} />;
+      case "oil":
+        return <FlightLogModalOilServicing formData={formData} updateOil={updateOil} isEditable={canEditFuelOil} />;
+      case "discrepancy":
+        return <FlightLogDiscrepancyRemarks formData={formData} updateForm={updateForm} isEditable={canEditDiscrepancy} />;
+      case "workdone":
+        return <FlightLogModalWorkDone formData={formData} updateForm={updateForm} isEditable={canEditWorkDone} />;
       default:
         return null;
     }
@@ -628,54 +249,56 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
   return (
     <Modal
-      title="New Flight Log Entry"
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={800}
-      className="flightlog-modal"
-      destroyOnHidden
+      width={760}
+      centered
+      styles={{ body: { padding: 0 } }}
+      className="fl-entry-modal"
+      destroyOnClose
     >
-      <Tabs
-        activeKey={currentTab}
-        onChange={setCurrentTab}
-        className="flightlog-modal-tabs"
-      >
-        {tabs.map((tab) => (
-          <TabPane tab={tab.label} key={tab.key} />
-        ))}
-      </Tabs>
+      <Spin spinning={submitting}>
+        {/* Tab nav */}
+        <div className="fl-tab-nav">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`fl-tab-btn${activeTab === tab.key ? " fl-tab-btn--active" : ""}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <span className="fl-tab-icon">{tab.icon}</span>
+              <span className="fl-tab-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-      <div
-        style={{
-          minHeight: 400,
-          maxHeight: 500,
-          overflowY: "auto",
-          padding: "16px 0",
-        }}
-      >
-        {renderCurrentTab()}
-      </div>
+        {/* Scrollable body */}
+        <div className="fl-modal-body">
+          {renderContent()}
+        </div>
 
-      <div className="flightlog-pagination">
-        <button
-          className="prev-btn"
-          onClick={handlePrevious}
-          disabled={currentTabIndex === 0}
-        >
-          Previous
-        </button>
-        <span className="page-number">{currentTabIndex + 1}</span>
-        {!isLastTab ? (
-          <button className="next-btn" onClick={handleNext}>
-            Next
-          </button>
-        ) : (
-          <button className="next-btn" onClick={handleSave}>
-            Add
-          </button>
-        )}
-      </div>
+        {/* Footer nav */}
+        <div className="fl-modal-footer">
+          <Button
+            className="fl-nav-btn"
+            onClick={() => setActiveTab(tabKeys[currentIdx - 1])}
+            disabled={isFirst}
+          >
+            Previous
+          </Button>
+          <span className="fl-page-indicator">{currentIdx + 1}</span>
+          {!isLast ? (
+            <Button type="primary" className="fl-nav-btn" onClick={() => setActiveTab(tabKeys[currentIdx + 1])}>
+              Next
+            </Button>
+          ) : (
+            <Button type="primary" className="fl-nav-btn" onClick={handleSave} loading={submitting}>
+              {editMode ? "Save" : "Add"}
+            </Button>
+          )}
+        </div>
+      </Spin>
     </Modal>
   );
 }
