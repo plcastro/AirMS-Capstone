@@ -3,52 +3,52 @@ const path = require("path");
 const fs = require("fs");
 const sharp = require("sharp");
 
-// Ensure uploads folder exists
-const uploadDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+// Define absolute path to project root
+const uploadDir = path.join(process.cwd(), "uploads");
 
-// Multer storage (temporary, we will process image with Sharp)
+// Create folder if it doesn't exist (Local only)
+if (!fs.existsSync(uploadDir)) {
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (err) {
+    console.warn("Folder creation skipped (likely Vercel environment)");
+  }
+}
+
 const storage = multer.memoryStorage();
-
-// File filter
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png/;
-  const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowedTypes.test(file.mimetype);
-  if (ext && mime) cb(null, true);
-  else cb(new Error("Unsupported file type"), false);
-};
-
-// Multer upload
 const upload = multer({
   storage,
-  fileFilter,
-  limits: { fileSize: 1024 * 1024 }, // 1 MB max
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
 });
 
-// Middleware to resize and save image
 const processImage = async (req, res, next) => {
   try {
     if (!req.file) return next();
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const safeName = req.file.originalname
-      .replace(/\s+/g, "-")
-      .replace(/[^a-zA-Z0-9.-]/g, "");
-    const filename = `${Date.now()}-${safeName}`;
-    const filepath = path.join(uploadDir, filename);
+    const filename = `user-${req.params.id}-${Date.now()}.jpeg`;
+    // Use path.resolve to be 100% sure of the location
+    const uploadPath = path.resolve(__dirname, "../uploads");
+    const filepath = path.join(uploadPath, filename);
 
-    // Resize to max 400x400 and save
+    // Ensure directory exists right before saving
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+
+    // ACTUAL WRITE OPERATION
     await sharp(req.file.buffer)
-      .resize(400, 400, { fit: "inside" })
-      .toFile(filepath);
+      .resize(400, 400, { fit: "cover" })
+      .toFormat("jpeg")
+      .toFile(filepath); // This MUST complete before next()
 
-    // Store relative path for MongoDB
+    // Attach the path for the DB
     req.file.savedPath = `/uploads/${filename}`;
+
+    console.log("File saved successfully to:", filepath);
     next();
   } catch (err) {
-    console.error("Image processing error:", err);
-    res.status(500).json({ message: "Failed to process image" });
+    console.error("SHARP ERROR:", err);
+    res.status(500).json({ message: "Image processing failed" });
   }
 };
 
