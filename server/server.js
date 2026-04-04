@@ -25,6 +25,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8000",
   "https://airms.online",
+  "https://www.airms.online",
 ];
 
 app.use(
@@ -86,7 +87,8 @@ app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
     setHeaders: (res) => {
-      res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   }),
 );
