@@ -36,6 +36,7 @@ const getAllUsers = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 const loginUser = async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -54,11 +55,8 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-
-    if (identifier.includes("$") || identifier.includes("{")) {
-      return res.status(400).json({
-        message: "Invalid input",
-      });
+    if (/[${}]/.test(identifier) || /[$]/.test(password)) {
+      return res.status(400).json({ message: "Invalid input" });
     }
 
     const user = await UserModel.findOne({
@@ -471,25 +469,6 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Employee information required" });
     }
 
-    if (
-      firstName.includes("$") ||
-      firstName.includes("{") ||
-      lastName.includes("$") ||
-      lastName.includes("{") ||
-      email.includes("$") ||
-      email.includes("{") ||
-      username.includes("$") ||
-      username.includes("{") ||
-      access.includes("$") ||
-      access.includes("{") ||
-      jobTitle.includes("$") ||
-      jobTitle.includes("{")
-    ) {
-      return res.status(400).json({
-        message: "Invalid input",
-      });
-    }
-
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -556,12 +535,6 @@ const updateUserProfile = async (req, res) => {
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (firstName.includes("$") || lastName.includes("{")) {
-      return res.status(400).json({
-        message: "Invalid input",
-      });
-    }
 
     const updateData = {};
     if (firstName && firstName.trim() !== user.firstName)
@@ -694,16 +667,6 @@ const updatePassword = async (req, res) => {
         .json({ message: "Both current and new passwords are required." });
     }
 
-    if (
-      currentPassword.includes("$") ||
-      currentPassword.includes("{") ||
-      newPassword.includes("$") ||
-      newPassword.includes("{")
-    ) {
-      return res.status(400).json({
-        message: "Invalid input",
-      });
-    }
     if (!id) {
       return res.status(400).json({ message: "User ID is required." });
     }
