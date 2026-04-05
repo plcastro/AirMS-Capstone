@@ -304,7 +304,7 @@ export default function PartsLifespanMonitoring() {
     <div className="parts-monitoring-container" style={{ padding: 20 }}>
       <Row gutter={[16, 16]} align="middle">
         {/* Search */}
-        <Col xs={24} lg={7}>
+        <Col xs={24} md={12} lg={7}>
           <Input
             placeholder="Search..."
             prefix={<SearchOutlined />}
@@ -317,7 +317,7 @@ export default function PartsLifespanMonitoring() {
         </Col>
 
         {/* Select */}
-        <Col xs={24} lg={5}>
+        <Col xs={24} md={3} lg={3}>
           <Select
             value={selectedAircraft}
             onChange={(value) => setSelectedAircraft(value)}
@@ -332,7 +332,7 @@ export default function PartsLifespanMonitoring() {
         </Col>
 
         {/* Actions */}
-        <Col xs={24} lg={12}>
+        <Col xs={24} md={9} lg={14}>
           <div
             style={{
               display: "flex",
@@ -369,46 +369,46 @@ export default function PartsLifespanMonitoring() {
 
       {/* Info Cards with reference inputs - same as before */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
+        {/* Left Card - Aircraft Info */}
         <Col xs={24} md={8} lg={6}>
           <Card>
-            <div className="card-content">
-              <div className="info-item">
-                <Text>Aircraft: </Text>
-                <Text className="info-value">
-                  {selectedAircraft || "Not selected"}
-                </Text>
-              </div>
-              <div>
-                <Text>Date Manufactured: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.dateManufactured
-                    ? aircraftDetails.dateManufactured.toLocaleDateString()
-                    : "Not available"}
-                </Text>
-              </div>
-              <div className="info-item">
-                <Text>Acft. Type: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.aircraftType || "Not available"}
-                </Text>
-              </div>
-              <div>
-                <Text>Creep Damage: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.creepDamage || "Not available"}
-                </Text>
-              </div>
+            <div className="info-item">
+              <Text>Aircraft: </Text>
+              <Text className="info-value">
+                {selectedAircraft || "Not selected"}
+              </Text>
+            </div>
+            <div className="info-item">
+              <Text>Date Manufactured: </Text>
+              <Text className="info-value">
+                {aircraftDetails.dateManufactured
+                  ? aircraftDetails.dateManufactured.toLocaleDateString()
+                  : "Not available"}
+              </Text>
+            </div>
+            <div className="info-item">
+              <Text>Acft. Type: </Text>
+              <Text className="info-value">
+                {aircraftDetails.aircraftType || "Not available"}
+              </Text>
+            </div>
+            <div className="info-item">
+              <Text>Creep Damage: </Text>
+              <Text className="info-value">
+                {aircraftDetails.creepDamage || "Not available"}
+              </Text>
             </div>
           </Card>
         </Col>
+
+        {/* Right Card - Inputs */}
         <Col xs={24} md={16} lg={18}>
-          <Card className="aircraft-card">
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Engine Cycle:</Text>
+          <Card>
+            <Row gutter={[16, 16]}>
+              {/* Engine Cycle */}
+              <Col xs={24} md={12}>
+                <Text>Engine Cycle:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -417,13 +417,13 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Date:</Text>
+              </Col>
+
+              {/* Date */}
+              <Col xs={24} md={12}>
+                <Text>Date:</Text>
                 <Input
                   type="date"
-                  size="small"
-                  className="card-input-field"
                   value={refs.today.toISOString().split("T")[0]}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -432,14 +432,14 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N1:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* N1 */}
+              <Col xs={12} md={6}>
+                <Text>N1:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n1Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -448,28 +448,12 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Eng. TT:</Text>
+              </Col>
+
+              {/* N2 */}
+              <Col xs={12} md={6}>
+                <Text>N2:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
-                  value={refs.acftTT}
-                  onChange={(e) =>
-                    setRefs((prev) => ({
-                      ...prev,
-                      acftTT: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N2:</Text>
-                <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n2Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -478,12 +462,26 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Acft. TT:</Text>
+              </Col>
+
+              {/* Engine TT */}
+              <Col xs={12} md={6}>
+                <Text>Eng. TT:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
+                  value={refs.engTT}
+                  onChange={(e) =>
+                    setRefs((prev) => ({
+                      ...prev,
+                      engTT: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </Col>
+
+              {/* Aircraft TT */}
+              <Col xs={12} md={6}>
+                <Text>Acft. TT:</Text>
+                <Input
                   value={refs.acftTT}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -492,14 +490,14 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Landings:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* Landings */}
+              <Col xs={12} md={6}>
+                <Text>Landings:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -508,12 +506,14 @@ export default function PartsLifespanMonitoring() {
                     }))
                   }
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Sling:</Text>
-                <Input size="small" className="card-input-field" />
-              </div>
-            </div>
+              </Col>
+
+              {/* Sling */}
+              <Col xs={12} md={6}>
+                <Text>Sling:</Text>
+                <Input />
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>
