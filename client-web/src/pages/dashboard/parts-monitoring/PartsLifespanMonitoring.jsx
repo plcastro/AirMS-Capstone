@@ -20,7 +20,7 @@ import "./PartsLifespanMonitoring.css";
 
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
-import { PLMmockdata } from "./plmmockdata";
+import { PLMmockdata } from "./PLMmockdata";
 
 const { Text } = Typography;
 
