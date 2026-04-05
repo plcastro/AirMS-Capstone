@@ -40,14 +40,14 @@ export default function MaintenanceTracking() {
         padding: 20,
       }}
     >
-      <Row gutter={16}>
-        <Col span={8}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={8}>
           <Card title="Flight Hours Remaining" variant="borderless"></Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card title="Maintenance Alerts" variant="borderless"></Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={24} md={8}>
           <Card title="Maintenance Schedule Status" variant="borderless"></Card>
         </Col>
       </Row>
