@@ -66,7 +66,11 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     setError("");
-    if (!formData.identifier.trim() || !formData.password.trim()) {
+
+    const identifier = formData.identifier?.trim();
+    const password = formData.password?.trim();
+
+    if (!identifier || !password) {
       setError("Username/email and password are required");
       return;
     }
@@ -76,13 +80,18 @@ const Login = () => {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identifier: formData.identifier.trim(),
-          password: formData.password.trim(),
-        }),
+        body: JSON.stringify({ identifier, password }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("Non-JSON response from server:", text);
+        setError("Server error. Please try again later.");
+        return;
+      }
 
       if (response.ok) {
         if (data.requireSetup) {

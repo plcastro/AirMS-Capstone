@@ -1,6 +1,9 @@
-const localUrl = "http://localhost:8000";
-//const productionUrl = "https://backend-six-chi-43.vercel.app";
-const productionUrl = "https://api.airms.online";
+const localUrl = "http://localhost:8000" || "http://localhost:5173";
+const productionUrl = import.meta.env.VITE_BACKEND_URL;
+
+if (!productionUrl && import.meta.env.MODE !== "development") {
+  console.error("BACKEND_URL is missing or invalid!");
+}
 
 export const API_BASE =
-  process.env.NODE_ENV === "development" ? localUrl : productionUrl;
+  import.meta.env.MODE === "development" ? localUrl : productionUrl;
