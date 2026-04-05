@@ -65,11 +65,7 @@ const Sidebar = ({ collapsed }) => {
       key: "7",
       label: "Parts Requisition Monitoring",
       icon: <BookOutlined />,
-      roles: [
-        "maintenance manager",
-        "officer-in-charge",
-        "warehouse department",
-      ],
+      roles: ["warehouse department"],
     },
     {
       key: "8",
