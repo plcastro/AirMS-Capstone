@@ -50,7 +50,7 @@ export default function UserForm({
       Pilot: "User",
       "Maintenance Manager": "Superuser",
       "Officer-In-Charge": "Superuser",
-      Engineer: "User",
+      Mechanic: "User",
       "Warehouse Department": "User",
     };
 
@@ -106,7 +106,7 @@ export default function UserForm({
       Pilot: "User",
       "Officer-In-Charge": "Superuser",
       "Maintenance Manager": "Superuser",
-      Engineer: "User",
+      Mechanic: "User",
       "Warehouse Department": "User",
     };
     setAccessLevel(roleMap[jobTitle] || "");
@@ -157,7 +157,7 @@ export default function UserForm({
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file);
         if (
-          ["maintenance manager", "pilot", "engineer"].includes(
+          ["maintenance manager", "pilot", "mechanic"].includes(
             jobTitle.toLowerCase(),
           )
         ) {
@@ -351,7 +351,7 @@ export default function UserForm({
               { label: "Maintenance Manager", value: "Maintenance Manager" },
               { label: "Pilot", value: "Pilot" },
               { label: "Officer-In-Charge", value: "Officer-In-Charge" },
-              { label: "Engineer", value: "Engineer" },
+              { label: "Mechanic", value: "Mechanic" },
               { label: "Warehouse Department", value: "Warehouse Department" },
             ]}
           />
@@ -370,7 +370,7 @@ export default function UserForm({
         {[
           "maintenance manager",
           "pilot",
-          "engineer",
+          "mechanic",
           "officer-in-charge",
           "warehouse department",
         ].includes(jobTitle.toLowerCase()) ? (
@@ -382,7 +382,7 @@ export default function UserForm({
               value={licenseNo}
               onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
               maxLength={6}
-              required={["maintenance manager", "pilot", "engineer"].includes(
+              required={["maintenance manager", "pilot", "mechanic"].includes(
                 jobTitle.toLowerCase(),
               )}
             />

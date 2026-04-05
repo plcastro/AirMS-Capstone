@@ -31,7 +31,7 @@ export const summarydata = [
     aircraft: "RP-C1234 (B407)",
     date: "2026-03-25",
     task: "100-Hour Inspection",
-    assignedEngineer: "John Doe",
+    assignedMechanic: "John Doe",
     status: "ongoing",
   },
   {
@@ -39,7 +39,7 @@ export const summarydata = [
     aircraft: "RP-C5678 (B407)",
     date: "2026-03-20",
     task: "Engine Oil Filter Replacement",
-    assignedEngineer: "Wen Junhui",
+    assignedMechanic: "Wen Junhui",
     status: "completed",
   },
 ];
@@ -51,7 +51,7 @@ export const mhistorydata = [
     dateDiscovered: "2026-03-10",
     dateRectified: "2026-03-12",
     task: "Main Rotor Blade Leading Edge Repair",
-    assignedEngineer: "John Doe",
+    assignedMechanic: "John Doe",
   },
   {
     key: "2",
@@ -59,7 +59,7 @@ export const mhistorydata = [
     dateDiscovered: "2026-03-22",
     dateRectified: "---",
     task: "Engine Chip Detector Warning Inspection",
-    assignedEngineer: "John Doe",
+    assignedMechanic: "John Doe",
   },
   {
     key: "3",
@@ -67,7 +67,7 @@ export const mhistorydata = [
     dateDiscovered: "2026-03-24",
     dateRectified: "---",
     task: "Hydraulic System Leak Investigation",
-    assignedEngineer: "John Doe",
+    assignedMechanic: "John Doe",
   },
   {
     key: "4",
@@ -75,7 +75,7 @@ export const mhistorydata = [
     dateDiscovered: "2026-02-15",
     dateRectified: "2026-02-16",
     task: "Replacement of Navigation Light Bulb",
-    assignedEngineer: "TBA",
+    assignedMechanic: "TBA",
   },
   {
     key: "5",
@@ -83,7 +83,7 @@ export const mhistorydata = [
     dateDiscovered: "2026-03-01",
     dateRectified: "2026-03-05",
     task: "Tail Rotor Drive Shaft Alignment",
-    assignedEngineer: "TBA",
+    assignedMechanic: "TBA",
   },
 ];
 

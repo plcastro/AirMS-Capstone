@@ -29,10 +29,10 @@ const userSchema = new mongoose.Schema({
       "Pilot",
       "Admin",
       "Officer-In-Charge",
-      "Engineer",
+      "Mechanic",
       "Warehouse Department",
     ],
-    default: "Engineer",
+    default: "Mechanic",
   },
   access: {
     type: String,

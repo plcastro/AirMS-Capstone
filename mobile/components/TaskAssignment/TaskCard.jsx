@@ -142,7 +142,7 @@ export default function TaskCard({
                 backgroundColor: "#ffebee",
                 paddingHorizontal: 12,
                 paddingVertical: 4,
-                borderRadius: 4,
+                borderRadius: 10,
               }}
             >
               <Text

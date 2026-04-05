@@ -53,7 +53,7 @@ export default function FlightLogEditEntry({
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole.toLowerCase() === "engineer" || userRole === "maintenance";
+    userRole.toLowerCase() === "mechanic" || userRole === "maintenance";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -123,11 +123,11 @@ export default function FlightLogEditEntry({
 
   const isBasicInfoEditable =
     (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "engineer");
+    (isMechanic && formData.createdBy === "mechanic");
 
   const isDestinationsEditable =
     (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "engineer");
+    (isPilot && formData.createdBy === "mechanic");
 
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
