@@ -82,7 +82,7 @@ export const flightLogsMockData = [
     date: "02/23/2026",
     control: "Control value here",
     status: "pending_acceptance",
-    createdBy: "engineer",
+    createdBy: "mechanic",
     dateAdded: "02/23/2026",
     legs: [],
     remarks: "",
@@ -229,7 +229,7 @@ export const flightLogsMockData = [
     date: "02/21/2026",
     control: "Control value here",
     status: "completed",
-    createdBy: "engineer",
+    createdBy: "mechanic",
     dateAdded: "02/21/2026",
     legs: [
       {

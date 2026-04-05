@@ -216,7 +216,7 @@ const createUser = async (req, res) => {
       [
         "maintenance manager",
         "pilot",
-        "engineer",
+        "mechanic",
         "officer-in-charge",
       ].includes(jobTitle.toLowerCase())
     )
@@ -262,7 +262,7 @@ const createUser = async (req, res) => {
       [
         "maintenance manager",
         "pilot",
-        "engineer",
+        "mechanic",
         "officer-in-charge",
       ].includes(jobTitle.toLowerCase())
     ) {

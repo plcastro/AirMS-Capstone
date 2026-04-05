@@ -14,7 +14,7 @@ import { COLORS } from "../../stylesheets/colors";
 
 const { width } = Dimensions.get("window");
 
-// Base engineer data without status (will be calculated)
+// Base mechanic data without status (will be calculated)
 const BASE_ENGINEER_DATA = [
   { id: "1", name: "John Doe", avatar: null },
   { id: "2", name: "Clara Bang", avatar: null },
@@ -27,30 +27,30 @@ const BASE_ENGINEER_DATA = [
 
 export default function MechanicList() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEngineer, setSelectedEngineer] = useState(null);
+  const [selectedMechanic, setSelectedMechanic] = useState(null);
 
   // Use tasks from TaskInfo - declared ONCE
   const tasks = TaskInfo;
 
-  // Calculate engineer status based on task count - declared ONCE
-  const getEngineerStatus = (engineerId) => {
+  // Calculate mechanic status based on task count - declared ONCE
+  const getMechanicStatus = (mechanicId) => {
     const taskCount = tasks.filter(
-      (task) => task.assignedTo === engineerId,
+      (task) => task.assignedTo === mechanicId,
     ).length;
     // Busy if 3 or more tasks, Available if 0-2 tasks
     return taskCount >= 3 ? "Busy" : "Available";
   };
 
-  // Build engineers data with dynamic status - declared ONCE
-  const ENGINEER_DATA = BASE_ENGINEER_DATA.map((engineer) => ({
-    ...engineer,
-    status: getEngineerStatus(engineer.id),
+  // Build mechanics data with dynamic status - declared ONCE
+  const ENGINEER_DATA = BASE_ENGINEER_DATA.map((mechanic) => ({
+    ...mechanic,
+    status: getMechanicStatus(mechanic.id),
   }));
 
-  const filteredEngineers = ENGINEER_DATA.filter((engineer) => {
+  const filteredMechanics = ENGINEER_DATA.filter((mechanic) => {
     if (
       searchQuery &&
-      !engineer.name.toLowerCase().includes(searchQuery.toLowerCase())
+      !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
     ) {
       return false;
     }
@@ -61,16 +61,16 @@ export default function MechanicList() {
     return status === "Available" ? "#34A853" : "#FF6B6B";
   };
 
-  // Get task count for each engineer
-  const getTaskCount = (engineerId) => {
-    return tasks.filter((task) => task.assignedTo === engineerId).length;
+  // Get task count for each mechanic
+  const getTaskCount = (mechanicId) => {
+    return tasks.filter((task) => task.assignedTo === mechanicId).length;
   };
 
-  const renderEngineerItem = ({ item }) => {
+  const renderMechanicItem = ({ item }) => {
     const taskCount = getTaskCount(item.id);
     return (
       <TouchableOpacity
-        onPress={() => setSelectedEngineer(item)}
+        onPress={() => setSelectedMechanic(item)}
         style={{
           flexDirection: "row",
           alignItems: "center",
@@ -103,7 +103,7 @@ export default function MechanicList() {
           </Text>
         </View>
 
-        {/* Engineer Info */}
+        {/* Mechanic Info */}
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 4 }}>
             {item.name}
@@ -139,12 +139,12 @@ export default function MechanicList() {
     );
   };
 
-  if (selectedEngineer) {
+  if (selectedMechanic) {
     return (
       <MechanicAssignment
-        engineer={selectedEngineer}
-        tasks={tasks} // Pass tasks to EngineerAssignment
-        onBack={() => setSelectedEngineer(null)}
+        mechanic={selectedMechanic}
+        tasks={tasks} // Pass tasks to MechanicAssignment
+        onBack={() => setSelectedMechanic(null)}
       />
     );
   }
@@ -152,15 +152,15 @@ export default function MechanicList() {
   // Otherwise show the list
   return (
     <FlatList
-      data={filteredEngineers}
+      data={filteredMechanics}
       keyExtractor={(item) => item.id}
-      renderItem={renderEngineerItem}
+      renderItem={renderMechanicItem}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <View style={{ paddingHorizontal: 7, paddingTop: 10 }}>
           <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
             <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-              Total Engineers ({filteredEngineers.length})
+              Total Mechanics ({filteredMechanics.length})
             </Text>
           </View>
 
@@ -173,7 +173,7 @@ export default function MechanicList() {
             }}
           >
             <TextInput
-              placeholder="Search by engineer"
+              placeholder="Search by mechanic"
               placeholderTextColor={COLORS.grayDark}
               style={[
                 styles.searchInput,
@@ -194,7 +194,7 @@ export default function MechanicList() {
       ListEmptyComponent={
         <View style={{ alignItems: "center", marginTop: 50 }}>
           <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-            No engineers found
+            No mechanics found
           </Text>
         </View>
       }

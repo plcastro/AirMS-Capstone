@@ -32,9 +32,9 @@ export default function MaintenanceHistory({ data }) {
       key: "task",
     },
     {
-      title: "Assigned Engineer",
-      dataIndex: "assignedEngineer",
-      key: "assignedEngineer",
+      title: "Assigned Mechanic",
+      dataIndex: "assignedMechanic",
+      key: "assignedMechanic",
     },
   ];
   return (

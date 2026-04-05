@@ -361,11 +361,11 @@ export default function AddTask({
               ))}
             </Picker>
 
-            {/* Engineer Section */}
+            {/* Mechanic Section */}
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Engineer
+              Mechanic
             </Text>
             <View
               style={[
@@ -387,8 +387,8 @@ export default function AddTask({
                 dropdownIconColor={COLORS.primaryLight}
               >
                 <Picker.Item
-                  key="placeholder-engineer"
-                  label="Pick Engineer"
+                  key="placeholder-mechanic"
+                  label="Pick Mechanic"
                   value=""
                 />
                 {employees.map((emp) => (
