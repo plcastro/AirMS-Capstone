@@ -8,13 +8,11 @@ export default function Dashboard({ children }) {
   if (!user) return null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ececec" }}>
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
-    </SafeAreaView>
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {children}
+    </ScrollView>
   );
 }

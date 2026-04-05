@@ -65,7 +65,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         if (response.ok) {
           const data = await response.json();
           const mechanics = data.data.filter(
-            (user) => user.jobTitle === "Engineer" && user.status === "active",
+            (user) => user.jobTitle === "Mechanic" && user.status === "active",
           );
           const mappedEmployees = mechanics.map((user) => ({
             id: user._id,

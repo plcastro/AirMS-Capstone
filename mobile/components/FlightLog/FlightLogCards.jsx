@@ -56,7 +56,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
       <View
         style={{
           backgroundColor: COLORS.white,
-          borderRadius: 20,
+          borderRadius: 4,
           padding: 40,
           alignItems: "center",
           marginTop: 20,
@@ -96,7 +96,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             key={log._id}
             style={{
               backgroundColor: COLORS.white,
-              borderRadius: 25,
+              borderRadius: 10,
               marginBottom: 20,
               elevation: 3,
               shadowColor: "#000",

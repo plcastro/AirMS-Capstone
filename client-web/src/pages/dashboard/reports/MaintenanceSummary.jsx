@@ -51,9 +51,9 @@ export default function MaintenanceSummary({
       key: "task",
     },
     {
-      title: "Assigned Engineer",
-      dataIndex: "assignedEngineer",
-      key: "assignedEngineer",
+      title: "Assigned Mechanic",
+      dataIndex: "assignedMechanic",
+      key: "assignedMechanic",
     },
     {
       title: "Status",

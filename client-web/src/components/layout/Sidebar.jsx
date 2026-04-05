@@ -40,13 +40,13 @@ const Sidebar = ({ collapsed }) => {
       key: "3",
       label: "Flight Logs",
       icon: <BookOutlined />,
-      roles: ["maintenance manager", "pilot", "officer-in-charge", "engineer"],
+      roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "4",
       label: "Maintenance Logs",
       icon: <BookOutlined />,
-      roles: ["maintenance manager", "pilot", "officer-in-charge", "engineer"],
+      roles: ["maintenance manager", "officer-in-charge"],
     },
 
     {
@@ -77,13 +77,13 @@ const Sidebar = ({ collapsed }) => {
       key: "9",
       label: "Maintenance Dashboard",
       icon: <AreaChartOutlined />,
-      roles: ["maintenance manager"],
+      roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "10",
       label: "Profile",
       icon: <UserOutlined />,
-      roles: ["admin", "maintenance manager", "pilot", "warehouse department"],
+      roles: ["admin", "maintenance manager", "warehouse department"],
     },
   ];
 

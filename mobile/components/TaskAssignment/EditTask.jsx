@@ -245,7 +245,7 @@ export default function EditTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Engineer
+              Mechanic
             </Text>
             <View
               style={[

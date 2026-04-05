@@ -94,7 +94,7 @@ export default function FlightLog() {
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "engineer" || userRole === "maintenance manager";
+    userRole === "mechanic" || userRole === "maintenance manager";
 
   useEffect(() => {
     const transformed = flightLogsMockData.map((log, index) => ({
@@ -834,10 +834,10 @@ export default function FlightLog() {
 
   const canEditBasicInfo =
     (isPilot && editFormData?.createdBy === "pilot") ||
-    (isMechanic && editFormData?.createdBy === "engineer");
+    (isMechanic && editFormData?.createdBy === "mechanic");
   const canEditDestinations =
     (isPilot && editFormData?.createdBy === "pilot") ||
-    (isPilot && editFormData?.createdBy === "engineer");
+    (isPilot && editFormData?.createdBy === "mechanic");
   const canEditComponent = isMechanic && !editFormData?.broughtForwardLocked;
   const canEditFuelOil = isMechanic;
   const canEditDiscrepancy = true;

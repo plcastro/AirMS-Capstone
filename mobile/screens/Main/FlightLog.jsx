@@ -52,10 +52,10 @@ export default function FlightLog() {
         params.append("status", selectedStatus);
       }
 
-      console.log(
-        "Fetching from:",
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-      );
+      // console.log(
+      //   "Fetching from:",
+      //   `${API_BASE}/api/flightlogs?${params.toString()}`,
+      // );
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs?${params.toString()}`,
@@ -69,7 +69,7 @@ export default function FlightLog() {
 
       // Read response ONLY ONCE - use json() directly
       const data = await response.json();
-      console.log("Raw Server Response:", JSON.stringify(data));
+      // console.log("Raw Server Response:", JSON.stringify(data));
 
       if (response.ok) {
         setFlightLogs(data.data || []);

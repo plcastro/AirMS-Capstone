@@ -28,7 +28,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "engineer" || userRole === "maintenance manager";
+    userRole === "mechanic" || userRole === "maintenance manager";
 
   const handleAircraftDataLoaded = (data) => {
     setLoadedAircraftData(data);

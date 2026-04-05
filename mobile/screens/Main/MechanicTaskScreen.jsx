@@ -10,7 +10,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 const { width } = Dimensions.get("window");
 
-export default function EngineerTaskScreen() {
+export default function MechanicTaskScreen() {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -21,7 +21,7 @@ export default function EngineerTaskScreen() {
     { id: "all", name: "All Aircraft" },
   ]);
 
-  // Fetch tasks assigned to the current engineer
+  // Fetch tasks assigned to the current mechanic
   useEffect(() => {
     const fetchTasks = async () => {
       console.log("User:", user);

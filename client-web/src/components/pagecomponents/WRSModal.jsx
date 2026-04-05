@@ -126,7 +126,6 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
         ),
       ]}
     >
-      {" "}
       <div style={{ marginBottom: 20 }}>
         <Text strong>Status</Text>
         <Steps
@@ -170,36 +169,45 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
         {currentStep === 0 && (
           <>
             <Row gutter={[16, 16]}>
-              <Col xs={24} lg={12}>
-                <Text type="secondary">SLOC NAME/CODE</Text>
-                <Input value={selectedRecord.slocNameCode} disabled />
+              <Col xs={24} md={12}>
+                <Text strong>SLOC NAME/CODE: </Text>
+                <Text>{selectedRecord.slocNameCode}</Text>
               </Col>
 
-              <Col xs={24} lg={12}>
-                <Text type="secondary">Date Requested</Text>
-                <Input value={selectedRecord.dateRequested} disabled />
+              <Col xs={24} md={12}>
+                <Text strong>Date Requested: </Text>
+                <Text>{selectedRecord.dateRequested}</Text>
               </Col>
             </Row>
 
             <Row gutter={[16, 16]} style={{ marginTop: 10 }}>
               <Col xs={24} lg={12}>
-                <Text type="secondary">Requisitioned By</Text>
-                <Input value={selectedRecord.staff.employeeName} disabled />
+                <Text strong>Requisitioned By: </Text>
+                <Text>{selectedRecord.staff.employeeName.toUpperCase()}</Text>
               </Col>
 
               <Col xs={24} lg={12}>
                 <Text type="secondary">Approved By</Text>
-                <Input value={selectedRecord.staff.cchead} disabled />
+                <Input
+                  value={selectedRecord.staff.cchead.toUpperCase()}
+                  readOnly
+                />
               </Col>
 
               <Col xs={24} lg={12}>
                 <Text type="secondary">Received By</Text>
-                <Input value={selectedRecord.staff.enduser} disabled />
+                <Input
+                  value={selectedRecord.staff.enduser.toUpperCase()}
+                  disabled
+                />
               </Col>
 
               <Col xs={24} lg={12}>
                 <Text type="secondary">Noted By</Text>
-                <Input value={selectedRecord.staff.notedby} disabled />
+                <Input
+                  value={selectedRecord.staff.notedby.toUpperCase()}
+                  disabled
+                />
               </Col>
             </Row>
           </>

@@ -22,7 +22,7 @@ export const exportToPDF = async () => {
       { header: "Aircraft", dataKey: "aircraft" },
       { header: "Date", dataKey: "date" },
       { header: "Task", dataKey: "task" },
-      { header: "Assigned Engineer", dataKey: "assignedEngineer" },
+      { header: "Assigned Mechanic", dataKey: "assignedMechanic" },
       { header: "Status", dataKey: "status" },
     ];
 

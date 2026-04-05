@@ -9,6 +9,7 @@
     "icon": "./assets/AirMS_mobile.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "splash": {
       "image": "./assets/AirMS_web.png",
       "resizeMode": "contain",
@@ -30,6 +31,15 @@
     "web": {
       "favicon": "./assets/AirMS_mobile.png"
     },
-    "plugins": ["@react-native-community/datetimepicker", "expo-font"]
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow AirMS to access your photos to update your profile picture."
+        }
+      ]
+    ]
   }
 }

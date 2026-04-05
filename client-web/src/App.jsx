@@ -99,11 +99,7 @@ const AppRouter = () => {
             path="flight-log"
             element={
               <ProtectedRoute
-                allowedRoles={[
-                  "maintenance manager",
-                  "pilot",
-                  "officer-in-charge",
-                ]}
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
               >
                 <FlightLog />
               </ProtectedRoute>
@@ -113,11 +109,7 @@ const AppRouter = () => {
             path="maintenance-log"
             element={
               <ProtectedRoute
-                allowedRoles={[
-                  "maintenance manager",
-                  "pilot",
-                  "officer-in-charge",
-                ]}
+                allowedRoles={["maintenance manager", "officer-in-charge"]}
               >
                 <MaintenanceLog />
               </ProtectedRoute>
@@ -183,9 +175,7 @@ const AppRouter = () => {
                 allowedRoles={[
                   "admin",
                   "maintenance manager",
-                  "pilot",
                   "officer-in-charge",
-                  "engineer",
                   "warehouse department",
                 ]}
               >
