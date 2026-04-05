@@ -46,17 +46,17 @@ export default function MaintenanceHistory({ data }) {
         marginBottom: 10,
       }}
     >
-      <Row gutter={24} align={"center"} style={{ gap: 10 }}>
-        <Col xs={24}>
-          <Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={12}>
+          <Card style={{ padding: 10 }}>
             <Title level={5} style={{ margin: 0 }}>
               Same-day Repairs (Last 30 days)
             </Title>
             <SDMChart />
           </Card>
         </Col>
-        <Col xs={24}>
-          <Card>
+        <Col xs={24} md={12}>
+          <Card style={{ padding: 10 }}>
             <Title level={5} style={{ margin: 0 }}>
               Average Rectification Time
             </Title>

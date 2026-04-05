@@ -42,6 +42,12 @@ export default function MaintenanceDashboard() {
       keywords: ["performance", "overview", "pac"],
     },
     {
+      key: "history",
+      title: "Maintenance History",
+      component: <MaintenanceHistory data={mhistorydata} />,
+      keywords: ["history", "maintenance", "record"],
+    },
+    {
       key: "summary",
       title: "Maintenance Insights",
       component: (
@@ -54,12 +60,6 @@ export default function MaintenanceDashboard() {
       title: "Component Analysis",
       component: <ComponentUsage data={componentData} />,
       keywords: ["component", "usage", "analysis"],
-    },
-    {
-      key: "history",
-      title: "Maintenance History",
-      component: <MaintenanceHistory data={mhistorydata} />,
-      keywords: ["history", "maintenance", "record"],
     },
   ];
 
@@ -99,55 +99,51 @@ export default function MaintenanceDashboard() {
         height: "100%",
       }}
     >
-      <Card style={{ marginBottom: 20 }}>
-        <Row justify="space-between" align="middle" gutter={[16, 16]}>
-          <Col xs={24} md={6}>
-            <Title level={4} style={{ margin: 0 }}>
-              Maintenance Dashboard
-            </Title>
-          </Col>
+      <Row gutter={[16, 16]} style={{ marginBottom: 10 }} align="middle">
+        {/* Search Input */}
+        <Col xs={24} sm={24} md={12} lg={10}>
+          <Input
+            size="large"
+            placeholder="Search..."
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </Col>
 
-          <Col xs={24} md={10}>
-            <Input
-              size="large"
-              placeholder="Search..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              allowClear
-            />
-          </Col>
+        {/* File Type Selector */}
+        <Col xs={12} sm={8} md={6} lg={5}>
+          <Select
+            value={selectedFileType}
+            onChange={(value) => setSelectedFileType(value)}
+            size="large"
+            style={{ width: "100%" }}
+            options={fileTypeOptions.map((type) => ({
+              label: type,
+              value: type,
+            }))}
+          />
+        </Col>
 
-          <Col xs={24} md={2}>
-            <Select
-              value={selectedFileType}
-              onChange={(value) => setSelectedFileType(value)}
-              size="large"
-              style={{ width: "100%" }}
-              options={fileTypeOptions.map((type) => ({
-                label: type,
-                value: type,
-              }))}
-            />
-          </Col>
-          <Col xs={24} md={4}>
-            <Button
-              type="primary"
-              icon={<ExportOutlined />}
-              block
-              onClick={() => {
-                if (selectedFileType === "PDF") {
-                  exportToPDF();
-                } else {
-                  exportToExcel();
-                }
-              }}
-            >
-              Export
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+        {/* Export Button */}
+        <Col xs={12} sm={8} md={6} lg={4}>
+          <Button
+            type="primary"
+            icon={<ExportOutlined />}
+            block
+            onClick={() => {
+              if (selectedFileType === "PDF") {
+                exportToPDF();
+              } else {
+                exportToExcel();
+              }
+            }}
+          >
+            Export
+          </Button>
+        </Col>
+      </Row>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={24} sm={12} md={8}>
@@ -177,53 +173,12 @@ export default function MaintenanceDashboard() {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]}>
-        {filteredCards.length === 1 ? (
-          // Single card spans full width
-          <Col xs={24} lg={24}>
-            <Card title={filteredCards[0].title}>
-              {filteredCards[0].component}
-            </Card>
+      <Row gutter={[16, 16]} style={{ marginBottom: 100 }}>
+        {filteredCards.map((card) => (
+          <Col xs={24} key={card.key}>
+            <Card title={card.title}>{card.component}</Card>
           </Col>
-        ) : (
-          <>
-            {/* Left Column: Performance, Summary, Component */}
-            <Col xs={24} lg={16}>
-              <Space
-                orientation="vertical"
-                size="large"
-                style={{ width: "100%" }}
-              >
-                {filteredCards
-                  .filter((card) =>
-                    ["performance", "summary", "component"].includes(card.key),
-                  )
-                  .map((card) => (
-                    <Card title={card.title} key={card.key}>
-                      {card.component}
-                    </Card>
-                  ))}
-              </Space>
-            </Col>
-
-            {/* Right Column: History */}
-            <Col xs={24} lg={8}>
-              <Space
-                orientation="vertical"
-                size="large"
-                style={{ width: "100%" }}
-              >
-                {filteredCards
-                  .filter((card) => card.key === "history")
-                  .map((card) => (
-                    <Card title={card.title} key={card.key}>
-                      {card.component}
-                    </Card>
-                  ))}
-              </Space>
-            </Col>
-          </>
-        )}
+        ))}
       </Row>
     </div>
   );
