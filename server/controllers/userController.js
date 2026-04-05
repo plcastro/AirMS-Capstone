@@ -13,19 +13,6 @@ const MOBILE_URL = process.env.MOBILE_URL;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 
-const deleteFile = (filePath) => {
-  if (!filePath || filePath.includes("default_avatar")) return;
-
-  const absolutePath = path.join(__dirname, "..", filePath.replace(/^\//, ""));
-  fs.access(absolutePath, fs.constants.F_OK, (err) => {
-    if (err) return; // file doesn't exist
-    fs.unlink(absolutePath, (err) => {
-      if (err) console.error(`Failed to delete file: ${absolutePath}`, err);
-      else console.log(`Successfully deleted file: ${absolutePath}`);
-    });
-  });
-};
-
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
@@ -36,20 +23,31 @@ const getAllUsers = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 const loginUser = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    let { identifier, password } = req.body;
+
+    if (typeof identifier !== "string" || typeof password !== "string") {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+
+    identifier = identifier.trim();
+    password = password.trim();
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-
-    const trimmed = identifier.trim();
+    if (/[${}]/.test(identifier) || /[$]/.test(password)) {
+      return res.status(400).json({ message: "Invalid input" });
+    }
 
     const user = await UserModel.findOne({
-      $or: [{ username: trimmed }, { email: trimmed }],
+      $or: [{ username: identifier }, { email: identifier }],
     }).select("+password +tempPasswordExpires ");
 
     if (!user) {
@@ -93,10 +91,14 @@ const loginUser = async (req, res) => {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
 
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET not set in environment variables");
+      }
+
       const setupToken = jwt.sign(
         { id: user._id, email: user.email },
-        process.env.JWT_SECRET || "fallback_secret",
-        { expiresIn: "1h" }, // 1 hour expiry
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" },
       );
 
       return res.status(200).json({
@@ -105,7 +107,7 @@ const loginUser = async (req, res) => {
         user: {
           id: user._id,
           status: user.status,
-          setupToken, // send JWT to frontend
+          setupToken,
         },
       });
     }
@@ -138,8 +140,9 @@ const loginUser = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         status: user.status,
+        image: user.image,
       },
-      process.env.JWT_SECRET || "fallback_secret",
+      process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
 
@@ -169,7 +172,7 @@ const loginUser = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(c);
+  const user = await UserModel.findById(req.body.id);
 
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -187,7 +190,7 @@ const logoutUser = async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
@@ -335,17 +338,41 @@ const createUser = async (req, res) => {
 
 const completeSecuritySetup = async (req, res) => {
   try {
-    const { setupToken, newPassword } = req.body;
+    let { setupToken, newPassword } = req.body;
 
     if (!setupToken) {
       return res.status(400).json({ message: "Setup token required" });
     }
+    setupToken = setupToken.trim();
+    newPassword = newPassword.trim();
 
-    // VERIFY THE TOKEN HERE
-    const decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    if (newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 8 characters long" });
+    }
+    const passwordRegex = /^[A-Za-z0-9]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and contain only letters and numbers",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not set in environment variables");
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired setup token" });
+    }
 
     const user = await UserModel.findById(decoded.id);
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -364,11 +391,10 @@ const completeSecuritySetup = async (req, res) => {
       message: "Security setup completed successfully",
     });
   } catch (err) {
-    console.error(err);
-
-    return res.status(401).json({
-      message: "Invalid or expired setup token",
-    });
+    console.error("Security setup error:", err);
+    return res
+      .status(500)
+      .json({ message: "Server error during security setup" });
   }
 };
 
@@ -398,7 +424,36 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, username, access, jobTitle } = req.body;
+    let { firstName, lastName, email, username, access, jobTitle } = req.body;
+
+    if (
+      typeof firstName !== "string" ||
+      typeof lastName !== "string" ||
+      typeof email !== "string" ||
+      typeof username !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+
+    firstName = firstName.trim();
+    lastName = lastName.trim();
+    email = email.trim();
+    username = username.trim();
+    access = access.trim();
+    jobTitle = jobTitle.trim();
+
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !access ||
+      !jobTitle
+    ) {
+      return res.status(400).json({ message: "Employee information required" });
+    }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -448,7 +503,21 @@ const updateUser = async (req, res) => {
 const updateUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName } = req.body;
+    let { firstName, lastName } = req.body;
+
+    if (typeof firstName !== "string" || typeof lastName !== "string") {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
+    }
+    firstName = firstName.trim();
+    lastName = lastName.trim();
+
+    if (!firstName || !lastName) {
+      return res
+        .status(400)
+        .json({ message: "First and Last name is required" });
+    }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -513,43 +582,60 @@ const updateUserStatus = async (req, res) => {
       .json({ message: err.message || "Failed to update user status" });
   }
 };
+const deleteFile = (filePath) => {
+  // 1. Exit if the user doesn't have an image (prevents the 'null' deletion crash)
+  if (!filePath || typeof filePath !== "string" || filePath === "null") return;
+
+  try {
+    // 2. Normalize the path (remove leading slash)
+    const cleanPath = filePath.startsWith("/")
+      ? filePath.substring(1)
+      : filePath;
+
+    // 3. Always resolve from the PROJECT ROOT (process.cwd())
+    const fullPath = path.resolve(process.cwd(), cleanPath);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      console.log("Successfully deleted old image:", fullPath);
+    }
+  } catch (err) {
+    // We log but don't throw, so the rest of the update-user-image can finish
+    console.error("FileSystem Cleanup Error:", err.message);
+  }
+};
 
 const updateUserImage = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    let newImagePath;
 
-    // 1. CASE: User uploaded a NEW file
-    if (req.file && req.file.savedPath) {
-      // Delete old file if it exists
-      if (user.image && !user.image.includes("default_avatar")) {
+    let newImagePath = user.image;
+
+    if (req.file) {
+      if (
+        user.image &&
+        typeof user.image === "string" &&
+        user.image !== "null"
+      ) {
         deleteFile(user.image);
       }
-      newImagePath = req.file.savedPath;
-    }
-    // 2. CASE: User sent { image: null } to REMOVE the picture
-    else if (req.body.image === null || req.body.image === "null") {
-      if (user.image && !user.image.includes("default_avatar")) {
+
+      newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
+
+      console.log("New image path ready for DB:", newImagePath);
+    } else if (req.body.image === null || req.body.image === "null") {
+      if (user.image && typeof user.image === "string") {
         deleteFile(user.image);
       }
-      newImagePath = null; // This clears it in MongoDB
-    }
-    // 3. CASE: Error (No file and no null flag)
-    else {
-      return res.status(400).json({ message: "No image file provided" });
+      newImagePath = null;
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
-      { image: newImagePath },
-      { returnDocument: "after" },
-    );
-
-    await auditLog(
-      `User avatar ${newImagePath ? "updated" : "removed"}: ${updatedUser.username}`,
-      updatedUser._id,
+      { $set: { image: newImagePath } },
+      { returnDocument: "after", runValidators: true },
     );
 
     res.status(200).json({
@@ -557,24 +643,35 @@ const updateUserImage = async (req, res) => {
       user: updatedUser,
     });
   } catch (err) {
-    console.error("Error updating avatar:", err);
-    res.status(500).json({ message: "Failed to update avatar" });
+    console.error("Update Image Error:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
 const updatePassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { currentPassword, newPassword } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ message: "User ID is required." });
+    let { currentPassword, newPassword } = req.body;
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Invalid input type",
+      });
     }
+
+    currentPassword = currentPassword.trim();
+    newPassword = newPassword.trim();
 
     if (!currentPassword || !newPassword) {
       return res
         .status(400)
         .json({ message: "Both current and new passwords are required." });
+    }
+
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required." });
     }
 
     const user = await UserModel.findById(id).select("+password");
@@ -585,8 +682,8 @@ const updatePassword = async (req, res) => {
     }
 
     const isCurrentAndNewMatch = await bcrypt.compare(
-      user.password,
       newPassword,
+      user.password,
     );
     if (currentPassword === newPassword || isCurrentAndNewMatch) {
       return res
@@ -615,7 +712,7 @@ const updatePassword = async (req, res) => {
 
 const updatePIN = async (req, res) => {
   try {
-    const { currentPin, newPin } = req.body;
+    let { currentPin, newPin } = req.body;
     if (!currentPin || !newPin)
       return res.status(400).json({ message: "PIN is required" });
 
@@ -676,7 +773,7 @@ const activateUser = async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res
         .status(401)
@@ -689,7 +786,6 @@ const activateUser = async (req, res) => {
     if (user.status === "active")
       return res.status(400).json({ message: "Account already active" });
 
-    // Activate user
     user.password = await bcrypt.hash(newPassword, 12);
     user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
@@ -722,7 +818,12 @@ const resendActivation = async (req, res) => {
     await user.save();
 
     // Portal link just goes to login page
-    const portalLink = ["Admin", "Maintenance Manager"].includes(user.jobTitle)
+    const portalLink = [
+      "Admin",
+      "Maintenance Manager",
+      "Officer-In-Charge",
+      "Warehouse Department",
+    ].includes(user.jobTitle)
       ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
       : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
 

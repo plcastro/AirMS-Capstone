@@ -4,6 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+// const xssClean = require("xss-clean");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const defectLogRoutes = require("./routes/defectLogRoute");
@@ -18,20 +21,56 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightlogRoutes = require("./routes/flightlogRoute");
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8000",
+  "https://airms.online",
+  "https://www.airms.online",
+];
+
 app.use(
   cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log("Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
+app.use((req, res, next) => {
+  if (req.body) {
+    mongoSanitize.sanitize(req.body, { replaceWith: "_" });
+  }
+  if (req.params) {
+    mongoSanitize.sanitize(req.params, { replaceWith: "_" });
+  }
+  // We leave req.query untouched to prevent the crash
+  next();
+});
 
 const ATLAS_URL = process.env.ATLAS_URL;
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
-mongoose.connect(ATLAS_URL).then(() => console.log("Connected to MongoDB"));
+mongoose
+  .connect(ATLAS_URL)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => {
+    console.error("MongoDB connection failed:", err);
+  });
 
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
@@ -44,9 +83,36 @@ app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
-app.use("/uploads", express.static("uploads"));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  }),
+);
 app.use("/api/flightlogs", flightlogRoutes);
+
 app.set("trust proxy", 1);
+
+app.use((err, req, res, next) => {
+  const statusCode = err.status || 500;
+  console.error("Error: ", err);
+  if (process.env.NODE_ENV === "development") {
+    return res.status(statusCode).json({
+      status: "error",
+      message: err.message,
+      stack: err.stack,
+      error: err,
+    });
+  } else {
+    return res.status(statusCode).json({
+      status: "error",
+      message: "An internal error occurred",
+    });
+  }
+});
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
