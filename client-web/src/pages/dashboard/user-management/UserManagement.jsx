@@ -11,7 +11,7 @@ const accessLevelData = [
     value: "pos-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin" },
+      { title: "Admin", value: "Admin_job" },
       { title: "Maintenance Manager", value: "Maintenance Manager" },
       { title: "Pilot", value: "Pilot" },
       { title: "Officer-In-Charge", value: "Officer-In-Charge" },
@@ -24,7 +24,7 @@ const accessLevelData = [
     value: "access-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin" }, // Note: unique value if overlaps with jobTitle
+      { title: "Admin", value: "Admin_access" }, // Note: unique value if overlaps with jobTitle
       { title: "Superuser", value: "Superuser" },
       { title: "User", value: "User" },
     ],
