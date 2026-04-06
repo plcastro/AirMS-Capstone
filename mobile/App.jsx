@@ -18,6 +18,8 @@ import Profile from "./screens/Settings/Profile";
 import FlightLog from "./screens/Main/FlightLog";
 import TaskAssignment from "./screens/Main/TaskAssignment";
 import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
+import PreInspection from "./screens/Main/PreInspection";
+import PostInspection from "./screens/Main/PostInspection";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -107,6 +109,14 @@ function DrawerNav() {
           <Drawer.Screen
             name="Flight Logbook"
             component={wrapWithDashboard(FlightLog)}
+          />
+          <Drawer.Screen
+            name="Pre-Inspection"
+            component={wrapWithDashboard(PreInspection)}
+          />
+          <Drawer.Screen
+            name="Post-Inspection"
+            component={wrapWithDashboard(PostInspection)}
           />
         </>
       )}
