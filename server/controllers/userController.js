@@ -212,71 +212,45 @@ const createUser = async (req, res) => {
     const { firstName, lastName, email, jobTitle, access, licenseNo } =
       req.body;
 
-    if (
-      [
-        "maintenance manager",
-        "pilot",
-        "mechanic",
-        "officer-in-charge",
-      ].includes(jobTitle.toLowerCase())
-    )
-      return res.status(400).json({ message: "License no. is required" });
+    const rolesRequiringLicense = [
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ];
 
-    if (!firstName || !lastName || !email || !jobTitle)
+    if (!firstName || !lastName || !email || !jobTitle) {
       return res.status(400).json({ message: "All fields are required" });
+    }
 
-    if (!validator.isEmail(email.trim()))
+    if (!validator.isEmail(email.trim())) {
       return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const normalizedJobTitle = jobTitle.toLowerCase();
+
+    if (
+      rolesRequiringLicense.includes(normalizedJobTitle) &&
+      (!licenseNo || licenseNo.trim() === "")
+    ) {
+      return res.status(400).json({ message: "License no. is required" });
+    }
 
     const existingEmail = await UserModel.findOne({ email: email.trim() });
-    if (existingEmail)
+    if (existingEmail) {
       return res.status(409).json({ message: "Email already registered" });
+    }
 
     const username = await generateUniqueUsername(firstName, lastName);
 
-    // Generate temporary password
-    const tempPassword = Math.random().toString(36).slice(-8).trim();
-    const hashedPassword = await bcrypt.hash(tempPassword, 12);
-
-    const tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-
-    let imagePath = "";
-    if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
-    }
-
-    let newUserData = {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      username: username.trim(),
-      password: hashedPassword,
-      tempPasswordExpires,
-      status: "inactive",
-      image: imagePath,
-      jobTitle,
-      access,
-    };
-
-    if (
-      [
-        "maintenance manager",
-        "pilot",
-        "mechanic",
-        "officer-in-charge",
-      ].includes(jobTitle.toLowerCase())
-    ) {
-      newUserData.licenseNo = licenseNo;
-    }
-
-    const newUser = await UserModel.create(newUserData);
+    const tempPassword = Math.random().toString(36).slice(-8);
 
     const portalLink =
       jobTitle === "Maintenance Manager" ||
       jobTitle === "Officer-In-Charge" ||
       jobTitle === "Admin"
-        ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
-        : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
+        ? `<p>Login via web: <a href="${WEB_URL}/login">AirMS Web Login</a></p>`
+        : `<p>Login via mobile app: <a href="${MOBILE_URL}/login">AirMS Mobile Login</a></p>`;
 
     await sendEmail({
       to: email,
@@ -314,25 +288,41 @@ const createUser = async (req, res) => {
   `,
     });
 
+    let imagePath = "";
+    if (req.file) {
+      imagePath = `/uploads/${req.file.filename}`;
+    }
+
+    const newUser = await UserModel.create({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      username: username.trim(),
+      password: hashedPassword,
+      tempPasswordExpires,
+      status: "inactive",
+      image: imagePath,
+      jobTitle,
+      access,
+      licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
+        ? licenseNo
+        : null,
+    });
+
     await auditLog(
-      `User created: ${username}, Temp password issued`,
+      `User created: ${username}, email sent successfully`,
       newUser._id,
     );
 
     res.status(201).json({
-      message: "User added successfully",
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        jobTitle: newUser.jobTitle,
-        status: newUser.status,
-      },
+      message: "User created successfully",
+      data: newUser,
     });
   } catch (err) {
     console.error("Error in createUser:", err);
-    await auditLog("Failed to create user", null);
-    res.status(500).json({ message: "User account creation failed" });
+    res.status(500).json({
+      message: "User creation failed (email not sent)",
+    });
   }
 };
 

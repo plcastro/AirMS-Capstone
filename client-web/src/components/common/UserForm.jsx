@@ -157,9 +157,12 @@ export default function UserForm({
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file);
         if (
-          ["maintenance manager", "pilot", "mechanic"].includes(
-            jobTitle.toLowerCase(),
-          )
+          [
+            "maintenance manager",
+            "pilot",
+            "mechanic",
+            "officer-in-charge",
+          ].includes(jobTitle.toLowerCase())
         ) {
           body.append("licenseNo", licenseNo);
         }
@@ -174,6 +177,7 @@ export default function UserForm({
           jobTitle,
           access: accessLevel,
           dateCreated: joinedDate.toISOString(),
+          licenseNo,
         });
       }
 
@@ -372,7 +376,6 @@ export default function UserForm({
           "pilot",
           "mechanic",
           "officer-in-charge",
-          "warehouse department",
         ].includes(jobTitle.toLowerCase()) ? (
           <Col span={12}>
             <Text strong>License No.</Text>
