@@ -223,7 +223,7 @@ export default function MaintenancePerformance() {
         </Col>
       </Row>
       <Card>
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Title level={3} style={{ margin: 0 }}>
             Maintenance Performance
           </Title>

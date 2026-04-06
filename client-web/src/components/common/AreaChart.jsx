@@ -11,6 +11,11 @@ import {
 } from "recharts";
 
 const AreaChartComponent = ({ data }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: 40 }}>No data available</div>
+    );
+  }
   return (
     <ResponsiveContainer width="100%" height={350}>
       <AreaChart
@@ -22,51 +27,17 @@ const AreaChartComponent = ({ data }) => {
           vertical={false}
           stroke="#f0f0f0"
         />
-        <XAxis
-          dataKey="month"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fill: "#8c8c8c", fontSize: 12 }}
-        />
-        <YAxis
-          axisLine={false}
-          tickLine={false}
-          tick={{ fill: "#8c8c8c", fontSize: 12 }}
-        />
-        <Tooltip
-          contentStyle={{
-            borderRadius: "8px",
-            border: "none",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-        />
-
+        <XAxis dataKey="month" axisLine={false} tickLine={false} />
+        <YAxis axisLine={false} tickLine={false} />
+        <Tooltip />
         <Area
           type="monotone"
-          dataKey="completed"
-          stackId="1"
-          stroke="#52c41a"
-          fill="#f6ffed"
-          strokeWidth={3}
+          dataKey="value"
+          stroke="#8884d8"
+          fill="#8884d8"
+          fillOpacity={0.3}
         />
-
-        <Area
-          type="monotone"
-          dataKey="due soon"
-          stackId="1"
-          stroke="#6828d7"
-          fill="#e6f7ff"
-          strokeWidth={3}
-        />
-        <Area
-          type="monotone"
-          dataKey="overdue"
-          stackId="1"
-          stroke="#fb3131"
-          fill="#e6f7ff"
-          strokeWidth={3}
-        />
-        <Legend verticalAlign="bottom" align="left" height={10} />
+        <Legend />
       </AreaChart>
     </ResponsiveContainer>
   );

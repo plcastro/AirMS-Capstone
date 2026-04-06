@@ -1,4 +1,4 @@
-const FlightLog = require("../models/flightlogModel");
+const FlightLog = require("../models/flightLogModel");
 
 // Helper function to get user role from token
 const getUserRole = (user) => {
@@ -35,7 +35,61 @@ exports.createFlightLog = async (req, res) => {
     flightLogData.status =
       userRole === "pilot" ? "pending_release" : "pending_acceptance";
 
-    console.log("Processed data:", JSON.stringify(flightLogData, null, 2));
+    // Handle component times - map componentTimes to componentData if needed
+    if (flightLogData.componentTimes && !flightLogData.componentData) {
+      console.log("Mapping componentTimes to componentData");
+      flightLogData.componentData = {
+        broughtForwardData: flightLogData.componentTimes.broughtForward || {},
+        thisFlightData: flightLogData.componentTimes.thisFlight || {},
+        toDateData: flightLogData.componentTimes.toDate || {},
+      };
+      delete flightLogData.componentTimes; // Remove the original to avoid confusion
+    }
+
+    // Initialize componentData if it doesn't exist
+    if (!flightLogData.componentData) {
+      flightLogData.componentData = {
+        broughtForwardData: {},
+        thisFlightData: {},
+        toDateData: {},
+      };
+    }
+
+    // Define all component fields
+    const componentFields = [
+      "airframe",
+      "gearBoxMain",
+      "gearBoxTail",
+      "rotorMain",
+      "rotorTail",
+      "airframeNextInsp",
+      "engine",
+      "cycleN1",
+      "cycleN2",
+      "usage",
+      "landingCycle",
+      "engineNextInsp",
+    ];
+
+    // Ensure each section has all fields
+    ["broughtForwardData", "thisFlightData", "toDateData"].forEach(
+      (section) => {
+        if (!flightLogData.componentData[section]) {
+          flightLogData.componentData[section] = {};
+        }
+        // Initialize any missing fields with empty string
+        componentFields.forEach((field) => {
+          if (flightLogData.componentData[section][field] === undefined) {
+            flightLogData.componentData[section][field] = "";
+          }
+        });
+      },
+    );
+
+    console.log(
+      "Processed componentData:",
+      JSON.stringify(flightLogData.componentData, null, 2),
+    );
 
     // Create and save the flight log
     const flightLog = new FlightLog(flightLogData);
@@ -43,6 +97,10 @@ exports.createFlightLog = async (req, res) => {
 
     await flightLog.save();
     console.log("FlightLog saved successfully with ID:", flightLog._id);
+    console.log(
+      "Saved componentData:",
+      JSON.stringify(flightLog.componentData, null, 2),
+    );
 
     res.status(201).json({
       success: true,
@@ -53,15 +111,25 @@ exports.createFlightLog = async (req, res) => {
     console.error("=== ERROR CREATING FLIGHT LOG ===");
     console.error("Error name:", error.name);
     console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
 
     // Check for duplicate key error
     if (error.code === 11000) {
-      console.error(
-        "Duplicate key error - this happens when you try to save with the same ID",
-      );
+      console.error("Duplicate key error");
       return res.status(400).json({
         success: false,
         message: "Duplicate entry - please try again",
+      });
+    }
+
+    // Check for validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      console.error("Validation errors:", messages);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: messages,
       });
     }
 
