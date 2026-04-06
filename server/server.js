@@ -18,7 +18,7 @@ const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
 const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
 const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
-const flightlogRoutes = require("./routes/flightlogRoute");
+const flightLogRoutes = require("./routes/flightLogRoute");
 const app = express();
 
 const allowedOrigins = [
