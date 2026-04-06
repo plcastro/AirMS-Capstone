@@ -21,6 +21,18 @@ const DrawerList = [
     jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
   },
   {
+    icon: "book-open-page-variant",
+    label: "Pre-Inspection",
+    navigateTo: "Pre-Inspection",
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
+  },
+  {
+    icon: "book-open-page-variant",
+    label: "Post-Inspection",
+    navigateTo: "Post-Inspection",
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
+  },
+  {
     icon: "clipboard-text",
     label: "Tasks",
     navigateTo: "Tasks",
