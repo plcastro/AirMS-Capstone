@@ -1,8 +1,78 @@
 // controllers/partsMonitoringController.js
-const PartsLifespanMonitoring = require("../models/partsMonitoring");
+const PartsMonitoring = require("../models/partsMonitoring");
+
+exports.updateAircraftTotals = async (req, res) => {
+  try {
+    const { aircraft } = req.params;
+    const { acftTT, n1Cycles, n2Cycles, landings } = req.body;
+
+    if (!aircraft) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft is required",
+      });
+    }
+
+    // Validate required fields
+    if (
+      acftTT === undefined ||
+      n1Cycles === undefined ||
+      n2Cycles === undefined ||
+      landings === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required totals: acftTT, n1Cycles, n2Cycles, landings",
+      });
+    }
+
+    // Find existing record or create a new one
+    let partsData = await PartsMonitoring.findOne({ aircraft });
+
+    if (!partsData) {
+      // Create minimal record with empty parts array
+      partsData = new PartsMonitoring({
+        aircraft,
+        referenceData: {
+          today: new Date(),
+          acftTT: 0,
+          n1Cycles: 0,
+          n2Cycles: 0,
+          landings: 0,
+        },
+        parts: [],
+        updatedBy: "flight_log_system",
+      });
+    }
+
+    // Update the reference totals
+    partsData.referenceData.acftTT = acftTT;
+    partsData.referenceData.n1Cycles = n1Cycles;
+    partsData.referenceData.n2Cycles = n2Cycles;
+    partsData.referenceData.landings = landings;
+    partsData.lastUpdated = Date.now();
+    partsData.updatedBy = req.body.updatedBy || "flight_log_system";
+
+    await partsData.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Aircraft totals updated successfully",
+      data: partsData,
+    });
+  } catch (error) {
+    console.error("Error updating aircraft totals:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating aircraft totals",
+      error: error.message,
+    });
+  }
+};
 
 // Save or update parts monitoring data
-exports.savePartsLifespanMonitoring = async (req, res) => {
+exports.savePartsMonitoring = async (req, res) => {
   try {
     console.log("=== SAVE REQUEST RECEIVED ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
@@ -29,7 +99,7 @@ exports.savePartsLifespanMonitoring = async (req, res) => {
     console.log(`Number of parts: ${parts.length}`);
 
     // Check if data already exists for this aircraft
-    let existingData = await PartsLifespanMonitoring.findOne({ aircraft });
+    let existingData = await PartsMonitoring.findOne({ aircraft });
     console.log("Existing data found:", existingData ? "Yes" : "No");
 
     if (existingData) {
@@ -49,7 +119,7 @@ exports.savePartsLifespanMonitoring = async (req, res) => {
       });
     } else {
       // Create new record
-      const newData = new PartsLifespanMonitoring({
+      const newData = new PartsMonitoring({
         aircraft,
         referenceData,
         parts,
@@ -75,18 +145,18 @@ exports.savePartsLifespanMonitoring = async (req, res) => {
       success: false,
       message: "Error saving data",
       error: error.message,
-      stack: process.env.NODE_ENV === "production" ? error.stack : undefined,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };
 
 // Get parts monitoring data for a specific aircraft
-exports.getPartsLifespanMonitoring = async (req, res) => {
+exports.getPartsMonitoring = async (req, res) => {
   try {
     const { aircraft } = req.params;
     console.log("Fetching data for aircraft:", aircraft);
 
-    const data = await PartsLifespanMonitoring.findOne({ aircraft }).sort({
+    const data = await PartsMonitoring.findOne({ aircraft }).sort({
       lastUpdated: -1,
     });
 
@@ -112,13 +182,13 @@ exports.getPartsLifespanMonitoring = async (req, res) => {
 };
 
 // Get all parts monitoring records (with pagination)
-exports.getAllPartsLifespanMonitoring = async (req, res) => {
+exports.getAllPartsMonitoring = async (req, res) => {
   try {
     const { page = 1, limit = 10, aircraft } = req.query;
     const query = aircraft ? { aircraft } : {};
 
-    const total = await PartsLifespanMonitoring.countDocuments(query);
-    const data = await PartsLifespanMonitoring.find(query)
+    const total = await PartsMonitoring.countDocuments(query);
+    const data = await PartsMonitoring.find(query)
       .sort({ lastUpdated: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -141,11 +211,11 @@ exports.getAllPartsLifespanMonitoring = async (req, res) => {
 };
 
 // Delete parts monitoring data
-exports.deletePartsLifespanMonitoring = async (req, res) => {
+exports.deletePartsMonitoring = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await PartsLifespanMonitoring.findByIdAndDelete(id);
+    const deleted = await PartsMonitoring.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({
@@ -173,9 +243,7 @@ exports.deleteAircraftData = async (req, res) => {
   try {
     const { aircraft } = req.params;
 
-    const deleted = await PartsLifespanMonitoring.findOneAndDelete({
-      aircraft,
-    });
+    const deleted = await PartsMonitoring.findOneAndDelete({ aircraft });
 
     if (!deleted) {
       return res.status(404).json({
@@ -201,7 +269,7 @@ exports.deleteAircraftData = async (req, res) => {
 // Get all unique aircraft list
 exports.getAircraftList = async (req, res) => {
   try {
-    const aircraft = await PartsLifespanMonitoring.distinct("aircraft");
+    const aircraft = await PartsMonitoring.distinct("aircraft");
 
     res.status(200).json({
       success: true,

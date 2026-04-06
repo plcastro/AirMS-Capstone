@@ -12,16 +12,14 @@ const {
   completeFlightLog,
   deleteFlightLog,
   getFlightLogStats,
-  searchFlightLogs
+  searchFlightLogs,
 } = require("../controllers/flightlogController");
 
 // REMOVE AUTH MIDDLEWARE - No authentication required
 // router.use(verifyToken); // COMMENT THIS OUT OR DELETE
 
 // Routes that don't require ID parameters
-router.route("/")
-  .get(getFlightLogs)
-  .post(createFlightLog);
+router.route("/").get(getFlightLogs).post(createFlightLog);
 
 // Statistics and search routes
 router.get("/stats", getFlightLogStats);
@@ -36,8 +34,6 @@ router.put("/:id/accept", acceptFlightLog);
 router.put("/:id/complete", completeFlightLog);
 
 // Routes that require ID parameter
-router.route("/:id")
-  .get(getFlightLogById)
-  .put(updateFlightLog)
+router.route("/:id").get(getFlightLogById).put(updateFlightLog);
 
 module.exports = router;
