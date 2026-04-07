@@ -3,11 +3,11 @@ import {
   View,
   Text,
   Modal,
-  TextInput,
   ScrollView,
   Dimensions,
   TouchableOpacity,
   Platform,
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
@@ -18,18 +18,42 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
+const INSPECTION_NAME_ALIASES = {
+  "TBO Inspection": ["Time Between Overhaul"],
+  "OC Inspection": ["ON CONDITION (OC)"],
+  "OTL Inspection": ["OPERATING TIME LIMIT (OTL)"],
+  "ALF Inspection": ["ALF"],
+  "10 FH Inspection": ["10 FH"],
+  "10 FH - 1 M Inspection": ["10 FH // 1 M"],
+  "12 M Inspection": ["12 M"],
+  "24 M Inspection": ["24 M"],
+  "48 M Inspection": ["48 M"],
+  "150 FH Inspection": ["150 FH"],
+  "150 FH - 12 M Inspection": ["150 FH / 12 M", "150 FH // 12 M"],
+  "750 FH Inspection": ["750 FH"],
+  "750 FH - 24 M Inspection": ["750 FH // 24 M", "750 FH / 24 M"],
+  "1500 FH Inspection": ["1500 FH"],
+  "1500 FH - 48 M Inspection": ["1500 FH // 48 M", "1500 FH / 48 M"],
+};
+
+const getPickerValue = (event) => {
+  if (event?.type === "dismissed") {
+    return null;
+  }
+
+  return event;
+};
 
 export default function AddTask({
   visible,
   onClose,
   onAddTask,
   employees,
-  taskOptions,
 }) {
-  const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
+  const [selectedInspection, setSelectedInspection] = useState(null);
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(
@@ -38,12 +62,10 @@ export default function AddTask({
   const [dueDate1, setDueDate1] = useState(
     new Date(Date.now() + 24 * 60 * 60 * 1000),
   ); // Tomorrow
-  const [dueDate2, setDueDate2] = useState(new Date());
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showDue1Picker, setShowDue1Picker] = useState(false);
-  const [showDue2Picker, setShowDue2Picker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [checklistItems, setChecklistItems] = useState([]);
@@ -51,6 +73,31 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
 
   const [inspectionOptions, setInspectionOptions] = useState([]);
+
+  const fetchInspectionTasks = async (inspection) => {
+    const inspectionNames = [
+      inspection.name,
+      ...(INSPECTION_NAME_ALIASES[inspection.name] || []),
+    ];
+
+    for (const inspectionName of inspectionNames) {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspectionName)}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
+      );
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const tasks = await response.json();
+
+      if (Array.isArray(tasks) && tasks.length > 0) {
+        return tasks;
+      }
+    }
+
+    return [];
+  };
 
   // Update end date when start date changes (keep 1 hour later)
   useEffect(() => {
@@ -60,29 +107,32 @@ export default function AddTask({
 
   useEffect(() => {
     setChecklistItems([]);
-    setInspectionOptions([]);
     setInspectionType("");
+    setSelectedInspection(null);
   }, [selectedAircraft]);
 
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
-        );
+        setLoading(true);
+        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
 
         if (!response.ok) throw new Error("Failed to fetch aircraft");
 
         const data = await response.json();
+        const aircraftList = Array.isArray(data?.data) ? data.data : [];
 
-        const options = data.map((a) => ({
-          id: a.tailNum,
-          name: a.tailNum,
+        const options = aircraftList.map((aircraft) => ({
+          id: aircraft,
+          name: aircraft,
         }));
 
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
+        Alert.alert("Error", "Failed to fetch aircraft");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -91,56 +141,50 @@ export default function AddTask({
 
   useEffect(() => {
     const fetchInspections = async () => {
-      if (!selectedAircraft) return;
+      if (!visible) return;
 
       try {
+        setLoading(true);
         const response = await fetch(`${API_BASE}/api/inspections/schedules`);
 
         if (!response.ok) throw new Error("Failed to fetch inspections");
 
         const data = await response.json();
 
-        const options = data.map((i) => ({
-          id: i._id,
-          name: i.inspectionName,
-          aircraftModel: i.aircraftModel,
-        }));
+        const options = Array.from(
+          new Map(
+            data.map((inspection) => [
+              inspection._id,
+              {
+                id: inspection._id,
+                name: inspection.inspectionName,
+                aircraftModel: inspection.aircraftModel,
+              },
+            ]),
+          ).values(),
+        );
 
         setInspectionOptions(options);
       } catch (error) {
         console.error("Error fetching inspections:", error);
+        Alert.alert("Error", "Failed to fetch inspection schedules");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchInspections();
-  }, [selectedAircraft]);
-
-  const handleAddChecklistItem = () => {
-    setChecklistItems([
-      ...checklistItems,
-      {
-        taskId: "custom",
-        taskName: "",
-        inspectionTypeFull: "",
-      },
-    ]);
-  };
-
-  const handleUpdateChecklistItem = (index, text) => {
-    const updated = [...checklistItems];
-    updated[index] = {
-      ...updated[index],
-      taskName: text,
-    };
-    setChecklistItems(updated);
-  };
-
-  const handleDeleteChecklistItem = (index) => {
-    const updated = checklistItems.filter((_, i) => i !== index);
-    setChecklistItems(updated);
-  };
+  }, [visible]);
 
   const confirmAdd = () => {
+    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
+      Alert.alert(
+        "Missing fields",
+        "Please select an aircraft, inspection, and engineer.",
+      );
+      return;
+    }
+
     const filteredChecklist = checklistItems.filter(
       (item) => item.taskName && item.taskName.trim() !== "",
     );
@@ -154,18 +198,17 @@ export default function AddTask({
       endDateTime: endDate.toISOString(),
       status: "Pending",
       priority: "Normal",
-      maintenanceType: "LALALA",
+      maintenanceType: "Inspection",
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
-      // checklistItems now holds full task documents
       checklistItems:
         filteredChecklist.length > 0
           ? filteredChecklist
           : [
               {
-                inspectionName: "",
-                aircraftModel: selectedAircraftModel || "",
+                inspectionName: selectedInspection?.name || "",
+                aircraftModel: selectedInspection?.aircraftModel || "",
                 ata: {
                   chapter: 0,
                   chapterName: "",
@@ -193,7 +236,6 @@ export default function AddTask({
                   calendarMonths: 0,
                   specificInterval: "",
                 },
-                tailNumber: selectedAircraft,
               },
             ],
     };
@@ -222,30 +264,32 @@ export default function AddTask({
   };
 
   const onStartChange = (event, selectedDate) => {
-    setShowStartPicker(Platform.OS === "ios");
+    setShowStartPicker(false);
+    if (getPickerValue(event) === null) {
+      return;
+    }
     if (selectedDate) {
       setStartDate(selectedDate);
     }
   };
 
   const onEndChange = (event, selectedDate) => {
-    setShowEndPicker(Platform.OS === "ios");
+    setShowEndPicker(false);
+    if (getPickerValue(event) === null) {
+      return;
+    }
     if (selectedDate) {
       setEndDate(selectedDate);
     }
   };
 
   const onDue1Change = (event, selectedDate) => {
-    setShowDue1Picker(Platform.OS === "ios");
+    setShowDue1Picker(false);
+    if (getPickerValue(event) === null) {
+      return;
+    }
     if (selectedDate) {
       setDueDate1(selectedDate);
-    }
-  };
-
-  const onDue2Change = (event, selectedDate) => {
-    setShowDue2Picker(Platform.OS === "ios");
-    if (selectedDate) {
-      setDueDate2(selectedDate);
     }
   };
 
@@ -319,47 +363,64 @@ export default function AddTask({
               Inspection
             </Text>
 
-            <Picker
-              selectedValue={inspectionType}
-              onValueChange={async (itemValue) => {
-                setInspectionType(itemValue);
+            <View
+              style={[
+                styles.filterContainer,
+                {
+                  marginBottom: 15,
+                  backgroundColor: COLORS.grayLight,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                },
+              ]}
+            >
+              <Picker
+                selectedValue={inspectionType}
+                onValueChange={async (itemValue) => {
+                  setInspectionType(itemValue);
 
-                const selectedInspection = inspectionOptions.find(
-                  (i) => i.id === itemValue,
-                );
-
-                if (!selectedInspection) return;
-                try {
-                  const response = await fetch(
-                    `${API_BASE}/api/inspections/tasks?tailNumber=${selectedAircraft}&inspectionName=${selectedInspection.name}`,
+                  const matchedInspection = inspectionOptions.find(
+                    (i) => i.id === itemValue,
                   );
 
-                  if (!response.ok) {
-                    throw new Error("Failed to fetch tasks");
+                  setSelectedInspection(matchedInspection || null);
+                  setChecklistItems([]);
+
+                  if (!matchedInspection) return;
+                  try {
+                    setLoading(true);
+                    const tasks = await fetchInspectionTasks(matchedInspection);
+                    setChecklistItems(tasks);
+                  } catch (error) {
+                    console.error("Error fetching tasks:", error);
+                    Alert.alert("Error", "Failed to fetch inspection tasks");
+                  } finally {
+                    setLoading(false);
                   }
-
-                  const tasks = await response.json();
-
-                  setChecklistItems(tasks);
-                } catch (error) {
-                  console.error("Error fetching tasks:", error);
-                }
-              }}
-              style={{ height: 40, marginBottom: 15 }}
-            >
-              <Picker.Item
-                key="placeholder-inspection"
-                label="Pick Inspection"
-                value=""
-              />
-              {inspectionOptions.map((inspection) => (
+                }}
+                style={{ height: 40 }}
+                dropdownIconColor={COLORS.primaryLight}
+              >
                 <Picker.Item
-                  key={inspection.id}
-                  label={inspection.name}
-                  value={inspection.id}
+                  key="placeholder-inspection"
+                  label={
+                    loading && inspectionOptions.length === 0
+                      ? "Loading inspections..."
+                      : "Pick Inspection"
+                  }
+                  value=""
                 />
-              ))}
-            </Picker>
+                {inspectionOptions.map((inspection) => (
+                  <Picker.Item
+                    key={inspection.id}
+                    label={inspection.name}
+                    value={inspection.id}
+                  />
+                ))}
+              </Picker>
+            </View>
 
             {/* Engineer Section */}
             <Text
@@ -422,7 +483,7 @@ export default function AddTask({
             {showStartPicker && (
               <DateTimePicker
                 value={startDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
                 display="default"
                 onChange={onStartChange}
               />
@@ -453,9 +514,39 @@ export default function AddTask({
             {showEndPicker && (
               <DateTimePicker
                 value={endDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
                 display="default"
                 onChange={onEndChange}
+              />
+            )}
+
+            <Text
+              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+            >
+              Due Date
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: COLORS.grayLight,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 20,
+              }}
+              onPress={() => setShowDue1Picker(true)}
+            >
+              <Text style={{ color: COLORS.grayDark }}>
+                {formatDateTime(dueDate1)}
+              </Text>
+            </TouchableOpacity>
+
+            {showDue1Picker && (
+              <DateTimePicker
+                value={dueDate1}
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
+                display="default"
+                onChange={onDue1Change}
               />
             )}
 
@@ -470,23 +561,14 @@ export default function AddTask({
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
-                    {item.taskId} • {item.inspectionTypeFull}
+                    {[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ")}
                   </Text>
 
-                  <TextInput
-                    style={{ borderBottomWidth: 1 }}
-                    value={item.taskName}
-                    onChangeText={(text) =>
-                      handleUpdateChecklistItem(index, text)
-                    }
-                  />
+                  <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                    {item.taskName}
+                  </Text>
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => handleDeleteChecklistItem(index)}
-                >
-                  <Text style={{ color: "red", fontSize: 18 }}>×</Text>
-                </TouchableOpacity>
               </View>
             ))}
 
@@ -542,3 +624,4 @@ export default function AddTask({
     </Modal>
   );
 }
+

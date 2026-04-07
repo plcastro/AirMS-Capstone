@@ -14,11 +14,13 @@ import AddTask from "../../components/TaskAssignment/AddTask";
 import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
-import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { API_BASE } from "../../utilities/API_BASE";
 const { width } = Dimensions.get("window");
 
-export default function HeadTaskScreen({ taskOptions = [] }) {
+const isAssignableUser = (user) =>
+  ["engineer", "mechanic"].includes(user?.jobTitle?.toLowerCase());
+
+export default function HeadTaskScreen() {
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
@@ -52,7 +54,7 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
     fetchTasks();
   }, []);
 
-  // Fetch employees (engineers)
+  // Fetch assignable employees (temporarily supports mechanics too)
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -64,19 +66,22 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         });
         if (response.ok) {
           const data = await response.json();
-          const engineers = data.data.filter(
-            (user) => user.jobTitle === "Engineer" && user.status === "active",
+          const assignableUsers = (data.data || []).filter(
+            (user) => isAssignableUser(user) && user.status === "active",
           );
-          const mappedEmployees = engineers.map((user) => ({
+          const mappedEmployees = assignableUsers.map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
+            jobTitle: user.jobTitle,
           }));
           setEmployees(mappedEmployees);
         } else {
           console.error("Failed to fetch employees");
+          Alert.alert("Error", "Failed to fetch employees");
         }
       } catch (error) {
         console.error("Error fetching employees:", error);
+        Alert.alert("Error", "Failed to fetch employees");
       }
     };
     fetchEmployees();
@@ -387,9 +392,9 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
           renderItem={renderTask}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", marginTop: 20 }}>
-              {tabs === 0
+              {activeTab === "Assigned"
                 ? "No tasks assigned in this tab"
-                : tabs === 1
+                : activeTab === "To Be Reviewed"
                   ? "No tasks to be reviewed in this tab"
                   : "No tasks reviewed in this tab"}
             </Text>
@@ -412,7 +417,6 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={employees}
-        taskOptions={taskOptions}
       />
 
       <EditTask
@@ -421,7 +425,6 @@ export default function HeadTaskScreen({ taskOptions = [] }) {
         task={selectedTask}
         onSave={handleEditTask}
         employees={employees}
-        taskOptions={taskOptions}
       />
     </View>
   );
