@@ -4,7 +4,9 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
-  const assignedTasks = tasks.filter((task) => task.assignedTo === engineer.id);
+  const assignedTasks = tasks.filter(
+    (task) => String(task.assignedTo) === String(engineer.id),
+  );
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -133,7 +135,7 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
 
         {isPastDue && (
           <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
-            {overdueText} • Due at {dueTime}
+            {overdueText} | Due at {dueTime}
           </Text>
         )}
       </TouchableOpacity>
@@ -161,7 +163,7 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
           onPress={onBack}
           style={{ marginRight: 15, padding: 5 }}
         >
-          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>←</Text>
+          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>{"<"}</Text>
         </TouchableOpacity>
 
         <View
@@ -191,7 +193,9 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
           >
             {engineer.name}
           </Text>
-          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>Engineer</Text>
+          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+            {engineer.jobTitle || "Engineer"}
+          </Text>
         </View>
       </View>
 
@@ -217,3 +221,5 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
     </View>
   );
 }
+
+
