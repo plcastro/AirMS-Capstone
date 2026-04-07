@@ -81,6 +81,7 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, password }),
+        credentials: "include",
       });
 
       const text = await response.text();
@@ -149,7 +150,7 @@ const Login = () => {
         navigate("/dashboard/parts-requisition");
         break;
       default:
-        navigate("/dashboard/profile"); // fallback dashboard
+        navigate("/dashboard/profile");
         break;
     }
   };
