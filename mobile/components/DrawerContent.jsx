@@ -30,7 +30,7 @@ const DrawerList = [
     icon: "book-open-page-variant",
     label: "Post-Inspection",
     navigateTo: "Post-Inspection",
-    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
+    jobTitle: ["maintenance manager", "engineer", "officer-in-charge"],
   },
   {
     icon: "clipboard-text",

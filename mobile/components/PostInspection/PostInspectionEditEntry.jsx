@@ -11,6 +11,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import PostInspectionModalInfo from "./PostInspectionModalInfo";
+import PostInspectionModalStation1 from "./PostInspectionModalStation1";
+import PostInspectionModalStation2 from "./PostInspectionModalStation2";
+import PostInspectionModalEngine from "./PostInspectionModalEngine";
+import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
+import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
 
 export default function PostInspectionEditEntry({
@@ -23,23 +29,114 @@ export default function PostInspectionEditEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [showAcceptModal, setShowAcceptModal] = useState(false);
   
-  const isPilot = userRole === "pilot";
   const isMechanic = userRole === "engineer" || userRole === "maintenance manager";
   
-  const tabs = ["Basic Information"];
+  const tabs = ["Basic Information", "Station 1", "Station 2", "Engine", "Main Rotor", "Cabin Interior"];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
   const [formData, setFormData] = useState({
+    // Basic Info
     aircraftType: "",
     rpc: "",
     date: new Date().toLocaleDateString("en-US"),
     createdBy: userRole,
     status: "pending",
     releasedBy: { name: "", id: "", timestamp: "" },
-    acceptedBy: { name: "", id: "", timestamp: "" },
+    // Station 1 items
+    station1_transparentPanels_condition: false,
+    station1_transparentPanels_clean: false,
+    station1_doorsPillars_condition: false,
+    station1_sideSlipIndicator_condition: false,
+    station1_sideSlipIndicator2_condition: false,
+    station1_mgbEngineOilCooler_condition: false,
+    // Station 2 items
+    station2_frontDoorJettison_condition: false,
+    station2_leftCabinAccess_condition: false,
+    station2_landingGear_condition: false,
+    station2_staticPressure_condition: false,
+    station2_oatProbe_condition: false,
+    station2_antennas_condition: false,
+    station2_lights_condition: false,
+    station2_lowerCowlings_condition: false,
+    station2_leftCargoDoorOpen_opening: false,
+    station2_leftCargoDoorClosed_closed: false,
+    station2_fuelTank_condition: false,
+    station2_rearCargoDoorOpen_opening: false,
+    station2_rearCargoBay_harness: false,
+    station2_elt_condition: false,
+    station2_rearCargoDoorClosed_closed: false,
+    station2_mgbCowlings_opening: false,
+    station2_upperCowling_security: false,
+    station2_mgb_condition: false,
+    station2_transmissionDeck_cleanliness: false,
+    station2_mgbSupportBars_condition: false,
+    station2_hydraulicSystem_condition: false,
+    station2_servos_security: false,
+    station2_coolingFan_condition: false,
+    station2_gimbalRing_fitting: false,
+    station2_electricalHarnesses_condition: false,
+    station2_fuelShutoff_condition: false,
+    station2_mgbCowlingLH_safety: false,
+    // Engine and Engine Bay items
+    engine_airInlet_condition: false,
+    engine_firewall_condition: false,
+    engine_accessories_condition: false,
+    engine_transmissionDeck_condition: false,
+    engine_case_condition: false,
+    engine_oilFilter_condition: false,
+    engine_fuelFilter_condition: false,
+    engine_oilSystem_condition: false,
+    engine_mounts_condition: false,
+    engine_deckDrainHoles_condition: false,
+    engine_exhaustPipe_condition: false,
+    // Station 3 items (in Engine tab)
+    station3_scissors_condition: false,
+    station3_swashPlate_condition: false,
+    station3_pitchChangeRods_condition: false,
+    station3_rotorShaft_condition: false,
+    // Main Rotor items
+    mainRotor_head_condition: false,
+    mainRotor_starflex_condition: false,
+    mainRotor_starRecesses_condition: false,
+    mainRotor_sphericalBearings_condition: false,
+    mainRotor_ballJoints_condition: false,
+    mainRotor_starArms_condition: false,
+    mainRotor_vibrationAbsorber_condition: false,
+    mainRotor_blades_condition: false,
+    mainRotor_rightCargoDoor_opening: false,
+    mainRotor_rightCargoDoor_closed: false,
+    mainRotor_gpuPlug_condition: false,
+    mainRotor_rhMgbCowling_opening: false,
+    mainRotor_transmissionDeck_cleanliness: false,
+    mainRotor_mgbSupportBars_condition: false,
+    mainRotor_oilCooler_condition: false,
+    mainRotor_servos_security: false,
+    mainRotor_hydraulicSystem_condition: false,
+    mainRotor_hydraulicTank_condition: false,
+    mainRotor_engineOilTank_condition: false,
+    mainRotor_electricalHarnesses_condition: false,
+    mainRotor_gimbalRing_fitting: false,
+    mainRotor_rhSideMgbCowling_closed: false,
+    mainRotor_landingGear_condition: false,
+    mainRotor_lowerFairings_closed: false,
+    mainRotor_rhCabinAccess_condition: false,
+    mainRotor_frontDoorJettison_condition: false,
+    // Cabin Interior items
+    cabin_general_cleanliness: false,
+    cabin_seats_condition: false,
+    cabin_doorJettison_checked: false,
+    cabin_fireExtinguisher_condition: false,
+    cabin_circuitBreakers_set: false,
+    cabin_scu_position: false,
+    cabin_batterySwitchOn_on: false,
+    cabin_vemd_flightReport: false,
+    cabin_vemd_flightTimes: false,
+    cabin_vemd_cycles: false,
+    cabin_vemd_advisoryMessages: false,
+    cabin_vemd_recordData: false,
+    cabin_batterySwitchOff_off: false,
   });
 
   useEffect(() => {
@@ -80,19 +177,6 @@ export default function PostInspectionEditEntry({
     Alert.alert("Success", "Post-inspection has been released");
   };
 
-  const handleAccept = (signatureData) => {
-    setFormData((prev) => ({
-      ...prev,
-      acceptedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        timestamp: new Date().toISOString(),
-      },
-      status: "accepted",
-    }));
-    Alert.alert("Success", "Post-inspection has been accepted");
-  };
-
   const handleSave = () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       Alert.alert("Validation Error", "Aircraft RPC is required");
@@ -119,14 +203,60 @@ export default function PostInspectionEditEntry({
   };
 
   const renderPage = () => {
-    return (
-      <View style={{ padding: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20 }}>
-          Basic Information
-        </Text>
-        <Text>Post Inspection Edit Form - Coming Soon</Text>
-      </View>
-    );
+    const currentTab = tabs[currentPage];
+
+    switch (currentTab) {
+      case "Basic Information":
+        return (
+          <PostInspectionModalInfo
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Station 1":
+        return (
+          <PostInspectionModalStation1
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Station 2":
+        return (
+          <PostInspectionModalStation2
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Engine":
+        return (
+          <PostInspectionModalEngine
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Main Rotor":
+        return (
+          <PostInspectionModalMainRotor
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Cabin Interior":
+        return (
+          <PostInspectionModalCabinInterior
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   const formatDate = (timestamp) => {
@@ -135,15 +265,13 @@ export default function PostInspectionEditEntry({
     return date.toLocaleString();
   };
 
-  const showReleaseButton = isMechanic && formData.status !== "released" && formData.status !== "accepted";
-  const showAcceptButton = isPilot && formData.status !== "accepted" && formData.status !== "released";
+  const showReleaseButton = isMechanic && formData.status !== "released";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-        {/* Tab Bar */}
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
           <ScrollView
             horizontal
@@ -202,7 +330,6 @@ export default function PostInspectionEditEntry({
           </TouchableOpacity>
         </View>
 
-        {/* Page Content */}
         <ScrollView
           ref={scrollViewRef}
           style={{ flex: 1, paddingHorizontal: 20 }}
@@ -231,24 +358,6 @@ export default function PostInspectionEditEntry({
                 </TouchableOpacity>
               )}
 
-              {showAcceptButton && (
-                <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
-                    Accept
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Released By Card */}
               {formData.releasedBy?.name && (
                 <View style={{
                   backgroundColor: COLORS.white,
@@ -268,39 +377,10 @@ export default function PostInspectionEditEntry({
                       {formData.releasedBy.name} / {formData.releasedBy.id}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark, textTransform: "uppercase" }}>
-                      ENGINEER
+                      {userRole === "maintenance manager" ? "HEAD MECHANIC" : "ENGINEER"}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 8 }}>
                       {formatDate(formData.releasedBy.timestamp)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Accepted By Card */}
-              {formData.acceptedBy?.name && (
-                <View style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  marginBottom: 20,
-                  overflow: "hidden",
-                }}>
-                  <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
-                      ACCEPTED BY:
-                    </Text>
-                  </View>
-                  <View style={{ padding: 20 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
-                      {formData.acceptedBy.name} / {formData.acceptedBy.id}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, textTransform: "uppercase" }}>
-                      PILOT
-                    </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 8 }}>
-                      {formatDate(formData.acceptedBy.timestamp)}
                     </Text>
                   </View>
                 </View>
@@ -309,7 +389,6 @@ export default function PostInspectionEditEntry({
           )}
         </ScrollView>
 
-        {/* Navigation Buttons */}
         <View style={{
           flexDirection: "row",
           justifyContent: "flex-end",
@@ -363,23 +442,13 @@ export default function PostInspectionEditEntry({
           </TouchableOpacity>
         </View>
 
-        {/* Signature Modals */}
         <PostInspectionSignatureModal
           visible={showReleaseModal}
           title="Release Signature"
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role="ENGINEER"
-        />
-
-        <PostInspectionSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-          role="PILOT"
+          role={userRole === "maintenance manager" ? "HEAD MECHANIC" : "ENGINEER"}
         />
       </SafeAreaView>
     </Modal>

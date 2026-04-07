@@ -69,10 +69,10 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
     setOnboardSelectAll(allChecked);
   };
 
-  const renderListItem = (index, title, label, field, value, onCheck) => (
+const renderListItem = (index, title, label, field, value, onCheck) => (
     <View key={field} style={{ marginBottom: 18 }}>
       <Text style={{ 
-        fontSize: 14, 
+        fontSize: 16, 
         fontWeight: "bold", 
         color: COLORS.black, 
         marginBottom: 8 
@@ -108,7 +108,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
           )}
         </View>
         <Text style={{ 
-          fontSize: 14, 
+          fontSize: 16, 
           color: COLORS.grayDark,
           flex: 1,
           flexWrap: "wrap",
@@ -120,7 +120,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
   );
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+    <View>
       
       {/* Floats Card */}
       <View style={{ 
@@ -141,7 +141,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Floats
           </Text>
         </View>
@@ -174,7 +174,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 14, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -214,7 +214,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Mandatory Onboard
           </Text>
         </View>
@@ -247,7 +247,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 14, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -287,19 +287,19 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             FOB
           </Text>
         </View>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}>
-          <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "bold" }}>
+          <Text style={{ fontSize: 16, color: COLORS.black, marginBottom: 8, fontWeight: "bold" }}>
             FOB:
           </Text>
           <View style={{
             flexDirection: "row",
             alignItems: "center",
-            backgroundColor: "#F3F4F6", // Matching the lighter background from the target image
+            backgroundColor: "#F3F4F6", 
             borderRadius: 6,
             height: 38,
             paddingHorizontal: 12,
@@ -307,7 +307,7 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
             <TextInput
               style={{
                 flex: 1,
-                fontSize: 13,
+                fontSize: 16,
                 color: COLORS.black,
                 padding: 0,
               }}
@@ -318,13 +318,13 @@ export default function PreInspectionModalFloatsOnboard({ formData, updateForm, 
               placeholder=""
               placeholderTextColor={COLORS.grayDark}
             />
-            <Text style={{ fontSize: 13, color: COLORS.black, marginLeft: 4 }}>
+            <Text style={{ fontSize: 16, color: COLORS.black, marginLeft: 4 }}>
               %
             </Text>
           </View>
         </View>
       </View>
       
-    </ScrollView>
+    </View>
   );
 }

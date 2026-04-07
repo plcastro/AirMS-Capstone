@@ -23,7 +23,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
     { key: "station3_flexibleCoupling", title: "Flexible Coupling", label: "Visual Check No Crack" },
   ];
 
-  const slingItems = [
+const slingItems = [
     { key: "sling_sling", title: "Sling", label: "Security - General condition" },
     { key: "sling_cablePins", title: "Cable and Pins", label: "Condition, attachment points" },
   ];
@@ -67,7 +67,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
   const renderListItem = (index, title, label, field, value, onCheck) => (
     <View key={field} style={{ marginBottom: 18 }}>
       <Text style={{ 
-        fontSize: 14, 
+        fontSize: 16, 
         fontWeight: "bold", 
         color: COLORS.black, 
         marginBottom: 8 
@@ -103,7 +103,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
           )}
         </View>
         <Text style={{ 
-          fontSize: 14, 
+          fontSize: 16, 
           color: COLORS.grayDark,
           flex: 1,
           flexWrap: "wrap",
@@ -115,8 +115,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
   );
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-      
+    <View>
       {/* Station 3 Card */}
       <View style={{ 
         backgroundColor: COLORS.white,
@@ -136,7 +135,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Station 3
           </Text>
         </View>
@@ -169,7 +168,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 14, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -209,7 +208,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Sling
           </Text>
         </View>
@@ -242,7 +241,7 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 14, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -263,6 +262,6 @@ export default function PreInspectionModalSling({ formData, updateForm, isEditab
         </View>
       </View>
 
-    </ScrollView>
+    </View>
   );
 }
