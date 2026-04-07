@@ -43,7 +43,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
     { key: "station1_oilDrain", title: "Oil drain", label: "No oil under scupper" },
   ];
 
-  const handleStation1SelectAll = () => {
+const handleStation1SelectAll = () => {
     const newValue = !station1SelectAll;
     setStation1SelectAll(newValue);
     station1Items.forEach(item => {
@@ -82,7 +82,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
   const renderListItem = (index, title, label, field, value, onCheck) => (
     <View key={field} style={{ marginBottom: 18 }}>
       <Text style={{ 
-        fontSize: 18, 
+        fontSize: 16, 
         fontWeight: "bold", 
         color: COLORS.black, 
         marginBottom: 8 
@@ -118,7 +118,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
           )}
         </View>
         <Text style={{ 
-          fontSize: 18,
+          fontSize: 16,
           color: COLORS.grayDark,
           flex: 1,
           flexWrap: "wrap",
@@ -130,8 +130,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
   );
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-      
+    <View>
       {/* Station 1 Card */}
       <View style={{ 
         backgroundColor: COLORS.white,
@@ -151,7 +150,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 28, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Station 1
           </Text>
         </View>
@@ -184,7 +183,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 18, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -224,7 +223,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 28, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Station 2
           </Text>
         </View>
@@ -257,7 +256,7 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 18, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -278,6 +277,6 @@ export default function PreInspectionModalStations({ formData, updateForm, isEdi
         </View>
       </View>
 
-    </ScrollView>
+    </View>
   );
 }
