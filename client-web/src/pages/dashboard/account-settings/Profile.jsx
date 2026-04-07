@@ -21,7 +21,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
@@ -55,7 +55,6 @@ export default function Profile() {
         ? user.image
         : `${API_BASE}${user.image}`
       : DefaultAvatar;
-    console.log(user.image);
     setPreviewUri(imageUrl);
     setFile(null);
   }, [user]);
@@ -170,74 +169,93 @@ export default function Profile() {
       icon: <UserOutlined />,
       children: (
         <Form layout="vertical" form={form}>
-          <Row gutter={[10, 10]}>
-            <Col xs={24} s={24} md={12}>
-              <Form.Item label="First Name">
-                <Input
-                  value={isEditing ? formData.firstName : user.firstName}
-                  disabled={!isEditing}
-                  size="large"
-                  style={{ marginTop: 8, color: "black" }}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                />
-              </Form.Item>
-            </Col>
+          <Row gutter={[16, 16]}>
+            {/* First & Last Name */}
             <Col xs={24} md={12}>
-              <Form.Item label="Last Name">
-                <Input
-                  value={isEditing ? formData.lastName : user.lastName}
-                  disabled={!isEditing}
-                  size="large"
-                  style={{ marginTop: 8, color: "black" }}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                />
-              </Form.Item>
+              {isEditing ? (
+                <Form.Item label="First Name">
+                  <Input
+                    value={formData.firstName}
+                    size="large"
+                    style={{ marginTop: 8, color: "black" }}
+                    onChange={(e) => handleChange("firstName", e.target.value)}
+                  />
+                </Form.Item>
+              ) : (
+                <div
+                  style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+                >
+                  <Text type="secondary">First Name: </Text>
+                  <Text strong>{user.firstName}</Text>
+                </div>
+              )}
             </Col>
-          </Row>
 
-          <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item label="Email">
-                <Input
-                  value={user.email}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              {isEditing ? (
+                <Form.Item label="Last Name">
+                  <Input
+                    value={formData.lastName}
+                    size="large"
+                    style={{ marginTop: 8, color: "black" }}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
+                  />
+                </Form.Item>
+              ) : (
+                <div
+                  style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+                >
+                  <Text type="secondary">Last Name: </Text>
+                  <Text strong>{user.lastName}</Text>
+                </div>
+              )}
             </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="Username">
-                <Input
-                  value={user.username}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
 
-          <Row gutter={16}>
+            {/* Email & Username */}
             <Col xs={24} md={12}>
-              <Form.Item label="Job Title">
-                <Input
-                  value={user.jobTitle}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Email: </Text>
+                <Text strong>{user.email}</Text>
+              </div>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="Last Login">
-                <Input
-                  size="large"
-                  value={formatDate(user.lastLogin)}
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Username: </Text>
+                <Text strong>{user.username}</Text>
+              </div>
+            </Col>
+
+            {/* Job Title & Last Login */}
+            <Col xs={24} md={12}>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Job Title: </Text>
+                <Text strong>
+                  {user?.jobTitle
+                    ? user.jobTitle
+                        .split(" ")
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() +
+                            word.slice(1).toLowerCase(),
+                        )
+                        .join(" ")
+                    : "Unknown Job Title"}
+                </Text>
+              </div>
+            </Col>
+            <Col xs={24} md={12}>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Last Login: </Text>
+                <Text strong>{formatDate(user.lastLogin)}</Text>
+              </div>
             </Col>
           </Row>
 
@@ -312,8 +330,8 @@ export default function Profile() {
               src={previewUri || DefaultAvatar}
               alt="Profile"
               style={{
-                width: 200,
-                height: 200,
+                width: 168,
+                height: 168,
                 borderRadius: "50%",
                 objectFit: "cover",
                 cursor: isEditing ? "pointer" : "default",
