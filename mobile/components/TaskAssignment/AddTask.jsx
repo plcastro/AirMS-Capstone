@@ -68,21 +68,22 @@ export default function AddTask({
     const fetchAircraft = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
         );
 
         if (!response.ok) throw new Error("Failed to fetch aircraft");
 
-        const data = await response.json();
+        const result = await response.json();
+        const data = result?.data || [];
 
-        const options = data.map((a) => ({
-          id: a.tailNum,
-          name: a.tailNum,
+        const options = data.map((tailNum) => ({
+          id: tailNum,
+          name: tailNum,
         }));
 
         setAircraftOptions(options);
       } catch (error) {
-        console.error("Error fetching aircraft:", error);
+        console.error("Error fetching aircraft:", error);a
       }
     };
 
