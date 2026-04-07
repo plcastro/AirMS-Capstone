@@ -121,6 +121,9 @@ exports.savePartsMonitoring = async (req, res) => {
       // Create new record
       const newData = new PartsMonitoring({
         aircraft,
+        dateManufactured: dateManufactured || null,
+        aircraftType: aircraftType || "",
+        creepDamage: creepDamage || "",
         referenceData,
         parts,
         updatedBy: updatedBy || "system",
