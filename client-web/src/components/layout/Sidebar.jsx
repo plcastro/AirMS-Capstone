@@ -15,7 +15,7 @@ import AirMS_logo from "../../assets/AirMS_logo.png";
 import { AuthContext } from "../../context/AuthContext";
 
 const Sidebar = ({ collapsed }) => {
-  const { user } = useContext(AuthContext);
+  const { user, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const jobTitle = user?.jobTitle?.toLowerCase() || "";
@@ -132,14 +132,13 @@ const Sidebar = ({ collapsed }) => {
   };
 
   const showModal = () => setOpen(true);
-  const handleOk = () => {
+
+  const handleOk = async () => {
     setConfirmLoading(true);
-    setTimeout(() => {
-      setOpen(false);
-      setConfirmLoading(false);
-      localStorage.removeItem("currentUser");
-      navigate("/login");
-    }, 500);
+    await logoutUser();
+    setConfirmLoading(false);
+    setOpen(false);
+    navigate("/login");
   };
   const handleCancel = () => setOpen(false);
 

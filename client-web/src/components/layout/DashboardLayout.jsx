@@ -35,6 +35,13 @@ const DashboardLayout = () => {
         onBreakpoint={(broken) => {
           setCollapsed(broken);
         }}
+        style={{
+          position: screens.xs ? "fixed" : "relative", // fixed for mobile
+          height: "100vh",
+          zIndex: screens.xs ? 1200 : "auto", // above content on mobile
+          overflow: "auto",
+        }}
+        onClick={() => screens.xs && setCollapsed(true)}
       >
         <Sidebar collapsed={collapsed} />
       </Sider>
@@ -48,6 +55,7 @@ const DashboardLayout = () => {
             alignItems: "center",
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
             padding: 12,
+            position: "relative",
           }}
         >
           <div
@@ -57,19 +65,18 @@ const DashboardLayout = () => {
               justifyContent: "center",
             }}
           >
-            <div>
-              <Button
-                type="text"
-                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                onClick={() => setCollapsed(!collapsed)}
-                style={{
-                  fontSize: 16,
-                  width: 46,
-                  height: 46,
-                }}
-              />
-            </div>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                fontSize: 16,
+                width: 46,
+                height: 46,
+              }}
+            />
           </div>
+
           <div
             style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
             onClick={() => nav("/dashboard/profile")}

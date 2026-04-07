@@ -16,10 +16,8 @@ const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
-    // await auditLog(`Fetched all users. Total: ${users.length}`, null);
     res.status(200).json({ status: "Ok", data: users });
   } catch (err) {
-    // await auditLog("Failed to fetch all users", null);
     res.status(500).json({ message: err.message });
   }
 };
@@ -90,7 +88,6 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
-
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -134,16 +131,28 @@ const loginUser = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        jobTitle: user.jobTitle,
-        status: user.status,
-        image: user.image,
-      },
+      { id: user._id, username: user.username, jobTitle: user.jobTitle },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" },
+      { expiresIn: "15m" },
+    );
+
+    // Generate Refresh Token
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    // Send refresh token as HttpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    console.log(
+      `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
     );
 
     await auditLog("User logged in", user._id);
@@ -183,6 +192,24 @@ const unlockUser = async (req, res) => {
   res.json({ message: "Account unlocked successfully" });
 };
 
+const refreshToken = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.status(401).json({ message: "No token" });
+
+  try {
+    const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const newAccessToken = jwt.sign(
+      { id: payload.id },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" },
+    );
+
+    res.json({ token: newAccessToken });
+  } catch {
+    res.status(403).json({ message: "Invalid refresh token" });
+  }
+};
+
 const logoutUser = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -199,6 +226,7 @@ const logoutUser = async (req, res) => {
       `User logged out: ${decoded.username || decoded.id}`,
       decoded.id,
     );
+
     res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {
     console.error("Logout error:", err);
@@ -782,7 +810,7 @@ const activateUser = async (req, res) => {
     user.securitySetupCompleted = true;
     await user.save();
 
-    await auditLog("User activated via JWT setup token", user._id);
+    await auditLog("User account activated successfully", user._id);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -837,6 +865,8 @@ const resendActivation = async (req, res) => {
 
 module.exports = {
   loginUser,
+  refreshToken,
+  unlockUser,
   logoutUser,
   createUser,
   checkUsernameExists,
