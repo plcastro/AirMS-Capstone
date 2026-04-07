@@ -1,303 +1,457 @@
-.flightlog-container {
-  width: 100%;
-  margin: 0 auto;
-  padding: 24px;
-  background-color: #f5f5f5;
+.fl-page {
+  padding: 16px 20px;
+  background: #f5f5f5;
   min-height: 100vh;
 }
 
-/* Header */
-.flightlog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-/* Search Bar */
-.flightlog-search {
-  width: 350px;
-}
-
-/* New Entry Button */
-.flightlog-new-entry-btn {
-  background-color: #26866f;
-  border-color: #26866f;
-  border-radius: 8px;
-  height: 40px;
-  padding: 0 20px;
-  font-weight: 500;
-}
-
-.flightlog-new-entry-btn:hover {
-  background-color: #1e6b58;
-  border-color: #1e6b58;
-}
-
-/* Tabs */
-.flightlog-tabs .ant-tabs-tab {
-  padding: 12px 24px;
-  font-weight: 500;
-}
-
-.flightlog-tabs .ant-tabs-tab-active {
-  color: #26866f;
-}
-
-.flightlog-tabs .ant-tabs-ink-bar {
-  background-color: #26866f;
-}
-
-/* Table Container */
-.flightlog-table-container {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* Table Styles */
-.flightlog-table .ant-table-thead > tr > th {
-  background-color: #26866f;
-  color: white;
-  font-weight: 500;
-}
-
-.flightlog-table .ant-table-tbody > tr:hover > td {
-  background-color: #f0f9f0;
-}
-
-/* Modal Styles */
-.flightlog-modal .ant-modal-content {
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.flightlog-modal .ant-modal-header {
-  background-color: #26866f;
-  padding: 16px 24px;
-}
-
-.flightlog-modal .ant-modal-title {
-  color: white;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.flightlog-modal .ant-modal-close {
-  color: white;
-}
-
-.flightlog-modal .ant-modal-close:hover {
-  color: #f0f0f0;
-}
-
-.flightlog-modal .ant-modal-body {
-  padding: 24px;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-/* Tabs inside Modal */
-.flightlog-modal-tabs .ant-tabs-tab {
-  padding: 8px 16px;
-}
-
-.flightlog-modal-tabs .ant-tabs-tab-active {
-  color: #26866f;
-}
-
-.flightlog-modal-tabs .ant-tabs-ink-bar {
-  background-color: #26866f;
-}
-
-/* Form Fields */
-.flightlog-form-row {
-  margin-bottom: 20px;
-}
-
-.flightlog-form-label {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 8px;
-  display: block;
-}
-
-/* Leg Cards */
-.flightlog-leg-card {
-  background: #fafafa;
-  border-radius: 12px;
-  border: 1px solid #e8e8e8;
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.flightlog-leg-header {
-  background-color: #26866f;
-  color: white;
-  padding: 12px 16px;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.flightlog-leg-content {
-  padding: 16px;
-}
-
-/* Station Row */
-.flightlog-station-row {
+/* Search Row */
+.fl-search-row {
   display: flex;
   gap: 12px;
-  align-items: center;
   margin-bottom: 12px;
 }
 
-.flightlog-station-input {
+.fl-search-wrapper {
   flex: 1;
 }
 
-.flightlog-station-separator {
-  font-size: 18px;
-  color: #666;
+.fl-search {
+  width: 100%;
 }
 
-/* Time Section */
-.flightlog-time-section {
-  margin-top: 16px;
+.fl-new-entry-btn {
+  height: 32px;
+  padding: 0 16px;
 }
 
-.flightlog-time-section h4 {
-  margin-bottom: 12px;
+/* Filters Row */
+.fl-filters-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fl-filter-dropdown {
+  flex: 1;
+  position: relative;
+}
+
+.fl-filter-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.fl-filter-placeholder {
+  color: #bfbfbf;
+}
+
+.fl-filter-selected {
   color: #333;
 }
 
-/* Add Button */
-.flightlog-add-btn {
-  background-color: #26866f;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  cursor: pointer;
-  font-weight: 500;
-  width: 100%;
-  margin-bottom: 16px;
+.fl-filter-arrow {
+  color: #999;
+  font-size: 10px;
 }
 
-.flightlog-add-btn:hover {
-  background-color: #1e6b58;
-}
-
-/* Checkbox Group */
-.flightlog-checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.flightlog-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.flightlog-checkbox input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-/* Pagination */
-.flightlog-pagination {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background: white;
-  border-top: 1px solid #e8e8e8;
-}
-
-.flightlog-pagination button {
-  padding: 6px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.flightlog-pagination .prev-btn {
-  background: white;
+.fl-dropdown-menu {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  background: #fff;
   border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.flightlog-pagination .next-btn {
-  background-color: #26866f;
-  color: white;
-  border: none;
+.fl-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
 }
 
-.flightlog-pagination .page-number {
-  background-color: #26866f;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: 500;
+.fl-dropdown-item:hover {
+  background: #f5f5f5;
 }
 
-/* Status Badges */
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
+/* ── Table ──────────────────────────────────────────────── */
+.fl-table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.fl-table .ant-table-thead > tr > th {
+  font-size: 13px;
+  padding: 10px 12px;
+  background: #26866f;
+  color: #fff;
+}
+
+.fl-table .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.fl-table .ant-table-tbody > tr > td {
+  font-size: 13px;
+  padding: 9px 12px;
+}
+
+/* ── Status badges (matching mobile) ─────────────────────── */
+.fl-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.status-badge.completed {
-  background-color: #e8f5e9;
+.fl-badge--completed {
+  background: #e8f5e9;
   color: #2e7d32;
 }
 
-.status-badge.ongoing {
-  background-color: #fff3e0;
+.fl-badge--ongoing {
+  background: #fff3e0;
   color: #ed6c02;
 }
 
-.created-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
+/* ── Entry modal shell ──────────────────────────────────── */
+.fl-entry-modal .ant-modal-content {
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.fl-entry-modal .ant-modal-body {
+  padding: 0;
+}
+
+/* ── Tab nav bar ────────────────────────────────────────── */
+.fl-tab-nav {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  overflow-x: auto;
+  padding: 0 4px;
+}
+
+.fl-tab-nav::-webkit-scrollbar {
+  height: 0;
+}
+
+.fl-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 13px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
   font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.fl-tab-btn:hover {
+  color: #26866f;
+}
+
+.fl-tab-btn--active {
+  color: #26866f;
+  border-bottom-color: #26866f;
   font-weight: 500;
 }
 
-.created-badge.pilot {
-  background-color: #e3f2fd;
-  color: #1976d2;
+.fl-tab-icon {
+  font-size: 13px;
+}
+.fl-tab-label {
+  font-size: 12px;
 }
 
-.created-badge.mechanic {
-  background-color: #f3e5f5;
-  color: #7b1fa2;
+/* ── Modal body (scrollable) ────────────────────────────── */
+.fl-modal-body {
+  padding: 14px 18px 10px;
+  max-height: 62vh;
+  overflow-y: auto;
+  background: #f5f5f5;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .flightlog-container {
-    padding: 12px;
+/* ── Modal footer ────────────────────────────────────────── */
+.fl-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid #e8e8e8;
+  background: #fff;
+}
+
+.fl-nav-btn {
+  font-size: 13px;
+  height: 30px;
+  padding: 0 14px;
+}
+
+.fl-page-indicator {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #26866f;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Section / Card ─────────────────────────────────────── */
+.fl-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 10px;
+  letter-spacing: 0.2px;
+}
+
+.fl-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.fl-card-header {
+  background: #26866f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  letter-spacing: 0.3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fl-card-body {
+  padding: 12px 14px;
+}
+
+/* ── Field rows ─────────────────────────────────────────── */
+.fl-field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 7px;
+  min-height: 26px;
+}
+
+.fl-label {
+  font-size: 12px;
+  color: #555;
+  min-width: 155px;
+  flex-shrink: 0;
+}
+
+.fl-input.ant-input,
+.fl-input {
+  flex: 1;
+  height: 26px !important;
+  font-size: 12px !important;
+  border-radius: 4px !important;
+  padding: 0 8px !important;
+}
+
+/* ── Custom Dropdown (for modal selects) ─────────────────── */
+.fl-dropdown-container {
+  flex: 1;
+  position: relative;
+}
+
+.fl-custom-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  height: 32px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.fl-custom-select:hover {
+  border-color: #26866f;
+}
+
+.fl-custom-select-disabled {
+  background: #e8e8e8;
+  cursor: not-allowed;
+  color: #999;
+}
+
+.fl-select-value {
+  color: #333;
+}
+
+.fl-select-placeholder {
+  color: #bfbfbf;
+}
+
+.fl-select-arrow {
+  color: #999;
+  font-size: 10px;
+}
+
+.fl-select-dropdown {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.fl-select-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.fl-select-option:hover {
+  background: #f5f5f5;
+}
+
+.fl-select-option-selected {
+  background: #26866f10;
+  color: #26866f;
+  font-weight: 500;
+}
+
+/* ── Station row ────────────────────────────────────────── */
+.fl-station-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.fl-station-sep {
+  color: #aaa;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Add buttons ───────────────────────────────────────── */
+.fl-add-btn {
+  width: 100%;
+  font-size: 12px;
+  height: 28px;
+  margin-top: 4px;
+}
+
+/* ── Radio / Checkbox ───────────────────────────────────── */
+.fl-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+}
+
+.fl-work-types-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 6px 0;
+}
+
+.fl-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+}
+
+/* ── Signature ──────────────────────────────────────────── */
+.fl-sig-row {
+  align-items: flex-start;
+}
+
+.fl-sig-box {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fafafa;
+  overflow: hidden;
+  position: relative;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fl-sig-placeholder {
+  color: #bbb;
+  font-size: 12px;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .fl-search-row {
+    flex-direction: column;
   }
 
-  .flightlog-search {
-    width: 100%;
+  .fl-filters-row {
+    flex-direction: column;
   }
 
-  .flightlog-station-row {
-    flex-wrap: wrap;
+  .fl-filter-dropdown {
+    width: 100% !important;
   }
 
-  .flightlog-station-input {
-    min-width: calc(50% - 30px);
+  .fl-label {
+    min-width: 110px;
+  }
+
+  .fl-tab-label {
+    display: none;
   }
 }

@@ -10,7 +10,7 @@ const getUserRole = (user) => {
 // @route   POST /api/flight-logs
 // @access  Private (pilot or mechanic)
 // In flightlogController.js - remove all req.user references
-exports.createFlightLog = async (req, res) => {
+const createFlightLog = async (req, res) => {
   try {
     console.log("=== CREATE FLIGHT LOG CALLED ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
@@ -144,7 +144,7 @@ exports.createFlightLog = async (req, res) => {
 // @desc    Get all flight logs with pagination and filters
 // @route   GET /api/flight-logs
 // @access  Private
-exports.getFlightLogs = async (req, res) => {
+const getFlightLogs = async (req, res) => {
   try {
     const {
       page = 1,
@@ -211,7 +211,7 @@ exports.getFlightLogs = async (req, res) => {
 // @desc    Get single flight log by ID
 // @route   GET /api/flight-logs/:id
 // @access  Private
-exports.getFlightLogById = async (req, res) => {
+const getFlightLogById = async (req, res) => {
   try {
     const flightLog = await FlightLog.findById(req.params.id);
 
@@ -239,7 +239,7 @@ exports.getFlightLogById = async (req, res) => {
 // @desc    Get flight logs by aircraft RPC
 // @route   GET /api/flight-logs/aircraft/:rpc
 // @access  Private
-exports.getFlightLogsByAircraft = async (req, res) => {
+const getFlightLogsByAircraft = async (req, res) => {
   try {
     const { rpc } = req.params;
     const { limit = 50 } = req.query;
@@ -266,7 +266,7 @@ exports.getFlightLogsByAircraft = async (req, res) => {
 // @desc    Update flight log
 // @route   PUT /api/flight-logs/:id
 // @access  Private
-exports.updateFlightLog = async (req, res) => {
+const updateFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -310,7 +310,7 @@ exports.updateFlightLog = async (req, res) => {
 // @route   PUT /api/flight-logs/:id/release
 // @access  Private (mechanic)
 // Remove role checks from other functions or simplify them
-exports.releaseFlightLog = async (req, res) => {
+const releaseFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, signature } = req.body;
@@ -354,7 +354,7 @@ exports.releaseFlightLog = async (req, res) => {
 // @desc    Accept flight log (pilot accepts from mechanic)
 // @route   PUT /api/flight-logs/:id/accept
 // @access  Private (pilot)
-exports.acceptFlightLog = async (req, res) => {
+const acceptFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, signature, userRole } = req.body; // Get userRole from body
@@ -406,7 +406,7 @@ exports.acceptFlightLog = async (req, res) => {
 // @desc    Complete flight log
 // @route   PUT /api/flight-logs/:id/complete
 // @access  Private
-exports.completeFlightLog = async (req, res) => {
+const completeFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -449,7 +449,7 @@ exports.completeFlightLog = async (req, res) => {
 // @desc    Get flight log statistics
 // @route   GET /api/flight-logs/stats
 // @access  Private
-exports.getFlightLogStats = async (req, res) => {
+const getFlightLogStats = async (req, res) => {
   try {
     const stats = await FlightLog.aggregate([
       {
@@ -527,7 +527,7 @@ exports.getFlightLogStats = async (req, res) => {
 // @desc    Search flight logs
 // @route   GET /api/flight-logs/search
 // @access  Private
-exports.searchFlightLogs = async (req, res) => {
+const searchFlightLogs = async (req, res) => {
   try {
     const { q, limit = 20 } = req.query;
 
@@ -564,4 +564,16 @@ exports.searchFlightLogs = async (req, res) => {
       error: error.message,
     });
   }
+};
+module.exports = {
+  createFlightLog,
+  getFlightLogs,
+  getFlightLogById,
+  getFlightLogsByAircraft,
+  updateFlightLog,
+  releaseFlightLog,
+  acceptFlightLog,
+  completeFlightLog,
+  getFlightLogStats,
+  searchFlightLogs,
 };
