@@ -215,11 +215,13 @@ export default function App() {
       theme={{
         components: {
           Table: {
-            headerBg: "#26866f",
-            headerColor: "#fff",
-            headerSortHoverBg: "#1f6654",
-            headerSortActiveBg: "#1f6654",
-            headerFilterHoverBg: "#1f6654",
+            // headerBg: "#26866f",
+            // headerColor: "#fff",
+            // headerSortHoverBg: "#1f6654",
+            // headerSortActiveBg: "#1f6654",
+            // headerFilterHoverBg: "#1f6654",
+            headerBorderRadius: 10,
+            headerBorderColor: "#909090",
           },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {

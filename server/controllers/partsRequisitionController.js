@@ -12,8 +12,9 @@ const getAllRequisitions = async (req, res) => {
 };
 
 const getRequisitionById = async (req, res) => {
+  const requisitionId = req.params.id;
   try {
-    const requisition = await partsRequisitionModel.findById(req.params.id);
+    const requisition = await partsRequisitionModel.findById(requisitionId);
     if (!requisition) {
       return res.status(404).json({ message: "Requisition not found" });
     }
@@ -25,7 +26,15 @@ const getRequisitionById = async (req, res) => {
 
 const createRequisition = async (req, res) => {
   try {
-    const newRequisition = new partsRequisitionModel(req.body);
+    const requisitionId = req.params.id;
+    const { wrsNo, aircraft, staff, items, dateRequested } = req.body;
+    const newRequisition = new partsRequisitionModel({
+      wrsNo,
+      aircraft,
+      staff,
+      items,
+      dateRequested,
+    });
     const savedRequisition = await newRequisition.save();
     res.status(201).json(savedRequisition);
   } catch (error) {
