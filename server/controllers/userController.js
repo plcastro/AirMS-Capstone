@@ -272,13 +272,15 @@ const createUser = async (req, res) => {
     const username = await generateUniqueUsername(firstName, lastName);
 
     const tempPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+    const tempPasswordExpires = Date.now() + 60 * 60 * 1000;
 
-    const portalLink =
+    const portalUrl =
       jobTitle === "Maintenance Manager" ||
       jobTitle === "Officer-In-Charge" ||
       jobTitle === "Admin"
-        ? `<p>Login via web: <a href="${WEB_URL}/login">AirMS Web Login</a></p>`
-        : `<p>Login via mobile app: <a href="${MOBILE_URL}/login">AirMS Mobile Login</a></p>`;
+        ? `${WEB_URL}/login`
+        : `${MOBILE_URL}/login`;
 
     await sendEmail({
       to: email,
@@ -299,7 +301,7 @@ const createUser = async (req, res) => {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalLink}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+          <a href="${portalUrl}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
         </div>
 
         <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
