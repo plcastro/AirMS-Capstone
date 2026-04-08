@@ -12,11 +12,14 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         let storedUser = null;
+        let storedToken = null;
 
         if (Platform.OS === "web") {
           storedUser = localStorage.getItem("currentUser");
+          storedToken = localStorage.getItem("currentUserToken");
         } else {
           storedUser = await AsyncStorage.getItem("currentUser");
+          storedToken = await AsyncStorage.getItem("currentUserToken");
         }
 
         if (storedUser) {
@@ -66,8 +69,10 @@ export const AuthProvider = ({ children }) => {
 
       if (Platform.OS === "web") {
         localStorage.removeItem("currentUser");
+        localStorage.removeItem("currentUserToken");
       } else {
         await AsyncStorage.removeItem("currentUser");
+        await AsyncStorage.removeItem("currentUserToken");
       }
     } catch (err) {
       console.error("Failed to remove user:", err);

@@ -15,7 +15,7 @@ import { COLORS } from "../../stylesheets/colors";
 const { width } = Dimensions.get("window");
 
 // Base mechanic data without status (will be calculated)
-const BASE_ENGINEER_DATA = [
+const BASE_MECHANIC_DATA = [
   { id: "1", name: "John Doe", avatar: null },
   { id: "2", name: "Clara Bang", avatar: null },
   { id: "3", name: "Joe Bloggs", avatar: null },
@@ -42,12 +42,12 @@ export default function MechanicList() {
   };
 
   // Build mechanics data with dynamic status - declared ONCE
-  const ENGINEER_DATA = BASE_ENGINEER_DATA.map((mechanic) => ({
+  const MECHANIC_DATA = BASE_MECHANIC_DATA.map((mechanic) => ({
     ...mechanic,
     status: getMechanicStatus(mechanic.id),
   }));
 
-  const filteredMechanics = ENGINEER_DATA.filter((mechanic) => {
+  const filteredMechanics = MECHANIC_DATA.filter((mechanic) => {
     if (
       searchQuery &&
       !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())

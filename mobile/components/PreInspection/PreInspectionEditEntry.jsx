@@ -31,7 +31,7 @@ export default function PreInspectionEditEntry({
 
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "engineer" || userRole === "maintenance manager";
+    userRole === "mechanic" || userRole === "maintenance manager";
 
   const tabs = [
     "Basic Information",
@@ -402,7 +402,7 @@ export default function PreInspectionEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      ENGINEER
+                      MECHANIC
                     </Text>
                     <Text
                       style={{
@@ -553,7 +553,7 @@ export default function PreInspectionEditEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role="ENGINEER"
+          role="MECHANIC"
         />
 
         {/* Accept Signature Modal */}

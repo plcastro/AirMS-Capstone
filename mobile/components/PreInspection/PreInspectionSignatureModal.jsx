@@ -17,7 +17,7 @@ export default function PreInspectionSignatureModal({
   onClose,
   onSave,
   aircraftRPC,
-  role, // "ENGINEER" or "PILOT"
+  role, // "MECHANIC" or "PILOT"
 }) {
   const [name, setName] = useState("");
   const [id, setId] = useState("");
@@ -67,22 +67,37 @@ export default function PreInspectionSignatureModal({
               alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}>
+            <Text
+              style={{ fontSize: 18, fontWeight: "600", color: COLORS.white }}
+            >
               {title}
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={COLORS.white} />
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.white}
+              />
             </TouchableOpacity>
           </View>
 
           {/* Content */}
           <ScrollView style={{ padding: 20 }}>
-            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 16 }}>
+            <Text
+              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 16 }}
+            >
               Aircraft RP/C: {aircraftRPC || "N/A"}
             </Text>
 
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: COLORS.black,
+                  marginBottom: 8,
+                  fontWeight: "500",
+                }}
+              >
                 Name *
               </Text>
               <TextInput
@@ -101,7 +116,14 @@ export default function PreInspectionSignatureModal({
             </View>
 
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: COLORS.black,
+                  marginBottom: 8,
+                  fontWeight: "500",
+                }}
+              >
                 ID / Employee Number *
               </Text>
               <TextInput
@@ -153,7 +175,9 @@ export default function PreInspectionSignatureModal({
                 backgroundColor: COLORS.primaryLight,
               }}
             >
-              <Text style={{ color: COLORS.white, fontWeight: "600" }}>Save</Text>
+              <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                Save
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
