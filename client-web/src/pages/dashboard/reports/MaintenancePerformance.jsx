@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Row,
   Col,
@@ -13,10 +13,12 @@ import {
 import { ExportOutlined } from "@ant-design/icons";
 import AreaChartComponent from "../../../components/common/AreaChart";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
 export default function MaintenancePerformance() {
+  const { getValidToken } = useContext(AuthContext);
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function MaintenancePerformance() {
   const fetchAllTasksAndFilter = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      const token = await getValidToken();
       if (!token)
         throw new Error("No authentication token found. Please log in.");
 
@@ -46,10 +48,6 @@ export default function MaintenancePerformance() {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem("token");
-          throw new Error("Session expired. Please log in again.");
-        }
         throw new Error(`Failed to fetch tasks (${response.status})`);
       }
 
@@ -121,7 +119,7 @@ export default function MaintenancePerformance() {
 
   const exportDocument = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = await getValidToken();
       const response = await fetch(`${API_BASE}/api/export/performance`, {
         headers: { Authorization: `Bearer ${token}` },
       });

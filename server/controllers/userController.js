@@ -193,13 +193,26 @@ const unlockUser = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) return res.status(401).json({ message: "No token" });
 
   try {
     const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const user = await UserModel.findById(payload.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.status === "deactivated") {
+      return res.status(403).json({ message: "Account deactivated" });
+    }
+
     const newAccessToken = jwt.sign(
-      { id: payload.id },
+      {
+        id: user._id,
+        username: user.username,
+        jobTitle: user.jobTitle,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
     );
@@ -226,6 +239,12 @@ const logoutUser = async (req, res) => {
       `User logged out: ${decoded.username || decoded.id}`,
       decoded.id,
     );
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
 
     res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {

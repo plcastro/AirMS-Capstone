@@ -18,7 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 
 const { Title, Text } = Typography;
 const Login = () => {
-  const { setUser } = useContext(AuthContext);
+  const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: "",
@@ -101,9 +101,7 @@ const Login = () => {
           );
           return;
         }
-        setUser(data.user);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        await loginUser(data.user, data.token);
 
         if (rememberMe) {
           localStorage.setItem(
