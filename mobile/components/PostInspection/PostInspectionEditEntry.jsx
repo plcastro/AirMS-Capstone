@@ -24,10 +24,11 @@ export default function PostInspectionEditEntry({
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
-  
+
   const isPilot = userRole === "pilot";
-  const isMechanic = userRole === "engineer" || userRole === "maintenance manager";
-  
+  const isMechanic =
+    userRole === "mechanic" || userRole === "maintenance manager";
+
   const tabs = ["Basic Information"];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -135,8 +136,12 @@ export default function PostInspectionEditEntry({
     return date.toLocaleString();
   };
 
-  const showReleaseButton = isMechanic && formData.status !== "released" && formData.status !== "accepted";
-  const showAcceptButton = isPilot && formData.status !== "accepted" && formData.status !== "released";
+  const showReleaseButton =
+    isMechanic &&
+    formData.status !== "released" &&
+    formData.status !== "accepted";
+  const showAcceptButton =
+    isPilot && formData.status !== "accepted" && formData.status !== "released";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -225,7 +230,13 @@ export default function PostInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Release
                   </Text>
                 </TouchableOpacity>
@@ -242,7 +253,13 @@ export default function PostInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 16 }}>
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
                     Accept
                   </Text>
                 </TouchableOpacity>
@@ -250,27 +267,60 @@ export default function PostInspectionEditEntry({
 
               {/* Released By Card */}
               {formData.releasedBy?.name && (
-                <View style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  marginBottom: 20,
-                  overflow: "hidden",
-                }}>
-                  <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
                       RELEASED BY:
                     </Text>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: COLORS.black,
+                        marginBottom: 4,
+                        fontWeight: "500",
+                      }}
+                    >
                       {formData.releasedBy.name} / {formData.releasedBy.id}
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, textTransform: "uppercase" }}>
-                      ENGINEER
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      MECHANIC
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
                       {formatDate(formData.releasedBy.timestamp)}
                     </Text>
                   </View>
@@ -279,27 +329,60 @@ export default function PostInspectionEditEntry({
 
               {/* Accepted By Card */}
               {formData.acceptedBy?.name && (
-                <View style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  marginBottom: 20,
-                  overflow: "hidden",
-                }}>
-                  <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
                       ACCEPTED BY:
                     </Text>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: COLORS.black,
+                        marginBottom: 4,
+                        fontWeight: "500",
+                      }}
+                    >
                       {formData.acceptedBy.name} / {formData.acceptedBy.id}
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, textTransform: "uppercase" }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
                       PILOT
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
                       {formatDate(formData.acceptedBy.timestamp)}
                     </Text>
                   </View>
@@ -310,16 +393,18 @@ export default function PostInspectionEditEntry({
         </ScrollView>
 
         {/* Navigation Buttons */}
-        <View style={{
-          flexDirection: "row",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          padding: 20,
-          backgroundColor: "#F9F9F9",
-          gap: 10,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.grayMedium,
-        }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            padding: 20,
+            backgroundColor: "#F9F9F9",
+            gap: 10,
+            borderTopWidth: 1,
+            borderTopColor: COLORS.grayMedium,
+          }}
+        >
           <TouchableOpacity
             onPress={handlePrevious}
             disabled={currentPage === 0}
@@ -333,16 +418,22 @@ export default function PostInspectionEditEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+              Previous
+            </Text>
           </TouchableOpacity>
 
-          <View style={{
-            backgroundColor: COLORS.primaryLight,
-            paddingVertical: 8,
-            paddingHorizontal: 14,
-            borderRadius: 4,
-          }}>
-            <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}>
+          <View
+            style={{
+              backgroundColor: COLORS.primaryLight,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 4,
+            }}
+          >
+            <Text
+              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
+            >
               {currentPage + 1}
             </Text>
           </View>
@@ -357,7 +448,9 @@ export default function PostInspectionEditEntry({
               opacity: 1,
             }}
           >
-            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
+            <Text
+              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+            >
               {isLastPage ? "Save" : "Next"}
             </Text>
           </TouchableOpacity>
@@ -370,7 +463,7 @@ export default function PostInspectionEditEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role="ENGINEER"
+          role="MECHANIC"
         />
 
         <PostInspectionSignatureModal

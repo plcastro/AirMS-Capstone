@@ -102,7 +102,7 @@ function DrawerNav() {
       {[
         "maintenance manager",
         "pilot",
-        "engineer",
+        "mechanic",
         "officer-in-charge",
       ].includes(user.jobTitle?.toLowerCase()) && (
         <>
@@ -128,7 +128,7 @@ function DrawerNav() {
         />
       )}
 
-      {["maintenance manager", "engineer"].includes(
+      {["maintenance manager", "mechanic"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
         <>

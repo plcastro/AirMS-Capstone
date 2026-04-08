@@ -78,7 +78,14 @@ const AppRouter = () => {
         </Route>
 
         {/* Dashboard pages */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route
             path="user-management/view-users"
             element={
