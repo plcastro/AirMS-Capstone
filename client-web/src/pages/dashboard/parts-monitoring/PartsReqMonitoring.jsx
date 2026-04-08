@@ -1,24 +1,22 @@
-import React, { useState, useMemo, useContext } from "react";
-import { Input, Statistic, Card, Row, Col } from "antd";
+import React, { useState, useMemo } from "react";
+import { Input, Statistic, Card, Row, Col, Select, Tabs } from "antd";
 import {
   SearchOutlined,
   FileDoneOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  SyncOutlined,
 } from "@ant-design/icons";
 import PRMCardView from "../../../components/tables/PRMCardView";
 import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
-import { AuthContext } from "../../../context/AuthContext";
 
 export default function PartsRequisition() {
-  const { user } = useContext(AuthContext);
-  const isMMorOIC = ["maintenance manager", "officer-in-charge"].includes(
-    user?.jobTitle?.toLowerCase(),
-  );
-
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all"); // For selectable cards
+  const [dateSortOrder, setDateSortOrder] = useState("newest");
+  const parseRequestedDate = (dateValue) => {
+    const [month, day, year] = dateValue.split("/").map(Number);
+    return new Date(year, month - 1, day).getTime();
+  };
 
   const allRequisitionsWithCounts = useMemo(() => {
     return MOCK_WRS_RECORDS.map((record) => ({
@@ -29,7 +27,6 @@ export default function PartsRequisition() {
     }));
   }, []);
 
-  // Compute counts for cards
   const stats = useMemo(() => {
     return {
       total: allRequisitionsWithCounts.length,
@@ -42,6 +39,9 @@ export default function PartsRequisition() {
       ).length,
       completed: allRequisitionsWithCounts.filter(
         (r) => r.status === "Completed",
+      ).length,
+      cancelled: allRequisitionsWithCounts.filter(
+        (r) => r.status === "Cancelled",
       ).length,
     };
   }, [allRequisitionsWithCounts]);
@@ -63,15 +63,23 @@ export default function PartsRequisition() {
     // Card filter
     if (selectedStatus !== "all") {
       if (selectedStatus === "Approved/In Progress") {
-        return data.filter(
+        data = data.filter(
           (r) => r.status === "Approved" || r.status === "In Progress",
         );
+      } else {
+        data = data.filter((r) => r.status === selectedStatus);
       }
-      return data.filter((r) => r.status === selectedStatus);
     }
 
-    return data;
-  }, [searchText, allRequisitionsWithCounts, selectedStatus]);
+    return [...data].sort((a, b) => {
+      const firstDate = parseRequestedDate(a.dateRequested);
+      const secondDate = parseRequestedDate(b.dateRequested);
+
+      return dateSortOrder === "oldest"
+        ? firstDate - secondDate
+        : secondDate - firstDate;
+    });
+  }, [searchText, allRequisitionsWithCounts, selectedStatus, dateSortOrder]);
 
   // Card definitions
   const cards = [
@@ -80,28 +88,42 @@ export default function PartsRequisition() {
       value: stats.total,
       icon: <FileDoneOutlined />,
       statusKey: "all",
-      color: "#1890ff",
+      color: "default",
     },
     {
       title: "Pending",
       value: stats.pending,
       icon: <ClockCircleOutlined />,
       statusKey: "Pending",
-      color: "#faad14",
+      color: "blue",
     },
     {
-      title: "Approved/In Progress",
+      title: "Approved",
+      value: stats.approved,
+      icon: <CheckCircleOutlined />,
+      statusKey: "Approved",
+      color: "cyan",
+    },
+    {
+      title: "In Progress",
       value: stats.approved + stats.inProgress,
       icon: <CheckCircleOutlined />,
-      statusKey: "Approved/In Progress",
-      color: "#13c2c2",
+      statusKey: "In Progress",
+      color: "orange",
     },
     {
       title: "Completed",
       value: stats.completed,
       icon: <FileDoneOutlined />,
       statusKey: "Completed",
-      color: "#52c41a",
+      color: "green",
+    },
+    {
+      title: "Cancelled",
+      value: stats.cancelled,
+      icon: <FileDoneOutlined />,
+      statusKey: "Cancelled",
+      color: "red",
     },
   ];
 
@@ -116,8 +138,7 @@ export default function PartsRequisition() {
         paddingBottom: 120,
       }}
     >
-      {/* Search */}
-      <Row>
+      <Row gutter={[16, 16]} align="middle">
         <Col xs={24} md={8}>
           <Input
             size="large"
@@ -127,16 +148,26 @@ export default function PartsRequisition() {
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
+        <Col xs={24} md={6} lg={6}>
+          <Select
+            size="large"
+            value={dateSortOrder}
+            onChange={setDateSortOrder}
+            style={{ width: "100%" }}
+            options={[
+              { value: "newest", label: "Date: Newest First" },
+              { value: "oldest", label: "Date: Oldest First" },
+            ]}
+          />
+        </Col>
       </Row>
-
-      {/* Selectable Cards */}
       <Row gutter={[16, 16]} style={{ marginTop: 20, flexWrap: "wrap" }}>
         {cards.map((card) => (
           <Col
             key={card.statusKey}
             xs={12}
             sm={8}
-            md={6}
+            md={4}
             style={{ flexShrink: 0 }}
           >
             <Card
@@ -148,7 +179,9 @@ export default function PartsRequisition() {
                     ? `2px solid ${card.color}`
                     : "1px solid #f0f0f0",
                 cursor: "pointer",
+                height: 120,
               }}
+              variant="borderless"
             >
               <Statistic
                 title={card.title}
@@ -160,7 +193,6 @@ export default function PartsRequisition() {
         ))}
       </Row>
 
-      {/* Table */}
       <Row style={{ marginTop: 20 }}>
         <Col span={24}>
           <PRMCardView data={filteredRequisitions} />
