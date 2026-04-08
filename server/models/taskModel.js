@@ -7,22 +7,27 @@ const taskSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+
   title: {
     type: String,
     required: true,
   },
+
   aircraft: {
     type: String,
     required: true,
   },
+
   dueDate: {
     type: String,
     required: true,
   },
+
   startDateTime: {
     type: String,
     required: true,
   },
+
   endDateTime: {
     type: String,
     required: true,
@@ -47,6 +52,7 @@ const taskSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+
   assignedToName: {
     type: String,
     required: true,
@@ -96,6 +102,7 @@ const taskSchema = new mongoose.Schema({
     type: [Boolean],
     default: [],
   },
+
   findings: {
     type: String,
     default: "",
