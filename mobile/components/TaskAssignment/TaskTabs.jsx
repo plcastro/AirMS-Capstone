@@ -7,14 +7,9 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 
-export default function TaskTabs({
-  tasks,
-  employees = [],
-  taskOptions = [],
-  onTaskPress,
-}) {
+export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle === "maintenance manager";
+  const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];
@@ -262,7 +257,6 @@ export default function TaskTabs({
               setShowAddModal(false);
             }}
             employees={employees}
-            taskOptions={taskOptions}
           />
 
           <EditTask
@@ -274,7 +268,6 @@ export default function TaskTabs({
             }}
             task={selectedTask}
             employees={employees}
-            taskOptions={taskOptions}
           />
         </>
       )}

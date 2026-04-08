@@ -10,13 +10,14 @@ import Sidebar from "./Sidebar";
 import { Outlet, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-
+import PushNotificationsCard from "../common/PushNotificationsCard";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
 const DashboardLayout = () => {
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user } = useContext(AuthContext);
   const nav = useNavigate();
   const {
@@ -78,7 +79,11 @@ const DashboardLayout = () => {
             />
           </div>
           <Row align="middle" gutter={16}>
-            <Button icon={<BellOutlined />} style={{ marginRight: 16 }} />
+            <Button
+              icon={<BellOutlined />}
+              style={{ marginRight: 16 }}
+              onClick={() => setNotificationsOpen(true)}
+            />
             <div
               style={{
                 display: "flex",
@@ -134,6 +139,10 @@ const DashboardLayout = () => {
           <Outlet />
         </Content>
       </Layout>
+      <PushNotificationsCard
+        open={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+      />
     </Layout>
   );
 };

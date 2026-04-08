@@ -5,15 +5,8 @@ import MechanicTaskScreen from "./MechanicTaskScreen";
 export default function TaskAssignment() {
   const { user } = useContext(AuthContext);
 
-  if (user?.jobTitle === "Maintenance Manager") {
-    return (
-      <HeadTaskScreen
-        taskOptions={[
-          { id: "1", name: "Engine Inspection" },
-          { id: "2", name: "Landing Gear Check" },
-        ]}
-      />
-    );
+  if (user?.jobTitle?.toLowerCase() === "maintenance manager") {
+    return <HeadTaskScreen />;
   }
 
   return <MechanicTaskScreen />;

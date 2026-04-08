@@ -44,7 +44,7 @@ export default function PRMCardView({ data = [], loading = false }) {
           const totalQty = record.items.reduce((sum, i) => sum + i.quantity, 0);
 
           return (
-            <Col xs={24} sm={12} md={8} lg={12} key={record._id}>
+            <Col xs={24} md={12} lg={8} key={record._id}>
               <Card
                 title={record.wrsNo}
                 variant="borderless"
@@ -55,8 +55,10 @@ export default function PRMCardView({ data = [], loading = false }) {
                 }
                 loading={loading}
                 onClick={() => handleShowModal(record)}
+                style={{ height: 330 }}
+                size="small"
               >
-                <Row gutter={[0, 8]}>
+                <Row gutter={[0, 5]}>
                   <Col span={24}>
                     <Text strong style={{ fontSize: 24 }}>
                       {record.items.length} Item/s Requested
