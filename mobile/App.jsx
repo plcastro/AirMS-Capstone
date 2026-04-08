@@ -20,6 +20,7 @@ import TaskAssignment from "./screens/Main/TaskAssignment";
 import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
 import PreInspection from "./screens/Main/PreInspection";
 import PostInspection from "./screens/Main/PostInspection";
+import PartsRequisition from "./screens/Main/PartsRequisition";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -99,7 +100,7 @@ function DrawerNav() {
         ),
       })}
     >
-      {[
+      {[ 
         "maintenance manager",
         "pilot",
         "engineer",
@@ -132,12 +133,21 @@ function DrawerNav() {
             name="Tasks"
             component={wrapWithDashboard(TaskAssignment)}
           />
-          
+
           <Drawer.Screen
             name="Post-Inspection"
             component={wrapWithDashboard(PostInspection)}
           />
         </>
+      )}
+
+      {["maintenance manager", "engineer", "officer-in-charge"].includes(
+        user.jobTitle?.toLowerCase(),
+      ) && (
+        <Drawer.Screen
+          name="Parts Requisition"
+          component={wrapWithDashboard(PartsRequisition)}
+        />
       )}
 
       <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
