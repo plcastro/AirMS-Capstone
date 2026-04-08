@@ -33,7 +33,9 @@ export default function WRSModal({ visible, onClose, selectedRecord }) {
   if (!selectedRecord) return null;
 
   const isWD = user.jobTitle.toLowerCase() === "warehouse department";
-
+  const isMMorOIC = ["maintenance manager", "officer-in-charge"].includes(
+    user?.jobTitle?.toLowerCase(),
+  );
   const STATUS_ORDER = ["Pending", "Approved", "In Progress", "Completed"];
   const currentStatusIndex = STATUS_ORDER.indexOf(selectedRecord.status);
 

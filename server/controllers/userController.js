@@ -133,7 +133,7 @@ const loginUser = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, username: user.username, jobTitle: user.jobTitle },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" },
+      { expiresIn: "30m" },
     );
 
     // Generate Refresh Token
