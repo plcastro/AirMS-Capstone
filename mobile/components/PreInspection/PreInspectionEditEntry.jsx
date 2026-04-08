@@ -19,7 +19,7 @@ import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
 import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
-} from "./preInspectionFormUtils";
+} from "./PreInspectionForms";
 
 export default function PreInspectionEditEntry({
   visible,

@@ -253,14 +253,14 @@ export default function EngineerTaskScreen() {
           },
         ]}
       >
-        <View style={{ flex: 0.7 }}>
+        <View style={{ flex: 0.58 }}>
           <TextInput
             placeholder="Search tasks"
             placeholderTextColor="gray"
             style={[
               styles.searchInput,
               {
-                height: 40,
+                height: 50,
                 width: "100%",
                 backgroundColor: "#fff",
                 borderWidth: 1,
@@ -276,8 +276,8 @@ export default function EngineerTaskScreen() {
 
         <View
           style={{
-            flex: 0.3,
-            height: 40,
+            flex: 0.42,
+            minHeight: 40,
             backgroundColor: "#fff",
             borderWidth: 1,
             borderColor: "#d4d4d4",
@@ -292,9 +292,11 @@ export default function EngineerTaskScreen() {
             style={[
               styles.filterPicker,
               {
-                height: 40,
+                height: 50,
                 width: "100%",
                 color: "#333",
+                fontSize: 14,
+                marginTop: -4,
               },
             ]}
             dropdownIconColor="#666"

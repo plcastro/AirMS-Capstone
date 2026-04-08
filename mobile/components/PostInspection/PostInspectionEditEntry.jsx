@@ -21,7 +21,7 @@ import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
 import {
   areAllPostInspectionChecksComplete,
   getDefaultPostInspectionFormData,
-} from "./postInspectionFormUtils";
+} from "./PostInspectionForms";
 
 export default function PostInspectionEditEntry({
   visible,

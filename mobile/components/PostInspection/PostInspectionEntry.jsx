@@ -17,7 +17,7 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
-import { getDefaultPostInspectionFormData } from "./postInspectionFormUtils";
+import { getDefaultPostInspectionFormData } from "./PostInspectionForms";
 
 export default function PostInspectionEntry({
   visible,
