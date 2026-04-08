@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,75 +8,65 @@ import {
   StatusBar,
   Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEntry from "../../components/PostInspection/PostInspectionEntry";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
+import { API_BASE } from "../../utilities/API_BASE";
 
-// Mock data for demonstration
-const MOCK_INSPECTIONS = [
-  {
-    _id: "1",
-    rpc: "7247",
-    aircraftType: "AS350B3E",
-    date: "02/24/2026",
-    dateAdded: "02/24/2026",
-    status: "pending",
-  },
-  {
-    _id: "2",
-    rpc: "7248",
-    aircraftType: "AS350B3",
-    date: "02/23/2026",
-    dateAdded: "02/23/2026",
-    status: "released",
-  },
-  {
-    _id: "3",
-    rpc: "7249",
-    aircraftType: "R44",
-    date: "02/22/2026",
-    dateAdded: "02/22/2026",
-    status: "accepted",
-  },
-];
+const getDisplayStatus = (status) =>
+  status === "completed" ? "completed" : "ongoing";
 
 export default function PostInspection() {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
-  const [inspections, setInspections] = useState(MOCK_INSPECTIONS);
+  const [inspections, setInspections] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const canCreatePostInspection =
+    userRole === "engineer" || userRole === "maintenance manager";
 
-  const handleSaveNewEntry = (newEntry) => {
-    const newInspection = {
-      ...newEntry,
-      _id: Date.now().toString(),
-      dateAdded: new Date().toLocaleDateString("en-US"),
-      status: "pending",
+  useEffect(() => {
+    const fetchPostInspections = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(
+          `${API_BASE}/api/post-inspections/getAllPostInspection`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch post-inspections");
+        }
+
+        const data = await response.json();
+        setInspections(data.data || []);
+      } catch (error) {
+        console.error("Error fetching post-inspections:", error);
+        Alert.alert("Error", "Failed to fetch post-inspections");
+      }
     };
-    setInspections([newInspection, ...inspections]);
-    setShowNewEntryModal(false);
-    Alert.alert("Success", "Post-inspection created successfully");
-  };
 
-  const handleSaveEdit = (updatedInspection) => {
-    setInspections(
-      inspections.map((inspection) =>
-        inspection._id === updatedInspection._id ? updatedInspection : inspection
-      )
-    );
-    setShowEditModal(false);
-    setSelectedInspection(null);
-    Alert.alert("Success", "Post-inspection updated successfully");
-  };
+    fetchPostInspections();
+  }, []);
+
+  const handleSaveNewEntry = (newEntry) => newEntry;
+
+  const handleSaveEdit = (updatedInspection) => updatedInspection;
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
@@ -85,6 +75,12 @@ export default function PostInspection() {
   const aircraftOptions = [
     "all",
     ...new Set(inspections.map((inspection) => inspection.rpc).filter(Boolean)),
+  ];
+
+  const statusOptions = [
+    { label: "All", value: "all" },
+    { label: "Ongoing", value: "ongoing" },
+    { label: "Completed", value: "completed" },
   ];
 
   const filteredInspections = inspections.filter((inspection) => {
@@ -99,7 +95,11 @@ export default function PostInspection() {
       selectedAircraft === "all" ||
       inspection.rpc === selectedAircraft;
 
-    return matchesSearch && matchesAircraft;
+    const matchesStatus =
+      selectedStatus === "all" ||
+      getDisplayStatus(inspection.status) === selectedStatus;
+
+    return matchesSearch && matchesAircraft && matchesStatus;
   });
 
   const handleEdit = (inspection) => {
@@ -114,6 +114,11 @@ export default function PostInspection() {
   const selectAircraft = (aircraft) => {
     setSelectedAircraft(aircraft);
     setShowAircraftDropdown(false);
+  };
+
+  const selectStatus = (status) => {
+    setSelectedStatus(status);
+    setShowStatusDropdown(false);
   };
 
   return (
@@ -165,8 +170,18 @@ export default function PostInspection() {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
+              opacity: canCreatePostInspection ? 1 : 0.6,
             }}
-            onPress={() => setShowNewEntryModal(true)}
+            onPress={() => {
+              if (!canCreatePostInspection) {
+                Alert.alert(
+                  "Restricted",
+                  "Only engineers and maintenance managers can create post-inspections",
+                );
+                return;
+              }
+              setShowNewEntryModal(true);
+            }}
           >
             <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
             <Text
@@ -182,81 +197,149 @@ export default function PostInspection() {
           </TouchableOpacity>
         </View>
 
-        {/* Aircraft Filter */}
-        <View style={{ marginBottom: 20 }}>
-          <TouchableOpacity
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              height: 48,
-              paddingHorizontal: 12,
-            }}
-            onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
-          >
-            <Text
+        {/* Filters */}
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
               style={{
-                fontSize: 15,
-                color:
-                  selectedAircraft && selectedAircraft !== "all"
-                    ? COLORS.black
-                    : COLORS.grayDark,
-              }}
-            >
-              {selectedAircraft && selectedAircraft !== "all"
-                ? `RP/C: ${selectedAircraft}`
-                : "Choose Aircraft"}
-            </Text>
-            <MaterialCommunityIcons
-              name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
-              size={22}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
-
-          {showAircraftDropdown && (
-            <View
-              style={{
-                position: "absolute",
-                top: 52,
-                left: 0,
-                right: 0,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
                 backgroundColor: COLORS.white,
                 borderRadius: 10,
                 borderWidth: 1,
                 borderColor: COLORS.grayMedium,
-                zIndex: 1000,
-                elevation: 5,
-                maxHeight: 300,
+                height: 48,
+                paddingHorizontal: 12,
+              }}
+              onPress={() => {
+                setShowAircraftDropdown(!showAircraftDropdown);
+                setShowStatusDropdown(false);
               }}
             >
-              <ScrollView>
-                {aircraftOptions.map((aircraft, index) => (
+              <Text
+                style={{
+                  fontSize: 15,
+                  color:
+                    selectedAircraft && selectedAircraft !== "all"
+                      ? COLORS.black
+                      : COLORS.grayDark,
+                }}
+              >
+                {selectedAircraft && selectedAircraft !== "all"
+                  ? `RP/C: ${selectedAircraft}`
+                  : "Choose Aircraft"}
+              </Text>
+              <MaterialCommunityIcons
+                name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            {showAircraftDropdown && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 52,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: COLORS.white,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.grayMedium,
+                  zIndex: 1000,
+                  elevation: 5,
+                  maxHeight: 300,
+                }}
+              >
+                <ScrollView>
+                  {aircraftOptions.map((aircraft, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        paddingVertical: 14,
+                        paddingHorizontal: 16,
+                        borderBottomWidth:
+                          index < aircraftOptions.length - 1 ? 1 : 0,
+                        borderBottomColor: COLORS.grayMedium,
+                      }}
+                      onPress={() => selectAircraft(aircraft)}
+                    >
+                      <Text style={{ fontSize: 15 }}>
+                        {aircraft === "all"
+                          ? "All Aircraft"
+                          : `RP/C: ${aircraft}`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: COLORS.white,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: COLORS.grayMedium,
+                height: 48,
+                paddingHorizontal: 12,
+              }}
+              onPress={() => {
+                setShowStatusDropdown(!showStatusDropdown);
+                setShowAircraftDropdown(false);
+              }}
+            >
+              <Text style={{ fontSize: 15, color: COLORS.black }}>
+                {statusOptions.find((option) => option.value === selectedStatus)
+                  ?.label || "Status"}
+              </Text>
+              <MaterialCommunityIcons
+                name={showStatusDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            {showStatusDropdown && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 52,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: COLORS.white,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.grayMedium,
+                  zIndex: 1000,
+                  elevation: 5,
+                }}
+              >
+                {statusOptions.map((option, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={option.value}
                     style={{
                       paddingVertical: 14,
                       paddingHorizontal: 16,
                       borderBottomWidth:
-                        index < aircraftOptions.length - 1 ? 1 : 0,
+                        index < statusOptions.length - 1 ? 1 : 0,
                       borderBottomColor: COLORS.grayMedium,
                     }}
-                    onPress={() => selectAircraft(aircraft)}
+                    onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={{ fontSize: 15 }}>
-                      {aircraft === "all"
-                        ? "All Aircraft"
-                        : `RP/C: ${aircraft}`}
-                    </Text>
+                    <Text style={{ fontSize: 15 }}>{option.label}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
-            </View>
-          )}
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Post-Inspection Cards */}
@@ -289,7 +372,16 @@ export default function PostInspection() {
                 No post-inspections found
               </Text>
               <TouchableOpacity
-                onPress={() => setShowNewEntryModal(true)}
+                onPress={() => {
+                  if (!canCreatePostInspection) {
+                    Alert.alert(
+                      "Restricted",
+                      "Only engineers and maintenance managers can create post-inspections",
+                    );
+                    return;
+                  }
+                  setShowNewEntryModal(true);
+                }}
                 style={{
                   marginTop: 20,
                   backgroundColor: COLORS.primaryLight,
@@ -318,7 +410,34 @@ export default function PostInspection() {
       <PostInspectionEntry
         visible={showNewEntryModal}
         onClose={() => setShowNewEntryModal(false)}
-        onSave={handleSaveNewEntry}
+        onSave={async (newEntry) => {
+          try {
+            const token = await AsyncStorage.getItem("currentUserToken");
+            const response = await fetch(
+              `${API_BASE}/api/post-inspections/createPostInspection`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(handleSaveNewEntry(newEntry)),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to create post-inspection");
+            }
+
+            const data = await response.json();
+            setInspections((prev) => [data.data, ...prev]);
+            setShowNewEntryModal(false);
+            Alert.alert("Success", "Post-inspection created successfully");
+          } catch (error) {
+            console.error("Error creating post-inspection:", error);
+            Alert.alert("Error", "Failed to create post-inspection");
+          }
+        }}
         userRole={userRole}
       />
 
@@ -330,7 +449,40 @@ export default function PostInspection() {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
-        onSave={handleSaveEdit}
+        onSave={async (updatedInspection) => {
+          try {
+            const token = await AsyncStorage.getItem("currentUserToken");
+            const response = await fetch(
+              `${API_BASE}/api/post-inspections/updatePostInspectionById/${updatedInspection._id}`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to update post-inspection");
+            }
+
+            const data = await response.json();
+            setInspections((prev) =>
+              prev.map((inspection) =>
+                inspection._id === data.data._id ? data.data : inspection,
+              ),
+            );
+            setShowEditModal(false);
+            setSelectedInspection(null);
+            Alert.alert("Success", "Post-inspection updated successfully");
+          } catch (error) {
+            console.error("Error updating post-inspection:", error);
+            Alert.alert("Error", "Failed to update post-inspection");
+            throw error;
+          }
+        }}
         userRole={userRole}
       />
     </View>

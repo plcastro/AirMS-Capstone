@@ -18,6 +18,10 @@ import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
+import {
+  areAllPostInspectionChecksComplete,
+  getDefaultPostInspectionFormData,
+} from "./postInspectionFormUtils";
 
 export default function PostInspectionEditEntry({
   visible,
@@ -29,121 +33,26 @@ export default function PostInspectionEditEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
-  
-  const isMechanic = userRole === "engineer" || userRole === "maintenance manager";
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canReleasePostInspection =
+    userRole === "engineer" || userRole === "maintenance manager";
   const tabs = ["Basic Information", "Station 1", "Station 2", "Engine", "Main Rotor", "Cabin Interior"];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const [formData, setFormData] = useState({
-    // Basic Info
-    aircraftType: "",
-    rpc: "",
-    date: new Date().toLocaleDateString("en-US"),
-    createdBy: userRole,
-    status: "pending",
-    releasedBy: { name: "", id: "", timestamp: "" },
-    // Station 1 items
-    station1_transparentPanels_condition: false,
-    station1_transparentPanels_clean: false,
-    station1_doorsPillars_condition: false,
-    station1_sideSlipIndicator_condition: false,
-    station1_sideSlipIndicator2_condition: false,
-    station1_mgbEngineOilCooler_condition: false,
-    // Station 2 items
-    station2_frontDoorJettison_condition: false,
-    station2_leftCabinAccess_condition: false,
-    station2_landingGear_condition: false,
-    station2_staticPressure_condition: false,
-    station2_oatProbe_condition: false,
-    station2_antennas_condition: false,
-    station2_lights_condition: false,
-    station2_lowerCowlings_condition: false,
-    station2_leftCargoDoorOpen_opening: false,
-    station2_leftCargoDoorClosed_closed: false,
-    station2_fuelTank_condition: false,
-    station2_rearCargoDoorOpen_opening: false,
-    station2_rearCargoBay_harness: false,
-    station2_elt_condition: false,
-    station2_rearCargoDoorClosed_closed: false,
-    station2_mgbCowlings_opening: false,
-    station2_upperCowling_security: false,
-    station2_mgb_condition: false,
-    station2_transmissionDeck_cleanliness: false,
-    station2_mgbSupportBars_condition: false,
-    station2_hydraulicSystem_condition: false,
-    station2_servos_security: false,
-    station2_coolingFan_condition: false,
-    station2_gimbalRing_fitting: false,
-    station2_electricalHarnesses_condition: false,
-    station2_fuelShutoff_condition: false,
-    station2_mgbCowlingLH_safety: false,
-    // Engine and Engine Bay items
-    engine_airInlet_condition: false,
-    engine_firewall_condition: false,
-    engine_accessories_condition: false,
-    engine_transmissionDeck_condition: false,
-    engine_case_condition: false,
-    engine_oilFilter_condition: false,
-    engine_fuelFilter_condition: false,
-    engine_oilSystem_condition: false,
-    engine_mounts_condition: false,
-    engine_deckDrainHoles_condition: false,
-    engine_exhaustPipe_condition: false,
-    // Station 3 items (in Engine tab)
-    station3_scissors_condition: false,
-    station3_swashPlate_condition: false,
-    station3_pitchChangeRods_condition: false,
-    station3_rotorShaft_condition: false,
-    // Main Rotor items
-    mainRotor_head_condition: false,
-    mainRotor_starflex_condition: false,
-    mainRotor_starRecesses_condition: false,
-    mainRotor_sphericalBearings_condition: false,
-    mainRotor_ballJoints_condition: false,
-    mainRotor_starArms_condition: false,
-    mainRotor_vibrationAbsorber_condition: false,
-    mainRotor_blades_condition: false,
-    mainRotor_rightCargoDoor_opening: false,
-    mainRotor_rightCargoDoor_closed: false,
-    mainRotor_gpuPlug_condition: false,
-    mainRotor_rhMgbCowling_opening: false,
-    mainRotor_transmissionDeck_cleanliness: false,
-    mainRotor_mgbSupportBars_condition: false,
-    mainRotor_oilCooler_condition: false,
-    mainRotor_servos_security: false,
-    mainRotor_hydraulicSystem_condition: false,
-    mainRotor_hydraulicTank_condition: false,
-    mainRotor_engineOilTank_condition: false,
-    mainRotor_electricalHarnesses_condition: false,
-    mainRotor_gimbalRing_fitting: false,
-    mainRotor_rhSideMgbCowling_closed: false,
-    mainRotor_landingGear_condition: false,
-    mainRotor_lowerFairings_closed: false,
-    mainRotor_rhCabinAccess_condition: false,
-    mainRotor_frontDoorJettison_condition: false,
-    // Cabin Interior items
-    cabin_general_cleanliness: false,
-    cabin_seats_condition: false,
-    cabin_doorJettison_checked: false,
-    cabin_fireExtinguisher_condition: false,
-    cabin_circuitBreakers_set: false,
-    cabin_scu_position: false,
-    cabin_batterySwitchOn_on: false,
-    cabin_vemd_flightReport: false,
-    cabin_vemd_flightTimes: false,
-    cabin_vemd_cycles: false,
-    cabin_vemd_advisoryMessages: false,
-    cabin_vemd_recordData: false,
-    cabin_batterySwitchOff_off: false,
-  });
+  const [formData, setFormData] = useState(
+    getDefaultPostInspectionFormData(userRole),
+  );
 
   useEffect(() => {
     if (visible && inspectionData) {
-      setFormData(inspectionData);
+      setFormData({
+        ...getDefaultPostInspectionFormData(userRole),
+        ...inspectionData,
+      });
     }
-  }, [visible, inspectionData]);
+  }, [visible, inspectionData, userRole]);
 
   useEffect(() => {
     if (visible) {
@@ -164,20 +73,42 @@ export default function PostInspectionEditEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleRelease = (signatureData) => {
-    setFormData((prev) => ({
-      ...prev,
+  const persistInspection = async (nextFormData) => {
+    if (isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await onSave(nextFormData);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRelease = async (signatureData) => {
+    if (!areAllPostInspectionChecksComplete(formData)) {
+      Alert.alert(
+        "Validation Error",
+        "All checklist fields must be checked before release.",
+      );
+      return;
+    }
+
+    const nextFormData = {
+      ...formData,
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
         timestamp: new Date().toISOString(),
       },
-      status: "released",
-    }));
-    Alert.alert("Success", "Post-inspection has been released");
+      status: "completed",
+    };
+
+    setShowReleaseModal(false);
+    await persistInspection(nextFormData);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       Alert.alert("Validation Error", "Aircraft RPC is required");
       return;
@@ -186,8 +117,7 @@ export default function PostInspectionEditEntry({
       Alert.alert("Validation Error", "Aircraft Type is required");
       return;
     }
-    onSave(formData);
-    onClose();
+    await persistInspection(formData);
   };
 
   const handleNext = () => {
@@ -202,6 +132,9 @@ export default function PostInspectionEditEntry({
     }
   };
 
+  const hasReleaseSignature = Boolean(formData.releasedBy?.name);
+  const isFormEditable = !hasReleaseSignature;
+
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
@@ -211,7 +144,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalInfo
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={false}
           />
         );
       case "Station 1":
@@ -219,7 +152,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalStation1
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Station 2":
@@ -227,7 +160,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalStation2
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Engine":
@@ -235,7 +168,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalEngine
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Main Rotor":
@@ -243,7 +176,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalMainRotor
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Cabin Interior":
@@ -251,7 +184,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalCabinInterior
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       default:
@@ -265,7 +198,19 @@ export default function PostInspectionEditEntry({
     return date.toLocaleString();
   };
 
-  const showReleaseButton = isMechanic && formData.status !== "released";
+  const showReleaseButton =
+    canReleasePostInspection &&
+    !hasReleaseSignature &&
+    formData.status !== "completed" &&
+    !isSubmitting;
+  const footerActionLabel = formData.status === "completed" ? "Close" : "Save";
+  const handleFooterAction = () => {
+    if (footerActionLabel === "Close") {
+      onClose();
+      return;
+    }
+    handleSave();
+  };
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -377,7 +322,7 @@ export default function PostInspectionEditEntry({
                       {formData.releasedBy.name} / {formData.releasedBy.id}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark, textTransform: "uppercase" }}>
-                      {userRole === "maintenance manager" ? "HEAD MECHANIC" : "ENGINEER"}
+                      {userRole === "maintenance manager" ? "MAINTENANCE MANAGER" : "ENGINEER"}
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 8 }}>
                       {formatDate(formData.releasedBy.timestamp)}
@@ -401,7 +346,7 @@ export default function PostInspectionEditEntry({
         }}>
           <TouchableOpacity
             onPress={handlePrevious}
-            disabled={currentPage === 0}
+            disabled={currentPage === 0 || isSubmitting}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 16,
@@ -409,7 +354,7 @@ export default function PostInspectionEditEntry({
               backgroundColor: COLORS.white,
               borderWidth: 1,
               borderColor: COLORS.grayMedium,
-              opacity: currentPage === 0 ? 0.5 : 1,
+              opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
             <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
@@ -427,17 +372,18 @@ export default function PostInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleSave : handleNext}
+            onPress={isLastPage ? handleFooterAction : handleNext}
+            disabled={isSubmitting}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1,
+              opacity: isSubmitting ? 0.6 : 1,
             }}
           >
             <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
-              {isLastPage ? "Save" : "Next"}
+              {isLastPage ? footerActionLabel : "Next"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -448,7 +394,7 @@ export default function PostInspectionEditEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role={userRole === "maintenance manager" ? "HEAD MECHANIC" : "ENGINEER"}
+          role={userRole === "maintenance manager" ? "MAINTENANCE MANAGER" : "ENGINEER"}
         />
       </SafeAreaView>
     </Modal>

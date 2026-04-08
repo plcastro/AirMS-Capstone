@@ -4,6 +4,26 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function PostInspectionCards({ inspections, onEdit, onExport, userRole }) {
+  const getDisplayStatus = (status) =>
+    status === "completed" ? "completed" : "ongoing";
+
+  const getStatusStyle = (status) => {
+    switch (getDisplayStatus(status)) {
+      case "completed":
+        return {
+          label: "Completed",
+          backgroundColor: "#E8F5E9",
+          textColor: "#2E7D32",
+        };
+      default:
+        return {
+          label: "Ongoing",
+          backgroundColor: "#FFF3E0",
+          textColor: "#ED6C02",
+        };
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Date not set";
 
@@ -73,6 +93,8 @@ export default function PostInspectionCards({ inspections, onEdit, onExport, use
   return (
     <>
       {inspections.map((inspection) => {
+        const statusStyle = getStatusStyle(inspection.status);
+
         return (
           <View
             key={inspection._id}
@@ -88,7 +110,7 @@ export default function PostInspectionCards({ inspections, onEdit, onExport, use
               overflow: "hidden",
             }}
           >
-            {/* Green Header with RP/C and Export Button */}
+            {/* Green Header with RP/C, Status, and Export Button */}
             <View
               style={{
                 backgroundColor: COLORS.primaryLight,
@@ -108,13 +130,35 @@ export default function PostInspectionCards({ inspections, onEdit, onExport, use
               >
                 RP/C: {inspection.rpc || "N/A"}
               </Text>
-              <TouchableOpacity onPress={() => onExport?.(inspection)}>
-                <MaterialCommunityIcons
-                  name="export-variant"
-                  size={22}
-                  color={COLORS.white}
-                />
-              </TouchableOpacity>
+              <View
+                style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
+              >
+                <View
+                  style={{
+                    backgroundColor: statusStyle.backgroundColor,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: statusStyle.textColor,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {statusStyle.label}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => onExport?.(inspection)}>
+                  <MaterialCommunityIcons
+                    name="export-variant"
+                    size={22}
+                    color={COLORS.white}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Date */}

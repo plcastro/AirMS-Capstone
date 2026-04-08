@@ -140,7 +140,7 @@ const updateComponent = async (req, res) => {
       req.params.id,
       updatedData,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );

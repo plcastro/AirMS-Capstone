@@ -210,7 +210,7 @@ exports.updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!flightLog) {
