@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Row, Col, Card, Input, Button, Select, Statistic } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
@@ -16,8 +16,11 @@ import {
   exportToExcel,
   exportToPDF,
 } from "../../../components/common/ExportFile";
+import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 export default function MaintenanceDashboard() {
+  const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
@@ -29,7 +32,7 @@ export default function MaintenanceDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = await getValidToken();
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
           headers: { Authorization: `Bearer ${token}` },
         });

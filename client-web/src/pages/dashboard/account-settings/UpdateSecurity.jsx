@@ -15,7 +15,7 @@ import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, getValidToken } = useContext(AuthContext);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -93,7 +93,7 @@ export default function UpdateSecurity() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: JSON.stringify({ currentPassword, newPassword }),
         },
@@ -117,7 +117,7 @@ export default function UpdateSecurity() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${await getValidToken()}`,
         },
         body: JSON.stringify({ currentPin, newPin }),
       });
@@ -141,7 +141,7 @@ export default function UpdateSecurity() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: JSON.stringify({ currentPassword: passwordForPin }),
         },
@@ -163,7 +163,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${await getValidToken()}`,
         },
         body: JSON.stringify({ otp, token: pinResetToken }), // use token from state
       });
@@ -192,7 +192,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${await getValidToken()}`,
         },
         body: JSON.stringify({ token: pinResetToken, newPin }),
       });

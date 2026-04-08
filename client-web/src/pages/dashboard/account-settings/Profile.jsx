@@ -24,7 +24,7 @@ import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
 const { Title, Text } = Typography;
 
 export default function Profile() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, getValidToken } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
@@ -81,7 +81,7 @@ export default function Profile() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${await getValidToken()}`,
             },
             body: JSON.stringify(formData),
           },
@@ -116,7 +116,7 @@ export default function Profile() {
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: formData,
         },
@@ -142,7 +142,7 @@ export default function Profile() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: JSON.stringify({ image: null }),
         },

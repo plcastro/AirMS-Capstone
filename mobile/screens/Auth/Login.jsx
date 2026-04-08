@@ -88,10 +88,6 @@ export default function Login() {
           return;
         }
 
-        // Save token and user info
-        await AsyncStorage.setItem("currentUserToken", token);
-        await AsyncStorage.setItem("currentUser", JSON.stringify(user));
-
         // Remember me logic
         if (rememberMe) {
           await AsyncStorage.setItem("rememberMe", "true");
@@ -118,7 +114,7 @@ export default function Login() {
           return;
         }
         setLoginSuccess(true);
-        loginUser(user);
+        await loginUser(user, token);
         nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
