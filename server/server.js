@@ -14,6 +14,8 @@ const aircraftRoutes = require("./routes/aircraftRoute");
 const inventoryRoutes = require("./routes/componentRoute");
 const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
+const preInspectionRoutes = require("./routes/preInspectionRoute");
+const postInspectionRoutes = require("./routes/postInspectionRoute");
 const sendEmail = require("./utilities/sendEmail");
 const partsMonitoringRoutes = require('./routes/partsMonitoringRoute');
 const flightlogRoutes = require("./routes/flightlogRoute");
@@ -38,6 +40,8 @@ app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/component-inventory", inventoryRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
+app.use("/api/pre-inspections", preInspectionRoutes);
+app.use("/api/post-inspections", postInspectionRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/flightlogs", flightlogRoutes);
 

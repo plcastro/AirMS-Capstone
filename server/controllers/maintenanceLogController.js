@@ -91,7 +91,7 @@ const updateMaintenanceLog = async (req, res) => {
         reportedBy,
         status,
       },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedLog)
