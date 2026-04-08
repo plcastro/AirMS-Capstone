@@ -15,7 +15,7 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
-import { getDefaultPreInspectionFormData } from "./preInspectionFormUtils";
+import { getDefaultPreInspectionFormData } from "./PreInspectionForms";
 
 export default function PreInspectionEntry({
   visible,

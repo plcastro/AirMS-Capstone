@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from "@react-native-picker/picker";
 import Button from "../Button";
 import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
@@ -66,6 +65,9 @@ export default function AddTask({
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showDue1Picker, setShowDue1Picker] = useState(false);
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
+  const [showEngineerDropdown, setShowEngineerDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [checklistItems, setChecklistItems] = useState([]);
@@ -293,6 +295,119 @@ export default function AddTask({
     }
   };
 
+  const closeAllDropdowns = () => {
+    setShowAircraftDropdown(false);
+    setShowInspectionDropdown(false);
+    setShowEngineerDropdown(false);
+  };
+
+  const renderDropdownField = ({
+    label,
+    value,
+    placeholder,
+    options,
+    visible,
+    onToggle,
+    onSelect,
+    disabled = false,
+  }) => (
+    <View style={{ marginBottom: 15 }}>
+      <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+        {label}
+      </Text>
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={disabled}
+        onPress={() => {
+          if (!disabled) {
+            const nextVisible = !visible;
+            closeAllDropdowns();
+            onToggle(nextVisible);
+          }
+        }}
+        style={{
+          minHeight: 48,
+          backgroundColor: COLORS.grayLight,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          borderRadius: 8,
+          paddingHorizontal: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            marginRight: 10,
+            fontSize: 15,
+            color: value ? COLORS.black : COLORS.grayDark,
+          }}
+        >
+          {value || placeholder}
+        </Text>
+
+        <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
+          {visible ? "▲" : "▼"}
+        </Text>
+      </TouchableOpacity>
+
+      {visible && !disabled && (
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: 8,
+            maxHeight: 220,
+            overflow: "hidden",
+          }}
+        >
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {options.map((item, index) => (
+              <TouchableOpacity
+                key={`${item.value}-${index}`}
+                activeOpacity={0.85}
+                onPress={() => {
+                  onSelect(item.value);
+                  closeAllDropdowns();
+                }}
+                style={{
+                  paddingVertical: 13,
+                  paddingHorizontal: 14,
+                  borderBottomWidth: index < options.length - 1 ? 1 : 0,
+                  borderBottomColor: COLORS.border,
+                  backgroundColor:
+                    value === item.label ? `${COLORS.primaryLight}12` : COLORS.white,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: COLORS.black,
+                  }}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+
+  const selectedAircraftLabel =
+    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)?.name || "";
+  const selectedInspectionLabel =
+    inspectionOptions.find((inspection) => inspection.id === inspectionType)?.name || "";
+  const selectedEmployeeLabel =
+    employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.alertOverlay}>
@@ -300,13 +415,18 @@ export default function AddTask({
           style={[
             styles.alertContainer,
             {
-              width: width > 425 ? 600 : "95%",
+              width: width > 425 ? 600 : width - 32,
+              maxWidth: "92%",
               maxHeight: "90%",
-              padding: 20,
+              paddingVertical: 18,
+              paddingHorizontal: 14,
             },
           ]}
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text
               style={[
                 styles.alertTitle,
@@ -317,146 +437,71 @@ export default function AddTask({
             </Text>
 
             {/* Aircraft Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Aircraft
-            </Text>
-            <View
-              style={[
-                styles.filterContainer,
-                {
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={selectedAircraft}
-                onValueChange={(itemValue) => setSelectedAircraft(itemValue)}
-                style={{ height: 40 }}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item
-                  key="placeholder-aircraft"
-                  label="Tail No."
-                  value=""
-                />
-                {aircraftOptions.map((aircraft) => (
-                  <Picker.Item
-                    key={aircraft.id}
-                    label={aircraft.name}
-                    value={aircraft.id}
-                  />
-                ))}
-              </Picker>
-            </View>
+            {renderDropdownField({
+              label: "Aircraft",
+              value: selectedAircraftLabel,
+              placeholder: "Tail No.",
+              options: aircraftOptions.map((aircraft) => ({
+                label: aircraft.name,
+                value: aircraft.id,
+              })),
+              visible: showAircraftDropdown,
+              onToggle: setShowAircraftDropdown,
+              onSelect: setSelectedAircraft,
+            })}
 
             {/* Inspection Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Inspection
-            </Text>
+            {renderDropdownField({
+              label: "Inspection",
+              value: selectedInspectionLabel,
+              placeholder:
+                loading && inspectionOptions.length === 0
+                  ? "Loading inspections..."
+                  : "Pick Inspection",
+              options: inspectionOptions.map((inspection) => ({
+                label: inspection.name,
+                value: inspection.id,
+              })),
+              visible: showInspectionDropdown,
+              onToggle: setShowInspectionDropdown,
+              onSelect: async (itemValue) => {
+                setInspectionType(itemValue);
 
-            <View
-              style={[
-                styles.filterContainer,
-                {
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={inspectionType}
-                onValueChange={async (itemValue) => {
-                  setInspectionType(itemValue);
+                const matchedInspection = inspectionOptions.find(
+                  (i) => i.id === itemValue,
+                );
 
-                  const matchedInspection = inspectionOptions.find(
-                    (i) => i.id === itemValue,
-                  );
+                setSelectedInspection(matchedInspection || null);
+                setChecklistItems([]);
 
-                  setSelectedInspection(matchedInspection || null);
-                  setChecklistItems([]);
-
-                  if (!matchedInspection) return;
-                  try {
-                    setLoading(true);
-                    const tasks = await fetchInspectionTasks(matchedInspection);
-                    setChecklistItems(tasks);
-                  } catch (error) {
-                    console.error("Error fetching tasks:", error);
-                    Alert.alert("Error", "Failed to fetch inspection tasks");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                style={{ height: 40 }}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item
-                  key="placeholder-inspection"
-                  label={
-                    loading && inspectionOptions.length === 0
-                      ? "Loading inspections..."
-                      : "Pick Inspection"
-                  }
-                  value=""
-                />
-                {inspectionOptions.map((inspection) => (
-                  <Picker.Item
-                    key={inspection.id}
-                    label={inspection.name}
-                    value={inspection.id}
-                  />
-                ))}
-              </Picker>
-            </View>
+                if (!matchedInspection) return;
+                try {
+                  setLoading(true);
+                  const tasks = await fetchInspectionTasks(matchedInspection);
+                  setChecklistItems(tasks);
+                } catch (error) {
+                  console.error("Error fetching tasks:", error);
+                  Alert.alert("Error", "Failed to fetch inspection tasks");
+                } finally {
+                  setLoading(false);
+                }
+              },
+              disabled: loading && inspectionOptions.length === 0,
+            })}
 
             {/* Engineer Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Engineer
-            </Text>
-            <View
-              style={[
-                styles.filterContainer,
-                {
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={selectedEmployee}
-                onValueChange={(itemValue) => setSelectedEmployee(itemValue)}
-                style={{ height: 40 }}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item
-                  key="placeholder-engineer"
-                  label="Pick Engineer"
-                  value=""
-                />
-                {employees.map((emp) => (
-                  <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
-                ))}
-              </Picker>
-            </View>
+            {renderDropdownField({
+              label: "Engineer",
+              value: selectedEmployeeLabel,
+              placeholder: "Pick Engineer",
+              options: employees.map((emp) => ({
+                label: emp.name,
+                value: emp.id,
+              })),
+              visible: showEngineerDropdown,
+              onToggle: setShowEngineerDropdown,
+              onSelect: setSelectedEmployee,
+            })}
 
             {/* Start Date Section */}
             <Text
