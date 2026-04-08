@@ -39,8 +39,9 @@ const DashboardLayout = () => {
         style={{
           position: screens.xs ? "fixed" : "relative", // fixed for mobile
           height: "100vh",
-          zIndex: screens.xs ? 1200 : "auto", // above content on mobile
+          zIndex: screens.xs ? 1200 : "auto",
           overflow: "auto",
+          fontSize: 16,
         }}
         onClick={() => screens.xs && setCollapsed(true)}
       >
@@ -56,7 +57,6 @@ const DashboardLayout = () => {
             alignItems: "center",
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
             padding: 12,
-            position: "relative",
           }}
         >
           <div

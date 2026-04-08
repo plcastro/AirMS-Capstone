@@ -11,6 +11,7 @@ import {
   AreaChartOutlined,
   ToolOutlined,
   DashboardOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
@@ -28,13 +29,13 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "1",
       label: "View Users",
-      icon: <TeamOutlined />,
+      icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
       key: "2",
       label: "Activity Logs",
-      icon: <AuditOutlined />,
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
 
@@ -42,10 +43,7 @@ const Sidebar = ({ collapsed }) => {
       key: "3",
       label: "Flight Logs",
       icon: (
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: 16, verticalAlign: "middle" }}
-        >
+        <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
           helicopter
         </span>
       ),
@@ -54,44 +52,48 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "4",
       label: "Maintenance Logs",
-      icon: <ToolOutlined />,
+      icon: <ToolOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
 
     {
       key: "5",
       label: "Parts Lifespan Monitoring",
-      icon: <DashboardOutlined />,
+      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "6",
       label: "Maintenance Tracking",
-      icon: <ScheduleOutlined />,
+      icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "7",
       label: "Parts Requisition Monitoring",
-      icon: <DashboardOutlined />,
-      roles: ["warehouse department"],
+      icon: <InboxOutlined style={{ fontSize: 24 }} />,
+      roles: [
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse department",
+      ],
     },
     {
       key: "8",
       label: "Maintenance Priority",
-      icon: <FlagOutlined />,
+      icon: <FlagOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "9",
       label: "Reports and Analytics",
-      icon: <AreaChartOutlined />,
+      icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "10",
       label: "Profile",
-      icon: <UserOutlined />,
+      icon: <UserOutlined style={{ fontSize: 24 }} />,
       roles: ["admin", "maintenance manager", "warehouse department"],
     },
   ];

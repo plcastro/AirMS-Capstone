@@ -1,259 +1,387 @@
-import React, { useState, useEffect } from "react";
-import { Input, Row, Col, Card, Button, Typography } from "antd";
+import React, { useState, useContext } from "react";
+import { Input, Button, Table, Space, message } from "antd";
 import {
+  PlusOutlined,
   SearchOutlined,
-  ArrowLeftOutlined,
-  PrinterOutlined,
+  ExportOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
-import MLogTable from "../../../components/tables/MLogTable";
+import { AuthContext } from "../../../context/AuthContext";
+import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
+import "./flightlog.css";
 
-const { Title, Text } = Typography;
+// Mock initial data for debugging
+const MOCK_INITIAL_LOGS = [
+  {
+    id: "1",
+    _id: "1",
+    key: "1",
+    aircraftType: "AS350B3",
+    rpc: "RP-C1234",
+    date: "01/15/2025",
+    controlNo: "FL-2025-001",
+    status: "pending_release",
+    createdBy: "pilot",
+    legs: [{ stations: [{ from: "MNL", to: "CEB" }] }],
+    remarks: "",
+    sling: "",
+    fuelServicing: [],
+    oilServicing: [],
+    workItems: [],
+    componentData: {
+      broughtForwardData: {},
+      thisFlightData: {},
+      toDateData: {},
+    },
+  },
+  {
+    id: "2",
+    _id: "2",
+    key: "2",
+    aircraftType: "R44",
+    rpc: "RP-C5678",
+    date: "01/14/2025",
+    controlNo: "FL-2025-002",
+    status: "pending_acceptance",
+    createdBy: "engineer",
+    legs: [{ stations: [{ from: "CEB", to: "TAG" }] }],
+    remarks: "",
+    sling: "",
+    fuelServicing: [],
+    oilServicing: [],
+    workItems: [],
+    componentData: {
+      broughtForwardData: {},
+      thisFlightData: {},
+      toDateData: {},
+    },
+  },
+  {
+    id: "3",
+    _id: "3",
+    key: "3",
+    aircraftType: "AS350B3",
+    rpc: "RP-C1234",
+    date: "01/13/2025",
+    controlNo: "FL-2025-003",
+    status: "completed",
+    createdBy: "pilot",
+    legs: [{ stations: [{ from: "TAG", to: "MNL" }] }],
+    remarks: "Routine maintenance performed",
+    sling: "500kg capacity",
+    fuelServicing: [],
+    oilServicing: [],
+    workItems: [],
+    componentData: {
+      broughtForwardData: {},
+      thisFlightData: {},
+      toDateData: {},
+    },
+  },
+];
 
-export default function MaintenanceLog() {
-  const [allEntries, setAllEntries] = useState([]);
-  const [viewLevel, setViewLevel] = useState("dashboard"); // dashboard, aircraft, or report
-  const [selectedAircraft, setSelectedAircraft] = useState(null);
-  const [selectedWO, setSelectedWO] = useState(null);
+export default function FlightLog() {
+  const { user } = useContext(AuthContext);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [flightLogs, setFlightLogs] = useState(MOCK_INITIAL_LOGS);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [entryModalVisible, setEntryModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
 
-  // Mock data matching your aviation theme
-  const mockData = [
+  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+
+  // Aircraft options from existing logs
+  const aircraftOptions = [
+    "all",
+    ...new Set(flightLogs.map((l) => l.rpc).filter(Boolean)),
+  ];
+
+  // Status options (matching mobile)
+  const statusOptions = [
+    { label: "All", value: "all" },
+    { label: "Pending Release", value: "pending_release" },
+    { label: "Pending Acceptance", value: "pending_acceptance" },
+    { label: "Released", value: "released" },
+    { label: "Accepted", value: "accepted" },
+    { label: "Completed", value: "completed" },
+  ];
+
+  // Filter logs (client-side, matching mobile logic)
+  const filteredLogs = flightLogs.filter((log) => {
+    const matchesSearch =
+      searchQuery === "" ||
+      log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.date?.includes(searchQuery);
+
+    const matchesAircraft =
+      selectedAircraft === "" ||
+      selectedAircraft === "all" ||
+      log.rpc === selectedAircraft;
+
+    const matchesStatus =
+      selectedStatus === "all" || log.status === selectedStatus;
+
+    return matchesSearch && matchesAircraft && matchesStatus;
+  });
+
+  // Create new flight log
+  const handleSaveNew = (data) => {
+    setSaving(true);
+    try {
+      const newId =
+        Date.now().toString() + Math.random().toString(36).substr(2, 6);
+      const newLog = {
+        ...data,
+        id: newId,
+        _id: newId,
+        key: newId,
+        createdBy: userRole,
+        status: userRole === "pilot" ? "pending_release" : "pending_acceptance",
+      };
+
+      setFlightLogs((prev) => [newLog, ...prev]);
+      setEntryModalVisible(false);
+      message.success("Flight log added successfully");
+    } catch (err) {
+      message.error(`Failed to save: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Edit/Update flight log
+  const handleEdit = (record) => {
+    setSelectedLog(record);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = (data) => {
+    if (!selectedLog?.id) return;
+    setSaving(true);
+    try {
+      const updatedLog = {
+        ...selectedLog,
+        ...data,
+        key: selectedLog.id,
+        _id: selectedLog.id,
+      };
+      setFlightLogs((prev) =>
+        prev.map((l) => (l.id === selectedLog.id ? updatedLog : l)),
+      );
+      setEditModalVisible(false);
+      message.success("Flight log updated successfully");
+    } catch (err) {
+      message.error(`Failed to update: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExport = (record) => {
+    console.log("Export log:", record);
+    message.info(`Export log: ${record.rpc}`);
+  };
+
+  // Status badge (matching mobile)
+  const getStatusBadge = (status) => {
+    if (status === "completed") {
+      return <span className="fl-badge fl-badge--completed">Completed</span>;
+    }
+    return <span className="fl-badge fl-badge--ongoing">Ongoing</span>;
+  };
+
+  // Table columns
+  const columns = [
     {
-      id: "7247_02_19",
-      aircraft: "RP-C7247",
-      type: "AS350 B3",
-      sn: "7247",
-      dateDefectRectified: "03/18/2026",
-      workDetails: [
-        {
-          description:
-            "Carried out 48 Month Airframe Inspection in accordance with MSM RP-C7247.",
-        },
-        {
-          description:
-            "Carried out 1200 FH/24 Months Airframe Inspection in accordance with MSM RP-C7247.",
-        },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-      ],
+      title: "Aircraft Type",
+      dataIndex: "aircraftType",
+      key: "aircraftType",
+      width: 140,
+    },
+    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
+    { title: "Date", dataIndex: "date", key: "date", width: 100 },
+    {
+      title: "Control",
+      dataIndex: "controlNo",
+      key: "controlNo",
+      width: 120,
+      ellipsis: true,
     },
     {
-      id: "7507_05_21",
-      aircraft: "RP-C7507",
-      type: "AS340 B3",
-      sn: "7057",
-      dateDefectRectified: "03/18/2026",
-      workDetails: [
-        { description: "General Engine Check" },
-        { description: "" },
-      ],
+      title: "Status",
+      key: "status",
+      width: 100,
+      render: (_, r) => getStatusBadge(r.status),
+    },
+    {
+      title: "Action",
+      key: "action",
+      width: 110,
+      render: (_, record) => (
+        <Space size={4}>
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => handleEdit(record)}
+          >
+            Edit
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            icon={<ExportOutlined />}
+            onClick={() => handleExport(record)}
+          />
+        </Space>
+      ),
     },
   ];
 
-  useEffect(() => {
-    setAllEntries(mockData);
-  }, []);
-
-  const navigateToAircraft = (reg) => {
-    const aircraftData = allEntries.find((e) => e.aircraft === reg);
-    const relatedEntries = allEntries.filter((e) => e.aircraft === reg);
-    setSelectedAircraft({ ...aircraftData, entries: relatedEntries });
-    setViewLevel("aircraft");
-  };
-
-  const navigateToReport = (record) => {
-    setSelectedWO(record);
-    setViewLevel("report");
-  };
-
-  const goBack = () => {
-    if (viewLevel === "report") setViewLevel("aircraft");
-    else if (viewLevel === "aircraft") setViewLevel("dashboard");
-  };
-
-  // --- VIEW 1: DASHBOARD (2 Cards Per Row) ---
-  if (viewLevel === "dashboard") {
-    const uniqueAircraft = [...new Set(allEntries.map((e) => e.aircraft))];
-    return (
-      <div style={{ padding: "40px 20px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 40,
-          }}
-        >
+  return (
+    <div className="fl-page">
+      {/* Search Bar Row with New Entry Button */}
+      <div className="fl-search-row">
+        <div className="fl-search-wrapper">
           <Input
-            placeholder="Search defect..."
+            className="fl-search"
+            placeholder="Search"
             prefix={<SearchOutlined />}
-            style={{ width: "50%", borderRadius: 10 }}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            allowClear
           />
         </div>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <Title level={3} style={{ marginBottom: 20 }}>
-            REMARKS
-          </Title>
-          <Row gutter={[16, 16]}>
-            {uniqueAircraft.map((reg) => (
-              <Col span={12} key={reg}>
-                <Card
-                  hoverable
-                  onClick={() => navigateToAircraft(reg)}
-                  bodyStyle={{ display: "flex", padding: 0 }}
+
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setEntryModalVisible(true)}
+          className="fl-new-entry-btn"
+        >
+          New Entry
+        </Button>
+      </div>
+
+      {/* Filters Row */}
+      <div className="fl-filters-row">
+        {/* Aircraft Filter Dropdown */}
+        <div className="fl-filter-dropdown">
+          <div
+            className="fl-filter-selector"
+            onClick={() => setShowAircraftDropdown(!showAircraftDropdown)}
+          >
+            <span
+              className={
+                selectedAircraft && selectedAircraft !== "all"
+                  ? "fl-filter-selected"
+                  : "fl-filter-placeholder"
+              }
+            >
+              {selectedAircraft && selectedAircraft !== "all"
+                ? `RP/C: ${selectedAircraft}`
+                : "Choose Aircraft"}
+            </span>
+            <span className="fl-filter-arrow">
+              {showAircraftDropdown ? "▲" : "▼"}
+            </span>
+          </div>
+
+          {showAircraftDropdown && (
+            <div className="fl-dropdown-menu">
+              {aircraftOptions.map((aircraft, index) => (
+                <div
+                  key={index}
+                  className="fl-dropdown-item"
+                  onClick={() => {
+                    setSelectedAircraft(aircraft);
+                    setShowAircraftDropdown(false);
+                  }}
                 >
-                  <div
-                    style={{
-                      width: 140,
-                      background: "#d1c4e9",
-                      borderRadius: "4px 0 0 4px",
-                    }}
-                  />
-                  <div style={{ padding: 15 }}>
-                    <Title level={5} style={{ margin: 0 }}>
-                      {reg}
-                    </Title>
-                    <Text type="secondary">ACFT TYPE: AS350 B3</Text>
-                    <br />
-                    <Text type="secondary">ACFT S/N: 7247</Text>
-                  </div>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </div>
-      </div>
-    );
-  }
-
-  // --- VIEW 2: AIRCRAFT DETAILS (Split View) ---
-  if (viewLevel === "aircraft") {
-    return (
-      <div style={{ padding: "20px" }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          type="text"
-          onClick={goBack}
-          style={{ marginBottom: 20 }}
-        />
-        <Row gutter={24} style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <Col span={14}>
-            <Card bodyStyle={{ display: "flex", padding: 0 }}>
-              <div style={{ width: 250, background: "#d1c4e9" }} />
-              <div style={{ padding: "20px" }}>
-                <Title level={3}>{selectedAircraft?.aircraft}</Title>
-                <Text type="secondary">Lightweight Utility Aircraft</Text>
-                <Row style={{ marginTop: 25 }} gutter={[0, 12]}>
-                  <Col span={12}>
-                    <Text strong>ACFT TYPE:</Text> {selectedAircraft?.type}
-                  </Col>
-                  <Col span={12}>
-                    <Text strong>LANDING CYC:</Text> 2522
-                  </Col>
-                </Row>
-              </div>
-            </Card>
-          </Col>
-          <Col span={10}>
-            <MLogTable
-              headers={[
-                { title: "W.O. #", key: "id" },
-                { title: "DATE", key: "dateDefectRectified" },
-              ]}
-              data={selectedAircraft?.entries || []}
-              onRowClick={navigateToReport}
-              isSimple={true}
-            />
-          </Col>
-        </Row>
-      </div>
-    );
-  }
-
-  // --- VIEW 3: WORK REPORT (Blank Fields + Grid Table) ---
-  if (viewLevel === "report") {
-    return (
-      <div style={{ padding: "20px" }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          type="text"
-          onClick={goBack}
-          style={{ marginBottom: 10 }}
-        />
-        <div style={{ maxWidth: 950, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: 10,
-            }}
-          >
-            <Button
-              icon={<PrinterOutlined />}
-              type="primary"
-              style={{ backgroundColor: "#26866f", border: "none" }}
-            >
-              Print
-            </Button>
-          </div>
-          <Card style={{ marginBottom: 15 }}>
-            <Row gutter={[16, 12]}>
-              <Col span={12}>
-                <Input addonBefore="Aircraft Type:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft Reg:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Landing Cyc:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft S/N:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="W.O. #:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine Cyc:" value="" readOnly />
-              </Col>
-            </Row>
-          </Card>
-          <Title level={5} style={{ marginBottom: 10 }}>
-            WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE
-          </Title>
-          <div
-            style={{
-              border: "1px solid #d9d9d9",
-              borderRadius: 4,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                background: "#26866f",
-                color: "white",
-                padding: "10px 15px",
-                fontWeight: "bold",
-              }}
-            >
-              DESCRIPTION OF WORK
+                  {aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`}
+                </div>
+              ))}
             </div>
-            <MLogTable
-              headers={[{ title: "", key: "description" }]}
-              data={selectedWO?.workDetails || []}
-              isSimple={true}
-              isWorkReport={true}
-            />
+          )}
+        </div>
+
+        {/* Status Filter Dropdown */}
+        <div className="fl-filter-dropdown" style={{ width: 150 }}>
+          <div
+            className="fl-filter-selector"
+            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+          >
+            <span className="fl-filter-selected">
+              {statusOptions.find((opt) => opt.value === selectedStatus)
+                ?.label || "Status"}
+            </span>
+            <span className="fl-filter-arrow">
+              {showStatusDropdown ? "▲" : "▼"}
+            </span>
           </div>
+
+          {showStatusDropdown && (
+            <div className="fl-dropdown-menu">
+              {statusOptions.map((option, index) => (
+                <div
+                  key={index}
+                  className="fl-dropdown-item"
+                  onClick={() => {
+                    setSelectedStatus(option.value);
+                    setShowStatusDropdown(false);
+                  }}
+                >
+                  {option.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    );
-  }
+
+      {/* Table */}
+      <div className="fl-table-wrapper">
+        <Table
+          className="fl-table"
+          columns={columns}
+          dataSource={filteredLogs}
+          loading={loading}
+          rowKey="id"
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          size="small"
+        />
+      </div>
+
+      {/* New Entry Modal */}
+      <FlightLogEntry
+        visible={entryModalVisible}
+        onClose={() => setEntryModalVisible(false)}
+        onSave={handleSaveNew}
+        userRole={userRole}
+        editMode={false}
+      />
+
+      {/* Edit Entry Modal */}
+      {selectedLog && (
+        <FlightLogEntry
+          visible={editModalVisible}
+          onClose={() => {
+            setEditModalVisible(false);
+            setSelectedLog(null);
+          }}
+          onSave={handleSaveEdit}
+          userRole={userRole}
+          editMode={true}
+          initialData={selectedLog}
+          initialComponentData={selectedLog.componentData}
+        />
+      )}
+    </div>
+  );
 }

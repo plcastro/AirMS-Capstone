@@ -227,7 +227,7 @@ export default function App() {
             itemHoverBg: "#006340",
             itemHoverColor: "#fff",
             itemSelectedBg: "#26866f",
-            itemColor: "#000",
+            itemColor: "#002019",
             itemSelectedColor: "#fff",
             itemActiveBg: "#26866f",
             subMenuItemSelectedColor: "#002019",
