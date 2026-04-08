@@ -1,15 +1,22 @@
-import React, { useState, useMemo } from "react";
-import { Input, Statistic, Card, Row, Col, Select, Tabs } from "antd";
+import React, { useState, useMemo, useContext } from "react";
+import { Input, Statistic, Card, Row, Col, Select } from "antd";
 import {
   SearchOutlined,
   FileDoneOutlined,
+  CloseCircleOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  InboxOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import PRMCardView from "../../../components/tables/PRMCardView";
 import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
+import { AuthContext } from "../../../context/AuthContext";
 
 export default function PartsRequisition() {
+  const { user } = useContext(AuthContext);
+  const isWD = user.jobTitle.toLowerCase() === "warehouse department";
+  console.log(isWD);
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all"); // For selectable cards
   const [dateSortOrder, setDateSortOrder] = useState("newest");
@@ -40,9 +47,8 @@ export default function PartsRequisition() {
       completed: allRequisitionsWithCounts.filter(
         (r) => r.status === "Completed",
       ).length,
-      cancelled: allRequisitionsWithCounts.filter(
-        (r) => r.status === "Cancelled",
-      ).length,
+      rejected: allRequisitionsWithCounts.filter((r) => r.status === "Rejected")
+        .length,
     };
   }, [allRequisitionsWithCounts]);
 
@@ -74,50 +80,60 @@ export default function PartsRequisition() {
   }, [searchText, allRequisitionsWithCounts, selectedStatus, dateSortOrder]);
 
   // Card definitions
-  const cards = [
-    {
-      title: "Total",
-      value: stats.total,
-      icon: <FileDoneOutlined />,
-      statusKey: "all",
-      color: "default",
-    },
-    {
-      title: "Pending",
-      value: stats.pending,
-      icon: <ClockCircleOutlined />,
-      statusKey: "Pending",
-      color: "blue",
-    },
-    {
-      title: "Approved",
-      value: stats.approved,
-      icon: <CheckCircleOutlined />,
-      statusKey: "Approved",
-      color: "cyan",
-    },
-    {
-      title: "In Progress",
-      value: stats.approved + stats.inProgress,
-      icon: <CheckCircleOutlined />,
-      statusKey: "In Progress",
-      color: "orange",
-    },
-    {
-      title: "Completed",
-      value: stats.completed,
-      icon: <FileDoneOutlined />,
-      statusKey: "Completed",
-      color: "green",
-    },
-    {
-      title: "Cancelled",
-      value: stats.cancelled,
-      icon: <FileDoneOutlined />,
-      statusKey: "Cancelled",
-      color: "red",
-    },
-  ];
+  const cards = useMemo(() => {
+    const baseCards = [
+      {
+        title: "Total",
+        value: stats.total,
+        icon: <InboxOutlined />,
+        statusKey: "all",
+        color: "default",
+      },
+      {
+        title: "Pending",
+        value: stats.pending,
+        icon: <ClockCircleOutlined />,
+        statusKey: "Pending",
+        color: "blue",
+      },
+      {
+        title: "Approved",
+        value: stats.approved,
+        icon: <CheckCircleOutlined />,
+        statusKey: "Approved",
+        color: "cyan",
+      },
+      {
+        title: "In Progress",
+        value: stats.approved + stats.inProgress,
+        icon: <SyncOutlined />,
+        statusKey: "In Progress",
+        color: "orange",
+      },
+      {
+        title: "Completed",
+        value: stats.completed,
+        icon: <FileDoneOutlined />,
+        statusKey: "Completed",
+        color: "green",
+      },
+      {
+        title: "Rejected",
+        value: stats.rejected,
+        icon: <CloseCircleOutlined />,
+        statusKey: "Rejected",
+        color: "red",
+      },
+    ];
+
+    if (isWD) {
+      return baseCards.filter((card) =>
+        ["Approved", "In Progress", "Completed"].includes(card.statusKey),
+      );
+    }
+
+    return baseCards;
+  }, [stats, isWD]);
 
   return (
     <div
@@ -145,7 +161,7 @@ export default function PartsRequisition() {
             size="large"
             value={dateSortOrder}
             onChange={setDateSortOrder}
-            style={{ width: "100%" }}
+            style={{ width: 170 }}
             options={[
               { value: "newest", label: "Date: Newest First" },
               { value: "oldest", label: "Date: Oldest First" },

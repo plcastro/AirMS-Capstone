@@ -4,6 +4,12 @@ import {
   UserOutlined,
   CalendarOutlined,
   InboxOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  FileDoneOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
 const { Text } = Typography;
@@ -24,10 +30,10 @@ export default function PRMCardView({ data = [], loading = false }) {
       case "Approved":
         return "cyan";
       case "In Progress":
-        return "orange";
+        return "purple";
       case "Completed":
         return "green";
-      case "Cancelled":
+      case "Rejected":
         return "red";
       default:
         return "default";
@@ -46,16 +52,34 @@ export default function PRMCardView({ data = [], loading = false }) {
           return (
             <Col xs={24} md={12} lg={8} key={record._id}>
               <Card
+                style={{
+                  height: 330,
+                }}
                 title={record.wrsNo}
                 variant="borderless"
                 extra={
-                  <Tag color={getStatusColor(record.status)}>
+                  <Tag
+                    variant="outlined"
+                    color={getStatusColor(record.status)}
+                    icon={
+                      record.status === "Pending" ? (
+                        <ClockCircleOutlined />
+                      ) : record.status === "Approved" ? (
+                        <CheckCircleOutlined />
+                      ) : record.status === "In Progress" ? (
+                        <SyncOutlined spin />
+                      ) : record.status === "Completed" ? (
+                        <FileDoneOutlined />
+                      ) : (
+                        <CloseOutlined />
+                      )
+                    }
+                  >
                     {record.status}
                   </Tag>
                 }
                 loading={loading}
                 onClick={() => handleShowModal(record)}
-                style={{ height: 330 }}
                 size="small"
               >
                 <Row gutter={[0, 5]}>
@@ -71,7 +95,14 @@ export default function PRMCardView({ data = [], loading = false }) {
                   </Col>
                   <Col span={24}>
                     {" "}
-                    <Card size="small" style={{ marginTop: 8 }}>
+                    <Card
+                      size="small"
+                      style={{
+                        backgroundColor: "#efefef",
+                        marginBottom: 20,
+                        marginTop: 8,
+                      }}
+                    >
                       {visibleItems.map((item) => (
                         <div
                           key={item._id}
@@ -99,7 +130,6 @@ export default function PRMCardView({ data = [], loading = false }) {
 
                     <Text strong>{record.dateRequested}</Text>
                   </Col>
-                  <Col span={24}></Col>
                 </Row>
               </Card>
             </Col>

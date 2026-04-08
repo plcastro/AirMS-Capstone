@@ -1,19 +1,34 @@
 import { useState } from "react";
-import { Table, Tag, Checkbox } from "antd";
+import { Table, InputNumber, Tag } from "antd";
 
 export default function WRSTable({
   data = [],
   loading = false,
-  isWD,
-  status = "Pending",
+  availQtyMap,
+  setAvailQtyMap,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [packedItems, setPackedItems] = useState([]);
+
   const pageSize = 10;
-  const handleCheck = (id) => {
-    setPackedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+
+  const handleAvailQtyChange = (value, record) => {
+    setAvailQtyMap((prev) => ({
+      ...prev,
+      [record._id]: value,
+    }));
+  };
+
+  const getAutoStatus = (record) => {
+    const availQty = availQtyMap[record._id] ?? record.availQty ?? 0;
+    const requestedQty = record.quantity;
+
+    if (availQty === 0) {
+      return <Tag color="red">Out of Stock</Tag>;
+    }
+    if (availQty < requestedQty) {
+      return <Tag color="orange">Partially Available</Tag>;
+    }
+    return <Tag color="green">Ready for Pickup</Tag>;
   };
 
   const tableColumns = [
@@ -21,67 +36,57 @@ export default function WRSTable({
       title: "ITEM NO.",
       dataIndex: "itemNo",
       key: "itemNo",
-      width: 100,
+      width: 50,
     },
     {
       title: "MATCODE NO.",
       dataIndex: "matCodeNo",
       key: "matCodeNo",
+      width: 100,
     },
     {
       title: "PARTICULAR",
       dataIndex: "particular",
       key: "particular",
+      width: 400,
     },
     {
-      title: "QUANTITY",
+      title: "REQUESTED QTY",
       dataIndex: "quantity",
       key: "quantity",
       width: 90,
     },
+
+    {
+      title: "AVAILABLE QTY",
+      dataIndex: "availQty",
+      key: "availQty",
+      width: 120,
+      render: (_, record) => (
+        <InputNumber
+          min={0}
+          max={999}
+          style={{ width: "100%" }}
+          placeholder="Enter qty"
+          value={availQtyMap[record._id] ?? null}
+          onChange={(value) => handleAvailQtyChange(value, record)}
+        />
+      ),
+    },
+
     {
       title: "UNIT OF MEASURE",
       dataIndex: "unitOfMeasure",
       key: "unitOfMeasure",
-      width: 90,
+      width: 120,
     },
     {
-      title: "PURPOSE",
-      dataIndex: "purpose",
-      key: "purpose",
+      title: "AUTO STATUS",
+      key: "autoStatus",
+      width: 150,
+      render: (_, record) => getAutoStatus(record),
     },
   ];
-
-  if (isWD) {
-    tableColumns.unshift({
-      title: "",
-      key: "manual-checkbox",
-      width: 50,
-      align: "center",
-      fixed: "left",
-      render: (_, record) => (
-        <Checkbox
-          checked={status === "Completed" || packedItems.includes(record._id)}
-          onChange={() => handleCheck(record._id)}
-          disabled={status !== "Approved"}
-        />
-      ),
-    });
-
-    tableColumns.push({
-      title: "STATUS",
-      key: "status-tag",
-      width: 150,
-      render: (_, record) => {
-        const isPacked = packedItems.includes(record._id);
-        return (
-          <Tag color={isPacked ? "green" : "blue"}>
-            {isPacked ? "PACKED" : "PENDING"}
-          </Tag>
-        );
-      },
-    });
-  }
 
   return (
     <Table
@@ -91,7 +96,7 @@ export default function WRSTable({
       loading={loading}
       scroll={{ x: "max-content" }}
       pagination={{
-        pageSize: pageSize,
+        pageSize,
         current: currentPage,
         onChange: (page) => setCurrentPage(page),
         placement: "bottomEnd",
