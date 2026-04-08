@@ -5,12 +5,11 @@ import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
-import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 const { width } = Dimensions.get("window");
 
-export default function MechanicTaskScreen() {
+export default function EngineerTaskScreen() {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -21,7 +20,7 @@ export default function MechanicTaskScreen() {
     { id: "all", name: "All Aircraft" },
   ]);
 
-  // Fetch tasks assigned to the current mechanic
+  // Fetch tasks assigned to the current engineer
   useEffect(() => {
     const fetchTasks = async () => {
       console.log("User:", user);
@@ -36,9 +35,8 @@ export default function MechanicTaskScreen() {
         if (response.ok) {
           const data = await response.json();
           console.log("Fetched tasks:", data.data);
-          const assignedTasks = data.data.filter(
-            (task) =>
-              task.assignedToName === `${user?.firstName} ${user?.lastName}`,
+          const assignedTasks = (data.data || []).filter(
+            (task) => String(task.assignedTo) === String(user?.id),
           );
           console.log("Assigned tasks:", assignedTasks);
           setTasks(assignedTasks || []);
@@ -46,11 +44,11 @@ export default function MechanicTaskScreen() {
           console.error("Failed to fetch tasks, status:", response.status);
           const errorText = await response.text();
           console.error("Error response:", errorText);
-          setTasks(TaskInfo); // Fallback
+          setTasks([]);
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
-        setTasks(TaskInfo); // Fallback
+        setTasks([]);
       }
     };
     if (user) {
@@ -63,15 +61,15 @@ export default function MechanicTaskScreen() {
     const fetchAircraft = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
         );
         if (response.ok) {
           const data = await response.json();
           const options = [
             { id: "all", name: "All Aircraft" },
-            ...data.map((aircraft) => ({
-              id: aircraft.tailNum,
-              name: aircraft.tailNum,
+            ...(data.data || []).map((aircraft) => ({
+              id: aircraft,
+              name: aircraft,
             })),
           ];
           setAircraftOptions(options);

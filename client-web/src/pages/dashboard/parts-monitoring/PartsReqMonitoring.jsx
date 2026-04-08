@@ -50,7 +50,6 @@ export default function PartsRequisition() {
   const filteredRequisitions = useMemo(() => {
     let data = allRequisitionsWithCounts;
 
-    // Search filter
     if (searchText.trim()) {
       data = data.filter(
         (r) =>
@@ -60,15 +59,8 @@ export default function PartsRequisition() {
       );
     }
 
-    // Card filter
     if (selectedStatus !== "all") {
-      if (selectedStatus === "Approved/In Progress") {
-        data = data.filter(
-          (r) => r.status === "Approved" || r.status === "In Progress",
-        );
-      } else {
-        data = data.filter((r) => r.status === selectedStatus);
-      }
+      data = data.filter((r) => r.status === selectedStatus);
     }
 
     return [...data].sort((a, b) => {

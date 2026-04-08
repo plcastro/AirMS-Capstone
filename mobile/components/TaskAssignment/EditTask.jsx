@@ -25,7 +25,6 @@ export default function EditTask({
   onSave,
   task,
   employees,
-  taskOptions,
 }) {
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
@@ -47,15 +46,15 @@ export default function EditTask({
     const fetchAircraft = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch aircraft");
         }
         const data = await response.json();
-        const options = data.map((aircraft) => ({
-          id: aircraft.tailNum,
-          name: aircraft.tailNum,
+        const options = (data.data || []).map((aircraft) => ({
+          id: aircraft,
+          name: aircraft,
         }));
         setAircraftOptions(options);
       } catch (error) {
@@ -81,30 +80,11 @@ export default function EditTask({
         setDueDate(new Date(task.dueDate));
       }
 
-      setChecklistItems(task.checklistItems || [""]);
+      setChecklistItems(task.checklistItems || []);
     }
   }, [task]);
 
-  const handleAddChecklistItem = () => {
-    setChecklistItems([...checklistItems, ""]);
-  };
-
-  const handleUpdateChecklistItem = (index, text) => {
-    const updated = [...checklistItems];
-    updated[index] = text;
-    setChecklistItems(updated);
-  };
-
-  const handleDeleteChecklistItem = (index) => {
-    const updated = checklistItems.filter((_, i) => i !== index);
-    setChecklistItems(updated);
-  };
-
   const confirmSave = () => {
-    const filteredChecklist = checklistItems.filter(
-      (item) => item.trim() !== "",
-    );
-
     const updatedTask = {
       ...task,
       title: taskTitle,
@@ -116,10 +96,7 @@ export default function EditTask({
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name ||
         task.assignedToName,
-      checklistItems:
-        filteredChecklist.length > 0
-          ? filteredChecklist
-          : ["New checklist item"],
+      checklistItems,
     };
     onSave(updatedTask);
   };
@@ -145,21 +122,30 @@ export default function EditTask({
   };
 
   const onStartChange = (event, selectedDate) => {
-    setShowStartPicker(Platform.OS === "ios");
+    setShowStartPicker(false);
+    if (event?.type === "dismissed") {
+      return;
+    }
     if (selectedDate) {
       setStartDate(selectedDate);
     }
   };
 
   const onEndChange = (event, selectedDate) => {
-    setShowEndPicker(Platform.OS === "ios");
+    setShowEndPicker(false);
+    if (event?.type === "dismissed") {
+      return;
+    }
     if (selectedDate) {
       setEndDate(selectedDate);
     }
   };
 
   const onDueChange = (event, selectedDate) => {
-    setShowDuePicker(Platform.OS === "ios");
+    setShowDuePicker(false);
+    if (event?.type === "dismissed") {
+      return;
+    }
     if (selectedDate) {
       setDueDate(selectedDate);
     }
@@ -245,7 +231,7 @@ export default function EditTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Mechanic
+              Engineer
             </Text>
             <View
               style={[
@@ -266,7 +252,7 @@ export default function EditTask({
                 style={{ height: 40 }}
                 dropdownIconColor={COLORS.primaryLight}
               >
-                <Picker.Item label="Pick Mechanic" value="" />
+                <Picker.Item label="Pick Engineer" value="" />
                 {employees.map((emp) => (
                   <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
                 ))}
@@ -298,7 +284,7 @@ export default function EditTask({
             {showStartPicker && (
               <DateTimePicker
                 value={startDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
                 display="default"
                 onChange={onStartChange}
               />
@@ -329,7 +315,7 @@ export default function EditTask({
             {showEndPicker && (
               <DateTimePicker
                 value={endDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
                 display="default"
                 onChange={onEndChange}
               />
@@ -360,10 +346,47 @@ export default function EditTask({
             {showDuePicker && (
               <DateTimePicker
                 value={dueDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : "date"}
                 display="default"
                 onChange={onDueChange}
               />
+            )}
+
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
+              Checklist
+            </Text>
+
+            {checklistItems.map((item, index) => (
+              <View
+                key={index}
+                style={{ flexDirection: "row", marginBottom: 12 }}
+              >
+                <CheckBox value={false} disabled={true} />
+
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                    {[item.taskId, item.inspectionTypeFull]
+                      .filter(Boolean)
+                      .join(" | ")}
+                  </Text>
+                  <Text
+                    style={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: COLORS.border,
+                      paddingVertical: 6,
+                      fontSize: 14,
+                    }}
+                  >
+                    {item.taskName}
+                  </Text>
+                </View>
+              </View>
+            ))}
+
+            {checklistItems.length === 0 && (
+              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+                No checklist items attached to this task.
+              </Text>
             )}
 
             {/* Checklist Section 

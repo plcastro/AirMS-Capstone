@@ -3,8 +3,10 @@ import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
-export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
-  const assignedTasks = tasks.filter((task) => task.assignedTo === mechanic.id);
+export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
+  const assignedTasks = tasks.filter(
+    (task) => String(task.assignedTo) === String(engineer.id),
+  );
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -62,7 +64,6 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
       dueDate < now &&
       item.status !== "Completed" &&
       item.status !== "Turned in";
-
     const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
     const dueTime = formatDueTime(item.dueDate);
 
@@ -134,7 +135,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
 
         {isPastDue && (
           <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
-            {overdueText} • Due at {dueTime}
+            {overdueText} | Due at {dueTime}
           </Text>
         )}
       </TouchableOpacity>
@@ -162,7 +163,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           onPress={onBack}
           style={{ marginRight: 15, padding: 5 }}
         >
-          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>←</Text>
+          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>
+            {"<"}
+          </Text>
         </TouchableOpacity>
 
         <View
@@ -177,7 +180,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           }}
         >
           <Text style={{ color: "#fff", fontSize: 24, fontWeight: "bold" }}>
-            {mechanic.name.charAt(0)}
+            {engineer.name.charAt(0)}
           </Text>
         </View>
 
@@ -190,9 +193,11 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
               color: COLORS.black,
             }}
           >
-            {mechanic.name}
+            {engineer.name}
           </Text>
-          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>Mechanic</Text>
+          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+            {engineer.jobTitle || "Engineer"}
+          </Text>
         </View>
       </View>
 
@@ -210,7 +215,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this mechanic
+              No tasks assigned to this engineer
             </Text>
           </View>
         }
