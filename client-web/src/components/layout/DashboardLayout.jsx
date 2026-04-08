@@ -1,9 +1,10 @@
 import React, { useState, useContext } from "react";
-import { Layout, Button, theme, Avatar, Grid } from "antd";
+import { Layout, Button, theme, Avatar, Grid, Row } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
 import { Outlet, useNavigate } from "react-router-dom";
@@ -76,45 +77,51 @@ const DashboardLayout = () => {
               }}
             />
           </div>
-
-          <div
-            style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-            onClick={() => nav("/dashboard/profile")}
-          >
-            {user?.image ? (
-              <img
-                src={user?.image ? `${API_BASE}${user.image}` : ""}
-                alt="User"
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                }}
-              />
-            ) : (
-              <Avatar size="large" icon={<UserOutlined />} />
-            )}
-            {screens.md && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  lineHeight: 1.2,
-                  marginRight: 10,
-                  marginLeft: 10,
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>
-                  {user?.firstName + " " + user?.lastName || "Unknown User"}
-                </span>
-                <span style={{ fontSize: 12, color: "#888" }}>
-                  {user?.jobTitle || "Unknown Job Title"}
-                </span>
-              </div>
-            )}
-          </div>
+          <Row align="middle" gutter={16}>
+            <Button icon={<BellOutlined />} style={{ marginRight: 16 }} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+              onClick={() => nav("/dashboard/profile")}
+            >
+              {user?.image ? (
+                <img
+                  src={user?.image ? `${API_BASE}${user.image}` : ""}
+                  alt="User"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <Avatar size="large" icon={<UserOutlined />} />
+              )}
+              {screens.md && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    lineHeight: 1.2,
+                    marginRight: 10,
+                    marginLeft: 10,
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>
+                    {user?.firstName + " " + user?.lastName || "Unknown User"}
+                  </span>
+                  <span style={{ fontSize: 12, color: "#888" }}>
+                    {user?.jobTitle || "Unknown Job Title"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </Row>
         </Header>
 
         <Content

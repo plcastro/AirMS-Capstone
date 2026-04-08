@@ -2,13 +2,15 @@ import React, { useContext, useEffect, useState, useMemo } from "react";
 import { Menu, Button, Modal } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  BookOutlined,
+  ScheduleOutlined,
   UserOutlined,
   FlagOutlined,
   LogoutOutlined,
   AuditOutlined,
   TeamOutlined,
   AreaChartOutlined,
+  ToolOutlined,
+  DashboardOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
@@ -39,32 +41,39 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "3",
       label: "Flight Logs",
-      icon: <BookOutlined />,
+      icon: (
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: 16, verticalAlign: "middle" }}
+        >
+          helicopter
+        </span>
+      ),
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "4",
       label: "Maintenance Logs",
-      icon: <BookOutlined />,
+      icon: <ToolOutlined />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
 
     {
       key: "5",
       label: "Parts Lifespan Monitoring",
-      icon: <BookOutlined />,
+      icon: <DashboardOutlined />,
       roles: ["maintenance manager"],
     },
     {
       key: "6",
       label: "Maintenance Tracking",
-      icon: <BookOutlined />,
+      icon: <ScheduleOutlined />,
       roles: ["maintenance manager"],
     },
     {
       key: "7",
       label: "Parts Requisition Monitoring",
-      icon: <BookOutlined />,
+      icon: <DashboardOutlined />,
       roles: ["warehouse department"],
     },
     {
@@ -75,7 +84,7 @@ const Sidebar = ({ collapsed }) => {
     },
     {
       key: "9",
-      label: "Maintenance Dashboard",
+      label: "Reports and Analytics",
       icon: <AreaChartOutlined />,
       roles: ["maintenance manager", "officer-in-charge"],
     },

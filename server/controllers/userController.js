@@ -151,9 +151,9 @@ const loginUser = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    console.log(
-      `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
-    );
+    // console.log(
+    //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
+    // );
 
     await auditLog("User logged in", user._id);
 
