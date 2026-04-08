@@ -339,9 +339,9 @@ export default function PartsMonitoring() {
               flexWrap: "wrap",
             }}
           >
-            <Button type="primary" icon={<PlusOutlined />} size="large">
+            {/* <Button type="primary" icon={<PlusOutlined />} size="large">
               Add Aircraft
-            </Button>
+            </Button> */}
 
             <Button
               type="primary"
@@ -369,32 +369,38 @@ export default function PartsMonitoring() {
         {/* Left Card - Aircraft Info */}
         <Col xs={24} md={8} lg={6}>
           <Card>
-            <div className="info-item">
-              <Text>Aircraft: </Text>
-              <Text className="info-value">
-                {selectedAircraft || "Not selected"}
+            <Row>
+              <Text type="secondary">
+                Aircraft:{" "}
+                <Text strong>{selectedAircraft || "Not selected"}</Text>
               </Text>
-            </div>
-            <div className="info-item">
-              <Text>Date Manufactured: </Text>
-              <Text className="info-value">
-                {aircraftDetails.dateManufactured
-                  ? aircraftDetails.dateManufactured.toLocaleDateString()
-                  : "Not available"}
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Date Manufactured:{" "}
+                <Text strong>
+                  {aircraftDetails.dateManufactured
+                    ? aircraftDetails.dateManufactured.toLocaleDateString()
+                    : "Not available"}
+                </Text>
               </Text>
-            </div>
-            <div className="info-item">
-              <Text>Acft. Type: </Text>
-              <Text className="info-value">
-                {aircraftDetails.aircraftType || "Not available"}
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Acft. Type:{" "}
+                <Text strong>
+                  {aircraftDetails.aircraftType || "Not available"}
+                </Text>
               </Text>
-            </div>
-            <div className="info-item">
-              <Text>Creep Damage: </Text>
-              <Text className="info-value">
-                {aircraftDetails.creepDamage || "Not available"}
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Creep Damage:{" "}
+                <Text strong>
+                  {aircraftDetails.creepDamage || "Not available"}
+                </Text>
               </Text>
-            </div>
+            </Row>
           </Card>
         </Col>
 

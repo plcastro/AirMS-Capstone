@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Input, Row, Col, Card, Button, Typography } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -101,7 +101,7 @@ export default function MaintenanceLog() {
                 <Card
                   hoverable
                   onClick={() => navigateToAircraft(reg)}
-                  bodyStyle={{ display: "flex", padding: 0 }}
+                  styles={{ body: { display: "flex", padding: 0 } }}
                 >
                   <div
                     style={{
@@ -139,7 +139,7 @@ export default function MaintenanceLog() {
         />
         <Row gutter={24} style={{ maxWidth: 1200, margin: "0 auto" }}>
           <Col span={14}>
-            <Card bodyStyle={{ display: "flex", padding: 0 }}>
+            <Card styles={{ body: { display: "flex", padding: 0 } }}>
               <div style={{ width: 250, background: "#d1c4e9" }} />
               <div style={{ padding: "20px" }}>
                 <Title level={3}>{selectedAircraft?.aircraft}</Title>
@@ -200,7 +200,10 @@ export default function MaintenanceLog() {
           <Card style={{ marginBottom: 15 }}>
             <Row gutter={[16, 12]}>
               <Col span={12}>
-                <Input addonBefore="Aircraft Type:" value="" readOnly />
+                <Space.Compact>
+                  {addon}
+                  <Input addonBefore="Aircraft Type:" value="" readOnly />
+                </Space.Compact>
               </Col>
               <Col span={12}>
                 <Input addonBefore="Aircraft TT:" value="" readOnly />
