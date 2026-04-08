@@ -127,7 +127,7 @@ const Sidebar = ({ collapsed }) => {
       "/dashboard/profile": "10",
     }),
     [],
-  ); // Empty array means it's created only once
+  );
 
   useEffect(() => {
     const key = routeToKey[location.pathname] || "10";

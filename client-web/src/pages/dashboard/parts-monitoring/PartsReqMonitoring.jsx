@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useContext } from "react";
 import { Input, Statistic, Card, Row, Col } from "antd";
 import {
   SearchOutlined,
@@ -7,40 +7,104 @@ import {
   ClockCircleOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import PRMTable from "../../../components/tables/PRMTable";
+import PRMCardView from "../../../components/tables/PRMCardView";
 import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
+import { AuthContext } from "../../../context/AuthContext";
 
 export default function PartsRequisition() {
+  const { user } = useContext(AuthContext);
+  const isMMorOIC = ["maintenance manager", "officer-in-charge"].includes(
+    user?.jobTitle?.toLowerCase(),
+  );
+
   const [searchText, setSearchText] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all"); // For selectable cards
+
   const allRequisitionsWithCounts = useMemo(() => {
     return MOCK_WRS_RECORDS.map((record) => ({
       ...record,
       noOfItems: record.items?.length || 0,
+      totalQty:
+        record.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
     }));
   }, []);
 
-  const filteredRequisitions = useMemo(() => {
-    return allRequisitionsWithCounts.filter(
-      (r) =>
-        r.wrsNo.toLowerCase().includes(searchText.toLowerCase()) ||
-        r.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-        r.status.toLowerCase().includes(searchText.toLowerCase()),
-    );
-  }, [searchText, allRequisitionsWithCounts]);
-
+  // Compute counts for cards
   const stats = useMemo(() => {
     return {
-      total: filteredRequisitions.length,
-      pending: filteredRequisitions.filter((r) => r.status === "Pending")
+      total: allRequisitionsWithCounts.length,
+      pending: allRequisitionsWithCounts.filter((r) => r.status === "Pending")
         .length,
-      approved: filteredRequisitions.filter((r) => r.status === "Approved")
+      approved: allRequisitionsWithCounts.filter((r) => r.status === "Approved")
         .length,
-      inProgress: filteredRequisitions.filter((r) => r.status === "In Progress")
-        .length,
-      completed: filteredRequisitions.filter((r) => r.status === "Completed")
-        .length,
+      inProgress: allRequisitionsWithCounts.filter(
+        (r) => r.status === "In Progress",
+      ).length,
+      completed: allRequisitionsWithCounts.filter(
+        (r) => r.status === "Completed",
+      ).length,
     };
-  }, [filteredRequisitions]);
+  }, [allRequisitionsWithCounts]);
+
+  // Filter based on search and selected card
+  const filteredRequisitions = useMemo(() => {
+    let data = allRequisitionsWithCounts;
+
+    // Search filter
+    if (searchText.trim()) {
+      data = data.filter(
+        (r) =>
+          r.wrsNo.toLowerCase().includes(searchText.toLowerCase()) ||
+          r.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
+          r.status.toLowerCase().includes(searchText.toLowerCase()),
+      );
+    }
+
+    // Card filter
+    if (selectedStatus !== "all") {
+      if (selectedStatus === "Approved/In Progress") {
+        return data.filter(
+          (r) => r.status === "Approved" || r.status === "In Progress",
+        );
+      }
+      return data.filter((r) => r.status === selectedStatus);
+    }
+
+    return data;
+  }, [searchText, allRequisitionsWithCounts, selectedStatus]);
+
+  // Card definitions
+  const cards = [
+    {
+      title: "Total",
+      value: stats.total,
+      icon: <FileDoneOutlined />,
+      statusKey: "all",
+      color: "#1890ff",
+    },
+    {
+      title: "Pending",
+      value: stats.pending,
+      icon: <ClockCircleOutlined />,
+      statusKey: "Pending",
+      color: "#faad14",
+    },
+    {
+      title: "Approved/In Progress",
+      value: stats.approved + stats.inProgress,
+      icon: <CheckCircleOutlined />,
+      statusKey: "Approved/In Progress",
+      color: "#13c2c2",
+    },
+    {
+      title: "Completed",
+      value: stats.completed,
+      icon: <FileDoneOutlined />,
+      statusKey: "Completed",
+      color: "#52c41a",
+    },
+  ];
+
   return (
     <div
       style={{
@@ -49,8 +113,10 @@ export default function PartsRequisition() {
         display: "flex",
         flexDirection: "column",
         overflowY: "auto",
+        paddingBottom: 120,
       }}
     >
+      {/* Search */}
       <Row>
         <Col xs={24} md={8}>
           <Input
@@ -62,79 +128,42 @@ export default function PartsRequisition() {
           />
         </Col>
       </Row>
-      <div
-        style={{
-          overflowX: "auto",
-          whiteSpace: "wrap",
-          paddingBottom: "10px",
-          msOverflowStyle: "none",
-          scrollbarWidth: "none",
-        }}
-      >
-        <Row
-          gutter={[10, 10]}
-          style={{
-            marginTop: 20,
-            flexWrap: "nowrap",
-            marginRight: 0,
-            marginLeft: 0,
-          }}
-        >
-          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
-            <Card variant={"borderless"} size="small">
-              <Statistic
-                title="Total"
-                value={stats.total}
-                prefix={<FileDoneOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
-            <Card variant={"borderless"} size="small">
-              <Statistic
-                title="Pending"
-                value={stats.pending}
-                prefix={<ClockCircleOutlined />}
-                styles={{ content: { color: "#1890ff" } }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
-            <Card variant={"borderless"} size="small">
-              <Statistic
-                title="Approved"
-                value={stats.approved}
-                prefix={<CheckCircleOutlined />}
-                styles={{ content: { color: "#13c2c2" } }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Card variant={"borderless"} size="small">
-              <Statistic
-                title="In Progress"
-                value={stats.inProgress}
-                prefix={<SyncOutlined />}
-                styles={{ content: { color: "#faad14" } }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} sm={6} md={4} style={{ flexShrink: 0 }}>
-            <Card variant={"borderless"} size="small">
-              <Statistic
-                title="Completed"
-                value={stats.completed}
-                prefix={<FileDoneOutlined />}
-                styles={{ content: { color: "#52c41a" } }}
-              />
-            </Card>
-          </Col>
-        </Row>
-      </div>
 
-      <Row style={{ marginTop: 10 }}>
+      {/* Selectable Cards */}
+      <Row gutter={[16, 16]} style={{ marginTop: 20, flexWrap: "wrap" }}>
+        {cards.map((card) => (
+          <Col
+            key={card.statusKey}
+            xs={12}
+            sm={8}
+            md={6}
+            style={{ flexShrink: 0 }}
+          >
+            <Card
+              hoverable
+              onClick={() => setSelectedStatus(card.statusKey)}
+              style={{
+                border:
+                  selectedStatus === card.statusKey
+                    ? `2px solid ${card.color}`
+                    : "1px solid #f0f0f0",
+                cursor: "pointer",
+              }}
+            >
+              <Statistic
+                title={card.title}
+                value={card.value}
+                prefix={card.icon}
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {/* Table */}
+      <Row style={{ marginTop: 20 }}>
         <Col span={24}>
-          <PRMTable data={filteredRequisitions} />
+          <PRMCardView data={filteredRequisitions} />
         </Col>
       </Row>
     </div>
