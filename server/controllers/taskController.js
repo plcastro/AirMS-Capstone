@@ -33,7 +33,11 @@ const getTaskById = async (req, res) => {
 
 const updateTask = async (req, res) => {
   try {
-    const task = await TaskModel.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    const task = await TaskModel.findOneAndUpdate(
+      { id: req.params.id },
+      req.body,
+      { returnDocument: "after" },
+    );
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }

@@ -1,73 +1,111 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   FlatList,
   TextInput,
   TouchableOpacity,
-  Dimensions,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MechanicAssignment from "./MechanicAssignment";
-import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import { API_BASE } from "../../utilities/API_BASE";
 
-const { width } = Dimensions.get("window");
-
-// Base mechanic data without status (will be calculated)
-const BASE_MECHANIC_DATA = [
-  { id: "1", name: "John Doe", avatar: null },
-  { id: "2", name: "Clara Bang", avatar: null },
-  { id: "3", name: "Joe Bloggs", avatar: null },
-  { id: "4", name: "Max Miller", avatar: null },
-  { id: "5", name: "Liam Brown", avatar: null },
-  { id: "6", name: "Dilan Wolf", avatar: null },
-  { id: "7", name: "Bob Rosfield", avatar: null },
-];
+const isAssignableUser = (user) =>
+  ["mechanic", "engineer"].includes(user?.jobTitle?.toLowerCase());
+const getMechanicStatus = (taskCount) =>
+  taskCount >= 3 ? "Busy" : "Available";
 
 export default function MechanicList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanic, setSelectedMechanic] = useState(null);
+  const [mechanics, setMechanics] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
-  // Use tasks from TaskInfo - declared ONCE
-  const tasks = TaskInfo;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
 
-  // Calculate mechanic status based on task count - declared ONCE
-  const getMechanicStatus = (mechanicId) => {
-    const taskCount = tasks.filter(
-      (task) => task.assignedTo === mechanicId,
+        const [usersResponse, tasksResponse] = await Promise.all([
+          fetch(`${API_BASE}/api/user/getAllUsers`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_BASE}/api/tasks/getAll`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
+
+        if (!usersResponse.ok) {
+          throw new Error("Failed to fetch assignable users");
+        }
+
+        if (!tasksResponse.ok) {
+          throw new Error("Failed to fetch tasks");
+        }
+
+        const usersData = await usersResponse.json();
+        const tasksData = await tasksResponse.json();
+
+        setTasks(tasksData.data || []);
+        setMechanics(
+          (usersData.data || [])
+            .filter(
+              (user) => isAssignableUser(user) && user.status === "active",
+            )
+            .map((user) => ({
+              id: user._id,
+              name: `${user.firstName} ${user.lastName}`,
+              avatar: user.image || null,
+              jobTitle: user.jobTitle,
+            })),
+        );
+      } catch (error) {
+        console.error("Error fetching assignable user list:", error);
+        Alert.alert("Error", error.message || "Failed to fetch employees");
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const getTaskCount = (mechanicId) => {
+    return tasks.filter(
+      (task) => String(task.assignedTo) === String(mechanicId),
     ).length;
-    // Busy if 3 or more tasks, Available if 0-2 tasks
-    return taskCount >= 3 ? "Busy" : "Available";
   };
 
-  // Build mechanics data with dynamic status - declared ONCE
-  const MECHANIC_DATA = BASE_MECHANIC_DATA.map((mechanic) => ({
-    ...mechanic,
-    status: getMechanicStatus(mechanic.id),
-  }));
+  const filteredMechanics = mechanics
+    .map((mechanic) => {
+      const taskCount = getTaskCount(mechanic.id);
 
-  const filteredMechanics = MECHANIC_DATA.filter((mechanic) => {
-    if (
-      searchQuery &&
-      !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
-    return true;
-  });
+      return {
+        ...mechanic,
+        status: getMechanicStatus(taskCount),
+        taskCount,
+      };
+    })
+    .filter((mechanic) => {
+      if (
+        searchQuery &&
+        !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
+    });
 
   const getStatusColor = (status) => {
     return status === "Available" ? "#34A853" : "#FF6B6B";
   };
 
-  // Get task count for each mechanic
-  const getTaskCount = (mechanicId) => {
-    return tasks.filter((task) => task.assignedTo === mechanicId).length;
-  };
-
   const renderMechanicItem = ({ item }) => {
-    const taskCount = getTaskCount(item.id);
     return (
       <TouchableOpacity
         onPress={() => setSelectedMechanic(item)}
@@ -128,13 +166,13 @@ export default function MechanicList() {
               {item.status}
             </Text>
             <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
-              {taskCount} task{taskCount !== 1 ? "s" : ""}
+              {item.taskCount} task{item.taskCount !== 1 ? "s" : ""}
             </Text>
           </View>
         </View>
 
         {/* Arrow Icon */}
-        <Text style={{ fontSize: 20, color: COLORS.grayDark }}>›</Text>
+        <Text style={{ fontSize: 20, color: COLORS.grayDark }}></Text>
       </TouchableOpacity>
     );
   };
@@ -143,13 +181,12 @@ export default function MechanicList() {
     return (
       <MechanicAssignment
         mechanic={selectedMechanic}
-        tasks={tasks} // Pass tasks to MechanicAssignment
+        tasks={tasks}
         onBack={() => setSelectedMechanic(null)}
       />
     );
   }
 
-  // Otherwise show the list
   return (
     <FlatList
       data={filteredMechanics}
@@ -198,7 +235,6 @@ export default function MechanicList() {
           </Text>
         </View>
       }
-      // Ensures the last item isn't cut off by the bottom of the screen
       contentContainerStyle={{ paddingBottom: 20 }}
     />
   );

@@ -8,7 +8,6 @@ const {
   deletePartsMonitoring,
   deleteAircraftData,
   getAircraftList,
-  updateAircraftTotals,
 } = require("../controllers/partsMonitoringController");
 
 // Routes
@@ -20,7 +19,5 @@ router.post("/save", savePartsMonitoring); // Save or update data
 
 router.delete("/:id", deletePartsMonitoring); // Delete by ID
 router.delete("/aircraft/:aircraft", deleteAircraftData); // Delete all data for aircraft
-
-router.put("/:aircraft/update-totals", updateAircraftTotals);
 
 module.exports = router;

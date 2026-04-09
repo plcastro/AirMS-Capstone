@@ -281,7 +281,7 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!flightLog) {
@@ -564,16 +564,4 @@ const searchFlightLogs = async (req, res) => {
       error: error.message,
     });
   }
-};
-module.exports = {
-  createFlightLog,
-  getFlightLogs,
-  getFlightLogById,
-  getFlightLogsByAircraft,
-  updateFlightLog,
-  releaseFlightLog,
-  acceptFlightLog,
-  completeFlightLog,
-  getFlightLogStats,
-  searchFlightLogs,
 };

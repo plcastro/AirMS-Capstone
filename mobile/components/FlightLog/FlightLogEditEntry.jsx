@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  TextInput,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -53,7 +52,7 @@ export default function FlightLogEditEntry({
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole.toLowerCase() === "mechanic" || userRole === "maintenance";
+    userRole.toLowerCase() === "mechanic" || userRole === "maintenance manager";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});

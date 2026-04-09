@@ -342,7 +342,7 @@ const createUser = async (req, res) => {
       imagePath = `/uploads/${req.file.filename}`;
     }
 
-    const newUser = await UserModel.create({
+    let newUserData = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
@@ -356,7 +356,7 @@ const createUser = async (req, res) => {
       licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
         ? licenseNo
         : null,
-    });
+    };
 
     await auditLog(
       `User created: ${username}, email sent successfully`,
@@ -702,6 +702,10 @@ const updatePassword = async (req, res) => {
 
     currentPassword = currentPassword.trim();
     newPassword = newPassword.trim();
+
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
 
     if (!currentPassword || !newPassword) {
       return res
