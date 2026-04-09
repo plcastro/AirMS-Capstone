@@ -129,9 +129,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
-        Alert.alert("Error", "Failed to fetch aircraft");
-      } finally {
-        setLoading(false);
+        a;
       }
     };
 
