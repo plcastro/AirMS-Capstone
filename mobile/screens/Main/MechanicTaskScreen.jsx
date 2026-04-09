@@ -7,7 +7,6 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-const { width } = Dimensions.get("window");
 
 export default function EngineerTaskScreen() {
   const { user } = useContext(AuthContext);

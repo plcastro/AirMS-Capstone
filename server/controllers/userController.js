@@ -155,7 +155,7 @@ const loginUser = async (req, res) => {
     //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
     // );
 
-    await auditLog("User logged in", user._id);
+    // await auditLog("User logged in", user._id);c
 
     const responseUser = {
       id: user._id,
@@ -166,6 +166,8 @@ const loginUser = async (req, res) => {
       jobTitle: user.jobTitle,
       status: user.status,
       image: user.image,
+      signature: user.signature,
+      securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
     };
 
@@ -783,17 +785,27 @@ const updatePIN = async (req, res) => {
 
 const updateSignature = async (req, res) => {
   try {
-    const { signature } = req.body;
-    if (!signature)
-      return res.status(400).json({ message: "Signature is required" });
+    const user = await UserModel.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const user = await UserModel.findByIdAndUpdate(
+    if (user.signature) {
+      return res.status(400).json({
+        message: "Signature specimen has already been uploaded.",
+      });
+    }
+
+    const signature = req.file?.savedPath || req.body.signature;
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required" });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
       { signature },
       { returnDocument: "after" },
     );
 
-    res.status(200).json({ message: "Signature updated", user });
+    res.status(200).json({ message: "Signature updated", user: updatedUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

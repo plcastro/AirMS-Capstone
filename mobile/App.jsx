@@ -145,7 +145,7 @@ function DrawerNav() {
         </>
       )}
 
-      {["maintenance manager", "engineer", "officer-in-charge"].includes(
+      {["maintenance manager", "mechanic", "officer-in-charge"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
         <Drawer.Screen

@@ -27,6 +27,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online",
@@ -90,9 +91,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
-// Support both legacy and documented flight log endpoints.
 app.use("/api/flightlogs", flightLogRoutes);
-app.use("/api/flight-logs", flightLogRoutes);
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {

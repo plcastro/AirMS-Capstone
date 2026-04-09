@@ -5,27 +5,40 @@ import { COLORS } from "../../stylesheets/colors";
 
 const getStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "pending":
+      return {
+        label: "Pending",
+        backgroundColor: "#E3F2FD",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         label: "Approved",
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
+        backgroundColor: "#E0F7FA",
+        textColor: "#00838F",
       };
-    case "ready for pickup":
+    case "in progress":
       return {
-        label: "Ready for Pickup",
-        backgroundColor: "#E3F2FD",
-        textColor: "#1565C0",
+        label: "In Progress",
+        backgroundColor: "#FFF3E0",
+        textColor: "#EF6C00",
       };
     case "completed":
       return {
         label: "Completed",
-        backgroundColor: "#F3E5F5",
-        textColor: "#7B1FA2",
+        backgroundColor: "#E8F5E9",
+        textColor: "#2E7D32",
+      };
+    case "rejected":
+    case "cancelled":
+      return {
+        label: status?.toLowerCase() === "rejected" ? "Rejected" : "Cancelled",
+        backgroundColor: "#FDECEC",
+        textColor: "#C62828",
       };
     default:
       return {
-        label: "Pending",
+        label: status || "Unknown",
         backgroundColor: "#F1F1F1",
         textColor: "#666666",
       };
@@ -38,7 +51,38 @@ export default function PartsRequisitionCards({
   onEdit,
   onDelete,
   hideActions = false,
+  loading = false,
 }) {
+  if (loading) {
+    return (
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 20,
+          padding: 40,
+          alignItems: "center",
+          marginTop: 20,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="progress-clock"
+          size={48}
+          color={COLORS.grayMedium}
+        />
+        <Text
+          style={{
+            color: COLORS.grayDark,
+            fontSize: 16,
+            marginTop: 12,
+            textAlign: "center",
+          }}
+        >
+          Loading parts requisitions...
+        </Text>
+      </View>
+    );
+  }
+
   if (!requisitions || requisitions.length === 0) {
     return (
       <View
@@ -111,7 +155,7 @@ export default function PartsRequisitionCards({
                   fontWeight: "600",
                 }}
               >
-                Warehouse Slips
+                {item.slipNo}
               </Text>
               <View
                 style={{
@@ -141,7 +185,7 @@ export default function PartsRequisitionCards({
               }}
             >
               <Text style={{ color: "#777", fontSize: 14, fontWeight: "500" }}>
-                {item.dateRequested}
+                {item.formattedDateRequested || item.dateRequested}
               </Text>
             </View>
 
@@ -157,17 +201,22 @@ export default function PartsRequisitionCards({
               >
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
-                    Slip No: {item.slipNo}
+                    Aircraft: {item.aircraft || "-"}
                   </Text>
                 </View>
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
-                    Particular and Quantity: {item.itemSummary}
+                    Requested By: {item.requestedBy || "-"}
                   </Text>
                 </View>
                 <View style={{ marginBottom: 6 }}>
                   <Text style={{ color: "#555", fontSize: 14 }}>
-                    Purpose: {item.purpose}
+                    Items: {item.itemSummary}
+                  </Text>
+                </View>
+                <View style={{ marginBottom: 6 }}>
+                  <Text style={{ color: "#555", fontSize: 14 }}>
+                    Total Qty: {item.totalQuantityLabel || item.totalQuantity || 0}
                   </Text>
                 </View>
 

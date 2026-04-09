@@ -72,11 +72,7 @@ const Sidebar = ({ collapsed }) => {
       key: "7",
       label: "Parts Requisition Monitoring",
       icon: <InboxOutlined style={{ fontSize: 24 }} />,
-      roles: [
-        "maintenance manager",
-        "officer-in-charge",
-        "warehouse department",
-      ],
+      roles: ["warehouse department"],
     },
     {
       key: "8",

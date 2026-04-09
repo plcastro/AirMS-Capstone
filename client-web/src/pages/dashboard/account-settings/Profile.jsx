@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Card,
   Typography,
   Button,
@@ -10,6 +11,7 @@ import {
   Tabs,
   message,
   Popconfirm,
+  Space,
 } from "antd";
 import {
   EditOutlined,
@@ -30,7 +32,11 @@ export default function Profile() {
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreviewUri, setSignaturePreviewUri] = useState("");
+  const [signatureUploading, setSignatureUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const signatureInputRef = useRef(null);
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -57,6 +63,14 @@ export default function Profile() {
       : DefaultAvatar;
     setPreviewUri(imageUrl);
     setFile(null);
+
+    const signatureUrl = user.signature
+      ? user.signature.startsWith("http")
+        ? user.signature
+        : `${API_BASE}${user.signature}`
+      : "";
+    setSignaturePreviewUri(signatureUrl);
+    setSignatureFile(null);
   }, [user]);
 
   const handleChange = (key, value) =>
@@ -67,6 +81,14 @@ export default function Profile() {
     if (!selectedFile) return;
     setFile(selectedFile);
     setPreviewUri(URL.createObjectURL(selectedFile));
+  };
+
+  const pickSignature = (e) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setSignatureFile(selectedFile);
+    setSignaturePreviewUri(URL.createObjectURL(selectedFile));
   };
 
   const handleSaveProfile = async () => {
@@ -159,6 +181,43 @@ export default function Profile() {
     } catch (err) {
       console.error("Error removing profile image:", err);
       message.error(err.message || "Image removal failed");
+    }
+  };
+
+  const handleSaveSignature = async () => {
+    if (!signatureFile) return;
+
+    const signatureFormData = new FormData();
+    signatureFormData.append("signature", signatureFile);
+
+    try {
+      setSignatureUploading(true);
+      const res = await fetch(
+        `${API_BASE}/api/user/updateSignature/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${await getValidToken()}`,
+          },
+          body: signatureFormData,
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to upload signature");
+
+      setUser((prev) => ({
+        ...prev,
+        signature: data.user.signature,
+      }));
+      setSignatureFile(null);
+      message.success("Signature specimen uploaded successfully.");
+    } catch (err) {
+      console.error("Error uploading signature:", err);
+      message.error(err.message || "Signature upload failed");
+    } finally {
+      setSignatureUploading(false);
     }
   };
 
@@ -311,6 +370,16 @@ export default function Profile() {
           height: "max-content",
         }}
       >
+        {!user?.signature && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Signature specimen required"
+            description="Upload your specimen signature below. This can only be submitted once."
+            style={{ marginBottom: 24 }}
+          />
+        )}
+
         <Row align="center">
           <Col
             xs={24}
@@ -375,6 +444,109 @@ export default function Profile() {
                 </Popconfirm>
               </Col>
             </Row>
+
+            <Card
+              style={{
+                width: "100%",
+                borderRadius: 12,
+                background: "#fafafa",
+              }}
+            >
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <div>
+                  <Title level={5} style={{ marginBottom: 4 }}>
+                    Signature Specimen
+                  </Title>
+                  <Text type="secondary">
+                    Upload a clear image of your signature. This can only be
+                    uploaded once.
+                  </Text>
+                </div>
+
+                {signaturePreviewUri ? (
+                  <div
+                    style={{
+                      border: "1px dashed #d9d9d9",
+                      borderRadius: 12,
+                      padding: 16,
+                      background: "#fff",
+                      minHeight: 140,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <img
+                      src={signaturePreviewUri}
+                      alt="Signature specimen"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: 110,
+                        objectFit: "contain",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      border: "1px dashed #d9d9d9",
+                      borderRadius: 12,
+                      padding: 16,
+                      background: "#fff",
+                      minHeight: 140,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                    }}
+                  >
+                    <Text type="secondary">
+                      No signature specimen uploaded yet.
+                    </Text>
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={signatureInputRef}
+                  style={{ display: "none" }}
+                  onChange={pickSignature}
+                />
+
+                <Space wrap>
+                  <Button
+                    type="primary"
+                    onClick={() =>
+                      user?.signature
+                        ? null
+                        : signatureFile
+                          ? handleSaveSignature()
+                          : signatureInputRef.current?.click()
+                    }
+                    disabled={Boolean(user?.signature)}
+                    loading={signatureUploading}
+                  >
+                    {user?.signature
+                      ? "Signature Locked"
+                      : signatureFile
+                        ? "Upload Signature"
+                        : "Choose Signature File"}
+                  </Button>
+
+                  {!user?.signature && signatureFile && (
+                    <Button
+                      onClick={() => {
+                        setSignatureFile(null);
+                        setSignaturePreviewUri("");
+                      }}
+                    >
+                      Clear Selection
+                    </Button>
+                  )}
+                </Space>
+              </Space>
+            </Card>
           </Col>
 
           <Col xs={24} s={24} md={24} lg={12}>

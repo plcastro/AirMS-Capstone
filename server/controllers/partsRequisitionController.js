@@ -26,8 +26,17 @@ const getRequisitionById = async (req, res) => {
 
 const createRequisition = async (req, res) => {
   try {
-    const requisitionId = req.params.id;
-    const { wrsNo, aircraft, staff, items, dateRequested } = req.body;
+    const {
+      wrsNo,
+      aircraft,
+      staff,
+      items,
+      dateRequested,
+      dateApproved,
+      dateReceived,
+      status,
+    } = req.body;
+
     const newRequisition = new partsRequisitionModel({
       wrsNo,
       aircraft,
