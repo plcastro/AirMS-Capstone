@@ -1,5 +1,5 @@
 // controllers/partsMonitoringController.js
-const PartsMonitoring = require("../models/partsMonitoring");
+const PartsMonitoringModel = require("../models/partsMonitoringModel");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
@@ -38,7 +38,7 @@ const savePartsMonitoring = async (req, res) => {
     console.log(`Number of parts: ${parts.length}`);
 
     // Check if data already exists for this aircraft
-    let existingData = await PartsMonitoring.findOne({ aircraft });
+    let existingData = await PartsMonitoringModel.findOne({ aircraft });
     console.log("Existing data found:", existingData ? "Yes" : "No");
 
     if (existingData) {
@@ -108,7 +108,7 @@ const getPartsMonitoring = async (req, res) => {
     const { aircraft } = req.params;
     console.log("Fetching data for aircraft:", aircraft);
 
-    const data = await PartsMonitoring.findOne({ aircraft }).sort({
+    const data = await PartsMonitoringModel.findOne({ aircraft }).sort({
       lastUpdated: -1,
     });
 
@@ -139,8 +139,8 @@ const getAllPartsMonitoring = async (req, res) => {
     const { page = 1, limit = 10, aircraft } = req.query;
     const query = aircraft ? { aircraft } : {};
 
-    const total = await PartsMonitoring.countDocuments(query);
-    const data = await PartsMonitoring.find(query)
+    const total = await PartsMonitoringModel.countDocuments(query);
+    const data = await PartsMonitoringModel.find(query)
       .sort({ lastUpdated: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -167,7 +167,7 @@ const deletePartsMonitoring = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await PartsMonitoring.findByIdAndDelete(id);
+    const deleted = await PartsMonitoringModel.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({
@@ -200,7 +200,7 @@ const deleteAircraftData = async (req, res) => {
   try {
     const { aircraft } = req.params;
 
-    const deleted = await PartsMonitoring.findOneAndDelete({ aircraft });
+    const deleted = await PartsMonitoringModel.findOneAndDelete({ aircraft });
 
     if (!deleted) {
       return res.status(404).json({
@@ -231,7 +231,7 @@ const deleteAircraftData = async (req, res) => {
 // Get all unique aircraft list
 const getAircraftList = async (req, res) => {
   try {
-    const aircraft = await PartsMonitoring.distinct("aircraft");
+    const aircraft = await PartsMonitoringModel.distinct("aircraft");
 
     res.status(200).json({
       success: true,
@@ -252,4 +252,5 @@ exports.module = {
   deletePartsMonitoring,
   getAircraftList,
   getAllPartsMonitoring,
+  getPartsMonitoring,
 };
