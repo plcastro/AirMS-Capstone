@@ -52,6 +52,9 @@ const createRequisition = async (req, res) => {
       staff,
       items,
       dateRequested,
+      dateApproved,
+      dateReceived,
+      status,
     });
     const savedRequisition = await newRequisition.save();
     const audit = withActorId(
@@ -68,9 +71,29 @@ const createRequisition = async (req, res) => {
 
 const updateRequisitionStatus = async (req, res) => {
   try {
+    const updatePayload = {
+      status: req.body.status,
+    };
+
+    if (req.body.dateReceived) {
+      updatePayload.dateReceived = req.body.dateReceived;
+    }
+
+    if (req.body.dateApproved) {
+      updatePayload.dateApproved = req.body.dateApproved;
+    }
+
+    if (req.body.approvedBy) {
+      updatePayload["staff.approvedBy"] = req.body.approvedBy;
+    }
+
+    if (req.body.receiver) {
+      updatePayload["staff.receiver"] = req.body.receiver;
+    }
+
     const updatedRequisition = await partsRequisitionModel.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status, dateReceived: req.body.dateReceived },
+      updatePayload,
       { new: true, runValidators: true },
     );
 

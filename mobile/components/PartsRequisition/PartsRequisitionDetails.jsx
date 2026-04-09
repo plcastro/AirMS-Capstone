@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  Modal,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,18 +8,14 @@ const getOverallStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
     case "approved":
       return {
-        borderColor: "#00838F",
-        textColor: "#00838F",
+        borderColor: "#2F8CFF",
+        textColor: "#2F8CFF",
       };
-    case "pending":
+    case "in progress":
+    case "ready for pickup":
       return {
         borderColor: "#1565C0",
         textColor: "#1565C0",
-      };
-    case "in progress":
-      return {
-        borderColor: "#EF6C00",
-        textColor: "#EF6C00",
       };
     case "completed":
       return {
@@ -51,22 +40,18 @@ const getTimelineBadgeStyle = (status) => {
   switch (status?.toLowerCase()) {
     case "approved":
       return {
-        borderColor: "#80DEEA",
-        textColor: "#00838F",
+        borderColor: "#69AFFF",
+        textColor: "#2F8CFF",
       };
-    case "pending":
+    case "in progress":
+    case "ready for pickup":
       return {
         borderColor: "#90CAF9",
         textColor: "#1565C0",
       };
-    case "in progress":
-      return {
-        borderColor: "#FFCC80",
-        textColor: "#EF6C00",
-      };
     case "completed":
       return {
-        borderColor: "#A5D6A7",
+        borderColor: "#81C784",
         textColor: "#2E7D32",
       };
     case "rejected":
@@ -193,7 +178,9 @@ export default function PartsRequisitionDetails({
                     fontWeight: "500",
                   }}
                 >
-                  {request.overallStatus}
+                  {request.overallStatus === "In Progress"
+                    ? "Ready for Pickup"
+                    : request.overallStatus}
                 </Text>
               </View>
             </View>
@@ -203,7 +190,6 @@ export default function PartsRequisitionDetails({
                 ["Request ID", request.requestId],
                 ["Request Date", request.requestDate],
                 ["Requested By", request.requestedBy],
-                ["Aircraft", request.aircraft || "-"],
                 ["Total Items", String(request.totalItems)],
                 ["Total Quantity", request.totalQuantity],
               ].map(([label, value]) => (
@@ -262,21 +248,6 @@ export default function PartsRequisitionDetails({
                         index < request.requestItems.length - 1 ? 16 : 0,
                     }}
                   >
-                    <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
-                        Material Code No.
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 18,
-                          color: COLORS.black,
-                          fontWeight: "700",
-                        }}
-                      >
-                        {item.materialCodeNumber || "-"}
-                      </Text>
-                    </View>
-
                     <View style={{ marginBottom: 8 }}>
                       <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
                         Item Name
@@ -348,7 +319,9 @@ export default function PartsRequisitionDetails({
                             fontSize: 18,
                           }}
                         >
-                          {item.status}
+                          {item.status === "In Progress"
+                            ? "Ready for Pickup"
+                            : item.status}
                         </Text>
                       </View>
                     </View>
@@ -430,7 +403,9 @@ export default function PartsRequisitionDetails({
                           fontSize: 18,
                         }}
                       >
-                        {entry.status}
+                        {entry.status === "In Progress"
+                          ? "Ready for Pickup"
+                          : entry.status}
                       </Text>
                     </View>
 
