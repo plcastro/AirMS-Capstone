@@ -8,21 +8,81 @@ import {
   Input,
   Card,
   Divider,
-  message,
+  Tooltip,
 } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
+// Import the default processor for AS350B3
 import {
-  processDataWithFormulas,
+  processDataWithFormulas as processAS350,
   getToday,
-} from "../../../utils/partsFormula-8912";
+} from "../../../utils/partsFormula-AS350B3";
+// Import the processor for Bell 412 (create it if needed)
+//import { processDataWithFormulas as processB412 } from "../../../utils/partsFormula-B412";
 import "./PartsLifespanMonitoring.css";
+import { message } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
-import { PLMmockdata } from "./PLMmockdata";
+
+// Import default raw data for each aircraft
+import { rawData as rawData8912 } from "../../../utils/8912RawData";
+import { rawData as rawData7247 } from "../../../utils/7247RawData";
+import { rawData as rawData7226 } from "../../../utils/7226RawData";
+import { rawData as rawData7057 } from "../../../utils/7057RawData";
+import { rawData as rawData9511 } from "../../../utils/9511RawData";
+//import { rawData as rawData2810 } from "../../../utils/2810RawData"; // Bell 412
+
+// Default reference values for each aircraft (acftTT, n1Cycles, n2Cycles, landings)
+const defaultRefsMap = {
+  "RP-C8912": { acftTT: 902.1, n1Cycles: 810, n2Cycles: 302, landings: 613 },
+  "RP-C7247": {
+    acftTT: 3233.7,
+    n1Cycles: 2952.77,
+    n2Cycles: 6677.3,
+    landings: 3388,
+  },
+  "RP-C7226": {
+    acftTT: 2813.4,
+    n1Cycles: 5990.9,
+    n2Cycles: 2949.59,
+    landings: 3416,
+  },
+  "RP-C7057": {
+    acftTT: 3344.4,
+    n1Cycles: 2276.44,
+    n2Cycles: 1736.34,
+    landings: 4140,
+  },
+  "RP-C9511": {
+    acftTT: 814.5,
+    n1Cycles: 364.86,
+    n2Cycles: 145.87,
+    landings: 861,
+  },
+  //"RP-C2810": { acftTT: 1625.1, n1Cycles: 1655, n2Cycles: 1655, landings: 2243 }, // Bell 412 uses engine cycles instead of N1/N2
+};
+
+// Map aircraft registration to its default raw data array
+const defaultRawDataMap = {
+  "RP-C8912": rawData8912,
+  "RP-C7247": rawData7247,
+  "RP-C7226": rawData7226,
+  "RP-C7057": rawData7057,
+  "RP-C9511": rawData9511,
+  //"RP-C2810": rawData2810,
+};
+
+// Map aircraft to the appropriate formula processor
+const getFormulaProcessor = (aircraft) => {
+  // Bell 412 (RP-C2810) uses a different processor
+  if (aircraft === "RP-C2810") return processB412;
+  // All other AS350B3 variants use the standard processor
+  return processAS350;
+};
 
 const { Text } = Typography;
 
+// Column headers (same as before)
 const columnHeader = [
   {
     title:
@@ -87,19 +147,15 @@ const columnHeader = [
   },
 ];
 
-// =========================================================================
-// Main component
-// =========================================================================
 export default function PartsMonitoring() {
-  // Reference values (editable by user)
   const [refs, setRefs] = useState({
     today: getToday(),
-    acftTT: 902.1,
-    n1Cycles: 810,
-    n2Cycles: 302,
-    landings: 613,
+    acftTT: 0,
+    n1Cycles: 0,
+    n2Cycles: 0,
+    landings: 0,
   });
-
+  const [rawData, setRawData] = useState([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
@@ -114,23 +170,7 @@ export default function PartsMonitoring() {
     serialNumber: "",
   });
 
-  const formatDate = (dateString) => {
-    if (!dateString || dateString === "N/A") return dateString;
-
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-
-      const month = (date.getMonth() + 1).toString().padStart(2, "0");
-      const day = date.getDate().toString().padStart(2, "0");
-      const year = date.getFullYear().toString().slice(-2);
-
-      return `${day}/${month}/${year}`;
-    } catch (error) {
-      return dateString;
-    }
-  };
-
+  // Fetch aircraft list from backend
   const fetchAircraftList = async () => {
     setLoadingAircraft(true);
     try {
@@ -138,11 +178,8 @@ export default function PartsMonitoring() {
         `${API_BASE}/api/parts-monitoring/aircraft-list`,
       );
       const data = await response.json();
-
       if (response.ok && data.success) {
         setAircraftOptions(data.data);
-
-        console.log("Fetched data: ", data.data);
       } else {
         message.error(data.message || "Failed to load aircraft list");
       }
@@ -158,7 +195,7 @@ export default function PartsMonitoring() {
     fetchAircraftList();
   }, []);
 
-  // Save function using fetch
+  // Save data to database
   const handleSaveToDatabase = async () => {
     setSaving(true);
     try {
@@ -168,17 +205,12 @@ export default function PartsMonitoring() {
         parts: rawData,
         updatedBy: "user",
       };
-
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(saveData),
       });
-
       const data = await response.json();
-
       if (response.ok && data.success) {
         message.success("Data saved successfully!");
         setLastSaved(new Date());
@@ -193,7 +225,27 @@ export default function PartsMonitoring() {
     }
   };
 
-  // Load data function using fetch
+  // Load default data for an aircraft (when no saved data exists)
+  const loadDefaultData = (aircraft) => {
+    const defaultData = defaultRawDataMap[aircraft];
+    const defaultRefsValues = defaultRefsMap[aircraft];
+    if (defaultData && defaultRefsValues) {
+      setRawData(defaultData);
+      setRefs({
+        today: getToday(),
+        acftTT: defaultRefsValues.acftTT,
+        n1Cycles: defaultRefsValues.n1Cycles,
+        n2Cycles: defaultRefsValues.n2Cycles,
+        landings: defaultRefsValues.landings,
+      });
+      message.info(`Loaded default data for ${aircraft}`);
+    } else {
+      message.warning(`No default data available for ${aircraft}`);
+      setRawData([]);
+    }
+  };
+
+  // Load data from database or fallback to default
   const loadDataFromDatabase = async (aircraft) => {
     setLoading(true);
     try {
@@ -201,9 +253,6 @@ export default function PartsMonitoring() {
         `${API_BASE}/api/parts-monitoring/${aircraft}`,
       );
       const data = await response.json();
-
-      console.log("Fetched data for aircraft:", data);
-
       if (response.ok && data.success && data.data) {
         const {
           referenceData,
@@ -213,7 +262,6 @@ export default function PartsMonitoring() {
           creepDamage,
           serialNumber,
         } = data.data;
-
         setAircraftDetails({
           dateManufactured: dateManufactured
             ? new Date(dateManufactured)
@@ -222,52 +270,62 @@ export default function PartsMonitoring() {
           creepDamage: creepDamage || "",
           serialNumber: serialNumber || "",
         });
-
         if (referenceData) {
-          const currentDate = new Date();
           setRefs({
-            today: currentDate,
+            today: getToday(),
             acftTT: referenceData.acftTT,
             n1Cycles: referenceData.n1Cycles,
             n2Cycles: referenceData.n2Cycles,
             landings: referenceData.landings,
           });
         }
-
         if (parts && parts.length > 0) {
           setRawData(parts);
-          message.success(`Loaded data for ${aircraft}`);
+          message.success(`Loaded saved data for ${aircraft}`);
+        } else {
+          // No parts in saved data, fallback to default
+          loadDefaultData(aircraft);
         }
       } else if (response.status === 404) {
-        message.info(`No saved data found for ${aircraft}`);
+        // No saved data, use default
+        loadDefaultData(aircraft);
       } else {
         message.error(data.message || "Error loading data");
+        loadDefaultData(aircraft);
       }
     } catch (error) {
       console.error("Error loading data:", error);
       message.error("Error loading data from database");
+      loadDefaultData(aircraft);
     } finally {
       setLoading(false);
     }
   };
 
+  // Reload when aircraft changes
   useEffect(() => {
     if (selectedAircraft) {
       loadDataFromDatabase(selectedAircraft);
+    } else {
+      setRawData([]);
+      setAircraftDetails({
+        dateManufactured: null,
+        aircraftType: "",
+        creepDamage: "",
+        serialNumber: "",
+      });
     }
   }, [selectedAircraft]);
 
-  const [rawData, setRawData] = useState(PLMmockdata);
-
+  // Compute derived data using the correct formula processor for the selected aircraft
   const computedData = useMemo(() => {
-    if (!selectedAircraft) return [];
-    const processedData = processDataWithFormulas(rawData, refs);
-    return processedData;
+    if (!selectedAircraft || rawData.length === 0) return [];
+    const processor = getFormulaProcessor(selectedAircraft);
+    return processor(rawData, refs);
   }, [rawData, refs, selectedAircraft]);
 
   const isCellEditable = (record, dataIndex) => {
     if (record.rowType !== "part") return false;
-
     const nonEditable = [
       "componentName",
       "hourLimit1",
@@ -284,7 +342,6 @@ export default function PartsMonitoring() {
     return !nonEditable.includes(dataIndex);
   };
 
-  // Handle cell value change
   const handleCellEdit = (recordId, dataIndex, newValue) => {
     setRawData((prev) =>
       prev.map((row) =>
@@ -292,74 +349,68 @@ export default function PartsMonitoring() {
       ),
     );
   };
+
   return (
-    <div className="parts-monitoring-container" style={{ padding: 20 }}>
-      <Row gutter={[16, 16]} align="middle">
-        {/* Search */}
-        <Col xs={24} md={12} lg={7}>
-          <Input
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            size="large"
-            allowClear
-            style={{ width: "100%" }}
-          />
-        </Col>
-
-        {/* Select */}
-        <Col xs={24} md={3} lg={3}>
-          <Select
-            value={selectedAircraft}
-            onChange={(value) => setSelectedAircraft(value)}
-            loading={loadingAircraft}
-            size="large"
-            style={{ width: "100%" }}
-            options={aircraftOptions.map((aircraft) => ({
-              label: aircraft,
-              value: aircraft,
-            }))}
-          />
-        </Col>
-
-        {/* Actions */}
-        <Col xs={24} md={9} lg={14}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            {/* <Button type="primary" icon={<PlusOutlined />} size="large">
+    <div
+      style={{
+        padding: 20,
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        paddingBottom: 120,
+      }}
+    >
+      <Row justify="space-between" align="middle" className="header-row">
+        <Col>
+          <div className="header-left">
+            <Input
+              placeholder="Search..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="search-input"
+              size="large"
+              allowClear
+            />
+            <Select
+              value={selectedAircraft}
+              onChange={(value) => setSelectedAircraft(value)}
+              style={{ width: 180 }}
+              loading={loadingAircraft}
+              options={aircraftOptions.map((aircraft) => ({
+                label: aircraft,
+                value: aircraft,
+              }))}
+            />
+            {/* <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
             </Button> */}
-
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSaveToDatabase}
-              loading={saving}
-              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
-              size="large"
-            >
-              Save
-            </Button>
-
+            <Tooltip title="Save to Database">
+              <Button
+                type="primary"
+                onClick={handleSaveToDatabase}
+                loading={saving}
+                disabled={!selectedAircraft}
+                // style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              >
+                <SaveOutlined />
+              </Button>
+            </Tooltip>
             {lastSaved && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text
+                type="secondary"
+                style={{ fontSize: "12px", marginLeft: "8px" }}
+              >
                 Last saved: {lastSaved.toLocaleTimeString()}
               </Text>
             )}
           </div>
         </Col>
+        <Col></Col>
       </Row>
       <Divider />
 
-      {/* Info Cards with reference inputs - same as before */}
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
         {/* Left Card - Aircraft Info */}
         <Col xs={24} md={8} lg={6}>
@@ -549,7 +600,7 @@ export default function PartsMonitoring() {
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}
-        loading={false}
+        loading={loading}
         editable={!!selectedAircraft}
         isCellEditable={isCellEditable}
         onCellEdit={handleCellEdit}
