@@ -1,69 +1,116 @@
 // controllers/partsMonitoringController.js
 const PartsMonitoringModel = require("../models/partsMonitoringModel");
-const { auditLog } = require("./logsController");
-const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
-const withActorId = (req, action, fallbackId = null) => {
-  const actorId = getAuditActorId(req, fallbackId);
-  return {
-    actorId,
-    action: actorId ? `${action} (actorId: ${actorId})` : action,
-  };
-};
 
-// Save or update parts monitoring data
-const savePartsMonitoring = async (req, res) => {
+const updateAircraftTotals = async (req, res) => {
   try {
-    console.log("=== SAVE REQUEST RECEIVED ===");
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-
-    const { aircraft, referenceData, parts, updatedBy } = req.body;
+    const { aircraft } = req.params;
+    const { acftTT, n1Cycles, n2Cycles, landings } = req.body;
 
     if (!aircraft) {
-      console.log("Error: No aircraft provided");
       return res.status(400).json({
         success: false,
         message: "Aircraft is required",
       });
     }
 
+    // Validate required fields
+    if (
+      acftTT === undefined ||
+      n1Cycles === undefined ||
+      n2Cycles === undefined ||
+      landings === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required totals: acftTT, n1Cycles, n2Cycles, landings",
+      });
+    }
+
+    // Find existing record or create a new one
+    let partsData = await PartsMonitoringModel.findOne({ aircraft });
+
+    if (!partsData) {
+      // Create minimal record with empty parts array
+      partsData = new PartsMonitoringModel({
+        aircraft,
+        referenceData: {
+          today: new Date(),
+          acftTT: 0,
+          n1Cycles: 0,
+          n2Cycles: 0,
+          landings: 0,
+        },
+        parts: [],
+        updatedBy: "flight_log_system",
+      });
+    }
+
+    // Update the reference totals
+    partsData.referenceData.acftTT = acftTT;
+    partsData.referenceData.n1Cycles = n1Cycles;
+    partsData.referenceData.n2Cycles = n2Cycles;
+    partsData.referenceData.landings = landings;
+    partsData.lastUpdated = Date.now();
+    partsData.updatedBy = req.body.updatedBy || "flight_log_system";
+
+    await partsData.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Aircraft totals updated successfully",
+      data: partsData,
+    });
+  } catch (error) {
+    console.error("Error updating aircraft totals:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating aircraft totals",
+      error: error.message,
+    });
+  }
+};
+
+// Save or update parts monitoring data
+const savePartsMonitoring = async (req, res) => {
+  try {
+    const {
+      aircraft,
+      referenceData,
+      parts,
+      updatedBy,
+      dateManufactured,
+      aircraftType,
+      creepDamage,
+    } = req.body;
+
+    if (!aircraft) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Aircraft is required" });
+    }
     if (!parts || !Array.isArray(parts)) {
-      console.log("Error: Parts data is invalid or missing");
       return res.status(400).json({
         success: false,
         message: "Parts data is required and must be an array",
       });
     }
 
-    console.log(`Processing save for aircraft: ${aircraft}`);
-    console.log(`Number of parts: ${parts.length}`);
-
-    // Check if data already exists for this aircraft
     let existingData = await PartsMonitoringModel.findOne({ aircraft });
-    console.log("Existing data found:", existingData ? "Yes" : "No");
 
     if (existingData) {
-      // Update existing data
       existingData.referenceData = referenceData || existingData.referenceData;
       existingData.parts = parts;
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
-
       await existingData.save();
-      const audit = withActorId(
-        req,
-        `Parts monitoring updated for aircraft: ${aircraft}`,
-      );
-      await auditLog(audit.action, audit.actorId);
-      console.log("Data updated successfully");
-
       res.status(200).json({
         success: true,
         message: "Data updated successfully",
         data: existingData,
       });
     } else {
-      // Create new record
-      const newData = new PartsMonitoring({
+      const newData = new PartsMonitoringModel({
         aircraft,
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
@@ -72,15 +119,7 @@ const savePartsMonitoring = async (req, res) => {
         parts,
         updatedBy: updatedBy || "system",
       });
-
       await newData.save();
-      const audit = withActorId(
-        req,
-        `Parts monitoring created for aircraft: ${aircraft}`,
-      );
-      await auditLog(audit.action, audit.actorId);
-      console.log("New data created successfully");
-
       res.status(201).json({
         success: true,
         message: "Data saved successfully",
@@ -88,16 +127,11 @@ const savePartsMonitoring = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("=== ERROR IN SAVE ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-
+    console.error("Error saving data:", error);
     res.status(500).json({
       success: false,
       message: "Error saving data",
       error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };
@@ -175,11 +209,6 @@ const deletePartsMonitoring = async (req, res) => {
         message: "Data not found",
       });
     }
-    const audit = withActorId(
-      req,
-      `Parts monitoring deleted for aircraft: ${deleted.aircraft}`,
-    );
-    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -208,11 +237,6 @@ const deleteAircraftData = async (req, res) => {
         message: "No data found for this aircraft",
       });
     }
-    const audit = withActorId(
-      req,
-      `Parts monitoring deleted for aircraft: ${aircraft}`,
-    );
-    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -247,6 +271,7 @@ const getAircraftList = async (req, res) => {
   }
 };
 module.exports = {
+  updateAircraftTotals,
   savePartsMonitoring,
   deleteAircraftData,
   deletePartsMonitoring,
