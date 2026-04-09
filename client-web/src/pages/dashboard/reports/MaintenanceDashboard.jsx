@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Row, Col, Card, Input, Button, Select, Statistic, message } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
@@ -7,6 +7,7 @@ import MaintenanceSummary from "./MaintenanceSummary";
 import MaintenanceHistory from "./MaintenanceHistory";
 import ComponentUsage from "./ComponentUsage";
 import { componentData } from "../../../components/common/MockData";
+import { AuthContext } from "../../../context/AuthContext";
 import {
   exportToExcel,
   exportToPDF,
@@ -27,7 +28,7 @@ export default function MaintenanceDashboard() {
       try {
         setLoadingTasks(true);
 
-        const token = localStorage.getItem("token");
+        const token = await getValidToken();
         if (!token) {
           throw new Error("No authentication token found. Please log in.");
         }
@@ -76,46 +77,7 @@ export default function MaintenanceDashboard() {
     };
 
     fetchTasks();
-  }, []);
-
-  // Stats state
-  const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
-
-  // Fetch stats from MaintenancePerformance API
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const token = await getValidToken();
-        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const result = await response.json();
-        const tasks = result.data || [];
-
-        const completed = tasks.filter((t) => t.status === "Completed").length;
-        const dueSoon = tasks.filter(
-          (t) =>
-            t.status !== "Completed" &&
-            t.dueDate &&
-            new Date(t.dueDate) >= new Date() &&
-            new Date(t.dueDate) <=
-              new Date(new Date().setDate(new Date().getDate() + 3)),
-        ).length;
-        const overdue = tasks.filter(
-          (t) =>
-            t.status !== "Completed" &&
-            t.dueDate &&
-            new Date(t.dueDate) < new Date(),
-        ).length;
-
-        setStats({ completed, dueSoon, overdue });
-      } catch (err) {
-        console.error("Failed to fetch stats", err);
-      }
-    };
-
-    fetchStats();
-  }, []);
+  }, [getValidToken]);
 
   const cards = [
     {

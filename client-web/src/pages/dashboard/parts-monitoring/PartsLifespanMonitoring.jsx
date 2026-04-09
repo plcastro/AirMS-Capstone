@@ -51,7 +51,7 @@ const defaultRawDataMap = {
 // Map aircraft to the appropriate formula processor
 const getFormulaProcessor = (aircraft) => {
   // Bell 412 (RP-C2810) uses a different processor
-  if (aircraft === "RP-C2810") return processB412;
+  if (aircraft === "RP-C2810") return processAS350;
   // All other AS350B3 variants use the standard processor
   return processAS350;
 };
@@ -92,6 +92,7 @@ export default function PartsMonitoring() {
   const [refs, setRefs] = useState({
     today: getToday(),
     acftTT: 0,
+    engTT: 0,
     n1Cycles: 0,
     n2Cycles: 0,
     landings: 0,
@@ -173,6 +174,7 @@ export default function PartsMonitoring() {
       setRefs({
         today: getToday(),
         acftTT: defaultRefsValues.acftTT,
+        engTT: defaultRefsValues.acftTT,
         n1Cycles: defaultRefsValues.n1Cycles,
         n2Cycles: defaultRefsValues.n2Cycles,
         landings: defaultRefsValues.landings,
@@ -202,6 +204,7 @@ export default function PartsMonitoring() {
           setRefs({
             today: getToday(),
             acftTT: referenceData.acftTT,
+            engTT: referenceData.engTT ?? referenceData.acftTT,
             n1Cycles: referenceData.n1Cycles,
             n2Cycles: referenceData.n2Cycles,
             landings: referenceData.landings,
@@ -398,22 +401,6 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>N2:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
-                  value={refs.acftTT}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, acftTT: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N2:</Text>
-                <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n2Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, n2Cycles: parseFloat(e.target.value) || 0 }))
@@ -433,6 +420,7 @@ export default function PartsMonitoring() {
                       engTT: parseFloat(e.target.value) || 0,
                     }))
                   }
+                  disabled={!selectedAircraft}
                 />
               </Col>
 
@@ -460,12 +448,13 @@ export default function PartsMonitoring() {
                   }
                   disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Sling:</Text>
-                <Input size="small" className="card-input-field" disabled={!selectedAircraft} />
-              </div>
-            </div>
+              </Col>
+
+              <Col xs={12} md={6}>
+                <Text>Sling:</Text>
+                <Input disabled={!selectedAircraft} />
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>

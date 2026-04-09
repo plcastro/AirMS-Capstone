@@ -1,84 +1,14 @@
-import React, { useState, useContext } from "react";
-import { Input, Button, Table, Space, message } from "antd";
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import { Input, Button, Table, Space, message, Modal } from "antd";
 import {
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
-  EditOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
+import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import "./flightlog.css";
-
-// Mock initial data for debugging
-const MOCK_INITIAL_LOGS = [
-  {
-    id: "1",
-    _id: "1",
-    key: "1",
-    aircraftType: "AS350B3",
-    rpc: "RP-C1234",
-    date: "01/15/2025",
-    controlNo: "FL-2025-001",
-    status: "pending_release",
-    createdBy: "pilot",
-    legs: [{ stations: [{ from: "MNL", to: "CEB" }] }],
-    remarks: "",
-    sling: "",
-    fuelServicing: [],
-    oilServicing: [],
-    workItems: [],
-    componentData: {
-      broughtForwardData: {},
-      thisFlightData: {},
-      toDateData: {},
-    },
-  },
-  {
-    id: "2",
-    _id: "2",
-    key: "2",
-    aircraftType: "R44",
-    rpc: "RP-C5678",
-    date: "01/14/2025",
-    controlNo: "FL-2025-002",
-    status: "pending_acceptance",
-    createdBy: "engineer",
-    legs: [{ stations: [{ from: "CEB", to: "TAG" }] }],
-    remarks: "",
-    sling: "",
-    fuelServicing: [],
-    oilServicing: [],
-    workItems: [],
-    componentData: {
-      broughtForwardData: {},
-      thisFlightData: {},
-      toDateData: {},
-    },
-  },
-  {
-    id: "3",
-    _id: "3",
-    key: "3",
-    aircraftType: "AS350B3",
-    rpc: "RP-C1234",
-    date: "01/13/2025",
-    controlNo: "FL-2025-003",
-    status: "completed",
-    createdBy: "pilot",
-    legs: [{ stations: [{ from: "TAG", to: "MNL" }] }],
-    remarks: "Routine maintenance performed",
-    sling: "500kg capacity",
-    fuelServicing: [],
-    oilServicing: [],
-    workItems: [],
-    componentData: {
-      broughtForwardData: {},
-      thisFlightData: {},
-      toDateData: {},
-    },
-  },
-];
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
@@ -87,22 +17,356 @@ export default function FlightLog() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [flightLogs, setFlightLogs] = useState(MOCK_INITIAL_LOGS);
-  const [loading, setLoading] = useState(false);
+  const [flightLogs, setFlightLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [entryModalVisible, setEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const [workflowModal, setWorkflowModal] = useState({
+    open: false,
+    action: null,
+    log: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const isPilot = userRole === "pilot";
+  const isMechanic =
+    userRole === "engineer" ||
+    userRole === "mechanic" ||
+    userRole === "maintenance manager";
 
-  // Aircraft options from existing logs
-  const aircraftOptions = [
-    "all",
-    ...new Set(flightLogs.map((l) => l.rpc).filter(Boolean)),
-  ];
+  const fetchFlightLogs = async () => {
+    try {
+      setLoading(true);
 
-  // Status options (matching mobile)
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "100");
+
+      if (selectedAircraft && selectedAircraft !== "all") {
+        params.append("aircraftRPC", selectedAircraft);
+      }
+      if (selectedStatus && selectedStatus !== "all") {
+        params.append("status", selectedStatus);
+      }
+
+      const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch flight logs");
+      }
+
+      setFlightLogs(data.data || []);
+    } catch (error) {
+      console.error("Fetch flight logs error:", error);
+      message.error(error.message || "Failed to fetch flight logs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchFlightLogs = async (query) => {
+    if (!query.trim()) {
+      fetchFlightLogs();
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to search flight logs");
+      }
+
+      setFlightLogs(data.data || []);
+    } catch (error) {
+      console.error("Search flight logs error:", error);
+      message.error(error.message || "Failed to search flight logs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveNew = async (newEntry) => {
+    try {
+      setSaving(true);
+
+      const response = await fetch(`${API_BASE}/api/flightlogs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newEntry),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to add flight log");
+      }
+
+      await fetchFlightLogs();
+      setEntryModalVisible(false);
+      message.success("Flight log added successfully");
+    } catch (error) {
+      console.error("Create flight log error:", error);
+      message.error(error.message || "Failed to add flight log");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (record) => {
+    setSelectedLog(record);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async (data) => {
+    if (!selectedLog?._id) return;
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(`${API_BASE}/api/flightlogs/${selectedLog._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...selectedLog,
+          ...data,
+          _id: selectedLog._id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to update flight log");
+      }
+
+      await fetchFlightLogs();
+      setEditModalVisible(false);
+      setSelectedLog(null);
+      message.success("Flight log updated successfully");
+    } catch (error) {
+      console.error("Update flight log error:", error);
+      message.error(error.message || "Failed to update flight log");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExport = (record) => {
+    console.log("Export log:", record);
+    message.info(`Export log: ${record.rpc}`);
+  };
+
+  const getUserDisplayName = () => {
+    const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+    return fullName || user?.username || userRole || "Unknown";
+  };
+
+  const buildToDateData = (log) => {
+    const broughtForward = log?.componentData?.broughtForwardData || {};
+    const thisFlight = log?.componentData?.thisFlightData || {};
+
+    return {
+      airframe:
+        (parseFloat(broughtForward.airframe) || 0) +
+        (parseFloat(thisFlight.airframe) || 0),
+      gearBoxMain:
+        (parseFloat(broughtForward.gearBoxMain) || 0) +
+        (parseFloat(thisFlight.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(broughtForward.gearBoxTail) || 0) +
+        (parseFloat(thisFlight.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(broughtForward.rotorMain) || 0) +
+        (parseFloat(thisFlight.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(broughtForward.rotorTail) || 0) +
+        (parseFloat(thisFlight.rotorTail) || 0),
+      engine:
+        (parseFloat(broughtForward.engine) || 0) +
+        (parseFloat(thisFlight.engine) || 0),
+      cycleN1:
+        (parseFloat(broughtForward.cycleN1) || 0) +
+        (parseFloat(thisFlight.cycleN1) || 0),
+      cycleN2:
+        (parseFloat(broughtForward.cycleN2) || 0) +
+        (parseFloat(thisFlight.cycleN2) || 0),
+      landingCycle:
+        (parseFloat(broughtForward.landingCycle) || 0) +
+        (parseFloat(thisFlight.landingCycle) || 0),
+      usage:
+        (parseFloat(broughtForward.usage) || 0) +
+        (parseFloat(thisFlight.usage) || 0),
+      airframeNextInsp:
+        thisFlight.airframeNextInsp || broughtForward.airframeNextInsp || "",
+      engineNextInsp:
+        thisFlight.engineNextInsp || broughtForward.engineNextInsp || "",
+    };
+  };
+
+  const openWorkflowModal = (action, log) => {
+    setWorkflowModal({ open: true, action, log });
+  };
+
+  const closeWorkflowModal = () => {
+    setWorkflowModal({ open: false, action: null, log: null });
+  };
+
+  const handleWorkflowAction = async () => {
+    const { action, log } = workflowModal;
+    if (!action || !log?._id) return;
+
+    try {
+      setSaving(true);
+
+      if (action === "release") {
+        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/release`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: getUserDisplayName(),
+            signature: user?.signature || getUserDisplayName(),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to release flight log");
+        }
+        message.success("Flight log released");
+      }
+
+      if (action === "accept") {
+        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/accept`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: getUserDisplayName(),
+            signature: user?.signature || getUserDisplayName(),
+            userRole: "pilot",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to accept flight log");
+        }
+        message.success("Flight log accepted");
+      }
+
+      if (action === "notify") {
+        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...log,
+            _id: log._id,
+            notifiedForCompletion: true,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to notify mechanic");
+        }
+        message.success("Mechanic notified for completion");
+      }
+
+      if (action === "complete") {
+        const toDateData =
+          log?.componentData?.toDateData &&
+          Object.keys(log.componentData.toDateData).length > 0
+            ? log.componentData.toDateData
+            : buildToDateData(log);
+
+        const aircraft = log.aircraft || log.rpc;
+        if (!aircraft) {
+          throw new Error("Aircraft identifier is missing");
+        }
+
+        const totalsResponse = await fetch(
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              acftTT: Number(toDateData.airframe) || 0,
+              n1Cycles: Number(toDateData.cycleN1) || 0,
+              n2Cycles: Number(toDateData.cycleN2) || 0,
+              landings: Number(toDateData.landingCycle) || 0,
+              updatedBy: getUserDisplayName(),
+            }),
+          },
+        );
+        const totalsData = await totalsResponse.json();
+        if (!totalsResponse.ok) {
+          throw new Error(totalsData.message || "Failed to update aircraft totals");
+        }
+
+        const completeResponse = await fetch(`${API_BASE}/api/flightlogs/${log._id}/complete`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+        });
+        const completeData = await completeResponse.json();
+        if (!completeResponse.ok) {
+          throw new Error(completeData.message || "Failed to complete flight log");
+        }
+        message.success("Flight log completed");
+      }
+
+      closeWorkflowModal();
+      await fetchFlightLogs();
+    } catch (error) {
+      console.error("Workflow action error:", error);
+      message.error(error.message || "Flight log workflow action failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFlightLogs();
+  }, [selectedAircraft, selectedStatus]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchFlightLogs(searchQuery);
+      } else {
+        fetchFlightLogs();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  const aircraftOptions = useMemo(
+    () => ["all", ...new Set(flightLogs.map((log) => log.rpc).filter(Boolean))],
+    [flightLogs],
+  );
+
   const statusOptions = [
     { label: "All", value: "all" },
     { label: "Pending Release", value: "pending_release" },
@@ -112,13 +376,12 @@ export default function FlightLog() {
     { label: "Completed", value: "completed" },
   ];
 
-  // Filter logs (client-side, matching mobile logic)
   const filteredLogs = flightLogs.filter((log) => {
     const matchesSearch =
       searchQuery === "" ||
       log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.date?.includes(searchQuery);
+      String(log.date || "").includes(searchQuery);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -131,65 +394,6 @@ export default function FlightLog() {
     return matchesSearch && matchesAircraft && matchesStatus;
   });
 
-  // Create new flight log
-  const handleSaveNew = (data) => {
-    setSaving(true);
-    try {
-      const newId =
-        Date.now().toString() + Math.random().toString(36).substr(2, 6);
-      const newLog = {
-        ...data,
-        id: newId,
-        _id: newId,
-        key: newId,
-        createdBy: userRole,
-        status: userRole === "pilot" ? "pending_release" : "pending_acceptance",
-      };
-
-      setFlightLogs((prev) => [newLog, ...prev]);
-      setEntryModalVisible(false);
-      message.success("Flight log added successfully");
-    } catch (err) {
-      message.error(`Failed to save: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Edit/Update flight log
-  const handleEdit = (record) => {
-    setSelectedLog(record);
-    setEditModalVisible(true);
-  };
-
-  const handleSaveEdit = (data) => {
-    if (!selectedLog?.id) return;
-    setSaving(true);
-    try {
-      const updatedLog = {
-        ...selectedLog,
-        ...data,
-        key: selectedLog.id,
-        _id: selectedLog.id,
-      };
-      setFlightLogs((prev) =>
-        prev.map((l) => (l.id === selectedLog.id ? updatedLog : l)),
-      );
-      setEditModalVisible(false);
-      message.success("Flight log updated successfully");
-    } catch (err) {
-      message.error(`Failed to update: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleExport = (record) => {
-    console.log("Export log:", record);
-    message.info(`Export log: ${record.rpc}`);
-  };
-
-  // Status badge (matching mobile)
   const getStatusBadge = (status) => {
     if (status === "completed") {
       return <span className="fl-badge fl-badge--completed">Completed</span>;
@@ -197,7 +401,6 @@ export default function FlightLog() {
     return <span className="fl-badge fl-badge--ongoing">Ongoing</span>;
   };
 
-  // Table columns
   const columns = [
     {
       title: "Aircraft Type",
@@ -218,21 +421,37 @@ export default function FlightLog() {
       title: "Status",
       key: "status",
       width: 100,
-      render: (_, r) => getStatusBadge(r.status),
+      render: (_, record) => getStatusBadge(record.status),
     },
     {
       title: "Action",
       key: "action",
-      width: 110,
+      width: 280,
       render: (_, record) => (
         <Space size={4}>
-          <Button
-            type="primary"
-            size="small"
-            onClick={() => handleEdit(record)}
-          >
+          <Button type="primary" size="small" onClick={() => handleEdit(record)}>
             Edit
           </Button>
+          {isMechanic && record.status === "pending_release" && (
+            <Button size="small" onClick={() => openWorkflowModal("release", record)}>
+              Release
+            </Button>
+          )}
+          {isPilot && record.status === "pending_acceptance" && (
+            <Button size="small" onClick={() => openWorkflowModal("accept", record)}>
+              Accept
+            </Button>
+          )}
+          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
+            <Button size="small" onClick={() => openWorkflowModal("notify", record)}>
+              Notify
+            </Button>
+          )}
+          {isMechanic && record.status === "accepted" && record.notifiedForCompletion && (
+            <Button size="small" onClick={() => openWorkflowModal("complete", record)}>
+              Complete
+            </Button>
+          )}
           <Button
             type="text"
             size="small"
@@ -246,7 +465,6 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      {/* Search Bar Row with New Entry Button */}
       <div className="fl-search-row">
         <div className="fl-search-wrapper">
           <Input
@@ -269,13 +487,11 @@ export default function FlightLog() {
         </Button>
       </div>
 
-      {/* Filters Row */}
       <div className="fl-filters-row">
-        {/* Aircraft Filter Dropdown */}
         <div className="fl-filter-dropdown">
           <div
             className="fl-filter-selector"
-            onClick={() => setShowAircraftDropdown(!showAircraftDropdown)}
+            onClick={() => setShowAircraftDropdown((prev) => !prev)}
           >
             <span
               className={
@@ -295,9 +511,9 @@ export default function FlightLog() {
 
           {showAircraftDropdown && (
             <div className="fl-dropdown-menu">
-              {aircraftOptions.map((aircraft, index) => (
+              {aircraftOptions.map((aircraft) => (
                 <div
-                  key={index}
+                  key={aircraft}
                   className="fl-dropdown-item"
                   onClick={() => {
                     setSelectedAircraft(aircraft);
@@ -311,15 +527,14 @@ export default function FlightLog() {
           )}
         </div>
 
-        {/* Status Filter Dropdown */}
         <div className="fl-filter-dropdown" style={{ width: 150 }}>
           <div
             className="fl-filter-selector"
-            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+            onClick={() => setShowStatusDropdown((prev) => !prev)}
           >
             <span className="fl-filter-selected">
-              {statusOptions.find((opt) => opt.value === selectedStatus)
-                ?.label || "Status"}
+              {statusOptions.find((option) => option.value === selectedStatus)?.label ||
+                "Status"}
             </span>
             <span className="fl-filter-arrow">
               {showStatusDropdown ? "▲" : "▼"}
@@ -328,9 +543,9 @@ export default function FlightLog() {
 
           {showStatusDropdown && (
             <div className="fl-dropdown-menu">
-              {statusOptions.map((option, index) => (
+              {statusOptions.map((option) => (
                 <div
-                  key={index}
+                  key={option.value}
                   className="fl-dropdown-item"
                   onClick={() => {
                     setSelectedStatus(option.value);
@@ -345,20 +560,23 @@ export default function FlightLog() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="fl-table-wrapper">
         <Table
           className="fl-table"
           columns={columns}
           dataSource={filteredLogs}
           loading={loading}
-          rowKey="id"
+          rowKey={(record) => record._id || record.id}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          locale={{
+            emptyText: searchQuery || selectedAircraft || selectedStatus !== "all"
+              ? "No flight logs found"
+              : "No flight logs yet",
+          }}
           size="small"
         />
       </div>
 
-      {/* New Entry Modal */}
       <FlightLogEntry
         visible={entryModalVisible}
         onClose={() => setEntryModalVisible(false)}
@@ -367,7 +585,6 @@ export default function FlightLog() {
         editMode={false}
       />
 
-      {/* Edit Entry Modal */}
       {selectedLog && (
         <FlightLogEntry
           visible={editModalVisible}
@@ -382,6 +599,35 @@ export default function FlightLog() {
           initialComponentData={selectedLog.componentData}
         />
       )}
+
+      <Modal
+        open={workflowModal.open}
+        onCancel={closeWorkflowModal}
+        onOk={handleWorkflowAction}
+        confirmLoading={saving}
+        title={
+          workflowModal.action === "release"
+            ? "Release Flight Log"
+            : workflowModal.action === "accept"
+              ? "Accept Flight Log"
+              : workflowModal.action === "notify"
+                ? "Notify Mechanic"
+                : "Complete Flight Log"
+        }
+      >
+        {workflowModal.action === "release" && (
+          <p>Release this flight log to pilot acceptance?</p>
+        )}
+        {workflowModal.action === "accept" && (
+          <p>Accept this flight log as pilot?</p>
+        )}
+        {workflowModal.action === "notify" && (
+          <p>Notify the mechanic that this accepted flight log is ready for completion?</p>
+        )}
+        {workflowModal.action === "complete" && (
+          <p>Complete this flight log and update parts-monitoring totals from its to-date values?</p>
+        )}
+      </Modal>
     </div>
   );
 }

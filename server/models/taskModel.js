@@ -178,11 +178,6 @@ const taskSchema = new mongoose.Schema({
     default: Date.now,
   },
 
-  assignedMechanic: {
-    type: String,
-    default: "",
-  },
-
   maintenanceHistory: {
     defectDiscoveredAt: {
       type: Date,

@@ -24,7 +24,11 @@ export default function CheckBox({
         disabled={disabled}
         color={checkboxColor}
       />
-      <Text style={[{ marginLeft: 8 }, textStyle]}>{title}</Text>
+      {typeof title === "string" ? (
+        <Text style={[{ marginLeft: 8 }, textStyle]}>{title}</Text>
+      ) : (
+        <View style={{ flex: 1, marginLeft: 8 }}>{title}</View>
+      )}
     </TouchableOpacity>
   );
 }
