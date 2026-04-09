@@ -1,10 +1,17 @@
 import React, { createContext, useState, useEffect } from "react";
+import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const normalizeUser = (userData) => ({
+    ...userData,
+    jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
+    access: userData.access ? userData.access.trim().toLowerCase() : null,
+  });
 
   const isTokenValid = (token) => {
     try {
@@ -15,27 +22,58 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const clearAuthStorage = () => {
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("token");
+  };
+
+  const refreshAccessToken = async () => {
+    const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh token");
+    }
+
+    const data = await response.json();
+    if (!data.token) {
+      throw new Error("No refreshed token received");
+    }
+
+    localStorage.setItem("token", data.token);
+    return data.token;
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
         const storedUser = localStorage.getItem("currentUser");
         const token = localStorage.getItem("token");
 
-        if (storedUser && token && isTokenValid(token)) {
-          const parsed = JSON.parse(storedUser);
+        if (!storedUser) {
+          setUser(null);
+          return;
+        }
 
-          const normalizedUser = {
-            ...parsed,
-            jobTitle: parsed.jobTitle
-              ? parsed.jobTitle.trim().toLowerCase()
-              : null,
-            access: parsed.access ? parsed.access.trim().toLowerCase() : null,
-          };
+        const parsed = JSON.parse(storedUser);
 
-          setUser(normalizedUser);
+        if (token && isTokenValid(token)) {
+          setUser(normalizeUser(parsed));
+          return;
+        }
+
+        try {
+          await refreshAccessToken();
+          setUser(normalizeUser(parsed));
+        } catch (refreshError) {
+          clearAuthStorage();
+          setUser(null);
         }
       } catch (err) {
         console.error("Failed to load user:", err);
+        clearAuthStorage();
         setUser(null);
       } finally {
         setLoading(false);
@@ -54,13 +92,7 @@ export const AuthProvider = ({ children }) => {
         console.error("No token provided");
         return;
       }
-      const normalizedUser = {
-        ...userData,
-        jobTitle: userData.jobTitle
-          ? userData.jobTitle.trim().toLowerCase()
-          : null,
-        access: userData.access ? userData.access.trim().toLowerCase() : null,
-      };
+      const normalizedUser = normalizeUser(userData);
 
       setUser(normalizedUser);
 
@@ -77,17 +109,37 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        await fetch(`${API_BASE}/api/user/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        });
+      }
+
       setUser(null);
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("token");
+      clearAuthStorage();
     } catch (err) {
       console.error("Failed to remove user:", err);
     } finally {
       setLoading(false);
     }
   };
-  const getAuthHeader = () => {
+
+  const getValidToken = async () => {
     const token = localStorage.getItem("token");
+
+    if (token && isTokenValid(token)) {
+      return token;
+    }
+
+    return refreshAccessToken();
+  };
+
+  const getAuthHeader = async () => {
+    const token = await getValidToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
   if (loading) return null;
@@ -98,6 +150,8 @@ export const AuthProvider = ({ children }) => {
         setUser,
         loginUser,
         logoutUser,
+        getValidToken,
+        refreshAccessToken,
         getAuthHeader,
         loading,
       }}

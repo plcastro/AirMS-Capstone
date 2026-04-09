@@ -3,6 +3,7 @@ const router = express.Router();
 const { rateLimiter, otpRequestLimiter } = require("../middleware/rateLimiter");
 const {
   loginUser,
+  refreshToken,
   logoutUser,
   createUser,
   checkUsernameExists,
@@ -32,6 +33,7 @@ const { upload, processImage } = require("../middleware/upload");
 
 // User management routes
 router.post("/login", rateLimiter, loginUser);
+router.post("/refresh-token", refreshToken);
 router.post("/logout", logoutUser);
 router.post("/create", upload.single("image"), processImage, createUser);
 router.get("/username-exists", checkUsernameExists);
@@ -52,7 +54,12 @@ router.put(
   processImage,
   updateUserImage,
 );
-router.put("/updateSignature/:id", updateSignature);
+router.put(
+  "/updateSignature/:id",
+  upload.single("signature"),
+  processImage,
+  updateSignature,
+);
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);

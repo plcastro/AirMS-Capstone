@@ -14,6 +14,7 @@ import {
 import { API_BASE } from "../../../utils/API_BASE";
 
 export default function MaintenanceDashboard() {
+  const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
@@ -75,6 +76,45 @@ export default function MaintenanceDashboard() {
     };
 
     fetchTasks();
+  }, []);
+
+  // Stats state
+  const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
+
+  // Fetch stats from MaintenancePerformance API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = await getValidToken();
+        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json();
+        const tasks = result.data || [];
+
+        const completed = tasks.filter((t) => t.status === "Completed").length;
+        const dueSoon = tasks.filter(
+          (t) =>
+            t.status !== "Completed" &&
+            t.dueDate &&
+            new Date(t.dueDate) >= new Date() &&
+            new Date(t.dueDate) <=
+              new Date(new Date().setDate(new Date().getDate() + 3)),
+        ).length;
+        const overdue = tasks.filter(
+          (t) =>
+            t.status !== "Completed" &&
+            t.dueDate &&
+            new Date(t.dueDate) < new Date(),
+        ).length;
+
+        setStats({ completed, dueSoon, overdue });
+      } catch (err) {
+        console.error("Failed to fetch stats", err);
+      }
+    };
+
+    fetchStats();
   }, []);
 
   const cards = [

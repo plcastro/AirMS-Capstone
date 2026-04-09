@@ -2,34 +2,44 @@ import React from "react";
 
 import { Layout } from "antd";
 import { Outlet } from "react-router-dom";
-import Navbar from "./Navbar";
+import AirMS_web from "../../assets/AirMS_web.png";
 
-const { Content } = Layout;
-
-const layoutStyle = {
-  display: "flex",
-  flexDirection: "column",
+const { Content, Header } = Layout;
+const headerStyle = {
+  height: 64,
+  paddingInline: 48,
+  lineHeight: 64,
   width: "100%",
+  display: "flex",
   alignItems: "center",
+  background: "#fff",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+  zIndex: 1,
   justifyContent: "center",
+};
+const layoutStyle = {
+  minHeight: "100vh",
+  width: "100%",
   overflowX: "hidden",
-  height: "100vh",
+  background: "#f5f5f5",
 };
 
 const contentStyle = {
   display: "flex",
-  flexDirection: "row",
   alignItems: "center",
   justifyContent: "center",
-  height: "100vh",
+  margin: "auto",
+  flex: 1,
   width: "100%",
-  overflowX: "hidden",
+  overflow: "auto",
 };
 
 const RootLayout = () => {
   return (
     <Layout style={layoutStyle}>
-      <Navbar />
+      <Header style={headerStyle}>
+        <img src={AirMS_web} alt="Logo" style={{ height: 45 }} />
+      </Header>
       <Content style={contentStyle}>
         <Outlet />
       </Content>

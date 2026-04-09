@@ -1,242 +1,240 @@
-import React, { useContext, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Modal,
-  Typography,
   Button,
-  Row,
+  Card,
   Col,
-  Input,
-  Steps,
   Divider,
-  Space,
+  Modal,
+  Row,
+  Tag,
+  Timeline,
+  Typography,
   message,
-  Popconfirm,
 } from "antd";
-import WRSTable from "../tables/WRSTable";
 import {
-  FileDoneOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  FileDoneOutlined,
+  InboxOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { AuthContext } from "../../context/AuthContext";
+import WRSTable from "../tables/WRSTable";
 
-const { Title, Text } = Typography;
+const { Paragraph, Text, Title } = Typography;
+
+const statusSteps = ["Approved", "In Progress", "Completed"];
+
+const getStatusMeta = (status) => {
+  switch (status) {
+    case "Approved":
+      return {
+        color: "cyan",
+        icon: <CheckCircleOutlined />,
+      };
+    case "In Progress":
+      return {
+        color: "orange",
+        icon: <SyncOutlined spin />,
+      };
+    case "Completed":
+      return {
+        color: "green",
+        icon: <FileDoneOutlined />,
+      };
+    default:
+      return {
+        color: "default",
+        icon: <InboxOutlined />,
+      };
+  }
+};
 
 export default function WRSModal({ visible, onClose, selectedRecord }) {
-  const { user } = useContext(AuthContext);
+  const [availQtyMap, setAvailQtyMap] = useState({});
 
-  const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [packedItems, setPackedItems] = useState([]);
+  const currentStatus = selectedRecord?.status;
+  const currentStepIndex = statusSteps.indexOf(currentStatus);
+  const statusMeta = getStatusMeta(currentStatus);
+
+  const totalQty = useMemo(
+    () =>
+      selectedRecord?.items?.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0),
+        0,
+      ) || 0,
+    [selectedRecord],
+  );
+
+  const isAllFilled = () =>
+    selectedRecord?.items?.every((item) => {
+      const value = availQtyMap[item._id];
+      return value !== undefined && value !== null && value !== "";
+    });
+
+  const handleSubmit = () => {
+    message.success("Available quantities submitted successfully.");
+    onClose();
+  };
 
   if (!selectedRecord) return null;
-
-  const isWD = user.jobTitle.toLowerCase() === "warehouse department";
-
-  const STATUS_ORDER = ["Pending", "Approved", "In Progress", "Completed"];
-  const currentStatusIndex = STATUS_ORDER.indexOf(selectedRecord.status);
-
-  const allItemsPacked =
-    selectedRecord.status === "Completed" ||
-    packedItems.length === selectedRecord?.items?.length;
-
-  const next = () => setCurrentStep((prev) => prev + 1);
-  const prev = () => setCurrentStep((prev) => prev - 1);
-
-  const ICON_STYLE = { fontSize: "20px" };
-
-  const handleDispatch = async () => {
-    setLoading(true);
-    try {
-      message.success("Dispatched successfully!");
-      onClose();
-    } catch {
-      message.error("Dispatch failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMarkDelivered = async () => {
-    setLoading(true);
-    try {
-      message.success("Marked as delivered!");
-      onClose();
-    } catch {
-      message.error("Update failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <Modal
       open={visible}
       onCancel={onClose}
-      width="85%"
+      width={1100}
       centered
+      footer={null}
       title={
-        <Space>
+        <div>
           <Title level={4} style={{ margin: 0 }}>
-            Warehouse Requisition Slip
+            Warehouse Requisition Details
           </Title>
-          <Text type="secondary">{selectedRecord.wrsNo}</Text>
-        </Space>
+          <Text type="secondary">
+            Encode available quantities and monitor release progress for this
+            requisition.
+          </Text>
+        </div>
       }
-      footer={[
-        currentStep > 0 && <Button onClick={prev}>Previous</Button>,
-
-        currentStep < 2 && (
-          <Button type="primary" onClick={next}>
-            Next
-          </Button>
-        ),
-
-        currentStep === 2 && (
-          <>
-            {isWD && selectedRecord.status === "Approved" && (
-              <Button
-                type="primary"
-                disabled={!allItemsPacked}
-                loading={loading}
-                onClick={handleDispatch}
-              >
-                Dispatch
-              </Button>
-            )}
-
-            {selectedRecord.status === "Out for Delivery" && (
-              <Popconfirm
-                title="Confirm Delivery"
-                onConfirm={handleMarkDelivered}
-              >
-                <Button
-                  type="primary"
-                  icon={<CheckCircleOutlined />}
-                  loading={loading}
-                >
-                  Mark Delivered
-                </Button>
-              </Popconfirm>
-            )}
-
-            <Button onClick={onClose}>Close</Button>
-          </>
-        ),
-      ]}
     >
-      <div style={{ marginBottom: 20 }}>
-        <Text strong>Status</Text>
-        <Steps
-          responsive
-          current={currentStatusIndex}
-          items={[
-            {
-              title: "Pending",
-              icon: <ClockCircleOutlined style={ICON_STYLE} />,
-            },
-            {
-              title: "Approved",
-              icon: <CheckCircleOutlined style={ICON_STYLE} />,
-            },
-            {
-              title: "In Progress",
-              icon: (
-                <SyncOutlined
-                  spin={selectedRecord.status === "In Progress"}
-                  style={ICON_STYLE}
-                />
-              ),
-            },
-            {
-              title: "Completed",
-              icon: <FileDoneOutlined style={ICON_STYLE} />,
-            },
-          ]}
-        />
-      </div>
-      <Steps
-        current={currentStep}
-        items={[
-          { title: "General Info" },
-          { title: "Items" },
-          { title: "Finalize" },
-        ]}
-        style={{ marginBottom: 20 }}
-      />
-      <div style={{ minHeight: 300 }}>
-        {currentStep === 0 && (
-          <>
+      <Row gutter={[20, 20]}>
+        <Col xs={24} xl={15}>
+          <Card
+            variant="borderless"
+            style={{ borderRadius: 18, background: "#fafafa" }}
+          >
             <Row gutter={[16, 16]}>
-              <Col xs={24} md={12}>
-                <Text strong>SLOC NAME/CODE: </Text>
-                <Text>{selectedRecord.slocNameCode}</Text>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">WRS No.</Text>
+                <Title level={5} style={{ marginTop: 6 }}>
+                  {selectedRecord.wrsNo}
+                </Title>
               </Col>
-
-              <Col xs={24} md={12}>
-                <Text strong>Date Requested: </Text>
-                <Text>{selectedRecord.dateRequested}</Text>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Status</Text>
+                <div style={{ marginTop: 6 }}>
+                  <Tag color={statusMeta.color} icon={statusMeta.icon}>
+                    {selectedRecord.status}
+                  </Tag>
+                </div>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Aircraft</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.aircraft}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">SLOC Name / Code</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.slocNameCode}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Requested By</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.staff.employeeName}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Date Requested</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.dateRequested}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Total Items</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.items.length}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Total Quantity</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{totalQty}</Text>
+                </Paragraph>
               </Col>
             </Row>
+          </Card>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 10 }}>
-              <Col xs={24} lg={12}>
-                <Text strong>Requisitioned By: </Text>
-                <Text>{selectedRecord.staff.employeeName.toUpperCase()}</Text>
-              </Col>
+          <Divider titlePlacement="left">Requested Items</Divider>
 
-              <Col xs={24} lg={12}>
-                <Text type="secondary">Approved By</Text>
-                <Input
-                  value={selectedRecord.staff.cchead.toUpperCase()}
-                  readOnly
-                />
-              </Col>
-
-              <Col xs={24} lg={12}>
-                <Text type="secondary">Received By</Text>
-                <Input
-                  value={selectedRecord.staff.enduser.toUpperCase()}
-                  disabled
-                />
-              </Col>
-
-              <Col xs={24} lg={12}>
-                <Text type="secondary">Noted By</Text>
-                <Input
-                  value={selectedRecord.staff.notedby.toUpperCase()}
-                  disabled
-                />
-              </Col>
-            </Row>
-          </>
-        )}
-
-        {/* STEP 2 */}
-        {currentStep === 1 && (
           <WRSTable
             data={selectedRecord.items}
-            loading={false}
-            isWD={isWD}
-            status={selectedRecord.status}
-            packedItems={packedItems}
-            setPackedItems={setPackedItems}
+            availQtyMap={availQtyMap}
+            setAvailQtyMap={setAvailQtyMap}
+            disabled={selectedRecord.status === "Completed"}
           />
-        )}
+        </Col>
 
-        {/* STEP 3 */}
-        {currentStep === 2 && (
-          <>
-            <Text strong>Notes</Text>
-            <Input.TextArea rows={4} placeholder="Enter notes..." />
+        <Col xs={24} xl={9}>
+          <Card
+            variant="borderless"
+            style={{ borderRadius: 18, marginBottom: 16 }}
+          >
+            <Title level={5}>Warehouse Flow</Title>
+            <Timeline
+              items={statusSteps.map((step, index) => {
+                const isCompleted = index < currentStepIndex;
+                const isCurrent = index === currentStepIndex;
 
-            <Divider />
+                return {
+                  icon: isCompleted ? (
+                    <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                  ) : isCurrent ? (
+                    step === "In Progress" ? (
+                      <SyncOutlined spin style={{ color: "#fa8c16" }} />
+                    ) : (
+                      <ClockCircleOutlined style={{ color: "#13c2c2" }} />
+                    )
+                  ) : (
+                    <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
+                  ),
+                  content: (
+                    <div
+                      style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
+                    >
+                      <Text strong>{step}</Text>
+                      <div>
+                        <Text type="secondary">
+                          {step === "Approved" &&
+                            "Request is approved and ready for warehouse processing."}
+                          {step === "In Progress" &&
+                            "Warehouse staff is encoding available quantities and preparing release."}
+                          {step === "Completed" &&
+                            "Items have been prepared and the requisition is finished."}
+                        </Text>
+                      </div>
+                    </div>
+                  ),
+                };
+              })}
+            />
+          </Card>
 
-            <Text type="secondary">Review items and complete the process.</Text>
-          </>
-        )}
-      </div>
+          <Card variant="borderless" style={{ borderRadius: 18 }}>
+            <Title level={5}>Next Action</Title>
+            <Paragraph type="secondary">
+              Fill in every available quantity before submitting warehouse
+              processing.
+            </Paragraph>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Button onClick={onClose}>Close</Button>
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                disabled={
+                  selectedRecord.status === "Completed" || !isAllFilled()
+                }
+                onClick={handleSubmit}
+              >
+                Submit Quantities
+              </Button>
+            </div>
+          </Card>
+        </Col>
+      </Row>
     </Modal>
   );
 }

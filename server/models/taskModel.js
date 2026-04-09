@@ -20,7 +20,7 @@ const taskSchema = new mongoose.Schema({
 
   dueDate: {
     type: String,
-    required: true,
+    default: "",
   },
 
   startDateTime: {

@@ -28,7 +28,6 @@ export default function FlightLog() {
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
-
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,10 +51,10 @@ export default function FlightLog() {
         params.append("status", selectedStatus);
       }
 
-      // console.log(
-      //   "Fetching from:",
-      //   `${API_BASE}/api/flightlogs?${params.toString()}`,
-      // );
+      console.log(
+        "Fetching from:",
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+      );
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs?${params.toString()}`,
@@ -262,7 +261,7 @@ export default function FlightLog() {
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
+      <View style={{ flex: 1, paddingHorizontal: 7 }}>
         {/* Search Bar Row with New Entry Button */}
         <View style={{ flexDirection: "row", marginBottom: 12, gap: 12 }}>
           <View
@@ -284,7 +283,7 @@ export default function FlightLog() {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Search by aircraft, type, or date"
+              placeholder="Search"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,

@@ -9,6 +9,15 @@ const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
+const getAuditActorId = (req, fallbackId = null) =>
+  req.user?.id || req.userRecord?._id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
@@ -16,10 +25,8 @@ const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
-    // await auditLog(`Fetched all users. Total: ${users.length}`, null);
     res.status(200).json({ status: "Ok", data: users });
   } catch (err) {
-    // await auditLog("Failed to fetch all users", null);
     res.status(500).json({ message: err.message });
   }
 };
@@ -90,7 +97,6 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
-
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -106,6 +112,7 @@ const loginUser = async (req, res) => {
         requireSetup: true,
         user: {
           id: user._id,
+          email: user.email,
           status: user.status,
           setupToken,
         },
@@ -134,17 +141,29 @@ const loginUser = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        jobTitle: user.jobTitle,
-        status: user.status,
-        image: user.image,
-      },
+      { id: user._id, username: user.username, jobTitle: user.jobTitle },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" },
+      { expiresIn: "30m" },
     );
+
+    // Generate Refresh Token
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    // Send refresh token as HttpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // console.log(
+    //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
+    // );
 
     await auditLog("User logged in", user._id);
 
@@ -157,6 +176,8 @@ const loginUser = async (req, res) => {
       jobTitle: user.jobTitle,
       status: user.status,
       image: user.image,
+      signature: user.signature,
+      securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
     };
 
@@ -179,8 +200,41 @@ const unlockUser = async (req, res) => {
   user.lockUntil = undefined;
 
   await user.save();
+  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+  await auditLog(audit.action, audit.actorId);
 
   res.json({ message: "Account unlocked successfully" });
+};
+
+const refreshToken = async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
+  if (!refreshToken) return res.status(401).json({ message: "No token" });
+
+  try {
+    const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const user = await UserModel.findById(payload.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.status === "deactivated") {
+      return res.status(403).json({ message: "Account deactivated" });
+    }
+
+    const newAccessToken = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        jobTitle: user.jobTitle,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" },
+    );
+
+    res.json({ token: newAccessToken });
+  } catch {
+    res.status(403).json({ message: "Invalid refresh token" });
+  }
 };
 
 const logoutUser = async (req, res) => {
@@ -196,9 +250,16 @@ const logoutUser = async (req, res) => {
     }
 
     await auditLog(
-      `User logged out: ${decoded.username || decoded.id}`,
+      `User logged out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
     );
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
+
     res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {
     console.error("Logout error:", err);
@@ -244,13 +305,15 @@ const createUser = async (req, res) => {
     const username = await generateUniqueUsername(firstName, lastName);
 
     const tempPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+    const tempPasswordExpires = Date.now() + 60 * 60 * 1000;
 
-    const portalLink =
+    const portalUrl =
       jobTitle === "Maintenance Manager" ||
       jobTitle === "Officer-In-Charge" ||
       jobTitle === "Admin"
-        ? `<p>Login via web: <a href="${WEB_URL}/login">AirMS Web Login</a></p>`
-        : `<p>Login via mobile app: <a href="${MOBILE_URL}/login">AirMS Mobile Login</a></p>`;
+        ? `${WEB_URL}/login`
+        : `${MOBILE_URL}/login`;
 
     await sendEmail({
       to: email,
@@ -271,7 +334,7 @@ const createUser = async (req, res) => {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalLink}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+          <a href="${portalUrl}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
         </div>
 
         <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
@@ -309,10 +372,12 @@ const createUser = async (req, res) => {
         : null,
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User created: ${username}, email sent successfully`,
       newUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "User created successfully",
@@ -376,6 +441,12 @@ const completeSecuritySetup = async (req, res) => {
     user.tempPasswordExpires = undefined;
 
     await user.save();
+    const audit = withActorId(
+      req,
+      `Security setup completed for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     return res.status(200).json({
       message: "Security setup completed successfully",
@@ -469,15 +540,19 @@ const updateUser = async (req, res) => {
     );
 
     if (Object.keys(changes).length > 0) {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     } else {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User update attempted but no changes detected: ${username}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     }
 
     res
@@ -528,10 +603,12 @@ const updateUserProfile = async (req, res) => {
       returnDocument: "after",
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User name updated: ${updatedUser.username}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -556,10 +633,12 @@ const updateUserStatus = async (req, res) => {
       { returnDocument: "after" },
     );
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User status updated: ${user.username}. Old: ${user.status}, New: ${status}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -628,6 +707,15 @@ const updateUserImage = async (req, res) => {
       { returnDocument: "after", runValidators: true },
     );
 
+    const audit = withActorId(
+      req,
+      newImagePath
+        ? `User image updated: ${updatedUser.username}`
+        : `User image removed: ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
     res.status(200).json({
       message: newImagePath ? "Avatar updated" : "Avatar removed",
       user: updatedUser,
@@ -692,6 +780,12 @@ const updatePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await UserModel.updateOne({ _id: id }, { password: hashedPassword });
+    const audit = withActorId(
+      req,
+      `Password updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -725,6 +819,12 @@ const updatePIN = async (req, res) => {
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
     await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
+    const audit = withActorId(
+      req,
+      `PIN updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
     console.error(err);
@@ -734,17 +834,34 @@ const updatePIN = async (req, res) => {
 
 const updateSignature = async (req, res) => {
   try {
-    const { signature } = req.body;
-    if (!signature)
-      return res.status(400).json({ message: "Signature is required" });
+    const user = await UserModel.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const user = await UserModel.findByIdAndUpdate(
+    if (user.signature) {
+      return res.status(400).json({
+        message: "Signature specimen has already been uploaded.",
+      });
+    }
+
+    const signature = req.file?.savedPath || req.body.signature;
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required" });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
       { signature },
       { returnDocument: "after" },
     );
 
-    res.status(200).json({ message: "Signature updated", user });
+    const audit = withActorId(
+      req,
+      `Signature updated for ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    res.status(200).json({ message: "Signature updated", user: updatedUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -782,7 +899,12 @@ const activateUser = async (req, res) => {
     user.securitySetupCompleted = true;
     await user.save();
 
-    await auditLog("User activated via JWT setup token", user._id);
+    const audit = withActorId(
+      req,
+      "User account activated successfully",
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -827,7 +949,8 @@ const resendActivation = async (req, res) => {
              <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
     });
 
-    await auditLog("Activation email resent", user._id);
+    const audit = withActorId(req, "Activation email resent", user._id);
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "Activation email resent" });
   } catch (err) {
     console.error(err);
@@ -837,6 +960,8 @@ const resendActivation = async (req, res) => {
 
 module.exports = {
   loginUser,
+  refreshToken,
+  unlockUser,
   logoutUser,
   createUser,
   checkUsernameExists,

@@ -39,7 +39,6 @@ export default function MaintenancePerformance({ tasks = [] }) {
         "Nov",
         "Dec",
       ];
-
       const chartArray = Object.entries(monthlyMap)
         .map(([month, value]) => ({ month, value }))
         .sort(

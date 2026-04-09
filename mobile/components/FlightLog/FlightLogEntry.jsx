@@ -476,7 +476,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
@@ -486,7 +485,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Discrepancy/Remarks":
         return (
           <FlightLogDiscrepancyRemarks
@@ -497,7 +495,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Work Done":
         return (
           <FlightLogModalWorkDone
@@ -506,7 +503,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       default:
         return null;
     }

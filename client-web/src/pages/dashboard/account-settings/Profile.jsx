@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Card,
   Typography,
   Button,
@@ -10,6 +11,7 @@ import {
   Tabs,
   message,
   Popconfirm,
+  Space,
 } from "antd";
 import {
   EditOutlined,
@@ -21,16 +23,20 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function Profile() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, getValidToken } = useContext(AuthContext);
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreviewUri, setSignaturePreviewUri] = useState("");
+  const [signatureUploading, setSignatureUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const signatureInputRef = useRef(null);
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -55,9 +61,16 @@ export default function Profile() {
         ? user.image
         : `${API_BASE}${user.image}`
       : DefaultAvatar;
-    console.log(user.image);
     setPreviewUri(imageUrl);
     setFile(null);
+
+    const signatureUrl = user.signature
+      ? user.signature.startsWith("http")
+        ? user.signature
+        : `${API_BASE}${user.signature}`
+      : "";
+    setSignaturePreviewUri(signatureUrl);
+    setSignatureFile(null);
   }, [user]);
 
   const handleChange = (key, value) =>
@@ -68,6 +81,14 @@ export default function Profile() {
     if (!selectedFile) return;
     setFile(selectedFile);
     setPreviewUri(URL.createObjectURL(selectedFile));
+  };
+
+  const pickSignature = (e) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setSignatureFile(selectedFile);
+    setSignaturePreviewUri(URL.createObjectURL(selectedFile));
   };
 
   const handleSaveProfile = async () => {
@@ -82,7 +103,7 @@ export default function Profile() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${await getValidToken()}`,
             },
             body: JSON.stringify(formData),
           },
@@ -117,7 +138,7 @@ export default function Profile() {
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: formData,
         },
@@ -143,7 +164,7 @@ export default function Profile() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${await getValidToken()}`,
           },
           body: JSON.stringify({ image: null }),
         },
@@ -163,6 +184,43 @@ export default function Profile() {
     }
   };
 
+  const handleSaveSignature = async () => {
+    if (!signatureFile) return;
+
+    const signatureFormData = new FormData();
+    signatureFormData.append("signature", signatureFile);
+
+    try {
+      setSignatureUploading(true);
+      const res = await fetch(
+        `${API_BASE}/api/user/updateSignature/${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${await getValidToken()}`,
+          },
+          body: signatureFormData,
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to upload signature");
+
+      setUser((prev) => ({
+        ...prev,
+        signature: data.user.signature,
+      }));
+      setSignatureFile(null);
+      message.success("Signature specimen uploaded successfully.");
+    } catch (err) {
+      console.error("Error uploading signature:", err);
+      message.error(err.message || "Signature upload failed");
+    } finally {
+      setSignatureUploading(false);
+    }
+  };
+
   const tabItems = [
     {
       key: "UserInformation",
@@ -170,74 +228,93 @@ export default function Profile() {
       icon: <UserOutlined />,
       children: (
         <Form layout="vertical" form={form}>
-          <Row gutter={[10, 10]}>
-            <Col xs={24} s={24} md={12}>
-              <Form.Item label="First Name">
-                <Input
-                  value={isEditing ? formData.firstName : user.firstName}
-                  disabled={!isEditing}
-                  size="large"
-                  style={{ marginTop: 8, color: "black" }}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                />
-              </Form.Item>
-            </Col>
+          <Row gutter={[16, 16]}>
+            {/* First & Last Name */}
             <Col xs={24} md={12}>
-              <Form.Item label="Last Name">
-                <Input
-                  value={isEditing ? formData.lastName : user.lastName}
-                  disabled={!isEditing}
-                  size="large"
-                  style={{ marginTop: 8, color: "black" }}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                />
-              </Form.Item>
+              {isEditing ? (
+                <Form.Item label="First Name">
+                  <Input
+                    value={formData.firstName}
+                    size="large"
+                    style={{ marginTop: 8, color: "black" }}
+                    onChange={(e) => handleChange("firstName", e.target.value)}
+                  />
+                </Form.Item>
+              ) : (
+                <div
+                  style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+                >
+                  <Text type="secondary">First Name: </Text>
+                  <Text strong>{user.firstName}</Text>
+                </div>
+              )}
             </Col>
-          </Row>
 
-          <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item label="Email">
-                <Input
-                  value={user.email}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              {isEditing ? (
+                <Form.Item label="Last Name">
+                  <Input
+                    value={formData.lastName}
+                    size="large"
+                    style={{ marginTop: 8, color: "black" }}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
+                  />
+                </Form.Item>
+              ) : (
+                <div
+                  style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+                >
+                  <Text type="secondary">Last Name: </Text>
+                  <Text strong>{user.lastName}</Text>
+                </div>
+              )}
             </Col>
-            <Col xs={24} md={12}>
-              <Form.Item label="Username">
-                <Input
-                  value={user.username}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
 
-          <Row gutter={16}>
+            {/* Email & Username */}
             <Col xs={24} md={12}>
-              <Form.Item label="Job Title">
-                <Input
-                  value={user.jobTitle}
-                  size="large"
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Email: </Text>
+                <Text strong>{user.email}</Text>
+              </div>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="Last Login">
-                <Input
-                  size="large"
-                  value={formatDate(user.lastLogin)}
-                  disabled
-                  style={{ marginTop: 8, color: "black" }}
-                />
-              </Form.Item>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Username: </Text>
+                <Text strong>{user.username}</Text>
+              </div>
+            </Col>
+
+            {/* Job Title & Last Login */}
+            <Col xs={24} md={12}>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Job Title: </Text>
+                <Text strong>
+                  {user?.jobTitle
+                    ? user.jobTitle
+                        .split(" ")
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() +
+                            word.slice(1).toLowerCase(),
+                        )
+                        .join(" ")
+                    : "Unknown Job Title"}
+                </Text>
+              </div>
+            </Col>
+            <Col xs={24} md={12}>
+              <div
+                style={{ padding: 8, borderRadius: 6, background: "#fafafa" }}
+              >
+                <Text type="secondary">Last Login: </Text>
+                <Text strong>{formatDate(user.lastLogin)}</Text>
+              </div>
             </Col>
           </Row>
 
@@ -293,6 +370,16 @@ export default function Profile() {
           height: "max-content",
         }}
       >
+        {!user?.signature && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Signature specimen required"
+            description="Upload your specimen signature below. This can only be submitted once."
+            style={{ marginBottom: 24 }}
+          />
+        )}
+
         <Row align="center">
           <Col
             xs={24}
@@ -312,8 +399,8 @@ export default function Profile() {
               src={previewUri || DefaultAvatar}
               alt="Profile"
               style={{
-                width: 200,
-                height: 200,
+                width: 168,
+                height: 168,
                 borderRadius: "50%",
                 objectFit: "cover",
                 cursor: isEditing ? "pointer" : "default",
@@ -357,6 +444,109 @@ export default function Profile() {
                 </Popconfirm>
               </Col>
             </Row>
+
+            <Card
+              style={{
+                width: "100%",
+                borderRadius: 12,
+                background: "#fafafa",
+              }}
+            >
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <div>
+                  <Title level={5} style={{ marginBottom: 4 }}>
+                    Signature Specimen
+                  </Title>
+                  <Text type="secondary">
+                    Upload a clear image of your signature. This can only be
+                    uploaded once.
+                  </Text>
+                </div>
+
+                {signaturePreviewUri ? (
+                  <div
+                    style={{
+                      border: "1px dashed #d9d9d9",
+                      borderRadius: 12,
+                      padding: 16,
+                      background: "#fff",
+                      minHeight: 140,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <img
+                      src={signaturePreviewUri}
+                      alt="Signature specimen"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: 110,
+                        objectFit: "contain",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      border: "1px dashed #d9d9d9",
+                      borderRadius: 12,
+                      padding: 16,
+                      background: "#fff",
+                      minHeight: 140,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                    }}
+                  >
+                    <Text type="secondary">
+                      No signature specimen uploaded yet.
+                    </Text>
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={signatureInputRef}
+                  style={{ display: "none" }}
+                  onChange={pickSignature}
+                />
+
+                <Space wrap>
+                  <Button
+                    type="primary"
+                    onClick={() =>
+                      user?.signature
+                        ? null
+                        : signatureFile
+                          ? handleSaveSignature()
+                          : signatureInputRef.current?.click()
+                    }
+                    disabled={Boolean(user?.signature)}
+                    loading={signatureUploading}
+                  >
+                    {user?.signature
+                      ? "Signature Locked"
+                      : signatureFile
+                        ? "Upload Signature"
+                        : "Choose Signature File"}
+                  </Button>
+
+                  {!user?.signature && signatureFile && (
+                    <Button
+                      onClick={() => {
+                        setSignatureFile(null);
+                        setSignaturePreviewUri("");
+                      }}
+                    >
+                      Clear Selection
+                    </Button>
+                  )}
+                </Space>
+              </Space>
+            </Card>
           </Col>
 
           <Col xs={24} s={24} md={24} lg={12}>

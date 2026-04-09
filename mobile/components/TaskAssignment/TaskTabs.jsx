@@ -7,14 +7,9 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 
-export default function TaskTabs({
-  tasks,
-  employees = [],
-  taskOptions = [],
-  onTaskPress,
-}) {
+export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle === "maintenance manager";
+  const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];
@@ -48,17 +43,15 @@ export default function TaskTabs({
       }
     } else {
       return tasks.filter((task) => {
-        const dueDate = new Date(task.dueDate);
+        const deadline = task.endDateTime || task.dueDate;
+        if (!deadline) return false;
+        const dueDate = new Date(deadline);
         const today = new Date(
           now.getFullYear(),
           now.getMonth(),
           now.getDate(),
         );
         const isPastDue = dueDate < today;
-
-        console.log(
-          `Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`,
-        );
 
         switch (activeTab) {
           case "Upcoming":
@@ -91,7 +84,8 @@ export default function TaskTabs({
     const grouped = {};
 
     filtered.forEach((task) => {
-      const date = new Date(task.dueDate);
+      const deadline = task.endDateTime || task.dueDate;
+      const date = new Date(deadline);
       const formattedDate = formatDisplayDate(date);
 
       if (!grouped[formattedDate]) {
@@ -130,8 +124,6 @@ export default function TaskTabs({
     } else if (action === "edit") {
       setSelectedTask(task);
       setShowEditModal(true);
-    } else if (action === "delete") {
-      console.log("Delete task", task.id);
     }
   };
 
@@ -258,23 +250,19 @@ export default function TaskTabs({
             visible={showAddModal}
             onClose={() => setShowAddModal(false)}
             onAddTask={(newTask) => {
-              console.log("Added Task:", newTask);
               setShowAddModal(false);
             }}
             employees={employees}
-            taskOptions={taskOptions}
           />
 
           <EditTask
             visible={showEditModal}
             onClose={() => setShowEditModal(false)}
             onSave={(updatedTask) => {
-              console.log("Updated Task:", updatedTask);
               setShowEditModal(false);
             }}
             task={selectedTask}
             employees={employees}
-            taskOptions={taskOptions}
           />
         </>
       )}

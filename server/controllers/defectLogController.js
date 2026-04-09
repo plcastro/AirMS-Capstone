@@ -62,7 +62,7 @@ const updateDefectLog = async (req, res) => {
     const updatedLog = await DefectLog.findByIdAndUpdate(
       req.params.id,
       { reportedBy, aircraft_model, description },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedLog)

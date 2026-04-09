@@ -1,98 +1,43 @@
-import React, { useState } from "react";
-import { Table, Button, Tag } from "antd";
+import React from "react";
+import { Table } from "antd";
 
-import { EditOutlined } from "@ant-design/icons";
-
-export default function MLogTable({
-  headers = [],
-  data = [],
-  columnWidths = {},
-  onEditEntry,
-}) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
-
-  // Map headers to AntD Table columns
-  const columns = headers.map((header) => {
-    // Action column
-    if (header.key === "action") {
-      return {
-        title: header.title,
-        key: header.key,
-        width: columnWidths[header.key] || 140,
-        align: "center",
-        render: (_, record) => (
-          <Button
-            type="primary"
-            block
-            onClick={() => onEditEntry(record)}
-            icon={<EditOutlined />}
-          >
-            Edit
-          </Button>
-        ),
-      };
+export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkReport }) {
+  const columns = headers.map((header) => ({
+    title: header.title,
+    dataIndex: header.key,
+    key: header.key,
+    render: (text, record, index) => {
+      if (isWorkReport && header.key === "description") {
+        return <div style={{ minHeight: '30px' }}>{index + 1}. {text}</div>;
+      }
+      return text || "N/A";
     }
-
-    // Status column
-    if (header.key === "status") {
-      return {
-        title: header.title,
-        key: header.key,
-        dataIndex: header.key,
-        width: columnWidths[header.key] || 140,
-        align: "center",
-        render: (text) => {
-          const value = typeof text === "object" ? JSON.stringify(text) : text;
-          const color = value === "Verified" ? "green" : "volcano";
-          return <Tag color={color}>{value || "Unverified"}</Tag>;
-        },
-      };
-    }
-
-    // Regular columns
-    return {
-      title: header.title,
-      dataIndex: header.key,
-      key: header.key,
-      width: columnWidths[header.key] || 140,
-      ellipsis: true,
-      render: (text) => {
-        if (!text || text === "N/A") return "N/A";
-
-        if (typeof text === "object") return JSON.stringify(text);
-
-        if (header.key === "defects" || header.key === "correctiveActionDone") {
-          return text.length > 80 ? text.substring(0, 80) + "..." : text;
-        }
-
-        return text;
-      },
-    };
-  });
-
-  const handlePageChange = (page, pageSize) => {
-    setCurrentPage(page);
-    setPageSize(pageSize);
-  };
+  }));
 
   return (
     <Table
       columns={columns}
       dataSource={data}
-      rowKey={(record) => record.index}
-      pagination={{
-        current: currentPage,
-        pageSize,
-        total: data.length,
-        showSizeChanger: true,
-        pageSizeOptions: ["5", "10", "15", "20"],
-        onChange: handlePageChange,
-        onShowSizeChange: handlePageChange,
-        showQuickJumper: true,
-        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-      }}
-      scroll={{ x: "max-content" }}
+      rowKey={(record, index) => index}
+      pagination={false}
+      onRow={(record) => ({
+        onClick: () => onRowClick && onRowClick(record),
+        style: { cursor: onRowClick ? 'pointer' : 'default' }
+      })}
+      components={isSimple ? {
+        header: {
+          cell: (props) => (
+            <th {...props} style={{ 
+              background: '#26866f', color: 'white', textAlign: 'center',
+              display: isWorkReport ? 'none' : 'table-cell' 
+            }}>
+              {props.children}
+            </th>
+          ),
+        },
+      } : undefined}
+      bordered={true}
+      size="small"
     />
   );
 }

@@ -65,6 +65,9 @@ export default function Login() {
   };
 
   const login = async () => {
+    setLoading(true);
+    setMessage("");
+
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
@@ -75,7 +78,16 @@ export default function Login() {
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = null;
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (error) {
+        console.error("Login returned non-JSON response:", responseText);
+        setMessage("Login failed. Server returned an invalid response.");
+        return;
+      }
 
       if (response.ok) {
         const { user, token } = data;
@@ -87,10 +99,6 @@ export default function Login() {
           );
           return;
         }
-
-        // Save token and user info
-        await AsyncStorage.setItem("currentUserToken", token);
-        await AsyncStorage.setItem("currentUser", JSON.stringify(user));
 
         // Remember me logic
         if (rememberMe) {
@@ -118,15 +126,17 @@ export default function Login() {
           return;
         }
         setLoginSuccess(true);
-        loginUser(user);
+        await loginUser(user, token);
         nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
-        setMessage("Login Failed", data.message || "Unauthorized");
+        setMessage(data.message || "Login failed");
       }
     } catch (err) {
       console.error(err);
       setMessage("Too many login attempts. Please try again later");
+    } finally {
+      setLoading(false);
     }
   };
 

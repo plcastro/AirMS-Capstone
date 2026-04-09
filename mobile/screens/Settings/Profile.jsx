@@ -102,7 +102,7 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("currentUserToken");
       const res = await fetch(
         `${API_BASE}/api/user/update-user-profile/${user.id}`,
         {
@@ -140,7 +140,7 @@ export default function Profile() {
     });
 
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("currentUserToken");
       const res = await fetch(
         `${API_BASE}/api/user/update-user-image/${user.id}`,
         {
@@ -178,7 +178,7 @@ export default function Profile() {
           text: "Yes",
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem("token");
+              const token = await AsyncStorage.getItem("currentUserToken");
               const res = await fetch(
                 `${API_BASE}/api/user/update-user-image/${user.id}`,
                 {

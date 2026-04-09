@@ -170,7 +170,7 @@ export default function PreInspectionModalStations({
     <View key={field} style={{ marginBottom: 18 }}>
       <Text
         style={{
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: "bold",
           color: COLORS.black,
           marginBottom: 8,
@@ -212,7 +212,7 @@ export default function PreInspectionModalStations({
         </View>
         <Text
           style={{
-            fontSize: 18,
+            fontSize: 16,
             color: COLORS.grayDark,
             flex: 1,
             flexWrap: "wrap",
@@ -225,10 +225,7 @@ export default function PreInspectionModalStations({
   );
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ padding: 0 }}
-    >
+    <View>
       {/* Station 1 Card */}
       <View
         style={{
@@ -294,7 +291,7 @@ export default function PreInspectionModalStations({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 18, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
               >
                 Select All
               </Text>
@@ -383,7 +380,7 @@ export default function PreInspectionModalStations({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 18, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
               >
                 Select All
               </Text>
@@ -406,6 +403,6 @@ export default function PreInspectionModalStations({
           )}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
