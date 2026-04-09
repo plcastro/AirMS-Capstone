@@ -167,13 +167,30 @@ export default function FlightLogEntry({
 
   const [formData, setFormData] = useState(initForm);
   const [componentData, setComponentData] = useState(initComponent);
+  const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [activeTab, setActiveTab] = useState("info");
   const [submitting, setSubmitting] = useState(false);
+
+  const mapAircraftReferenceToBroughtForward = (referenceData = {}) => ({
+    airframe: referenceData.acftTT || "",
+    gearBoxMain: referenceData.acftTT || "",
+    gearBoxTail: referenceData.acftTT || "",
+    rotorMain: referenceData.acftTT || "",
+    rotorTail: referenceData.acftTT || "",
+    airframeNextInsp: "",
+    engine: referenceData.acftTT || "",
+    cycleN1: referenceData.n1Cycles || "",
+    cycleN2: referenceData.n2Cycles || "",
+    usage: "",
+    landingCycle: referenceData.landings || "",
+    engineNextInsp: "",
+  });
 
   useEffect(() => {
     if (visible) {
       setFormData(initForm());
       setComponentData(initComponent());
+      setLoadedAircraftData(null);
       setActiveTab("info");
     }
   }, [visible]);
@@ -182,6 +199,65 @@ export default function FlightLogEntry({
   useEffect(() => {
     setFormData((prev) => syncServicingToLegs(prev));
   }, [legCount]);
+
+  useEffect(() => {
+    if (!loadedAircraftData?.referenceData || editMode) return;
+
+    setComponentData((prev) => ({
+      ...prev,
+      broughtForwardData: {
+        ...prev.broughtForwardData,
+        ...mapAircraftReferenceToBroughtForward(loadedAircraftData.referenceData),
+      },
+    }));
+  }, [loadedAircraftData, editMode]);
+
+  useEffect(() => {
+    const broughtForward = componentData.broughtForwardData || {};
+    const thisFlight = componentData.thisFlightData || {};
+
+    const calculatedToDate = {
+      airframe:
+        (parseFloat(broughtForward.airframe) || 0) +
+        (parseFloat(thisFlight.airframe) || 0),
+      gearBoxMain:
+        (parseFloat(broughtForward.gearBoxMain) || 0) +
+        (parseFloat(thisFlight.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(broughtForward.gearBoxTail) || 0) +
+        (parseFloat(thisFlight.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(broughtForward.rotorMain) || 0) +
+        (parseFloat(thisFlight.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(broughtForward.rotorTail) || 0) +
+        (parseFloat(thisFlight.rotorTail) || 0),
+      engine:
+        (parseFloat(broughtForward.engine) || 0) +
+        (parseFloat(thisFlight.engine) || 0),
+      cycleN1:
+        (parseFloat(broughtForward.cycleN1) || 0) +
+        (parseFloat(thisFlight.cycleN1) || 0),
+      cycleN2:
+        (parseFloat(broughtForward.cycleN2) || 0) +
+        (parseFloat(thisFlight.cycleN2) || 0),
+      usage:
+        (parseFloat(broughtForward.usage) || 0) +
+        (parseFloat(thisFlight.usage) || 0),
+      landingCycle:
+        (parseFloat(broughtForward.landingCycle) || 0) +
+        (parseFloat(thisFlight.landingCycle) || 0),
+      airframeNextInsp:
+        thisFlight.airframeNextInsp || broughtForward.airframeNextInsp || "",
+      engineNextInsp:
+        thisFlight.engineNextInsp || broughtForward.engineNextInsp || "",
+    };
+
+    setComponentData((prev) => ({
+      ...prev,
+      toDateData: calculatedToDate,
+    }));
+  }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
   // Determine which tabs to show based on role and edit mode
   const tabs = useMemo(() => {
@@ -367,6 +443,8 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={canEditBasicInfo}
+            isRPCEditable={!editMode}
+            onAircraftDataLoaded={setLoadedAircraftData}
           />
         );
       case "destinations":

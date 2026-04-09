@@ -30,13 +30,14 @@ export default function FlightLogModalComponentTimes({ componentData, updateComp
 
       {SECTIONS.map(({ key, title }) => {
         const sectionLocked = isLocked && key === "broughtForwardData";
-        const canEdit = isEditable && !sectionLocked;
+        const isCalculatedSection = key === "toDateData";
+        const canEdit = isEditable && !sectionLocked && !isCalculatedSection;
 
         return (
           <div key={key} className="fl-card" style={{ marginBottom: 16 }}>
             <div className="fl-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{title}</span>
-              {sectionLocked && <LockOutlined style={{ color: "white" }} />}
+              {(sectionLocked || isCalculatedSection) && <LockOutlined style={{ color: "white" }} />}
             </div>
             <div className="fl-card-body">
               {COMPONENT_FIELDS.map((field) => (

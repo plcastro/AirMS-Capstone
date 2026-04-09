@@ -1,5 +1,5 @@
 // controllers/partsMonitoringController.js
-const PartsMonitoring = require("../models/partsMonitoring");
+const PartsMonitoring = require("../models/partsMonitoringModel");
 
 exports.updateAircraftTotals = async (req, res) => {
   try {
@@ -246,11 +246,11 @@ const getAircraftList = async (req, res) => {
   }
 };
 module.exports = {
-  updateAircraftTotals,
-  savePartsMonitoring,
+  updateAircraftTotals: exports.updateAircraftTotals,
+  savePartsMonitoring: exports.savePartsMonitoring,
   deleteAircraftData,
-  deletePartsMonitoring,
+  deletePartsMonitoring: exports.deletePartsMonitoring,
   getAircraftList,
-  getAllPartsMonitoring,
-  getPartsMonitoring,
+  getAllPartsMonitoring: exports.getAllPartsMonitoring,
+  getPartsMonitoring: exports.getPartsMonitoring,
 };
