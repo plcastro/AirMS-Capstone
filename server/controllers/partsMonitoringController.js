@@ -1,5 +1,14 @@
 // controllers/partsMonitoringController.js
 const PartsMonitoring = require("../models/partsMonitoring");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 // Save or update parts monitoring data
 exports.savePartsMonitoring = async (req, res) => {
@@ -40,6 +49,11 @@ exports.savePartsMonitoring = async (req, res) => {
       existingData.updatedBy = updatedBy || "system";
 
       await existingData.save();
+      const audit = withActorId(
+        req,
+        `Parts monitoring updated for aircraft: ${aircraft}`,
+      );
+      await auditLog(audit.action, audit.actorId);
       console.log("Data updated successfully");
 
       res.status(200).json({
@@ -60,6 +74,11 @@ exports.savePartsMonitoring = async (req, res) => {
       });
 
       await newData.save();
+      const audit = withActorId(
+        req,
+        `Parts monitoring created for aircraft: ${aircraft}`,
+      );
+      await auditLog(audit.action, audit.actorId);
       console.log("New data created successfully");
 
       res.status(201).json({
@@ -156,6 +175,11 @@ exports.deletePartsMonitoring = async (req, res) => {
         message: "Data not found",
       });
     }
+    const audit = withActorId(
+      req,
+      `Parts monitoring deleted for aircraft: ${deleted.aircraft}`,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -184,6 +208,11 @@ exports.deleteAircraftData = async (req, res) => {
         message: "No data found for this aircraft",
       });
     }
+    const audit = withActorId(
+      req,
+      `Parts monitoring deleted for aircraft: ${aircraft}`,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,

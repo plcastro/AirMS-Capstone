@@ -1,4 +1,13 @@
 const PreInspection = require("../models/preInspectionModel");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const createPreInspection = async (req, res) => {
   try {
@@ -10,6 +19,8 @@ const createPreInspection = async (req, res) => {
     };
 
     const inspection = await PreInspection.create(payload);
+    const audit = withActorId(req, `Pre-inspection created: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "Pre-inspection created successfully",
@@ -57,6 +68,8 @@ const updatePreInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
+    const audit = withActorId(req, `Pre-inspection updated: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Pre-inspection updated successfully",
@@ -75,6 +88,8 @@ const deletePreInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
+    const audit = withActorId(req, `Pre-inspection deleted: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Pre-inspection deleted successfully",

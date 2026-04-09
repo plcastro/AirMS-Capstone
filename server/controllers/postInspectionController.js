@@ -1,4 +1,13 @@
 const PostInspection = require("../models/postInspectionModel");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const createPostInspection = async (req, res) => {
   try {
@@ -10,6 +19,8 @@ const createPostInspection = async (req, res) => {
     };
 
     const inspection = await PostInspection.create(payload);
+    const audit = withActorId(req, `Post-inspection created: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "Post-inspection created successfully",
@@ -57,6 +68,8 @@ const updatePostInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
+    const audit = withActorId(req, `Post-inspection updated: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Post-inspection updated successfully",
@@ -75,6 +88,8 @@ const deletePostInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
+    const audit = withActorId(req, `Post-inspection deleted: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Post-inspection deleted successfully",

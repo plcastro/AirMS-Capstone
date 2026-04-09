@@ -9,6 +9,15 @@ const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
+const getAuditActorId = (req, fallbackId = null) =>
+  req.user?.id || req.userRecord?._id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
@@ -155,7 +164,8 @@ const loginUser = async (req, res) => {
     //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
     // );
 
-    // await auditLog("User logged in", user._id);c
+    await auditLog("User logged in", user._id);
+    c;
 
     const responseUser = {
       id: user._id,
@@ -190,6 +200,8 @@ const unlockUser = async (req, res) => {
   user.lockUntil = undefined;
 
   await user.save();
+  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+  await auditLog(audit.action, audit.actorId);
 
   res.json({ message: "Account unlocked successfully" });
 };
@@ -238,7 +250,7 @@ const logoutUser = async (req, res) => {
     }
 
     await auditLog(
-      `User logged out: ${decoded.username || decoded.id}`,
+      `User logged out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
     );
 
@@ -360,10 +372,12 @@ const createUser = async (req, res) => {
         : null,
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User created: ${username}, email sent successfully`,
       newUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "User created successfully",
@@ -427,6 +441,12 @@ const completeSecuritySetup = async (req, res) => {
     user.tempPasswordExpires = undefined;
 
     await user.save();
+    const audit = withActorId(
+      req,
+      `Security setup completed for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     return res.status(200).json({
       message: "Security setup completed successfully",
@@ -520,15 +540,19 @@ const updateUser = async (req, res) => {
     );
 
     if (Object.keys(changes).length > 0) {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     } else {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User update attempted but no changes detected: ${username}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     }
 
     res
@@ -579,10 +603,12 @@ const updateUserProfile = async (req, res) => {
       returnDocument: "after",
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User name updated: ${updatedUser.username}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -607,10 +633,12 @@ const updateUserStatus = async (req, res) => {
       { returnDocument: "after" },
     );
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User status updated: ${user.username}. Old: ${user.status}, New: ${status}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -679,6 +707,15 @@ const updateUserImage = async (req, res) => {
       { returnDocument: "after", runValidators: true },
     );
 
+    const audit = withActorId(
+      req,
+      newImagePath
+        ? `User image updated: ${updatedUser.username}`
+        : `User image removed: ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
     res.status(200).json({
       message: newImagePath ? "Avatar updated" : "Avatar removed",
       user: updatedUser,
@@ -743,6 +780,8 @@ const updatePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await UserModel.updateOne({ _id: id }, { password: hashedPassword });
+    const audit = withActorId(req, `Password updated for ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -776,6 +815,8 @@ const updatePIN = async (req, res) => {
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
     await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
+    const audit = withActorId(req, `PIN updated for ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
     console.error(err);
@@ -804,6 +845,13 @@ const updateSignature = async (req, res) => {
       { signature },
       { returnDocument: "after" },
     );
+
+    const audit = withActorId(
+      req,
+      `Signature updated for ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Signature updated", user: updatedUser });
   } catch (err) {
@@ -843,7 +891,8 @@ const activateUser = async (req, res) => {
     user.securitySetupCompleted = true;
     await user.save();
 
-    await auditLog("User account activated successfully", user._id);
+    const audit = withActorId(req, "User account activated successfully", user._id);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -888,7 +937,8 @@ const resendActivation = async (req, res) => {
              <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
     });
 
-    await auditLog("Activation email resent", user._id);
+    const audit = withActorId(req, "Activation email resent", user._id);
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "Activation email resent" });
   } catch (err) {
     console.error(err);
