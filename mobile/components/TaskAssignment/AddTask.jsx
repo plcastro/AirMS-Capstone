@@ -3,14 +3,13 @@ import {
   View,
   Text,
   Modal,
-  TextInput,
   ScrollView,
   Dimensions,
   TouchableOpacity,
   Platform,
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from "@react-native-picker/picker";
 import Button from "../Button";
 import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
@@ -18,41 +17,85 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
 const { width } = Dimensions.get("window");
+const INSPECTION_NAME_ALIASES = {
+  "TBO Inspection": ["Time Between Overhaul"],
+  "OC Inspection": ["ON CONDITION (OC)"],
+  "OTL Inspection": ["OPERATING TIME LIMIT (OTL)"],
+  "ALF Inspection": ["ALF"],
+  "10 FH Inspection": ["10 FH"],
+  "10 FH - 1 M Inspection": ["10 FH // 1 M"],
+  "12 M Inspection": ["12 M"],
+  "24 M Inspection": ["24 M"],
+  "48 M Inspection": ["48 M"],
+  "150 FH Inspection": ["150 FH"],
+  "150 FH - 12 M Inspection": ["150 FH / 12 M", "150 FH // 12 M"],
+  "750 FH Inspection": ["750 FH"],
+  "750 FH - 24 M Inspection": ["750 FH // 24 M", "750 FH / 24 M"],
+  "1500 FH Inspection": ["1500 FH"],
+  "1500 FH - 48 M Inspection": ["1500 FH // 48 M", "1500 FH / 48 M"],
+};
+
+const getPickerValue = (event) => {
+  if (event?.type === "dismissed") {
+    return null;
+  }
+
+  return event;
+};
 
 export default function AddTask({
   visible,
   onClose,
   onAddTask,
   employees,
-  taskOptions,
 }) {
-  const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
+  const [selectedInspection, setSelectedInspection] = useState(null);
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(
     new Date(new Date().getTime() + 60 * 60 * 1000),
-  ); // 1 hour later
-  const [dueDate1, setDueDate1] = useState(
-    new Date(Date.now() + 24 * 60 * 60 * 1000),
-  ); // Tomorrow
-  const [dueDate2, setDueDate2] = useState(new Date());
+  );
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [showDue1Picker, setShowDue1Picker] = useState(false);
-  const [showDue2Picker, setShowDue2Picker] = useState(false);
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
+  const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [androidPickerMode, setAndroidPickerMode] = useState("date");
 
   const [checklistItems, setChecklistItems] = useState([]);
-
   const [aircraftOptions, setAircraftOptions] = useState([]);
-
   const [inspectionOptions, setInspectionOptions] = useState([]);
 
-  // Update end date when start date changes (keep 1 hour later)
+  const fetchInspectionTasks = async (inspection) => {
+    const inspectionNames = [
+      inspection.name,
+      ...(INSPECTION_NAME_ALIASES[inspection.name] || []),
+    ];
+
+    for (const inspectionName of inspectionNames) {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspectionName)}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
+      );
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const tasks = await response.json();
+
+      if (Array.isArray(tasks) && tasks.length > 0) {
+        return tasks;
+      }
+    }
+
+    return [];
+  };
+
   useEffect(() => {
     const newEndDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     setEndDate(newEndDate);
@@ -60,30 +103,34 @@ export default function AddTask({
 
   useEffect(() => {
     setChecklistItems([]);
-    setInspectionOptions([]);
     setInspectionType("");
+    setSelectedInspection(null);
   }, [selectedAircraft]);
 
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
+        setLoading(true);
         const response = await fetch(
           `${API_BASE}/api/parts-monitoring/aircraft-list`,
         );
 
         if (!response.ok) throw new Error("Failed to fetch aircraft");
 
-        const result = await response.json();
-        const data = result?.data || [];
+        const data = await response.json();
+        const aircraftList = Array.isArray(data?.data) ? data.data : [];
 
-        const options = data.map((tailNum) => ({
-          id: tailNum,
-          name: tailNum,
+        const options = aircraftList.map((aircraft) => ({
+          id: aircraft,
+          name: aircraft,
         }));
 
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
+        Alert.alert("Error", "Failed to fetch aircraft");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -92,56 +139,50 @@ export default function AddTask({
 
   useEffect(() => {
     const fetchInspections = async () => {
-      if (!selectedAircraft) return;
+      if (!visible) return;
 
       try {
+        setLoading(true);
         const response = await fetch(`${API_BASE}/api/inspections/schedules`);
 
         if (!response.ok) throw new Error("Failed to fetch inspections");
 
         const data = await response.json();
 
-        const options = data.map((i) => ({
-          id: i._id,
-          name: i.inspectionName,
-          aircraftModel: i.aircraftModel,
-        }));
+        const options = Array.from(
+          new Map(
+            data.map((inspection) => [
+              inspection._id,
+              {
+                id: inspection._id,
+                name: inspection.inspectionName,
+                aircraftModel: inspection.aircraftModel,
+              },
+            ]),
+          ).values(),
+        );
 
         setInspectionOptions(options);
       } catch (error) {
         console.error("Error fetching inspections:", error);
+        Alert.alert("Error", "Failed to fetch inspection schedules");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchInspections();
-  }, [selectedAircraft]);
-
-  const handleAddChecklistItem = () => {
-    setChecklistItems([
-      ...checklistItems,
-      {
-        taskId: "custom",
-        taskName: "",
-        inspectionTypeFull: "",
-      },
-    ]);
-  };
-
-  const handleUpdateChecklistItem = (index, text) => {
-    const updated = [...checklistItems];
-    updated[index] = {
-      ...updated[index],
-      taskName: text,
-    };
-    setChecklistItems(updated);
-  };
-
-  const handleDeleteChecklistItem = (index) => {
-    const updated = checklistItems.filter((_, i) => i !== index);
-    setChecklistItems(updated);
-  };
+  }, [visible]);
 
   const confirmAdd = () => {
+    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
+      Alert.alert(
+        "Missing fields",
+        "Please select an aircraft, inspection, and mechanic.",
+      );
+      return;
+    }
+
     const filteredChecklist = checklistItems.filter(
       (item) => item.taskName && item.taskName.trim() !== "",
     );
@@ -150,23 +191,21 @@ export default function AddTask({
       id: Date.now().toString(),
       title: inspectionOptions.find((i) => i.id === inspectionType)?.name || "",
       aircraft: selectedAircraft,
-      dueDate: dueDate1.toISOString(),
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
       priority: "Normal",
-      maintenanceType: "LALALA",
+      maintenanceType: "Inspection",
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
-      // checklistItems now holds full task documents
       checklistItems:
         filteredChecklist.length > 0
           ? filteredChecklist
           : [
               {
-                inspectionName: "",
-                aircraftModel: selectedAircraftModel || "",
+                inspectionName: selectedInspection?.name || "",
+                aircraftModel: selectedInspection?.aircraftModel || "",
                 ata: {
                   chapter: 0,
                   chapterName: "",
@@ -194,7 +233,6 @@ export default function AddTask({
                   calendarMonths: 0,
                   specificInterval: "",
                 },
-                tailNumber: selectedAircraft,
               },
             ],
     };
@@ -222,33 +260,218 @@ export default function AddTask({
     );
   };
 
-  const onStartChange = (event, selectedDate) => {
-    setShowStartPicker(Platform.OS === "ios");
-    if (selectedDate) {
-      setStartDate(selectedDate);
+  const openDateTimePicker = (field) => {
+    if (Platform.OS === "android") {
+      setAndroidPickerMode("date");
     }
+
+    if (field === "start") {
+      setShowStartPicker(true);
+      setShowEndPicker(false);
+    } else {
+      setShowEndPicker(true);
+      setShowStartPicker(false);
+    }
+  };
+
+  const handleDateTimeChange = (field, event, selectedDate) => {
+    const closePicker = () => {
+      if (field === "start") {
+        setShowStartPicker(false);
+      } else {
+        setShowEndPicker(false);
+      }
+    };
+
+    const currentValue = field === "start" ? startDate : endDate;
+
+    if (event?.type === "dismissed") {
+      closePicker();
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
+      return;
+    }
+
+    if (!selectedDate) {
+      return;
+    }
+
+    if (Platform.OS === "android" && androidPickerMode === "date") {
+      const nextDate = new Date(currentValue);
+      nextDate.setFullYear(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+      );
+
+      if (field === "start") {
+        setStartDate(nextDate);
+      } else {
+        setEndDate(nextDate);
+      }
+
+      setAndroidPickerMode("time");
+      return;
+    }
+
+    const nextDate = new Date(currentValue);
+
+    if (Platform.OS === "android") {
+      nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+    } else {
+      nextDate.setTime(selectedDate.getTime());
+    }
+
+    if (field === "start") {
+      setStartDate(nextDate);
+    } else {
+      setEndDate(nextDate);
+    }
+
+    closePicker();
+
+    if (Platform.OS === "android") {
+      setAndroidPickerMode("date");
+    }
+  };
+
+  const onStartChange = (event, selectedDate) => {
+    if (getPickerValue(event) === null) {
+      setShowStartPicker(false);
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
+      return;
+    }
+
+    handleDateTimeChange("start", event, selectedDate);
   };
 
   const onEndChange = (event, selectedDate) => {
-    setShowEndPicker(Platform.OS === "ios");
-    if (selectedDate) {
-      setEndDate(selectedDate);
+    if (getPickerValue(event) === null) {
+      setShowEndPicker(false);
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
+      return;
     }
+
+    handleDateTimeChange("end", event, selectedDate);
   };
 
-  const onDue1Change = (event, selectedDate) => {
-    setShowDue1Picker(Platform.OS === "ios");
-    if (selectedDate) {
-      setDueDate1(selectedDate);
-    }
+  const closeAllDropdowns = () => {
+    setShowAircraftDropdown(false);
+    setShowInspectionDropdown(false);
+    setShowMechanicDropdown(false);
   };
 
-  const onDue2Change = (event, selectedDate) => {
-    setShowDue2Picker(Platform.OS === "ios");
-    if (selectedDate) {
-      setDueDate2(selectedDate);
-    }
-  };
+  const renderDropdownField = ({
+    label,
+    value,
+    placeholder,
+    options,
+    visible,
+    onToggle,
+    onSelect,
+    disabled = false,
+  }) => (
+    <View style={{ marginBottom: 15 }}>
+      <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+        {label}
+      </Text>
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={disabled}
+        onPress={() => {
+          if (!disabled) {
+            const nextVisible = !visible;
+            closeAllDropdowns();
+            onToggle(nextVisible);
+          }
+        }}
+        style={{
+          minHeight: 48,
+          backgroundColor: COLORS.grayLight,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          borderRadius: 8,
+          paddingHorizontal: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            marginRight: 10,
+            fontSize: 15,
+            color: value ? COLORS.black : COLORS.grayDark,
+          }}
+        >
+          {value || placeholder}
+        </Text>
+
+        <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
+          {visible ? "^" : "v"}
+        </Text>
+      </TouchableOpacity>
+
+      {visible && !disabled && (
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: 8,
+            maxHeight: 220,
+            overflow: "hidden",
+          }}
+        >
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {options.map((item, index) => (
+              <TouchableOpacity
+                key={`${item.value}-${index}`}
+                activeOpacity={0.85}
+                onPress={() => {
+                  onSelect(item.value);
+                  closeAllDropdowns();
+                }}
+                style={{
+                  paddingVertical: 13,
+                  paddingHorizontal: 14,
+                  borderBottomWidth: index < options.length - 1 ? 1 : 0,
+                  borderBottomColor: COLORS.border,
+                  backgroundColor:
+                    value === item.label ? `${COLORS.primaryLight}12` : COLORS.white,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: COLORS.black,
+                  }}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+
+  const selectedAircraftLabel =
+    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)?.name || "";
+  const selectedInspectionLabel =
+    inspectionOptions.find((inspection) => inspection.id === inspectionType)?.name || "";
+  const selectedEmployeeLabel =
+    employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
@@ -257,13 +480,18 @@ export default function AddTask({
           style={[
             styles.alertContainer,
             {
-              width: width > 425 ? 600 : "95%",
+              width: width > 425 ? 600 : width - 32,
+              maxWidth: "92%",
               maxHeight: "90%",
-              padding: 20,
+              paddingVertical: 18,
+              paddingHorizontal: 14,
             },
           ]}
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text
               style={[
                 styles.alertTitle,
@@ -273,143 +501,70 @@ export default function AddTask({
               Task
             </Text>
 
-            {/* Aircraft Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Aircraft
-            </Text>
-            <View
-              style={[
-                styles.filterContainer,
-                {
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={selectedAircraft}
-                onValueChange={(itemValue) => setSelectedAircraft(itemValue)}
-                style={{ height: 40 }}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item
-                  key="placeholder-aircraft"
-                  label="Tail No."
-                  value=""
-                />
-                {aircraftOptions.map((aircraft) => (
-                  <Picker.Item
-                    key={aircraft.id}
-                    label={aircraft.name}
-                    value={aircraft.id}
-                  />
-                ))}
-              </Picker>
-            </View>
+            {renderDropdownField({
+              label: "Aircraft",
+              value: selectedAircraftLabel,
+              placeholder: "Tail No.",
+              options: aircraftOptions.map((aircraft) => ({
+                label: aircraft.name,
+                value: aircraft.id,
+              })),
+              visible: showAircraftDropdown,
+              onToggle: setShowAircraftDropdown,
+              onSelect: setSelectedAircraft,
+            })}
 
-            {/* Inspection Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Inspection
-            </Text>
-
-            <Picker
-              selectedValue={inspectionType}
-              onValueChange={async (itemValue) => {
+            {renderDropdownField({
+              label: "Inspection",
+              value: selectedInspectionLabel,
+              placeholder:
+                loading && inspectionOptions.length === 0
+                  ? "Loading inspections..."
+                  : "Pick Inspection",
+              options: inspectionOptions.map((inspection) => ({
+                label: inspection.name,
+                value: inspection.id,
+              })),
+              visible: showInspectionDropdown,
+              onToggle: setShowInspectionDropdown,
+              onSelect: async (itemValue) => {
                 setInspectionType(itemValue);
 
-                if (!itemValue) {
-                  setChecklistItems([]);
-                  return;
-                }
-
-                const selectedInspection = inspectionOptions.find(
+                const matchedInspection = inspectionOptions.find(
                   (i) => i.id === itemValue,
                 );
 
-                if (!selectedInspection) {
-                  setChecklistItems([]);
-                  return;
-                }
+                setSelectedInspection(matchedInspection || null);
+                setChecklistItems([]);
 
+                if (!matchedInspection) return;
                 try {
-                  const response = await fetch(
-                    `${API_BASE}/api/inspections/tasks?inspectionName=${selectedInspection.name}`,
-                  );
-
-                  if (!response.ok) {
-                    throw new Error("Failed to fetch tasks");
-                  }
-
-                  const result = await response.json();
-                  const tasks = result?.data || result;
-
-                  setChecklistItems(Array.isArray(tasks) ? tasks : []);
+                  setLoading(true);
+                  const tasks = await fetchInspectionTasks(matchedInspection);
+                  setChecklistItems(tasks);
                 } catch (error) {
                   console.error("Error fetching tasks:", error);
-                  setChecklistItems([]);
+                  Alert.alert("Error", "Failed to fetch inspection tasks");
+                } finally {
+                  setLoading(false);
                 }
-              }}
-              style={{ height: 40, marginBottom: 15 }}
-            >
-              <Picker.Item
-                key="placeholder-inspection"
-                label="Pick Inspection"
-                value=""
-              />
-              {inspectionOptions.map((inspection) => (
-                <Picker.Item
-                  key={inspection.id}
-                  label={inspection.name}
-                  value={inspection.id}
-                />
-              ))}
-            </Picker>
+              },
+              disabled: loading && inspectionOptions.length === 0,
+            })}
 
-            {/* Mechanic Section */}
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Mechanic
-            </Text>
-            <View
-              style={[
-                styles.filterContainer,
-                {
-                  marginBottom: 15,
-                  backgroundColor: COLORS.grayLight,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                },
-              ]}
-            >
-              <Picker
-                selectedValue={selectedEmployee}
-                onValueChange={(itemValue) => setSelectedEmployee(itemValue)}
-                style={{ height: 40 }}
-                dropdownIconColor={COLORS.primaryLight}
-              >
-                <Picker.Item
-                  key="placeholder-mechanic"
-                  label="Pick Mechanic"
-                  value=""
-                />
-                {employees.map((emp) => (
-                  <Picker.Item key={emp.id} label={emp.name} value={emp.id} />
-                ))}
-              </Picker>
-            </View>
+            {renderDropdownField({
+              label: "Mechanic",
+              value: selectedEmployeeLabel,
+              placeholder: "Pick Mechanic",
+              options: employees.map((emp) => ({
+                label: emp.name,
+                value: emp.id,
+              })),
+              visible: showMechanicDropdown,
+              onToggle: setShowMechanicDropdown,
+              onSelect: setSelectedEmployee,
+            })}
 
-            {/* Start Date Section */}
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
@@ -424,7 +579,7 @@ export default function AddTask({
                 padding: 12,
                 marginBottom: 15,
               }}
-              onPress={() => setShowStartPicker(true)}
+              onPress={() => openDateTimePicker("start")}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
@@ -434,13 +589,12 @@ export default function AddTask({
             {showStartPicker && (
               <DateTimePicker
                 value={startDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onStartChange}
               />
             )}
 
-            {/* End Date Section */}
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
@@ -455,7 +609,7 @@ export default function AddTask({
                 padding: 12,
                 marginBottom: 20,
               }}
-              onPress={() => setShowEndPicker(true)}
+              onPress={() => openDateTimePicker("end")}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}
@@ -465,13 +619,12 @@ export default function AddTask({
             {showEndPicker && (
               <DateTimePicker
                 value={endDate}
-                mode="datetime"
+                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onEndChange}
               />
             )}
 
-            {/* Checklist Section */}
             <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
               Checklist
             </Text>
@@ -482,52 +635,17 @@ export default function AddTask({
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
-                    {item.taskId} • {item.inspectionTypeFull}
+                    {[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ")}
                   </Text>
 
-                  <TextInput
-                    style={{ borderBottomWidth: 1 }}
-                    value={item.taskName}
-                    onChangeText={(text) =>
-                      handleUpdateChecklistItem(index, text)
-                    }
-                  />
+                  <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                    {item.taskName}
+                  </Text>
                 </View>
-
-                <TouchableOpacity
-                  onPress={() => handleDeleteChecklistItem(index)}
-                >
-                  <Text style={{ color: "red", fontSize: 18 }}>×</Text>
-                </TouchableOpacity>
               </View>
             ))}
-
-            {/* Add Checklist Button */}
-            {/*<TouchableOpacity
-              onPress={handleAddChecklistItem}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 10,
-                marginBottom: 20,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 20,
-                  color: COLORS.primaryLight,
-                  marginRight: 8,
-                }}
-              >
-                +
-              </Text>
-              <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
-                Add Checklist
-              </Text>
-            </TouchableOpacity>*/}
           </ScrollView>
 
-          {/* Buttons */}
           <View
             style={{
               flexDirection: "row",

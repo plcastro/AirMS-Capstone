@@ -33,6 +33,18 @@ const DrawerList = [
     jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "engineer"],
   },
   {
+    icon: "book-open-page-variant",
+    label: "Pre-Inspection",
+    navigateTo: "Pre-Inspection",
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
+  },
+  {
+    icon: "book-open-page-variant",
+    label: "Post-Inspection",
+    navigateTo: "Post-Inspection",
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
+  },
+  {
     icon: "clipboard-text",
     label: "Tasks",
     navigateTo: "Tasks",
@@ -43,6 +55,12 @@ const DrawerList = [
     label: "Mechanic List",
     navigateTo: "Mechanics",
     jobTitle: ["maintenance manager"],
+  },
+  {
+    icon: "file-document-outline",
+    label: "Parts Requisition",
+    navigateTo: "Parts Requisition",
+    jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
   },
   {
     icon: "account-circle",

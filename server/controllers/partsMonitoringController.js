@@ -200,7 +200,7 @@ exports.deletePartsMonitoring = async (req, res) => {
 };
 
 // Delete all data for a specific aircraft
-exports.deleteAircraftData = async (req, res) => {
+const deleteAircraftData = async (req, res) => {
   try {
     const { aircraft } = req.params;
 
@@ -228,7 +228,7 @@ exports.deleteAircraftData = async (req, res) => {
 };
 
 // Get all unique aircraft list
-exports.getAircraftList = async (req, res) => {
+const getAircraftList = async (req, res) => {
   try {
     const aircraft = await PartsMonitoring.distinct("aircraft");
 
@@ -244,4 +244,13 @@ exports.getAircraftList = async (req, res) => {
       error: error.message,
     });
   }
+};
+module.exports = {
+  updateAircraftTotals,
+  savePartsMonitoring,
+  deleteAircraftData,
+  deletePartsMonitoring,
+  getAircraftList,
+  getAllPartsMonitoring,
+  getPartsMonitoring,
 };

@@ -2,20 +2,23 @@ import React, { useContext, useEffect, useState, useMemo } from "react";
 import { Menu, Button, Modal } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  BookOutlined,
+  ScheduleOutlined,
   UserOutlined,
   FlagOutlined,
   LogoutOutlined,
   AuditOutlined,
   TeamOutlined,
   AreaChartOutlined,
+  ToolOutlined,
+  DashboardOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
 import { AuthContext } from "../../context/AuthContext";
 
 const Sidebar = ({ collapsed }) => {
-  const { user } = useContext(AuthContext);
+  const { user, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const jobTitle = user?.jobTitle?.toLowerCase() || "";
@@ -26,63 +29,67 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "1",
       label: "View Users",
-      icon: <TeamOutlined />,
+      icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
       key: "2",
       label: "Activity Logs",
-      icon: <AuditOutlined />,
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
 
     {
       key: "3",
       label: "Flight Logs",
-      icon: <BookOutlined />,
+      icon: (
+        <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
+          helicopter
+        </span>
+      ),
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "4",
       label: "Maintenance Logs",
-      icon: <BookOutlined />,
+      icon: <ToolOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
 
     {
       key: "5",
       label: "Parts Lifespan Monitoring",
-      icon: <BookOutlined />,
+      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "6",
       label: "Maintenance Tracking",
-      icon: <BookOutlined />,
+      icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "7",
       label: "Parts Requisition Monitoring",
-      icon: <BookOutlined />,
+      icon: <InboxOutlined style={{ fontSize: 24 }} />,
       roles: ["warehouse department"],
     },
     {
       key: "8",
       label: "Maintenance Priority",
-      icon: <FlagOutlined />,
+      icon: <FlagOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
       key: "9",
-      label: "Maintenance Dashboard",
-      icon: <AreaChartOutlined />,
+      label: "Reports and Analytics",
+      icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "10",
       label: "Profile",
-      icon: <UserOutlined />,
+      icon: <UserOutlined style={{ fontSize: 24 }} />,
       roles: ["admin", "maintenance manager", "warehouse department"],
     },
   ];
@@ -116,7 +123,7 @@ const Sidebar = ({ collapsed }) => {
       "/dashboard/profile": "10",
     }),
     [],
-  ); // Empty array means it's created only once
+  );
 
   useEffect(() => {
     const key = routeToKey[location.pathname] || "10";
@@ -132,14 +139,13 @@ const Sidebar = ({ collapsed }) => {
   };
 
   const showModal = () => setOpen(true);
-  const handleOk = () => {
+
+  const handleOk = async () => {
     setConfirmLoading(true);
-    setTimeout(() => {
-      setOpen(false);
-      setConfirmLoading(false);
-      localStorage.removeItem("currentUser");
-      navigate("/login");
-    }, 500);
+    await logoutUser();
+    setConfirmLoading(false);
+    setOpen(false);
+    navigate("/login");
   };
   const handleCancel = () => setOpen(false);
 

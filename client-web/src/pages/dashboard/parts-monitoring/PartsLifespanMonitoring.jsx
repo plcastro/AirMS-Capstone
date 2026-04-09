@@ -352,48 +352,51 @@ export default function PartsMonitoring() {
             </div>
           </Card>
         </Col>
-        <Col span={18}>
-          <Card className="aircraft-card">
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Engine Cycle:</Text>
+
+        {/* Right Card - Inputs */}
+        <Col xs={24} md={16} lg={18}>
+          <Card>
+            <Row gutter={[16, 16]}>
+              {/* Engine Cycle */}
+              <Col xs={24} md={12}>
+                <Text>Engine Cycle:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))
                   }
                   disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Date:</Text>
+              </Col>
+
+              {/* Date */}
+              <Col xs={24} md={12}>
+                <Text>Date:</Text>
                 <Input
                   type="date"
-                  size="small"
-                  className="card-input-field"
                   value={refs.today.toISOString().split("T")[0]}
                   onChange={(e) => setRefs((prev) => ({ ...prev, today: new Date(e.target.value) }))}
                   disabled={!selectedAircraft}
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N1:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* N1 */}
+              <Col xs={12} md={6}>
+                <Text>N1:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n1Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, n1Cycles: parseFloat(e.target.value) || 0 }))
                   }
                   disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Eng. TT:</Text>
+              </Col>
+
+              {/* N2 */}
+              <Col xs={12} md={6}>
+                <Text>N2:</Text>
                 <Input
                   size="small"
                   className="card-input-field"
@@ -417,26 +420,40 @@ export default function PartsMonitoring() {
                   }
                   disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Acft. TT:</Text>
+              </Col>
+
+              {/* Engine TT */}
+              <Col xs={12} md={6}>
+                <Text>Eng. TT:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
+                  value={refs.engTT}
+                  onChange={(e) =>
+                    setRefs((prev) => ({
+                      ...prev,
+                      engTT: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </Col>
+
+              {/* Aircraft TT */}
+              <Col xs={12} md={6}>
+                <Text>Acft. TT:</Text>
+                <Input
                   value={refs.acftTT}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, acftTT: parseFloat(e.target.value) || 0 }))
                   }
                   disabled={!selectedAircraft}
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Landings:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* Landings */}
+              <Col xs={12} md={6}>
+                <Text>Landings:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))

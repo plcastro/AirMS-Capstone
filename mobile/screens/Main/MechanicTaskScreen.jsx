@@ -5,10 +5,8 @@ import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
 import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
-import TaskInfo from "../../components/TaskAssignment/TaskInfo";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-const { width } = Dimensions.get("window");
 
 export default function MechanicTaskScreen() {
   const { user } = useContext(AuthContext);
@@ -21,10 +19,24 @@ export default function MechanicTaskScreen() {
     { id: "all", name: "All Aircraft" },
   ]);
 
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
   // Fetch tasks assigned to the current mechanic
   useEffect(() => {
     const fetchTasks = async () => {
-      console.log("User:", user);
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
@@ -32,25 +44,21 @@ export default function MechanicTaskScreen() {
             Authorization: `Bearer ${token}`,
           },
         });
-        console.log("Response status:", response.status);
         if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched tasks:", data.data);
-          const assignedTasks = data.data.filter(
-            (task) =>
-              task.assignedToName === `${user?.firstName} ${user?.lastName}`,
+          const data = await parseJsonSafely(response);
+          const assignedTasks = (data.data || []).filter(
+            (task) => String(task.assignedTo) === String(user?.id),
           );
-          console.log("Assigned tasks:", assignedTasks);
           setTasks(assignedTasks || []);
         } else {
           console.error("Failed to fetch tasks, status:", response.status);
           const errorText = await response.text();
           console.error("Error response:", errorText);
-          setTasks(TaskInfo); // Fallback
+          setTasks([]);
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
-        setTasks(TaskInfo); // Fallback
+        setTasks([]);
       }
     };
     if (user) {
@@ -63,15 +71,15 @@ export default function MechanicTaskScreen() {
     const fetchAircraft = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/api/aircraft/aircraft-tail-numbers`,
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
         );
         if (response.ok) {
           const data = await response.json();
           const options = [
             { id: "all", name: "All Aircraft" },
-            ...data.map((aircraft) => ({
-              id: aircraft.tailNum,
-              name: aircraft.tailNum,
+            ...(data.data || []).map((aircraft) => ({
+              id: aircraft,
+              name: aircraft,
             })),
           ];
           setAircraftOptions(options);
@@ -108,21 +116,11 @@ export default function MechanicTaskScreen() {
 
   const handleStartTask = async (task) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
       status: "Ongoing",
-      startDateTime: `${formattedDate} ${formattedTime}`,
+      startDateTime: now.toISOString(),
     };
 
     try {
@@ -135,11 +133,11 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
         setSelectedTask({
           ...data.data,
@@ -171,11 +169,11 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
           ...data.data,
@@ -191,16 +189,6 @@ export default function MechanicTaskScreen() {
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
@@ -213,7 +201,7 @@ export default function MechanicTaskScreen() {
       updatedTask.endDateTime = "";
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = `${formattedDate} ${formattedTime}`;
+      updatedTask.endDateTime = now.toISOString();
     }
 
     try {
@@ -226,11 +214,11 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
       } else {
         Alert.alert("Error", "Failed to turn in task");
@@ -257,14 +245,14 @@ export default function MechanicTaskScreen() {
           },
         ]}
       >
-        <View style={{ flex: 0.7 }}>
+        <View style={{ flex: 0.58 }}>
           <TextInput
             placeholder="Search tasks"
             placeholderTextColor="gray"
             style={[
               styles.searchInput,
               {
-                height: 40,
+                height: 50,
                 width: "100%",
                 backgroundColor: "#fff",
                 borderWidth: 1,
@@ -280,8 +268,8 @@ export default function MechanicTaskScreen() {
 
         <View
           style={{
-            flex: 0.3,
-            height: 40,
+            flex: 0.42,
+            minHeight: 40,
             backgroundColor: "#fff",
             borderWidth: 1,
             borderColor: "#d4d4d4",
@@ -296,9 +284,11 @@ export default function MechanicTaskScreen() {
             style={[
               styles.filterPicker,
               {
-                height: 40,
+                height: 50,
                 width: "100%",
                 color: "#333",
+                fontSize: 14,
+                marginTop: -4,
               },
             ]}
             dropdownIconColor="#666"

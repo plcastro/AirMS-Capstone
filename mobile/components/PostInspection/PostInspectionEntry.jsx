@@ -11,6 +11,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import PostInspectionModalInfo from "./PostInspectionModalInfo";
+import PostInspectionModalStation1 from "./PostInspectionModalStation1";
+import PostInspectionModalStation2 from "./PostInspectionModalStation2";
+import PostInspectionModalEngine from "./PostInspectionModalEngine";
+import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
+import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import { getDefaultPostInspectionFormData } from "./PostInspectionForms";
 
 export default function PostInspectionEntry({
   visible,
@@ -20,28 +27,26 @@ export default function PostInspectionEntry({
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
-  
-  // Tabs will be added later based on your requirements
-  const tabs = ["Basic Information"];
+
+  const tabs = [
+    "Basic Information",
+    "Station 1",
+    "Station 2",
+    "Engine",
+    "Main Rotor",
+    "Cabin Interior",
+  ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
-    date: new Date().toLocaleDateString("en-US"),
-    createdBy: userRole,
-  });
+  const [formData, setFormData] = useState(
+    getDefaultPostInspectionFormData(userRole),
+  );
 
   useEffect(() => {
     if (visible) {
       setCurrentPage(0);
-      setFormData({
-        aircraftType: "",
-        rpc: "",
-        date: new Date().toLocaleDateString("en-US"),
-        createdBy: userRole,
-      });
+      setFormData(getDefaultPostInspectionFormData(userRole));
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: false });
       }
@@ -68,7 +73,6 @@ export default function PostInspectionEntry({
       return;
     }
     onSave(formData);
-    onClose();
   };
 
   const handleNext = () => {
@@ -84,14 +88,60 @@ export default function PostInspectionEntry({
   };
 
   const renderPage = () => {
-    return (
-      <View style={{ padding: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 20 }}>
-          Basic Information
-        </Text>
-        <Text>Post Inspection Form - Coming Soon</Text>
-      </View>
-    );
+    const currentTab = tabs[currentPage];
+
+    switch (currentTab) {
+      case "Basic Information":
+        return (
+          <PostInspectionModalInfo
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Station 1":
+        return (
+          <PostInspectionModalStation1
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Station 2":
+        return (
+          <PostInspectionModalStation2
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Engine":
+        return (
+          <PostInspectionModalEngine
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Main Rotor":
+        return (
+          <PostInspectionModalMainRotor
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Cabin Interior":
+        return (
+          <PostInspectionModalCabinInterior
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -99,7 +149,6 @@ export default function PostInspectionEntry({
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-        {/* Tab Bar */}
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
           <ScrollView
             horizontal
@@ -158,7 +207,6 @@ export default function PostInspectionEntry({
           </TouchableOpacity>
         </View>
 
-        {/* Page Content */}
         <ScrollView
           ref={scrollViewRef}
           style={{ flex: 1, paddingHorizontal: 20 }}
@@ -169,7 +217,6 @@ export default function PostInspectionEntry({
           {renderPage()}
         </ScrollView>
 
-        {/* Navigation Buttons */}
         <View
           style={{
             flexDirection: "row",

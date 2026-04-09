@@ -10,7 +10,6 @@ const {
   releaseFlightLog,
   acceptFlightLog,
   completeFlightLog,
-  deleteFlightLog,
   getFlightLogStats,
   searchFlightLogs,
 } = require("../controllers/flightlogController");

@@ -96,7 +96,7 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             key={log._id}
             style={{
               backgroundColor: COLORS.white,
-              borderRadius: 10,
+              borderRadius: 7,
               marginBottom: 20,
               elevation: 3,
               shadowColor: "#000",
@@ -196,7 +196,6 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                     Control: {log.control || "N/A"}
                   </Text>
                 </View>
-
                 {/* Created By Badge */}
                 <View
                   style={{
