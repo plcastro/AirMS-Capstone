@@ -112,6 +112,7 @@ const loginUser = async (req, res) => {
         requireSetup: true,
         user: {
           id: user._id,
+          email: user.email,
           status: user.status,
           setupToken,
         },
@@ -165,7 +166,6 @@ const loginUser = async (req, res) => {
     // );
 
     await auditLog("User logged in", user._id);
-    c;
 
     const responseUser = {
       id: user._id,
@@ -780,7 +780,11 @@ const updatePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await UserModel.updateOne({ _id: id }, { password: hashedPassword });
-    const audit = withActorId(req, `Password updated for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `Password updated for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Password updated successfully." });
@@ -815,7 +819,11 @@ const updatePIN = async (req, res) => {
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
     await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
-    const audit = withActorId(req, `PIN updated for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `PIN updated for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
@@ -891,7 +899,11 @@ const activateUser = async (req, res) => {
     user.securitySetupCompleted = true;
     await user.save();
 
-    const audit = withActorId(req, "User account activated successfully", user._id);
+    const audit = withActorId(
+      req,
+      "User account activated successfully",
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Account activated successfully" });
