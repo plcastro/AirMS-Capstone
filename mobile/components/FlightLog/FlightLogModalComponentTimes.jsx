@@ -14,12 +14,12 @@ export default function FlightLogModalComponentTimes({
   onUpdateComponent,
   isEditable = true,
   isLocked = false,
-  aircraftData = null,
+  aircraftData = null
 }) {
   // Define the mapping between component fields and aircraft data fields
   const getAircraftValue = (fieldKey) => {
     if (!aircraftData) return "";
-
+    
     // Map component fields to aircraft data structure
     const fieldMapping = {
       airframe: aircraftData.referenceData.acftTT || "",
@@ -35,7 +35,7 @@ export default function FlightLogModalComponentTimes({
       landingCycle: aircraftData.referenceData.landings || "",
       engineNextInsp: aircraftData.referenceData.engNextInsp || "",
     };
-
+    
     return fieldMapping[fieldKey] || "";
   };
 
@@ -44,7 +44,7 @@ export default function FlightLogModalComponentTimes({
     { label: "Gear Box (MAIN)", key: "gearBoxMain" },
     { label: "Gear Box (TAIL)", key: "gearBoxTail" },
     { label: "Rotor (MAIN)", key: "rotorMain" },
-    { label: "Rotor (TAIL)", key: "rotorTail" },
+    { label: "Rotor (TAIL)", key: "rotorTail" },  
     { label: "Airframe Next Insp. Due At", key: "airframeNextInsp" },
     { label: "Engine", key: "engine" },
     { label: "Cycle (N1)", key: "cycleN1" },
@@ -56,10 +56,10 @@ export default function FlightLogModalComponentTimes({
 
   const renderField = (label, fieldKey) => {
     const isFieldEditable = isEditable && !isLocked;
-
+    
     // Get value from componentData first, then from aircraftData
     const value = componentData[fieldKey] || getAircraftValue(fieldKey) || "";
-
+    
     return (
       <View style={{ marginBottom: 16 }}>
         <Text

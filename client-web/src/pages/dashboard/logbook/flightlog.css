@@ -293,6 +293,28 @@
   position: relative;
 }
 
+.fl-rpc-select {
+  width: 100%;
+}
+
+.fl-rpc-select .ant-select-selector {
+  height: 32px !important;
+  border-radius: 6px !important;
+  background: #f8f8f8 !important;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+
+.fl-rpc-select .ant-select-selection-wrap {
+  align-items: center;
+}
+
+.fl-rpc-select.ant-select-disabled .ant-select-selector {
+  background: #e8e8e8 !important;
+  color: #999 !important;
+}
+
 .fl-custom-select {
   display: flex;
   align-items: center;
@@ -342,6 +364,8 @@
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .fl-select-option {

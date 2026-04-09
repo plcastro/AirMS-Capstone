@@ -353,17 +353,12 @@ export default function FlightLog() {
               }}
               onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
             >
-              <Text
-                style={{
-                  fontSize: 15,
-                  color:
-                    selectedAircraft && selectedAircraft !== "all"
-                      ? COLORS.black
-                      : COLORS.grayDark,
-                }}
-              >
-                {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+              <Text style={{ 
+                fontSize: 15, 
+                color: selectedAircraft && selectedAircraft !== "all" ? COLORS.black : COLORS.grayDark 
+              }}>
+                {selectedAircraft && selectedAircraft !== "all" 
+                  ? `RP-C: ${selectedAircraft}` 
                   : "Choose Aircraft"}
               </Text>
               <MaterialCommunityIcons

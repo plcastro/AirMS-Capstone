@@ -116,7 +116,7 @@ const Login = () => {
           localStorage.removeItem("rememberMe");
         }
         antMessage.success("Logged in successfully!");
-        handleNavigate(data.user);
+        handleNavigate(data.user.jobTitle);
       } else {
         setError(data.message || "Login failed");
       }
