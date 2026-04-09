@@ -12,7 +12,7 @@ const {
   completeFlightLog,
   getFlightLogStats,
   searchFlightLogs,
-} = require("../controllers/flightLogController");
+} = require("../controllers/flightlogController");
 
 // REMOVE AUTH MIDDLEWARE - No authentication required
 // router.use(verifyToken); // COMMENT THIS OUT OR DELETE
