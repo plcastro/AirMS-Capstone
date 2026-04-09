@@ -107,6 +107,146 @@ const taskSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
-});
+
+  defects: {
+    type: String,
+    default: "",
+  },
+
+  correctiveActionDone: {
+    type: String,
+    default: "",
+  },
+
+  completionNotes: {
+    type: String,
+    default: "",
+  },
+
+  dateDiscovered: {
+    type: Date,
+    default: Date.now,
+  },
+
+  dateRectified: {
+    type: Date,
+    default: null,
+  },
+
+  completedAt: {
+    type: Date,
+    default: null,
+  },
+
+  reviewedAt: {
+    type: Date,
+    default: null,
+  },
+
+  returnedAt: {
+    type: Date,
+    default: null,
+  },
+
+  approvedAt: {
+    type: Date,
+    default: null,
+  },
+
+  isApproved: {
+    type: Boolean,
+    default: false,
+  },
+
+  approvedBy: {
+    type: String,
+    default: "",
+  },
+
+  returnedBy: {
+    type: String,
+    default: "",
+  },
+
+  returnComments: {
+    type: String,
+    default: "",
+  },
+
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+
+  assignedMechanic: {
+    type: String,
+    default: "",
+  },
+
+  maintenanceHistory: {
+    defectDiscoveredAt: {
+      type: Date,
+      default: null,
+    },
+    defectRectifiedAt: {
+      type: Date,
+      default: null,
+    },
+    sameDayRepair: {
+      type: Boolean,
+      default: false,
+    },
+    historyNotes: {
+      type: String,
+      default: "",
+    },
+  },
+
+  performance: {
+    estimatedHours: {
+      type: Number,
+      default: 0,
+    },
+    actualHours: {
+      type: Number,
+      default: 0,
+    },
+    turnaroundHours: {
+      type: Number,
+      default: 0,
+    },
+    downtimeHours: {
+      type: Number,
+      default: 0,
+    },
+    delayReason: {
+      type: String,
+      default: "",
+    },
+    completedWithinSchedule: {
+      type: Boolean,
+      default: false,
+    },
+  },
+
+  summary: {
+    category: {
+      type: String,
+      default: "",
+    },
+    severity: {
+      type: String,
+      default: "",
+    },
+    result: {
+      type: String,
+      default: "",
+    },
+    remarks: {
+      type: String,
+      default: "",
+    },
+  },
+}, { timestamps: true });
 
 module.exports = mongoose.model("task", taskSchema);

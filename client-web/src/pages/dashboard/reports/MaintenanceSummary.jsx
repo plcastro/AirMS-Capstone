@@ -11,27 +11,74 @@ dayjs.extend(isBetween);
 
 const { RangePicker } = DatePicker;
 
-export default function MaintenanceSummary({
-  summaryData = [],
-  repairData = [],
-}) {
-  const [loading] = useState(false);
+const formatDate = (value) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-CA");
+};
+
+export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const [searchText, setSearchText] = useState("");
   const [dateRange, setDateRange] = useState(null);
 
-  const filteredData = summaryData.filter((item) => {
+  const mappedTasks = tasks.map((task, index) => ({
+    key: task._id || task.id || `${task.title}-${index}`,
+    aircraft: task.aircraft || "---",
+    date: formatDate(task.date || task.completedAt || task.createdAt || task.dueDate),
+    task: task.title || task.summary?.category || "---",
+    assignedMechanic:
+      task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
+    status: task.status || "Pending",
+  }));
+
+  const filteredData = mappedTasks.filter((item) => {
     const matchesSearch =
       item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
       item.task.toLowerCase().includes(searchText.toLowerCase());
 
     let matchesDate = true;
-    if (dateRange && dateRange[0] && dateRange[1]) {
+    if (dateRange && dateRange[0] && dateRange[1] && item.date) {
       const itemDate = dayjs(item.date);
       matchesDate = itemDate.isBetween(dateRange[0], dateRange[1], "day", "[]");
     }
 
     return matchesSearch && matchesDate;
   });
+
+  const visibleTaskKeys = new Set(filteredData.map((item) => item.key));
+
+  const repairData = tasks
+    .filter((task, index) =>
+      visibleTaskKeys.has(task._id || task.id || `${task.title}-${index}`),
+    )
+    .reduce((acc, task) => {
+      const rawDate = task.date || task.completedAt || task.createdAt || task.dueDate;
+      const aircraft = task.aircraft || "Unassigned";
+      const parsedDate = new Date(rawDate);
+
+      if (!rawDate || isNaN(parsedDate.getTime())) return acc;
+
+      const label = parsedDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+
+      const existing = acc.find((entry) => entry.date === label);
+      if (existing) {
+        existing[aircraft] = (existing[aircraft] || 0) + 1;
+      } else {
+        acc.push({ date: label, [aircraft]: 1 });
+      }
+
+      return acc;
+    }, [])
+    .sort(
+      (a, b) =>
+        new Date(`2000 ${a.date}`).getTime() - new Date(`2000 ${b.date}`).getTime(),
+    );
 
   const headers = [
     {
@@ -60,8 +107,10 @@ export default function MaintenanceSummary({
       dataIndex: "status",
       key: "status",
       render: (status) => {
-        const isCompleted = status?.toLowerCase() === "completed";
-        const isOngoing = status?.toLowerCase() === "ongoing";
+        const normalizedStatus = status?.toLowerCase();
+        const isCompleted = normalizedStatus === "completed";
+        const isOngoing =
+          normalizedStatus === "ongoing" || normalizedStatus === "pending";
 
         const color = isCompleted
           ? "success"
@@ -98,6 +147,7 @@ export default function MaintenanceSummary({
     }
     return "in the last 30 days";
   };
+
   return (
     <div
       style={{
