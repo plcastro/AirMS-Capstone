@@ -2,12 +2,13 @@
 const express = require("express");
 const router = express.Router();
 const {
-  savePartsMonitoring,
-  deleteAircraftData,
-  deletePartsMonitoring,
-  getAircraftList,
-  getAllPartsMonitoring,
   getPartsMonitoring,
+  getAllPartsMonitoring,
+  savePartsMonitoring,
+  deletePartsMonitoring,
+  deleteAircraftData,
+  getAircraftList,
+  updateAircraftTotals,
 } = require("../controllers/partsMonitoringController");
 
 // Routes
@@ -19,5 +20,7 @@ router.post("/save", savePartsMonitoring); // Save or update data
 
 router.delete("/:id", deletePartsMonitoring); // Delete by ID
 router.delete("/aircraft/:aircraft", deleteAircraftData); // Delete all data for aircraft
+
+router.put("/:aircraft/update-totals", updateAircraftTotals);
 
 module.exports = router;
