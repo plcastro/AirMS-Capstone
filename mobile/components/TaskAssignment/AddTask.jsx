@@ -83,7 +83,7 @@ export default function AddTask({
 
         setAircraftOptions(options);
       } catch (error) {
-        console.error("Error fetching aircraft:", error);a
+        console.error("Error fetching aircraft:", error);
       }
     };
 
@@ -325,25 +325,36 @@ export default function AddTask({
               onValueChange={async (itemValue) => {
                 setInspectionType(itemValue);
 
+                if (!itemValue) {
+                  setChecklistItems([]);
+                  return;
+                }
+
                 const selectedInspection = inspectionOptions.find(
                   (i) => i.id === itemValue,
                 );
 
-                if (!selectedInspection) return;
+                if (!selectedInspection) {
+                  setChecklistItems([]);
+                  return;
+                }
+
                 try {
                   const response = await fetch(
-                    `${API_BASE}/api/inspections/tasks?tailNumber=${selectedAircraft}&inspectionName=${selectedInspection.name}`,
+                    `${API_BASE}/api/inspections/tasks?inspectionName=${selectedInspection.name}`,
                   );
 
                   if (!response.ok) {
                     throw new Error("Failed to fetch tasks");
                   }
 
-                  const tasks = await response.json();
+                  const result = await response.json();
+                  const tasks = result?.data || result;
 
-                  setChecklistItems(tasks);
+                  setChecklistItems(Array.isArray(tasks) ? tasks : []);
                 } catch (error) {
                   console.error("Error fetching tasks:", error);
+                  setChecklistItems([]);
                 }
               }}
               style={{ height: 40, marginBottom: 15 }}

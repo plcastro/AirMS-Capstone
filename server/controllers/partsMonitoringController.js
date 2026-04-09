@@ -74,51 +74,25 @@ exports.updateAircraftTotals = async (req, res) => {
 // Save or update parts monitoring data
 exports.savePartsMonitoring = async (req, res) => {
   try {
-    console.log("=== SAVE REQUEST RECEIVED ===");
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-
-    const { aircraft, referenceData, parts, updatedBy } = req.body;
+    const { aircraft, referenceData, parts, updatedBy, dateManufactured, aircraftType, creepDamage } = req.body;
 
     if (!aircraft) {
-      console.log("Error: No aircraft provided");
-      return res.status(400).json({
-        success: false,
-        message: "Aircraft is required",
-      });
+      return res.status(400).json({ success: false, message: "Aircraft is required" });
     }
-
     if (!parts || !Array.isArray(parts)) {
-      console.log("Error: Parts data is invalid or missing");
-      return res.status(400).json({
-        success: false,
-        message: "Parts data is required and must be an array",
-      });
+      return res.status(400).json({ success: false, message: "Parts data is required and must be an array" });
     }
 
-    console.log(`Processing save for aircraft: ${aircraft}`);
-    console.log(`Number of parts: ${parts.length}`);
-
-    // Check if data already exists for this aircraft
     let existingData = await PartsMonitoring.findOne({ aircraft });
-    console.log("Existing data found:", existingData ? "Yes" : "No");
 
     if (existingData) {
-      // Update existing data
       existingData.referenceData = referenceData || existingData.referenceData;
       existingData.parts = parts;
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
-
       await existingData.save();
-      console.log("Data updated successfully");
-
-      res.status(200).json({
-        success: true,
-        message: "Data updated successfully",
-        data: existingData,
-      });
+      res.status(200).json({ success: true, message: "Data updated successfully", data: existingData });
     } else {
-      // Create new record
       const newData = new PartsMonitoring({
         aircraft,
         dateManufactured: dateManufactured || null,
@@ -128,28 +102,12 @@ exports.savePartsMonitoring = async (req, res) => {
         parts,
         updatedBy: updatedBy || "system",
       });
-
       await newData.save();
-      console.log("New data created successfully");
-
-      res.status(201).json({
-        success: true,
-        message: "Data saved successfully",
-        data: newData,
-      });
+      res.status(201).json({ success: true, message: "Data saved successfully", data: newData });
     }
   } catch (error) {
-    console.error("=== ERROR IN SAVE ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-
-    res.status(500).json({
-      success: false,
-      message: "Error saving data",
-      error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-    });
+    console.error("Error saving data:", error);
+    res.status(500).json({ success: false, message: "Error saving data", error: error.message });
   }
 };
 
