@@ -2,12 +2,12 @@
 const express = require("express");
 const router = express.Router();
 const {
-  getPartsMonitoring,
-  getAllPartsMonitoring,
   savePartsMonitoring,
-  deletePartsMonitoring,
   deleteAircraftData,
+  deletePartsMonitoring,
   getAircraftList,
+  getAllPartsMonitoring,
+  getPartsMonitoring,
 } = require("../controllers/partsMonitoringController");
 
 // Routes
