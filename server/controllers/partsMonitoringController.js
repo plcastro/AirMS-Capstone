@@ -246,7 +246,7 @@ const getAircraftList = async (req, res) => {
     });
   }
 };
-exports.module = {
+module.exports = {
   savePartsMonitoring,
   deleteAircraftData,
   deletePartsMonitoring,
