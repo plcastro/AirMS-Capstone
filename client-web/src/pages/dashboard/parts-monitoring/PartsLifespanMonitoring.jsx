@@ -8,6 +8,7 @@ import {
   Input,
   Card,
   Divider,
+  Tooltip,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
@@ -80,7 +81,6 @@ const getFormulaProcessor = (aircraft) => {
 };
 
 const { Text } = Typography;
-const { Option } = Select;
 
 // Column headers (same as before)
 const columnHeader = [
@@ -351,7 +351,16 @@ export default function PartsMonitoring() {
   };
 
   return (
-    <div className="parts-monitoring-container">
+    <div
+      style={{
+        padding: 20,
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        paddingBottom: 120,
+      }}
+    >
       <Row justify="space-between" align="middle" className="header-row">
         <Col>
           <div className="header-left">
@@ -361,6 +370,7 @@ export default function PartsMonitoring() {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="search-input"
+              size="large"
               allowClear
             />
             <Select
@@ -368,26 +378,25 @@ export default function PartsMonitoring() {
               onChange={(value) => setSelectedAircraft(value)}
               style={{ width: 180 }}
               loading={loadingAircraft}
-            >
-              {aircraftOptions.map((aircraft) => (
-                <Option key={aircraft} value={aircraft}>
-                  {aircraft}
-                </Option>
-              ))}
-            </Select>
-            <Button type="primary" icon={<PlusOutlined />}>
+              options={aircraftOptions.map((aircraft) => ({
+                label: aircraft,
+                value: aircraft,
+              }))}
+            />
+            {/* <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
-            </Button>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSaveToDatabase}
-              loading={saving}
-              disabled={!selectedAircraft}
-              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
-            >
-              Save to Database
-            </Button>
+            </Button> */}
+            <Tooltip title="Save to Database">
+              <Button
+                type="primary"
+                onClick={handleSaveToDatabase}
+                loading={saving}
+                disabled={!selectedAircraft}
+                // style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              >
+                <SaveOutlined />
+              </Button>
+            </Tooltip>
             {lastSaved && (
               <Text
                 type="secondary"
@@ -403,46 +412,52 @@ export default function PartsMonitoring() {
       <Divider />
 
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-        <Col span={6}>
-          <Card className="aircraft-card">
-            <div className="card-content">
-              <div className="info-item">
-                <Text className="info-label">Aircraft: </Text>
-                <Text className="info-value">
-                  {selectedAircraft || "Not selected"}
-                </Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Date Manufactured: </Text>
-                <Text className="info-value">
+        {/* Left Card - Aircraft Info */}
+        <Col xs={24} md={8} lg={6}>
+          <Card>
+            <Row>
+              <Text type="secondary">
+                Aircraft:{" "}
+                <Text strong>{selectedAircraft || "Not selected"}</Text>
+              </Text>
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Date Manufactured:{" "}
+                <Text strong>
                   {aircraftDetails.dateManufactured
                     ? aircraftDetails.dateManufactured.toLocaleDateString()
                     : "Not available"}
                 </Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Acft. Type: </Text>
-                <Text className="info-value">
+              </Text>
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Acft. Type:{" "}
+                <Text strong>
                   {aircraftDetails.aircraftType || "Not available"}
                 </Text>
-              </div>
-              <div>
-                <Text className="info-label">Creep Damage: </Text>
-                <Text className="info-value">
+              </Text>
+            </Row>
+            <Row className="info-item">
+              <Text type="secondary">
+                Creep Damage:{" "}
+                <Text strong>
                   {aircraftDetails.creepDamage || "Not available"}
                 </Text>
-              </div>
-            </div>
+              </Text>
+            </Row>
           </Card>
         </Col>
-        <Col span={18}>
-          <Card className="aircraft-card">
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Engine Cycle:</Text>
+
+        {/* Right Card - Inputs */}
+        <Col xs={24} md={16} lg={18}>
+          <Card>
+            <Row gutter={[16, 16]}>
+              {/* Engine Cycle */}
+              <Col xs={24} md={12}>
+                <Text>Engine Cycle:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -450,15 +465,14 @@ export default function PartsMonitoring() {
                       landings: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Date:</Text>
+              </Col>
+
+              {/* Date */}
+              <Col xs={24} md={12}>
+                <Text>Date:</Text>
                 <Input
                   type="date"
-                  size="small"
-                  className="card-input-field"
                   value={refs.today.toISOString().split("T")[0]}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -466,16 +480,15 @@ export default function PartsMonitoring() {
                       today: new Date(e.target.value),
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N1:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* N1 */}
+              <Col xs={12} md={6}>
+                <Text>N1:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n1Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -483,31 +496,13 @@ export default function PartsMonitoring() {
                       n1Cycles: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Eng. TT:</Text>
+              </Col>
+
+              {/* N2 */}
+              <Col xs={12} md={6}>
+                <Text>N2:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
-                  value={refs.acftTT}
-                  onChange={(e) =>
-                    setRefs((prev) => ({
-                      ...prev,
-                      acftTT: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  disabled={!selectedAircraft}
-                />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">N2:</Text>
-                <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.n2Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -515,14 +510,27 @@ export default function PartsMonitoring() {
                       n2Cycles: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Acft. TT:</Text>
+              </Col>
+
+              {/* Engine TT */}
+              <Col xs={12} md={6}>
+                <Text>Eng. TT:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
+                  value={refs.engTT}
+                  onChange={(e) =>
+                    setRefs((prev) => ({
+                      ...prev,
+                      engTT: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </Col>
+
+              {/* Aircraft TT */}
+              <Col xs={12} md={6}>
+                <Text>Acft. TT:</Text>
+                <Input
                   value={refs.acftTT}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -530,16 +538,15 @@ export default function PartsMonitoring() {
                       acftTT: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-            </div>
-            <div className="input-row">
-              <div className="input-group">
-                <Text className="card-input-label">Landings:</Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              {/* Landings */}
+              <Col xs={12} md={6}>
+                <Text>Landings:</Text>
                 <Input
-                  size="small"
-                  className="card-input-field"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -547,59 +554,59 @@ export default function PartsMonitoring() {
                       landings: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  disabled={!selectedAircraft}
                 />
-              </div>
-              <div className="input-group">
-                <Text className="card-input-label">Sling:</Text>
-                <Input
-                  size="small"
-                  className="card-input-field"
-                  disabled={!selectedAircraft}
-                />
-              </div>
-            </div>
+              </Col>
+
+              {/* Sling */}
+              <Col xs={12} md={6}>
+                <Text>Sling:</Text>
+                <Input />
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>
 
-      <Card className="aircraft-card legend-card">
-        <div className="legend-container">
+      <Card size="medium" style={{ marginBottom: 10 }}>
+        <Row
+          align="middle"
+          gutter={[12, 8]}
+          style={{ flexWrap: "wrap", gap: "16px" }}
+        >
           <Text className="note-title">NOTE:</Text>
-          <div className="legend-grid">
-            <div className="legend-item">
-              <Text strong>OC</Text> - ON CONDITION
-            </div>
-            <div className="legend-item">
-              <Text strong>H</Text> - HOURS
-            </div>
-            <div className="legend-item">
-              <Text strong>D</Text> - DAY
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-removed" />
-              <Text>- REMOVED</Text>
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-installed" />
-              <Text>- INSTALLED</Text>
-            </div>
+
+          <div>
+            <Text style={{ fontWeight: "bold" }}>OC</Text> - ON CONDITION
           </div>
-        </div>
+          <div>
+            <Text style={{ fontWeight: "bold" }}>H</Text> - HOURS
+          </div>
+          <div>
+            <Text style={{ fontWeight: "bold" }}>D</Text> - DAY
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="status-box status-removed" />
+            <Text>- REMOVED</Text>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="status-box status-installed" />
+            <Text>- INSTALLED</Text>
+          </div>
+        </Row>
       </Card>
 
-      <div className="table-container">
-        <PMonitoringTable
-          headers={columnHeader}
-          data={computedData}
-          loading={loading}
-          editable={!!selectedAircraft}
-          isCellEditable={isCellEditable}
-          onCellEdit={handleCellEdit}
-          rowKey="_id"
-          scroll={{ x: 1500 }}
-        />
-      </div>
+      <PMonitoringTable
+        headers={columnHeader}
+        data={computedData}
+        loading={loading}
+        editable={!!selectedAircraft}
+        isCellEditable={isCellEditable}
+        onCellEdit={handleCellEdit}
+        rowKey="_id"
+        scroll={{ x: 1500 }}
+      />
     </div>
   );
 }
