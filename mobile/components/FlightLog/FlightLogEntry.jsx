@@ -8,13 +8,14 @@ import {
   StatusBar,
   Alert,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogModalInfo from "./FlightLogModalInfo";
 import FlightLogModalDestinations from "./FlightLogModalDestinations";
-import FlightLogModalComponentTimes from "./FlightLogModalComponentTimes";
+import FlightLogModalBroughtForward from "./FlightLogModalBroughtForward";
+import FlightLogModalThisFlight from "./FlightLogModalThisFlight";
+import FlightLogModalToDate from "./FlightLogModalToDate";
 import FlightLogModalFuelServicing from "./FlightLogModalFuelServicing";
 import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
@@ -23,12 +24,10 @@ import { API_BASE } from "../../utilities/API_BASE";
 
 export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
-  const [isLoadingAircraftData, setIsLoadingAircraftData] = useState(false);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
-  const isMechanic =
-    userRole === "mechanic" || userRole === "maintenance manager";
+  const isMechanic = userRole === "mechanic" || userRole === "maintenance manager";
 
   const handleAircraftDataLoaded = (data) => {
     setLoadedAircraftData(data);
@@ -111,6 +110,54 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     },
   });
 
+  const [toDateData, setToDateData] = useState({});
+
+  // Auto-calculate toDateData whenever broughtForwardData or thisFlightData changes
+  useEffect(() => {
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const calculated = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
+    setToDateData(calculated);
+    // Also sync to componentData.toDateData for saving
+    setComponentData(prev => ({ ...prev, toDateData: calculated }));
+  }, [componentData.broughtForwardData, componentData.thisFlightData]);
+
+  // Populate broughtForwardData when aircraft data is loaded from the API
+  useEffect(() => {
+    console.log("loadedAircraftData changed:", loadedAircraftData);
+    if (loadedAircraftData && loadedAircraftData.referenceData) {
+      const { acftTT, n1Cycles, n2Cycles, landings } = loadedAircraftData.referenceData;
+      setComponentData(prev => ({
+        ...prev,
+        broughtForwardData: {
+          ...prev.broughtForwardData,
+          airframe: acftTT || "",
+          gearBoxMain: acftTT || "",
+          gearBoxTail: acftTT || "",
+          rotorMain: acftTT || "",
+          rotorTail: acftTT || "",
+          engine: acftTT || "",
+          cycleN1: n1Cycles || "",
+          cycleN2: n2Cycles || "",
+          landingCycle: landings || "",
+        },
+      }));
+    }
+  }, [loadedAircraftData]);
+
   const hasDiscrepancy = () => {
     return formData.remarks && formData.remarks.trim() !== "";
   };
@@ -122,7 +169,10 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const getMechanicTabs = () => {
     let tabs = [
       "Basic Information",
-      "Component Times",
+      "Destination/s",
+      "Brought Forward",
+      "This Flight",
+      "To Date",
       "Fuel Servicing",
       "Oil Servicing",
       "Discrepancy/Remarks",
@@ -136,9 +186,9 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
   const totalPages = tabs.length;
 
+  // Synchronise fuel/oil servicing arrays with legs count
   useEffect(() => {
     const legCount = formData.legs.length;
-
     if (formData.fuelServicing.length !== legCount) {
       const newFuelServicing = [];
       for (let i = 0; i < legCount; i++) {
@@ -182,12 +232,11 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     }
   }, [formData.legs.length]);
 
+  // Reset form when modal closes
   useEffect(() => {
     if (!visible) {
       setCurrentPage(0);
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: false });
-      }
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       setFormData({
         aircraftType: "",
         rpc: "",
@@ -262,13 +311,13 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
           engineNextInsp: "",
         },
       });
+      setLoadedAircraftData(null);
     }
   }, [visible]);
 
+  // Scroll to top on page change
   useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: 0, animated: false });
-    }
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentPage]);
 
   const updateForm = (field, value) => {
@@ -323,27 +372,45 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   };
 
   const handleSave = () => {
-    // 1. Keep the Validation
     if (!formData.rpc || formData.rpc.trim() === "") {
       Alert.alert("Validation Error", "Aircraft RPC is required");
       return;
     }
 
-    // 2. Prepare the data object (No fetch here!)
-    const { _id, id, ...cleanFormData } = formData;
+    // Ensure toDateData is up‑to‑date before saving
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const finalToDateData = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
 
+    const finalComponentData = {
+      ...componentData,
+      toDateData: finalToDateData,
+    };
+
+    const { _id, id, ...cleanFormData } = formData;
     const flightLogData = {
       ...cleanFormData,
-      componentData,
+      componentData: finalComponentData,
       date: formatDateForSave(formData.date),
       dateAdded: formatDateForSave(new Date()),
       status: isPilot ? "pending_release" : "pending_acceptance",
       createdBy: userRole,
     };
 
-    // 3. Just call onSave and let the parent handle the API
     onSave(flightLogData);
-    // onClose(); // You can call this here or in the parent
   };
 
   const renderPage = () => {
@@ -351,7 +418,14 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
     switch (currentTab) {
       case "Basic Information":
-        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} onAircraftDataLoaded={handleAircraftDataLoaded} />;
+        return (
+          <FlightLogModalInfo
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+            onAircraftDataLoaded={handleAircraftDataLoaded}
+          />
+        );
 
       case "Destination/s":
         return (
@@ -363,17 +437,33 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
           />
         );
 
-      case "Component Times":
+      case "Brought Forward":
         return (
-          <FlightLogModalComponentTimes
-            currentComponentPage={0}
+          <FlightLogModalBroughtForward
             componentData={componentData.broughtForwardData}
             onUpdateComponent={(field, value) =>
               updateComponent("broughtForwardData", field, value)
             }
             isEditable={true}
-            aircraftData={loadedAircraftData}
             isLocked={formData.broughtForwardLocked}
+          />
+        );
+
+      case "This Flight":
+        return (
+          <FlightLogModalThisFlight
+            componentData={componentData.thisFlightData}
+            onUpdateComponent={(field, value) =>
+              updateComponent("thisFlightData", field, value)
+            }
+            isEditable={true}
+          />
+        );
+
+      case "To Date":
+        return (
+          <FlightLogModalToDate
+            componentData={toDateData}
           />
         );
 
