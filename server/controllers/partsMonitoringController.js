@@ -11,7 +11,7 @@ const withActorId = (req, action, fallbackId = null) => {
 };
 
 // Save or update parts monitoring data
-exports.savePartsMonitoring = async (req, res) => {
+const savePartsMonitoring = async (req, res) => {
   try {
     console.log("=== SAVE REQUEST RECEIVED ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
@@ -103,7 +103,7 @@ exports.savePartsMonitoring = async (req, res) => {
 };
 
 // Get parts monitoring data for a specific aircraft
-exports.getPartsMonitoring = async (req, res) => {
+const getPartsMonitoring = async (req, res) => {
   try {
     const { aircraft } = req.params;
     console.log("Fetching data for aircraft:", aircraft);
@@ -134,7 +134,7 @@ exports.getPartsMonitoring = async (req, res) => {
 };
 
 // Get all parts monitoring records (with pagination)
-exports.getAllPartsMonitoring = async (req, res) => {
+const getAllPartsMonitoring = async (req, res) => {
   try {
     const { page = 1, limit = 10, aircraft } = req.query;
     const query = aircraft ? { aircraft } : {};
@@ -163,7 +163,7 @@ exports.getAllPartsMonitoring = async (req, res) => {
 };
 
 // Delete parts monitoring data
-exports.deletePartsMonitoring = async (req, res) => {
+const deletePartsMonitoring = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -196,7 +196,7 @@ exports.deletePartsMonitoring = async (req, res) => {
 };
 
 // Delete all data for a specific aircraft
-exports.deleteAircraftData = async (req, res) => {
+const deleteAircraftData = async (req, res) => {
   try {
     const { aircraft } = req.params;
 
@@ -229,7 +229,7 @@ exports.deleteAircraftData = async (req, res) => {
 };
 
 // Get all unique aircraft list
-exports.getAircraftList = async (req, res) => {
+const getAircraftList = async (req, res) => {
   try {
     const aircraft = await PartsMonitoring.distinct("aircraft");
 
@@ -245,4 +245,11 @@ exports.getAircraftList = async (req, res) => {
       error: error.message,
     });
   }
+};
+exports.module = {
+  savePartsMonitoring,
+  deleteAircraftData,
+  deletePartsMonitoring,
+  getAircraftList,
+  getAllPartsMonitoring,
 };
