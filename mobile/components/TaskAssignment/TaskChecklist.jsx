@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, ScrollView, TextInput } from "react-native";
+import { View, Text, Modal, ScrollView, TextInput, Alert } from "react-native";
 import Button from "../Button";
 import ReviewTask from "./ReviewTask";
 import { styles } from "../../stylesheets/styles";
@@ -24,16 +24,26 @@ export default function TaskChecklist({
 
   useEffect(() => {
     if (task?.checklistItems) {
+      const normalizedChecklistState = task.checklistItems.map((_, index) => {
+        if (Array.isArray(task.checklistState)) {
+          return task.checklistState[index] === true;
+        }
+
+        if (
+          task.status === "Completed" ||
+          task.status === "Turned in" ||
+          task.status === "Approved"
+        ) {
+          return true;
+        }
+
+        return false;
+      });
+
       if (task.checklistState) {
-        setChecklistState(task.checklistState);
-      } else if (
-        task.status === "Completed" ||
-        task.status === "Turned in" ||
-        task.status === "Approved"
-      ) {
-        setChecklistState(task.checklistItems.map(() => true));
+        setChecklistState(normalizedChecklistState);
       } else {
-        setChecklistState(task.checklistItems.map(() => false));
+        setChecklistState(normalizedChecklistState);
       }
 
       if (
@@ -84,16 +94,19 @@ export default function TaskChecklist({
     if (isHeadView) return;
 
     if (options.undo) {
-      const now = new Date();
-      const dueDate = new Date(task.dueDate);
-      const isPastDue = dueDate < now;
-      const newStatus = isPastDue ? "Ongoing" : "Ongoing";
-
       onTurnIn?.(task, checklistState, findings, {
         undo: true,
-        newStatus,
+        newStatus: "Ongoing",
       });
     } else {
+      if (!allCheckboxesChecked) {
+        Alert.alert(
+          "Checklist incomplete",
+          "Please check all checklist items before turning in the task.",
+        );
+        return;
+      }
+
       onTurnIn?.(task, checklistState, findings);
     }
     onClose();
@@ -141,9 +154,11 @@ export default function TaskChecklist({
   const approvedDate = task.approvedDate || "Mar 04, 2026 at 2:30 PM";
 
   const allCheckboxesChecked =
-    checklistState.every((item) => item === true) && checklistState.length > 0;
+    Array.isArray(task?.checklistItems) &&
+    task.checklistItems.length > 0 &&
+    task.checklistItems.every((_, index) => checklistState[index] === true);
 
-  const formatDueDateTime = (dateString) => {
+  const formatScheduleDateTime = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     const formattedDate = date.toLocaleDateString("en-US", {
@@ -199,9 +214,9 @@ export default function TaskChecklist({
               {task.title}
             </Text>
 
-            {/* Due Date with Time and Aircraft */}
+            {/* End Date with Time and Aircraft */}
             <Text style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
-              Due {formatDueDateTime(task.dueDate)} | Aircraft {task.aircraft}
+              End {formatScheduleDateTime(task.endDateTime || task.dueDate)} | Aircraft {task.aircraft}
             </Text>
 
             {/* For head view - Show Approve/Return buttons on To Be Reviewed tasks */}

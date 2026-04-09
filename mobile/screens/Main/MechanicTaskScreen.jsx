@@ -8,7 +8,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 
-export default function EngineerTaskScreen() {
+export default function MechanicTaskScreen() {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -19,10 +19,24 @@ export default function EngineerTaskScreen() {
     { id: "all", name: "All Aircraft" },
   ]);
 
-  // Fetch tasks assigned to the current engineer
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
+  // Fetch tasks assigned to the current mechanic
   useEffect(() => {
     const fetchTasks = async () => {
-      console.log("User:", user);
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
@@ -30,14 +44,11 @@ export default function EngineerTaskScreen() {
             Authorization: `Bearer ${token}`,
           },
         });
-        console.log("Response status:", response.status);
         if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched tasks:", data.data);
+          const data = await parseJsonSafely(response);
           const assignedTasks = (data.data || []).filter(
             (task) => String(task.assignedTo) === String(user?.id),
           );
-          console.log("Assigned tasks:", assignedTasks);
           setTasks(assignedTasks || []);
         } else {
           console.error("Failed to fetch tasks, status:", response.status);
@@ -105,21 +116,11 @@ export default function EngineerTaskScreen() {
 
   const handleStartTask = async (task) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
       status: "Ongoing",
-      startDateTime: `${formattedDate} ${formattedTime}`,
+      startDateTime: now.toISOString(),
     };
 
     try {
@@ -132,11 +133,11 @@ export default function EngineerTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
         setSelectedTask({
           ...data.data,
@@ -168,11 +169,11 @@ export default function EngineerTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
           ...data.data,
@@ -188,16 +189,6 @@ export default function EngineerTaskScreen() {
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
@@ -210,7 +201,7 @@ export default function EngineerTaskScreen() {
       updatedTask.endDateTime = "";
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = `${formattedDate} ${formattedTime}`;
+      updatedTask.endDateTime = now.toISOString();
     }
 
     try {
@@ -223,11 +214,11 @@ export default function EngineerTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
-        );
+        if (response.ok) {
+          const data = await parseJsonSafely(response);
+          const updatedTasks = tasks.map((t) =>
+            t.id === task.id ? data.data : t,
+          );
         setTasks(updatedTasks);
       } else {
         Alert.alert("Error", "Failed to turn in task");

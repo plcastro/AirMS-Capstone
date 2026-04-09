@@ -14,9 +14,13 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
 const isAssignableUser = (user) =>
-  ["mechanic", "engineer"].includes(user?.jobTitle?.toLowerCase());
+  user?.jobTitle?.toLowerCase() === "mechanic";
 const getMechanicStatus = (taskCount) =>
   taskCount >= 3 ? "Busy" : "Available";
+const isActiveTask = (task) =>
+  !["completed", "turned in", "approved"].includes(
+    task?.status?.toLowerCase?.() || "",
+  );
 
 export default function MechanicList() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,7 +34,7 @@ export default function MechanicList() {
         const token = await AsyncStorage.getItem("currentUserToken");
 
         const [usersResponse, tasksResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/user/getAllUsers`, {
+          fetch(`${API_BASE}/api/user/get-all-users`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -77,7 +81,8 @@ export default function MechanicList() {
 
   const getTaskCount = (mechanicId) => {
     return tasks.filter(
-      (task) => String(task.assignedTo) === String(mechanicId),
+      (task) =>
+        String(task.assignedTo) === String(mechanicId) && isActiveTask(task),
     ).length;
   };
 

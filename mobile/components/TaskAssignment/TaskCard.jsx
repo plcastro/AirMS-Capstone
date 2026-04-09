@@ -23,6 +23,7 @@ export default function TaskCard({
     title,
     dueDate,
     startDateTime,
+    endDateTime,
     status,
     aircraft,
     maintenanceType,
@@ -32,8 +33,7 @@ export default function TaskCard({
     checklistState,
   } = data;
   const { user } = useContext(AuthContext);
-
-  console.log(title);
+  const deadline = endDateTime || dueDate;
 
   // Calculate progress for ongoing tasks
   const calculateProgress = () => {
@@ -73,10 +73,25 @@ export default function TaskCard({
     });
   };
 
+  const formatDisplayDateTime = (dateString) => {
+    if (!dateString || dateString === "") return "Not set";
+    const date = new Date(dateString);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const formattedTime = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${formattedDate} ${formattedTime}`;
+  };
+
   // Calculate overdue time (days or hours)
-  const calculateOverdueTime = (dueDate) => {
+  const calculateOverdueTime = (deadlineValue) => {
     const now = new Date();
-    const due = new Date(dueDate);
+    const due = new Date(deadlineValue);
     const diffMs = now - due;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
@@ -96,8 +111,8 @@ export default function TaskCard({
     }
   };
 
-  const formatDueTime = (dueDate) => {
-    const date = new Date(dueDate);
+  const formatDueTime = (deadlineValue) => {
+    const date = new Date(deadlineValue);
     return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
@@ -133,7 +148,7 @@ export default function TaskCard({
               marginRight: 10,
             }}
           >
-            {aircraft} - {title || "Corrective Maintenance"}
+            {title || maintenanceType || "Corrective Maintenance"}
           </Text>
 
           {status === "Returned" && (
@@ -205,8 +220,8 @@ export default function TaskCard({
   }
 
   if (variant === "pastdue") {
-    const overdueTime = calculateOverdueTime(dueDate);
-    const dueTime = formatDueTime(dueDate);
+    const overdueTime = calculateOverdueTime(deadline);
+    const dueTime = formatDueTime(deadline);
 
     return renderBaseCard(
       <>
@@ -227,7 +242,7 @@ export default function TaskCard({
               marginRight: 10,
             }}
           >
-            {title}
+          {title || maintenanceType || "Corrective Maintenance"}
           </Text>
 
           {status === "Returned" && (
@@ -314,7 +329,7 @@ export default function TaskCard({
               marginRight: 10,
             }}
           >
-            {title}
+            {title || maintenanceType || "Corrective Maintenance"}
           </Text>
 
           <View
@@ -368,7 +383,7 @@ export default function TaskCard({
             marginRight: 10,
           }}
         >
-          {aircraft} - {title || "Corrective Maintenance"}
+            {title || maintenanceType || "Corrective Maintenance"}
         </Text>
 
         {/* Show Returned badge for returned tasks */}
@@ -475,7 +490,7 @@ export default function TaskCard({
 
       {/* Due date only */}
       <Text style={{ color: "#666", fontSize: 13, marginTop: 4 }}>
-        Due: {formatDisplayDate(dueDate)}
+        Due: {formatDisplayDateTime(deadline)}
       </Text>
 
       {/* Edit/Delete buttons - only for head view on Assigned tab */}

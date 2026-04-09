@@ -19,9 +19,9 @@ const PartsRequisitionSchema = new mongoose.Schema(
     aircraft: { type: String, required: true },
     staff: {
       requisitioner: { type: String, required: true },
-      approvedBy: { type: String, required: true },
-      receiver: { type: String, required: true },
-      notedBy: { type: String, required: true },
+      approvedBy: { type: String, default: "" },
+      receiver: { type: String, default: "" },
+      notedBy: { type: String, default: "" },
     },
     items: [RequisitionItemSchema],
     dateRequested: { type: Date, required: true },

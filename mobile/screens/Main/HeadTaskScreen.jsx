@@ -18,7 +18,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) =>
-  ["engineer", "mechanic"].includes(user?.jobTitle?.toLowerCase());
+  user?.jobTitle?.toLowerCase() === "mechanic";
 
 export default function HeadTaskScreen() {
   const [tasks, setTasks] = useState([]);
@@ -46,20 +46,22 @@ export default function HeadTaskScreen() {
           setTasks(data.data || []);
         } else {
           console.error("Failed to fetch tasks");
+          Alert.alert("Error", "Failed to fetch tasks");
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
+        Alert.alert("Error", "Failed to fetch tasks");
       }
     };
     fetchTasks();
   }, []);
 
-  // Fetch assignable employees (temporarily supports mechanics too)
+  // Fetch assignable employees from the users collection
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+        const response = await fetch(`${API_BASE}/api/user/get-all-users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -121,6 +123,7 @@ export default function HeadTaskScreen() {
         : "Reviewed Tasks";
 
   const formatDisplayDate = (dateString) => {
+    if (!dateString) return "Not set";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -304,7 +307,7 @@ export default function HeadTaskScreen() {
           }}
         >
           <Text style={{ fontWeight: "600", fontSize: 16 }}>
-            {formatDisplayDate(item.dueDate)}
+            {formatDisplayDate(item.endDateTime || item.dueDate)}
           </Text>
         </View>
 
