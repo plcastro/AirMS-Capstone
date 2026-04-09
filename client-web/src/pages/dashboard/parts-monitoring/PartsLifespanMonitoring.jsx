@@ -7,7 +7,6 @@ import {
   Button,
   Input,
   Card,
-  Divider,
   Tooltip,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -382,6 +381,7 @@ export default function PartsMonitoring() {
                 label: aircraft,
                 value: aircraft,
               }))}
+              size="large"
             />
             {/* <Button type="primary" icon={<PlusOutlined />}>
               Add Aircraft
@@ -393,6 +393,7 @@ export default function PartsMonitoring() {
                 loading={saving}
                 disabled={!selectedAircraft}
                 // style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+                size="large"
               >
                 <SaveOutlined />
               </Button>
@@ -407,9 +408,7 @@ export default function PartsMonitoring() {
             )}
           </div>
         </Col>
-        <Col></Col>
       </Row>
-      <Divider />
 
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
         {/* Left Card - Aircraft Info */}
@@ -443,7 +442,7 @@ export default function PartsMonitoring() {
               <Text type="secondary">
                 Creep Damage:{" "}
                 <Text strong>
-                  {aircraftDetails.creepDamage || "Not available"}
+                  {aircraftDetails.creepDamage + "%" || "Not available"}
                 </Text>
               </Text>
             </Row>

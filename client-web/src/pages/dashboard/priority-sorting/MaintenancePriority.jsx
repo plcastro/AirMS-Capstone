@@ -360,17 +360,15 @@ export default function MaintenancePriority() {
         </Card>
       )}
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={prioritizedTasks}
-          rowKey="id"
-          pagination={false}
-          scroll={{ x: 1200 }}
-          bordered
-          sticky
-        />
-      </Card>
+      <Table
+        columns={columns}
+        dataSource={prioritizedTasks}
+        rowKey="id"
+        pagination={false}
+        scroll={{ x: 1200 }}
+        bordered
+        sticky
+      />
     </div>
   );
 }
