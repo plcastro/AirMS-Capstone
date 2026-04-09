@@ -77,7 +77,7 @@ export default function MaintenanceLog() {
   if (viewLevel === "dashboard") {
     const uniqueAircraft = [...new Set(allEntries.map((e) => e.aircraft))];
     return (
-      <div style={{ padding: "40px 20px" }}>
+      <div>
         <div
           style={{
             display: "flex",
