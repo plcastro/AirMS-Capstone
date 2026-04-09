@@ -107,23 +107,19 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             }}
           >
             {/* Green Header with RP/C, Export Button, and Status Badge */}
-            <View
-              style={{
-                backgroundColor: COLORS.primaryLight,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Text
-                style={{
-                  color: COLORS.white,
-                  fontSize: 18,
-                  fontWeight: "600",
-                }}
-              >
+            <View style={{
+              backgroundColor: COLORS.primaryLight,
+              paddingVertical: 18,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <Text style={{
+                color: COLORS.white,
+                fontSize: 18,
+                fontWeight: "600"
+              }}>
                 RP-C: {log.rpc || "N/A"}
               </Text>
               <View

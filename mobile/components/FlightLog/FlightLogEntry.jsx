@@ -351,14 +351,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
     switch (currentTab) {
       case "Basic Information":
-        return (
-          <FlightLogModalInfo
-            formData={formData}
-            updateForm={updateForm}
-            isEditable={true}
-            onAircraftDataLoaded={handleAircraftDataLoaded}
-          />
-        );
+        return <FlightLogModalInfo formData={formData} updateForm={updateForm} isEditable={true} onAircraftDataLoaded={handleAircraftDataLoaded} />;
 
       case "Destination/s":
         return (
