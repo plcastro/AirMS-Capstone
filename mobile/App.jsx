@@ -137,11 +137,6 @@ function DrawerNav() {
             name="Tasks"
             component={wrapWithDashboard(TaskAssignment)}
           />
-
-          <Drawer.Screen
-            name="Post-Inspection"
-            component={wrapWithDashboard(PostInspection)}
-          />
         </>
       )}
 

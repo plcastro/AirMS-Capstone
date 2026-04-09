@@ -48,7 +48,7 @@ const DrawerList = [
     icon: "file-document-outline",
     label: "Parts Requisition",
     navigateTo: "Parts Requisition",
-    jobTitle: ["maintenance manager", "engineer", "officer-in-charge"],
+    jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
   },
   {
     icon: "account-circle",
