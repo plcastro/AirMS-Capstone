@@ -54,7 +54,7 @@ const updateTechnicalLog = async (req, res) => {
     const updatedLog = await TechnicalLog.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedLog)

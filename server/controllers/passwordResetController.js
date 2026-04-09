@@ -3,6 +3,16 @@ const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
 const sendEmail = require("../utilities/sendEmail");
 const generateOTP = require("../utilities/generateOTP");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) =>
+  req.user?.id || req.userRecord?._id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const TOKEN_EXPIRATION = 60 * 60 * 1000;
 const OTP_EXPIRATION = 15 * 60 * 1000;
@@ -54,6 +64,8 @@ const requestPasswordReset = async (req, res) => {
   `,
     });
 
+    const audit = withActorId(req, `Password reset requested for ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -95,6 +107,12 @@ const resetPassword = async (req, res) => {
   user.otpExpires = undefined;
 
   await user.save();
+  const passwordResetAudit = withActorId(
+    req,
+    `Password reset completed for ${user.username}`,
+    user._id,
+  );
+  await auditLog(passwordResetAudit.action, passwordResetAudit.actorId);
 
   res.json({ message: "Password reset successful" });
 };
@@ -146,6 +164,8 @@ const requestPinReset = async (req, res) => {
   `,
     });
 
+    const audit = withActorId(req, `PIN reset requested for ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
     console.error(err);
@@ -188,6 +208,12 @@ const resetPin = async (req, res) => {
   user.pinOtpExpires = undefined;
 
   await user.save();
+  const pinResetAudit = withActorId(
+    req,
+    `PIN reset completed for ${user.username}`,
+    user._id,
+  );
+  await auditLog(pinResetAudit.action, pinResetAudit.actorId);
 
   res.json({ message: "PIN reset successful" });
 };

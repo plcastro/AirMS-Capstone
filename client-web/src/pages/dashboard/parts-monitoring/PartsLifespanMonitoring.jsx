@@ -10,24 +10,19 @@ import {
   Divider,
   message,
 } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 import {
   processDataWithFormulas,
   getToday,
-} from "../../../utils/partsFormula-AS350B3";
+} from "../../../utils/partsFormula-8912";
 import "./PartsLifespanMonitoring.css";
-
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { PLMmockdata } from "./PLMmockdata";
 
 const { Text } = Typography;
-const { Option } = Select;
 
-// =========================================================================
-// Column headers
-// =========================================================================
 const columnHeader = [
   {
     title:

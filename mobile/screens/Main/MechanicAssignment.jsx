@@ -3,9 +3,9 @@ import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
-export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
+export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   const assignedTasks = tasks.filter(
-    (task) => String(task.assignedTo) === String(engineer.id),
+    (task) => String(task.assignedTo) === String(mechanic.id),
   );
 
   const getPriorityColor = (priority) => {
@@ -180,7 +180,7 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
           }}
         >
           <Text style={{ color: "#fff", fontSize: 24, fontWeight: "bold" }}>
-            {engineer.name.charAt(0)}
+            {mechanic.name.charAt(0)}
           </Text>
         </View>
 
@@ -193,10 +193,10 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
               color: COLORS.black,
             }}
           >
-            {engineer.name}
+            {mechanic.name}
           </Text>
           <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-            {engineer.jobTitle || "Engineer"}
+            {mechanic.jobTitle || "Mechanic"}
           </Text>
         </View>
       </View>
@@ -215,7 +215,7 @@ export default function MechanicAssignment({ engineer, tasks = [], onBack }) {
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this engineer
+              No tasks assigned to this mechanic
             </Text>
           </View>
         }

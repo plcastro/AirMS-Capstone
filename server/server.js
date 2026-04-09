@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
@@ -7,7 +7,6 @@ const path = require("path");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
-// const xssClean = require("xss-clean");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const defectLogRoutes = require("./routes/defectLogRoute");
@@ -20,10 +19,15 @@ const inspectionRoutes = require("./routes/inspectionRoute");
 const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
 const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightLogRoutes = require("./routes/flightLogRoute");
+const preInspectionRoutes = require("./routes/preInspectionRoute");
+const postInspectionRoutes = require("./routes/postInspectionRoute");
+const sendEmail = require("./utilities/sendEmail");
+
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online",
@@ -85,6 +89,9 @@ app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
+app.use("/api/pre-inspections", preInspectionRoutes);
+app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
@@ -94,8 +101,6 @@ app.use(
     },
   }),
 );
-app.use("/api/flightlogs", flightLogRoutes);
-
 app.set("trust proxy", 1);
 
 app.use((err, req, res, next) => {

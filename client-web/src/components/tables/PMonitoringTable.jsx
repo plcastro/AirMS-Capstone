@@ -37,7 +37,7 @@ export default function PMonitoringTable({
           key: "daysRemaining",
           width: header.width,
           sorter: (a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0),
-          render: (value) => {
+          render: (value, record) => {
             if (value === undefined || value === null) return "-";
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return value;
@@ -117,48 +117,9 @@ export default function PMonitoringTable({
 
       // Default column rendering – editable if needed
       const renderCell = (value, record) => {
-        if (!editable) {
-          // Non-editable: format date columns for display
-          if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
-          }
-          return value || "";
-        }
+        if (!editable) return value || "";
+        if (!isCellEditable(record, header.key)) return value || "";
 
-        if (!isCellEditable(record, header.key)) {
-          // Not editable: format date columns for display
-          if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
-          }
-          return value || "";
-        }
-
-        // Editable date column – use native date picker
-        if (isDateColumn) {
-          // Ensure value is in YYYY-MM-DD format; if not, try to parse
-          let dateValue = value;
-          if (value && value.includes("/")) {
-            // Convert from DD/MM/YYYY to YYYY-MM-DD if needed (fallback)
-            const parts = value.split("/");
-            if (parts.length === 3) {
-              const [day, month, year] = parts;
-              dateValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-            }
-          }
-          return (
-            <Input
-              type="date"
-              value={dateValue || ""}
-              onChange={(e) =>
-                onCellEdit(record[rowKey], header.key, e.target.value)
-              }
-              size="small"
-              style={{ width: "100%" }}
-            />
-          );
-        }
-
-        // Default text input for other editable columns
         return (
           <Input
             value={value || ""}
@@ -192,7 +153,7 @@ export default function PMonitoringTable({
 
   const columns = useMemo(() => {
     return processColumns(headers);
-  }, [headers, editable, isCellEditable, onCellEdit]);
+  }, [headers, editable, isCellEditable]);
 
   return (
     <Table

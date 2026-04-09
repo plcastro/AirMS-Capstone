@@ -54,7 +54,12 @@ router.put(
   processImage,
   updateUserImage,
 );
-router.put("/updateSignature/:id", updateSignature);
+router.put(
+  "/updateSignature/:id",
+  upload.single("signature"),
+  processImage,
+  updateSignature,
+);
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);

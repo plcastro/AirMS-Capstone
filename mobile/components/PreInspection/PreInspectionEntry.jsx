@@ -15,6 +15,7 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
+import { getDefaultPreInspectionFormData } from "./PreInspectionForms";
 
 export default function PreInspectionEntry({
   visible,
@@ -34,118 +35,14 @@ export default function PreInspectionEntry({
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
-    date: new Date().toLocaleDateString("en-US"),
-    createdBy: userRole,
-    station1_transparentPanels: false,
-    station1_engineOilCooler: false,
-    station1_sideSlipIndicator: false,
-    station1_pitotTube: false,
-    station1_landingLights: false,
-    station1_mgbCowl: false,
-    station1_lowerFairings: false,
-    station1_landingGear: false,
-    station1_staticPorts: false,
-    station1_oatSensor: false,
-    station1_mainRotor: false,
-    station1_engineAirIntake: false,
-    station1_engineCowl: false,
-    station1_exhaustCover: false,
-    station1_rearCargoDoorOpen: false,
-    station1_loadsObjects: false,
-    station1_elt: false,
-    station1_rearCargoDoorClosed: false,
-    station1_oilDrain: false,
-    station2_frontDoor: false,
-    station2_rearDoor: false,
-    station2_leftCargoDoorOpen: false,
-    station2_loadsObjects: false,
-    station2_leftCargoDoorClosed: false,
-    station2_fuelTank: false,
-    station3_heatShield: false,
-    station3_tailBoom: false,
-    station3_stabilizer: false,
-    station3_tailRotorGuard: false,
-    station3_tgbFairing: false,
-    station3_tgbOilLevel: false,
-    station3_tailSkid: false,
-    station3_flexibleCoupling: false,
-    sling_sling: false,
-    sling_cablePins: false,
-    floats_lhRh: false,
-    floats_cylinder: false,
-    floats_hoses: false,
-    onboard_firstAid: false,
-    onboard_lifeVest: false,
-    onboard_lifeRaft: false,
-    onboard_axl: false,
-    onboard_fireExt: false,
-    onboard_certAirworthiness: false,
-    onboard_certRegistration: false,
-    onboard_radioLicense: false,
-    onboard_flightLogbook: false,
-    fob: "",
-  });
+  const [formData, setFormData] = useState(
+    getDefaultPreInspectionFormData(userRole),
+  );
 
   useEffect(() => {
     if (visible) {
       setCurrentPage(0);
-      setFormData({
-        aircraftType: "",
-        rpc: "",
-        date: new Date().toLocaleDateString("en-US"),
-        createdBy: userRole,
-        station1_transparentPanels: false,
-        station1_engineOilCooler: false,
-        station1_sideSlipIndicator: false,
-        station1_pitotTube: false,
-        station1_landingLights: false,
-        station1_mgbCowl: false,
-        station1_lowerFairings: false,
-        station1_landingGear: false,
-        station1_staticPorts: false,
-        station1_oatSensor: false,
-        station1_mainRotor: false,
-        station1_engineAirIntake: false,
-        station1_engineCowl: false,
-        station1_exhaustCover: false,
-        station1_rearCargoDoorOpen: false,
-        station1_loadsObjects: false,
-        station1_elt: false,
-        station1_rearCargoDoorClosed: false,
-        station1_oilDrain: false,
-        station2_frontDoor: false,
-        station2_rearDoor: false,
-        station2_leftCargoDoorOpen: false,
-        station2_loadsObjects: false,
-        station2_leftCargoDoorClosed: false,
-        station2_fuelTank: false,
-        station3_heatShield: false,
-        station3_tailBoom: false,
-        station3_stabilizer: false,
-        station3_tailRotorGuard: false,
-        station3_tgbFairing: false,
-        station3_tgbOilLevel: false,
-        station3_tailSkid: false,
-        station3_flexibleCoupling: false,
-        sling_sling: false,
-        sling_cablePins: false,
-        floats_lhRh: false,
-        floats_cylinder: false,
-        floats_hoses: false,
-        onboard_firstAid: false,
-        onboard_lifeVest: false,
-        onboard_lifeRaft: false,
-        onboard_axl: false,
-        onboard_fireExt: false,
-        onboard_certAirworthiness: false,
-        onboard_certRegistration: false,
-        onboard_radioLicense: false,
-        onboard_flightLogbook: false,
-        fob: "",
-      });
+      setFormData(getDefaultPreInspectionFormData(userRole));
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: false });
       }
@@ -172,7 +69,6 @@ export default function PreInspectionEntry({
       return;
     }
     onSave(formData);
-    onClose();
   };
 
   const handleNext = () => {
@@ -238,7 +134,7 @@ export default function PreInspectionEntry({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 0, gap: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
