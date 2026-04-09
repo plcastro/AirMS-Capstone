@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
@@ -90,7 +90,9 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
+// Support both legacy and documented flight log endpoints.
 app.use("/api/flightlogs", flightLogRoutes);
+app.use("/api/flight-logs", flightLogRoutes);
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {

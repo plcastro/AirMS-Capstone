@@ -565,3 +565,16 @@ const searchFlightLogs = async (req, res) => {
     });
   }
 };
+
+module.exports = {
+  createFlightLog,
+  getFlightLogs,
+  getFlightLogById,
+  getFlightLogsByAircraft,
+  updateFlightLog,
+  releaseFlightLog,
+  acceptFlightLog,
+  completeFlightLog,
+  getFlightLogStats,
+  searchFlightLogs,
+};
