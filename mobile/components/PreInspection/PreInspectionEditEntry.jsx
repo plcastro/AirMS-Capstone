@@ -16,6 +16,10 @@ import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
 import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
+import {
+  areAllInspectionChecksComplete,
+  getDefaultPreInspectionFormData,
+} from "./PreInspectionForms";
 
 export default function PreInspectionEditEntry({
   visible,
@@ -28,6 +32,7 @@ export default function PreInspectionEditEntry({
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPilot = userRole === "pilot";
   const isMechanic =
@@ -42,69 +47,18 @@ export default function PreInspectionEditEntry({
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
-    date: new Date().toLocaleDateString("en-US"),
-    createdBy: userRole,
-    status: "pending",
-    station1_transparentPanels: false,
-    station1_engineOilCooler: false,
-    station1_sideSlipIndicator: false,
-    station1_pitotTube: false,
-    station1_landingLights: false,
-    station1_mgbCowl: false,
-    station1_lowerFairings: false,
-    station1_landingGear: false,
-    station1_staticPorts: false,
-    station1_oatSensor: false,
-    station1_mainRotor: false,
-    station1_engineAirIntake: false,
-    station1_engineCowl: false,
-    station1_exhaustCover: false,
-    station1_rearCargoDoorOpen: false,
-    station1_loadsObjects: false,
-    station1_elt: false,
-    station1_rearCargoDoorClosed: false,
-    station1_oilDrain: false,
-    station2_frontDoor: false,
-    station2_rearDoor: false,
-    station2_leftCargoDoorOpen: false,
-    station2_loadsObjects: false,
-    station2_leftCargoDoorClosed: false,
-    station2_fuelTank: false,
-    station3_heatShield: false,
-    station3_tailBoom: false,
-    station3_stabilizer: false,
-    station3_tailRotorGuard: false,
-    station3_tgbFairing: false,
-    station3_tgbOilLevel: false,
-    station3_tailSkid: false,
-    station3_flexibleCoupling: false,
-    sling_sling: false,
-    sling_cablePins: false,
-    floats_lhRh: false,
-    floats_cylinder: false,
-    floats_hoses: false,
-    onboard_firstAid: false,
-    onboard_lifeVest: false,
-    onboard_lifeRaft: false,
-    onboard_axl: false,
-    onboard_fireExt: false,
-    onboard_certAirworthiness: false,
-    onboard_certRegistration: false,
-    onboard_radioLicense: false,
-    onboard_flightLogbook: false,
-    fob: "",
-    releasedBy: { name: "", id: "", timestamp: "" },
-    acceptedBy: { name: "", id: "", timestamp: "" },
-  });
+  const [formData, setFormData] = useState(
+    getDefaultPreInspectionFormData(userRole),
+  );
 
   useEffect(() => {
     if (visible && inspectionData) {
-      setFormData(inspectionData);
+      setFormData({
+        ...getDefaultPreInspectionFormData(userRole),
+        ...inspectionData,
+      });
     }
-  }, [visible, inspectionData]);
+  }, [visible, inspectionData, userRole]);
 
   useEffect(() => {
     if (visible) {
@@ -125,33 +79,93 @@ export default function PreInspectionEditEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleRelease = (signatureData) => {
-    setFormData((prev) => ({
-      ...prev,
+  const hasAnySignature = Boolean(
+    formData.releasedBy?.name || formData.acceptedBy?.name,
+  );
+  const isFormEditable = !hasAnySignature;
+
+  const validateBeforeSigning = (actionLabel) => {
+    if (!String(formData.fob || "").trim()) {
+      Alert.alert(
+        "Validation Error",
+        `FOB must be filled in before ${actionLabel}.`,
+      );
+      return false;
+    }
+
+    if (!areAllInspectionChecksComplete(formData)) {
+      Alert.alert(
+        "Validation Error",
+        `All checklist fields must be checked before ${actionLabel}.`,
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const persistInspection = async (nextFormData) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(nextFormData);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRelease = async (signatureData) => {
+    if (!validateBeforeSigning("release")) {
+      return;
+    }
+
+    const updatedFormData = {
+      ...formData,
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
         timestamp: new Date().toISOString(),
       },
       status: "released",
-    }));
-    Alert.alert("Success", "Pre-inspection has been released");
+    };
+
+    setFormData(updatedFormData);
+
+    try {
+      await persistInspection(updatedFormData);
+      Alert.alert("Success", "Pre-inspection has been released");
+    } catch (error) {
+      console.error("Error releasing pre-inspection:", error);
+      Alert.alert("Error", "Failed to release pre-inspection");
+    }
   };
 
-  const handleAccept = (signatureData) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleAccept = async (signatureData) => {
+    if (!validateBeforeSigning("acceptance")) {
+      return;
+    }
+
+    const updatedFormData = {
+      ...formData,
       acceptedBy: {
         name: signatureData.name,
         id: signatureData.id,
         timestamp: new Date().toISOString(),
       },
-      status: "accepted",
-    }));
-    Alert.alert("Success", "Pre-inspection has been accepted");
+      status: "completed",
+    };
+
+    setFormData(updatedFormData);
+
+    try {
+      await persistInspection(updatedFormData);
+      Alert.alert("Success", "Pre-inspection has been completed");
+    } catch (error) {
+      console.error("Error completing pre-inspection:", error);
+      Alert.alert("Error", "Failed to complete pre-inspection");
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       Alert.alert("Validation Error", "Aircraft RPC is required");
       return;
@@ -160,8 +174,27 @@ export default function PreInspectionEditEntry({
       Alert.alert("Validation Error", "Aircraft Type is required");
       return;
     }
-    onSave(formData);
-    onClose();
+
+    try {
+      await persistInspection(formData);
+    } catch (error) {
+      console.error("Error saving pre-inspection:", error);
+      Alert.alert("Error", "Failed to save pre-inspection");
+    }
+  };
+
+  const footerActionLabel =
+    formData.status === "completed" || (!isFormEditable && !showAcceptButton)
+      ? "Close"
+      : "Save";
+
+  const handleFooterAction = () => {
+    if (footerActionLabel === "Close") {
+      onClose();
+      return;
+    }
+
+    handleSave();
   };
 
   const handleNext = () => {
@@ -185,7 +218,7 @@ export default function PreInspectionEditEntry({
           <PreInspectionModalInfo
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={false}
           />
         );
       case "Station 1 and 2":
@@ -193,7 +226,7 @@ export default function PreInspectionEditEntry({
           <PreInspectionModalStations
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Station 3 and Sling":
@@ -201,7 +234,7 @@ export default function PreInspectionEditEntry({
           <PreInspectionModalSling
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       case "Floats and Onboard":
@@ -209,7 +242,7 @@ export default function PreInspectionEditEntry({
           <PreInspectionModalFloatsOnboard
             formData={formData}
             updateForm={updateForm}
-            isEditable={true}
+            isEditable={isFormEditable}
           />
         );
       default:
@@ -220,10 +253,14 @@ export default function PreInspectionEditEntry({
   // Determine which action button to show on last page
   const showReleaseButton =
     isMechanic &&
-    formData.status !== "released" &&
-    formData.status !== "accepted";
+    formData.status === "pending" &&
+    !hasAnySignature &&
+    !isSubmitting;
   const showAcceptButton =
-    isPilot && formData.status !== "accepted" && formData.status !== "released";
+    isPilot &&
+    formData.status === "released" &&
+    !formData.acceptedBy?.name &&
+    !isSubmitting;
 
   // Format timestamp
   const formatDate = (timestamp) => {
@@ -242,7 +279,7 @@ export default function PreInspectionEditEntry({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
@@ -497,7 +534,7 @@ export default function PreInspectionEditEntry({
         >
           <TouchableOpacity
             onPress={handlePrevious}
-            disabled={currentPage === 0}
+            disabled={currentPage === 0 || isSubmitting}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 16,
@@ -505,7 +542,7 @@ export default function PreInspectionEditEntry({
               backgroundColor: COLORS.white,
               borderWidth: 1,
               borderColor: COLORS.grayMedium,
-              opacity: currentPage === 0 ? 0.5 : 1,
+              opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
             <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
@@ -529,19 +566,20 @@ export default function PreInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleSave : handleNext}
+            onPress={isLastPage ? handleFooterAction : handleNext}
+            disabled={isSubmitting}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1,
+              opacity: isSubmitting ? 0.6 : 1,
             }}
           >
             <Text
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
-              {isLastPage ? "Save" : "Next"}
+              {isLastPage ? footerActionLabel : "Next"}
             </Text>
           </TouchableOpacity>
         </View>

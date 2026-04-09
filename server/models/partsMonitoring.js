@@ -10,16 +10,13 @@ const partsMonitoringSchema = new mongoose.Schema(
     },
     dateManufactured: {
       type: Date,
-      required: true,
     },
     aircraftType: {
       type: String,
       required: true,
-      unique: true,
     },
     creepDamage: {
       type: String,
-      required: true,
     },
     referenceData: {
       today: { type: Date, default: Date.now },

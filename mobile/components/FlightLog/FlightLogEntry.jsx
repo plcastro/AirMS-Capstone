@@ -369,7 +369,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             userRole={userRole}
           />
         );
-
       case "Component Times":
         return (
           <FlightLogModalComponentTimes
@@ -383,7 +382,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isLocked={formData.broughtForwardLocked}
           />
         );
-
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
@@ -393,7 +391,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
@@ -403,7 +400,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Discrepancy/Remarks":
         return (
           <FlightLogDiscrepancyRemarks
@@ -414,7 +410,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       case "Work Done":
         return (
           <FlightLogModalWorkDone
@@ -423,7 +418,6 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             isEditable={true}
           />
         );
-
       default:
         return null;
     }

@@ -6,6 +6,7 @@ export default function WRSTable({
   loading = false,
   availQtyMap,
   setAvailQtyMap,
+  disabled,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -70,6 +71,7 @@ export default function WRSTable({
           placeholder="Enter qty"
           value={availQtyMap[record._id] ?? null}
           onChange={(value) => handleAvailQtyChange(value, record)}
+          disabled={disabled}
         />
       ),
     },

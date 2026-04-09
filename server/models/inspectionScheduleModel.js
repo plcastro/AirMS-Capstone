@@ -1,12 +1,6 @@
 const mongoose = require("mongoose");
 
 const inspectionScheduleSchema = new mongoose.Schema({
-    tailNumber: {
-    type: String,
-    required: true,
-    trim: true,
-    uppercase: true
-  },
 
   aircraftModel: {
     type: String,

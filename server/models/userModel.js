@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   pin: { type: String, default: "", select: false },
   signature: { type: String, default: "" },
+  securitySetupCompleted: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],

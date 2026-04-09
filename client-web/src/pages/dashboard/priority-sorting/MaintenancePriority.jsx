@@ -24,7 +24,6 @@ const mockTasks = [
     remainingFlightHours: 8,
     estimatedTurnaround: 5,
     safetyCritical: true,
-    status: "Pending",
   },
   {
     id: 2,
@@ -34,7 +33,6 @@ const mockTasks = [
     remainingFlightHours: 15,
     estimatedTurnaround: 2,
     safetyCritical: false,
-    status: "Pending",
   },
   {
     id: 3,
@@ -44,7 +42,6 @@ const mockTasks = [
     remainingFlightHours: 5,
     estimatedTurnaround: 1,
     safetyCritical: true,
-    status: "Pending",
   },
   {
     id: 4,
@@ -54,7 +51,6 @@ const mockTasks = [
     remainingFlightHours: 4,
     estimatedTurnaround: 6,
     safetyCritical: true,
-    status: "Pending",
   },
   {
     id: 5,
@@ -64,7 +60,6 @@ const mockTasks = [
     remainingFlightHours: 20,
     estimatedTurnaround: 2,
     safetyCritical: false,
-    status: "Pending",
   },
 ];
 
@@ -90,7 +85,6 @@ const getDaysUntilDue = (dueDate) => {
   const due = new Date(dueDate);
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
-
   return Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 };
 
@@ -154,10 +148,8 @@ const evaluatePriority = (task, rules) => {
     reasons.push("Safety impact increases review urgency");
     tieBreakerScore += 5;
   }
-
-  if (task.estimatedTurnaround >= rules.longTurnaroundHours) {
+  if (task.estimatedTurnaround >= rules.longTurnaroundHours)
     tieBreakerScore += 3;
-  }
 
   return {
     ...task,
@@ -171,25 +163,16 @@ const evaluatePriority = (task, rules) => {
 
 export default function MaintenancePriority() {
   const [rules, setRules] = useState(defaultRules);
+  const [showControls, setShowControls] = useState(false);
 
   const prioritizedTasks = useMemo(() => {
     return mockTasks
       .map((task) => evaluatePriority(task, rules))
-      .sort((firstTask, secondTask) => {
-        if (firstTask.priorityRank !== secondTask.priorityRank) {
-          return firstTask.priorityRank - secondTask.priorityRank;
-        }
-
-        if (firstTask.tieBreakerScore !== secondTask.tieBreakerScore) {
-          return secondTask.tieBreakerScore - firstTask.tieBreakerScore;
-        }
-
-        if (firstTask.daysUntilDue !== secondTask.daysUntilDue) {
-          return firstTask.daysUntilDue - secondTask.daysUntilDue;
-        }
-
-        return firstTask.remainingFlightHours - secondTask.remainingFlightHours;
-      });
+      .sort((a, b) =>
+        a.priorityRank !== b.priorityRank
+          ? a.priorityRank - b.priorityRank
+          : b.tieBreakerScore - a.tieBreakerScore,
+      );
   }, [rules]);
 
   const columns = [
@@ -206,9 +189,9 @@ export default function MaintenancePriority() {
       title: "Days To Due",
       dataIndex: "daysUntilDue",
       key: "daysUntilDue",
-      width: 110,
-      render: (value) =>
-        value < 0 ? `${Math.abs(value)} day/s overdue` : value,
+      width: 120,
+      render: (v) =>
+        v < 0 ? <Text type="danger">{Math.abs(v)} days overdue</Text> : v,
     },
     {
       title: "Remaining Hrs",
@@ -221,16 +204,16 @@ export default function MaintenancePriority() {
       dataIndex: "estimatedTurnaround",
       key: "estimatedTurnaround",
       width: 110,
-      render: (value) => `${value} hrs`,
+      render: (v) => `${v} hrs`,
     },
     {
       title: "Priority",
       dataIndex: "priorityLevel",
       key: "priorityLevel",
       width: 110,
-      render: (value) => (
-        <Tag color={PRIORITY_CONFIG[value].color} style={{ fontWeight: 600 }}>
-          {value}
+      render: (v) => (
+        <Tag color={PRIORITY_CONFIG[v].color} style={{ fontWeight: 700 }}>
+          {v}
         </Tag>
       ),
     },
@@ -238,11 +221,11 @@ export default function MaintenancePriority() {
       title: "Rule Trigger",
       dataIndex: "reasons",
       key: "reasons",
-      render: (reasons) => (
+      render: (r) => (
         <List
           size="small"
-          dataSource={reasons}
-          renderItem={(reason) => <List.Item>{reason}</List.Item>}
+          dataSource={r}
+          renderItem={(i) => <List.Item style={{ padding: 0 }}>{i}</List.Item>}
         />
       ),
     },
@@ -257,141 +240,137 @@ export default function MaintenancePriority() {
         flexDirection: "column",
         overflowY: "auto",
         paddingBottom: 120,
+        gap: 10,
       }}
     >
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col span={24}>
-          <Card>
-            <Title level={4} style={{ marginTop: 0 }}>
-              Adjustable Rule-Based Maintenance Ranking
-            </Title>
-            <Text>
-              The Maintenance Manager can tune the rule thresholds below to
-              control how aggressively the system escalates schedules. The
-              ranking still follows fixed operational rules, but the trigger
-              points are now adjustable.
-            </Text>
-          </Card>
-        </Col>
-        <Col span={24}>
-          <Card title="Maintenance Manager Rule Controls">
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12} md={8}>
-                <Text>Critical if due within</Text>
-                <InputNumber
-                  min={0}
-                  value={rules.criticalDueDays}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      criticalDueDays: value ?? prev.criticalDueDays,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Text>Critical if remaining hours are at most</Text>
-                <InputNumber
-                  min={0}
-                  value={rules.criticalRemainingHours}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      criticalRemainingHours:
-                        value ?? prev.criticalRemainingHours,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Text>High if due within</Text>
-                <InputNumber
-                  min={0}
-                  value={rules.highDueDays}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      highDueDays: value ?? prev.highDueDays,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Text>High if remaining hours are at most</Text>
-                <InputNumber
-                  min={0}
-                  value={rules.highRemainingHours}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      highRemainingHours: value ?? prev.highRemainingHours,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Text>Medium if due within</Text>
-                <InputNumber
-                  min={0}
-                  value={rules.mediumDueDays}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      mediumDueDays: value ?? prev.mediumDueDays,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Text>Long turnaround threshold</Text>
-                <InputNumber
-                  min={1}
-                  value={rules.longTurnaroundHours}
-                  onChange={(value) =>
-                    setRules((prev) => ({
-                      ...prev,
-                      longTurnaroundHours: value ?? prev.longTurnaroundHours,
-                    }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Space direction="vertical">
-                  <Text>Safety-critical auto escalation</Text>
-                  <Switch
-                    checked={rules.safetyBoostEnabled}
-                    onChange={(checked) =>
-                      setRules((prev) => ({
-                        ...prev,
-                        safetyBoostEnabled: checked,
-                      }))
-                    }
-                  />
-                </Space>
-              </Col>
-              <Col xs={24}>
-                <Button onClick={() => setRules(defaultRules)}>
-                  Reset Rules
-                </Button>
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-      </Row>
+      <Card>
+        <Title level={4}>Adjustable Rule-Based Maintenance Ranking</Title>
+        <Text type="secondary">
+          Adjust rule thresholds to control schedule escalation. Click the
+          button below to show/hide controls.
+        </Text>
+        <div style={{ marginTop: 12 }}>
+          <Button onClick={() => setShowControls(!showControls)}>
+            {showControls ? "Hide Controls" : "Show Controls"}
+          </Button>
+        </div>
+      </Card>
 
-      <Table
-        columns={columns}
-        dataSource={prioritizedTasks}
-        rowKey="id"
-        pagination={false}
-        scroll={{ x: 1100 }}
-      />
+      {showControls && (
+        <Card title="Maintenance Manager Rule Controls">
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} md={6}>
+              <Text>Critical if due within (days)</Text>
+              <InputNumber
+                min={0}
+                value={rules.criticalDueDays}
+                onChange={(v) =>
+                  setRules((p) => ({
+                    ...p,
+                    criticalDueDays: v ?? p.criticalDueDays,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Text>Critical remaining hours</Text>
+              <InputNumber
+                min={0}
+                value={rules.criticalRemainingHours}
+                onChange={(v) =>
+                  setRules((p) => ({
+                    ...p,
+                    criticalRemainingHours: v ?? p.criticalRemainingHours,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Text>High if due within (days)</Text>
+              <InputNumber
+                min={0}
+                value={rules.highDueDays}
+                onChange={(v) =>
+                  setRules((p) => ({ ...p, highDueDays: v ?? p.highDueDays }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Text>High remaining hours</Text>
+              <InputNumber
+                min={0}
+                value={rules.highRemainingHours}
+                onChange={(v) =>
+                  setRules((p) => ({
+                    ...p,
+                    highRemainingHours: v ?? p.highRemainingHours,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Text>Medium if due within (days)</Text>
+              <InputNumber
+                min={0}
+                value={rules.mediumDueDays}
+                onChange={(v) =>
+                  setRules((p) => ({
+                    ...p,
+                    mediumDueDays: v ?? p.mediumDueDays,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Text>Long turnaround threshold (hrs)</Text>
+              <InputNumber
+                min={1}
+                value={rules.longTurnaroundHours}
+                onChange={(v) =>
+                  setRules((p) => ({
+                    ...p,
+                    longTurnaroundHours: v ?? p.longTurnaroundHours,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Space orientation="vertical">
+                <Text>Safety-critical auto escalation</Text>
+                <Switch
+                  checked={rules.safetyBoostEnabled}
+                  onChange={(v) =>
+                    setRules((p) => ({ ...p, safetyBoostEnabled: v }))
+                  }
+                />
+              </Space>
+            </Col>
+            <Col xs={24}>
+              <Button type="primary" onClick={() => setRules(defaultRules)}>
+                Reset Rules
+              </Button>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={prioritizedTasks}
+          rowKey="id"
+          pagination={false}
+          scroll={{ x: 1200 }}
+          bordered
+          sticky
+        />
+      </Card>
     </div>
   );
 }

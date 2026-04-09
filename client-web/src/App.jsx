@@ -164,13 +164,7 @@ const AppRouter = () => {
           <Route
             path="parts-requisition"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "maintenance manager",
-                  "officer-in-charge",
-                  "warehouse department",
-                ]}
-              >
+              <ProtectedRoute allowedRoles={["warehouse department"]}>
                 <PartsRequisition />
               </ProtectedRoute>
             }

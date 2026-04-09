@@ -1,139 +1,206 @@
-import React, { useState, useMemo, useContext } from "react";
-import { Input, Statistic, Card, Row, Col, Select } from "antd";
+import React, { useContext, useMemo, useState, useEffect } from "react";
 import {
-  SearchOutlined,
-  FileDoneOutlined,
-  CloseCircleOutlined,
+  Alert,
+  Card,
+  Col,
+  Input,
+  Row,
+  Select,
+  Statistic,
+  Typography,
+} from "antd";
+import {
   CheckCircleOutlined,
-  ClockCircleOutlined,
   InboxOutlined,
+  SearchOutlined,
   SyncOutlined,
+  FileDoneOutlined,
 } from "@ant-design/icons";
+import { Navigate } from "react-router-dom";
 import PRMCardView from "../../../components/tables/PRMCardView";
 import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
 import { AuthContext } from "../../../context/AuthContext";
+import { API_BASE } from "../../../utils/API_BASE";
+
+const { Text } = Typography;
+
+const parseRequestedDate = (dateValue) => {
+  const [month, day, year] = String(dateValue || "")
+    .split("/")
+    .map(Number);
+  return new Date(year, month - 1, day).getTime();
+};
+
+const toSummaryRecord = (record) => ({
+  ...record,
+  noOfItems: record.items?.length || 0,
+  totalQty:
+    record.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
+});
+
+const formatRequestedDate = (dateValue) => {
+  if (!dateValue) return "";
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return String(dateValue);
+  }
+
+  return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
+};
+
+const normalizeRequisitionRecord = (record) =>
+  toSummaryRecord({
+    ...record,
+    dateRequested: formatRequestedDate(record.dateRequested),
+    staff: {
+      ...record.staff,
+      employeeName:
+        record.staff?.employeeName ||
+        record.staff?.requisitioner ||
+        "",
+    },
+  });
 
 export default function PartsRequisition() {
   const { user } = useContext(AuthContext);
-  const isWD = user.jobTitle.toLowerCase() === "warehouse department";
-  console.log(isWD);
   const [searchText, setSearchText] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all"); // For selectable cards
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
-  const parseRequestedDate = (dateValue) => {
-    const [month, day, year] = dateValue.split("/").map(Number);
-    return new Date(year, month - 1, day).getTime();
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [requisitions, setRequisitions] = useState(() =>
+    MOCK_WRS_RECORDS.map(normalizeRequisitionRecord),
+  );
+  const userRole = user?.jobTitle?.toLowerCase() || "";
+  const isWarehouseDepartment = userRole === "warehouse department";
 
-  const allRequisitionsWithCounts = useMemo(() => {
-    return MOCK_WRS_RECORDS.map((record) => ({
-      ...record,
-      noOfItems: record.items?.length || 0,
-      totalQty:
-        record.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
-    }));
-  }, []);
+  if (!isWarehouseDepartment) {
+    return <Navigate to="/dashboard/profile" replace />;
+  }
 
-  const stats = useMemo(() => {
-    return {
-      total: allRequisitionsWithCounts.length,
-      pending: allRequisitionsWithCounts.filter((r) => r.status === "Pending")
+  const warehouseRequisitions = useMemo(
+    () =>
+      requisitions.filter((record) =>
+        ["Approved", "In Progress", "Completed"].includes(record.status),
+      ),
+    [requisitions],
+  );
+
+  const stats = useMemo(
+    () => ({
+      total: warehouseRequisitions.length,
+      approved: warehouseRequisitions.filter((r) => r.status === "Approved")
         .length,
-      approved: allRequisitionsWithCounts.filter((r) => r.status === "Approved")
-        .length,
-      inProgress: allRequisitionsWithCounts.filter(
+      inProgress: warehouseRequisitions.filter(
         (r) => r.status === "In Progress",
       ).length,
-      completed: allRequisitionsWithCounts.filter(
-        (r) => r.status === "Completed",
-      ).length,
-      rejected: allRequisitionsWithCounts.filter((r) => r.status === "Rejected")
+      completed: warehouseRequisitions.filter((r) => r.status === "Completed")
         .length,
-    };
-  }, [allRequisitionsWithCounts]);
+    }),
+    [warehouseRequisitions],
+  );
 
-  // Filter based on search and selected card
-  const filteredRequisitions = useMemo(() => {
-    let data = allRequisitionsWithCounts;
-
-    if (searchText.trim()) {
-      data = data.filter(
-        (r) =>
-          r.wrsNo.toLowerCase().includes(searchText.toLowerCase()) ||
-          r.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-          r.status.toLowerCase().includes(searchText.toLowerCase()),
-      );
-    }
-
-    if (selectedStatus !== "all") {
-      data = data.filter((r) => r.status === selectedStatus);
-    }
-
-    return [...data].sort((a, b) => {
-      const firstDate = parseRequestedDate(a.dateRequested);
-      const secondDate = parseRequestedDate(b.dateRequested);
-
-      return dateSortOrder === "oldest"
-        ? firstDate - secondDate
-        : secondDate - firstDate;
-    });
-  }, [searchText, allRequisitionsWithCounts, selectedStatus, dateSortOrder]);
-
-  // Card definitions
-  const cards = useMemo(() => {
-    const baseCards = [
+  const cards = useMemo(
+    () => [
       {
-        title: "Total",
+        title: "Total Queue",
         value: stats.total,
         icon: <InboxOutlined />,
         statusKey: "all",
-        color: "default",
-      },
-      {
-        title: "Pending",
-        value: stats.pending,
-        icon: <ClockCircleOutlined />,
-        statusKey: "Pending",
-        color: "blue",
+        accent: "#595959",
+        bg: "#fafafa",
       },
       {
         title: "Approved",
         value: stats.approved,
         icon: <CheckCircleOutlined />,
         statusKey: "Approved",
-        color: "cyan",
+        accent: "#08979c",
+        bg: "#e6fffb",
       },
       {
         title: "In Progress",
-        value: stats.approved + stats.inProgress,
+        value: stats.inProgress,
         icon: <SyncOutlined />,
         statusKey: "In Progress",
-        color: "orange",
+        accent: "#d46b08",
+        bg: "#fff7e6",
       },
       {
         title: "Completed",
         value: stats.completed,
         icon: <FileDoneOutlined />,
         statusKey: "Completed",
-        color: "green",
+        accent: "#389e0d",
+        bg: "#f6ffed",
       },
-      {
-        title: "Rejected",
-        value: stats.rejected,
-        icon: <CloseCircleOutlined />,
-        statusKey: "Rejected",
-        color: "red",
-      },
-    ];
+    ],
+    [stats],
+  );
 
-    if (isWD) {
-      return baseCards.filter((card) =>
-        ["Approved", "In Progress", "Completed"].includes(card.statusKey),
+  const filteredRequisitions = useMemo(() => {
+    let data = warehouseRequisitions;
+
+    if (searchText.trim()) {
+      const query = searchText.trim().toLowerCase();
+      data = data.filter(
+        (record) =>
+          record.wrsNo?.toLowerCase().includes(query) ||
+          record.aircraft?.toLowerCase().includes(query) ||
+          record.status?.toLowerCase().includes(query) ||
+          record.staff?.employeeName?.toLowerCase().includes(query),
       );
     }
 
-    return baseCards;
-  }, [stats, isWD]);
+    if (selectedStatus !== "all") {
+      data = data.filter((record) => record.status === selectedStatus);
+    }
+
+    return [...data].sort((first, second) => {
+      const firstDate = parseRequestedDate(first.dateRequested);
+      const secondDate = parseRequestedDate(second.dateRequested);
+
+      return dateSortOrder === "oldest"
+        ? firstDate - secondDate
+        : secondDate - firstDate;
+    });
+  }, [dateSortOrder, searchText, selectedStatus, warehouseRequisitions]);
+
+  const handleAllRequisitions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `${API_BASE}/api/parts-requisition/get-all-requisition`,
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch requisitions");
+      }
+
+      const data = await response.json();
+
+      console.log("Requisitions:", data);
+      setRequisitions(
+        Array.isArray(data) ? data.map(normalizeRequisitionRecord) : [],
+      );
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Failed to load requisitions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    handleAllRequisitions();
+  }, []);
 
   return (
     <div
@@ -150,9 +217,10 @@ export default function PartsRequisition() {
         <Col xs={24} md={8}>
           <Input
             size="large"
-            placeholder="Search by WRS No, aircraft, or status..."
+            placeholder="Search by WRS no., aircraft, status, or requester"
             prefix={<SearchOutlined />}
             allowClear
+            value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
@@ -161,7 +229,7 @@ export default function PartsRequisition() {
             size="large"
             value={dateSortOrder}
             onChange={setDateSortOrder}
-            style={{ width: 170 }}
+            style={{ width: "100%" }}
             options={[
               { value: "newest", label: "Date: Newest First" },
               { value: "oldest", label: "Date: Oldest First" },
@@ -169,43 +237,55 @@ export default function PartsRequisition() {
           />
         </Col>
       </Row>
-      <Row gutter={[16, 16]} style={{ marginTop: 20, flexWrap: "wrap" }}>
-        {cards.map((card) => (
-          <Col
-            key={card.statusKey}
-            xs={12}
-            sm={8}
-            md={4}
-            style={{ flexShrink: 0 }}
-          >
-            <Card
-              hoverable
-              onClick={() => setSelectedStatus(card.statusKey)}
-              style={{
-                border:
-                  selectedStatus === card.statusKey
-                    ? `2px solid ${card.color}`
-                    : "1px solid #f0f0f0",
-                cursor: "pointer",
-                height: 120,
-              }}
-              variant="borderless"
-            >
-              <Statistic
-                title={card.title}
-                value={card.value}
-                prefix={card.icon}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
 
-      <Row style={{ marginTop: 20 }}>
-        <Col span={24}>
-          <PRMCardView data={filteredRequisitions} />
+      <Row gutter={[16, 16]} style={{ marginTop: 10, marginBottom: 10 }}>
+        {cards.map((card) => {
+          const isSelected = selectedStatus === card.statusKey;
+
+          return (
+            <Col xs={12} sm={12} xl={6} key={card.statusKey}>
+              <Card
+                hoverable
+                onClick={() => setSelectedStatus(card.statusKey)}
+                variant="borderless"
+                style={{
+                  borderRadius: 18,
+                  cursor: "pointer",
+                  background: card.bg,
+                  border: `2px solid ${isSelected ? card.accent : "transparent"}`,
+                  boxShadow: isSelected
+                    ? `0 10px 24px ${card.accent}22`
+                    : "0 8px 20px rgba(0,0,0,0.04)",
+                }}
+              >
+                <Statistic
+                  title={card.title}
+                  value={card.value}
+                  prefix={card.icon}
+                  styles={{ content: { color: card.accent } }}
+                />
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+      <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredRequisitions.length}</Text>{" "}
+            requisition(s)
+          </Text>
         </Col>
       </Row>
+      {error && (
+        <Alert
+          type="error"
+          title={error}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      <PRMCardView data={filteredRequisitions} />
     </div>
   );
 }

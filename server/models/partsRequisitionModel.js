@@ -29,7 +29,7 @@ const PartsRequisitionSchema = new mongoose.Schema(
     dateReceived: { type: Date },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "In Progress", "Completed", "Cancelled"],
+      enum: ["Pending", "Approved", "In Progress", "Completed", "Rejected", "Cancelled"],
       default: "Pending",
     },
   },

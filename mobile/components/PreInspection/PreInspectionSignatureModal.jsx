@@ -17,7 +17,7 @@ export default function PreInspectionSignatureModal({
   onClose,
   onSave,
   aircraftRPC,
-  role, // "MECHANIC" or "PILOT"
+  role, // "ENGINEER" or "PILOT"
 }) {
   const [name, setName] = useState("");
   const [id, setId] = useState("");

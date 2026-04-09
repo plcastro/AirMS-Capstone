@@ -10,10 +10,9 @@ const {
   releaseFlightLog,
   acceptFlightLog,
   completeFlightLog,
-  deleteFlightLog,
   getFlightLogStats,
   searchFlightLogs,
-} = require("../controllers/flightlogController");
+} = require("../controllers/flightLogController");
 
 // REMOVE AUTH MIDDLEWARE - No authentication required
 // router.use(verifyToken); // COMMENT THIS OUT OR DELETE

@@ -1,4 +1,13 @@
 const FlightLog = require("../models/flightLogModel");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 // Helper function to get user role from token
 const getUserRole = (user) => {
@@ -96,6 +105,8 @@ const createFlightLog = async (req, res) => {
     console.log("FlightLog model created");
 
     await flightLog.save();
+    const audit = withActorId(req, `Flight log created: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
     console.log("FlightLog saved successfully with ID:", flightLog._id);
     console.log(
       "Saved componentData:",
@@ -221,6 +232,8 @@ const getFlightLogById = async (req, res) => {
         message: "Flight log not found",
       });
     }
+    const audit = withActorId(req, `Flight log updated: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -281,7 +294,7 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!flightLog) {
@@ -335,6 +348,8 @@ const releaseFlightLog = async (req, res) => {
     // Release the flight log
     flightLog.release(name, signature);
     await flightLog.save();
+    const audit = withActorId(req, `Flight log released: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -387,6 +402,8 @@ const acceptFlightLog = async (req, res) => {
     // Accept the flight log
     flightLog.accept(name, signature);
     await flightLog.save();
+    const audit = withActorId(req, `Flight log accepted: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -430,6 +447,8 @@ const completeFlightLog = async (req, res) => {
     // Complete the flight log
     flightLog.complete();
     await flightLog.save();
+    const audit = withActorId(req, `Flight log completed: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -565,6 +584,7 @@ const searchFlightLogs = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   createFlightLog,
   getFlightLogs,
