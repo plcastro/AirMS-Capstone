@@ -43,17 +43,15 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
       }
     } else {
       return tasks.filter((task) => {
-        const dueDate = new Date(task.dueDate);
+        const deadline = task.endDateTime || task.dueDate;
+        if (!deadline) return false;
+        const dueDate = new Date(deadline);
         const today = new Date(
           now.getFullYear(),
           now.getMonth(),
           now.getDate(),
         );
         const isPastDue = dueDate < today;
-
-        console.log(
-          `Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`,
-        );
 
         switch (activeTab) {
           case "Upcoming":
@@ -86,7 +84,8 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
     const grouped = {};
 
     filtered.forEach((task) => {
-      const date = new Date(task.dueDate);
+      const deadline = task.endDateTime || task.dueDate;
+      const date = new Date(deadline);
       const formattedDate = formatDisplayDate(date);
 
       if (!grouped[formattedDate]) {
@@ -125,8 +124,6 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
     } else if (action === "edit") {
       setSelectedTask(task);
       setShowEditModal(true);
-    } else if (action === "delete") {
-      console.log("Delete task", task.id);
     }
   };
 
@@ -253,7 +250,6 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
             visible={showAddModal}
             onClose={() => setShowAddModal(false)}
             onAddTask={(newTask) => {
-              console.log("Added Task:", newTask);
               setShowAddModal(false);
             }}
             employees={employees}
@@ -263,7 +259,6 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
             visible={showEditModal}
             onClose={() => setShowEditModal(false)}
             onSave={(updatedTask) => {
-              console.log("Updated Task:", updatedTask);
               setShowEditModal(false);
             }}
             task={selectedTask}

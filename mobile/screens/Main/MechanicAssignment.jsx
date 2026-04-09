@@ -22,9 +22,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   };
 
   // Calculate overdue time (days or hours)
-  const calculateOverdueTime = (dueDate) => {
+  const calculateOverdueTime = (deadline) => {
     const now = new Date();
-    const due = new Date(dueDate);
+    const due = new Date(deadline);
     const diffMs = now - due;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
@@ -47,9 +47,25 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+    const formattedTime = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${formattedDate} ${formattedTime}`;
+  };
+
   // Format due time
-  const formatDueTime = (dueDate) => {
-    const date = new Date(dueDate);
+  const formatDueTime = (deadline) => {
+    const date = new Date(deadline);
     return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
@@ -59,13 +75,16 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
 
   const renderTaskItem = ({ item }) => {
     const now = new Date();
-    const dueDate = new Date(item.dueDate);
+    const deadlineValue = item.endDateTime || item.dueDate;
+    const dueDate = new Date(deadlineValue);
     const isPastDue =
       dueDate < now &&
       item.status !== "Completed" &&
       item.status !== "Turned in";
-    const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
-    const dueTime = formatDueTime(item.dueDate);
+    const overdueText = isPastDue
+      ? calculateOverdueTime(deadlineValue)
+      : null;
+    const dueTime = formatDueTime(deadlineValue);
 
     return (
       <TouchableOpacity
@@ -130,7 +149,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           Aircraft: {item.aircraft}
         </Text>
         <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Date Due: {formatDate(item.dueDate)}
+          Due: {formatDateTime(deadlineValue)}
         </Text>
 
         {isPastDue && (
