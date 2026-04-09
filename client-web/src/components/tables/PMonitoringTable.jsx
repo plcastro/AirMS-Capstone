@@ -1,6 +1,15 @@
 import { Table, Tag, Input } from "antd";
 import React, { useState, useMemo } from "react";
 
+// Helper to format YYYY-MM-DD to DD/MM/YYYY for display
+const formatDateForDisplay = (dateStr) => {
+  if (!dateStr || dateStr === "N/A") return dateStr || "";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+};
+
 export default function PMonitoringTable({
   headers = [],
   data = [],
@@ -13,86 +22,133 @@ export default function PMonitoringTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const columns = useMemo(() => {
-    const processColumns = (headers) => {
-      return headers.map((header) => {
-        if (header.children) {
-          return {
-            title: header.title,
-            children: processColumns(header.children),
-          };
-        }
+  const processColumns = (headers) => {
+    return headers.map((header) => {
+      if (header.children) {
+        return {
+          title: header.title,
+          children: processColumns(header.children),
+        };
+      }
+      if (header.key === "daysRemaining") {
+        return {
+          title: header.title,
+          dataIndex: "daysRemaining",
+          key: "daysRemaining",
+          width: header.width,
+          sorter: (a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0),
+          render: (value) => {
+            if (value === undefined || value === null) return "-";
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) return value;
 
-        // special "daysRemaining" column
-        if (header.key === "daysRemaining") {
-          return {
-            title: header.title,
-            dataIndex: "daysRemaining",
-            key: "daysRemaining",
-            width: header.width,
-            sorter: (a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0),
-            render: (value) => {
-              if (value === undefined || value === null) return "-";
-              const numValue = parseFloat(value);
-              if (isNaN(numValue)) return value;
+            let color = "inherit";
+            let fontWeight = "normal";
 
-              let color = "inherit";
-              let fontWeight = "normal";
+            if (numValue <= 0) {
+              color = "#ea0000";
+              fontWeight = "bold";
+            } else if (numValue <= 30) {
+              color = "#f4ab00";
+              fontWeight = "bold";
+            }
 
-              if (numValue <= 0) {
-                color = "#ea0000";
-                fontWeight = "bold";
-              } else if (numValue <= 30) {
-                color = "#f4ab00";
-                fontWeight = "bold";
-              }
+            return (
+              <span style={{ color, fontWeight }}>{Math.round(numValue)}</span>
+            );
+          },
+        };
+      }
 
+      if (header.key === "due") {
+        return {
+          title: header.title,
+          dataIndex: "due",
+          key: "due",
+          width: header.width,
+          render: (value, record) => {
+            if (value) {
               return (
-                <span style={{ color, fontWeight }}>
-                  {Math.round(numValue)}
-                </span>
-              );
-            },
-          };
-        }
-
-        // special "due" column
-        if (header.key === "due") {
-          return {
-            title: header.title,
-            dataIndex: "due",
-            key: "due",
-            width: header.width,
-            render: (value) =>
-              value ? (
                 <Tag color="#ea0000" style={{ fontWeight: "bold" }}>
                   DUE
                 </Tag>
-              ) : null,
+              );
+            }
+            const daysRemaining = parseFloat(record.daysRemaining);
+            if (
+              !isNaN(daysRemaining) &&
+              daysRemaining > 0 &&
+              daysRemaining <= 30
+            ) {
+              return (
+                <Tag color="#f4ab00" style={{ fontWeight: "bold" }}>
+                  Due Soon
+                </Tag>
+              );
+            }
+            return null;
+          },
+        };
+      }
+
+      // Define which columns are date fields
+      const isDateColumn = header.key === "dateCW" || header.key === "dateDue";
+
+      // Helper to apply dark gray background to specific columns
+      const getColumnStyle = (key) => {
+        const darkGrayColumns = [
+          "hourLimit1",
+          "hourLimit2",
+          "hourLimit3",
+          "dayType",
+          "hoursCW",
+          "timeRemaining",
+          "ttCycleDue",
+        ];
+        if (darkGrayColumns.includes(key)) {
+          return {
+            style: {
+              backgroundColor: "#f0f0f0",
+            },
           };
         }
+        return {};
+      };
 
-        const getColumnStyle = (key) => {
-          const darkGrayColumns = [
-            "hourLimit1",
-            "hourLimit2",
-            "hourLimit3",
-            "dayType",
-            "hoursCW",
-            "timeRemaining",
-            "ttCycleDue",
-          ];
-          if (darkGrayColumns.includes(key))
-            return { style: { backgroundColor: "#f0f0f0" } };
-          return {};
-        };
+      // Default column rendering – editable if needed
+      const renderCell = (value, record) => {
+        if (!editable) {
+          // Non-editable: format date columns for display
+          if (isDateColumn && value && value !== "N/A") {
+            return formatDateForDisplay(value);
+          }
+          return value || "";
+        }
 
-        const renderCell = (value, record) => {
-          if (!editable) return value || "";
-          if (!isCellEditable(record, header.key)) return value || "";
+        if (!isCellEditable(record, header.key)) {
+          // Not editable: format date columns for display
+          if (isDateColumn && value && value !== "N/A") {
+            return formatDateForDisplay(value);
+          }
+          return value || "";
+        }
+
+        // Editable date column – use native date picker
+        if (isDateColumn) {
+          // Ensure value is in YYYY-MM-DD format; if not, try to parse
+          let dateValue = value;
+          if (value && value.includes("/")) {
+            // Convert from DD/MM/YYYY to YYYY-MM-DD if needed (fallback)
+            const parts = value.split("/");
+            if (parts.length === 3) {
+              const [day, month, year] = parts;
+              dateValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+            }
+          }
           return (
             <Input
-              value={value || ""}
+              type="date"
+              value={dateValue || ""}
               onChange={(e) =>
                 onCellEdit(record[rowKey], header.key, e.target.value)
               }
@@ -100,28 +156,43 @@ export default function PMonitoringTable({
               style={{ width: "100%" }}
             />
           );
-        };
+        }
 
-        return {
-          title: header.title,
-          dataIndex: header.key,
-          key: header.key,
-          width: header.width,
-          onCell: (_, index) => getColumnStyle(header.key),
-          render: renderCell,
-          sorter: (a, b) => {
-            const valA = a[header.key] ?? "";
-            const valB = b[header.key] ?? "";
-            if (typeof valA === "number" && typeof valB === "number")
-              return valA - valB;
-            return String(valA).localeCompare(String(valB));
-          },
-        };
-      });
-    };
+        // Default text input for other editable columns
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) =>
+              onCellEdit(record[rowKey], header.key, e.target.value)
+            }
+            size="small"
+            style={{ width: "100%" }}
+          />
+        );
+      };
 
+      return {
+        title: header.title,
+        dataIndex: header.key,
+        key: header.key,
+        width: header.width,
+        onCell: (_, index) => getColumnStyle(header.key),
+        render: renderCell,
+        sorter: (a, b) => {
+          const valA = a[header.key] ?? "";
+          const valB = b[header.key] ?? "";
+          if (typeof valA === "number" && typeof valB === "number") {
+            return valA - valB;
+          }
+          return String(valA).localeCompare(String(valB));
+        },
+      };
+    });
+  };
+
+  const columns = useMemo(() => {
     return processColumns(headers);
-  }, [headers, editable, isCellEditable, onCellEdit, rowKey]);
+  }, [headers, editable, isCellEditable, onCellEdit]);
 
   return (
     <Table

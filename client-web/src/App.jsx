@@ -78,7 +78,14 @@ const AppRouter = () => {
         </Route>
 
         {/* Dashboard pages */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route
             path="user-management/view-users"
             element={
@@ -213,6 +220,8 @@ export default function App() {
             headerSortHoverBg: "#1f6654",
             headerSortActiveBg: "#1f6654",
             headerFilterHoverBg: "#1f6654",
+            headerBorderRadius: 10,
+            headerBorderColor: "#002019",
           },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
@@ -220,7 +229,7 @@ export default function App() {
             itemHoverBg: "#006340",
             itemHoverColor: "#fff",
             itemSelectedBg: "#26866f",
-            itemColor: "#000",
+            itemColor: "#002019",
             itemSelectedColor: "#fff",
             itemActiveBg: "#26866f",
             subMenuItemSelectedColor: "#002019",

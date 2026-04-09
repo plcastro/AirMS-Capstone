@@ -25,8 +25,6 @@ module.exports = async ({ to, subject, text, html }) => {
       html,
     });
 
-    // console.log("Message sent: %s", info.messageId);
-
     return info;
   } catch (error) {
     console.error("EMAIL_ERROR_DETAIL:", error);

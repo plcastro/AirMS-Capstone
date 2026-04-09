@@ -18,7 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 
 const { Title, Text } = Typography;
 const Login = () => {
-  const { setUser } = useContext(AuthContext);
+  const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: "",
@@ -81,6 +81,7 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, password }),
+        credentials: "include",
       });
 
       const text = await response.text();
@@ -100,9 +101,7 @@ const Login = () => {
           );
           return;
         }
-        setUser(data.user);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        await loginUser(data.user, data.token);
 
         if (rememberMe) {
           localStorage.setItem(
@@ -117,9 +116,7 @@ const Login = () => {
           localStorage.removeItem("rememberMe");
         }
         antMessage.success("Logged in successfully!");
-        setTimeout(() => {
-          handleNavigate(data.user.jobTitle);
-        }, 1000);
+        handleNavigate(data.user.jobTitle);
       } else {
         setError(data.message || "Login failed");
       }
@@ -151,7 +148,7 @@ const Login = () => {
         navigate("/dashboard/parts-requisition");
         break;
       default:
-        navigate("/dashboard/profile"); // fallback dashboard
+        navigate("/dashboard/profile");
         break;
     }
   };

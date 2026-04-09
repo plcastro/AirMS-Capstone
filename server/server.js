@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const path = require("path");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
@@ -18,7 +19,7 @@ const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
 const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
 const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
-const flightlogRoutes = require("./routes/flightlogRoute");
+const flightLogRoutes = require("./routes/flightLogRoute");
 const app = express();
 
 const allowedOrigins = [
@@ -45,6 +46,7 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
 
 app.use(
   helmet({
@@ -92,7 +94,7 @@ app.use(
     },
   }),
 );
-app.use("/api/flightlogs", flightlogRoutes);
+app.use("/api/flightlogs", flightLogRoutes);
 
 app.set("trust proxy", 1);
 

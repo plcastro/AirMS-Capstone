@@ -1,15 +1,5 @@
-import React, { useState } from "react";
-import {
-  Row,
-  Col,
-  Input,
-  Button,
-  Card,
-  Typography,
-  Space,
-  Statistic,
-  Select,
-} from "antd";
+import React, { useState, useEffect, useContext } from "react";
+import { Row, Col, Card, Input, Button, Select, Statistic } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
 import MaintenancePerformance from "./MaintenancePerformance";
@@ -21,25 +11,71 @@ import {
   mhistorydata,
   summarydata,
   componentData,
-  PACChartMock,
 } from "../../../components/common/MockData";
 import {
   exportToExcel,
   exportToPDF,
 } from "../../../components/common/ExportFile";
-const { Title } = Typography;
+import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 export default function MaintenanceDashboard() {
+  const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
+
+  // Stats state
+  const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
+
+  // Fetch stats from MaintenancePerformance API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = await getValidToken();
+        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json();
+        const tasks = result.data || [];
+
+        const completed = tasks.filter((t) => t.status === "Completed").length;
+        const dueSoon = tasks.filter(
+          (t) =>
+            t.status !== "Completed" &&
+            t.dueDate &&
+            new Date(t.dueDate) >= new Date() &&
+            new Date(t.dueDate) <=
+              new Date(new Date().setDate(new Date().getDate() + 3)),
+        ).length;
+        const overdue = tasks.filter(
+          (t) =>
+            t.status !== "Completed" &&
+            t.dueDate &&
+            new Date(t.dueDate) < new Date(),
+        ).length;
+
+        setStats({ completed, dueSoon, overdue });
+      } catch (err) {
+        console.error("Failed to fetch stats", err);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const cards = [
     {
       key: "performance",
       title: "Performance Overview",
-      component: <MaintenancePerformance data={PACChartMock} />,
-      keywords: ["performance", "overview", "pac"],
+      component: <MaintenancePerformance />, // only fetches stats if needed
+      keywords: ["performance", "overview"],
+    },
+    {
+      key: "history",
+      title: "Maintenance History",
+      component: <MaintenanceHistory data={mhistorydata} />,
+      keywords: ["history", "maintenance", "record"],
     },
     {
       key: "summary",
@@ -55,12 +91,6 @@ export default function MaintenanceDashboard() {
       component: <ComponentUsage data={componentData} />,
       keywords: ["component", "usage", "analysis"],
     },
-    {
-      key: "history",
-      title: "Maintenance History",
-      component: <MaintenanceHistory data={mhistorydata} />,
-      keywords: ["history", "maintenance", "record"],
-    },
   ];
 
   const filteredCards = cards
@@ -72,24 +102,9 @@ export default function MaintenanceDashboard() {
         ? 1
         : 0,
     }))
-    .sort((a, b) => b.relevance - a.relevance) // most relevant first
-    .filter((card) => searchText === "" || card.relevance > 0); // optionally hide non-relevant cards
+    .sort((a, b) => b.relevance - a.relevance)
+    .filter((card) => searchText === "" || card.relevance > 0);
 
-  // const filteredSummary = summarydata.filter(
-  //   (item) =>
-  //     item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-  //     item.task.toLowerCase().includes(searchText.toLowerCase()),
-  // );
-
-  // const filteredHistory = mhistorydata.filter(
-  //   (item) =>
-  //     item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-  //     item.task.toLowerCase().includes(searchText.toLowerCase()),
-  // );
-
-  // const filteredComponents = componentData.filter((item) =>
-  //   item.component.toLowerCase().includes(searchText.toLowerCase()),
-  // );
   return (
     <div
       style={{
@@ -99,131 +114,85 @@ export default function MaintenanceDashboard() {
         height: "100%",
       }}
     >
-      <Card style={{ marginBottom: 20 }}>
-        <Row justify="space-between" align="middle" gutter={[16, 16]}>
-          <Col xs={24} md={6}>
-            <Title level={4} style={{ margin: 0 }}>
-              Maintenance Dashboard
-            </Title>
-          </Col>
-
-          <Col xs={24} md={10}>
-            <Input
-              size="large"
-              placeholder="Search..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              allowClear
-            />
-          </Col>
-
-          <Col xs={24} md={2}>
-            <Select
-              value={selectedFileType}
-              onChange={(value) => setSelectedFileType(value)}
-              size="large"
-              style={{ width: "100%" }}
-              options={fileTypeOptions.map((type) => ({
-                label: type,
-                value: type,
-              }))}
-            />
-          </Col>
-          <Col xs={24} md={4}>
-            <Button
-              type="primary"
-              icon={<ExportOutlined />}
-              block
-              onClick={() => {
-                if (selectedFileType === "PDF") {
-                  exportToPDF();
-                } else {
-                  exportToExcel();
-                }
-              }}
-            >
-              Export
-            </Button>
-          </Col>
-        </Row>
-      </Card>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} sm={12} md={8}>
-          <Card>
-            <Statistic title="Total Tasks" value={534} />
-          </Card>
+      {/* Search + Export Row */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 20 }} align="middle">
+        <Col xs={24} sm={24} md={12} lg={10}>
+          <Input
+            size="large"
+            placeholder="Search..."
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
         </Col>
 
+        <Col xs={12} sm={8} md={6} lg={5}>
+          <Select
+            value={selectedFileType}
+            onChange={setSelectedFileType}
+            size="large"
+            style={{ width: "100%" }}
+            options={fileTypeOptions.map((type) => ({
+              label: type,
+              value: type,
+            }))}
+          />
+        </Col>
+
+        <Col xs={12} sm={8} md={6} lg={4}>
+          <Button
+            type="primary"
+            icon={<ExportOutlined />}
+            block
+            onClick={() => {
+              if (selectedFileType === "PDF") exportToPDF();
+              else exportToExcel();
+            }}
+          >
+            Export
+          </Button>
+        </Col>
+      </Row>
+
+      {/* Statistics Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
               title="Completed Tasks"
-              value={34}
-              styles={{ content: { color: "#3f8600" } }}
+              value={stats.completed}
+              styles={{ content: { color: "#048a25" } }}
             />
           </Card>
         </Col>
-
+        <Col xs={24} sm={12} md={8}>
+          <Card>
+            <Statistic
+              title="Due Soon (next 3 days)"
+              value={stats.dueSoon}
+              styles={{ content: { color: "#faad14" } }}
+            />
+          </Card>
+        </Col>
         <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
               title="Overdue Tasks"
-              value={5}
+              value={stats.overdue}
               styles={{ content: { color: "#cf1322" } }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]}>
-        {filteredCards.length === 1 ? (
-          // Single card spans full width
-          <Col xs={24} lg={24}>
-            <Card title={filteredCards[0].title}>
-              {filteredCards[0].component}
-            </Card>
+      {/* Dashboard Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 100 }}>
+        {filteredCards.map((card) => (
+          <Col xs={24} key={card.key}>
+            <Card title={card.title}>{card.component}</Card>
           </Col>
-        ) : (
-          <>
-            {/* Left Column: Performance, Summary, Component */}
-            <Col xs={24} lg={16}>
-              <Space
-                orientation="vertical"
-                size="large"
-                style={{ width: "100%" }}
-              >
-                {filteredCards
-                  .filter((card) =>
-                    ["performance", "summary", "component"].includes(card.key),
-                  )
-                  .map((card) => (
-                    <Card title={card.title} key={card.key}>
-                      {card.component}
-                    </Card>
-                  ))}
-              </Space>
-            </Col>
-
-            {/* Right Column: History */}
-            <Col xs={24} lg={8}>
-              <Space
-                orientation="vertical"
-                size="large"
-                style={{ width: "100%" }}
-              >
-                {filteredCards
-                  .filter((card) => card.key === "history")
-                  .map((card) => (
-                    <Card title={card.title} key={card.key}>
-                      {card.component}
-                    </Card>
-                  ))}
-              </Space>
-            </Col>
-          </>
-        )}
+        ))}
       </Row>
     </div>
   );
