@@ -149,8 +149,14 @@ function DrawerNav() {
           component={wrapWithDashboard(PartsRequisition)}
         />
       )}
-
-      <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      {[
+        "maintenance manager",
+        "mechanic",
+        "officer-in-charge",
+        "pilot",
+      ].includes(user.jobTitle?.toLowerCase()) && (
+        <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      )}
     </Drawer.Navigator>
   );
 }
@@ -163,6 +169,9 @@ function LoginWrapper({ navigation, ...props }) {
     if (!user) return;
 
     if (user.status === "deactivated") {
+      return;
+    }
+    if (user.jobTitle === "Admin") {
       return;
     }
 
