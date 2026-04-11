@@ -99,6 +99,11 @@ export default function Login() {
           );
           return;
         }
+        // jobtitle is Admin
+        if (user.jobTitle === "Admin") {
+          setMessage("Admin modules are only available on desktop");
+          return;
+        }
 
         // Remember me logic
         if (rememberMe) {
