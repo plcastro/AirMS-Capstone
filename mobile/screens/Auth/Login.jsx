@@ -104,6 +104,10 @@ export default function Login() {
           setMessage("Admin modules are only available on desktop");
           return;
         }
+        if (user.jobTitle === "Warehouse Department") {
+          setMessage("Warehouse modules are only available on desktop");
+          return;
+        }
 
         // Remember me logic
         if (rememberMe) {
