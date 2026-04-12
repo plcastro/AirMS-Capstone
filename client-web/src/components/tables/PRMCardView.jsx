@@ -54,6 +54,9 @@ const getStatusMeta = (status) => {
   }
 };
 
+const getStatusDisplayLabel = (status) =>
+  status === "Ordered" ? "Restocked" : status;
+
 export default function PRMCardView({
   data = [],
   loading = false,
@@ -119,7 +122,7 @@ export default function PRMCardView({
                     <Text type="secondary">{record.aircraft}</Text>
                   </div>
                   <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {record.status}
+                    {getStatusDisplayLabel(record.status)}
                   </Tag>
                 </div>
 
