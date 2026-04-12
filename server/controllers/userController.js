@@ -21,6 +21,19 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
+const MOBILE_ALLOWED_JOB_TITLES = new Set([
+  "maintenance manager",
+  "pilot",
+  "officer-in-charge",
+  "mechanic",
+  "engineer",
+]);
+
+const canUseMobileClient = (user) => {
+  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
+
+  return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
+};
 
 const getAllUsers = async (req, res) => {
   try {
@@ -33,7 +46,7 @@ const getAllUsers = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    let { identifier, password } = req.body;
+    let { identifier, password, client } = req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
       return res.status(400).json({
@@ -43,6 +56,8 @@ const loginUser = async (req, res) => {
 
     identifier = identifier.trim();
     password = password.trim();
+    const normalizedClient =
+      typeof client === "string" ? client.trim().toLowerCase() : "";
 
     if (!identifier || !password) {
       return res
@@ -97,6 +112,11 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
+      if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
+        return res.status(403).json({
+          message: "This account is only allowed to log in on the web portal.",
+        });
+      }
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -130,6 +150,13 @@ const loginUser = async (req, res) => {
       return res
         .status(401)
         .json({ message: "Invalid username/email or password" });
+    }
+
+    // Enforce platform access on the server so web-only / non-mobile roles cannot sign in on mobile.
+    if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
+      return res.status(403).json({
+        message: "This account is only allowed to log in on the web portal.",
+      });
     }
 
     // Reset failed login attempts
@@ -174,6 +201,7 @@ const loginUser = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       jobTitle: user.jobTitle,
+      access: user.access,
       status: user.status,
       image: user.image,
       signature: user.signature,
@@ -265,6 +293,57 @@ const logoutUser = async (req, res) => {
     console.error("Logout error:", err);
     await auditLog("Logout failed", null);
     res.status(500).json({ message: "Logout failed" });
+  }
+};
+
+const registerMobilePushDevice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { deviceId, expoPushToken, platform } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!deviceId || !expoPushToken) {
+      return res.status(400).json({ message: "deviceId and expoPushToken are required" });
+    }
+
+    await UserModel.updateMany(
+      {
+        $or: [
+          { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.expoPushToken": expoPushToken },
+        ],
+      },
+      {
+        $pull: {
+          mobilePushDevices: {
+            $or: [{ deviceId }, { expoPushToken }],
+          },
+        },
+      },
+    );
+
+    await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $push: {
+          mobilePushDevices: {
+            deviceId,
+            expoPushToken,
+            platform: platform || "unknown",
+            lastSeenAt: new Date(),
+          },
+        },
+      },
+      { new: true },
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("registerMobilePushDevice error:", error);
+    res.status(500).json({ message: "Failed to register push device" });
   }
 };
 
@@ -963,6 +1042,7 @@ module.exports = {
   refreshToken,
   unlockUser,
   logoutUser,
+  registerMobilePushDevice,
   createUser,
   checkUsernameExists,
   updateUser,

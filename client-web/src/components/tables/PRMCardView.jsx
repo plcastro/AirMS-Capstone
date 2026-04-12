@@ -3,9 +3,11 @@ import { Card, Col, Empty, Row, Tag, Typography } from "antd";
 import {
   CalendarOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   FileDoneOutlined,
   InboxOutlined,
   SyncOutlined,
+  ShoppingCartOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
@@ -14,17 +16,32 @@ const { Paragraph, Text, Title } = Typography;
 
 const getStatusMeta = (status) => {
   switch (status) {
+    case "Parts Requested":
+      return {
+        color: "default",
+        icon: <InboxOutlined />,
+      };
+    case "To Be Ordered":
+      return {
+        color: "orange",
+        icon: <ShoppingCartOutlined />,
+      };
+    case "Availability Checked":
+      return {
+        color: "gold",
+        icon: <ClockCircleOutlined />,
+      };
+    case "Ordered":
+      return {
+        color: "blue",
+        icon: <SyncOutlined spin />,
+      };
     case "Approved":
       return {
         color: "cyan",
         icon: <CheckCircleOutlined />,
       };
-    case "In Progress":
-      return {
-        color: "orange",
-        icon: <SyncOutlined spin />,
-      };
-    case "Completed":
+    case "Delivered":
       return {
         color: "green",
         icon: <FileDoneOutlined />,
@@ -37,7 +54,14 @@ const getStatusMeta = (status) => {
   }
 };
 
-export default function PRMCardView({ data = [], loading = false }) {
+const getStatusDisplayLabel = (status) =>
+  status === "Ordered" ? "Restocked" : status;
+
+export default function PRMCardView({
+  data = [],
+  loading = false,
+  onUpdated,
+}) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedWRS, setSelectedWRS] = useState(null);
 
@@ -98,7 +122,7 @@ export default function PRMCardView({ data = [], loading = false }) {
                     <Text type="secondary">{record.aircraft}</Text>
                   </div>
                   <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {record.status}
+                    {getStatusDisplayLabel(record.status)}
                   </Tag>
                 </div>
 
@@ -178,6 +202,7 @@ export default function PRMCardView({ data = [], loading = false }) {
       <WRSModal
         visible={isModalVisible}
         selectedRecord={selectedWRS}
+        onUpdated={onUpdated}
         onClose={() => {
           setIsModalVisible(false);
           setSelectedWRS(null);

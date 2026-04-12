@@ -5,12 +5,22 @@ export default function WRSTable({
   data = [],
   loading = false,
   availQtyMap,
+  persistedQtyMap,
   setAvailQtyMap,
   disabled,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const pageSize = 10;
+
+  const hasQtyValue = (record) =>
+    Object.prototype.hasOwnProperty.call(availQtyMap, record._id) &&
+    availQtyMap[record._id] !== undefined &&
+    availQtyMap[record._id] !== null &&
+    availQtyMap[record._id] !== "";
+
+  const getQtyValue = (record) =>
+    hasQtyValue(record) ? availQtyMap[record._id] : undefined;
 
   const handleAvailQtyChange = (value, record) => {
     setAvailQtyMap((prev) => ({
@@ -20,16 +30,45 @@ export default function WRSTable({
   };
 
   const getAutoStatus = (record) => {
-    const availQty = availQtyMap[record._id] ?? record.availQty ?? 0;
+    const itemStatus = record.stockStatus;
+    const hasInput = hasQtyValue(record);
+
+    if (!hasInput && itemStatus === "Parts Requested") {
+      return <Tag color="default">Awaiting Input</Tag>;
+    }
+
+    const availQty = Number(getQtyValue(record) ?? record.availableQty ?? 0);
     const requestedQty = record.quantity;
+
+    if (itemStatus === "Approved") {
+      return <Tag color="cyan">Approved</Tag>;
+    }
+
+    if (itemStatus === "Delivered") {
+      return <Tag color="green">Delivered</Tag>;
+    }
+
+    if (itemStatus === "Cancelled") {
+      return <Tag color="red">Cancelled</Tag>;
+    }
+
+    if (itemStatus === "To Be Ordered" || itemStatus === "Ordered") {
+      if (itemStatus === "Ordered") {
+        return <Tag color="blue">Restocked</Tag>;
+      }
+
+      return <Tag color="orange">To Be Ordered</Tag>;
+    }
 
     if (availQty === 0) {
       return <Tag color="red">Out of Stock</Tag>;
     }
-    if (availQty < requestedQty) {
-      return <Tag color="orange">Partially Available</Tag>;
-    }
-    return <Tag color="green">Ready for Pickup</Tag>;
+
+    return availQty >= requestedQty ? (
+      <Tag color="green">In Stock</Tag>
+    ) : (
+      <Tag color="red">Out of Stock</Tag>
+    );
   };
 
   const tableColumns = [
@@ -63,17 +102,34 @@ export default function WRSTable({
       dataIndex: "availQty",
       key: "availQty",
       width: 120,
-      render: (_, record) => (
-        <InputNumber
-          min={0}
-          max={999}
-          style={{ width: "100%" }}
-          placeholder="Enter qty"
-          value={availQtyMap[record._id] ?? null}
-          onChange={(value) => handleAvailQtyChange(value, record)}
-          disabled={disabled}
-        />
-      ),
+      render: (_, record) => {
+        const persistedQty = Number(
+          persistedQtyMap?.[record._id] ?? record.availableQty ?? 0,
+        );
+        const requestedQty = Number(record.quantity) || 0;
+        const itemStatus = record.stockStatus;
+        const lockedBecauseInStock =
+          itemStatus === "In Stock" ||
+          itemStatus === "Ordered" ||
+          itemStatus === "Approved" ||
+          itemStatus === "Delivered" ||
+          itemStatus === "Cancelled" ||
+          (itemStatus === "To Be Ordered" &&
+            persistedQty >= requestedQty &&
+            requestedQty > 0);
+
+        return (
+          <InputNumber
+            min={0}
+            max={999}
+            style={{ width: "100%" }}
+            placeholder="Enter qty"
+            value={getQtyValue(record)}
+            onChange={(value) => handleAvailQtyChange(value, record)}
+            disabled={disabled || lockedBecauseInStock}
+          />
+        );
+      },
     },
 
     {

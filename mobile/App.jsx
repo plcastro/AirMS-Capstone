@@ -6,6 +6,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
+import { NotificationProvider } from "./Context/NotificationContext";
 
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
@@ -30,21 +31,23 @@ import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
 import MechanicList from "./screens/Main/MechanicList";
+import NotificationBell from "./components/Notifications/NotificationBell";
+import { navigationRef } from "./utilities/navigationRef";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
-function DrawerNav() {
+function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
-
   const profileImage =
-    user.image && typeof user.image === "string"
+    user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
         ? user.image
         : `${API_BASE}${user.image}`
       : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -66,7 +69,14 @@ function DrawerNav() {
         drawerStyle: { width: 260 },
         overlayColor: "transparent",
         headerRight: () => (
-          <View style={{ marginHorizontal: 7 }}>
+          <View
+            style={{
+              marginHorizontal: 7,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <NotificationBell navigation={navigation} />
             <TouchableOpacity
               style={{
                 flexDirection: "row",
@@ -149,8 +159,14 @@ function DrawerNav() {
           component={wrapWithDashboard(PartsRequisition)}
         />
       )}
-
-      <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      {[
+        "maintenance manager",
+        "mechanic",
+        "officer-in-charge",
+        "pilot",
+      ].includes(user.jobTitle?.toLowerCase()) && (
+        <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      )}
     </Drawer.Navigator>
   );
 }
@@ -163,6 +179,9 @@ function LoginWrapper({ navigation, ...props }) {
     if (!user) return;
 
     if (user.status === "deactivated") {
+      return;
+    }
+    if (user.jobTitle === "Admin") {
       return;
     }
 
@@ -234,6 +253,28 @@ function StackNavWrapper() {
   );
 }
 
+function AppShell({ linking }) {
+  const { recordActivity } = useContext(AuthContext);
+
+  return (
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        recordActivity?.();
+        return false;
+      }}
+    >
+      <NavigationContainer
+        linking={linking}
+        ref={navigationRef}
+        onStateChange={() => recordActivity?.()}
+      >
+        <StackNavWrapper />
+      </NavigationContainer>
+    </View>
+  );
+}
+
 export default function App() {
   const linking = LinkingConfig;
   const theme = {
@@ -250,11 +291,11 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <PaperProvider theme={theme}>
-        <NavigationContainer linking={linking}>
-          <StackNavWrapper />
-        </NavigationContainer>
-      </PaperProvider>
+      <NotificationProvider>
+        <PaperProvider theme={theme}>
+          <AppShell linking={linking} />
+        </PaperProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

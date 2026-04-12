@@ -80,7 +80,7 @@ const Login = () => {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier, password, client: "web" }),
         credentials: "include",
       });
 
@@ -116,7 +116,7 @@ const Login = () => {
           localStorage.removeItem("rememberMe");
         }
         antMessage.success("Logged in successfully!");
-        handleNavigate(data.user.jobTitle);
+        handleNavigate(data.user);
       } else {
         setError(data.message || "Login failed");
       }
@@ -129,11 +129,6 @@ const Login = () => {
   };
 
   const handleNavigate = (loggedInUser) => {
-    if (loggedInUser?.securitySetupCompleted && !loggedInUser?.signature) {
-      navigate("/dashboard/profile");
-      return;
-    }
-
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
 
     switch (pos) {

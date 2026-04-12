@@ -107,7 +107,7 @@ export default function ForgotPassword() {
         />
 
         <Button
-          label={loading ? "SENDING..." : "SEND RESET LINK"}
+          label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
           onPress={sendResetLink}
           disabled={!isFormValid || loading}
           buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
