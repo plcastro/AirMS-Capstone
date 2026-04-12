@@ -179,7 +179,7 @@ export default function PreInspection() {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Q Search aircraft"
+              placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,
@@ -193,34 +193,37 @@ export default function PreInspection() {
             />
           </View>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={() => setShowNewEntryModal(true)}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
+          {/* Only show New Entry button for non-pilot roles */}
+          {userRole !== 'pilot' && (
+            <TouchableOpacity
               style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
               }}
+              onPress={() => setShowNewEntryModal(true)}
             >
-              New Entry
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color={COLORS.white}
+              />
+              <Text
+                style={{
+                  color: COLORS.white,
+                  fontSize: 15,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                New Entry
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filters */}
@@ -397,20 +400,23 @@ export default function PreInspection() {
               >
                 No pre-inspections found
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowNewEntryModal(true)}
-                style={{
-                  marginTop: 20,
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                  Create New Entry
-                </Text>
-              </TouchableOpacity>
+              {/* Only show Create New Entry button for non-pilot roles */}
+              {userRole !== 'pilot' && (
+                <TouchableOpacity
+                  onPress={() => setShowNewEntryModal(true)}
+                  style={{
+                    marginTop: 20,
+                    backgroundColor: COLORS.primaryLight,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    Create New Entry
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <PreInspectionCards

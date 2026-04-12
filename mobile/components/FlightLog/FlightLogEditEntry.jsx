@@ -340,12 +340,19 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const showActionButtons = isLastPage;
-
   const showReleaseButton = isMechanic && formData.status === "pending_release";
   const showAcceptButton = isPilot && formData.status === "pending_acceptance";
-  const showNotifyButton = isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
-  const showCompleteButton = isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showNotifyButton =
+    isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
+  const showCompleteButton =
+    isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showActionButtons =
+    showReleaseButton ||
+    showAcceptButton ||
+    showNotifyButton ||
+    showCompleteButton ||
+    Boolean(formData.releasedBy?.signature) ||
+    Boolean(formData.acceptedBy?.signature);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];

@@ -83,7 +83,7 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !hasAnySignature;
+  const isFormEditable = !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -185,7 +185,9 @@ export default function PreInspectionEditEntry({
   };
 
   const footerActionLabel =
-    formData.status === "completed" || (!isFormEditable && !showAcceptButton)
+    isPilot ||
+    formData.status === "completed" ||
+    (!isFormEditable && !showAcceptButton)
       ? "Close"
       : "Save";
 

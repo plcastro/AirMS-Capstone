@@ -36,6 +36,7 @@ export default function PostInspectionEditEntry({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isPilot = userRole === "pilot";
   const canReleasePostInspection =
     userRole === "mechanic" || userRole === "maintenance manager";
   const tabs = [
@@ -141,7 +142,7 @@ export default function PostInspectionEditEntry({
   };
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
-  const isFormEditable = !hasReleaseSignature;
+  const isFormEditable = !isPilot && !hasReleaseSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -210,9 +211,10 @@ export default function PostInspectionEditEntry({
   const showReleaseButton =
     canReleasePostInspection &&
     !hasReleaseSignature &&
-    formData.status !== "completed" &&
+    formData.status === "pending" &&
     !isSubmitting;
-  const footerActionLabel = formData.status === "completed" ? "Close" : "Save";
+  const footerActionLabel =
+    isPilot || formData.status === "completed" ? "Close" : "Save";
   const handleFooterAction = () => {
     if (footerActionLabel === "Close") {
       onClose();
