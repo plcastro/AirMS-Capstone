@@ -84,6 +84,17 @@ const isItemAvailableForApproval = (status) =>
     normalizeItemStatus(status),
   );
 
+const getDisplayStatusLabel = (status) => {
+  switch (status) {
+    case "To Be Ordered":
+      return "To Be Restocked";
+    case "Ordered":
+      return "Restocked";
+    default:
+      return status;
+  }
+};
+
 const buildTimeline = (record) => {
   const overallStatus = normalizeOverallStatus(record.status);
   const timeline = [
@@ -109,7 +120,7 @@ const buildTimeline = (record) => {
       status: "To Be Ordered",
       dateTime: formatDateTime(record.dateOrdered || record.updatedAt),
       by: record.staff?.approvedBy || "Maintenance Manager",
-      description: "Unavailable items were marked to be ordered",
+      description: "Unavailable items were marked to be restocked",
     });
   }
 
@@ -118,7 +129,7 @@ const buildTimeline = (record) => {
       status: "Ordered",
       dateTime: formatDateTime(record.updatedAt),
       by: record.staff?.warehouseBy || "Warehouse Department",
-      description: "Warehouse confirmed the ordered items are available",
+      description: "Warehouse confirmed the restocked items are available",
     });
   }
 
@@ -627,7 +638,7 @@ export default function PartsRequisition({ route, navigation }) {
         dateOrdered: new Date().toISOString(),
         items: updatedItems,
       },
-      `${request.requestId} marked as to be ordered.`,
+      `${request.requestId} marked as to be restocked.`,
     );
   };
 
@@ -730,7 +741,7 @@ export default function PartsRequisition({ route, navigation }) {
     ["To Be Ordered", "Ordered", "Approved", "Delivered"].includes(
       selectedRequest.rawStatus,
     )
-      ? "Ordered"
+      ? "Restocked"
       : "Order";
 
   return (
