@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
+import { NotificationContext } from "../../Context/NotificationContext";
 import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequisitionCards";
 import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
@@ -47,58 +49,105 @@ const formatDateTime = (dateValue) => {
   });
 };
 
-const mapStatusForDisplay = (status) =>
-  status === "In Progress" ? "Ready for Pickup" : status;
+const normalizeOverallStatus = (status) => {
+  switch (status) {
+    case "Pending":
+      return "Parts Requested";
+    case "Completed":
+      return "Delivered";
+    case "Rejected":
+      return "Cancelled";
+    case "In Progress":
+      return "Ordered";
+    default:
+      return status || "Parts Requested";
+  }
+};
+
+const normalizeItemStatus = (status) => {
+  switch (status) {
+    case "Ready for Pickup":
+      return "Ordered";
+    default:
+      return status || "Parts Requested";
+  }
+};
+
+const hasWarehouseAssessment = (record) =>
+  Boolean(record.dateWarehouseReviewed) ||
+  (record.items || []).some(
+    (item) => normalizeItemStatus(item.stockStatus) !== "Parts Requested",
+  );
+
+const isItemAvailableForApproval = (status) =>
+  ["In Stock", "Ordered", "Approved", "Delivered"].includes(
+    normalizeItemStatus(status),
+  );
 
 const buildTimeline = (record) => {
+  const overallStatus = normalizeOverallStatus(record.status);
   const timeline = [
     {
-      status: "Pending",
+      status: "Parts Requested",
       dateTime: formatDateTime(record.dateRequested || record.createdAt),
       by: record.staff?.requisitioner || "-",
       description: `Request submitted with ${record.items?.length || 0} item(s)`,
     },
   ];
 
-  if (
-    ["Approved", "In Progress", "Completed"].includes(record.status) &&
-    (record.dateApproved || record.updatedAt)
-  ) {
+  if (hasWarehouseAssessment(record)) {
+    timeline.push({
+      status: "Parts Requested",
+      dateTime: formatDateTime(record.dateWarehouseReviewed || record.updatedAt),
+      by: record.staff?.warehouseBy || "Warehouse Department",
+      description: "Warehouse reviewed item stock availability",
+    });
+  }
+
+  if (overallStatus === "To Be Ordered") {
+    timeline.push({
+      status: "To Be Ordered",
+      dateTime: formatDateTime(record.dateOrdered || record.updatedAt),
+      by: record.staff?.approvedBy || "Maintenance Manager",
+      description: "Unavailable items were marked to be ordered",
+    });
+  }
+
+  if (overallStatus === "Ordered") {
+    timeline.push({
+      status: "Ordered",
+      dateTime: formatDateTime(record.updatedAt),
+      by: record.staff?.warehouseBy || "Warehouse Department",
+      description: "Warehouse confirmed the ordered items are available",
+    });
+  }
+
+  if (overallStatus === "Approved") {
     timeline.push({
       status: "Approved",
       dateTime: formatDateTime(record.dateApproved || record.updatedAt),
       by: record.staff?.approvedBy || "-",
-      description: "Requisition approved",
+      description: "Requisition approved by maintenance manager",
     });
   }
 
-  if (record.status === "In Progress") {
+  if (overallStatus === "Delivered") {
     timeline.push({
-      status: "In Progress",
-      dateTime: formatDateTime(record.updatedAt),
-      by: record.staff?.receiver || "Warehouse Department",
-      description: "Request is ready for pickup",
+      status: "Delivered",
+      dateTime: formatDateTime(
+        record.dateDelivered || record.dateReceived || record.updatedAt,
+      ),
+      by: record.staff?.deliveredBy || record.staff?.warehouseBy || "-",
+      description: "Warehouse marked the requisition as delivered",
     });
   }
 
-  if (record.status === "Completed") {
+  if (overallStatus === "Cancelled") {
     timeline.push({
-      status: "Completed",
-      dateTime: formatDateTime(record.dateReceived || record.updatedAt),
-      by: record.staff?.receiver || "-",
-      description: "Items received and request completed",
-    });
-  }
-
-  if (["Rejected", "Cancelled"].includes(record.status)) {
-    timeline.push({
-      status: record.status,
-      dateTime: formatDateTime(record.updatedAt),
-      by: record.staff?.approvedBy || "-",
-      description:
-        record.status === "Rejected"
-          ? "Requisition was rejected"
-          : "Requisition was cancelled",
+      status: "Cancelled",
+      dateTime: formatDateTime(record.dateCancelled || record.updatedAt),
+      by: record.staff?.requisitioner || "-",
+      description: "Requisition was cancelled",
     });
   }
 
@@ -106,19 +155,26 @@ const buildTimeline = (record) => {
 };
 
 const mapRequisitionToCard = (record) => {
-  const items = Array.isArray(record.items) ? record.items : [];
+  const items = (Array.isArray(record.items) ? record.items : []).map((item) => ({
+    ...item,
+    stockStatus: normalizeItemStatus(item.stockStatus),
+    availableQty: Number(item.availableQty) || 0,
+  }));
   const totalQuantity = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0),
     0,
   );
   const firstItem = items[0];
+  const rawStatus = normalizeOverallStatus(record.status);
+  const reviewed = hasWarehouseAssessment({ ...record, items });
 
   return {
     ...record,
     id: record._id,
     slipNo: record.wrsNo,
-    status: mapStatusForDisplay(record.status),
-    rawStatus: record.status,
+    status: rawStatus,
+    rawStatus,
+    hasWarehouseAssessment: reviewed,
     requestedBy: record.staff?.requisitioner || "-",
     aircraft: record.aircraft || "-",
     itemSummary: firstItem
@@ -138,44 +194,62 @@ const mapRequisitionToCard = (record) => {
       aircraft: record.aircraft || "-",
       totalItems: items.length,
       totalQuantity: `${totalQuantity}`,
-      overallStatus: mapStatusForDisplay(record.status),
-      rawStatus: record.status,
+      overallStatus: rawStatus,
+      rawStatus,
+      hasWarehouseAssessment: reviewed,
       requestItems: items.map((item) => ({
         itemName: item.particular || "-",
         purpose: item.purpose || "-",
         requested: `${item.quantity || 0} ${item.unitOfMeasure || ""}`.trim(),
-        status: mapStatusForDisplay(record.status),
+        availableQty: `${item.availableQty || 0}`,
+        status: item.stockStatus,
       })),
-      notes: "",
-      timeline: buildTimeline(record).map((entry) => ({
-        ...entry,
-        status: mapStatusForDisplay(entry.status),
-      })),
+      timeline: buildTimeline({ ...record, status: rawStatus, items }),
+      rawRecord: { ...record, status: rawStatus, items },
     },
   };
 };
 
-export default function PartsRequisition() {
+const resolveTabForRequest = (request, isManager) => {
+  if (!request) {
+    return null;
+  }
+
+  if (isManager) {
+    return request.hasWarehouseAssessment &&
+      !["Approved", "Delivered", "Cancelled"].includes(request.rawStatus)
+      ? "For Review"
+      : "History";
+  }
+
+  return request.rawStatus === "Parts Requested" && !request.hasWarehouseAssessment
+    ? "Active"
+    : "History";
+};
+
+export default function PartsRequisition({ route, navigation }) {
   const { user } = useContext(AuthContext);
+  const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState("Active");
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [editingRequest, setEditingRequest] = useState(null);
   const [requisitions, setRequisitions] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "engineer";
-  const isReviewer = ["maintenance manager", "officer-in-charge"].includes(
+  const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
-  const tabLabels = isReviewer ? ["Pending", "Review"] : ["Active", "History"];
+  const tabLabels = isManager ? ["For Review", "History"] : ["Active", "History"];
 
   useEffect(() => {
-    setSelectedTab(isReviewer ? "Pending" : "Active");
-  }, [isReviewer]);
+    setSelectedTab(isManager ? "For Review" : "Active");
+  }, [isManager]);
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -249,6 +323,22 @@ export default function PartsRequisition() {
     fetchAircraftOptions();
   }, [fetchAircraftOptions, fetchRequisitions]);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchRequisitions();
+      fetchNotifications();
+    }, [fetchNotifications, fetchRequisitions]),
+  );
+
+  useEffect(() => {
+    if (!route?.params?.refreshAt) {
+      return;
+    }
+
+    fetchRequisitions();
+    fetchNotifications();
+  }, [fetchNotifications, fetchRequisitions, route?.params?.refreshAt]);
+
   const mappedRequisitions = useMemo(
     () => requisitions.map(mapRequisitionToCard),
     [requisitions],
@@ -256,15 +346,16 @@ export default function PartsRequisition() {
 
   const filteredRequisitions = useMemo(() => {
     const sourceData = mappedRequisitions.filter((item) => {
-      if (isReviewer) {
-        return selectedTab === "Pending"
-          ? item.rawStatus === "Pending"
-          : item.rawStatus === "Approved";
+      if (isManager) {
+        return selectedTab === "For Review"
+          ? item.hasWarehouseAssessment &&
+              !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus)
+          : ["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
       }
 
       return selectedTab === "Active"
-        ? item.rawStatus === "Pending"
-        : item.rawStatus !== "Pending";
+        ? item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
+        : !(item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment);
     });
 
     return sourceData.filter((item) => {
@@ -279,13 +370,51 @@ export default function PartsRequisition() {
       return matchesSearch;
     });
   }, [
-    isReviewer,
+    isManager,
     mappedRequisitions,
     searchQuery,
     selectedTab,
   ]);
 
+  useEffect(() => {
+    const targetRequestId = route?.params?.targetRequestId;
+
+    if (!targetRequestId || mappedRequisitions.length === 0) {
+      return;
+    }
+
+    const matchedRequest = mappedRequisitions.find(
+      (item) => item.id === targetRequestId,
+    );
+
+    if (!matchedRequest) {
+      return;
+    }
+
+    const nextTab = resolveTabForRequest(matchedRequest, isManager);
+
+    if (nextTab && nextTab !== selectedTab) {
+      setSelectedTab(nextTab);
+    }
+
+    setSelectedRequest(matchedRequest.requestDetails);
+    setShowDetailsModal(true);
+    navigation?.setParams?.({
+      refreshAt: undefined,
+      targetRequestId: undefined,
+      notificationStatus: undefined,
+    });
+  }, [
+    isManager,
+    mappedRequisitions,
+    navigation,
+    route?.params?.targetRequestId,
+    selectedTab,
+  ]);
+
   const handleNewEntry = () => {
+    setEditingRequest(null);
+    setSelectedAircraft("");
     setShowNewEntryModal(true);
   };
 
@@ -295,17 +424,95 @@ export default function PartsRequisition() {
   };
 
   const handleEdit = (item) => {
-    Alert.alert(
-      "Not Yet Available",
-      "Editing requisitions is not connected yet because the current backend only supports create and status updates.",
+    setEditingRequest(item);
+    setSelectedAircraft(item.aircraft || "");
+    setShowNewEntryModal(true);
+  };
+
+  const buildRequestItemsPayload = (items) =>
+    items.map((item, index) => ({
+      itemNo: index + 1,
+      matCodeNo: item.materialCodeNumber.trim(),
+      particular: item.particular.trim(),
+      quantity: Number(item.quantity),
+      unitOfMeasure: item.unit,
+      purpose: item.purpose.trim(),
+      availableQty: 0,
+      stockStatus: "Parts Requested",
+    }));
+
+  const resetEntryModal = () => {
+    setShowNewEntryModal(false);
+    setEditingRequest(null);
+    setSelectedAircraft("");
+  };
+
+  const submitRequisitionUpdate = useCallback(
+    async (requestId, payload, successMessage) => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(
+          `${API_BASE}/api/parts-requisition/update-requisition/${requestId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token
+                ? {
+                    Authorization: `Bearer ${token}`,
+                  }
+                : {}),
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        if (!response.ok) {
+          const errorData = await parseJsonSafely(response);
+          throw new Error(errorData?.message || "Failed to update requisition");
+        }
+
+        setShowDetailsModal(false);
+        resetEntryModal();
+        await fetchRequisitions();
+
+        if (successMessage) {
+          Alert.alert("Success", successMessage);
+        }
+      } catch (error) {
+        console.error("Error updating requisition:", error);
+        Alert.alert("Error", error.message || "Failed to update requisition.");
+      }
+    },
+    [fetchRequisitions],
+  );
+
+  const handleCancelRequest = async (item) => {
+    const existingItems = item.requestDetails?.rawRecord?.items || [];
+
+    await submitRequisitionUpdate(
+      item.id,
+      {
+        status: "Cancelled",
+        dateCancelled: new Date().toISOString(),
+        items: existingItems.map((requestItem) => ({
+          ...requestItem,
+          stockStatus: "Cancelled",
+        })),
+      },
+      `${item.slipNo} cancelled successfully.`,
     );
   };
 
   const handleDelete = (item) => {
-    Alert.alert(
-      "Not Yet Available",
-      "Deleting requisitions is not connected yet because the current backend does not have a delete route.",
-    );
+    Alert.alert("Cancel Requisition", `Cancel ${item.slipNo}?`, [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: () => handleCancelRequest(item),
+      },
+    ]);
   };
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
@@ -335,39 +542,29 @@ export default function PartsRequisition() {
       return;
     }
 
-    const highestSlipNumber = mappedRequisitions.reduce((highest, item) => {
-      const numericPart = Number(item.slipNo?.replace("WRS-", "")) || 0;
-      return numericPart > highest ? numericPart : highest;
-    }, 0);
-
-    const nextSlipNumber = highestSlipNumber + 1;
-    const nextSlipNo = `WRS-${String(nextSlipNumber).padStart(3, "0")}`;
-
     const fullName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
-
-    const payload = {
-      wrsNo: nextSlipNo,
-      aircraft,
-      staff: {
-        requisitioner: fullName,
-        approvedBy: "",
-        receiver: "",
-        notedBy: "",
-      },
-      items: items.map((item, index) => ({
-        itemNo: index + 1,
-        matCodeNo: item.materialCodeNumber.trim(),
-        particular: item.particular.trim(),
-        quantity: Number(item.quantity),
-        unitOfMeasure: item.unit,
-        purpose: item.purpose.trim(),
-      })),
-      dateRequested: new Date().toISOString(),
-      status: "Pending",
-    };
+    const requestItems = buildRequestItemsPayload(items);
 
     try {
+      if (editingRequest) {
+        await submitRequisitionUpdate(
+          editingRequest.id,
+          {
+            aircraft,
+            items: requestItems,
+          },
+          `${editingRequest.slipNo} updated successfully.`,
+        );
+        return;
+      }
+
+      const highestSlipNumber = mappedRequisitions.reduce((highest, item) => {
+        const numericPart = Number(item.slipNo?.replace("WRS-", "")) || 0;
+        return numericPart > highest ? numericPart : highest;
+      }, 0);
+      const nextSlipNumber = highestSlipNumber + 1;
+      const nextSlipNo = `WRS-${String(nextSlipNumber).padStart(3, "0")}`;
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
@@ -381,7 +578,21 @@ export default function PartsRequisition() {
                 }
               : {}),
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            wrsNo: nextSlipNo,
+            aircraft,
+            staff: {
+              requisitioner: fullName,
+              approvedBy: "",
+              receiver: "",
+              notedBy: "",
+              warehouseBy: "",
+              deliveredBy: "",
+            },
+            items: requestItems,
+            dateRequested: new Date().toISOString(),
+            status: "Parts Requested",
+          }),
         },
       );
 
@@ -390,8 +601,7 @@ export default function PartsRequisition() {
         throw new Error(errorData?.message || "Failed to create requisition");
       }
 
-      setSelectedAircraft("");
-      setShowNewEntryModal(false);
+      resetEntryModal();
       setSelectedTab("Active");
       await fetchRequisitions();
       Alert.alert("Submit Entry", `${nextSlipNo} added successfully.`);
@@ -401,59 +611,44 @@ export default function PartsRequisition() {
     }
   };
 
-  const updateRequestStatus = async (request, nextStatus) => {
-    try {
-      const token = await AsyncStorage.getItem("currentUserToken");
-      const fullName =
-        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
-      const payload = { status: nextStatus };
+  const handleOrderRequest = async (request) => {
+    const updatedItems = (request.rawRecord.items || []).map((item) => ({
+      ...item,
+      stockStatus:
+        normalizeItemStatus(item.stockStatus) === "Out of Stock"
+          ? "To Be Ordered"
+          : normalizeItemStatus(item.stockStatus),
+    }));
 
-      if (nextStatus === "Approved") {
-        payload.dateApproved = new Date().toISOString();
-        payload.approvedBy = fullName;
-      }
-
-      const response = await fetch(
-        `${API_BASE}/api/parts-requisition/update-requisition/${request.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token
-              ? {
-                  Authorization: `Bearer ${token}`,
-                }
-              : {}),
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await parseJsonSafely(response);
-        throw new Error(errorData?.message || "Failed to update requisition");
-      }
-
-      setShowDetailsModal(false);
-      await fetchRequisitions();
-
-      if (nextStatus === "Approved") {
-        setSelectedTab("Review");
-      }
-
-      Alert.alert("Success", `${request.requestId} marked as ${nextStatus}.`);
-    } catch (error) {
-      console.error("Error updating requisition:", error);
-      Alert.alert("Error", error.message || "Failed to update requisition.");
-    }
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "To Be Ordered",
+        dateOrdered: new Date().toISOString(),
+        items: updatedItems,
+      },
+      `${request.requestId} marked as to be ordered.`,
+    );
   };
 
-  const handleApproveRequest = (request) => {
-    updateRequestStatus(request, "Approved");
-  };
+  const handleApproveRequest = async (request) => {
+    const fullName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
+    const updatedItems = (request.rawRecord.items || []).map((item) => ({
+      ...item,
+      stockStatus: "Approved",
+    }));
 
-  const handleRejectRequest = (request) => {
-    updateRequestStatus(request, "Rejected");
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "Approved",
+        dateApproved: new Date().toISOString(),
+        approvedBy: fullName,
+        items: updatedItems,
+      },
+      `${request.requestId} approved successfully.`,
+    );
   };
 
   const renderTabButton = (label) => {
@@ -497,6 +692,45 @@ export default function PartsRequisition() {
     );
   };
 
+  const initialEditItems = editingRequest
+    ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
+        id: item._id,
+        matCodeNo: item.matCodeNo,
+        particular: item.particular,
+        quantity: item.quantity,
+        unitOfMeasure: item.unitOfMeasure,
+        purpose: item.purpose,
+      }))
+    : [];
+  const detailRequestItems = selectedRequest?.requestItems || [];
+  const hasMissingItems = detailRequestItems.some(
+    (item) => normalizeItemStatus(item.status) === "Out of Stock",
+  );
+  const allItemsAvailable =
+    detailRequestItems.length > 0 &&
+    detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
+  const canOrder =
+    isManager &&
+    selectedTab === "For Review" &&
+    selectedRequest?.hasWarehouseAssessment &&
+    selectedRequest?.rawStatus === "Parts Requested" &&
+    hasMissingItems;
+  const canApprove =
+    isManager &&
+    selectedTab === "For Review" &&
+    selectedRequest?.hasWarehouseAssessment &&
+    !["Approved", "Delivered", "Cancelled"].includes(
+      selectedRequest?.rawStatus,
+    ) &&
+    allItemsAvailable;
+  const orderLabel =
+    selectedRequest &&
+    ["To Be Ordered", "Ordered", "Approved", "Delivered"].includes(
+      selectedRequest.rawStatus,
+    )
+      ? "Ordered"
+      : "Order";
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
@@ -536,7 +770,7 @@ export default function PartsRequisition() {
             />
           </View>
 
-          {!isReviewer && (
+          {!isManager && (
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.primaryLight,
@@ -582,20 +816,25 @@ export default function PartsRequisition() {
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            hideActions={isReviewer || selectedTab === "History"}
+            showActions={!isManager}
+            actionsDisabled={!isManager && selectedTab === "History"}
             loading={loading}
           />
         </ScrollView>
       </View>
 
-      {!isReviewer && (
+      {!isManager && (
         <PartsRequisitionEntry
           visible={showNewEntryModal}
-          onClose={() => setShowNewEntryModal(false)}
+          onClose={resetEntryModal}
           onSubmit={handleSubmitNewEntry}
           selectedAircraft={selectedAircraft}
           onChangeAircraft={setSelectedAircraft}
           aircraftOptions={aircraftOptions}
+          initialAircraft={editingRequest?.aircraft || ""}
+          initialItems={initialEditItems}
+          title={editingRequest ? "Edit Request" : "New Entry"}
+          submitLabel={editingRequest ? "Save Changes" : "Submit"}
         />
       )}
 
@@ -603,9 +842,13 @@ export default function PartsRequisition() {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showReviewActions={isReviewer && selectedTab === "Pending"}
+        showManagerActions={isManager && selectedTab === "For Review"}
+        canOrder={canOrder}
+        canApprove={canApprove}
+        orderLabel={orderLabel}
+        approveLabel="Approve"
+        onOrder={handleOrderRequest}
         onApprove={handleApproveRequest}
-        onReject={handleRejectRequest}
       />
     </View>
   );

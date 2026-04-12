@@ -29,18 +29,34 @@ export default function PartsRequisitionEntry({
   visible,
   onClose,
   onSubmit,
+  title = "New Entry",
+  submitLabel = "Submit",
   selectedAircraft,
   onChangeAircraft,
   aircraftOptions = [],
+  initialAircraft = "",
+  initialItems = [],
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
 
   useEffect(() => {
     if (visible) {
-      setItems([createEmptyItem(1)]);
-      onChangeAircraft?.("");
+      const nextItems =
+        initialItems.length > 0
+          ? initialItems.map((item, index) => ({
+              id: item.id || item._id || Date.now() + index,
+              materialCodeNumber: item.materialCodeNumber || item.matCodeNo || "",
+              particular: item.particular || "",
+              quantity: item.quantity ? String(item.quantity) : "",
+              unit: item.unit || item.unitOfMeasure || "pcs",
+              purpose: item.purpose || "",
+            }))
+          : [createEmptyItem(1)];
+
+      setItems(nextItems);
+      onChangeAircraft?.(initialAircraft || "");
     }
-  }, [onChangeAircraft, visible]);
+  }, [visible]);
 
   const updateItem = (id, field, value) => {
     setItems((prev) =>
@@ -140,7 +156,7 @@ export default function PartsRequisitionEntry({
                 color: COLORS.black,
               }}
             >
-              New Entry
+              {title}
             </Text>
 
             <TouchableOpacity
@@ -263,7 +279,7 @@ export default function PartsRequisitionEntry({
                     Item {index + 1}
                   </Text>
 
-                  {index > 0 && (
+                  {items.length > 1 && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => removeItem(item.id)}
@@ -410,7 +426,7 @@ export default function PartsRequisitionEntry({
                     fontWeight: "600",
                   }}
                 >
-                  Submit
+                  {submitLabel}
                 </Text>
               </TouchableOpacity>
             </View>

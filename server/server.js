@@ -21,6 +21,7 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
+const notificationRoutes = require("./routes/notificationRoute");
 const sendEmail = require("./utilities/sendEmail");
 
 const app = express();
@@ -91,6 +92,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",
