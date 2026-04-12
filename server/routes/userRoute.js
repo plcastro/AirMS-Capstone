@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const { rateLimiter, otpRequestLimiter } = require("../middleware/rateLimiter");
+const { verifyToken } = require("../middleware/authMiddleware");
 const {
   loginUser,
   refreshToken,
   logoutUser,
+  registerMobilePushDevice,
   createUser,
   checkUsernameExists,
   getAllUsers,
@@ -35,6 +37,7 @@ const { upload, processImage } = require("../middleware/upload");
 router.post("/login", rateLimiter, loginUser);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logoutUser);
+router.post("/register-mobile-push-device", verifyToken, registerMobilePushDevice);
 router.post("/create", upload.single("image"), processImage, createUser);
 router.get("/username-exists", checkUsernameExists);
 router.get("/get-all-users", getAllUsers);

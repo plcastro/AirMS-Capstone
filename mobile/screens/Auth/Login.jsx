@@ -14,6 +14,7 @@ import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { readPendingRedirect, clearPendingRedirect } from "../../utilities/pendingRedirect";
 
 export default function Login() {
   const nav = useNavigation();
@@ -85,7 +86,7 @@ export default function Login() {
         data = responseText ? JSON.parse(responseText) : {};
       } catch (error) {
         console.error("Login returned non-JSON response:", responseText);
-        setMessage("Login failed. Server returned an invalid response.");
+        setMessage(responseText || "Login failed. Server returned an invalid response.");
         return;
       }
 
@@ -127,6 +128,17 @@ export default function Login() {
         }
         setLoginSuccess(true);
         await loginUser(user, token);
+        const pendingRedirect = await readPendingRedirect();
+
+        if (pendingRedirect?.screen) {
+          await clearPendingRedirect();
+          nav.replace("dashboard", {
+            screen: pendingRedirect.screen,
+            params: pendingRedirect.params || {},
+          });
+          return;
+        }
+
         nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
