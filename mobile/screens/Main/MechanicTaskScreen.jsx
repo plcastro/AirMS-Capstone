@@ -8,7 +8,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 
-export default function MechanicTaskScreen() {
+export default function MechanicTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -66,6 +66,26 @@ export default function MechanicTaskScreen() {
       fetchTasks();
     }
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) {
+      return;
+    }
+
+    const match = tasks.find(
+      (task) =>
+        String(task._id) === String(targetTaskId) ||
+        String(task.id) === String(targetTaskId),
+    );
+
+    if (match) {
+      setSelectedTask(match);
+      setModalVisible(true);
+      if (targetNotificationStatus === "Turned in") {
+        setSelectedAircraft(match.aircraft || "all");
+      }
+    }
+  }, [targetTaskId, targetNotificationStatus, tasks]);
 
   // Fetch aircraft options
   useEffect(() => {
