@@ -6,12 +6,24 @@ const NotificationSchema = new mongoose.Schema(
     description: { type: String, default: "", trim: true },
     module: {
       type: String,
-      enum: ["parts-requisition", "flight-logs"],
+      enum: [
+        "parts-requisition",
+        "flight-logs",
+        "pre-inspections",
+        "post-inspections",
+        "tasks",
+      ],
       default: "parts-requisition",
     },
     entityType: {
       type: String,
-      enum: ["parts-requisition", "flight-log"],
+      enum: [
+        "parts-requisition",
+        "flight-log",
+        "pre-inspection",
+        "post-inspection",
+        "task",
+      ],
       default: "parts-requisition",
     },
     entityId: {
