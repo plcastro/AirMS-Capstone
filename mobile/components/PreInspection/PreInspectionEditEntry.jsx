@@ -27,6 +27,7 @@ export default function PreInspectionEditEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -82,7 +83,7 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !hasAnySignature;
+  const isFormEditable = !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -184,7 +185,9 @@ export default function PreInspectionEditEntry({
   };
 
   const footerActionLabel =
-    formData.status === "completed" || (!isFormEditable && !showAcceptButton)
+    isPilot ||
+    formData.status === "completed" ||
+    (!isFormEditable && !showAcceptButton)
       ? "Close"
       : "Save";
 
@@ -219,6 +222,7 @@ export default function PreInspectionEditEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={false}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1 and 2":

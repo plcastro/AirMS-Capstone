@@ -13,7 +13,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
-import PostInspectionEntry from "../../components/PostInspection/PostInspectionEntry";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 
@@ -27,14 +26,12 @@ export default function PostInspection() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
+  const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
-  const canCreatePostInspection =
-    userRole === "engineer" || userRole === "maintenance manager";
 
   useEffect(() => {
     const fetchPostInspections = async () => {
@@ -64,7 +61,24 @@ export default function PostInspection() {
     fetchPostInspections();
   }, []);
 
-  const handleSaveNewEntry = (newEntry) => newEntry;
+  useEffect(() => {
+    const fetchAircraftRpcOptions = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch aircraft RP-Cs");
+        }
+
+        const data = await response.json();
+        setAircraftRpcOptions(Array.isArray(data?.data) ? data.data : []);
+      } catch (error) {
+        console.error("Error fetching aircraft RP-Cs:", error);
+        setAircraftRpcOptions([]);
+      }
+    };
+
+    fetchAircraftRpcOptions();
+  }, []);
 
   const handleSaveEdit = (updatedInspection) => updatedInspection;
 
@@ -74,7 +88,10 @@ export default function PostInspection() {
 
   const aircraftOptions = [
     "all",
-    ...new Set(inspections.map((inspection) => inspection.rpc).filter(Boolean)),
+    ...new Set([
+      ...aircraftRpcOptions.filter(Boolean),
+      ...inspections.map((inspection) => inspection.rpc).filter(Boolean),
+    ]),
   ];
 
   const statusOptions = [
@@ -128,7 +145,7 @@ export default function PostInspection() {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
-        {/* Search Bar Row with New Entry Button */}
+        {/* Search Bar Row */}
         <View
           style={{
             flexDirection: "row",
@@ -169,45 +186,6 @@ export default function PostInspection() {
               onChangeText={handleSearchChange}
             />
           </View>
-
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: canCreatePostInspection ? 1 : 0.6,
-            }}
-            onPress={() => {
-              if (!canCreatePostInspection) {
-                Alert.alert(
-                  "Restricted",
-                  "Only engineers and maintenance managers can create post-inspections",
-                );
-                return;
-              }
-              setShowNewEntryModal(true);
-            }}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
-              style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
-              }}
-            >
-              New Entry
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Filters */}
@@ -384,29 +362,6 @@ export default function PostInspection() {
               >
                 No post-inspections found
               </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  if (!canCreatePostInspection) {
-                    Alert.alert(
-                      "Restricted",
-                      "Only engineers and maintenance managers can create post-inspections",
-                    );
-                    return;
-                  }
-                  setShowNewEntryModal(true);
-                }}
-                style={{
-                  marginTop: 20,
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                  Create New Entry
-                </Text>
-              </TouchableOpacity>
             </View>
           ) : (
             <PostInspectionCards
@@ -419,45 +374,11 @@ export default function PostInspection() {
         </ScrollView>
       </View>
 
-      {/* New Entry Modal */}
-      <PostInspectionEntry
-        visible={showNewEntryModal}
-        onClose={() => setShowNewEntryModal(false)}
-        onSave={async (newEntry) => {
-          try {
-            const token = await AsyncStorage.getItem("currentUserToken");
-            const response = await fetch(
-              `${API_BASE}/api/post-inspections/createPostInspection`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(handleSaveNewEntry(newEntry)),
-              },
-            );
-
-            if (!response.ok) {
-              throw new Error("Failed to create post-inspection");
-            }
-
-            const data = await response.json();
-            setInspections((prev) => [data.data, ...prev]);
-            setShowNewEntryModal(false);
-            Alert.alert("Success", "Post-inspection created successfully");
-          } catch (error) {
-            console.error("Error creating post-inspection:", error);
-            Alert.alert("Error", "Failed to create post-inspection");
-          }
-        }}
-        userRole={userRole}
-      />
-
       {/* Edit Entry Modal */}
       <PostInspectionEditEntry
         visible={showEditModal}
         inspectionData={selectedInspection}
+        rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onClose={() => {
           setShowEditModal(false);
           setSelectedInspection(null);
