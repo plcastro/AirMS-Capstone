@@ -21,6 +21,7 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
+const notificationRoutes = require("./routes/notificationRoute");
 const sendEmail = require("./utilities/sendEmail");
 
 const app = express();
@@ -31,8 +32,8 @@ const allowedOrigins = [
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online",
-  "http://localhost:8081",     // Expo / Metro bundler origin
-  "http://10.0.2.2:3000",      // Android emulator (if using different port)
+  "http://localhost:8081", // Expo / Metro bundler origin
+  "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
 app.use(
@@ -93,6 +94,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",

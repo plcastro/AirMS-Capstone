@@ -1,12 +1,17 @@
-import React, { createContext, useState, useEffect } from "react";
-import { Platform } from "react-native";
+import React, { createContext, useEffect, useRef, useState } from "react";
+import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE } from "../utilities/API_BASE";
 
 export const AuthContext = createContext();
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const appStateRef = useRef(AppState.currentState);
+  const inactivityTimeoutRef = useRef(null);
+  const lastActivityAtRef = useRef(Date.now());
 
   const isTokenValid = (token) => {
     try {
@@ -36,34 +41,80 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
   };
 
+  const clearInactivityTimeout = () => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+      inactivityTimeoutRef.current = null;
+    }
+  };
+
+  const logoutUser = async ({ notifyServer = false } = {}) => {
+    try {
+      setLoading(true);
+      clearInactivityTimeout();
+
+      if (notifyServer && Platform.OS !== "web") {
+        const token = await AsyncStorage.getItem("currentUserToken");
+
+        if (token) {
+          await fetch(`${API_BASE}/api/user/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }).catch((error) => {
+            console.error("Server logout failed:", error);
+          });
+        }
+      }
+
+      setUser(null);
+      await clearStoredAuth();
+    } catch (err) {
+      console.error("Failed to remove user:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const recordActivity = () => {
+    if (!user || Platform.OS === "web") {
+      return;
+    }
+
+    lastActivityAtRef.current = Date.now();
+    clearInactivityTimeout();
+    inactivityTimeoutRef.current = setTimeout(() => {
+      logoutUser();
+    }, INACTIVITY_LIMIT_MS);
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
-        let storedUser = null;
-        let storedToken = null;
-
         if (Platform.OS === "web") {
-          storedUser = localStorage.getItem("currentUser");
-          storedToken = localStorage.getItem("currentUserToken");
+          const storedUser = localStorage.getItem("currentUser");
+          const storedToken = localStorage.getItem("currentUserToken");
+
+          if (storedUser && storedToken && isTokenValid(storedToken)) {
+            const parsed = JSON.parse(storedUser);
+
+            const normalizedUser = {
+              ...parsed,
+              jobTitle: parsed.jobTitle
+                ? parsed.jobTitle.trim().toLowerCase()
+                : null,
+              access: parsed.access ? parsed.access.trim().toLowerCase() : null,
+            };
+
+            setUser(normalizedUser);
+          } else if (storedUser || storedToken) {
+            await clearStoredAuth();
+          }
         } else {
-          storedUser = await AsyncStorage.getItem("currentUser");
-          storedToken = await AsyncStorage.getItem("currentUserToken");
-        }
-
-        if (storedUser && storedToken && isTokenValid(storedToken)) {
-          const parsed = JSON.parse(storedUser);
-
-          const normalizedUser = {
-            ...parsed,
-            jobTitle: parsed.jobTitle
-              ? parsed.jobTitle.trim().toLowerCase()
-              : null,
-            access: parsed.access ? parsed.access.trim().toLowerCase() : null,
-          };
-
-          setUser(normalizedUser);
-        } else if (storedUser || storedToken) {
           await clearStoredAuth();
+          setUser(null);
         }
       } catch (err) {
         console.error("Failed to load user:", err);
@@ -74,6 +125,56 @@ export const AuthProvider = ({ children }) => {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return undefined;
+    }
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (!user) {
+        clearInactivityTimeout();
+        return;
+      }
+
+      if (
+        previousState.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        if (Date.now() - lastActivityAtRef.current >= INACTIVITY_LIMIT_MS) {
+          logoutUser();
+          return;
+        }
+
+        recordActivity();
+        return;
+      }
+
+      if (nextAppState.match(/inactive|background/)) {
+        clearInactivityTimeout();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || Platform.OS === "web") {
+      clearInactivityTimeout();
+      return undefined;
+    }
+
+    recordActivity();
+
+    return () => {
+      clearInactivityTimeout();
+    };
+  }, [user]);
 
   // Login
   const loginUser = async (userData, token) => {
@@ -92,23 +193,11 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.multiSet([
         ["currentUser", JSON.stringify(normalizedUser)],
         ["currentUserToken", token],
+        ["lastLoggedInUserId", String(normalizedUser.id || "")],
       ]).catch(console.error);
     }
-  };
 
-  // Logout
-  const logoutUser = async () => {
-    try {
-      setLoading(true);
-
-      setUser(null);
-
-      await clearStoredAuth();
-    } catch (err) {
-      console.error("Failed to remove user:", err);
-    } finally {
-      setLoading(false);
-    }
+    lastActivityAtRef.current = Date.now();
   };
 
   return (
@@ -118,6 +207,7 @@ export const AuthProvider = ({ children }) => {
         setUser,
         loginUser,
         logoutUser,
+        recordActivity,
         loading,
       }}
     >

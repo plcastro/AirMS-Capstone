@@ -4,25 +4,49 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
+const getDisplayStatusLabel = (status) => {
+  switch (status) {
+    case "To Be Ordered":
+      return "To Be Restocked";
+    case "Ordered":
+      return "Restocked";
+    default:
+      return status;
+  }
+};
+
 const getOverallStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "parts requested":
+      return {
+        borderColor: COLORS.grayMedium,
+        textColor: COLORS.grayDark,
+      };
+    case "to be ordered":
+      return {
+        borderColor: "#F0A64A",
+        textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        borderColor: "#D4A017",
+        textColor: "#A37300",
+      };
+    case "ordered":
+      return {
+        borderColor: "#1565C0",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         borderColor: "#2F8CFF",
         textColor: "#2F8CFF",
       };
-    case "in progress":
-    case "ready for pickup":
-      return {
-        borderColor: "#1565C0",
-        textColor: "#1565C0",
-      };
-    case "completed":
+    case "delivered":
       return {
         borderColor: "#2E7D32",
         textColor: "#2E7D32",
       };
-    case "rejected":
     case "cancelled":
       return {
         borderColor: "#C62828",
@@ -38,23 +62,46 @@ const getOverallStatusStyle = (status) => {
 
 const getTimelineBadgeStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "parts requested":
+      return {
+        borderColor: "#B8B8B8",
+        textColor: "#666666",
+      };
+    case "in stock":
+      return {
+        borderColor: "#81C784",
+        textColor: "#2E7D32",
+      };
+    case "out of stock":
+      return {
+        borderColor: "#EF9A9A",
+        textColor: "#C62828",
+      };
+    case "to be ordered":
+      return {
+        borderColor: "#F5C27B",
+        textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        borderColor: "#F2D48D",
+        textColor: "#A37300",
+      };
+    case "ordered":
+      return {
+        borderColor: "#90CAF9",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         borderColor: "#69AFFF",
         textColor: "#2F8CFF",
       };
-    case "in progress":
-    case "ready for pickup":
-      return {
-        borderColor: "#90CAF9",
-        textColor: "#1565C0",
-      };
-    case "completed":
+    case "delivered":
       return {
         borderColor: "#81C784",
         textColor: "#2E7D32",
       };
-    case "rejected":
     case "cancelled":
       return {
         borderColor: "#EF9A9A",
@@ -72,9 +119,13 @@ export default function PartsRequisitionDetails({
   visible,
   onClose,
   request,
-  showReviewActions = false,
+  showManagerActions = false,
+  canOrder = false,
+  canApprove = false,
+  orderLabel = "Order",
+  approveLabel = "Approve",
+  onOrder,
   onApprove,
-  onReject,
 }) {
   if (!request) return null;
 
@@ -178,9 +229,7 @@ export default function PartsRequisitionDetails({
                     fontWeight: "500",
                   }}
                 >
-                  {request.overallStatus === "In Progress"
-                    ? "Ready for Pickup"
-                    : request.overallStatus}
+                  {getDisplayStatusLabel(request.overallStatus)}
                 </Text>
               </View>
             </View>
@@ -313,46 +362,19 @@ export default function PartsRequisitionDetails({
                           paddingVertical: 4,
                         }}
                       >
-                        <Text
-                          style={{
-                            color: badgeStyle.textColor,
-                            fontSize: 18,
-                          }}
-                        >
-                          {item.status === "In Progress"
-                            ? "Ready for Pickup"
-                            : item.status}
+                      <Text
+                        style={{
+                          color: badgeStyle.textColor,
+                          fontSize: 18,
+                        }}
+                      >
+                          {getDisplayStatusLabel(item.status)}
                         </Text>
                       </View>
                     </View>
                   </View>
                 );
               })}
-            </View>
-
-            <Text
-              style={{
-                fontSize: 24,
-                fontWeight: "700",
-                color: "#333333",
-                marginBottom: 10,
-              }}
-            >
-              Notes
-            </Text>
-            <View
-              style={{
-                backgroundColor: "#F1F1F1",
-                borderRadius: 6,
-                minHeight: 44,
-                paddingHorizontal: 12,
-                paddingVertical: 12,
-                marginBottom: 18,
-              }}
-            >
-              <Text style={{ fontSize: 18, color: COLORS.grayDark }}>
-                {request.notes || ""}
-              </Text>
             </View>
 
             <Text
@@ -403,9 +425,7 @@ export default function PartsRequisitionDetails({
                           fontSize: 18,
                         }}
                       >
-                        {entry.status === "In Progress"
-                          ? "Ready for Pickup"
-                          : entry.status}
+                        {getDisplayStatusLabel(entry.status)}
                       </Text>
                     </View>
 
@@ -436,7 +456,7 @@ export default function PartsRequisitionDetails({
               );
             })}
 
-            {showReviewActions && (
+            {showManagerActions && (
               <View
                 style={{
                   flexDirection: "row",
@@ -446,12 +466,13 @@ export default function PartsRequisitionDetails({
                 }}
               >
                 <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => onReject?.(request)}
+                  activeOpacity={canOrder ? 0.8 : 1}
+                  onPress={() => onOrder?.(request)}
+                  disabled={!canOrder}
                   style={{
-                    backgroundColor: COLORS.white,
+                    backgroundColor: canOrder ? COLORS.white : "#F1F1F1",
                     borderWidth: 1,
-                    borderColor: "#E85D5D",
+                    borderColor: canOrder ? "#E6A246" : "#D8D8D8",
                     paddingHorizontal: 18,
                     paddingVertical: 12,
                     borderRadius: 6,
@@ -459,20 +480,21 @@ export default function PartsRequisitionDetails({
                 >
                   <Text
                     style={{
-                      color: "#E85D5D",
+                      color: canOrder ? "#C26A00" : "#9E9E9E",
                       fontSize: 16,
                       fontWeight: "600",
                     }}
                   >
-                    Reject
+                    {getDisplayStatusLabel(orderLabel)}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={canApprove ? 0.8 : 1}
                   onPress={() => onApprove?.(request)}
+                  disabled={!canApprove}
                   style={{
-                    backgroundColor: COLORS.primaryLight,
+                    backgroundColor: canApprove ? COLORS.primaryLight : "#D8D8D8",
                     paddingHorizontal: 18,
                     paddingVertical: 12,
                     borderRadius: 6,
@@ -485,7 +507,7 @@ export default function PartsRequisitionDetails({
                       fontWeight: "600",
                     }}
                   >
-                    Approve
+                    {approveLabel}
                   </Text>
                 </TouchableOpacity>
               </View>

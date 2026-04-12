@@ -5,35 +5,51 @@ import { COLORS } from "../../stylesheets/colors";
 
 const getStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "parts requested":
+      return {
+        label: "Parts Requested",
+        backgroundColor: "#F1F1F1",
+        textColor: "#666666",
+      };
+    case "to be ordered":
+      return {
+        label: "To Be Restocked",
+        backgroundColor: "#FFF4E5",
+        textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        label: "Availability Checked",
+        backgroundColor: "#FFF8E1",
+        textColor: "#A37300",
+      };
+    case "ordered":
+      return {
+        label: "Restocked",
+        backgroundColor: "#E3F2FD",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         label: "Approved",
         backgroundColor: "#E8F5E9",
         textColor: "#2E7D32",
       };
-    case "in progress":
-    case "ready for pickup":
+    case "delivered":
       return {
-        label: "Ready for Pickup",
-        backgroundColor: "#E3F2FD",
-        textColor: "#1565C0",
-      };
-    case "rejected":
-    case "cancelled":
-      return {
-        label: status?.toLowerCase() === "cancelled" ? "Cancelled" : "Rejected",
-        backgroundColor: "#FDECEC",
-        textColor: "#C62828",
-      };
-    case "completed":
-      return {
-        label: "Completed",
+        label: "Delivered",
         backgroundColor: "#F3E5F5",
         textColor: "#7B1FA2",
       };
+    case "cancelled":
+      return {
+        label: "Cancelled",
+        backgroundColor: "#FDECEC",
+        textColor: "#C62828",
+      };
     default:
       return {
-        label: "Pending",
+        label: status || "Pending",
         backgroundColor: "#F1F1F1",
         textColor: "#666666",
       };
@@ -45,7 +61,8 @@ export default function PartsRequisitionCards({
   onViewDetails,
   onEdit,
   onDelete,
-  hideActions = false,
+  showActions = true,
+  actionsDisabled = false,
   loading = false,
 }) {
   if (loading) {
@@ -218,7 +235,7 @@ export default function PartsRequisitionCards({
                 <View
                   style={{
                     flexDirection: "row",
-                    justifyContent: hideActions ? "center" : "space-between",
+                    justifyContent: showActions ? "space-between" : "center",
                     alignItems: "center",
                     marginTop: 10,
                   }}
@@ -244,28 +261,30 @@ export default function PartsRequisitionCards({
                     </Text>
                   </TouchableOpacity>
 
-                  {!hideActions && (
+                  {showActions && (
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
                       <TouchableOpacity
-                        activeOpacity={0.7}
+                        activeOpacity={actionsDisabled ? 1 : 0.7}
                         onPress={() => onEdit?.(item)}
+                        disabled={actionsDisabled}
                         style={{ padding: 4, marginRight: 2 }}
                       >
                         <MaterialCommunityIcons
                           name="pencil"
                           size={20}
-                          color="#777"
+                          color={actionsDisabled ? "#C8C8C8" : "#777"}
                         />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        activeOpacity={0.7}
+                        activeOpacity={actionsDisabled ? 1 : 0.7}
                         onPress={() => onDelete?.(item)}
+                        disabled={actionsDisabled}
                         style={{ padding: 4 }}
                       >
                         <MaterialCommunityIcons
                           name="delete"
                           size={20}
-                          color="#F45B5B"
+                          color={actionsDisabled ? "#F1B6B6" : "#F45B5B"}
                         />
                       </TouchableOpacity>
                     </View>
