@@ -28,6 +28,9 @@ const getInspectionNameCandidates = (inspectionName) => {
   return Array.from(candidates);
 };
 
+const escapeRegex = (value = "") =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const getInspectionSchedules = async (req, res) => {
   try {
     const { aircraftModel } = req.query;
@@ -70,14 +73,32 @@ const getTasksByInspection = async (req, res) => {
       return res.status(400).json({ message: "inspectionName is required" });
     }
 
+    const normalizedInspectionName = String(inspectionName).trim();
+    const inspectionCandidates = getInspectionNameCandidates(
+      normalizedInspectionName,
+    )
+      .map((name) => String(name || "").trim())
+      .filter(Boolean);
+
+    const inspectionRegexCandidates = inspectionCandidates.map(
+      (name) => new RegExp(`^${escapeRegex(name)}$`, "i"),
+    );
+
     const query = {
-      inspectionName: {
-        $in: getInspectionNameCandidates(inspectionName),
-      },
+      $or: [
+        { inspectionName: { $in: inspectionCandidates } },
+        { inspectionTypeFull: { $in: inspectionCandidates } },
+        { inspectionName: { $in: inspectionRegexCandidates } },
+        { inspectionTypeFull: { $in: inspectionRegexCandidates } },
+      ],
     };
 
     if (aircraftModel) {
-      query.aircraftModel = aircraftModel;
+      const normalizedAircraftModel = String(aircraftModel).trim();
+      query.aircraftModel = new RegExp(
+        `^${escapeRegex(normalizedAircraftModel)}$`,
+        "i",
+      );
     }
 
     const tasks = await InspectionTask.find(query).sort({

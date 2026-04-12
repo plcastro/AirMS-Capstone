@@ -9,8 +9,8 @@ import {
   Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Checkbox from "expo-checkbox";
 import Button from "../Button";
-import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -450,7 +450,9 @@ export default function EditTask({
                 key={index}
                 style={{ flexDirection: "row", marginBottom: 12 }}
               >
-                <CheckBox value={false} disabled={true} />
+                <View style={{ paddingTop: 2 }}>
+                  <Checkbox value={false} disabled={true} />
+                </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: COLORS.grayDark }}>

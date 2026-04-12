@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,23 @@ import {
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { API_BASE } from "../../utilities/API_BASE";
 
-const aircraftTypes = ["AS350 B3", "AS350 B3E", "R44", "R22", "Bell 206"];
-const rpcOptions = ["7247", "7248", "7249", "7250", "7251"];
-
-export default function PreInspectionModalInfo({ formData, updateForm, isEditable = true }) {
-  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+export default function PreInspectionModalInfo({
+  formData,
+  updateForm,
+  isEditable = true,
+  rpcOptions = [],
+}) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+
+  const dynamicRpcOptions = Array.from(
+    new Set(
+      [...rpcOptions, formData.rpc]
+        .map((rpc) => String(rpc || "").trim())
+        .filter(Boolean),
+    ),
+  );
 
   const formatDate = (date) => {
     if (!date) return "";
@@ -48,92 +58,50 @@ export default function PreInspectionModalInfo({ formData, updateForm, isEditabl
     });
   };
 
-  const toggleAircraftDropdown = () => {
-    setShowAircraftDropdown(!showAircraftDropdown);
-    setShowRPCDropdown(false);
-  };
-
   const toggleRPCDropdown = () => {
     setShowRPCDropdown(!showRPCDropdown);
-    setShowAircraftDropdown(false);
   };
 
-  const renderAircraftDropdown = () => (
-    <View style={{ zIndex: showAircraftDropdown ? 3000 : 2000 }}>
-      <TouchableOpacity
+  const resolveAircraftTypeByRpc = async (rpc) => {
+    try {
+      if (!rpc) return;
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const resolvedType = data?.data?.aircraftType || "";
+      if (resolvedType && resolvedType !== formData.aircraftType) {
+        updateForm("aircraftType", resolvedType);
+      }
+    } catch (error) {
+      console.error("Error resolving aircraft type for pre-inspection:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (formData.rpc && !formData.aircraftType) {
+      resolveAircraftTypeByRpc(formData.rpc);
+    }
+  }, [formData.rpc]);
+
+  const renderAircraftTypeField = () => (
+    <View>
+      <TextInput
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
           height: 42,
           paddingHorizontal: 12,
+          fontSize: 14,
+          color: COLORS.grayDark,
         }}
-        onPress={isEditable ? toggleAircraftDropdown : null}
-      >
-        <Text style={{ 
-          fontSize: 14, 
-          color: formData.aircraftType ? COLORS.black : COLORS.grayDark 
-        }}>
-          {formData.aircraftType || "Select Aircraft Type"}
-        </Text>
-        {isEditable && (
-          <MaterialCommunityIcons 
-            name={showAircraftDropdown ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color={COLORS.grayDark} 
-          />
-        )}
-      </TouchableOpacity>
-
-      {showAircraftDropdown && isEditable && (
-        <View style={{
-          position: "absolute",
-          top: 46,
-          left: 0,
-          right: 0,
-          backgroundColor: COLORS.white,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          zIndex: 3000,
-          elevation: 5,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          maxHeight: 200,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
-            {aircraftTypes.map((type, index) => (
-              <TouchableOpacity
-                key={index}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderBottomWidth: index < aircraftTypes.length - 1 ? 1 : 0,
-                  borderBottomColor: COLORS.grayLight,
-                  backgroundColor: formData.aircraftType === type ? COLORS.primaryLight + "10" : COLORS.white,
-                }}
-                onPress={() => {
-                  updateForm("aircraftType", type);
-                  setShowAircraftDropdown(false);
-                }}
-              >
-                <Text style={{ 
-                  fontSize: 14,
-                  color: formData.aircraftType === type ? COLORS.primaryLight : COLORS.black,
-                }}>
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+        value={formData.aircraftType || ""}
+        editable={false}
+        placeholder="Auto-filled from RP-C"
+        placeholderTextColor={COLORS.grayDark}
+      />
     </View>
   );
 
@@ -187,18 +155,19 @@ export default function PreInspectionModalInfo({ formData, updateForm, isEditabl
           maxHeight: 200,
         }}>
           <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
-            {rpcOptions.map((rpc, index) => (
+            {dynamicRpcOptions.map((rpc, index) => (
               <TouchableOpacity
                 key={index}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
-                  borderBottomWidth: index < rpcOptions.length - 1 ? 1 : 0,
+                  borderBottomWidth: index < dynamicRpcOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
                   backgroundColor: formData.rpc === rpc ? COLORS.primaryLight + "10" : COLORS.white,
                 }}
                 onPress={() => {
                   updateForm("rpc", rpc);
+                  resolveAircraftTypeByRpc(rpc);
                   setShowRPCDropdown(false);
                 }}
               >
@@ -243,16 +212,16 @@ export default function PreInspectionModalInfo({ formData, updateForm, isEditabl
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              Aircraft Type:
+              RP-C:
             </Text>
-            {renderAircraftDropdown()}
+            {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              RP-C:
+              Aircraft Type:
             </Text>
-            {renderRPCDropdown()}
+            {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>

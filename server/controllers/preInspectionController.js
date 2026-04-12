@@ -1,4 +1,5 @@
 const PreInspection = require("../models/preInspectionModel");
+const PostInspection = require("../models/postInspectionModel");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
@@ -19,6 +20,25 @@ const createPreInspection = async (req, res) => {
     };
 
     const inspection = await PreInspection.create(payload);
+
+    const linkedPostPayload = {
+      preInspectionId: inspection._id,
+      linkedFromPreFlight: true,
+      aircraftType: payload.aircraftType,
+      rpc: payload.rpc,
+      date: payload.date,
+      dateAdded: payload.dateAdded || new Date().toLocaleDateString("en-US"),
+      createdBy: payload.createdBy || "",
+      status: "pending",
+    };
+
+    try {
+      await PostInspection.create(linkedPostPayload);
+    } catch (postCreateError) {
+      await PreInspection.findByIdAndDelete(inspection._id);
+      throw postCreateError;
+    }
+
     const audit = withActorId(req, `Pre-inspection created: ${inspection._id}`);
     await auditLog(audit.action, audit.actorId);
 
