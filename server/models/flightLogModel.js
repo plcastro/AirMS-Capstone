@@ -110,6 +110,8 @@ const flightLogSchema = new mongoose.Schema(
 
     // Status and Tracking
     createdBy: { type: String, default: "" },
+    createdByName: { type: String, default: "" },
+    createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     status: {
       type: String,
       enum: [

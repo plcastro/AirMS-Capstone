@@ -6,18 +6,17 @@ const NotificationSchema = new mongoose.Schema(
     description: { type: String, default: "", trim: true },
     module: {
       type: String,
-      enum: ["parts-requisition"],
+      enum: ["parts-requisition", "flight-logs"],
       default: "parts-requisition",
     },
     entityType: {
       type: String,
-      enum: ["parts-requisition"],
+      enum: ["parts-requisition", "flight-log"],
       default: "parts-requisition",
     },
     entityId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      ref: "PartsRequisition",
     },
     recipientRoles: { type: [String], default: [] },
     recipientUsers: {
