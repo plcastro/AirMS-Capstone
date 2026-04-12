@@ -4,15 +4,6 @@ const {
   createPartsRequisitionNotifications,
 } = require("../utilities/partsRequisitionNotificationService");
 
-const AVAILABLE_QTY_LOCKED_STATUSES = new Set([
-  "Availability Checked",
-  "To Be Ordered",
-  "Ordered",
-  "Approved",
-  "Delivered",
-  "Cancelled",
-]);
-
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),
   "Availability Checked": new Set(["To Be Ordered", "Approved", "Cancelled"]),
@@ -59,15 +50,40 @@ const sanitizeIncomingItems = (items = []) =>
     availableQty: Number(item.availableQty) || 0,
   }));
 
-const hasAvailableQtyChanges = (existingItems = [], incomingItems = []) => {
+const ITEM_AVAILABLE_QTY_LOCKED_STATUSES = new Set([
+  "In Stock",
+  "Ordered",
+  "Approved",
+  "Delivered",
+  "Cancelled",
+]);
+
+const hasLockedItemAvailableQtyChanges = (
+  existingItems = [],
+  incomingItems = [],
+) => {
   const currentById = new Map(
-    existingItems.map((item) => [String(item._id), Number(item.availableQty) || 0]),
+    existingItems.map((item) => [
+      String(item._id),
+      {
+        availableQty: Number(item.availableQty) || 0,
+        stockStatus: item.stockStatus,
+      },
+    ]),
   );
 
   return incomingItems.some((item) => {
     const id = String(item._id || "");
     if (!id || !currentById.has(id)) return false;
-    return (Number(item.availableQty) || 0) !== currentById.get(id);
+
+    const currentItem = currentById.get(id);
+    const hasQtyChanged =
+      (Number(item.availableQty) || 0) !== currentItem.availableQty;
+
+    return (
+      hasQtyChanged &&
+      ITEM_AVAILABLE_QTY_LOCKED_STATUSES.has(currentItem.stockStatus)
+    );
   });
 };
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
@@ -180,17 +196,16 @@ const updateRequisitionStatus = async (req, res) => {
 
     if (req.body.items !== undefined) {
       const normalizedIncomingItems = sanitizeIncomingItems(req.body.items);
-      const isAvailableQtyLocked =
-        Boolean(existingRequisition.dateWarehouseReviewed) ||
-        AVAILABLE_QTY_LOCKED_STATUSES.has(existingRequisition.status);
 
       if (
-        isAvailableQtyLocked &&
-        hasAvailableQtyChanges(existingRequisition.items, normalizedIncomingItems)
+        hasLockedItemAvailableQtyChanges(
+          existingRequisition.items,
+          normalizedIncomingItems,
+        )
       ) {
         return res.status(400).json({
           message:
-            "Available quantity cannot be edited after stock review submission.",
+            "Available quantity cannot be edited for items that are already in stock, restocked, approved, delivered, or cancelled.",
         });
       }
 

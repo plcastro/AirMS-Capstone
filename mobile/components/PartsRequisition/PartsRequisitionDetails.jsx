@@ -4,6 +4,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
+const getDisplayStatusLabel = (status) => {
+  switch (status) {
+    case "To Be Ordered":
+      return "To Be Restocked";
+    case "Ordered":
+      return "Restocked";
+    default:
+      return status;
+  }
+};
+
 const getOverallStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
     case "parts requested":
@@ -218,7 +229,7 @@ export default function PartsRequisitionDetails({
                     fontWeight: "500",
                   }}
                 >
-                  {request.overallStatus}
+                  {getDisplayStatusLabel(request.overallStatus)}
                 </Text>
               </View>
             </View>
@@ -357,7 +368,7 @@ export default function PartsRequisitionDetails({
                           fontSize: 18,
                         }}
                       >
-                          {item.status}
+                          {getDisplayStatusLabel(item.status)}
                         </Text>
                       </View>
                     </View>
@@ -414,7 +425,7 @@ export default function PartsRequisitionDetails({
                           fontSize: 18,
                         }}
                       >
-                        {entry.status}
+                        {getDisplayStatusLabel(entry.status)}
                       </Text>
                     </View>
 
@@ -474,7 +485,7 @@ export default function PartsRequisitionDetails({
                       fontWeight: "600",
                     }}
                   >
-                    {orderLabel}
+                    {getDisplayStatusLabel(orderLabel)}
                   </Text>
                 </TouchableOpacity>
 
