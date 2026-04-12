@@ -1,233 +1,321 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Table,
-  Row,
-  Col,
-  Card,
-  Typography,
-  Tag,
-  List,
-  InputNumber,
-  Switch,
-  Space,
+  Alert,
   Button,
+  Card,
+  Col,
+  Input,
+  InputNumber,
+  Row,
+  Space,
+  Statistic,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
 } from "antd";
+import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { API_BASE } from "../../../utils/API_BASE";
 
 const { Title, Text } = Typography;
 
-const mockTasks = [
-  {
-    id: 1,
-    aircraft: "A320-101",
-    task: "Engine inspection",
-    dueDate: "2026-03-30",
-    remainingFlightHours: 8,
-    estimatedTurnaround: 5,
-    safetyCritical: true,
-  },
-  {
-    id: 2,
-    aircraft: "B737-202",
-    task: "Hydraulic system check",
-    dueDate: "2026-04-02",
-    remainingFlightHours: 15,
-    estimatedTurnaround: 2,
-    safetyCritical: false,
-  },
-  {
-    id: 3,
-    aircraft: "A320-102",
-    task: "Landing gear lubrication",
-    dueDate: "2026-03-29",
-    remainingFlightHours: 5,
-    estimatedTurnaround: 1,
-    safetyCritical: true,
-  },
-  {
-    id: 4,
-    aircraft: "B429-301",
-    task: "Avionics troubleshooting",
-    dueDate: "2026-04-08",
-    remainingFlightHours: 4,
-    estimatedTurnaround: 6,
-    safetyCritical: true,
-  },
-  {
-    id: 5,
-    aircraft: "H125-118",
-    task: "Cabin interior inspection",
-    dueDate: "2026-04-14",
-    remainingFlightHours: 20,
-    estimatedTurnaround: 2,
-    safetyCritical: false,
-  },
-];
-
-const PRIORITY_CONFIG = {
-  Critical: { rank: 1, color: "red" },
-  High: { rank: 2, color: "volcano" },
-  Medium: { rank: 3, color: "gold" },
-  Low: { rank: 4, color: "green" },
+const PRIORITY_COLORS = {
+  Critical: "red",
+  High: "volcano",
+  Medium: "gold",
+  Low: "green",
 };
 
-const defaultRules = {
-  criticalDueDays: 1,
-  criticalRemainingHours: 5,
-  highDueDays: 3,
-  highRemainingHours: 10,
-  mediumDueDays: 7,
+const DEFAULT_RULES = {
+  criticalDueDays: 5,
+  criticalRemainingHours: 14,
+  highDueDays: 7,
+  highRemainingHours: 24,
+  mediumDueDays: 14,
   longTurnaroundHours: 5,
   safetyBoostEnabled: true,
 };
 
-const getDaysUntilDue = (dueDate) => {
-  const today = new Date();
-  const due = new Date(dueDate);
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
-  return Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+const formatDueSummary = (record) => {
+  const segments = [];
+
+  if (record.dueByHours !== null && record.dueByHours !== undefined) {
+    segments.push(`${record.dueByHours} FH`);
+  }
+
+  if (record.dueByDays !== null && record.dueByDays !== undefined) {
+    segments.push(`${record.dueByDays} day(s)`);
+  }
+
+  return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
-const evaluatePriority = (task, rules) => {
-  const daysUntilDue = getDaysUntilDue(task.dueDate);
-  const reasons = [];
-  let priority = "Low";
-  let tieBreakerScore = 0;
+const formatDate = (value) => {
+  if (!value) return "N/A";
 
-  if (daysUntilDue < 0) {
-    priority = "Critical";
-    reasons.push("Overdue maintenance schedule");
-    tieBreakerScore += 100;
-  } else if (daysUntilDue <= rules.criticalDueDays && task.safetyCritical) {
-    priority = "Critical";
-    reasons.push(
-      `Due within ${rules.criticalDueDays} day/s and safety-critical`,
-    );
-    tieBreakerScore += 95;
-  } else if (
-    task.remainingFlightHours <= rules.criticalRemainingHours &&
-    task.safetyCritical
-  ) {
-    priority = "Critical";
-    reasons.push(
-      `Remaining flight hours at or below ${rules.criticalRemainingHours} on a safety-critical task`,
-    );
-    tieBreakerScore += 92;
-  } else if (daysUntilDue <= rules.highDueDays) {
-    priority = "High";
-    reasons.push(`Due within ${rules.highDueDays} day/s`);
-    tieBreakerScore += 75;
-  } else if (task.remainingFlightHours <= rules.highRemainingHours) {
-    priority = "High";
-    reasons.push(
-      `Remaining flight hours at or below ${rules.highRemainingHours}`,
-    );
-    tieBreakerScore += 70;
-  } else if (task.safetyCritical && rules.safetyBoostEnabled) {
-    priority = "High";
-    reasons.push("Safety-critical maintenance requirement");
-    tieBreakerScore += 68;
-  } else if (daysUntilDue <= rules.mediumDueDays) {
-    priority = "Medium";
-    reasons.push(`Due within ${rules.mediumDueDays} day/s`);
-    tieBreakerScore += 50;
-  } else if (task.estimatedTurnaround >= rules.longTurnaroundHours) {
-    priority = "Medium";
-    reasons.push("Long turnaround time requires earlier scheduling");
-    tieBreakerScore += 45;
-  } else {
-    reasons.push("No urgent maintenance rule triggered");
-    tieBreakerScore += 20;
-  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
 
-  if (
-    task.safetyCritical &&
-    rules.safetyBoostEnabled &&
-    !reasons.includes("Safety-critical maintenance requirement")
-  ) {
-    reasons.push("Safety impact increases review urgency");
-    tieBreakerScore += 5;
-  }
-  if (task.estimatedTurnaround >= rules.longTurnaroundHours)
-    tieBreakerScore += 3;
-
-  return {
-    ...task,
-    daysUntilDue,
-    priorityLevel: priority,
-    priorityRank: PRIORITY_CONFIG[priority].rank,
-    tieBreakerScore,
-    reasons,
-  };
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 export default function MaintenancePriority() {
-  const [rules, setRules] = useState(defaultRules);
+  const [searchText, setSearchText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingRules, setSavingRules] = useState(false);
+  const [priorityData, setPriorityData] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [rules, setRules] = useState(DEFAULT_RULES);
+  const [draftRules, setDraftRules] = useState(DEFAULT_RULES);
   const [showControls, setShowControls] = useState(false);
 
-  const prioritizedTasks = useMemo(() => {
-    return mockTasks
-      .map((task) => evaluatePriority(task, rules))
-      .sort((a, b) =>
-        a.priorityRank !== b.priorityRank
-          ? a.priorityRank - b.priorityRank
-          : b.tieBreakerScore - a.tieBreakerScore,
+  const fetchPriorityData = async (activeRules = rules) => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        criticalDueDays: String(activeRules.criticalDueDays),
+        criticalRemainingHours: String(activeRules.criticalRemainingHours),
+        highDueDays: String(activeRules.highDueDays),
+        highRemainingHours: String(activeRules.highRemainingHours),
+        mediumDueDays: String(activeRules.mediumDueDays),
+        longTurnaroundHours: String(activeRules.longTurnaroundHours),
+        safetyBoostEnabled: activeRules.safetyBoostEnabled ? "1" : "0",
+      });
+
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/maintenance-priority?${params.toString()}`,
       );
-  }, [rules]);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to fetch maintenance priority");
+      }
+
+      setPriorityData(Array.isArray(result.data) ? result.data : []);
+      setMeta(result.meta || null);
+    } catch (error) {
+      console.error("Failed to fetch maintenance priority:", error);
+      message.error(error.message || "Failed to load maintenance priority");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadRulesAndPriority = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
+        );
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Failed to fetch maintenance priority rules");
+        }
+
+        const loadedRules = {
+          ...DEFAULT_RULES,
+          ...(result.data || {}),
+        };
+
+        setRules(loadedRules);
+        setDraftRules(loadedRules);
+        await fetchPriorityData(loadedRules);
+      } catch (error) {
+        console.error("Failed to fetch maintenance priority rules:", error);
+        message.error(error.message || "Failed to load maintenance priority rules");
+        await fetchPriorityData(DEFAULT_RULES);
+      }
+    };
+
+    loadRulesAndPriority();
+  }, []);
+
+  const updateDraftRule = (key, value) => {
+    setDraftRules((current) => ({
+      ...current,
+      [key]: value ?? current[key],
+    }));
+  };
+
+  const applyRules = async () => {
+    setRules(draftRules);
+    await fetchPriorityData(draftRules);
+  };
+
+  const saveRules = async () => {
+    try {
+      setSavingRules(true);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(draftRules),
+        },
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to save maintenance priority rules");
+      }
+
+      const savedRules = {
+        ...DEFAULT_RULES,
+        ...(result.data || {}),
+      };
+
+      setRules(savedRules);
+      setDraftRules(savedRules);
+      message.success("Maintenance priority rules saved");
+      await fetchPriorityData(savedRules);
+    } catch (error) {
+      console.error("Failed to save maintenance priority rules:", error);
+      message.error(error.message || "Failed to save maintenance priority rules");
+    } finally {
+      setSavingRules(false);
+    }
+  };
+
+  const resetRules = async () => {
+    setDraftRules(DEFAULT_RULES);
+    setRules(DEFAULT_RULES);
+    await fetchPriorityData(DEFAULT_RULES);
+  };
+
+  const filteredData = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+
+    if (!query) {
+      return priorityData;
+    }
+
+    return priorityData.filter((item) =>
+      [
+        item.aircraft,
+        item.aircraftModel,
+        item.nextInspection,
+        item.priorityLevel,
+        item.sourceRow,
+        item.priorityReason,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [priorityData, searchText]);
+
+  const stats = useMemo(() => {
+    const criticalCount = priorityData.filter(
+      (item) => item.priorityLevel === "Critical",
+    ).length;
+    const highCount = priorityData.filter(
+      (item) => item.priorityLevel === "High",
+    ).length;
+    const fastestTurnaround = priorityData.reduce((lowest, item) => {
+      if (item.estimatedTurnaroundHours === null || item.estimatedTurnaroundHours === undefined) {
+        return lowest;
+      }
+
+      if (lowest === null || item.estimatedTurnaroundHours < lowest) {
+        return item.estimatedTurnaroundHours;
+      }
+
+      return lowest;
+    }, null);
+
+    return {
+      criticalCount,
+      highCount,
+      aircraftCount: priorityData.length,
+      fastestTurnaround,
+    };
+  }, [priorityData]);
 
   const columns = [
     {
       title: "Rank",
+      dataIndex: "rank",
       key: "rank",
       width: 70,
-      render: (_, __, index) => index + 1,
-    },
-    { title: "Aircraft", dataIndex: "aircraft", key: "aircraft", width: 130 },
-    { title: "Task", dataIndex: "task", key: "task" },
-    { title: "Due Date", dataIndex: "dueDate", key: "dueDate", width: 120 },
-    {
-      title: "Days To Due",
-      dataIndex: "daysUntilDue",
-      key: "daysUntilDue",
-      width: 120,
-      render: (v) =>
-        v < 0 ? <Text type="danger">{Math.abs(v)} days overdue</Text> : v,
     },
     {
-      title: "Remaining Hrs",
-      dataIndex: "remainingFlightHours",
-      key: "remainingFlightHours",
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      width: 140,
+    },
+    {
+      title: "Model",
+      dataIndex: "aircraftModel",
+      key: "aircraftModel",
+      width: 130,
+    },
+    {
+      title: "Next Inspection",
+      dataIndex: "nextInspection",
+      key: "nextInspection",
+      width: 220,
+    },
+    {
+      title: "Due Soonest",
+      key: "dueSoonest",
+      width: 170,
+      render: (_, record) => formatDueSummary(record),
+    },
+    {
+      title: "Due Date",
+      dataIndex: "dueDate",
+      key: "dueDate",
       width: 120,
+      render: (value) => formatDate(value),
     },
     {
       title: "Turnaround",
-      dataIndex: "estimatedTurnaround",
-      key: "estimatedTurnaround",
-      width: 110,
-      render: (v) => `${v} hrs`,
+      dataIndex: "estimatedTurnaroundHours",
+      key: "estimatedTurnaroundHours",
+      width: 130,
+      render: (value, record) =>
+        value !== null && value !== undefined ? (
+          <span>
+            {value} hr{value === 1 ? "" : "s"}
+            <Text type="secondary" style={{ marginLeft: 6 }}>
+              {record.usedHistoricalEstimate ? "historical" : "estimated"}
+            </Text>
+          </span>
+        ) : (
+          "N/A"
+        ),
     },
     {
       title: "Priority",
       dataIndex: "priorityLevel",
       key: "priorityLevel",
       width: 110,
-      render: (v) => (
-        <Tag color={PRIORITY_CONFIG[v].color} style={{ fontWeight: 700 }}>
-          {v}
+      render: (value) => (
+        <Tag color={PRIORITY_COLORS[value] || "default"} style={{ fontWeight: 700 }}>
+          {value}
         </Tag>
       ),
     },
     {
+      title: "Decision Basis",
+      dataIndex: "priorityReason",
+      key: "priorityReason",
+    },
+    {
       title: "Rule Trigger",
-      dataIndex: "reasons",
-      key: "reasons",
-      render: (r) => (
-        <List
-          size="small"
-          dataSource={r}
-          renderItem={(i) => <List.Item style={{ padding: 0 }}>{i}</List.Item>}
-        />
-      ),
+      dataIndex: "priorityTriggers",
+      key: "priorityTriggers",
+      render: (value) =>
+        Array.isArray(value) && value.length > 0 ? value.join(" | ") : "N/A",
     },
   ];
 
@@ -235,140 +323,189 @@ export default function MaintenancePriority() {
     <div
       style={{
         padding: 20,
-        height: "100vh",
+        height: "calc(100vh - 64px)",
+        overflowY: "auto",
+        overflowX: "hidden",
         display: "flex",
         flexDirection: "column",
-        overflowY: "auto",
-        paddingBottom: 120,
-        gap: 10,
+        gap: 16,
+        paddingBottom: 110,
+        boxSizing: "border-box",
       }}
     >
       <Card>
-        <Title level={4}>Adjustable Rule-Based Maintenance Ranking</Title>
-        <Text type="secondary">
-          Adjust rule thresholds to control schedule escalation. Click the
-          button below to show/hide controls.
-        </Text>
-        <div style={{ marginTop: 12 }}>
-          <Button onClick={() => setShowControls(!showControls)}>
-            {showControls ? "Hide Controls" : "Show Controls"}
-          </Button>
-        </div>
+        <Row gutter={[16, 16]} align="middle" justify="space-between">
+          <Col xs={24} md={16}>
+            <Title level={4} style={{ marginBottom: 4 }}>
+              Adjustable Rule-Based Maintenance Ranking
+            </Title>
+            <Text type="secondary">
+              Adjust rule thresholds to control schedule escalation. Aircraft are
+              ranked by the active rules first, then by urgency and turnaround.
+            </Text>
+          </Col>
+          <Col xs={24} md={8}>
+            <Space style={{ width: "100%", justifyContent: "flex-end" }} wrap>
+              <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="Search aircraft or inspection"
+                style={{ width: 280, maxWidth: "100%" }}
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+              <Button onClick={() => setShowControls((current) => !current)}>
+                {showControls ? "Hide Controls" : "Show Controls"}
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => fetchPriorityData(rules)}
+                loading={loading}
+              >
+                Refresh
+              </Button>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {showControls && (
         <Card title="Maintenance Manager Rule Controls">
           <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>Critical if due within (days)</Text>
               <InputNumber
                 min={0}
-                value={rules.criticalDueDays}
-                onChange={(v) =>
-                  setRules((p) => ({
-                    ...p,
-                    criticalDueDays: v ?? p.criticalDueDays,
-                  }))
-                }
-                style={{ width: "100%" }}
+                value={draftRules.criticalDueDays}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) => updateDraftRule("criticalDueDays", value)}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>Critical remaining hours</Text>
               <InputNumber
                 min={0}
-                value={rules.criticalRemainingHours}
-                onChange={(v) =>
-                  setRules((p) => ({
-                    ...p,
-                    criticalRemainingHours: v ?? p.criticalRemainingHours,
-                  }))
+                value={draftRules.criticalRemainingHours}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) =>
+                  updateDraftRule("criticalRemainingHours", value)
                 }
-                style={{ width: "100%" }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>High if due within (days)</Text>
               <InputNumber
                 min={0}
-                value={rules.highDueDays}
-                onChange={(v) =>
-                  setRules((p) => ({ ...p, highDueDays: v ?? p.highDueDays }))
-                }
-                style={{ width: "100%" }}
+                value={draftRules.highDueDays}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) => updateDraftRule("highDueDays", value)}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>High remaining hours</Text>
               <InputNumber
                 min={0}
-                value={rules.highRemainingHours}
-                onChange={(v) =>
-                  setRules((p) => ({
-                    ...p,
-                    highRemainingHours: v ?? p.highRemainingHours,
-                  }))
+                value={draftRules.highRemainingHours}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) =>
+                  updateDraftRule("highRemainingHours", value)
                 }
-                style={{ width: "100%" }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>Medium if due within (days)</Text>
               <InputNumber
                 min={0}
-                value={rules.mediumDueDays}
-                onChange={(v) =>
-                  setRules((p) => ({
-                    ...p,
-                    mediumDueDays: v ?? p.mediumDueDays,
-                  }))
-                }
-                style={{ width: "100%" }}
+                value={draftRules.mediumDueDays}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) => updateDraftRule("mediumDueDays", value)}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} lg={6}>
               <Text>Long turnaround threshold (hrs)</Text>
               <InputNumber
-                min={1}
-                value={rules.longTurnaroundHours}
-                onChange={(v) =>
-                  setRules((p) => ({
-                    ...p,
-                    longTurnaroundHours: v ?? p.longTurnaroundHours,
-                  }))
+                min={0}
+                value={draftRules.longTurnaroundHours}
+                style={{ width: "100%", marginTop: 8 }}
+                onChange={(value) =>
+                  updateDraftRule("longTurnaroundHours", value)
                 }
-                style={{ width: "100%" }}
               />
             </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Space orientation="vertical">
+            <Col xs={24} sm={12} lg={6}>
+              <Space direction="vertical" style={{ marginTop: 28 }}>
                 <Text>Safety-critical auto escalation</Text>
                 <Switch
-                  checked={rules.safetyBoostEnabled}
-                  onChange={(v) =>
-                    setRules((p) => ({ ...p, safetyBoostEnabled: v }))
-                  }
+                  checked={draftRules.safetyBoostEnabled}
+                  onChange={(checked) => updateDraftRule("safetyBoostEnabled", checked)}
                 />
               </Space>
             </Col>
             <Col xs={24}>
-              <Button type="primary" onClick={() => setRules(defaultRules)}>
-                Reset Rules
-              </Button>
+              <Space wrap>
+                <Button type="primary" onClick={applyRules} loading={loading}>
+                  Apply Rules
+                </Button>
+                <Button onClick={saveRules} loading={savingRules}>
+                  Save as Default
+                </Button>
+                <Button onClick={resetRules}>
+                  Reset Rules
+                </Button>
+              </Space>
             </Col>
           </Row>
         </Card>
       )}
 
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic title="Aircraft Ranked" value={stats.aircraftCount} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic title="Critical" value={stats.criticalCount} valueStyle={{ color: "#cf1322" }} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic title="High" value={stats.highCount} valueStyle={{ color: "#d46b08" }} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Fastest Turnaround"
+              value={
+                stats.fastestTurnaround !== null && stats.fastestTurnaround !== undefined
+                  ? `${stats.fastestTurnaround} hrs`
+                  : "N/A"
+              }
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {meta && (
+        <Alert
+          type="info"
+          showIcon
+          message="Priority tie-break logic"
+          description={`If inspections are within ${meta.tieBreakHours} flight hours, ${meta.tieBreakDays} days, or an urgency ratio gap of ${meta.tieBreakUrgencyRatio}, the aircraft with the shorter turnaround is ranked first. Active rules: Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH, High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.`}
+        />
+      )}
+
       <Card>
         <Table
+          rowKey={(record) => `${record.aircraft}-${record.inspectionKey}`}
+          loading={loading}
           columns={columns}
-          dataSource={prioritizedTasks}
-          rowKey="id"
+          dataSource={filteredData}
           pagination={false}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1600 }}
           bordered
-          sticky
         />
       </Card>
     </div>
