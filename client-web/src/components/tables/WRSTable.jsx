@@ -12,6 +12,15 @@ export default function WRSTable({
 
   const pageSize = 10;
 
+  const hasQtyValue = (record) =>
+    Object.prototype.hasOwnProperty.call(availQtyMap, record._id) &&
+    availQtyMap[record._id] !== undefined &&
+    availQtyMap[record._id] !== null &&
+    availQtyMap[record._id] !== "";
+
+  const getQtyValue = (record) =>
+    hasQtyValue(record) ? availQtyMap[record._id] : undefined;
+
   const handleAvailQtyChange = (value, record) => {
     setAvailQtyMap((prev) => ({
       ...prev,
@@ -20,9 +29,15 @@ export default function WRSTable({
   };
 
   const getAutoStatus = (record) => {
-    const availQty = availQtyMap[record._id] ?? record.availQty ?? 0;
-    const requestedQty = record.quantity;
     const currentStatus = record.stockStatus;
+    const hasInput = hasQtyValue(record);
+
+    if (!hasInput && currentStatus === "Parts Requested") {
+      return <Tag color="default">Awaiting Input</Tag>;
+    }
+
+    const availQty = Number(getQtyValue(record) ?? record.availableQty ?? 0);
+    const requestedQty = record.quantity;
 
     if (currentStatus === "Approved") {
       return <Tag color="cyan">Approved</Tag>;
@@ -92,7 +107,7 @@ export default function WRSTable({
           max={999}
           style={{ width: "100%" }}
           placeholder="Enter qty"
-          value={availQtyMap[record._id] ?? record.availableQty ?? null}
+          value={getQtyValue(record)}
           onChange={(value) => handleAvailQtyChange(value, record)}
           disabled={disabled}
         />

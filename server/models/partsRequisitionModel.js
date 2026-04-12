@@ -8,6 +8,7 @@ const REQUISITION_STATUSES = [
   "Rejected",
   "Cancelled",
   "Parts Requested",
+  "Availability Checked",
   "To Be Ordered",
   "Ordered",
   "Delivered",

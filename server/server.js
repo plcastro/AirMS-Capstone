@@ -32,6 +32,8 @@ const allowedOrigins = [
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online",
+  "http://localhost:8081", // Expo / Metro bundler origin
+  "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
 app.use(
@@ -103,6 +105,8 @@ app.use(
     },
   }),
 );
+app.use("/api/flightlogs", flightLogRoutes);
+
 app.set("trust proxy", 1);
 
 app.use((err, req, res, next) => {

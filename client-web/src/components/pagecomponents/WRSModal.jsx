@@ -25,13 +25,63 @@ import WRSTable from "../tables/WRSTable";
 
 const { Paragraph, Text, Title } = Typography;
 
-const statusSteps = [
-  "Parts Requested",
-  "To Be Ordered",
-  "Ordered",
-  "Approved",
-  "Delivered",
-];
+const normalizeRequisitionStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return "Parts Requested";
+    case "in progress":
+      return "Ordered";
+    case "completed":
+      return "Delivered";
+    case "rejected":
+      return "Cancelled";
+    case "parts requested":
+      return "Parts Requested";
+    case "availability checked":
+      return "Availability Checked";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+};
+
+const normalizeItemStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "ready for pickup":
+      return "Ordered";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    case "in stock":
+      return "In Stock";
+    case "out of stock":
+      return "Out of Stock";
+    case "parts requested":
+      return "Parts Requested";
+    default:
+      return status;
+  }
+};
 
 const getStatusMeta = (status) => {
   switch (status) {
@@ -44,6 +94,11 @@ const getStatusMeta = (status) => {
       return {
         color: "orange",
         icon: <ShoppingCartOutlined />,
+      };
+    case "Availability Checked":
+      return {
+        color: "gold",
+        icon: <ClockCircleOutlined />,
       };
     case "Ordered":
       return {
@@ -69,19 +124,21 @@ const getStatusMeta = (status) => {
 };
 
 const getItemStockStatus = (record, availQty) => {
-  if (record.stockStatus === "Approved") {
+  const currentItemStatus = normalizeItemStatus(record.stockStatus);
+
+  if (currentItemStatus === "Approved") {
     return "Approved";
   }
 
-  if (record.stockStatus === "Delivered") {
+  if (currentItemStatus === "Delivered") {
     return "Delivered";
   }
 
-  if (record.stockStatus === "Cancelled") {
+  if (currentItemStatus === "Cancelled") {
     return "Cancelled";
   }
 
-  if (record.stockStatus === "To Be Ordered" || record.stockStatus === "Ordered") {
+  if (currentItemStatus === "To Be Ordered" || currentItemStatus === "Ordered") {
     return availQty >= record.quantity ? "Ordered" : "To Be Ordered";
   }
 
@@ -103,14 +160,60 @@ export default function WRSModal({
       return;
     }
 
+    const normalizedStatus = normalizeRequisitionStatus(selectedRecord.status);
+    const isInitialStockReview =
+      normalizedStatus === "Parts Requested" &&
+      !selectedRecord.dateWarehouseReviewed;
+
     const nextMap = {};
     (selectedRecord.items || []).forEach((item) => {
-      nextMap[item._id] = item.availableQty ?? item.availQty ?? 0;
+      nextMap[item._id] = isInitialStockReview
+        ? undefined
+        : item.availableQty ?? item.availQty;
     });
     setAvailQtyMap(nextMap);
   }, [selectedRecord]);
 
-  const currentStatus = selectedRecord?.status;
+  const rawStatus = normalizeRequisitionStatus(selectedRecord?.status);
+  const currentStatus =
+    rawStatus === "Parts Requested" && selectedRecord?.dateWarehouseReviewed
+      ? "Availability Checked"
+      : rawStatus;
+  const hasNotInStockItems = useMemo(
+    () =>
+      (selectedRecord?.items || []).some((item) => {
+        const requestedQty = Number(item.quantity) || 0;
+        const availableQty = Number(item.availableQty) || 0;
+        const stockStatus = normalizeItemStatus(item.stockStatus);
+
+        return (
+          availableQty < requestedQty ||
+          stockStatus === "Out of Stock" ||
+          stockStatus === "To Be Ordered"
+        );
+      }),
+    [selectedRecord],
+  );
+
+  const shouldShowOrderingSteps = useMemo(
+    () =>
+      hasNotInStockItems ||
+      Boolean(selectedRecord?.dateOrdered) ||
+      ["To Be Ordered", "Ordered"].includes(currentStatus),
+    [currentStatus, hasNotInStockItems, selectedRecord],
+  );
+
+  const statusSteps = useMemo(() => {
+    const steps = ["Parts Requested", "Availability Checked"];
+
+    if (shouldShowOrderingSteps) {
+      steps.push("To Be Ordered", "Ordered");
+    }
+
+    steps.push("Approved", "Delivered");
+    return steps;
+  }, [shouldShowOrderingSteps]);
+
   const currentStepIndex = statusSteps.indexOf(currentStatus);
   const statusMeta = getStatusMeta(currentStatus);
 
@@ -160,13 +263,23 @@ export default function WRSModal({
       };
     }
 
+    if (currentStatus === "Availability Checked") {
+      return {
+        title: "Awaiting Maintenance Review",
+        description:
+          "Stock availability has been submitted. Waiting for maintenance manager action.",
+        buttonText: "Waiting",
+        disabled: true,
+      };
+    }
+
     if (currentStatus === "To Be Ordered") {
       return {
-        title: "Ordered Stock",
+        title: "Confirm Ordered",
         description:
-          "Update quantities for items marked to be ordered. Enough stock will move them to Ordered.",
-        buttonText: "Update Ordered Items",
-        disabled: !allQuantitiesFilled,
+          "Warehouse can now confirm that ordered items are available.",
+        buttonText: "Mark as Ordered",
+        disabled: false,
       };
     }
 
@@ -207,6 +320,11 @@ export default function WRSModal({
 
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => null);
+        console.error("WRS update failed", {
+          payload,
+          responseStatus: response.status,
+          errorPayload,
+        });
         throw new Error(errorPayload?.message || "Failed to update requisition");
       }
 
@@ -248,7 +366,7 @@ export default function WRSModal({
       return;
     }
 
-    const updatedItems = (selectedRecord.items || []).map((item) => {
+      const updatedItems = (selectedRecord.items || []).map((item) => {
       const availableQty = Number(availQtyMap[item._id] ?? item.availableQty ?? 0);
 
       return {
@@ -259,21 +377,61 @@ export default function WRSModal({
     });
 
     const nextStatus =
+      currentStatus === "To Be Ordered" ? "Ordered" : currentStatus;
+
+    // Once stock review is submitted, availableQty is locked.
+    // For "To Be Ordered" -> "Ordered", only flip stock statuses and keep
+    // the persisted availableQty values unchanged.
+    const finalItems =
       currentStatus === "To Be Ordered"
-        ? updatedItems.some((item) => item.stockStatus === "To Be Ordered")
-          ? "To Be Ordered"
-          : "Ordered"
-        : currentStatus;
+        ? (selectedRecord.items || []).map((item) => ({
+            ...item,
+            availableQty: Number(item.availableQty ?? 0),
+            stockStatus:
+              normalizeItemStatus(item.stockStatus) === "To Be Ordered"
+                ? "Ordered"
+                : normalizeItemStatus(item.stockStatus),
+          }))
+        : updatedItems;
+
+    if (currentStatus === "Parts Requested") {
+      const hasPartialOrZeroStock = finalItems.some(
+        (item) => Number(item.availableQty) < Number(item.quantity),
+      );
+
+      if (hasPartialOrZeroStock) {
+        const proceed = await new Promise((resolve) => {
+          Modal.confirm({
+            title: "Confirm Stock Review Submission",
+            content:
+              "Some items have partial or zero available quantity. Submit stock review anyway?",
+            okText: "Submit",
+            cancelText: "Cancel",
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+
+        if (!proceed) {
+          return;
+        }
+      }
+    }
 
     await updateRequisition(
       {
         status: nextStatus,
-        dateWarehouseReviewed: new Date().toISOString(),
+        ...(currentStatus === "Parts Requested"
+          ? { dateWarehouseReviewed: new Date().toISOString() }
+          : {}),
+        ...(currentStatus === "To Be Ordered"
+          ? { dateOrdered: new Date().toISOString() }
+          : {}),
         warehouseBy: warehouseName,
-        items: updatedItems,
+        items: finalItems,
       },
       currentStatus === "To Be Ordered"
-        ? "Ordered items updated successfully."
+        ? "Requisition marked as ordered."
         : "Warehouse stock review submitted successfully.",
     );
   };
@@ -316,7 +474,7 @@ export default function WRSModal({
                 <Text type="secondary">Status</Text>
                 <div style={{ marginTop: 6 }}>
                   <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {selectedRecord.status}
+                    {currentStatus}
                   </Tag>
                 </div>
               </Col>
@@ -363,9 +521,7 @@ export default function WRSModal({
             availQtyMap={availQtyMap}
             setAvailQtyMap={setAvailQtyMap}
             disabled={
-              currentStatus === "Ordered" ||
-              currentStatus === "Approved" ||
-              currentStatus === "Delivered"
+              currentStatus !== "Parts Requested"
             }
           />
         </Col>
@@ -400,6 +556,8 @@ export default function WRSModal({
                             "Maintenance manager approved the requisition because all items are available."}
                           {step === "Parts Requested" &&
                             "Warehouse checks whether each requested item is in stock or out of stock."}
+                          {step === "Availability Checked" &&
+                            "Stock review submitted. Maintenance is now reviewing warehouse availability."}
                           {step === "To Be Ordered" &&
                             "Maintenance manager requested ordering for the unavailable items."}
                           {step === "Ordered" &&

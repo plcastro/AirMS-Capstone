@@ -122,7 +122,7 @@ export default function ForgotPassword() {
             className="login-btn"
             disabled={loading}
           >
-            {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
+            {loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
           </Button>
 
           <div className="signup-link" style={{ marginTop: "20px" }}>

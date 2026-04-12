@@ -18,6 +18,7 @@ export default function MechanicTaskScreen() {
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
+  const currentUserId = user?.id || user?._id || "";
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -46,8 +47,8 @@ export default function MechanicTaskScreen() {
         });
         if (response.ok) {
           const data = await parseJsonSafely(response);
-          const assignedTasks = (data.data || []).filter(
-            (task) => String(task.assignedTo) === String(user?.id),
+          const assignedTasks = (data?.data || []).filter(
+            (task) => String(task.assignedTo) === String(currentUserId),
           );
           setTasks(assignedTasks || []);
         } else {
@@ -61,10 +62,10 @@ export default function MechanicTaskScreen() {
         setTasks([]);
       }
     };
-    if (user) {
+    if (currentUserId) {
       fetchTasks();
     }
-  }, [user]);
+  }, [currentUserId]);
 
   // Fetch aircraft options
   useEffect(() => {
@@ -94,9 +95,11 @@ export default function MechanicTaskScreen() {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
+    const taskTitle = task?.title || task?.maintenanceType || "";
+
     if (
       searchQuery &&
-      !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
     )
       return false;
 
@@ -133,15 +136,16 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-        if (response.ok) {
-          const data = await parseJsonSafely(response);
-          const updatedTasks = tasks.map((t) =>
-            t.id === task.id ? data.data : t,
-          );
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        const updatedTasks = tasks.map((t) =>
+          t.id === task.id ? savedTask : t,
+        );
         setTasks(updatedTasks);
         setSelectedTask({
-          ...data.data,
-          findings: data.data.findings || "",
+          ...savedTask,
+          findings: savedTask.findings || "",
         });
       } else {
         Alert.alert("Error", "Failed to start task");
@@ -169,14 +173,16 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-        if (response.ok) {
-          const data = await parseJsonSafely(response);
-          const updatedTasks = tasks.map((t) =>
-            t.id === task.id ? data.data : t,
-          );
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        const updatedTasks = tasks.map((t) =>
+          t.id === task.id ? savedTask : t,
+        );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
-          ...data.data,
+          ...(prev || {}),
+          ...savedTask,
         }));
       } else {
         Alert.alert("Error", "Failed to save draft");
@@ -188,7 +194,7 @@ export default function MechanicTaskScreen() {
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
-    const now = new Date();
+    const now = new Date().toISOString();
 
     const updatedTask = {
       ...task,
@@ -199,9 +205,11 @@ export default function MechanicTaskScreen() {
     if (options.undo) {
       updatedTask.status = options.newStatus || "Ongoing";
       updatedTask.endDateTime = "";
+      updatedTask.completedAt = null;
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = now.toISOString();
+      updatedTask.endDateTime = now;
+      updatedTask.completedAt = now;
     }
 
     try {
@@ -214,11 +222,12 @@ export default function MechanicTaskScreen() {
         },
         body: JSON.stringify(updatedTask),
       });
-        if (response.ok) {
-          const data = await parseJsonSafely(response);
-          const updatedTasks = tasks.map((t) =>
-            t.id === task.id ? data.data : t,
-          );
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        const updatedTasks = tasks.map((t) =>
+          t.id === task.id ? savedTask : t,
+        );
         setTasks(updatedTasks);
       } else {
         Alert.alert("Error", "Failed to turn in task");

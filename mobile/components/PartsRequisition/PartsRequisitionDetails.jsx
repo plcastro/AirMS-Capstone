@@ -16,6 +16,11 @@ const getOverallStatusStyle = (status) => {
         borderColor: "#F0A64A",
         textColor: "#C26A00",
       };
+    case "availability checked":
+      return {
+        borderColor: "#D4A017",
+        textColor: "#A37300",
+      };
     case "ordered":
       return {
         borderColor: "#1565C0",
@@ -65,6 +70,11 @@ const getTimelineBadgeStyle = (status) => {
       return {
         borderColor: "#F5C27B",
         textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        borderColor: "#F2D48D",
+        textColor: "#A37300",
       };
     case "ordered":
       return {
