@@ -131,6 +131,16 @@ const createPartsRequisitionNotifications = async ({
   }
 
   switch (currentStatus) {
+    case "Availability Checked":
+      await createNotification({
+        title: `Parts requisition ${requisition.wrsNo} availability checked`,
+        description:
+          "Warehouse completed the stock review. Maintenance can now review the requisition.",
+        requisition,
+        recipientRoles: managerRoles,
+        metadata: { notificationType: "availability-checked" },
+      });
+      break;
     case "To Be Ordered":
       await createNotification({
         title: `Parts requisition ${requisition.wrsNo} marked to be ordered`,

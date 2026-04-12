@@ -17,6 +17,12 @@ const getStatusStyle = (status) => {
         backgroundColor: "#FFF4E5",
         textColor: "#C26A00",
       };
+    case "availability checked":
+      return {
+        label: "Availability Checked",
+        backgroundColor: "#FFF8E1",
+        textColor: "#A37300",
+      };
     case "ordered":
       return {
         label: "Ordered",
