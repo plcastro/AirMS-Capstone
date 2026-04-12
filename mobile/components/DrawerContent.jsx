@@ -7,11 +7,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import AlertComp from "./AlertComp";
 
 import { AuthContext } from "../Context/AuthContext";
-import { API_BASE } from "../utilities/API_BASE";
 
 const DrawerList = [
   {
@@ -96,28 +94,7 @@ function DrawerContent({ navigation }) {
 
   const handleLogout = async () => {
     try {
-      const token = await AsyncStorage.getItem("currentUserToken");
-      if (token) {
-        await fetch(`${API_BASE}/api/user/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-
-      await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
-      const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
-      if (!rememberMeFlag || rememberMeFlag === "false") {
-        await AsyncStorage.multiRemove([
-          "rememberedIdentifier",
-          "rememberedPassword",
-        ]);
-        await AsyncStorage.setItem("rememberMe", "false");
-      }
-
-      logoutUser();
+      await logoutUser({ notifyServer: true });
       nav.replace("login");
     } catch (err) {
       console.error("Error logging out:", err);

@@ -22,14 +22,37 @@ export default function WRSTable({
   const getAutoStatus = (record) => {
     const availQty = availQtyMap[record._id] ?? record.availQty ?? 0;
     const requestedQty = record.quantity;
+    const currentStatus = record.stockStatus;
+
+    if (currentStatus === "Approved") {
+      return <Tag color="cyan">Approved</Tag>;
+    }
+
+    if (currentStatus === "Delivered") {
+      return <Tag color="green">Delivered</Tag>;
+    }
+
+    if (currentStatus === "Cancelled") {
+      return <Tag color="red">Cancelled</Tag>;
+    }
+
+    if (currentStatus === "To Be Ordered" || currentStatus === "Ordered") {
+      if (availQty >= requestedQty && requestedQty > 0) {
+        return <Tag color="blue">Ordered</Tag>;
+      }
+
+      return <Tag color="orange">To Be Ordered</Tag>;
+    }
 
     if (availQty === 0) {
       return <Tag color="red">Out of Stock</Tag>;
     }
-    if (availQty < requestedQty) {
-      return <Tag color="orange">Partially Available</Tag>;
-    }
-    return <Tag color="green">Ready for Pickup</Tag>;
+
+    return availQty >= requestedQty ? (
+      <Tag color="green">In Stock</Tag>
+    ) : (
+      <Tag color="red">Out of Stock</Tag>
+    );
   };
 
   const tableColumns = [
@@ -69,7 +92,7 @@ export default function WRSTable({
           max={999}
           style={{ width: "100%" }}
           placeholder="Enter qty"
-          value={availQtyMap[record._id] ?? null}
+          value={availQtyMap[record._id] ?? record.availableQty ?? null}
           onChange={(value) => handleAvailQtyChange(value, record)}
           disabled={disabled}
         />
