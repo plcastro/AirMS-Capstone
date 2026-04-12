@@ -15,10 +15,10 @@ import {
   SearchOutlined,
   SyncOutlined,
   FileDoneOutlined,
+  ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { Navigate } from "react-router-dom";
 import PRMCardView from "../../../components/tables/PRMCardView";
-import { MOCK_WRS_RECORDS } from "../../../components/common/MockData";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 
@@ -52,6 +52,12 @@ const formatRequestedDate = (dateValue) => {
 const normalizeRequisitionRecord = (record) =>
   toSummaryRecord({
     ...record,
+    status:
+      record.status === "Pending"
+        ? "Parts Requested"
+        : record.status === "Completed"
+          ? "Delivered"
+          : record.status,
     dateRequested: formatRequestedDate(record.dateRequested),
     staff: {
       ...record.staff,
@@ -63,15 +69,13 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsRequisition() {
-  const { user } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [requisitions, setRequisitions] = useState(() =>
-    MOCK_WRS_RECORDS.map(normalizeRequisitionRecord),
-  );
+  const [requisitions, setRequisitions] = useState([]);
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const isWarehouseDepartment = userRole === "warehouse department";
 
@@ -82,7 +86,7 @@ export default function PartsRequisition() {
   const warehouseRequisitions = useMemo(
     () =>
       requisitions.filter((record) =>
-        ["Approved", "In Progress", "Completed"].includes(record.status),
+        ["Parts Requested", "To Be Ordered", "Ordered", "Approved", "Delivered"].includes(record.status),
       ),
     [requisitions],
   );
@@ -90,12 +94,14 @@ export default function PartsRequisition() {
   const stats = useMemo(
     () => ({
       total: warehouseRequisitions.length,
-      approved: warehouseRequisitions.filter((r) => r.status === "Approved")
+      requested: warehouseRequisitions.filter((r) => r.status === "Parts Requested")
         .length,
-      inProgress: warehouseRequisitions.filter(
-        (r) => r.status === "In Progress",
+      toBeOrdered: warehouseRequisitions.filter(
+        (r) => r.status === "To Be Ordered",
       ).length,
-      completed: warehouseRequisitions.filter((r) => r.status === "Completed")
+      ordered: warehouseRequisitions.filter((r) => r.status === "Ordered").length,
+      approved: warehouseRequisitions.filter((r) => r.status === "Approved").length,
+      delivered: warehouseRequisitions.filter((r) => r.status === "Delivered")
         .length,
     }),
     [warehouseRequisitions],
@@ -112,6 +118,30 @@ export default function PartsRequisition() {
         bg: "#fafafa",
       },
       {
+        title: "Parts Requested",
+        value: stats.requested,
+        icon: <CheckCircleOutlined />,
+        statusKey: "Parts Requested",
+        accent: "#595959",
+        bg: "#fafafa",
+      },
+      {
+        title: "To Be Ordered",
+        value: stats.toBeOrdered,
+        icon: <ShoppingCartOutlined />,
+        statusKey: "To Be Ordered",
+        accent: "#d46b08",
+        bg: "#fff7e6",
+      },
+      {
+        title: "Ordered",
+        value: stats.ordered,
+        icon: <SyncOutlined />,
+        statusKey: "Ordered",
+        accent: "#1565C0",
+        bg: "#e6f4ff",
+      },
+      {
         title: "Approved",
         value: stats.approved,
         icon: <CheckCircleOutlined />,
@@ -120,18 +150,10 @@ export default function PartsRequisition() {
         bg: "#e6fffb",
       },
       {
-        title: "In Progress",
-        value: stats.inProgress,
-        icon: <SyncOutlined />,
-        statusKey: "In Progress",
-        accent: "#d46b08",
-        bg: "#fff7e6",
-      },
-      {
-        title: "Completed",
-        value: stats.completed,
+        title: "Delivered",
+        value: stats.delivered,
         icon: <FileDoneOutlined />,
-        statusKey: "Completed",
+        statusKey: "Delivered",
         accent: "#389e0d",
         bg: "#f6ffed",
       },
@@ -176,7 +198,7 @@ export default function PartsRequisition() {
         `${API_BASE}/api/parts-requisition/get-all-requisition`,
         {
           method: "GET",
-          credentials: "include",
+          headers: await getAuthHeader(),
         },
       );
 
@@ -200,7 +222,7 @@ export default function PartsRequisition() {
 
   useEffect(() => {
     handleAllRequisitions();
-  }, []);
+  }, [getAuthHeader]);
 
   return (
     <div
@@ -285,7 +307,7 @@ export default function PartsRequisition() {
           style={{ marginBottom: 16 }}
         />
       )}
-      <PRMCardView data={filteredRequisitions} />
+      <PRMCardView data={filteredRequisitions} onUpdated={handleAllRequisitions} />
     </div>
   );
 }

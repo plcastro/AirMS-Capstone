@@ -296,6 +296,57 @@ const logoutUser = async (req, res) => {
   }
 };
 
+const registerMobilePushDevice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { deviceId, expoPushToken, platform } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!deviceId || !expoPushToken) {
+      return res.status(400).json({ message: "deviceId and expoPushToken are required" });
+    }
+
+    await UserModel.updateMany(
+      {
+        $or: [
+          { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.expoPushToken": expoPushToken },
+        ],
+      },
+      {
+        $pull: {
+          mobilePushDevices: {
+            $or: [{ deviceId }, { expoPushToken }],
+          },
+        },
+      },
+    );
+
+    await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $push: {
+          mobilePushDevices: {
+            deviceId,
+            expoPushToken,
+            platform: platform || "unknown",
+            lastSeenAt: new Date(),
+          },
+        },
+      },
+      { new: true },
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("registerMobilePushDevice error:", error);
+    res.status(500).json({ message: "Failed to register push device" });
+  }
+};
+
 const createUser = async (req, res) => {
   try {
     const { firstName, lastName, email, jobTitle, access, licenseNo } =
@@ -991,6 +1042,7 @@ module.exports = {
   refreshToken,
   unlockUser,
   logoutUser,
+  registerMobilePushDevice,
   createUser,
   checkUsernameExists,
   updateUser,
