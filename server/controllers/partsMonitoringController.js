@@ -1,7 +1,7 @@
 // controllers/partsMonitoringController.js
-const PartsMonitoringModel = require("../models/partsMonitoringModel");
+const PartsMonitoring = require("../models/partsMonitoringModel");
 
-const updateAircraftTotals = async (req, res) => {
+exports.updateAircraftTotals = async (req, res) => {
   try {
     const { aircraft } = req.params;
     const { acftTT, n1Cycles, n2Cycles, landings } = req.body;
@@ -28,11 +28,11 @@ const updateAircraftTotals = async (req, res) => {
     }
 
     // Find existing record or create a new one
-    let partsData = await PartsMonitoringModel.findOne({ aircraft });
+    let partsData = await PartsMonitoring.findOne({ aircraft });
 
     if (!partsData) {
       // Create minimal record with empty parts array
-      partsData = new PartsMonitoringModel({
+      partsData = new PartsMonitoring({
         aircraft,
         referenceData: {
           today: new Date(),
@@ -72,31 +72,18 @@ const updateAircraftTotals = async (req, res) => {
 };
 
 // Save or update parts monitoring data
-const savePartsMonitoring = async (req, res) => {
+exports.savePartsMonitoring = async (req, res) => {
   try {
-    const {
-      aircraft,
-      referenceData,
-      parts,
-      updatedBy,
-      dateManufactured,
-      aircraftType,
-      creepDamage,
-    } = req.body;
+    const { aircraft, referenceData, parts, updatedBy, dateManufactured, aircraftType, creepDamage } = req.body;
 
     if (!aircraft) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Aircraft is required" });
+      return res.status(400).json({ success: false, message: "Aircraft is required" });
     }
     if (!parts || !Array.isArray(parts)) {
-      return res.status(400).json({
-        success: false,
-        message: "Parts data is required and must be an array",
-      });
+      return res.status(400).json({ success: false, message: "Parts data is required and must be an array" });
     }
 
-    let existingData = await PartsMonitoringModel.findOne({ aircraft });
+    let existingData = await PartsMonitoring.findOne({ aircraft });
 
     if (existingData) {
       existingData.referenceData = referenceData || existingData.referenceData;
@@ -104,13 +91,9 @@ const savePartsMonitoring = async (req, res) => {
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
-      res.status(200).json({
-        success: true,
-        message: "Data updated successfully",
-        data: existingData,
-      });
+      res.status(200).json({ success: true, message: "Data updated successfully", data: existingData });
     } else {
-      const newData = new PartsMonitoringModel({
+      const newData = new PartsMonitoring({
         aircraft,
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
@@ -120,29 +103,21 @@ const savePartsMonitoring = async (req, res) => {
         updatedBy: updatedBy || "system",
       });
       await newData.save();
-      res.status(201).json({
-        success: true,
-        message: "Data saved successfully",
-        data: newData,
-      });
+      res.status(201).json({ success: true, message: "Data saved successfully", data: newData });
     }
   } catch (error) {
     console.error("Error saving data:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error saving data",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Error saving data", error: error.message });
   }
 };
 
 // Get parts monitoring data for a specific aircraft
-const getPartsMonitoring = async (req, res) => {
+exports.getPartsMonitoring = async (req, res) => {
   try {
     const { aircraft } = req.params;
     console.log("Fetching data for aircraft:", aircraft);
 
-    const data = await PartsMonitoringModel.findOne({ aircraft }).sort({
+    const data = await PartsMonitoring.findOne({ aircraft }).sort({
       lastUpdated: -1,
     });
 
@@ -168,13 +143,13 @@ const getPartsMonitoring = async (req, res) => {
 };
 
 // Get all parts monitoring records (with pagination)
-const getAllPartsMonitoring = async (req, res) => {
+exports.getAllPartsMonitoring = async (req, res) => {
   try {
     const { page = 1, limit = 10, aircraft } = req.query;
     const query = aircraft ? { aircraft } : {};
 
-    const total = await PartsMonitoringModel.countDocuments(query);
-    const data = await PartsMonitoringModel.find(query)
+    const total = await PartsMonitoring.countDocuments(query);
+    const data = await PartsMonitoring.find(query)
       .sort({ lastUpdated: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -197,11 +172,11 @@ const getAllPartsMonitoring = async (req, res) => {
 };
 
 // Delete parts monitoring data
-const deletePartsMonitoring = async (req, res) => {
+exports.deletePartsMonitoring = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await PartsMonitoringModel.findByIdAndDelete(id);
+    const deleted = await PartsMonitoring.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({
@@ -229,7 +204,7 @@ const deleteAircraftData = async (req, res) => {
   try {
     const { aircraft } = req.params;
 
-    const deleted = await PartsMonitoringModel.findOneAndDelete({ aircraft });
+    const deleted = await PartsMonitoring.findOneAndDelete({ aircraft });
 
     if (!deleted) {
       return res.status(404).json({
@@ -255,7 +230,7 @@ const deleteAircraftData = async (req, res) => {
 // Get all unique aircraft list
 const getAircraftList = async (req, res) => {
   try {
-    const aircraft = await PartsMonitoringModel.distinct("aircraft");
+    const aircraft = await PartsMonitoring.distinct("aircraft");
 
     res.status(200).json({
       success: true,
@@ -271,11 +246,11 @@ const getAircraftList = async (req, res) => {
   }
 };
 module.exports = {
-  updateAircraftTotals,
-  savePartsMonitoring,
+  updateAircraftTotals: exports.updateAircraftTotals,
+  savePartsMonitoring: exports.savePartsMonitoring,
   deleteAircraftData,
-  deletePartsMonitoring,
+  deletePartsMonitoring: exports.deletePartsMonitoring,
   getAircraftList,
-  getAllPartsMonitoring,
-  getPartsMonitoring,
+  getAllPartsMonitoring: exports.getAllPartsMonitoring,
+  getPartsMonitoring: exports.getPartsMonitoring,
 };

@@ -40,9 +40,7 @@ const createFlightLog = async (req, res) => {
     }
 
     // Set status based on user role from frontend
-    const userRole = flightLogData.createdBy;
-    flightLogData.status =
-      userRole === "pilot" ? "pending_release" : "pending_acceptance";
+    flightLogData.status = "pending_release";
 
     // Handle component times - map componentTimes to componentData if needed
     if (flightLogData.componentTimes && !flightLogData.componentData) {
@@ -294,7 +292,7 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { returnDocument: "after", runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
 
     if (!flightLog) {

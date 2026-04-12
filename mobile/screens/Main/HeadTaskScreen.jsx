@@ -68,10 +68,10 @@ export default function HeadTaskScreen() {
         });
         if (response.ok) {
           const data = await response.json();
-          const assignableUsers = (data.data || []).filter(
+          const mechanics = (data.data || []).filter(
             (user) => isAssignableUser(user) && user.status === "active",
           );
-          const mappedEmployees = assignableUsers.map((user) => ({
+          const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
             jobTitle: user.jobTitle,
@@ -90,9 +90,11 @@ export default function HeadTaskScreen() {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
+    const taskTitle = task?.title || task?.maintenanceType || "";
+
     if (
       searchQuery &&
-      !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
     )
       return false;
 
@@ -213,24 +215,15 @@ export default function HeadTaskScreen() {
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const now = new Date().toISOString();
 
     const updatedTask = {
       ...task,
       status: "Approved",
       isApproved: true,
       approvedBy: approveData?.signature || "You",
-      approvedDate: `${formattedDate} at ${formattedTime}`,
+      reviewedAt: now,
+      approvedAt: now,
     };
 
     try {
@@ -259,12 +252,15 @@ export default function HeadTaskScreen() {
   };
 
   const handleReturnTask = async (task, returnData) => {
+    const now = new Date().toISOString();
+
     const updatedTask = {
       ...task,
       status: "Returned",
       returnComments: returnData?.comments || "Please revise findings",
       returnedBy: returnData?.signature || "Head Mechanic",
-      returnedDate: new Date().toISOString(),
+      reviewedAt: now,
+      returnedAt: now,
       isApproved: false,
     };
 
@@ -391,7 +387,7 @@ export default function HeadTaskScreen() {
       <View style={styles.taskTable}>
         <FlatList
           data={filteredTasks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id || item._id}
           renderItem={renderTask}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", marginTop: 20 }}>

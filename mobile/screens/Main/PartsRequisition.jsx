@@ -97,7 +97,7 @@ const buildTimeline = (record) => {
 
   if (hasWarehouseAssessment(record)) {
     timeline.push({
-      status: "Parts Requested",
+      status: "Availability Checked",
       dateTime: formatDateTime(record.dateWarehouseReviewed || record.updatedAt),
       by: record.staff?.warehouseBy || "Warehouse Department",
       description: "Warehouse reviewed item stock availability",
@@ -713,7 +713,9 @@ export default function PartsRequisition({ route, navigation }) {
     isManager &&
     selectedTab === "For Review" &&
     selectedRequest?.hasWarehouseAssessment &&
-    selectedRequest?.rawStatus === "Parts Requested" &&
+    ["Parts Requested", "Availability Checked"].includes(
+      selectedRequest?.rawStatus,
+    ) &&
     hasMissingItems;
   const canApprove =
     isManager &&

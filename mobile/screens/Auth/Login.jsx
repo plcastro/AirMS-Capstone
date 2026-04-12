@@ -76,6 +76,7 @@ export default function Login() {
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
+          client: "mobile",
         }),
       });
 
@@ -92,11 +93,27 @@ export default function Login() {
 
       if (response.ok) {
         const { user, token } = data;
+        const normalizedJobTitle = (user?.jobTitle || "").trim().toLowerCase();
+        const allowedMobileJobTitles = [
+          "maintenance manager",
+          "pilot",
+          "officer-in-charge",
+          "mechanic",
+          "engineer",
+        ];
 
         // Deactivated account
         if (user.status === "deactivated") {
           setMessage(
             "This account is deactivated. Please contact AirMS Support",
+          );
+          return;
+        }
+
+        // Block users with no mobile modules.
+        if (!allowedMobileJobTitles.includes(normalizedJobTitle)) {
+          setMessage(
+            "This account is only allowed to log in on the web portal.",
           );
           return;
         }

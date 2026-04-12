@@ -12,6 +12,12 @@ import {
 import { Card } from "antd";
 
 const RepairFrequencyChart = ({ data, title }) => {
+  const chartData = data || [];
+  const seriesKeys = chartData.length > 0
+    ? Object.keys(chartData[0]).filter((key) => key !== "date")
+    : [];
+  const colors = ["#9d50f0", "#38b2ac", "#f6ad55", "#ef4444", "#2563eb"];
+
   return (
     <Card
       title={title || "Aircraft repair frequency"}
@@ -20,7 +26,7 @@ const RepairFrequencyChart = ({ data, title }) => {
     >
       <div style={{ width: "100%", height: 300 }}>
         <ResponsiveContainer>
-          <AreaChart data={data}>
+          <AreaChart data={chartData}>
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -57,31 +63,17 @@ const RepairFrequencyChart = ({ data, title }) => {
               wrapperStyle={{ paddingTop: "20px" }}
             />
 
-            <Area
-              type="monotone"
-              dataKey="2810"
-              stackId="1"
-              stroke="#9d50f0"
-              fill="#9d50f0"
-              fillOpacity={0.6}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="RP-C7057"
-              stackId="1"
-              stroke="#38b2ac"
-              fill="#38b2ac"
-              fillOpacity={0.6}
-            />
-            <Area
-              type="monotone"
-              dataKey="RP-C7226"
-              stackId="1"
-              stroke="#f6ad55"
-              fill="#f6ad55"
-              fillOpacity={0.6}
-            />
+            {seriesKeys.map((key, index) => (
+              <Area
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stackId="1"
+                stroke={colors[index % colors.length]}
+                fill={colors[index % colors.length]}
+                fillOpacity={0.6}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>

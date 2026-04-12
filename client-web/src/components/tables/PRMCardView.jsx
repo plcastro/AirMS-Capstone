@@ -3,6 +3,7 @@ import { Card, Col, Empty, Row, Tag, Typography } from "antd";
 import {
   CalendarOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   FileDoneOutlined,
   InboxOutlined,
   SyncOutlined,
@@ -24,6 +25,11 @@ const getStatusMeta = (status) => {
       return {
         color: "orange",
         icon: <ShoppingCartOutlined />,
+      };
+    case "Availability Checked":
+      return {
+        color: "gold",
+        icon: <ClockCircleOutlined />,
       };
     case "Ordered":
       return {
