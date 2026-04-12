@@ -22,6 +22,7 @@ export default function PreInspectionEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -93,6 +94,7 @@ export default function PreInspectionEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1 and 2":

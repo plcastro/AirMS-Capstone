@@ -29,12 +29,14 @@ export default function PostInspectionEditEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isPilot = userRole === "pilot";
   const canReleasePostInspection =
     userRole === "mechanic" || userRole === "maintenance manager";
   const tabs = [
@@ -140,7 +142,7 @@ export default function PostInspectionEditEntry({
   };
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
-  const isFormEditable = !hasReleaseSignature;
+  const isFormEditable = !isPilot && !hasReleaseSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -152,6 +154,7 @@ export default function PostInspectionEditEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={false}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1":
@@ -208,9 +211,10 @@ export default function PostInspectionEditEntry({
   const showReleaseButton =
     canReleasePostInspection &&
     !hasReleaseSignature &&
-    formData.status !== "completed" &&
+    formData.status === "pending" &&
     !isSubmitting;
-  const footerActionLabel = formData.status === "completed" ? "Close" : "Save";
+  const footerActionLabel =
+    isPilot || formData.status === "completed" ? "Close" : "Save";
   const handleFooterAction = () => {
     if (footerActionLabel === "Close") {
       onClose();

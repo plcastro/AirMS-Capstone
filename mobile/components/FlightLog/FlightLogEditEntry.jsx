@@ -53,8 +53,10 @@ export default function FlightLogEditEntry({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const scrollViewRef = useRef(null);
-  const isPilot = userRole === "pilot";
-  const isMechanic = userRole.toLowerCase() === "mechanic" || userRole === "maintenance manager";
+  const normalizedRole = (userRole || "").toLowerCase();
+  const isPilot = normalizedRole === "pilot";
+  const isMechanic =
+    normalizedRole === "mechanic" || normalizedRole === "maintenance manager";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -119,41 +121,37 @@ export default function FlightLogEditEntry({
 
   // Helper functions
   const hasDiscrepancy = () => {
-    return (
-      (formData.remarks && formData.remarks.trim() !== "") ||
-      (formData.sling && formData.sling.trim() !== "")
-    );
+    return formData.remarks && formData.remarks.trim() !== "";
   };
 
-  const showThisFlightToDate = formData.notifiedForCompletion === true;
+  const getPilotTabs = () => {
+    return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
+  };
 
-  // Build tabs dynamically – Brought Forward always visible, This Flight & To Date only after notification
-  const getTabs = () => {
+  const getMechanicTabs = () => {
     const baseTabs = [
       "Basic Information",
       "Destination/s",
       "Brought Forward",
+      "This Flight",
+      "To Date",
+      "Fuel Servicing",
+      "Oil Servicing",
+      "Discrepancy/Remarks",
     ];
-    if (showThisFlightToDate) {
-      baseTabs.push("This Flight", "To Date");
-    }
-    baseTabs.push("Fuel Servicing", "Oil Servicing", "Discrepancy/Remarks");
     if (hasDiscrepancy()) {
       baseTabs.push("Work Done");
     }
     return baseTabs;
   };
 
-  const tabs = getTabs();
+  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const isBasicInfoEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "mechanic");
-
-  const isDestinationsEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "mechanic");
-
+  // Keep edit permissions aligned with FlightLogEntry role rules.
+  const isBasicInfoEditable = true;
+  const isDestinationsEditable = true;
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
@@ -342,12 +340,19 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const showActionButtons = isLastPage;
-
   const showReleaseButton = isMechanic && formData.status === "pending_release";
   const showAcceptButton = isPilot && formData.status === "pending_acceptance";
-  const showNotifyButton = isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
-  const showCompleteButton = isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showNotifyButton =
+    isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
+  const showCompleteButton =
+    isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showActionButtons =
+    showReleaseButton ||
+    showAcceptButton ||
+    showNotifyButton ||
+    showCompleteButton ||
+    Boolean(formData.releasedBy?.signature) ||
+    Boolean(formData.acceptedBy?.signature);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
