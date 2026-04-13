@@ -185,7 +185,7 @@ export default function FlightLog({ route, navigation }) {
   };
 
   // UPDATE FLIGHT LOG (NO AUTH)
-  const handleSaveEdit = async (updatedLog) => {
+  const handleSaveEdit = async (updatedLog, options = { closeOnSave: true }) => {
     try {
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
@@ -203,8 +203,12 @@ export default function FlightLog({ route, navigation }) {
       if (response.ok) {
         fetchFlightLogs();
         fetchNotifications();
-        setShowEditModal(false);
-        setSelectedLog(null);
+        if (options.closeOnSave) {
+          setShowEditModal(false);
+          setSelectedLog(null);
+        } else {
+          setSelectedLog(updatedLog);
+        }
         Alert.alert("Success", "Flight log updated successfully");
       } else {
         Alert.alert("Error", data.message || "Failed to update flight log");

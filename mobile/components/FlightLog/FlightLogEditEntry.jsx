@@ -193,38 +193,83 @@ export default function FlightLogEditEntry({
     setFormData((prev) => ({ ...prev, workItems: newWorkItems }));
   };
 
+  const persistLog = async (updatedFormData, closeOnSave = false) => {
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const calculatedToDate = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
+
+    const finalComponentData = {
+      ...componentData,
+      toDateData: calculatedToDate,
+    };
+
+    const allFieldsFilled =
+      componentData.broughtForwardData &&
+      Object.values(componentData.broughtForwardData).every((v) => v !== "");
+
+    const payload = {
+      ...updatedFormData,
+      componentData: finalComponentData,
+      workItems,
+      broughtForwardLocked: isMechanic && allFieldsFilled,
+    };
+
+    if (onSave) {
+      await onSave(payload, { closeOnSave });
+    }
+  };
+
   // Handlers for release/accept/complete
-  const handleRelease = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleRelease = async (signature) => {
+    const updated = {
+      ...formData,
       releasedBy: {
         name: "Mechanic",
         signature,
         timestamp: new Date().toISOString(),
       },
       status: "pending_acceptance",
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been released");
   };
 
-  const handleAccept = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleAccept = async (signature) => {
+    const updated = {
+      ...formData,
       acceptedBy: {
         name: "Pilot",
         signature,
         timestamp: new Date().toISOString(),
       },
       status: "accepted",
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been accepted");
   };
 
-  const handleNotifyMechanic = () => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleNotifyMechanic = async () => {
+    const updated = {
+      ...formData,
       notifiedForCompletion: true,
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Mechanic has been notified to complete the flight log");
   };
 
@@ -283,7 +328,9 @@ export default function FlightLogEditEntry({
         throw new Error(result.message || `HTTP ${response.status}: Failed to update aircraft totals.`);
       }
 
-      setFormData(prev => ({ ...prev, status: 'completed' }));
+      const updated = { ...formData, status: 'completed' };
+      setFormData(updated);
+      await persistLog(updated, false);
       Alert.alert('Success', 'Flight log completed and totals updated.');
     } catch (error) {
       console.error('❌ Complete error:', error);
@@ -291,41 +338,8 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const handleSave = () => {
-    const allFieldsFilled =
-      componentData.broughtForwardData &&
-      Object.values(componentData.broughtForwardData).every((v) => v !== "");
-
-    // Ensure toDateData is calculated before saving (fallback)
-    const bf = componentData.broughtForwardData || {};
-    const tf = componentData.thisFlightData || {};
-    const calculatedToDate = {
-      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
-      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
-      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
-      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
-      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
-      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
-      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
-    };
-
-    const finalComponentData = {
-      ...componentData,
-      toDateData: calculatedToDate,
-    };
-
-    onSave({
-      ...formData,
-      componentData: finalComponentData,
-      workItems,
-      broughtForwardLocked: isMechanic && allFieldsFilled,
-    });
-    onClose();
+  const handleSave = async () => {
+    await persistLog(formData, true);
   };
 
   const handleNext = () => {
