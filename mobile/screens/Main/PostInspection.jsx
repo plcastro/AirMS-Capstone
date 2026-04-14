@@ -19,8 +19,10 @@ import { API_BASE } from "../../utilities/API_BASE";
 const getDisplayStatus = (status) =>
   status === "completed" ? "completed" : "ongoing";
 
-export default function PostInspection() {
+export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
+  const targetPostInspectionId = route?.params?.targetPostInspectionId;
+  const targetNotificationStatus = route?.params?.notificationStatus;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -60,6 +62,27 @@ export default function PostInspection() {
 
     fetchPostInspections();
   }, []);
+
+  useEffect(() => {
+    if (targetNotificationStatus) {
+      setSelectedStatus(targetNotificationStatus);
+    }
+  }, [targetNotificationStatus]);
+
+  useEffect(() => {
+    if (!targetPostInspectionId || inspections.length === 0) {
+      return;
+    }
+
+    const match = inspections.find(
+      (inspection) => String(inspection._id) === String(targetPostInspectionId),
+    );
+
+    if (match) {
+      setSelectedInspection(match);
+      setShowEditModal(true);
+    }
+  }, [targetPostInspectionId, inspections]);
 
   useEffect(() => {
     const fetchAircraftRpcOptions = async () => {
