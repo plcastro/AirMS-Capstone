@@ -27,10 +27,10 @@ export default function PreInspectionEditEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -82,7 +82,7 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !hasAnySignature;
+  const isFormEditable = !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -110,32 +110,6 @@ export default function PreInspectionEditEntry({
       await onSave(nextFormData);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleRelease = async (signatureData) => {
-    if (!validateBeforeSigning("release")) {
-      return;
-    }
-
-    const updatedFormData = {
-      ...formData,
-      releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        timestamp: new Date().toISOString(),
-      },
-      status: "released",
-    };
-
-    setFormData(updatedFormData);
-
-    try {
-      await persistInspection(updatedFormData);
-      Alert.alert("Success", "Pre-inspection has been released");
-    } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      Alert.alert("Error", "Failed to release pre-inspection");
     }
   };
 
@@ -184,7 +158,9 @@ export default function PreInspectionEditEntry({
   };
 
   const footerActionLabel =
-    formData.status === "completed" || (!isFormEditable && !showAcceptButton)
+    isPilot ||
+    formData.status === "completed" ||
+    (!isFormEditable && !showAcceptButton)
       ? "Close"
       : "Save";
 
@@ -219,6 +195,7 @@ export default function PreInspectionEditEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={false}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1 and 2":
@@ -251,11 +228,6 @@ export default function PreInspectionEditEntry({
   };
 
   // Determine which action button to show on last page
-  const showReleaseButton =
-    isMechanic &&
-    formData.status === "pending" &&
-    !hasAnySignature &&
-    !isSubmitting;
   const showAcceptButton =
     isPilot &&
     formData.status === "released" &&
@@ -346,29 +318,6 @@ export default function PreInspectionEditEntry({
           {/* Action Buttons and Signatures - Only on Last Page */}
           {isLastPage && (
             <View style={{ marginTop: 20, marginBottom: 20 }}>
-              {showReleaseButton && (
-                <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 16,
-                    }}
-                  >
-                    Release
-                  </Text>
-                </TouchableOpacity>
-              )}
-
               {showAcceptButton && (
                 <TouchableOpacity
                   onPress={() => setShowAcceptModal(true)}
@@ -583,16 +532,6 @@ export default function PreInspectionEditEntry({
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Release Signature Modal */}
-        <PreInspectionSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-          role="MECHANIC"
-        />
 
         {/* Accept Signature Modal */}
         <PreInspectionSignatureModal

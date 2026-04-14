@@ -53,8 +53,10 @@ export default function FlightLogEditEntry({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const scrollViewRef = useRef(null);
-  const isPilot = userRole === "pilot";
-  const isMechanic = userRole.toLowerCase() === "mechanic" || userRole === "maintenance manager";
+  const normalizedRole = (userRole || "").toLowerCase();
+  const isPilot = normalizedRole === "pilot";
+  const isMechanic =
+    normalizedRole === "mechanic" || normalizedRole === "maintenance manager";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -119,41 +121,37 @@ export default function FlightLogEditEntry({
 
   // Helper functions
   const hasDiscrepancy = () => {
-    return (
-      (formData.remarks && formData.remarks.trim() !== "") ||
-      (formData.sling && formData.sling.trim() !== "")
-    );
+    return formData.remarks && formData.remarks.trim() !== "";
   };
 
-  const showThisFlightToDate = formData.notifiedForCompletion === true;
+  const getPilotTabs = () => {
+    return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
+  };
 
-  // Build tabs dynamically – Brought Forward always visible, This Flight & To Date only after notification
-  const getTabs = () => {
+  const getMechanicTabs = () => {
     const baseTabs = [
       "Basic Information",
       "Destination/s",
       "Brought Forward",
+      "This Flight",
+      "To Date",
+      "Fuel Servicing",
+      "Oil Servicing",
+      "Discrepancy/Remarks",
     ];
-    if (showThisFlightToDate) {
-      baseTabs.push("This Flight", "To Date");
-    }
-    baseTabs.push("Fuel Servicing", "Oil Servicing", "Discrepancy/Remarks");
     if (hasDiscrepancy()) {
       baseTabs.push("Work Done");
     }
     return baseTabs;
   };
 
-  const tabs = getTabs();
+  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const isBasicInfoEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "mechanic");
-
-  const isDestinationsEditable = (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "mechanic");
-
+  // Keep edit permissions aligned with FlightLogEntry role rules.
+  const isBasicInfoEditable = true;
+  const isDestinationsEditable = true;
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
@@ -195,38 +193,83 @@ export default function FlightLogEditEntry({
     setFormData((prev) => ({ ...prev, workItems: newWorkItems }));
   };
 
+  const persistLog = async (updatedFormData, closeOnSave = false) => {
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const calculatedToDate = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
+
+    const finalComponentData = {
+      ...componentData,
+      toDateData: calculatedToDate,
+    };
+
+    const allFieldsFilled =
+      componentData.broughtForwardData &&
+      Object.values(componentData.broughtForwardData).every((v) => v !== "");
+
+    const payload = {
+      ...updatedFormData,
+      componentData: finalComponentData,
+      workItems,
+      broughtForwardLocked: isMechanic && allFieldsFilled,
+    };
+
+    if (onSave) {
+      await onSave(payload, { closeOnSave });
+    }
+  };
+
   // Handlers for release/accept/complete
-  const handleRelease = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleRelease = async (signature) => {
+    const updated = {
+      ...formData,
       releasedBy: {
         name: "Mechanic",
         signature,
         timestamp: new Date().toISOString(),
       },
       status: "pending_acceptance",
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been released");
   };
 
-  const handleAccept = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleAccept = async (signature) => {
+    const updated = {
+      ...formData,
       acceptedBy: {
         name: "Pilot",
         signature,
         timestamp: new Date().toISOString(),
       },
       status: "accepted",
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been accepted");
   };
 
-  const handleNotifyMechanic = () => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleNotifyMechanic = async () => {
+    const updated = {
+      ...formData,
       notifiedForCompletion: true,
-    }));
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Mechanic has been notified to complete the flight log");
   };
 
@@ -285,7 +328,9 @@ export default function FlightLogEditEntry({
         throw new Error(result.message || `HTTP ${response.status}: Failed to update aircraft totals.`);
       }
 
-      setFormData(prev => ({ ...prev, status: 'completed' }));
+      const updated = { ...formData, status: 'completed' };
+      setFormData(updated);
+      await persistLog(updated, false);
       Alert.alert('Success', 'Flight log completed and totals updated.');
     } catch (error) {
       console.error('❌ Complete error:', error);
@@ -293,41 +338,8 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const handleSave = () => {
-    const allFieldsFilled =
-      componentData.broughtForwardData &&
-      Object.values(componentData.broughtForwardData).every((v) => v !== "");
-
-    // Ensure toDateData is calculated before saving (fallback)
-    const bf = componentData.broughtForwardData || {};
-    const tf = componentData.thisFlightData || {};
-    const calculatedToDate = {
-      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
-      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
-      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
-      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
-      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
-      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
-      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
-    };
-
-    const finalComponentData = {
-      ...componentData,
-      toDateData: calculatedToDate,
-    };
-
-    onSave({
-      ...formData,
-      componentData: finalComponentData,
-      workItems,
-      broughtForwardLocked: isMechanic && allFieldsFilled,
-    });
-    onClose();
+  const handleSave = async () => {
+    await persistLog(formData, true);
   };
 
   const handleNext = () => {
@@ -342,12 +354,19 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const showActionButtons = isLastPage;
-
   const showReleaseButton = isMechanic && formData.status === "pending_release";
   const showAcceptButton = isPilot && formData.status === "pending_acceptance";
-  const showNotifyButton = isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
-  const showCompleteButton = isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showNotifyButton =
+    isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
+  const showCompleteButton =
+    isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showActionButtons =
+    showReleaseButton ||
+    showAcceptButton ||
+    showNotifyButton ||
+    showCompleteButton ||
+    Boolean(formData.releasedBy?.signature) ||
+    Boolean(formData.acceptedBy?.signature);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];

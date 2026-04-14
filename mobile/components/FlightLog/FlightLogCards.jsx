@@ -36,19 +36,38 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
   };
 
   const getStatusBadgeStyle = (status) => {
-    if (status === "completed") {
-      return {
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
-        label: "Completed",
-      };
+    switch (status) {
+      case "pending_release":
+        return {
+          backgroundColor: "#FFF3E0",
+          textColor: "#ED6C02",
+          label: "Pending Release",
+        };
+      case "pending_acceptance":
+        return {
+          backgroundColor: "#E3F2FD",
+          textColor: "#1565C0",
+          label: "Released",
+        };
+      case "accepted":
+        return {
+          backgroundColor: "#FFF8E1",
+          textColor: "#A37300",
+          label: "Accepted",
+        };
+      case "completed":
+        return {
+          backgroundColor: "#E8F5E9",
+          textColor: "#2E7D32",
+          label: "Completed",
+        };
+      default:
+        return {
+          backgroundColor: "#FFF3E0",
+          textColor: "#ED6C02",
+          label: "Ongoing",
+        };
     }
-    // pending_release, pending_acceptance, ongoing all show as "Ongoing"
-    return {
-      backgroundColor: "#FFF3E0",
-      textColor: "#ED6C02",
-      label: "Ongoing",
-    };
   };
 
   if (!logs || logs.length === 0) {

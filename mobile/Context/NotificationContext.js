@@ -25,6 +25,101 @@ export const NotificationContext = createContext({
   openNotificationTarget: async () => {},
 });
 
+const buildTargetNavigation = (notificationPayload) => {
+  const moduleName =
+    notificationPayload?.module ||
+    notificationPayload?.data?.module ||
+    notificationPayload?.metadata?.module;
+
+  if (moduleName === "flight-logs") {
+    return {
+      screen: "Flight Logbook",
+      params: {
+        refreshAt: Date.now(),
+        targetFlightLogId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetFlightLogId ||
+          notificationPayload?.data?.targetFlightLogId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  if (moduleName === "pre-inspections") {
+    return {
+      screen: "Pre-Inspection",
+      params: {
+        refreshAt: Date.now(),
+        targetPreInspectionId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetPreInspectionId ||
+          notificationPayload?.data?.targetPreInspectionId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  if (moduleName === "post-inspections") {
+    return {
+      screen: "Post-Inspection",
+      params: {
+        refreshAt: Date.now(),
+        targetPostInspectionId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetPostInspectionId ||
+          notificationPayload?.data?.targetPostInspectionId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  if (moduleName === "tasks") {
+    return {
+      screen: "Tasks",
+      params: {
+        refreshAt: Date.now(),
+        targetTaskId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetTaskId ||
+          notificationPayload?.data?.targetTaskId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  return {
+    screen: "Parts Requisition",
+    params: {
+      refreshAt: Date.now(),
+      targetRequestId:
+        notificationPayload?.entityId ||
+        notificationPayload?.targetRequestId ||
+        notificationPayload?.data?.targetRequestId,
+      notificationStatus:
+        notificationPayload?.metadata?.status ||
+        notificationPayload?.status ||
+        notificationPayload?.data?.status ||
+        null,
+    },
+  };
+};
+
 const getStoredToken = async () => {
   if (Platform.OS === "web") {
     return localStorage.getItem("currentUserToken");
@@ -232,18 +327,7 @@ export function NotificationProvider({ children }) {
 
   const openNotificationTarget = useCallback(
     async (notificationPayload) => {
-      const targetParams = {
-        refreshAt: Date.now(),
-        targetRequestId:
-          notificationPayload?.entityId ||
-          notificationPayload?.targetRequestId ||
-          notificationPayload?.data?.targetRequestId,
-        notificationStatus:
-          notificationPayload?.metadata?.status ||
-          notificationPayload?.status ||
-          notificationPayload?.data?.status ||
-          null,
-      };
+      const targetNavigation = buildTargetNavigation(notificationPayload);
 
       if (user?.id) {
         if (notificationPayload?._id) {
@@ -251,16 +335,13 @@ export function NotificationProvider({ children }) {
         }
 
         navigate("dashboard", {
-          screen: "Parts Requisition",
-          params: targetParams,
+          screen: targetNavigation.screen,
+          params: targetNavigation.params,
         });
         return;
       }
 
-      await savePendingRedirect({
-        screen: "Parts Requisition",
-        params: targetParams,
-      });
+      await savePendingRedirect(targetNavigation);
       navigate("login");
     },
     [markAsRead, user?.id],

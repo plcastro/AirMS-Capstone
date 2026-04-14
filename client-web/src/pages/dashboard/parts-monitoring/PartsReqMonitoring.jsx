@@ -151,7 +151,7 @@ export default function PartsRequisition() {
       },
       {
         key: "Ordered",
-        title: "Ordered",
+        title: "Restocked",
         icon: <SyncOutlined />,
         count: warehouseRequisitions.filter((r) => r.status === "Ordered").length,
       },
@@ -206,7 +206,10 @@ export default function PartsRequisition() {
 
     return [
       { value: "all", label: "All Statuses" },
-      ...statusesForTab.map((status) => ({ value: status, label: status })),
+      ...statusesForTab.map((status) => ({
+        value: status,
+        label: status === "Ordered" ? "Restocked" : status,
+      })),
     ];
   }, [activeTab]);
 

@@ -123,6 +123,9 @@ const getStatusMeta = (status) => {
   }
 };
 
+const getStatusDisplayLabel = (status) =>
+  status === "Ordered" ? "Restocked" : status;
+
 const getItemStockStatus = (record, availQty) => {
   const currentItemStatus = normalizeItemStatus(record.stockStatus);
 
@@ -153,6 +156,7 @@ export default function WRSModal({
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const [availQtyMap, setAvailQtyMap] = useState({});
+  const [persistedQtyMap, setPersistedQtyMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -172,6 +176,7 @@ export default function WRSModal({
         : item.availableQty ?? item.availQty;
     });
     setAvailQtyMap(nextMap);
+    setPersistedQtyMap(nextMap);
   }, [selectedRecord]);
 
   const rawStatus = normalizeRequisitionStatus(selectedRecord?.status);
@@ -235,6 +240,27 @@ export default function WRSModal({
     [availQtyMap, selectedRecord],
   );
 
+  const hasUnsavedStockChanges = useMemo(
+    () =>
+      (selectedRecord?.items || []).some((item) => {
+        const currentValue = Number(availQtyMap[item._id] ?? 0);
+        const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+        return currentValue !== persistedValue;
+      }),
+    [availQtyMap, persistedQtyMap, selectedRecord],
+  );
+
+  const allRestockItemsReady = useMemo(
+    () =>
+      (selectedRecord?.items || [])
+        .filter((item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered")
+        .every((item) => {
+          const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+          return persistedValue >= Number(item.quantity || 0);
+        }),
+    [persistedQtyMap, selectedRecord],
+  );
+
   const nextAction = useMemo(() => {
     if (!selectedRecord) {
       return {
@@ -275,11 +301,15 @@ export default function WRSModal({
 
     if (currentStatus === "To Be Ordered") {
       return {
-        title: "Confirm Ordered",
+        title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
         description:
-          "Warehouse can now confirm that ordered items are available.",
-        buttonText: "Mark as Ordered",
-        disabled: false,
+          hasUnsavedStockChanges
+            ? "Save the edited stock quantities first."
+            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
+        disabled: hasUnsavedStockChanges
+          ? !allQuantitiesFilled
+          : !allRestockItemsReady,
       };
     }
 
@@ -287,7 +317,7 @@ export default function WRSModal({
       return {
         title: "Awaiting Approval",
         description:
-          "Warehouse already confirmed the ordered items are available. Waiting for maintenance manager approval.",
+          "Warehouse already confirmed the items are restocked. Waiting for maintenance manager approval.",
         buttonText: "Waiting",
         disabled: true,
       };
@@ -300,9 +330,17 @@ export default function WRSModal({
       buttonText: "Submit Stock Review",
       disabled: !allQuantitiesFilled,
     };
-  }, [allQuantitiesFilled, currentStatus, selectedRecord]);
+  }, [
+    allQuantitiesFilled,
+    allRestockItemsReady,
+    availQtyMap,
+    currentStatus,
+    hasUnsavedStockChanges,
+    persistedQtyMap,
+    selectedRecord,
+  ]);
 
-  const updateRequisition = async (payload, successMessage) => {
+  const updateRequisition = async (payload, successMessage, shouldClose = true) => {
     setSubmitting(true);
 
     try {
@@ -330,7 +368,9 @@ export default function WRSModal({
 
       message.success(successMessage);
       onUpdated?.();
-      onClose();
+      if (shouldClose) {
+        onClose();
+      }
     } catch (error) {
       message.error(error.message || "Failed to update requisition");
     } finally {
@@ -376,23 +416,36 @@ export default function WRSModal({
       };
     });
 
-    const nextStatus =
-      currentStatus === "To Be Ordered" ? "Ordered" : currentStatus;
+    if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
+      const savedItems = (selectedRecord.items || []).map((item) => ({
+        ...item,
+        availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+        stockStatus: normalizeItemStatus(item.stockStatus),
+      }));
 
-    // Once stock review is submitted, availableQty is locked.
-    // For "To Be Ordered" -> "Ordered", only flip stock statuses and keep
-    // the persisted availableQty values unchanged.
-    const finalItems =
+      await updateRequisition(
+        {
+          status: "To Be Ordered",
+          warehouseBy: warehouseName,
+          items: savedItems,
+        },
+        "Stock quantities saved.",
+        false,
+      );
+      setPersistedQtyMap({ ...availQtyMap });
+      return;
+    }
+
+    const nextStatus =
       currentStatus === "To Be Ordered"
-        ? (selectedRecord.items || []).map((item) => ({
-            ...item,
-            availableQty: Number(item.availableQty ?? 0),
-            stockStatus:
-              normalizeItemStatus(item.stockStatus) === "To Be Ordered"
-                ? "Ordered"
-                : normalizeItemStatus(item.stockStatus),
-          }))
-        : updatedItems;
+        ? updatedItems.some(
+            (item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered",
+          )
+          ? "To Be Ordered"
+          : "Ordered"
+        : currentStatus;
+
+    const finalItems = updatedItems;
 
     if (currentStatus === "Parts Requested") {
       const hasPartialOrZeroStock = finalItems.some(
@@ -431,7 +484,9 @@ export default function WRSModal({
         items: finalItems,
       },
       currentStatus === "To Be Ordered"
-        ? "Requisition marked as ordered."
+        ? nextStatus === "Ordered"
+          ? "Requisition marked as restocked."
+          : "Remaining items are still to be restocked."
         : "Warehouse stock review submitted successfully.",
     );
   };
@@ -474,7 +529,7 @@ export default function WRSModal({
                 <Text type="secondary">Status</Text>
                 <div style={{ marginTop: 6 }}>
                   <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {currentStatus}
+                    {getStatusDisplayLabel(currentStatus)}
                   </Tag>
                 </div>
               </Col>
@@ -519,9 +574,11 @@ export default function WRSModal({
           <WRSTable
             data={selectedRecord.items}
             availQtyMap={availQtyMap}
+            persistedQtyMap={persistedQtyMap}
             setAvailQtyMap={setAvailQtyMap}
             disabled={
-              currentStatus !== "Parts Requested"
+              currentStatus !== "Parts Requested" &&
+              currentStatus !== "To Be Ordered"
             }
           />
         </Col>
@@ -549,7 +606,7 @@ export default function WRSModal({
                     <div
                       style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
                     >
-                      <Text strong>{step}</Text>
+                      <Text strong>{getStatusDisplayLabel(step)}</Text>
                       <div>
                         <Text type="secondary">
                           {step === "Approved" &&
@@ -561,7 +618,7 @@ export default function WRSModal({
                           {step === "To Be Ordered" &&
                             "Maintenance manager requested ordering for the unavailable items."}
                           {step === "Ordered" &&
-                            "Warehouse confirmed the previously unavailable items are now available."}
+                            "Warehouse confirmed the previously unavailable items are now restocked."}
                           {step === "Delivered" &&
                             "Warehouse completed the release and marked the requisition as delivered."}
                         </Text>

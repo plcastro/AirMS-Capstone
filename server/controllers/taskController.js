@@ -1,5 +1,6 @@
 const TaskModel = require("../models/taskModel");
 const { auditLog } = require("./logsController");
+const { createTaskNotifications } = require("../utilities/taskNotificationService");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -184,6 +185,11 @@ const createTask = async (req, res) => {
     const taskData = prepareTaskUpdate(null, req.body);
     const task = new TaskModel(taskData);
     await task.save();
+    try {
+      await createTaskNotifications({ task });
+    } catch (notifyErr) {
+      console.error("Task notification failed:", notifyErr);
+    }
     const audit = withActorId(req, `Task created: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(201).json({ status: "Ok", data: serializeTask(task) });
@@ -235,6 +241,12 @@ const updateTask = async (req, res) => {
     );
 
     const refreshedTask = await TaskModel.findOne({ id: req.params.id });
+    try {
+      await createTaskNotifications({ previousTask: existingTask, task: refreshedTask });
+    } catch (notifyErr) {
+      console.error("Task notification failed:", notifyErr);
+    }
+
     res.status(200).json({
       status: "Ok",
       data: serializeTask(refreshedTask),

@@ -20,8 +20,10 @@ import { API_BASE } from "../../utilities/API_BASE";
 const getDisplayStatus = (status) =>
   status === "completed" ? "completed" : "ongoing";
 
-export default function PreInspection() {
+export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
+  const targetPreInspectionId = route?.params?.targetPreInspectionId;
+  const targetNotificationStatus = route?.params?.notificationStatus;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -31,6 +33,7 @@ export default function PreInspection() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
+  const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
 
@@ -62,6 +65,46 @@ export default function PreInspection() {
     fetchPreInspections();
   }, []);
 
+  useEffect(() => {
+    if (targetNotificationStatus) {
+      setSelectedStatus(targetNotificationStatus);
+    }
+  }, [targetNotificationStatus]);
+
+  useEffect(() => {
+    if (!targetPreInspectionId || inspections.length === 0) {
+      return;
+    }
+
+    const match = inspections.find(
+      (inspection) => String(inspection._id) === String(targetPreInspectionId),
+    );
+
+    if (match) {
+      setSelectedInspection(match);
+      setShowEditModal(true);
+    }
+  }, [targetPreInspectionId, inspections]);
+
+  useEffect(() => {
+    const fetchAircraftRpcOptions = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch aircraft RP-Cs");
+        }
+
+        const data = await response.json();
+        setAircraftRpcOptions(Array.isArray(data?.data) ? data.data : []);
+      } catch (error) {
+        console.error("Error fetching aircraft RP-Cs:", error);
+        setAircraftRpcOptions([]);
+      }
+    };
+
+    fetchAircraftRpcOptions();
+  }, []);
+
   const handleSaveNewEntry = (newEntry) => {
     return newEntry;
   };
@@ -74,7 +117,10 @@ export default function PreInspection() {
 
   const aircraftOptions = [
     "all",
-    ...new Set(inspections.map((inspection) => inspection.rpc).filter(Boolean)),
+    ...new Set([
+      ...aircraftRpcOptions.filter(Boolean),
+      ...inspections.map((inspection) => inspection.rpc).filter(Boolean),
+    ]),
   ];
 
   const statusOptions = [
@@ -156,7 +202,7 @@ export default function PreInspection() {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Q Search aircraft"
+              placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,
@@ -170,34 +216,37 @@ export default function PreInspection() {
             />
           </View>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={() => setShowNewEntryModal(true)}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
+          {/* Only show New Entry button for non-pilot roles */}
+          {userRole !== 'pilot' && (
+            <TouchableOpacity
               style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
               }}
+              onPress={() => setShowNewEntryModal(true)}
             >
-              New Entry
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color={COLORS.white}
+              />
+              <Text
+                style={{
+                  color: COLORS.white,
+                  fontSize: 15,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                New Entry
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filters */}
@@ -374,20 +423,23 @@ export default function PreInspection() {
               >
                 No pre-inspections found
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowNewEntryModal(true)}
-                style={{
-                  marginTop: 20,
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                  Create New Entry
-                </Text>
-              </TouchableOpacity>
+              {/* Only show Create New Entry button for non-pilot roles */}
+              {userRole !== 'pilot' && (
+                <TouchableOpacity
+                  onPress={() => setShowNewEntryModal(true)}
+                  style={{
+                    marginTop: 20,
+                    backgroundColor: COLORS.primaryLight,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    Create New Entry
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <PreInspectionCards
@@ -404,6 +456,7 @@ export default function PreInspection() {
       <PreInspectionEntry
         visible={showNewEntryModal}
         onClose={() => setShowNewEntryModal(false)}
+        rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onSave={async (newEntry) => {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
@@ -439,6 +492,7 @@ export default function PreInspection() {
       <PreInspectionEditEntry
         visible={showEditModal}
         inspectionData={selectedInspection}
+        rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onClose={() => {
           setShowEditModal(false);
           setSelectedInspection(null);

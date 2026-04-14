@@ -364,6 +364,9 @@ export default function PartsMonitoring() {
               <Col xs={24} md={12}>
                 <Text>Engine Cycle:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))
@@ -389,6 +392,9 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>N1:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.n1Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, n1Cycles: parseFloat(e.target.value) || 0 }))
@@ -401,6 +407,9 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>N2:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.n2Cycles}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, n2Cycles: parseFloat(e.target.value) || 0 }))
@@ -413,6 +422,9 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>Eng. TT:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.engTT}
                   onChange={(e) =>
                     setRefs((prev) => ({
@@ -428,6 +440,9 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>Acft. TT:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.acftTT}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, acftTT: parseFloat(e.target.value) || 0 }))
@@ -442,6 +457,9 @@ export default function PartsMonitoring() {
               <Col xs={12} md={6}>
                 <Text>Landings:</Text>
                 <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
                   value={refs.landings}
                   onChange={(e) =>
                     setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))
