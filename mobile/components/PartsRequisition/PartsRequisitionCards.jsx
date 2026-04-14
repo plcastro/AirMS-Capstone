@@ -13,7 +13,7 @@ const getStatusStyle = (status) => {
       };
     case "to be ordered":
       return {
-        label: "To Be Ordered",
+        label: "To Be Restocked",
         backgroundColor: "#FFF4E5",
         textColor: "#C26A00",
       };
@@ -25,7 +25,7 @@ const getStatusStyle = (status) => {
       };
     case "ordered":
       return {
-        label: "Ordered",
+        label: "Restocked",
         backgroundColor: "#E3F2FD",
         textColor: "#1565C0",
       };

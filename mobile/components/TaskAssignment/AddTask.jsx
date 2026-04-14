@@ -10,30 +10,18 @@ import {
   Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Checkbox from "expo-checkbox";
 import Button from "../Button";
-import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
+import {
+  addMinutesToDate,
+  estimateInspectionSchedule,
+  formatEstimatedDuration,
+} from "../../utilities/inspectionTiming";
 
 const { width } = Dimensions.get("window");
-const INSPECTION_NAME_ALIASES = {
-  "TBO Inspection": ["Time Between Overhaul"],
-  "OC Inspection": ["ON CONDITION (OC)"],
-  "OTL Inspection": ["OPERATING TIME LIMIT (OTL)"],
-  "ALF Inspection": ["ALF"],
-  "10 FH Inspection": ["10 FH"],
-  "10 FH - 1 M Inspection": ["10 FH // 1 M"],
-  "12 M Inspection": ["12 M"],
-  "24 M Inspection": ["24 M"],
-  "48 M Inspection": ["48 M"],
-  "150 FH Inspection": ["150 FH"],
-  "150 FH - 12 M Inspection": ["150 FH / 12 M", "150 FH // 12 M"],
-  "750 FH Inspection": ["750 FH"],
-  "750 FH - 24 M Inspection": ["750 FH // 24 M", "750 FH / 24 M"],
-  "1500 FH Inspection": ["1500 FH"],
-  "1500 FH - 48 M Inspection": ["1500 FH // 48 M", "1500 FH / 48 M"],
-};
 
 const getPickerValue = (event) => {
   if (event?.type === "dismissed") {
@@ -41,6 +29,21 @@ const getPickerValue = (event) => {
   }
 
   return event;
+};
+
+const dedupeChecklistItems = (items = []) => {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const key = `${item.taskId || ""}|${item.taskName || ""}|${item.inspectionTypeFull || ""}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 };
 
 export default function AddTask({
@@ -66,45 +69,50 @@ export default function AddTask({
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [androidPickerMode, setAndroidPickerMode] = useState("date");
+  const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
 
   const [checklistItems, setChecklistItems] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
+  const scheduleEstimate = estimateInspectionSchedule(checklistItems);
 
   const fetchInspectionTasks = async (inspection) => {
-    const inspectionNames = [
-      inspection.name,
-      ...(INSPECTION_NAME_ALIASES[inspection.name] || []),
-    ];
+    const response = await fetch(
+      `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspection.name || "")}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
+    );
 
-    for (const inspectionName of inspectionNames) {
-      const response = await fetch(
-        `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspectionName)}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
-      );
-
-      if (!response.ok) {
-        continue;
-      }
-
-      const tasks = await response.json();
-
-      if (Array.isArray(tasks) && tasks.length > 0) {
-        return tasks;
-      }
+    if (!response.ok) {
+      throw new Error("Failed to fetch inspection tasks");
     }
 
-    return [];
+    const tasks = await response.json();
+    const normalizedTasks = Array.isArray(tasks)
+      ? tasks.map((item) => ({
+          ...item,
+          taskId: String(item?.taskId || "").trim(),
+          taskName: String(item?.taskName || "").trim(),
+          inspectionTypeFull: String(item?.inspectionTypeFull || "").trim(),
+        }))
+      : [];
+
+    return dedupeChecklistItems(normalizedTasks).filter(
+      (item) => item.taskName.length > 0,
+    );
   };
 
   useEffect(() => {
-    const newEndDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-    setEndDate(newEndDate);
-  }, [startDate]);
+    if (endDateManuallyAdjusted) {
+      return;
+    }
+
+    setEndDate(addMinutesToDate(startDate, scheduleEstimate.minutes));
+  }, [startDate, scheduleEstimate.minutes, endDateManuallyAdjusted]);
 
   useEffect(() => {
     setChecklistItems([]);
     setInspectionType("");
     setSelectedInspection(null);
+    setEndDateManuallyAdjusted(false);
   }, [selectedAircraft]);
 
   useEffect(() => {
@@ -199,6 +207,9 @@ export default function AddTask({
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
+      performance: {
+        estimatedHours: scheduleEstimate.hours,
+      },
       checklistItems:
         filteredChecklist.length > 0
           ? filteredChecklist
@@ -327,6 +338,7 @@ export default function AddTask({
       setStartDate(nextDate);
     } else {
       setEndDate(nextDate);
+      setEndDateManuallyAdjusted(true);
     }
 
     closePicker();
@@ -536,6 +548,7 @@ export default function AddTask({
 
                 setSelectedInspection(matchedInspection || null);
                 setChecklistItems([]);
+                setEndDateManuallyAdjusted(false);
 
                 if (!matchedInspection) return;
                 try {
@@ -616,6 +629,21 @@ export default function AddTask({
               </Text>
             </TouchableOpacity>
 
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.grayDark,
+                marginTop: -10,
+                marginBottom: 20,
+              }}
+            >
+              Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)}
+              {" | "}
+              {scheduleEstimate.itemCount} checklist item
+              {scheduleEstimate.itemCount === 1 ? "" : "s"}
+              {endDateManuallyAdjusted ? " | End time manually adjusted" : ""}
+            </Text>
+
             {showEndPicker && (
               <DateTimePicker
                 value={endDate}
@@ -631,7 +659,9 @@ export default function AddTask({
 
             {checklistItems.map((item, index) => (
               <View key={index} style={{ flexDirection: "row", marginTop: 10 }}>
-                <CheckBox value={false} disabled={true} />
+                <View style={{ paddingTop: 2 }}>
+                  <Checkbox value={false} disabled={true} />
+                </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
@@ -644,6 +674,12 @@ export default function AddTask({
                 </View>
               </View>
             ))}
+
+            {checklistItems.length === 0 && (
+              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+                No checklist items were found for this inspection.
+              </Text>
+            )}
           </ScrollView>
 
           <View

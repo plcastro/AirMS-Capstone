@@ -5,6 +5,7 @@ export default function WRSTable({
   data = [],
   loading = false,
   availQtyMap,
+  persistedQtyMap,
   setAvailQtyMap,
   disabled,
 }) {
@@ -29,31 +30,31 @@ export default function WRSTable({
   };
 
   const getAutoStatus = (record) => {
-    const currentStatus = record.stockStatus;
+    const itemStatus = record.stockStatus;
     const hasInput = hasQtyValue(record);
 
-    if (!hasInput && currentStatus === "Parts Requested") {
+    if (!hasInput && itemStatus === "Parts Requested") {
       return <Tag color="default">Awaiting Input</Tag>;
     }
 
     const availQty = Number(getQtyValue(record) ?? record.availableQty ?? 0);
     const requestedQty = record.quantity;
 
-    if (currentStatus === "Approved") {
+    if (itemStatus === "Approved") {
       return <Tag color="cyan">Approved</Tag>;
     }
 
-    if (currentStatus === "Delivered") {
+    if (itemStatus === "Delivered") {
       return <Tag color="green">Delivered</Tag>;
     }
 
-    if (currentStatus === "Cancelled") {
+    if (itemStatus === "Cancelled") {
       return <Tag color="red">Cancelled</Tag>;
     }
 
-    if (currentStatus === "To Be Ordered" || currentStatus === "Ordered") {
-      if (availQty >= requestedQty && requestedQty > 0) {
-        return <Tag color="blue">Ordered</Tag>;
+    if (itemStatus === "To Be Ordered" || itemStatus === "Ordered") {
+      if (itemStatus === "Ordered") {
+        return <Tag color="blue">Restocked</Tag>;
       }
 
       return <Tag color="orange">To Be Ordered</Tag>;
@@ -101,17 +102,34 @@ export default function WRSTable({
       dataIndex: "availQty",
       key: "availQty",
       width: 120,
-      render: (_, record) => (
-        <InputNumber
-          min={0}
-          max={999}
-          style={{ width: "100%" }}
-          placeholder="Enter qty"
-          value={getQtyValue(record)}
-          onChange={(value) => handleAvailQtyChange(value, record)}
-          disabled={disabled}
-        />
-      ),
+      render: (_, record) => {
+        const persistedQty = Number(
+          persistedQtyMap?.[record._id] ?? record.availableQty ?? 0,
+        );
+        const requestedQty = Number(record.quantity) || 0;
+        const itemStatus = record.stockStatus;
+        const lockedBecauseInStock =
+          itemStatus === "In Stock" ||
+          itemStatus === "Ordered" ||
+          itemStatus === "Approved" ||
+          itemStatus === "Delivered" ||
+          itemStatus === "Cancelled" ||
+          (itemStatus === "To Be Ordered" &&
+            persistedQty >= requestedQty &&
+            requestedQty > 0);
+
+        return (
+          <InputNumber
+            min={0}
+            max={999}
+            style={{ width: "100%" }}
+            placeholder="Enter qty"
+            value={getQtyValue(record)}
+            onChange={(value) => handleAvailQtyChange(value, record)}
+            disabled={disabled || lockedBecauseInStock}
+          />
+        );
+      },
     },
 
     {

@@ -1,5 +1,8 @@
 const FlightLog = require("../models/flightLogModel");
 const { auditLog } = require("./logsController");
+const {
+  createFlightLogNotifications,
+} = require("../utilities/flightLogNotificationService");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -9,10 +12,12 @@ const withActorId = (req, action, fallbackId = null) => {
   };
 };
 
-// Helper function to get user role from token
-const getUserRole = (user) => {
-  // Try different possible field names based on your JWT payload
-  return user.role || user.userRole || user.jobTitle || user.userType;
+const toComparableFlightLog = (flightLog) => {
+  if (!flightLog) {
+    return null;
+  }
+
+  return typeof flightLog.toObject === "function" ? flightLog.toObject() : flightLog;
 };
 
 // @desc    Create a new flight log
@@ -39,8 +44,15 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    // Set status based on user role from frontend
-    flightLogData.status = "pending_release";
+    // Keep the frontend workflow status when it is valid.
+    flightLogData.status = [
+      "pending_release",
+      "pending_acceptance",
+      "accepted",
+      "completed",
+    ].includes(flightLogData.status)
+      ? flightLogData.status
+      : "pending_release";
 
     // Handle component times - map componentTimes to componentData if needed
     if (flightLogData.componentTimes && !flightLogData.componentData) {
@@ -103,6 +115,10 @@ const createFlightLog = async (req, res) => {
     console.log("FlightLog model created");
 
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog: null,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log created: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
     console.log("FlightLog saved successfully with ID:", flightLog._id);
@@ -281,6 +297,14 @@ const updateFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    const existingFlightLog = await FlightLog.findById(id);
+
+    if (!existingFlightLog) {
+      return res.status(404).json({
+        success: false,
+        message: "Flight log not found",
+      });
+    }
 
     // Remove fields that shouldn't be updated directly
     delete updates._id;
@@ -295,12 +319,10 @@ const updateFlightLog = async (req, res) => {
       { returnDocument: 'after', runValidators: true },
     );
 
-    if (!flightLog) {
-      return res.status(404).json({
-        success: false,
-        message: "Flight log not found",
-      });
-    }
+    await createFlightLogNotifications({
+      previousFlightLog: toComparableFlightLog(existingFlightLog),
+      flightLog,
+    });
 
     res.status(200).json({
       success: true,
@@ -344,8 +366,13 @@ const releaseFlightLog = async (req, res) => {
     }
 
     // Release the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.release(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log released: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 
@@ -390,7 +417,7 @@ const acceptFlightLog = async (req, res) => {
     }
 
     // Check if flight log is in correct state
-    if (flightLog.status !== "pending_acceptance") {
+    if (!["pending_acceptance", "released"].includes(flightLog.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot accept flight log in ${flightLog.status} status`,
@@ -398,8 +425,13 @@ const acceptFlightLog = async (req, res) => {
     }
 
     // Accept the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.accept(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log accepted: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 
@@ -443,8 +475,13 @@ const completeFlightLog = async (req, res) => {
     }
 
     // Complete the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.complete();
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log completed: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 

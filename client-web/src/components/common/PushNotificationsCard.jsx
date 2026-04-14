@@ -131,6 +131,21 @@ export default function PushNotificationsCard({ open, onClose }) {
   const handleNotificationClick = async (notification) => {
     await markNotificationRead(notification._id);
     onClose?.();
+
+    const moduleName = notification?.module || notification?.metadata?.module;
+
+    if (moduleName === "flight-logs") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetFlightLogId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+
+      window.location.assign(`/dashboard/flight-log?${params.toString()}`);
+      return;
+    }
+
     window.location.assign(
       `/dashboard/parts-requisition?refreshAt=${Date.now()}&targetRequestId=${notification.entityId}`,
     );

@@ -20,11 +20,13 @@ import FlightLogModalFuelServicing from "./FlightLogModalFuelServicing";
 import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
+import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
   const scrollViewRef = useRef(null);
   const isPilot = userRole === "pilot";
   const isMechanic = userRole === "mechanic" || userRole === "maintenance manager";
@@ -58,7 +60,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     oilServicing: [],
     workItems: [],
     createdBy: userRole,
-    status: isPilot ? "pending_release" : "pending_acceptance",
+    status: "pending_release",
     notifiedForCompletion: false,
     broughtForwardLocked: false,
     releasedBy: { name: "", signature: "", timestamp: "" },
@@ -261,7 +263,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         oilServicing: [],
         workItems: [],
         createdBy: userRole,
-        status: isPilot ? "pending_release" : "pending_acceptance",
+        status: "pending_release",
         notifiedForCompletion: false,
         broughtForwardLocked: false,
         releasedBy: { name: "", signature: "", timestamp: "" },
@@ -351,6 +353,20 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     setFormData((prev) => ({ ...prev, workItems }));
   };
 
+  const handleRelease = (signature) => {
+    setFormData((prev) => ({
+      ...prev,
+      releasedBy: {
+        name: "Mechanic",
+        signature,
+        timestamp: new Date().toISOString(),
+      },
+      status: "pending_acceptance",
+    }));
+    Alert.alert("Success", "Flight log has been released");
+    setShowReleaseModal(false);
+  };
+
   const formatDateForSave = (date) => {
     return date.toLocaleDateString("en-US", {
       month: "2-digit",
@@ -406,7 +422,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       componentData: finalComponentData,
       date: formatDateForSave(formData.date),
       dateAdded: formatDateForSave(new Date()),
-      status: isPilot ? "pending_release" : "pending_acceptance",
+      status: formData.status || "pending_release",
       createdBy: userRole,
     };
 
@@ -508,6 +524,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     }
   };
 
+  const showReleaseButton = isMechanic && formData.status === "pending_release";
+
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
@@ -579,6 +597,30 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
           contentContainerStyle={{ paddingTop: 16 }}
         >
           {renderPage()}
+
+          {showReleaseButton && (
+            <View style={{ marginTop: 20, marginBottom: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowReleaseModal(true)}
+                style={{
+                  backgroundColor: COLORS.primaryLight,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.white,
+                    fontWeight: "600",
+                    fontSize: 16,
+                  }}
+                >
+                  Release
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
 
         <View

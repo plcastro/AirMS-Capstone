@@ -20,7 +20,7 @@ const { width } = Dimensions.get("window");
 const isAssignableUser = (user) =>
   user?.jobTitle?.toLowerCase() === "mechanic";
 
-export default function HeadTaskScreen() {
+export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
@@ -55,6 +55,26 @@ export default function HeadTaskScreen() {
     };
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) {
+      return;
+    }
+
+    const match = tasks.find(
+      (task) =>
+        String(task._id) === String(targetTaskId) ||
+        String(task.id) === String(targetTaskId),
+    );
+
+    if (match) {
+      setSelectedTask(match);
+      setChecklistVisible(true);
+      if (targetNotificationStatus === "Turned in") {
+        setActiveTab("To Be Reviewed");
+      }
+    }
+  }, [targetTaskId, targetNotificationStatus, tasks]);
 
   // Fetch assignable employees from the users collection
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { Input, Button, Table, Space, message, Modal } from "antd";
 import {
   PlusOutlined,
@@ -8,10 +8,13 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./flightlog.css";
 
 export default function FlightLog() {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -31,12 +34,23 @@ export default function FlightLog() {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
-  const isMechanic =
-    userRole === "engineer" ||
-    userRole === "mechanic" ||
-    userRole === "maintenance manager";
+  const isMechanic = [
+    "engineer",
+    "mechanic",
+    "maintenance manager",
+    "officer-in-charge",
+    "head of maintenance",
+  ].includes(userRole);
 
-  const fetchFlightLogs = async () => {
+  const normalizeStatusFilterValue = useCallback((statusValue) => {
+    if (statusValue === "released") {
+      return "pending_acceptance";
+    }
+
+    return statusValue || "all";
+  }, []);
+
+  const fetchFlightLogs = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -48,7 +62,7 @@ export default function FlightLog() {
         params.append("aircraftRPC", selectedAircraft);
       }
       if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", selectedStatus);
+        params.append("status", normalizeStatusFilterValue(selectedStatus));
       }
 
       const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`, {
@@ -71,7 +85,29 @@ export default function FlightLog() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [normalizeStatusFilterValue, selectedAircraft, selectedStatus]);
+
+  const fetchFlightLogById = useCallback(async (flightLogId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flightlogs/${flightLogId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success || !data?.data) {
+        return null;
+      }
+
+      return data.data;
+    } catch (error) {
+      console.error("Fetch flight log by id error:", error);
+      return null;
+    }
+  }, []);
 
   const searchFlightLogs = async (query) => {
     if (!query.trim()) {
@@ -116,7 +152,13 @@ export default function FlightLog() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newEntry),
+        body: JSON.stringify({
+          ...newEntry,
+          createdByName:
+            `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+            "Unknown User",
+          createdByUserId: user?.id || null,
+        }),
       });
 
       const data = await response.json();
@@ -348,7 +390,7 @@ export default function FlightLog() {
 
   useEffect(() => {
     fetchFlightLogs();
-  }, [selectedAircraft, selectedStatus]);
+  }, [fetchFlightLogs]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -360,7 +402,20 @@ export default function FlightLog() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [fetchFlightLogs, searchQuery]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const targetFlightLogId = params.get("targetFlightLogId");
+    const notificationStatus = params.get("notificationStatus");
+
+    if (!targetFlightLogId) {
+      return;
+    }
+
+    setSelectedAircraft("");
+    setSelectedStatus(normalizeStatusFilterValue(notificationStatus || "all"));
+  }, [location.search, normalizeStatusFilterValue]);
 
   const aircraftOptions = useMemo(
     () => ["all", ...new Set(flightLogs.map((log) => log.rpc).filter(Boolean))],
@@ -370,8 +425,7 @@ export default function FlightLog() {
   const statusOptions = [
     { label: "All", value: "all" },
     { label: "Pending Release", value: "pending_release" },
-    { label: "Pending Acceptance", value: "pending_acceptance" },
-    { label: "Released", value: "released" },
+    { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
     { label: "Completed", value: "completed" },
   ];
@@ -389,12 +443,55 @@ export default function FlightLog() {
       log.rpc === selectedAircraft;
 
     const matchesStatus =
-      selectedStatus === "all" || log.status === selectedStatus;
+      selectedStatus === "all" ||
+      log.status === normalizeStatusFilterValue(selectedStatus);
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
 
+  useEffect(() => {
+    const openTargetFlightLog = async () => {
+      const params = new URLSearchParams(location.search);
+      const targetFlightLogId = params.get("targetFlightLogId");
+
+      if (!targetFlightLogId) {
+        return;
+      }
+
+      let matchedLog = flightLogs.find((log) => log._id === targetFlightLogId);
+
+      if (!matchedLog) {
+        matchedLog = await fetchFlightLogById(targetFlightLogId);
+      }
+
+      if (!matchedLog) {
+        return;
+      }
+
+      setSelectedLog(matchedLog);
+      setEditModalVisible(true);
+      navigate("/dashboard/flight-log", { replace: true });
+    };
+
+    openTargetFlightLog();
+  }, [fetchFlightLogById, flightLogs, location.search, navigate]);
+
+  const isPilotAcceptableStatus = (status) =>
+    ["pending_acceptance", "released"].includes(status);
+
   const getStatusBadge = (status) => {
+    if (status === "pending_release") {
+      return <span className="fl-badge fl-badge--ongoing">Pending Release</span>;
+    }
+    if (status === "pending_acceptance") {
+      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+    }
+    if (status === "released") {
+      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+    }
+    if (status === "accepted") {
+      return <span className="fl-badge fl-badge--ongoing">Accepted</span>;
+    }
     if (status === "completed") {
       return <span className="fl-badge fl-badge--completed">Completed</span>;
     }
@@ -437,7 +534,7 @@ export default function FlightLog() {
               Release
             </Button>
           )}
-          {isPilot && record.status === "pending_acceptance" && (
+          {isPilot && isPilotAcceptableStatus(record.status) && (
             <Button size="small" onClick={() => openWorkflowModal("accept", record)}>
               Accept
             </Button>
