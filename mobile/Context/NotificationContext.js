@@ -49,6 +49,60 @@ const buildTargetNavigation = (notificationPayload) => {
     };
   }
 
+  if (moduleName === "pre-inspections") {
+    return {
+      screen: "Pre-Inspection",
+      params: {
+        refreshAt: Date.now(),
+        targetPreInspectionId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetPreInspectionId ||
+          notificationPayload?.data?.targetPreInspectionId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  if (moduleName === "post-inspections") {
+    return {
+      screen: "Post-Inspection",
+      params: {
+        refreshAt: Date.now(),
+        targetPostInspectionId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetPostInspectionId ||
+          notificationPayload?.data?.targetPostInspectionId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
+  if (moduleName === "tasks") {
+    return {
+      screen: "Tasks",
+      params: {
+        refreshAt: Date.now(),
+        targetTaskId:
+          notificationPayload?.entityId ||
+          notificationPayload?.targetTaskId ||
+          notificationPayload?.data?.targetTaskId,
+        notificationStatus:
+          notificationPayload?.metadata?.status ||
+          notificationPayload?.status ||
+          notificationPayload?.data?.status ||
+          null,
+      },
+    };
+  }
+
   return {
     screen: "Parts Requisition",
     params: {

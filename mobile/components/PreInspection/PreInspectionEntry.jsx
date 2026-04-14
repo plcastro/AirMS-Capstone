@@ -15,7 +15,11 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
-import { getDefaultPreInspectionFormData } from "./PreInspectionForms";
+import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
+import {
+  areAllInspectionChecksComplete,
+  getDefaultPreInspectionFormData,
+} from "./PreInspectionForms";
 
 export default function PreInspectionEntry({
   visible,
@@ -39,6 +43,10 @@ export default function PreInspectionEntry({
   const [formData, setFormData] = useState(
     getDefaultPreInspectionFormData(userRole),
   );
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMechanic =
+    userRole === "mechanic" || userRole === "maintenance manager";
 
   useEffect(() => {
     if (visible) {
@@ -81,6 +89,71 @@ export default function PreInspectionEntry({
   const handlePrevious = () => {
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const validateBeforeSigning = (actionLabel) => {
+    if (!formData.rpc || formData.rpc.trim() === "") {
+      Alert.alert("Validation Error", "Aircraft RPC is required");
+      return false;
+    }
+
+    if (!formData.aircraftType || formData.aircraftType.trim() === "") {
+      Alert.alert("Validation Error", "Aircraft Type is required");
+      return false;
+    }
+
+    if (!String(formData.fob || "").trim()) {
+      Alert.alert(
+        "Validation Error",
+        `FOB must be filled in before ${actionLabel}.`,
+      );
+      return false;
+    }
+
+    if (!areAllInspectionChecksComplete(formData)) {
+      Alert.alert(
+        "Validation Error",
+        `All checklist fields must be checked before ${actionLabel}.`,
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const persistInspection = async (nextFormData) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(nextFormData);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRelease = async (signatureData) => {
+    if (!validateBeforeSigning("release")) {
+      return;
+    }
+
+    const updatedFormData = {
+      ...formData,
+      releasedBy: {
+        name: signatureData.name,
+        id: signatureData.id,
+        timestamp: new Date().toISOString(),
+      },
+      status: "released",
+    };
+
+    setFormData(updatedFormData);
+
+    try {
+      await persistInspection(updatedFormData);
+      Alert.alert("Success", "Pre-inspection has been released");
+    } catch (error) {
+      console.error("Error releasing pre-inspection:", error);
+      Alert.alert("Error", "Failed to release pre-inspection");
     }
   };
 
@@ -199,6 +272,32 @@ export default function PreInspectionEntry({
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
         >
           {renderPage()}
+
+          {isLastPage && isMechanic && formData.status === "pending" && (
+            <View style={{ marginTop: 20, marginBottom: 20 }}>
+              <TouchableOpacity
+                onPress={() => setShowReleaseModal(true)}
+                disabled={isSubmitting}
+                style={{
+                  backgroundColor: COLORS.primaryLight,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  opacity: isSubmitting ? 0.6 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.white,
+                    fontWeight: "600",
+                    fontSize: 16,
+                  }}
+                >
+                  Release
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
 
         {/* Navigation Buttons */}
@@ -264,6 +363,15 @@ export default function PreInspectionEntry({
             </Text>
           </TouchableOpacity>
         </View>
+
+        <PreInspectionSignatureModal
+          visible={showReleaseModal}
+          title="Release Signature"
+          onClose={() => setShowReleaseModal(false)}
+          onSave={handleRelease}
+          aircraftRPC={formData.rpc}
+          role="MECHANIC"
+        />
       </SafeAreaView>
     </Modal>
   );
