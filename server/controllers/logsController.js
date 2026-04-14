@@ -1,15 +1,17 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
 
-const auditLog = async (action, userId = null) => {
+const auditLog = async (action, userId = null, usernameSnapshot = null) => {
   try {
-    let username = "System";
+    let username = usernameSnapshot || "System";
     if (userId) {
-      const user = await UserModel.findById(userId);
-      if (user) {
-        username = user.username;
-      } else {
-        username = `Unknown (ID: ${userId})`;
+      if (!usernameSnapshot) {
+        const user = await UserModel.findById(userId).select("username");
+        if (user) {
+          username = user.username;
+        } else {
+          username = `Unknown (ID: ${userId})`;
+        }
       }
     }
 

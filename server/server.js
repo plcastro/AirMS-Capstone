@@ -4,9 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
-const mongoose = require("mongoose");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
+const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const defectLogRoutes = require("./routes/defectLogRoute");
@@ -68,14 +68,11 @@ app.use((req, res, next) => {
   if (req.params) {
     mongoSanitize.sanitize(req.params, { replaceWith: "_" });
   }
-  // We leave req.query untouched to prevent the crash
+  // leave req.query untouched to prevent the crash
   next();
 });
 
-const ATLAS_URL = process.env.ATLAS_URL;
-require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
-mongoose
-  .connect(ATLAS_URL)
+connectToDatabase()
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -127,9 +124,13 @@ app.use((err, req, res, next) => {
   }
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-  console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
-});
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
+    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
+  });
+}
+
+module.exports = app;
