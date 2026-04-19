@@ -21,9 +21,15 @@ export const AuthProvider = ({ children }) => {
 
   const normalizeUser = (userData) => ({
     ...userData,
+    id: userData.id || userData._id || null,
     jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
     access: userData.access ? userData.access.trim().toLowerCase() : null,
   });
+
+  useEffect(() => {
+    if (!user) return;
+    localStorage.setItem("currentUser", JSON.stringify(user));
+  }, [user]);
 
   const isTokenValid = (token) => {
     try {

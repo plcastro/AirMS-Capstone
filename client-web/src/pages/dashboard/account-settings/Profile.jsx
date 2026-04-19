@@ -128,7 +128,11 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to upload");
 
-      setUser(data.user);
+      setUser((prev) => ({
+        ...prev,
+        ...data.user,
+        id: data?.user?.id || data?.user?._id || prev?.id,
+      }));
       const uploadedImagePath =
         data?.user?.image && data.user.image.startsWith("http")
           ? data.user.image
