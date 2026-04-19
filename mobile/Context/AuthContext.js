@@ -21,6 +21,10 @@ export const AuthProvider = ({ children }) => {
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
   const lastActivityAtRef = useRef(Date.now());
+  const normalizeUser = (userData) => ({
+    ...userData,
+    id: userData?.id || userData?._id || null,
+  });
 
   const isTokenValid = (token) => {
     try {
@@ -195,13 +199,13 @@ export const AuthProvider = ({ children }) => {
           if (storedUser && storedToken && isTokenValid(storedToken)) {
             const parsed = JSON.parse(storedUser);
 
-            const normalizedUser = {
+            const normalizedUser = normalizeUser({
               ...parsed,
               jobTitle: parsed.jobTitle
                 ? parsed.jobTitle.trim().toLowerCase()
                 : null,
               access: parsed.access ? parsed.access.trim().toLowerCase() : null,
-            };
+            });
 
             setUser(normalizedUser);
             scheduleTokenExpiryLogout(storedToken);
@@ -217,7 +221,7 @@ export const AuthProvider = ({ children }) => {
           const parsedToken = storedToken?.[1];
 
           if (parsedUser && parsedToken && isTokenValid(parsedToken)) {
-            setUser(JSON.parse(parsedUser));
+            setUser(normalizeUser(JSON.parse(parsedUser)));
             scheduleTokenExpiryLogout(parsedToken);
           } else {
             await clearStoredAuth();
@@ -233,6 +237,23 @@ export const AuthProvider = ({ children }) => {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const syncUserStorage = async () => {
+      if (!user) return;
+
+      const serializedUser = JSON.stringify(user);
+      if (Platform.OS === "web") {
+        localStorage.setItem("currentUser", serializedUser);
+      } else {
+        await AsyncStorage.setItem("currentUser", serializedUser);
+      }
+    };
+
+    syncUserStorage().catch((err) => {
+      console.error("Failed to sync user storage:", err);
+    });
+  }, [user]);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -303,7 +324,7 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    const normalizedUser = { ...userData }; // keep case
+    const normalizedUser = normalizeUser({ ...userData }); // keep case
     setUser(normalizedUser); // update state immediately
 
     if (Platform.OS === "web") {
