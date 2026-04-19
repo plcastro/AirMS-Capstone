@@ -5,10 +5,13 @@ const { put } = require("@vercel/blob");
 const path = require("path");
 const fs = require("fs");
 
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 2);
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  limits: { fileSize: MAX_UPLOAD_BYTES },
 });
 
 const processImage = async (req, res, next) => {
@@ -46,8 +49,29 @@ const processImage = async (req, res, next) => {
     return next();
   } catch (err) {
     console.error("SHARP ERROR:", err);
-    res.status(500).json({ message: "Image processing failed" });
+    if (err.message && err.message.includes("Input buffer contains unsupported image format")) {
+      return res.status(415).json({ message: "Unsupported image format. Please upload JPG or PNG." });
+    }
+    return res.status(500).json({ message: "Image processing failed" });
   }
 };
 
-module.exports = { upload, processImage };
+const handleUploadError = (err, req, res, next) => {
+  if (!err) return next();
+
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        message: `File too large. Maximum size is ${MAX_UPLOAD_MB}MB.`,
+      });
+    }
+
+    return res.status(400).json({
+      message: err.message || "Upload failed",
+    });
+  }
+
+  return next(err);
+};
+
+module.exports = { upload, processImage, handleUploadError };
