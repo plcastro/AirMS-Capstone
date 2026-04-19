@@ -7,11 +7,18 @@ const fs = require("fs");
 
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 2);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+const IS_VERCEL_RUNTIME = process.env.VERCEL === "1";
 
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: MAX_UPLOAD_BYTES },
+  fileFilter: (req, file, cb) => {
+    if (!file?.mimetype?.startsWith("image/")) {
+      return cb(new Error("INVALID_FILE_TYPE"));
+    }
+    return cb(null, true);
+  },
 });
 
 const processImage = async (req, res, next) => {
@@ -27,14 +34,27 @@ const processImage = async (req, res, next) => {
       req.file.fieldname === "signature" ? "signature" : "image";
     const filename = `${fileLabel}-${req.params.id || "unknown"}-${Date.now()}.jpeg`;
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(`users/${filename}`, processedImage, {
-        access: "public",
-        contentType: "image/jpeg",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
+    if (IS_VERCEL_RUNTIME && !process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(500).json({
+        message: "Server upload configuration error: missing BLOB_READ_WRITE_TOKEN.",
       });
-      req.file.savedPath = blob.url;
-      return next();
+    }
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const blob = await put(`users/${filename}`, processedImage, {
+          access: "public",
+          contentType: "image/jpeg",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+        req.file.savedPath = blob.url;
+        return next();
+      } catch (blobErr) {
+        console.error("BLOB UPLOAD ERROR:", blobErr);
+        return res.status(502).json({
+          message: "Blob upload failed. Check BLOB_READ_WRITE_TOKEN and Blob store configuration.",
+        });
+      }
     }
 
     // Local fallback when Blob token is not configured (development)
@@ -49,6 +69,9 @@ const processImage = async (req, res, next) => {
     return next();
   } catch (err) {
     console.error("SHARP ERROR:", err);
+    if (err.message === "INVALID_FILE_TYPE") {
+      return res.status(415).json({ message: "Only image files are allowed." });
+    }
     if (err.message && err.message.includes("Input buffer contains unsupported image format")) {
       return res.status(415).json({ message: "Unsupported image format. Please upload JPG or PNG." });
     }

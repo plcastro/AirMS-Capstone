@@ -47,6 +47,13 @@ const getAllUsers = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
+    if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
+      console.error("Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing");
+      return res.status(500).json({
+        message: "Server authentication configuration error.",
+      });
+    }
+
     let { identifier, password, client } = req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
