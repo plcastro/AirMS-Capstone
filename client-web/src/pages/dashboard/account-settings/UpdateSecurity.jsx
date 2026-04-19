@@ -244,7 +244,7 @@ export default function UpdateSecurity() {
         />
       </Form.Item>
 
-      <Space direction="vertical" size={4} style={{ width: "100%" }}>
+      <Space orientation="vertical" size={4} style={{ width: "100%" }}>
         {newPassword && (
           <Text style={{ color: strength.color }}>{strength.text}</Text>
         )}
