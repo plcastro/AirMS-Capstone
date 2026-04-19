@@ -31,7 +31,7 @@ const {
   resetPin,
 } = require("../controllers/passwordResetController");
 
-const { upload, processImage } = require("../middleware/upload");
+const { upload, processImage, handleUploadError } = require("../middleware/upload");
 
 // User management routes
 router.post("/login", rateLimiter, loginUser);
@@ -75,5 +75,7 @@ router.post("/reset-password", resetPassword);
 router.post("/request-pin-reset/:id", requestPinReset);
 router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
 router.post("/reset-pin", resetPin);
+
+router.use(handleUploadError);
 
 module.exports = router;
