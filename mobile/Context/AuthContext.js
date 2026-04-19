@@ -5,12 +5,21 @@ import { API_BASE } from "../utilities/API_BASE";
 
 export const AuthContext = createContext();
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+const WARNING_DURATION_MS = 10 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
+    useState(false);
+  const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
+    WARNING_DURATION_MS / 1000,
+  );
   const appStateRef = useRef(AppState.currentState);
   const inactivityTimeoutRef = useRef(null);
+  const warningTimeoutRef = useRef(null);
+  const warningCountdownIntervalRef = useRef(null);
+  const tokenExpiryTimeoutRef = useRef(null);
   const lastActivityAtRef = useRef(Date.now());
 
   const isTokenValid = (token) => {
@@ -46,12 +55,88 @@ export const AuthProvider = ({ children }) => {
       clearTimeout(inactivityTimeoutRef.current);
       inactivityTimeoutRef.current = null;
     }
+    if (warningTimeoutRef.current) {
+      clearTimeout(warningTimeoutRef.current);
+      warningTimeoutRef.current = null;
+    }
+    if (warningCountdownIntervalRef.current) {
+      clearInterval(warningCountdownIntervalRef.current);
+      warningCountdownIntervalRef.current = null;
+    }
+  };
+
+  const clearTokenExpiryTimeout = () => {
+    if (tokenExpiryTimeoutRef.current) {
+      clearTimeout(tokenExpiryTimeoutRef.current);
+      tokenExpiryTimeoutRef.current = null;
+    }
+  };
+
+  const getTokenExpiryTime = (token) => {
+    try {
+      const base64Payload = token.split(".")[1];
+      const normalizedPayload = base64Payload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+      if (typeof global.atob !== "function") {
+        return null;
+      }
+
+      const payload = JSON.parse(global.atob(normalizedPayload));
+      return payload.exp * 1000;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const startWarningCountdown = (secondsRemaining) => {
+    const safeSeconds = Math.max(0, secondsRemaining);
+    setShowSessionTimeoutWarning(true);
+    setWarningSecondsRemaining(safeSeconds);
+
+    if (warningCountdownIntervalRef.current) {
+      clearInterval(warningCountdownIntervalRef.current);
+    }
+
+    warningCountdownIntervalRef.current = setInterval(() => {
+      setWarningSecondsRemaining((previousSeconds) => {
+        if (previousSeconds <= 1) {
+          clearInterval(warningCountdownIntervalRef.current);
+          warningCountdownIntervalRef.current = null;
+          return 0;
+        }
+        return previousSeconds - 1;
+      });
+    }, 1000);
+  };
+
+  const scheduleTokenExpiryLogout = (token) => {
+    clearTokenExpiryTimeout();
+    const expiryAt = getTokenExpiryTime(token);
+
+    if (!expiryAt) {
+      return;
+    }
+
+    const msRemaining = expiryAt - Date.now();
+
+    if (msRemaining <= 0) {
+      logoutUser();
+      return;
+    }
+
+    tokenExpiryTimeoutRef.current = setTimeout(() => {
+      logoutUser();
+    }, msRemaining);
   };
 
   const logoutUser = async ({ notifyServer = false } = {}) => {
     try {
       setLoading(true);
       clearInactivityTimeout();
+      clearTokenExpiryTimeout();
+      setShowSessionTimeoutWarning(false);
 
       if (notifyServer && Platform.OS !== "web") {
         const token = await AsyncStorage.getItem("currentUserToken");
@@ -84,10 +169,20 @@ export const AuthProvider = ({ children }) => {
     }
 
     lastActivityAtRef.current = Date.now();
+    setShowSessionTimeoutWarning(false);
     clearInactivityTimeout();
+
+    warningTimeoutRef.current = setTimeout(() => {
+      startWarningCountdown(WARNING_DURATION_MS / 1000);
+    }, INACTIVITY_LIMIT_MS - WARNING_DURATION_MS);
+
     inactivityTimeoutRef.current = setTimeout(() => {
       logoutUser();
     }, INACTIVITY_LIMIT_MS);
+  };
+
+  const continueSession = () => {
+    recordActivity();
   };
 
   useEffect(() => {
@@ -109,12 +204,25 @@ export const AuthProvider = ({ children }) => {
             };
 
             setUser(normalizedUser);
+            scheduleTokenExpiryLogout(storedToken);
           } else if (storedUser || storedToken) {
             await clearStoredAuth();
           }
         } else {
-          await clearStoredAuth();
-          setUser(null);
+          const [storedUser, storedToken] = await AsyncStorage.multiGet([
+            "currentUser",
+            "currentUserToken",
+          ]);
+          const parsedUser = storedUser?.[1];
+          const parsedToken = storedToken?.[1];
+
+          if (parsedUser && parsedToken && isTokenValid(parsedToken)) {
+            setUser(JSON.parse(parsedUser));
+            scheduleTokenExpiryLogout(parsedToken);
+          } else {
+            await clearStoredAuth();
+            setUser(null);
+          }
         }
       } catch (err) {
         console.error("Failed to load user:", err);
@@ -144,8 +252,20 @@ export const AuthProvider = ({ children }) => {
         previousState.match(/inactive|background/) &&
         nextAppState === "active"
       ) {
-        if (Date.now() - lastActivityAtRef.current >= INACTIVITY_LIMIT_MS) {
+        const elapsed = Date.now() - lastActivityAtRef.current;
+        if (elapsed >= INACTIVITY_LIMIT_MS) {
           logoutUser();
+          return;
+        }
+
+        if (elapsed >= INACTIVITY_LIMIT_MS - WARNING_DURATION_MS) {
+          const remainingSeconds = Math.ceil(
+            (INACTIVITY_LIMIT_MS - elapsed) / 1000,
+          );
+          startWarningCountdown(remainingSeconds);
+          inactivityTimeoutRef.current = setTimeout(() => {
+            logoutUser();
+          }, INACTIVITY_LIMIT_MS - elapsed);
           return;
         }
 
@@ -198,7 +318,15 @@ export const AuthProvider = ({ children }) => {
     }
 
     lastActivityAtRef.current = Date.now();
+    scheduleTokenExpiryLogout(token);
   };
+
+  useEffect(() => {
+    return () => {
+      clearInactivityTimeout();
+      clearTokenExpiryTimeout();
+    };
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -208,6 +336,9 @@ export const AuthProvider = ({ children }) => {
         loginUser,
         logoutUser,
         recordActivity,
+        continueSession,
+        showSessionTimeoutWarning,
+        warningSecondsRemaining,
         loading,
       }}
     >

@@ -1,5 +1,13 @@
 import React, { useContext, useEffect } from "react";
-import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
+import {
+  Platform,
+  Image,
+  TouchableOpacity,
+  Text,
+  View,
+  Modal,
+  Pressable,
+} from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
@@ -254,7 +262,13 @@ function StackNavWrapper() {
 }
 
 function AppShell({ linking }) {
-  const { recordActivity } = useContext(AuthContext);
+  const {
+    recordActivity,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
 
   return (
     <View
@@ -271,6 +285,78 @@ function AppShell({ linking }) {
       >
         <StackNavWrapper />
       </NavigationContainer>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showSessionTimeoutWarning}
+        onRequestClose={() => continueSession?.()}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 18,
+            }}
+          >
+            <Text
+              style={{ fontSize: 18, fontWeight: "700", marginBottom: 10 }}
+            >
+              Session Timeout Warning
+            </Text>
+            <Text style={{ fontSize: 14, color: "#333", marginBottom: 8 }}>
+              You&apos;ve been inactive for a while. For your security,
+              you&apos;ll be signed out in 2 minutes unless you continue.
+            </Text>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
+              Auto sign-out in {warningSecondsRemaining} seconds.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Pressable
+                onPress={() => logoutUser?.()}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#d9d9d9",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: "#333" }}>Sign out now</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => continueSession?.()}
+                style={{
+                  backgroundColor: "#26866F",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  marginLeft: 8,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  Continue session
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
