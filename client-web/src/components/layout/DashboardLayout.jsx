@@ -94,7 +94,7 @@ const DashboardLayout = () => {
             >
               {user?.image ? (
                 <img
-                  src={user?.image ? `${API_BASE}${user.image}` : ""}
+                  src={user.image.startsWith("http") ? user.image : `${API_BASE}${user.image}`}
                   alt="User"
                   style={{
                     width: 40,

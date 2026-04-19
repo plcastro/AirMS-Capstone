@@ -4,6 +4,7 @@ const sendEmail = require("../utilities/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
+const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
@@ -430,7 +431,7 @@ const createUser = async (req, res) => {
 
     let imagePath = "";
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+      imagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
     }
 
     const newUser = await UserModel.create({
@@ -728,11 +729,17 @@ const updateUserStatus = async (req, res) => {
       .json({ message: err.message || "Failed to update user status" });
   }
 };
-const deleteFile = (filePath) => {
+const deleteFile = async (filePath) => {
   // 1. Exit if the user doesn't have an image (prevents the 'null' deletion crash)
   if (!filePath || typeof filePath !== "string" || filePath === "null") return;
 
   try {
+    if (filePath.startsWith("http")) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+      await del(filePath, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      return;
+    }
+
     // 2. Normalize the path (remove leading slash)
     const cleanPath = filePath.startsWith("/")
       ? filePath.substring(1)
@@ -742,7 +749,7 @@ const deleteFile = (filePath) => {
     const fullPath = path.resolve(process.cwd(), cleanPath);
 
     if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+      await fs.promises.unlink(fullPath);
       console.log("Successfully deleted old image:", fullPath);
     }
   } catch (err) {
@@ -765,7 +772,7 @@ const updateUserImage = async (req, res) => {
         typeof user.image === "string" &&
         user.image !== "null"
       ) {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
 
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
@@ -773,7 +780,7 @@ const updateUserImage = async (req, res) => {
       console.log("New image path ready for DB:", newImagePath);
     } else if (req.body.image === null || req.body.image === "null") {
       if (user.image && typeof user.image === "string") {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
       newImagePath = null;
     }
