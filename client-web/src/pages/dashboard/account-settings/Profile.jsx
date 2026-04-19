@@ -275,8 +275,12 @@ export default function Profile() {
       <Row justify="center">
         <Col xs={24} style={{ maxWidth: 1200 }}>
           <Card>
-            <Space direction="vertical" size="large" style={{ width: "100%" }}>
-              <Space direction="vertical" size={4}>
+            <Space
+              orientation="vertical"
+              size="large"
+              style={{ width: "100%" }}
+            >
+              <Space orientation="vertical" size={4}>
                 <Title level={3} style={{ margin: 0 }}>
                   Account Settings
                 </Title>
@@ -290,7 +294,7 @@ export default function Profile() {
                 <Col xs={24} md={10}>
                   <Card size="small" title="Profile Picture">
                     <Space
-                      direction="vertical"
+                      orientation="vertical"
                       size={24}
                       style={{ width: "100%", alignItems: "center" }}
                     >
