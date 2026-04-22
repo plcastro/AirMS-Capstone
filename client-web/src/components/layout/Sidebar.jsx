@@ -28,19 +28,25 @@ const Sidebar = ({ collapsed }) => {
   const menuItems = [
     {
       key: "1",
+      label: "Admin Dashboard",
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      roles: ["admin"],
+    },
+    {
+      key: "2",
       label: "View Users",
       icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
-      key: "2",
+      key: "3",
       label: "Activity Logs",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
 
     {
-      key: "3",
+      key: "4",
       label: "Flight Logs",
       icon: (
         <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
@@ -50,47 +56,52 @@ const Sidebar = ({ collapsed }) => {
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "4",
+      key: "5",
       label: "Maintenance Logs",
       icon: <ToolOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
 
     {
-      key: "5",
+      key: "6",
       label: "Parts Lifespan Monitoring",
       icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "6",
+      key: "7",
       label: "Maintenance Tracking",
       icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "7",
+      key: "8",
       label: "Parts Requisition Monitoring",
       icon: <InboxOutlined style={{ fontSize: 24 }} />,
       roles: ["warehouse department"],
     },
     {
-      key: "8",
+      key: "9",
       label: "Maintenance Priority",
       icon: <FlagOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager"],
     },
     {
-      key: "9",
+      key: "10",
       label: "Reports and Analytics",
       icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "10",
+      key: "11",
       label: "Profile",
       icon: <UserOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin", "maintenance manager", "warehouse department"],
+      roles: [
+        "admin",
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse department",
+      ],
     },
   ];
 
@@ -111,16 +122,17 @@ const Sidebar = ({ collapsed }) => {
 
   const routeToKey = useMemo(
     () => ({
-      "/dashboard/user-management/view-users": "1",
-      "/dashboard/user-management/activity-logs": "2",
-      "/dashboard/flight-log": "3",
-      "/dashboard/maintenance-log": "4",
-      "/dashboard/parts-lifespan-monitoring": "5",
-      "/dashboard/maintenance-tracking": "6",
-      "/dashboard/parts-requisition": "7",
-      "/dashboard/maintenance-priority": "8",
-      "/dashboard/maintenance-dashboard": "9",
-      "/dashboard/profile": "10",
+      "/dashboard/user-management/admin-dashboard": "1",
+      "/dashboard/user-management/view-users": "2",
+      "/dashboard/user-management/activity-logs": "3",
+      "/dashboard/flight-log": "4",
+      "/dashboard/maintenance-log": "5",
+      "/dashboard/parts-lifespan-monitoring": "6",
+      "/dashboard/maintenance-tracking": "7",
+      "/dashboard/parts-requisition": "8",
+      "/dashboard/maintenance-priority": "9",
+      "/dashboard/maintenance-dashboard": "10",
+      "/dashboard/profile": "11",
     }),
     [],
   );

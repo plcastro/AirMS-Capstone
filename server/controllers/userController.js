@@ -570,39 +570,72 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    let { firstName, lastName, email, username, access, jobTitle } = req.body;
+    let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
+      req.body;
 
-    if (
-      typeof firstName !== "string" ||
-      typeof lastName !== "string" ||
-      typeof email !== "string" ||
-      typeof username !== "string"
-    ) {
-      return res.status(400).json({
-        message: "Invalid input type",
-      });
+    const parseString = (value) =>
+      typeof value === "string" ? value.trim() : "";
+
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    username = parseString(username);
+    access = parseString(access);
+    jobTitle = parseString(jobTitle);
+    licenseNo = parseString(licenseNo);
+
+    if (!firstName || !lastName || !email || !username || !access || !jobTitle) {
+      return res.status(400).json({ message: "Employee information required" });
     }
 
-    firstName = firstName.trim();
-    lastName = lastName.trim();
-    email = email.trim();
-    username = username.trim();
-    access = access.trim();
-    jobTitle = jobTitle.trim();
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
 
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !username ||
-      !access ||
-      !jobTitle
-    ) {
-      return res.status(400).json({ message: "Employee information required" });
+    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    if (!allowedAccess.has(access)) {
+      return res.status(400).json({ message: "Invalid access level" });
+    }
+
+    const rolesRequiringLicense = new Set([
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ]);
+    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    if (requiresLicense && !licenseNo) {
+      return res.status(400).json({ message: "License no. is required" });
     }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const existingEmail = await UserModel.findOne({
+      email,
+      _id: { $ne: id },
+    });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const existingUsername = await UserModel.findOne({
+      username,
+      _id: { $ne: id },
+    });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already taken" });
+    }
+
+    if (requiresLicense && licenseNo) {
+      const existingLicense = await UserModel.findOne({
+        licenseNo,
+        _id: { $ne: id },
+      });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
+    }
 
     const changes = {};
     if (firstName && firstName !== user.firstName)
@@ -617,11 +650,26 @@ const updateUser = async (req, res) => {
       changes.jobTitle = { old: user.jobTitle, new: jobTitle };
     if (access && access !== user.access)
       changes.access = { old: user.access, new: access };
+    if (requiresLicense && licenseNo !== (user.licenseNo || ""))
+      changes.licenseNo = { old: user.licenseNo || "", new: licenseNo };
+    if (!requiresLicense && user.licenseNo) {
+      changes.licenseNo = { old: user.licenseNo, new: "" };
+    }
+
+    const updateData = {
+      firstName,
+      lastName,
+      email,
+      username,
+      access,
+      jobTitle,
+      licenseNo: requiresLicense ? licenseNo : null,
+    };
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
-      { firstName, lastName, email, username, access, jobTitle },
-      { returnDocument: "after" },
+      updateData,
+      { new: true, runValidators: true },
     );
 
     if (Object.keys(changes).length > 0) {
@@ -642,7 +690,7 @@ const updateUser = async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "User updated successfully", user: updatedUser });
+      .json({ message: "User updated successfully", user: updatedUser, data: updatedUser });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);

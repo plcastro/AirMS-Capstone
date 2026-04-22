@@ -31,6 +31,9 @@ const UserManagement = lazy(
 const UserLogs = lazy(
   () => import("./pages/dashboard/user-management/UserLogs"),
 );
+const AdminDashboard = lazy(
+  () => import("./pages/dashboard/user-management/AdminDashboard"),
+);
 const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
@@ -116,6 +119,14 @@ const AppRouter = () => {
               </ProtectedRoute>
             }
           >
+            <Route
+              path="user-management/admin-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="user-management/view-users"
               element={
