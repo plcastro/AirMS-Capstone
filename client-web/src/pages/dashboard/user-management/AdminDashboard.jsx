@@ -188,6 +188,8 @@ export default function AdminDashboard() {
       create: ["created", "added", "inserted", "new"],
       update: ["updated", "modified", "changed", "edited"],
       delete: ["deleted", "removed", "destroyed", "erased"],
+      login: ["log in", "logged in", "login", "signed in"],
+      logout: ["log out", "logged out", "logout", "signed out"],
     };
 
     const dailyStats = {};
@@ -204,6 +206,8 @@ export default function AdminDashboard() {
           create: 0,
           update: 0,
           delete: 0,
+          login: 0,
+          logout: 0,
         };
       }
 
@@ -227,11 +231,26 @@ export default function AdminDashboard() {
       .slice(-30); // Last 30 days
   }, [logs]);
 
+  const actionTrendTicks = useMemo(() => {
+    if (!actionTrendData.length) return [];
+    if (actionTrendData.length <= 3) {
+      return actionTrendData.map((item) => item.date);
+    }
+
+    const first = actionTrendData[0].date;
+    const middle = actionTrendData[Math.floor(actionTrendData.length / 2)].date;
+    const last = actionTrendData[actionTrendData.length - 1].date;
+
+    return [first, middle, last];
+  }, [actionTrendData]);
+
   const actionTypeOptions = [
     { label: "All Actions", value: "all" },
     { label: "Create", value: "create" },
     { label: "Update", value: "update" },
     { label: "Delete", value: "delete" },
+    { label: "Log In", value: "login" },
+    { label: "Log Out", value: "logout" },
   ];
 
   const columns = [
@@ -253,7 +272,7 @@ export default function AdminDashboard() {
         height: "calc(100vh - 200px)",
       }}
     >
-      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+      <Row style={{ marginBottom: 20 }}>
         <Col span={24}>
           <Title level={3} style={{ marginBottom: 0 }}>
             Admin Audit Dashboard
@@ -415,7 +434,9 @@ export default function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={(dateStr) => dayjs(dateStr).format("MM/DD")}
+                  ticks={actionTrendTicks}
+                  interval={0}
+                  tickFormatter={(dateStr) => dayjs(dateStr).format("MMM D")}
                 />
                 <YAxis />
                 <Tooltip
@@ -456,6 +477,26 @@ export default function AdminDashboard() {
                     stroke="#f5222d"
                     strokeWidth={2}
                     name="Delete"
+                  />
+                )}
+                {(selectedActionType === "all" ||
+                  selectedActionType === "login") && (
+                  <Line
+                    type="monotone"
+                    dataKey="login"
+                    stroke="#722ed1"
+                    strokeWidth={2}
+                    name="Log In"
+                  />
+                )}
+                {(selectedActionType === "all" ||
+                  selectedActionType === "logout") && (
+                  <Line
+                    type="monotone"
+                    dataKey="logout"
+                    stroke="#fa8c16"
+                    strokeWidth={2}
+                    name="Log Out"
                   />
                 )}
               </LineChart>

@@ -29,12 +29,12 @@ const Sidebar = ({ collapsed }) => {
     {
       key: "1",
       label: "Admin Dashboard",
-      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
       key: "2",
-      label: "View Users",
+      label: "Manage Users",
       icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
