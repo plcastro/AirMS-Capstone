@@ -133,7 +133,7 @@ const Login = () => {
 
     switch (pos) {
       case "admin":
-        navigate("/dashboard/user-management/view-users");
+        navigate("/dashboard/user-management/admin-dashboard");
         break;
       case "pilot":
         navigate("/dashboard/flight-log");
