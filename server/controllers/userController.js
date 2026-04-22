@@ -196,7 +196,11 @@ const loginUser = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    auditLog("User logged in", user._id, user.username).catch((logError) => {
+    auditLog(
+      `User log in: ${user.username} (actorId: ${user._id})`,
+      user._id,
+      user.username,
+    ).catch((logError) => {
       console.error("Login audit log failed:", logError);
     });
 
@@ -284,8 +288,9 @@ const logoutUser = async (req, res) => {
     }
 
     await auditLog(
-      `User logged out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
+      `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
+      decoded.username || null,
     );
 
     res.clearCookie("refreshToken", {
