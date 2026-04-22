@@ -1,5 +1,24 @@
-import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
-import { Input, Button, Table, Space, message, Modal } from "antd";
+import React, {
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
+import {
+  Input,
+  Button,
+  Table,
+  Space,
+  message,
+  Modal,
+  Select,
+  Card,
+  Row,
+  Col,
+  Tag,
+  Typography,
+} from "antd";
 import {
   PlusOutlined,
   SearchOutlined,
@@ -11,15 +30,36 @@ import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./flightlog.css";
 
+const { Text } = Typography;
+
 export default function FlightLog() {
+  const formatDisplayDate = (value) => {
+    if (!value) return "N/A";
+
+    const raw = String(value).trim();
+
+    // Keep already-formatted dates as-is.
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      return raw;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) {
+      return raw;
+    }
+
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const year = parsed.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
   const { user } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,12 +105,15 @@ export default function FlightLog() {
         params.append("status", normalizeStatusFilterValue(selectedStatus));
       }
 
-      const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       const data = await response.json();
 
@@ -89,12 +132,15 @@ export default function FlightLog() {
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/flightlogs/${flightLogId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${flightLogId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       const data = await response.json();
 
@@ -189,17 +235,20 @@ export default function FlightLog() {
     try {
       setSaving(true);
 
-      const response = await fetch(`${API_BASE}/api/flightlogs/${selectedLog._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${selectedLog._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...selectedLog,
+            ...data,
+            _id: selectedLog._id,
+          }),
         },
-        body: JSON.stringify({
-          ...selectedLog,
-          ...data,
-          _id: selectedLog._id,
-        }),
-      });
+      );
 
       const result = await response.json();
 
@@ -287,14 +336,17 @@ export default function FlightLog() {
       setSaving(true);
 
       if (action === "release") {
-        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/release`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: getUserDisplayName(),
-            signature: user?.signature || getUserDisplayName(),
-          }),
-        });
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/release`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: getUserDisplayName(),
+              signature: user?.signature || getUserDisplayName(),
+            }),
+          },
+        );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
@@ -303,15 +355,18 @@ export default function FlightLog() {
       }
 
       if (action === "accept") {
-        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/accept`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: getUserDisplayName(),
-            signature: user?.signature || getUserDisplayName(),
-            userRole: "pilot",
-          }),
-        });
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/accept`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: getUserDisplayName(),
+              signature: user?.signature || getUserDisplayName(),
+              userRole: "pilot",
+            }),
+          },
+        );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
@@ -364,16 +419,23 @@ export default function FlightLog() {
         );
         const totalsData = await totalsResponse.json();
         if (!totalsResponse.ok) {
-          throw new Error(totalsData.message || "Failed to update aircraft totals");
+          throw new Error(
+            totalsData.message || "Failed to update aircraft totals",
+          );
         }
 
-        const completeResponse = await fetch(`${API_BASE}/api/flightlogs/${log._id}/complete`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-        });
+        const completeResponse = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/complete`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+          },
+        );
         const completeData = await completeResponse.json();
         if (!completeResponse.ok) {
-          throw new Error(completeData.message || "Failed to complete flight log");
+          throw new Error(
+            completeData.message || "Failed to complete flight log",
+          );
         }
         message.success("Flight log completed");
       }
@@ -481,21 +543,21 @@ export default function FlightLog() {
 
   const getStatusBadge = (status) => {
     if (status === "pending_release") {
-      return <span className="fl-badge fl-badge--ongoing">Pending Release</span>;
+      return <Tag color="orange">Pending Release</Tag>;
     }
     if (status === "pending_acceptance") {
-      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+      return <Tag color="gold">Released</Tag>;
     }
     if (status === "released") {
-      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+      return <Tag color="gold">Released</Tag>;
     }
     if (status === "accepted") {
-      return <span className="fl-badge fl-badge--ongoing">Accepted</span>;
+      return <Tag color="blue">Accepted</Tag>;
     }
     if (status === "completed") {
-      return <span className="fl-badge fl-badge--completed">Completed</span>;
+      return <Tag color="green">Completed</Tag>;
     }
-    return <span className="fl-badge fl-badge--ongoing">Ongoing</span>;
+    return <Tag>Ongoing</Tag>;
   };
 
   const columns = [
@@ -506,7 +568,13 @@ export default function FlightLog() {
       width: 140,
     },
     { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
-    { title: "Date", dataIndex: "date", key: "date", width: 100 },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      width: 120,
+      render: (value) => formatDisplayDate(value),
+    },
     {
       title: "Control",
       dataIndex: "controlNo",
@@ -526,29 +594,49 @@ export default function FlightLog() {
       width: 280,
       render: (_, record) => (
         <Space size={4}>
-          <Button type="primary" size="small" onClick={() => handleEdit(record)}>
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => handleEdit(record)}
+          >
             Edit
           </Button>
           {isMechanic && record.status === "pending_release" && (
-            <Button size="small" onClick={() => openWorkflowModal("release", record)}>
+            <Button
+              size="small"
+              onClick={() => openWorkflowModal("release", record)}
+            >
               Release
             </Button>
           )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button size="small" onClick={() => openWorkflowModal("accept", record)}>
+            <Button
+              size="small"
+              onClick={() => openWorkflowModal("accept", record)}
+            >
               Accept
             </Button>
           )}
-          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
-            <Button size="small" onClick={() => openWorkflowModal("notify", record)}>
-              Notify
-            </Button>
-          )}
-          {isMechanic && record.status === "accepted" && record.notifiedForCompletion && (
-            <Button size="small" onClick={() => openWorkflowModal("complete", record)}>
-              Complete
-            </Button>
-          )}
+          {isPilot &&
+            record.status === "accepted" &&
+            !record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("notify", record)}
+              >
+                Notify
+              </Button>
+            )}
+          {isMechanic &&
+            record.status === "accepted" &&
+            record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("complete", record)}
+              >
+                Complete
+              </Button>
+            )}
           <Button
             type="text"
             size="small"
@@ -562,102 +650,59 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      <div className="fl-search-row">
-        <div className="fl-search-wrapper">
+      <Row gutter={[12, 12]} align="middle">
+        <Col xs={24} md={8}>
           <Input
+            size="large"
             className="fl-search"
-            placeholder="Search"
+            placeholder="Search by RP/C, type, or date"
             prefix={<SearchOutlined />}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             allowClear
           />
-        </div>
-
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setEntryModalVisible(true)}
-          className="fl-new-entry-btn"
-        >
-          New Entry
-        </Button>
-      </div>
-
-      <div className="fl-filters-row">
-        <div className="fl-filter-dropdown">
-          <div
-            className="fl-filter-selector"
-            onClick={() => setShowAircraftDropdown((prev) => !prev)}
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select
+            size="large"
+            style={{ width: "100%" }}
+            value={selectedAircraft || "all"}
+            onChange={(value) =>
+              setSelectedAircraft(value === "all" ? "" : value)
+            }
+            options={aircraftOptions.map((aircraft) => ({
+              value: aircraft,
+              label: aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
+            }))}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select
+            size="large"
+            style={{ width: "100%" }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            options={statusOptions}
+          />
+        </Col>
+        <Col xs={24} md={4} style={{ textAlign: "right" }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => setEntryModalVisible(true)}
           >
-            <span
-              className={
-                selectedAircraft && selectedAircraft !== "all"
-                  ? "fl-filter-selected"
-                  : "fl-filter-placeholder"
-              }
-            >
-              {selectedAircraft && selectedAircraft !== "all"
-                ? `RP/C: ${selectedAircraft}`
-                : "Choose Aircraft"}
-            </span>
-            <span className="fl-filter-arrow">
-              {showAircraftDropdown ? "▲" : "▼"}
-            </span>
-          </div>
+            New Entry
+          </Button>
+        </Col>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+          </Text>
+        </Col>
+      </Row>
 
-          {showAircraftDropdown && (
-            <div className="fl-dropdown-menu">
-              {aircraftOptions.map((aircraft) => (
-                <div
-                  key={aircraft}
-                  className="fl-dropdown-item"
-                  onClick={() => {
-                    setSelectedAircraft(aircraft);
-                    setShowAircraftDropdown(false);
-                  }}
-                >
-                  {aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="fl-filter-dropdown" style={{ width: 150 }}>
-          <div
-            className="fl-filter-selector"
-            onClick={() => setShowStatusDropdown((prev) => !prev)}
-          >
-            <span className="fl-filter-selected">
-              {statusOptions.find((option) => option.value === selectedStatus)?.label ||
-                "Status"}
-            </span>
-            <span className="fl-filter-arrow">
-              {showStatusDropdown ? "▲" : "▼"}
-            </span>
-          </div>
-
-          {showStatusDropdown && (
-            <div className="fl-dropdown-menu">
-              {statusOptions.map((option) => (
-                <div
-                  key={option.value}
-                  className="fl-dropdown-item"
-                  onClick={() => {
-                    setSelectedStatus(option.value);
-                    setShowStatusDropdown(false);
-                  }}
-                >
-                  {option.label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="fl-table-wrapper">
+      <Card className="fl-table-wrapper" styles={{ body: { padding: 0 } }}>
         <Table
           className="fl-table"
           columns={columns}
@@ -666,13 +711,14 @@ export default function FlightLog() {
           rowKey={(record) => record._id || record.id}
           pagination={{ pageSize: 10, showSizeChanger: false }}
           locale={{
-            emptyText: searchQuery || selectedAircraft || selectedStatus !== "all"
-              ? "No flight logs found"
-              : "No flight logs yet",
+            emptyText:
+              searchQuery || selectedAircraft || selectedStatus !== "all"
+                ? "No flight logs found"
+                : "No flight logs yet",
           }}
           size="small"
         />
-      </div>
+      </Card>
 
       <FlightLogEntry
         visible={entryModalVisible}
@@ -719,10 +765,16 @@ export default function FlightLog() {
           <p>Accept this flight log as pilot?</p>
         )}
         {workflowModal.action === "notify" && (
-          <p>Notify the mechanic that this accepted flight log is ready for completion?</p>
+          <p>
+            Notify the mechanic that this accepted flight log is ready for
+            completion?
+          </p>
         )}
         {workflowModal.action === "complete" && (
-          <p>Complete this flight log and update parts-monitoring totals from its to-date values?</p>
+          <p>
+            Complete this flight log and update parts-monitoring totals from its
+            to-date values?
+          </p>
         )}
       </Modal>
     </div>

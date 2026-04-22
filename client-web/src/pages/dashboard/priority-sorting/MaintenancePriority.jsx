@@ -433,7 +433,7 @@ export default function MaintenancePriority() {
               />
             </Col>
             <Col xs={24} sm={12} lg={6}>
-              <Space direction="vertical" style={{ marginTop: 28 }}>
+              <Space orientation="vertical" style={{ marginTop: 28 }}>
                 <Text>Safety-critical auto escalation</Text>
                 <Switch
                   checked={draftRules.safetyBoostEnabled}

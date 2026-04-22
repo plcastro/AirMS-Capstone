@@ -74,7 +74,7 @@ const AppRouter = () => {
       <Modal
         open={showSessionTimeoutWarning}
         closable={false}
-        maskClosable={false}
+        mask={{ closable: false }}
         centered
         footer={[
           <Button key="logout" onClick={() => logoutUser()}>
