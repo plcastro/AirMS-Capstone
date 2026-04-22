@@ -287,11 +287,9 @@ export default function PartsMonitoring() {
           setRawData(parts);
           message.success(`Loaded saved data for ${aircraft}`);
         } else {
-          // No parts in saved data, fallback to default
           loadDefaultData(aircraft);
         }
       } else if (response.status === 404) {
-        // No saved data, use default
         loadDefaultData(aircraft);
       } else {
         message.error(data.message || "Error loading data");
@@ -306,7 +304,6 @@ export default function PartsMonitoring() {
     }
   };
 
-  // Reload when aircraft changes
   useEffect(() => {
     if (selectedAircraft) {
       loadDataFromDatabase(selectedAircraft);
@@ -321,7 +318,6 @@ export default function PartsMonitoring() {
     }
   }, [selectedAircraft]);
 
-  // Compute derived data using the correct formula processor for the selected aircraft
   const computedData = useMemo(() => {
     if (!selectedAircraft || rawData.length === 0) return [];
     const processor = getFormulaProcessor(selectedAircraft);
