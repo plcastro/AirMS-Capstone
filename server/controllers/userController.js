@@ -176,7 +176,13 @@ const loginUser = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { id: user._id, username: user.username, jobTitle: user.jobTitle },
+      {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        jobTitle: user.jobTitle,
+        access: user.access,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "30m" },
     );
@@ -263,7 +269,9 @@ const refreshToken = async (req, res) => {
       {
         id: user._id,
         username: user.username,
+        email: user.email,
         jobTitle: user.jobTitle,
+        access: user.access,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },

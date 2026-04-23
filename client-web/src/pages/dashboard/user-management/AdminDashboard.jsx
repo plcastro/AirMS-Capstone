@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Row,
   Col,
   Card,
   Statistic,
-  Input,
   Divider,
   Table,
   Typography,
@@ -12,7 +11,6 @@ import {
   Select,
   Space,
 } from "antd";
-import { SearchOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { SDMChart } from "../../../components/common/PieChart";
 import {
@@ -28,10 +26,12 @@ import {
   Line,
 } from "recharts";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
 export default function AdminDashboard() {
+  const { getValidToken } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -45,7 +45,12 @@ export default function AdminDashboard() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/get-all-users`);
+      const token = await getValidToken();
+      const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const json = await res.json();
       if (Array.isArray(json.data)) {
         setUsers(json.data);
@@ -60,24 +65,35 @@ export default function AdminDashboard() {
   const fetchLogs = async (startDate = null, endDate = null) => {
     setLoadingLogs(true);
     try {
+      const token = await getValidToken();
       let url = `${API_BASE}/api/logs/getAllUserLogs`;
       if (startDate && endDate) {
         const params = new URLSearchParams({
+          page: "1",
+          limit: "1000",
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         });
         url += `?${params.toString()}`;
+      } else {
+        const params = new URLSearchParams({
+          page: "1",
+          limit: "1000",
+        });
+        url += `?${params.toString()}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const json = await res.json();
       if (Array.isArray(json.data)) {
         const mapped = json.data.map((log, index) => ({
           index: index + 1,
           key: log._id || index,
-          dateTime: log.dateTime
-            ? new Date(log.dateTime).toLocaleString()
-            : "N/A",
+          dateTime: log.dateTime || null,
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
         }));
@@ -195,9 +211,10 @@ export default function AdminDashboard() {
     const dailyStats = {};
 
     logs.forEach((log) => {
-      if (!log.dateTime || log.dateTime === "N/A") return;
+      if (!log.dateTime) return;
 
       const date = new Date(log.dateTime);
+      if (Number.isNaN(date.getTime())) return;
       const dateKey = date.toISOString().split("T")[0]; // YYYY-MM-DD format
 
       if (!dailyStats[dateKey]) {
@@ -316,12 +333,12 @@ export default function AdminDashboard() {
       <Row gutter={[12, 12]} style={{ marginTop: 20 }}>
         <Col xs={24} lg={12}>
           <Card title="Role Assignment Distribution" size="small">
-            <SDMChart data={roleChartData} />
+            <SDMChart data={roleChartData} height={260} outerRadius={74} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
           <Card title="Account Status Distribution" size="small">
-            <SDMChart data={statusChartData} />
+            <SDMChart data={statusChartData} height={260} outerRadius={74} />
           </Card>
         </Col>
       </Row>
