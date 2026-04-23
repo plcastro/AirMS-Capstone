@@ -109,6 +109,12 @@ router.put(
   processImage,
   updateUserImage,
 );
+router.delete(
+  "/update-user-image/:id",
+  verifyToken,
+  rbacMiddleware.requireSelfOrAdmin("id"),
+  updateUserImage,
+);
 router.put(
   "/updateSignature/:id",
   upload.single("signature"),

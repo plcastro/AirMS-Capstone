@@ -833,6 +833,11 @@ const updateUserImage = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let newImagePath = user.image;
+    const shouldRemoveImage =
+      req.method === "DELETE" ||
+      req.body?.removeImage === true ||
+      req.body?.image === null ||
+      req.body?.image === "null";
 
     if (req.file) {
       if (
@@ -846,27 +851,36 @@ const updateUserImage = async (req, res) => {
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
 
       console.log("New image path ready for DB:", newImagePath);
-    } else if (req.body.image === null || req.body.image === "null") {
+    } else if (shouldRemoveImage) {
       if (user.image && typeof user.image === "string") {
         await deleteFile(user.image);
       }
-      newImagePath = null;
+      // Keep image as a string field to avoid validation/casting issues.
+      newImagePath = "";
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { $set: { image: newImagePath } },
-      { returnDocument: "after", runValidators: true },
+      { new: true, runValidators: true },
     );
 
-    const audit = withActorId(
-      req,
-      newImagePath
-        ? `User image updated: ${updatedUser.username}`
-        : `User image removed: ${updatedUser.username}`,
-      updatedUser._id,
-    );
-    await auditLog(audit.action, audit.actorId);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    try {
+      const audit = withActorId(
+        req,
+        newImagePath
+          ? `User image updated: ${updatedUser.username}`
+          : `User image removed: ${updatedUser.username}`,
+        updatedUser._id,
+      );
+      await auditLog(audit.action, audit.actorId);
+    } catch (auditErr) {
+      console.error("Image update audit log failed:", auditErr);
+    }
 
     res.status(200).json({
       message: newImagePath ? "Avatar updated" : "Avatar removed",

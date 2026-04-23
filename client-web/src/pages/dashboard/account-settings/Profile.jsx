@@ -150,19 +150,17 @@ export default function Profile() {
       const res = await fetch(
         `${API_BASE}/api/user/update-user-image/${user.id}`,
         {
-          method: "PUT",
+          method: "DELETE",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${await getValidToken()}`,
           },
-          body: JSON.stringify({ image: null }),
         },
       );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to remove image");
 
-      setUser((prev) => ({ ...prev, image: null }));
+      setUser((prev) => ({ ...prev, image: "" }));
       setPreviewUri(DefaultAvatar);
       setFile(null);
 
