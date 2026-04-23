@@ -184,32 +184,58 @@ const getFlightLogs = async (req, res) => {
     } = req.query;
 
     console.log("Query params:", req.query);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 500);
+    const allowedSortFields = new Set([
+      "date",
+      "createdAt",
+      "updatedAt",
+      "status",
+      "rpc",
+      "aircraftType",
+      "controlNo",
+    ]);
+    const safeSortBy = allowedSortFields.has(sortBy) ? sortBy : "date";
+    const safeSortOrder = sortOrder === "asc" ? 1 : -1;
 
     // Build filter object
     const filter = {};
 
-    if (status) filter.status = status;
-    if (aircraftRPC) filter.rpc = aircraftRPC;
-    if (createdBy) filter.createdBy = createdBy;
+    if (typeof status === "string" && status.trim()) filter.status = status.trim();
+    if (typeof aircraftRPC === "string" && aircraftRPC.trim()) filter.rpc = aircraftRPC.trim();
+    if (typeof createdBy === "string" && createdBy.trim()) filter.createdBy = createdBy.trim();
 
     // Date range filter
     if (startDate || endDate) {
       filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
+      if (startDate) {
+        const parsedStartDate = new Date(startDate);
+        if (!Number.isNaN(parsedStartDate.getTime())) {
+          filter.date.$gte = parsedStartDate.toISOString();
+        }
+      }
+      if (endDate) {
+        const parsedEndDate = new Date(endDate);
+        if (!Number.isNaN(parsedEndDate.getTime())) {
+          filter.date.$lte = parsedEndDate.toISOString();
+        }
+      }
+      if (Object.keys(filter.date).length === 0) {
+        delete filter.date;
+      }
     }
 
     // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (safePage - 1) * safeLimit;
 
     // Sort
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const sort = { [safeSortBy]: safeSortOrder };
 
     const flightLogs = await FlightLog.find(filter)
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(safeLimit)
+      .lean();
 
     const total = await FlightLog.countDocuments(filter);
 
@@ -217,14 +243,19 @@ const getFlightLogs = async (req, res) => {
       success: true,
       data: flightLogs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / safeLimit),
       },
     });
   } catch (error) {
-    console.error("Error fetching flight logs:", error);
+    console.error("Error fetching flight logs:", {
+      message: error.message,
+      name: error.name,
+      query: req.query,
+      stack: error.stack,
+    });
     res.status(500).json({
       success: false,
       message: "Error fetching flight logs",
