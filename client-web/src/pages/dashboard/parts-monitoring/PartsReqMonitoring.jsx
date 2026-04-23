@@ -379,7 +379,7 @@ export default function PartsRequisition() {
                   title={card.title}
                   value={card.count}
                   prefix={card.icon}
-                  valueStyle={{ fontSize: 18 }}
+                  styles={{ content: { fontSize: 18 } }}
                 />
               </Card>
             </Col>

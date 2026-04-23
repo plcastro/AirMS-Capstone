@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import React, { Suspense, lazy, useEffect, useContext } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
-import { Button, ConfigProvider, Modal, Spin } from "antd";
+import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
 
@@ -281,11 +281,13 @@ export default function App() {
         },
       }}
     >
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRouter />
-        </BrowserRouter>
-      </AuthProvider>
+      <AntdApp>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRouter />
+          </BrowserRouter>
+        </AuthProvider>
+      </AntdApp>
     </ConfigProvider>
   );
 }
