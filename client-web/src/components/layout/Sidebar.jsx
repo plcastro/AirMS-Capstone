@@ -44,47 +44,62 @@ const Sidebar = ({ collapsed }) => {
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
+    {
+      key: "4-5",
+      label: "Aircraft Health Logbook",
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      roles: ["maintenance manager", "officer-in-charge"],
+      children: [
+        {
+          key: "4",
+          label: "Flight Logs",
+          icon: (
+            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
+              helicopter
+            </span>
+          ),
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "5",
+          label: "Maintenance Logs",
+          icon: <ToolOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+      ],
+    },
 
     {
-      key: "4",
-      label: "Flight Logs",
-      icon: (
-        <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
-          helicopter
-        </span>
-      ),
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
-      key: "5",
-      label: "Maintenance Logs",
-      icon: <ToolOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-
-    {
-      key: "6",
-      label: "Parts Lifespan Monitoring",
+      key: "6-7-9",
+      label: "Parts Lifespan Monitoring and Maintenance tracking",
       icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
-      key: "7",
-      label: "Maintenance Tracking",
-      icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
+      children: [
+        {
+          key: "6",
+          label: "Parts Lifespan Monitoring",
+          icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "7",
+          label: "Maintenance Tracking",
+          icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "9",
+          label: "Maintenance Priority Sorting",
+          icon: <FlagOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager"],
+        },
+      ],
     },
     {
       key: "8",
       label: "Parts Requisition Monitoring",
       icon: <InboxOutlined style={{ fontSize: 24 }} />,
       roles: ["warehouse department"],
-    },
-    {
-      key: "9",
-      label: "Maintenance Priority",
-      icon: <FlagOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager"],
     },
     {
       key: "10",
@@ -190,6 +205,7 @@ const Sidebar = ({ collapsed }) => {
         theme="light"
         mode="inline"
         selectedKeys={[current]}
+        openKeys={["4-5", "6-7-9"]}
         onClick={onClickMenu}
         style={{ flex: 1, borderRight: 0, textAlign: "left" }}
         items={filteredItems}

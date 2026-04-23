@@ -1,10 +1,9 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Legend,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -12,14 +11,37 @@ import {
 import { AnalysisChartMockData } from "./MockData";
 
 export const FailureAnalysisChart = () => {
+  const containerRef = useRef(null);
+  const [chartSize, setChartSize] = useState({ width: 0, height: 400 });
   const rawData = AnalysisChartMockData;
   // Sort data so the most "failure prone" (highest failure count) is at the top
   const sortedData = [...rawData].sort((a, b) => b.failures - a.failures);
 
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateSizeState = () => {
+      const { clientWidth, clientHeight } = element;
+      setChartSize({
+        width: Math.max(clientWidth, 0),
+        height: Math.max(clientHeight, 400),
+      });
+    };
+
+    updateSizeState();
+    const observer = new ResizeObserver(updateSizeState);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div style={{ width: "100%", height: 400 }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div ref={containerRef} style={{ width: "100%", height: 400, minHeight: 400 }}>
+      {chartSize.width > 0 && (
         <BarChart
+          width={chartSize.width}
+          height={chartSize.height}
           layout="vertical"
           data={sortedData}
           margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
@@ -68,7 +90,7 @@ export const FailureAnalysisChart = () => {
             barSize={10}
           /> */}
         </BarChart>
-      </ResponsiveContainer>
+      )}
     </div>
   );
 };

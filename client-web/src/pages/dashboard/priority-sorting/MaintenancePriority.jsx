@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  App as AntdApp,
   Button,
   Card,
   Col,
@@ -13,7 +14,6 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -65,6 +65,7 @@ const formatDate = (value) => {
 };
 
 export default function MaintenancePriority() {
+  const { message } = AntdApp.useApp();
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
@@ -466,12 +467,12 @@ export default function MaintenancePriority() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="Critical" value={stats.criticalCount} valueStyle={{ color: "#cf1322" }} />
+            <Statistic title="Critical" value={stats.criticalCount} styles={{ content: { color: "#cf1322" } }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="High" value={stats.highCount} valueStyle={{ color: "#d46b08" }} />
+            <Statistic title="High" value={stats.highCount} styles={{ content: { color: "#d46b08" } }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
@@ -492,14 +493,24 @@ export default function MaintenancePriority() {
         <Alert
           type="info"
           showIcon
-          message="Priority tie-break logic"
+          title="Priority tie-break logic"
           description={`If inspections are within ${meta.tieBreakHours} flight hours, ${meta.tieBreakDays} days, or an urgency ratio gap of ${meta.tieBreakUrgencyRatio}, the aircraft with the shorter turnaround is ranked first. Active rules: Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH, High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.`}
         />
       )}
 
       <Card>
         <Table
-          rowKey={(record) => `${record.aircraft}-${record.inspectionKey}`}
+          rowKey={(record) =>
+            [
+              record.inspectionKey,
+              record.sourceRow,
+              record.aircraft,
+              record.nextInspection,
+              record.rank,
+            ]
+              .filter(Boolean)
+              .join("-")
+          }
           loading={loading}
           columns={columns}
           dataSource={filteredData}
