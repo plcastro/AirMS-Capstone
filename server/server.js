@@ -22,6 +22,8 @@ const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
 const notificationRoutes = require("./routes/notificationRoute");
+const adminActivityRoutes = require("./routes/adminActivityRoute");
+const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const sendEmail = require("./utilities/sendEmail");
 
 const app = express();
@@ -80,6 +82,8 @@ connectToDatabase()
 
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/admin-activity", adminActivityRoutes);
+app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
 app.use("/api/defect-logs", defectLogRoutes);

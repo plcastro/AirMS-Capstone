@@ -30,19 +30,23 @@ const headers = [
     width: 260,
   },
 ];
-export default function ActivityLogTable({ data = [], loading }) {
+export default function ActivityLogTable({
+  data = [],
+  loading,
+}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const handlePageChange = (page, pageSize) => {
+  const handlePageChange = (page, nextPageSize) => {
     setCurrentPage(page);
-    setPageSize(pageSize);
+    setPageSize(nextPageSize);
   };
+
   return (
     <Table
       columns={headers}
       dataSource={data}
-      rowKey={(record) => record.index || record._id}
+      rowKey={(record) => record._id || record.index}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
       pagination={{

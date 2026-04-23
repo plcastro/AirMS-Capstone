@@ -54,7 +54,10 @@ const Sidebar = ({ collapsed }) => {
           key: "4",
           label: "Flight Logs",
           icon: (
-            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 24 }}
+            >
               helicopter
             </span>
           ),
@@ -112,10 +115,10 @@ const Sidebar = ({ collapsed }) => {
       label: "Profile",
       icon: <UserOutlined style={{ fontSize: 24 }} />,
       roles: [
-        "admin",
         "maintenance manager",
         "officer-in-charge",
         "warehouse department",
+        "admin",
       ],
     },
   ];
@@ -153,16 +156,22 @@ const Sidebar = ({ collapsed }) => {
   );
 
   useEffect(() => {
-    const key = routeToKey[location.pathname] || "10";
+    const key =
+      routeToKey[location.pathname] || (jobTitle === "admin" ? "1" : "10");
     setCurrent(key);
-  }, [location.pathname, routeToKey]);
+  }, [location.pathname, routeToKey, jobTitle]);
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
     const routes = Object.fromEntries(
       Object.entries(routeToKey).map(([k, v]) => [v, k]),
     );
-    navigate(routes[e.key] || "/dashboard/profile");
+    navigate(
+      routes[e.key] ||
+        (jobTitle === "admin"
+          ? "/dashboard/user-management/admin-dashboard"
+          : "/dashboard/profile"),
+    );
   };
 
   const showModal = () => setOpen(true);

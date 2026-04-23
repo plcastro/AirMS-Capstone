@@ -1,17 +1,42 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
-import { Input } from "antd";
+import { Input, DatePicker, Space } from "antd";
+import dayjs from "dayjs";
+import { AuthContext } from "../../../context/AuthContext";
+
+const { RangePicker } = DatePicker;
 
 export default function UserLogs() {
+  const { getValidToken } = useContext(AuthContext);
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [loading] = useState(false);
+  const [dateRange, setDateRange] = useState([
+    dayjs().subtract(30, "days"),
+    dayjs(),
+  ]);
+  const [loading, setLoading] = useState(false);
 
-  const fetchUserLogs = async () => {
+  const fetchUserLogs = async (startDate = null, endDate = null) => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/logs/getAllUserLogs`);
+      const token = await getValidToken();
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "1000",
+      });
+      if (startDate && endDate) {
+        params.set("startDate", startDate.toISOString());
+        params.set("endDate", endDate.toISOString());
+      }
+      const url = `${API_BASE}/api/logs/getAllUserLogs?${params.toString()}`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const json = await response.json();
 
       if (!Array.isArray(json.data)) {
@@ -19,6 +44,7 @@ export default function UserLogs() {
         return;
       }
       const mappedLogs = json.data.map((log, index) => ({
+        _id: log._id,
         index: index + 1,
         dateTime: log.dateTime
           ? new Date(log.dateTime).toLocaleString()
@@ -30,12 +56,19 @@ export default function UserLogs() {
       setAllUserLogs(mappedLogs);
     } catch (error) {
       console.error("Error fetching user logs:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
   };
+
+  const handleDateRangeChange = (dates) => {
+    setDateRange(dates);
+  };
+
   useEffect(() => {
     let filtered = [...allUserLogs];
 
@@ -53,18 +86,26 @@ export default function UserLogs() {
   }, [allUserLogs, searchQuery]);
 
   useEffect(() => {
-    fetchUserLogs();
-  }, []);
+    fetchUserLogs(dateRange?.[0], dateRange?.[1]);
+  }, [dateRange]);
 
   return (
     <div style={{ padding: 20, maxWidth: "100%", overflow: "hidden" }}>
-      <Input
-        placeholder="Search logs..."
-        value={searchQuery}
-        onChange={(e) => handleSearchChange(e.target.value)}
-        style={{ marginBottom: 16, width: 300 }}
-        allowClear
-      />
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Input
+          placeholder="Search logs..."
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          style={{ width: 300 }}
+          allowClear
+        />
+        <RangePicker
+          value={dateRange}
+          onChange={handleDateRangeChange}
+          format="YYYY-MM-DD"
+          allowClear
+        />
+      </Space>
 
       <div style={{ width: "100%", overflowX: "auto" }}>
         <ActivityLogTable data={filteredUsers} loading={loading} />
