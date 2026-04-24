@@ -82,13 +82,13 @@ const DrawerList = [
         navigateTo: "Mechanics",
         jobTitle: ["maintenance manager"],
       },
-      {
-        icon: "file-document-outline",
-        label: "Parts Requisition",
-        navigateTo: "Parts Requisition",
-        jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
-      },
     ],
+  },
+  {
+    icon: "file-document-outline",
+    label: "Parts Requisition",
+    navigateTo: "Parts Requisition",
+    jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
   },
   {
     icon: "account-circle",
