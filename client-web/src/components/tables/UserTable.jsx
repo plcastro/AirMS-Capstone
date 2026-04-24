@@ -8,6 +8,9 @@ export default function UserTable({
   onEditUser,
   onDeactivateUser,
   onReactivateUser,
+  onResendInvite,
+  onExtendInvite,
+  onRevokeInvite,
   currentUserId,
   loading = false,
 }) {
@@ -42,6 +45,33 @@ export default function UserTable({
                 >
                   <Button size="small">Reactivate</Button>
                 </Popconfirm>
+              ) : record.status === "inactive" ? (
+                <>
+                  <Popconfirm
+                    title="Resend activation credentials?"
+                    onConfirm={() => onResendInvite?.(record)}
+                  >
+                    <Button size="small">Resend</Button>
+                  </Popconfirm>
+                  {record.invitationStatus === "expired" && (
+                    <Popconfirm
+                      title="Extend invitation expiry by 24 hours?"
+                      onConfirm={() => onExtendInvite?.(record)}
+                    >
+                      <Button size="small">Extend 24h</Button>
+                    </Popconfirm>
+                  )}
+                  {record.invitationStatus !== "revoked" && (
+                    <Popconfirm
+                      title="Revoke this invitation?"
+                      onConfirm={() => onRevokeInvite?.(record)}
+                    >
+                      <Button danger size="small">
+                        Revoke Invite
+                      </Button>
+                    </Popconfirm>
+                  )}
+                </>
               ) : record.status === "active" && record._id !== currentUserId ? (
                 <Popconfirm
                   title="Deactivate this user?"
@@ -81,6 +111,40 @@ export default function UserTable({
         };
       }
 
+      if (header.key === "invitationStatus") {
+        return {
+          title: header.label,
+          dataIndex: "invitationStatus",
+          key: "invitationStatus",
+          render: (invitationStatus, record) => {
+            if (record.status === "active") return <Tag color="green">claimed</Tag>;
+            if (!invitationStatus) return "N/A";
+
+            let color = "default";
+            if (invitationStatus === "pending") color = "blue";
+            if (invitationStatus === "expired") color = "orange";
+            if (invitationStatus === "claimed") color = "green";
+            if (invitationStatus === "revoked") color = "red";
+            return <Tag color={color}>{invitationStatus}</Tag>;
+          },
+        };
+      }
+
+      if (header.key === "invitationExpiresAt") {
+        return {
+          title: header.label,
+          dataIndex: "invitationExpiresAt",
+          key: "invitationExpiresAt",
+          render: (value, record) => {
+            if (record.status === "active") return "N/A";
+            return value ? new Date(value).toLocaleString() : "N/A";
+          },
+          sorter: (a, b) =>
+            new Date(a.invitationExpiresAt || 0).getTime() -
+            new Date(b.invitationExpiresAt || 0).getTime(),
+        };
+      }
+
       return {
         title: header.label,
         dataIndex: header.key,
@@ -91,7 +155,16 @@ export default function UserTable({
           ),
       };
     });
-  }, [headers, currentUserId, onEditUser, onDeactivateUser, onReactivateUser]);
+  }, [
+    headers,
+    currentUserId,
+    onEditUser,
+    onDeactivateUser,
+    onReactivateUser,
+    onResendInvite,
+    onExtendInvite,
+    onRevokeInvite,
+  ]);
 
   return (
     <Table

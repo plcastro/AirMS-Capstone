@@ -21,6 +21,9 @@ const {
   activateUser,
   resendActivation,
   completeSecuritySetup,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
 } = require("../controllers/userController");
 
 const {
@@ -124,6 +127,27 @@ router.put(
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
+router.post(
+  "/resend-activation/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  resendActivationByAdmin,
+);
+router.put(
+  "/extend-invitation-expiry/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  extendInvitationExpiry,
+);
+router.put(
+  "/revoke-invitation/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  revokeInvitation,
+);
 router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-password-reset", requestPasswordReset);
