@@ -33,17 +33,26 @@ const Sidebar = ({ collapsed }) => {
       roles: ["admin"],
     },
     {
-      key: "2",
-      label: "Manage Users",
+      key: "2-3",
+      label: "User Management",
       icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
+      children: [
+        {
+          key: "2",
+          label: "Manage Users",
+          icon: <TeamOutlined style={{ fontSize: 24 }} />,
+          roles: ["admin"],
+        },
+        {
+          key: "3",
+          label: "Activity Logs",
+          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          roles: ["admin"],
+        },
+      ],
     },
-    {
-      key: "3",
-      label: "Activity Logs",
-      icon: <AuditOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin"],
-    },
+
     {
       key: "4-5",
       label: "Aircraft Health Logbook",
@@ -214,7 +223,7 @@ const Sidebar = ({ collapsed }) => {
         theme="light"
         mode="inline"
         selectedKeys={[current]}
-        openKeys={["4-5", "6-7-9"]}
+        openKeys={["2-3", "4-5", "6-7-9"]}
         onClick={onClickMenu}
         style={{ flex: 1, borderRight: 0, textAlign: "left" }}
         items={filteredItems}

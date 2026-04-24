@@ -23,6 +23,8 @@ export default function UserTable({
         return {
           title: header.label,
           key: "actions",
+          fixed: header.fixed,
+          width: header.width,
           render: (_, record) => (
             <Space>
               <Button
@@ -117,7 +119,8 @@ export default function UserTable({
           dataIndex: "invitationStatus",
           key: "invitationStatus",
           render: (invitationStatus, record) => {
-            if (record.status === "active") return <Tag color="green">claimed</Tag>;
+            if (record.status === "active")
+              return <Tag color="green">claimed</Tag>;
             if (!invitationStatus) return "N/A";
 
             let color = "default";

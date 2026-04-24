@@ -1,6 +1,34 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
 
+const escapeRegex = (value = "") =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const sanitizeActionText = (rawAction, username) => {
+  if (typeof rawAction !== "string") return rawAction;
+
+  let action = rawAction.trim();
+
+  // Remove appended actor id metadata from action text.
+  action = action.replace(/\s*\(actorId:\s*[^)]+\)/gi, "");
+
+  if (username && username !== "System" && username !== "Unknown") {
+    const safeUsername = escapeRegex(username);
+
+    // Remove direct username mentions from common action templates.
+    action = action.replace(new RegExp(`(:\\s*)${safeUsername}\\b`, "gi"), "");
+    action = action.replace(new RegExp(`(for\\s+)${safeUsername}\\b`, "gi"), "$1user");
+  }
+
+  // Normalize spaces and punctuation after substitutions.
+  action = action
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+
+  return action;
+};
+
 const auditLog = async (action, userId = null, usernameSnapshot = null) => {
   try {
     let username = usernameSnapshot || "System";
@@ -15,14 +43,16 @@ const auditLog = async (action, userId = null, usernameSnapshot = null) => {
       }
     }
 
+    const sanitizedAction = sanitizeActionText(action, username);
+
     const newLog = await UserLog.create({
-      action,
+      action: sanitizedAction,
       performedBy: userId,
       username,
     });
 
     console.log(
-      `Audit Log - User: ${username}, Action: ${action}, Timestamp: ${new Date()}`,
+      `Audit Log - User: ${username}, Action: ${sanitizedAction}, Timestamp: ${new Date()}`,
     );
 
     return newLog;

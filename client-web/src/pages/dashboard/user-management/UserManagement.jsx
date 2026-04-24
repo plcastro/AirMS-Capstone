@@ -67,17 +67,15 @@ export default function UserManagement() {
   const [treeValue, setTreeValue] = useState(undefined);
 
   const headers = [
-    { label: "#", key: "index" },
     { label: "Fullname", key: "fullname" },
     { label: "Username", key: "username" },
-    { label: "Email", key: "email" },
+    { label: "Email", key: "maskedEmail" },
     { label: "JobTitle", key: "jobTitle" },
     { label: "Access Control", key: "access" },
-    { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
     { label: "Invite Status", key: "invitationStatus" },
-    { label: "Invite Expires", key: "invitationExpiresAt" },
-    { label: "Actions", key: "actions" },
+    { label: "Date Created", key: "dateCreated" },
+    { label: "Actions", key: "actions", fixed: "right", width: 150 },
   ];
 
   // Load current user for deactivation protection
@@ -109,7 +107,8 @@ export default function UserManagement() {
           ...u,
           index: idx + 1,
           fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
-          email: maskEmail(u.email),
+          // add masked version for table
+          maskedEmail: maskEmail(u.email),
           invitationStatus:
             u.invitationStatus ||
             (u.status === "active"
