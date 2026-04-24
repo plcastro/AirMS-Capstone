@@ -28,73 +28,98 @@ const Sidebar = ({ collapsed }) => {
   const menuItems = [
     {
       key: "1",
-      label: "View Users",
-      icon: <TeamOutlined style={{ fontSize: 24 }} />,
+      label: "Admin Dashboard",
+      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
       key: "2",
+      label: "Manage Users",
+      icon: <TeamOutlined style={{ fontSize: 24 }} />,
+      roles: ["admin"],
+    },
+    {
+      key: "3",
       label: "Activity Logs",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
+    {
+      key: "4-5",
+      label: "Aircraft Health Logbook",
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      roles: ["maintenance manager", "officer-in-charge"],
+      children: [
+        {
+          key: "4",
+          label: "Flight Logs",
+          icon: (
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 24 }}
+            >
+              helicopter
+            </span>
+          ),
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "5",
+          label: "Maintenance Logs",
+          icon: <ToolOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+      ],
+    },
 
     {
-      key: "3",
-      label: "Flight Logs",
-      icon: (
-        <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
-          helicopter
-        </span>
-      ),
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
-      key: "4",
-      label: "Maintenance Logs",
-      icon: <ToolOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-
-    {
-      key: "5",
-      label: "Parts Lifespan Monitoring",
+      key: "6-7-9",
+      label: "Parts Lifespan Monitoring and Maintenance tracking",
       icon: <DashboardOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager"],
-    },
-    {
-      key: "6",
-      label: "Maintenance Tracking",
-      icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager"],
-    },
-    {
-      key: "7",
-      label: "Parts Requisition Monitoring",
-      icon: <InboxOutlined style={{ fontSize: 24 }} />,
-      roles: [
-        "maintenance manager",
-        "officer-in-charge",
-        "warehouse department",
+      roles: ["maintenance manager", "officer-in-charge"],
+      children: [
+        {
+          key: "6",
+          label: "Parts Lifespan Monitoring",
+          icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "7",
+          label: "Maintenance Tracking",
+          icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "9",
+          label: "Maintenance Priority Sorting",
+          icon: <FlagOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager"],
+        },
       ],
     },
     {
       key: "8",
-      label: "Maintenance Priority",
-      icon: <FlagOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager"],
+      label: "Parts Requisition Monitoring",
+      icon: <InboxOutlined style={{ fontSize: 24 }} />,
+      roles: ["warehouse department"],
     },
     {
-      key: "9",
+      key: "10",
       label: "Reports and Analytics",
       icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "10",
+      key: "11",
       label: "Profile",
       icon: <UserOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin", "maintenance manager", "warehouse department"],
+      roles: [
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse department",
+        "admin",
+      ],
     },
   ];
 
@@ -115,31 +140,38 @@ const Sidebar = ({ collapsed }) => {
 
   const routeToKey = useMemo(
     () => ({
-      "/dashboard/user-management/view-users": "1",
-      "/dashboard/user-management/activity-logs": "2",
-      "/dashboard/flight-log": "3",
-      "/dashboard/maintenance-log": "4",
-      "/dashboard/parts-lifespan-monitoring": "5",
-      "/dashboard/maintenance-tracking": "6",
-      "/dashboard/parts-requisition": "7",
-      "/dashboard/maintenance-priority": "8",
-      "/dashboard/maintenance-dashboard": "9",
-      "/dashboard/profile": "10",
+      "/dashboard/user-management/admin-dashboard": "1",
+      "/dashboard/user-management/view-users": "2",
+      "/dashboard/user-management/activity-logs": "3",
+      "/dashboard/flight-log": "4",
+      "/dashboard/maintenance-log": "5",
+      "/dashboard/parts-lifespan-monitoring": "6",
+      "/dashboard/maintenance-tracking": "7",
+      "/dashboard/parts-requisition": "8",
+      "/dashboard/maintenance-priority": "9",
+      "/dashboard/maintenance-dashboard": "10",
+      "/dashboard/profile": "11",
     }),
     [],
   );
 
   useEffect(() => {
-    const key = routeToKey[location.pathname] || "10";
+    const key =
+      routeToKey[location.pathname] || (jobTitle === "admin" ? "1" : "10");
     setCurrent(key);
-  }, [location.pathname, routeToKey]);
+  }, [location.pathname, routeToKey, jobTitle]);
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
     const routes = Object.fromEntries(
       Object.entries(routeToKey).map(([k, v]) => [v, k]),
     );
-    navigate(routes[e.key] || "/dashboard/profile");
+    navigate(
+      routes[e.key] ||
+        (jobTitle === "admin"
+          ? "/dashboard/user-management/admin-dashboard"
+          : "/dashboard/profile"),
+    );
   };
 
   const showModal = () => setOpen(true);
@@ -182,6 +214,7 @@ const Sidebar = ({ collapsed }) => {
         theme="light"
         mode="inline"
         selectedKeys={[current]}
+        openKeys={["4-5", "6-7-9"]}
         onClick={onClickMenu}
         style={{ flex: 1, borderRight: 0, textAlign: "left" }}
         items={filteredItems}

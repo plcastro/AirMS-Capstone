@@ -1,4 +1,15 @@
 const PreInspection = require("../models/preInspectionModel");
+const PostInspection = require("../models/postInspectionModel");
+const { createPreInspectionNotifications } = require("../utilities/preInspectionNotificationService");
+const { auditLog } = require("./logsController");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const createPreInspection = async (req, res) => {
   try {
@@ -10,6 +21,32 @@ const createPreInspection = async (req, res) => {
     };
 
     const inspection = await PreInspection.create(payload);
+
+    const linkedPostPayload = {
+      preInspectionId: inspection._id,
+      linkedFromPreFlight: true,
+      aircraftType: payload.aircraftType,
+      rpc: payload.rpc,
+      date: payload.date,
+      dateAdded: payload.dateAdded || new Date().toLocaleDateString("en-US"),
+      createdBy: payload.createdBy || "",
+      status: "pending",
+    };
+
+    try {
+      await PostInspection.create(linkedPostPayload);
+    } catch (postCreateError) {
+      await PreInspection.findByIdAndDelete(inspection._id);
+      throw postCreateError;
+    }
+
+    await createPreInspectionNotifications({
+      previousInspection: null,
+      inspection,
+    });
+
+    const audit = withActorId(req, `Pre-inspection created: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "Pre-inspection created successfully",
@@ -48,6 +85,8 @@ const getPreInspectionById = async (req, res) => {
 
 const updatePreInspection = async (req, res) => {
   try {
+    const previousInspection = await PreInspection.findById(req.params.id);
+
     const inspection = await PreInspection.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -57,6 +96,14 @@ const updatePreInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
+
+    await createPreInspectionNotifications({
+      previousInspection,
+      inspection,
+    });
+
+    const audit = withActorId(req, `Pre-inspection updated: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Pre-inspection updated successfully",
@@ -75,6 +122,8 @@ const deletePreInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
+    const audit = withActorId(req, `Pre-inspection deleted: ${inspection._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       message: "Pre-inspection deleted successfully",

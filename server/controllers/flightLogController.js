@@ -1,9 +1,23 @@
 const FlightLog = require("../models/flightLogModel");
+const { auditLog } = require("./logsController");
+const {
+  createFlightLogNotifications,
+} = require("../utilities/flightLogNotificationService");
+const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
-// Helper function to get user role from token
-const getUserRole = (user) => {
-  // Try different possible field names based on your JWT payload
-  return user.role || user.userRole || user.jobTitle || user.userType;
+const toComparableFlightLog = (flightLog) => {
+  if (!flightLog) {
+    return null;
+  }
+
+  return typeof flightLog.toObject === "function" ? flightLog.toObject() : flightLog;
 };
 
 // @desc    Create a new flight log
@@ -30,10 +44,15 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    // Set status based on user role from frontend
-    const userRole = flightLogData.createdBy;
-    flightLogData.status =
-      userRole === "pilot" ? "pending_release" : "pending_acceptance";
+    // Keep the frontend workflow status when it is valid.
+    flightLogData.status = [
+      "pending_release",
+      "pending_acceptance",
+      "accepted",
+      "completed",
+    ].includes(flightLogData.status)
+      ? flightLogData.status
+      : "pending_release";
 
     // Handle component times - map componentTimes to componentData if needed
     if (flightLogData.componentTimes && !flightLogData.componentData) {
@@ -96,6 +115,12 @@ const createFlightLog = async (req, res) => {
     console.log("FlightLog model created");
 
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog: null,
+      flightLog,
+    });
+    const audit = withActorId(req, `Flight log created: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
     console.log("FlightLog saved successfully with ID:", flightLog._id);
     console.log(
       "Saved componentData:",
@@ -159,32 +184,58 @@ const getFlightLogs = async (req, res) => {
     } = req.query;
 
     console.log("Query params:", req.query);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 500);
+    const allowedSortFields = new Set([
+      "date",
+      "createdAt",
+      "updatedAt",
+      "status",
+      "rpc",
+      "aircraftType",
+      "controlNo",
+    ]);
+    const safeSortBy = allowedSortFields.has(sortBy) ? sortBy : "date";
+    const safeSortOrder = sortOrder === "asc" ? 1 : -1;
 
     // Build filter object
     const filter = {};
 
-    if (status) filter.status = status;
-    if (aircraftRPC) filter.rpc = aircraftRPC;
-    if (createdBy) filter.createdBy = createdBy;
+    if (typeof status === "string" && status.trim()) filter.status = status.trim();
+    if (typeof aircraftRPC === "string" && aircraftRPC.trim()) filter.rpc = aircraftRPC.trim();
+    if (typeof createdBy === "string" && createdBy.trim()) filter.createdBy = createdBy.trim();
 
     // Date range filter
     if (startDate || endDate) {
       filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
+      if (startDate) {
+        const parsedStartDate = new Date(startDate);
+        if (!Number.isNaN(parsedStartDate.getTime())) {
+          filter.date.$gte = parsedStartDate.toISOString();
+        }
+      }
+      if (endDate) {
+        const parsedEndDate = new Date(endDate);
+        if (!Number.isNaN(parsedEndDate.getTime())) {
+          filter.date.$lte = parsedEndDate.toISOString();
+        }
+      }
+      if (Object.keys(filter.date).length === 0) {
+        delete filter.date;
+      }
     }
 
     // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (safePage - 1) * safeLimit;
 
     // Sort
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const sort = { [safeSortBy]: safeSortOrder };
 
     const flightLogs = await FlightLog.find(filter)
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(safeLimit)
+      .lean();
 
     const total = await FlightLog.countDocuments(filter);
 
@@ -192,14 +243,19 @@ const getFlightLogs = async (req, res) => {
       success: true,
       data: flightLogs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / safeLimit),
       },
     });
   } catch (error) {
-    console.error("Error fetching flight logs:", error);
+    console.error("Error fetching flight logs:", {
+      message: error.message,
+      name: error.name,
+      query: req.query,
+      stack: error.stack,
+    });
     res.status(500).json({
       success: false,
       message: "Error fetching flight logs",
@@ -221,6 +277,8 @@ const getFlightLogById = async (req, res) => {
         message: "Flight log not found",
       });
     }
+    const audit = withActorId(req, `Flight log updated: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -270,6 +328,14 @@ const updateFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    const existingFlightLog = await FlightLog.findById(id);
+
+    if (!existingFlightLog) {
+      return res.status(404).json({
+        success: false,
+        message: "Flight log not found",
+      });
+    }
 
     // Remove fields that shouldn't be updated directly
     delete updates._id;
@@ -281,15 +347,13 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { returnDocument: "after", runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
 
-    if (!flightLog) {
-      return res.status(404).json({
-        success: false,
-        message: "Flight log not found",
-      });
-    }
+    await createFlightLogNotifications({
+      previousFlightLog: toComparableFlightLog(existingFlightLog),
+      flightLog,
+    });
 
     res.status(200).json({
       success: true,
@@ -333,8 +397,15 @@ const releaseFlightLog = async (req, res) => {
     }
 
     // Release the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.release(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
+    const audit = withActorId(req, `Flight log released: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -377,7 +448,7 @@ const acceptFlightLog = async (req, res) => {
     }
 
     // Check if flight log is in correct state
-    if (flightLog.status !== "pending_acceptance") {
+    if (!["pending_acceptance", "released"].includes(flightLog.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot accept flight log in ${flightLog.status} status`,
@@ -385,8 +456,15 @@ const acceptFlightLog = async (req, res) => {
     }
 
     // Accept the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.accept(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
+    const audit = withActorId(req, `Flight log accepted: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -428,8 +506,15 @@ const completeFlightLog = async (req, res) => {
     }
 
     // Complete the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.complete();
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
+    const audit = withActorId(req, `Flight log completed: ${flightLog._id}`);
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
       success: true,
@@ -564,4 +649,17 @@ const searchFlightLogs = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+module.exports = {
+  createFlightLog,
+  getFlightLogs,
+  getFlightLogById,
+  getFlightLogsByAircraft,
+  updateFlightLog,
+  releaseFlightLog,
+  acceptFlightLog,
+  completeFlightLog,
+  getFlightLogStats,
+  searchFlightLogs,
 };

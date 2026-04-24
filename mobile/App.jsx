@@ -1,11 +1,20 @@
 import React, { useContext, useEffect } from "react";
-import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
+import {
+  Platform,
+  Image,
+  TouchableOpacity,
+  Text,
+  View,
+  Modal,
+  Pressable,
+} from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
+import { NotificationProvider } from "./Context/NotificationContext";
 
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
@@ -30,21 +39,23 @@ import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
 import MechanicList from "./screens/Main/MechanicList";
+import NotificationBell from "./components/Notifications/NotificationBell";
+import { navigationRef } from "./utilities/navigationRef";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
-function DrawerNav() {
+function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
-
   const profileImage =
-    user.image && typeof user.image === "string"
+    user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
         ? user.image
         : `${API_BASE}${user.image}`
       : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -66,7 +77,14 @@ function DrawerNav() {
         drawerStyle: { width: 260 },
         overlayColor: "transparent",
         headerRight: () => (
-          <View style={{ marginHorizontal: 7 }}>
+          <View
+            style={{
+              marginHorizontal: 7,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <NotificationBell navigation={navigation} />
             <TouchableOpacity
               style={{
                 flexDirection: "row",
@@ -103,8 +121,9 @@ function DrawerNav() {
       {[
         "maintenance manager",
         "pilot",
-        "mechanic",
+        "engineer",
         "officer-in-charge",
+        "mechanic",
       ].includes(user.jobTitle?.toLowerCase()) && (
         <>
           <Drawer.Screen
@@ -129,7 +148,7 @@ function DrawerNav() {
         />
       )}
 
-      {["maintenance manager", "mechanic"].includes(
+      {["maintenance manager", "engineer", "mechanic"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
         <>
@@ -137,15 +156,10 @@ function DrawerNav() {
             name="Tasks"
             component={wrapWithDashboard(TaskAssignment)}
           />
-
-          <Drawer.Screen
-            name="Post-Inspection"
-            component={wrapWithDashboard(PostInspection)}
-          />
         </>
       )}
 
-      {["maintenance manager", "engineer", "officer-in-charge"].includes(
+      {["maintenance manager", "mechanic", "officer-in-charge"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
         <Drawer.Screen
@@ -153,8 +167,14 @@ function DrawerNav() {
           component={wrapWithDashboard(PartsRequisition)}
         />
       )}
-
-      <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      {[
+        "maintenance manager",
+        "mechanic",
+        "officer-in-charge",
+        "pilot",
+      ].includes(user.jobTitle?.toLowerCase()) && (
+        <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      )}
     </Drawer.Navigator>
   );
 }
@@ -167,6 +187,9 @@ function LoginWrapper({ navigation, ...props }) {
     if (!user) return;
 
     if (user.status === "deactivated") {
+      return;
+    }
+    if (user.jobTitle === "Admin") {
       return;
     }
 
@@ -238,6 +261,106 @@ function StackNavWrapper() {
   );
 }
 
+function AppShell({ linking }) {
+  const {
+    recordActivity,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
+
+  return (
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        recordActivity?.();
+        return false;
+      }}
+    >
+      <NavigationContainer
+        linking={linking}
+        ref={navigationRef}
+        onStateChange={() => recordActivity?.()}
+      >
+        <StackNavWrapper />
+      </NavigationContainer>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showSessionTimeoutWarning}
+        onRequestClose={() => continueSession?.()}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 18,
+            }}
+          >
+            <Text
+              style={{ fontSize: 18, fontWeight: "700", marginBottom: 10 }}
+            >
+              Session Timeout Warning
+            </Text>
+            <Text style={{ fontSize: 14, color: "#333", marginBottom: 8 }}>
+              You&apos;ve been inactive for a while. For your security,
+              you&apos;ll be signed out in 2 minutes unless you continue.
+            </Text>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
+              Auto sign-out in {warningSecondsRemaining} seconds.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Pressable
+                onPress={() => logoutUser?.()}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#d9d9d9",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: "#333" }}>Sign out now</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => continueSession?.()}
+                style={{
+                  backgroundColor: "#26866F",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  marginLeft: 8,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  Continue session
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 export default function App() {
   const linking = LinkingConfig;
   const theme = {
@@ -254,11 +377,11 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <PaperProvider theme={theme}>
-        <NavigationContainer linking={linking}>
-          <StackNavWrapper />
-        </NavigationContainer>
-      </PaperProvider>
+      <NotificationProvider>
+        <PaperProvider theme={theme}>
+          <AppShell linking={linking} />
+        </PaperProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

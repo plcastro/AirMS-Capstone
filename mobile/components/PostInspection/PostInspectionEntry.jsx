@@ -24,6 +24,7 @@ export default function PostInspectionEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -97,6 +98,7 @@ export default function PostInspectionEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1":

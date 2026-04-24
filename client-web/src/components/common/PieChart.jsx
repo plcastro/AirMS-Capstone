@@ -1,25 +1,19 @@
 import React from "react";
 import { ResponsiveContainer, PieChart, Pie, Tooltip, Legend } from "recharts";
 
-export const SDMChart = () => {
-  // Define colors directly in the data objects
-  const data = [
-    { name: "Aircraft 1", value: 34, fill: "#881fe5" },
-    { name: "Aircraft 2", value: 45, fill: "#1890ff" },
-    { name: "Aircraft 3", value: 5, fill: "#058b4a" },
-    { name: "Aircraft 4", value: 34, fill: "#cebc14" },
-    { name: "Aircraft 5", value: 49, fill: "#ffae18" },
-    { name: "Aircraft 6", value: 5, fill: "#ac139f" },
-  ];
+const EMPTY_DATA = [{ name: "No data", value: 1, fill: "#d9d9d9" }];
+
+export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
+  const chartData = data.length > 0 ? data : EMPTY_DATA;
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
+    <ResponsiveContainer width="100%" height={height}>
       <PieChart>
         <Pie
-          data={data}
+          data={chartData}
           cx="50%"
           cy="50%"
-          outerRadius={100}
+          outerRadius={outerRadius}
           paddingAngle={0}
           dataKey="value"
           stroke="none"
@@ -36,22 +30,15 @@ export const SDMChart = () => {
     </ResponsiveContainer>
   );
 };
-export const ARTChart = () => {
-  // Define colors directly in the data objects
-  const data = [
-    { name: "0 - 10 days", value: 3, fill: "#881fe5" },
-    { name: "11 - 20 days", value: 7, fill: "#1890ff" },
-    { name: "21 - 30 days", value: 5, fill: "#058b4a" },
-    { name: "31 - 40 days", value: 10, fill: "#d78f2b" },
-    { name: "More than 40 days", value: 2, fill: "#9b1104" },
-  ];
 
-  const fastestTask = data.reduce((prev, curr) =>
+export const ARTChart = ({ data = [] }) => {
+  const chartData = data.length > 0 ? data : EMPTY_DATA;
+
+  const fastestTask = chartData.reduce((prev, curr) =>
     prev.value < curr.value ? prev : curr,
   );
 
-  // Calculate total for percentage
-  const totalValue = data.reduce((sum, item) => sum + item.value, 0);
+  const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
   const fastestPercentage = ((fastestTask.value / totalValue) * 100).toFixed(1);
 
   return (
@@ -59,7 +46,7 @@ export const ARTChart = () => {
       <ResponsiveContainer width="100%" height={350}>
         <PieChart>
           <Pie
-            data={data}
+            data={chartData}
             cx="50%"
             cy="50%"
             innerRadius={70}

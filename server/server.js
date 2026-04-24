@@ -1,12 +1,12 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
-const mongoose = require("mongoose");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
+const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const defectLogRoutes = require("./routes/defectLogRoute");
@@ -21,15 +21,21 @@ const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
+const notificationRoutes = require("./routes/notificationRoute");
+const adminActivityRoutes = require("./routes/adminActivityRoute");
+const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const sendEmail = require("./utilities/sendEmail");
 
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online",
+  "http://localhost:8081", // Expo / Metro bundler origin
+  "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
 app.use(
@@ -64,14 +70,11 @@ app.use((req, res, next) => {
   if (req.params) {
     mongoSanitize.sanitize(req.params, { replaceWith: "_" });
   }
-  // We leave req.query untouched to prevent the crash
+  // leave req.query untouched to prevent the crash
   next();
 });
 
-const ATLAS_URL = process.env.ATLAS_URL;
-require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
-mongoose
-  .connect(ATLAS_URL)
+connectToDatabase()
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -79,6 +82,8 @@ mongoose
 
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/admin-activity", adminActivityRoutes);
+app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
 app.use("/api/defect-logs", defectLogRoutes);
@@ -90,6 +95,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",
@@ -100,6 +106,8 @@ app.use(
     },
   }),
 );
+app.use("/api/flightlogs", flightLogRoutes);
+
 app.set("trust proxy", 1);
 
 app.use((err, req, res, next) => {
@@ -120,9 +128,13 @@ app.use((err, req, res, next) => {
   }
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-  console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
-});
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
+    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
+  });
+}
+
+module.exports = app;

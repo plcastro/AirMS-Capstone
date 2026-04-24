@@ -61,7 +61,8 @@ export default function UserForm({
       setEmail(user.email || "");
       setUsername(user.username || "");
       setJobTitle(user.jobTitle || "");
-      setAccessLevel(roleMap[user.jobTitle] || "");
+      setAccessLevel(user.access || roleMap[user.jobTitle] || "");
+      setLicenseNo(user.licenseNo || "");
       setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
       setImageUrl(user.image || null);
       setFile(null);
@@ -76,6 +77,7 @@ export default function UserForm({
       setImageUrl(null);
       setFile(null);
       setUsername("");
+      setLicenseNo("");
     }
   }, [visible, user]);
 
@@ -196,6 +198,7 @@ export default function UserForm({
         throw new Error(errorData.message || "Operation failed");
       }
       const savedUser = await res.json();
+      const savedUserData = savedUser?.data || savedUser?.user || null;
       antMessage.success(
         user ? "User updated successfully!" : "User added successfully!",
       );
@@ -208,7 +211,7 @@ export default function UserForm({
       }
 
       const updatedUser = {
-        _id: savedUser?.data?._id || user?._id,
+        _id: savedUserData?._id || user?._id,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -216,8 +219,9 @@ export default function UserForm({
         jobTitle,
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
-        image: savedUser?.data?.image || imageUrl,
-        status: savedUser?.data?.status || "active",
+        image: savedUserData?.image || imageUrl,
+        status: savedUserData?.status || "active",
+        licenseNo: savedUserData?.licenseNo || licenseNo || "",
       };
 
       onUserSaved?.(updatedUser);

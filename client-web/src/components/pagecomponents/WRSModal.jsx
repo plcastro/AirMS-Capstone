@@ -1,313 +1,652 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
-  Modal,
-  Typography,
   Button,
-  Row,
-  Col,
-  message,
-  Popconfirm,
-  Tag,
-  Table,
   Card,
+  Col,
+  Divider,
+  Modal,
+  Row,
+  Tag,
+  Timeline,
+  Typography,
+  message,
 } from "antd";
-import WRSTable from "../tables/WRSTable";
 import {
-  CheckOutlined,
-  CloseOutlined,
-  FileDoneOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  FileDoneOutlined,
+  InboxOutlined,
+  ShoppingCartOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
+import { API_BASE } from "../../utils/API_BASE";
+import WRSTable from "../tables/WRSTable";
 
-const { Title, Text } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
-export default function WRSModal({ visible, onClose, selectedRecord }) {
+const normalizeRequisitionStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return "Parts Requested";
+    case "in progress":
+      return "Ordered";
+    case "completed":
+      return "Delivered";
+    case "rejected":
+      return "Cancelled";
+    case "parts requested":
+      return "Parts Requested";
+    case "availability checked":
+      return "Availability Checked";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+};
+
+const normalizeItemStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "ready for pickup":
+      return "Ordered";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    case "in stock":
+      return "In Stock";
+    case "out of stock":
+      return "Out of Stock";
+    case "parts requested":
+      return "Parts Requested";
+    default:
+      return status;
+  }
+};
+
+const getStatusMeta = (status) => {
+  switch (status) {
+    case "Parts Requested":
+      return {
+        color: "default",
+        icon: <InboxOutlined />,
+      };
+    case "To Be Ordered":
+      return {
+        color: "orange",
+        icon: <ShoppingCartOutlined />,
+      };
+    case "Availability Checked":
+      return {
+        color: "gold",
+        icon: <ClockCircleOutlined />,
+      };
+    case "Ordered":
+      return {
+        color: "blue",
+        icon: <SyncOutlined spin />,
+      };
+    case "Approved":
+      return {
+        color: "cyan",
+        icon: <CheckCircleOutlined />,
+      };
+    case "Delivered":
+      return {
+        color: "green",
+        icon: <FileDoneOutlined />,
+      };
+    default:
+      return {
+        color: "default",
+        icon: <InboxOutlined />,
+      };
+  }
+};
+
+const getStatusDisplayLabel = (status) =>
+  status === "Ordered" ? "Restocked" : status;
+
+const getItemStockStatus = (record, availQty) => {
+  const currentItemStatus = normalizeItemStatus(record.stockStatus);
+
+  if (currentItemStatus === "Approved") {
+    return "Approved";
+  }
+
+  if (currentItemStatus === "Delivered") {
+    return "Delivered";
+  }
+
+  if (currentItemStatus === "Cancelled") {
+    return "Cancelled";
+  }
+
+  if (currentItemStatus === "To Be Ordered" || currentItemStatus === "Ordered") {
+    return availQty >= record.quantity ? "Ordered" : "To Be Ordered";
+  }
+
+  return availQty >= record.quantity ? "In Stock" : "Out of Stock";
+};
+
+export default function WRSModal({
+  visible,
+  onClose,
+  selectedRecord,
+  onUpdated,
+}) {
+  const { user, getAuthHeader } = useContext(AuthContext);
   const [availQtyMap, setAvailQtyMap] = useState({});
-  const { user } = useContext(AuthContext);
+  const [persistedQtyMap, setPersistedQtyMap] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!selectedRecord) return null;
+  useEffect(() => {
+    if (!selectedRecord) {
+      return;
+    }
 
-  const isWD = user.jobTitle.toLowerCase() === "warehouse department";
-  const isMMorOIC = ["maintenance manager", "officer-in-charge"].includes(
-    user?.jobTitle?.toLowerCase(),
+    const normalizedStatus = normalizeRequisitionStatus(selectedRecord.status);
+    const isInitialStockReview =
+      normalizedStatus === "Parts Requested" &&
+      !selectedRecord.dateWarehouseReviewed;
+
+    const nextMap = {};
+    (selectedRecord.items || []).forEach((item) => {
+      nextMap[item._id] = isInitialStockReview
+        ? undefined
+        : item.availableQty ?? item.availQty;
+    });
+    setAvailQtyMap(nextMap);
+    setPersistedQtyMap(nextMap);
+  }, [selectedRecord]);
+
+  const rawStatus = normalizeRequisitionStatus(selectedRecord?.status);
+  const currentStatus =
+    rawStatus === "Parts Requested" && selectedRecord?.dateWarehouseReviewed
+      ? "Availability Checked"
+      : rawStatus;
+  const hasNotInStockItems = useMemo(
+    () =>
+      (selectedRecord?.items || []).some((item) => {
+        const requestedQty = Number(item.quantity) || 0;
+        const availableQty = Number(item.availableQty) || 0;
+        const stockStatus = normalizeItemStatus(item.stockStatus);
+
+        return (
+          availableQty < requestedQty ||
+          stockStatus === "Out of Stock" ||
+          stockStatus === "To Be Ordered"
+        );
+      }),
+    [selectedRecord],
   );
 
-  // Check if all available quantities are filled
-  const isAllFilled = () => {
-    return selectedRecord.items.every((item) => {
-      const value = availQtyMap[item._id];
-      return value !== undefined && value !== null && value !== "";
+  const shouldShowOrderingSteps = useMemo(
+    () =>
+      hasNotInStockItems ||
+      Boolean(selectedRecord?.dateOrdered) ||
+      ["To Be Ordered", "Ordered"].includes(currentStatus),
+    [currentStatus, hasNotInStockItems, selectedRecord],
+  );
+
+  const statusSteps = useMemo(() => {
+    const steps = ["Parts Requested", "Availability Checked"];
+
+    if (shouldShowOrderingSteps) {
+      steps.push("To Be Ordered", "Ordered");
+    }
+
+    steps.push("Approved", "Delivered");
+    return steps;
+  }, [shouldShowOrderingSteps]);
+
+  const currentStepIndex = statusSteps.indexOf(currentStatus);
+  const statusMeta = getStatusMeta(currentStatus);
+
+  const totalQty = useMemo(
+    () =>
+      selectedRecord?.items?.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0),
+        0,
+      ) || 0,
+    [selectedRecord],
+  );
+
+  const allQuantitiesFilled = useMemo(
+    () =>
+      (selectedRecord?.items || []).every((item) => {
+        const value = availQtyMap[item._id];
+        return value !== undefined && value !== null && value !== "";
+      }),
+    [availQtyMap, selectedRecord],
+  );
+
+  const hasUnsavedStockChanges = useMemo(
+    () =>
+      (selectedRecord?.items || []).some((item) => {
+        const currentValue = Number(availQtyMap[item._id] ?? 0);
+        const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+        return currentValue !== persistedValue;
+      }),
+    [availQtyMap, persistedQtyMap, selectedRecord],
+  );
+
+  const allRestockItemsReady = useMemo(
+    () =>
+      (selectedRecord?.items || [])
+        .filter((item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered")
+        .every((item) => {
+          const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+          return persistedValue >= Number(item.quantity || 0);
+        }),
+    [persistedQtyMap, selectedRecord],
+  );
+
+  const nextAction = useMemo(() => {
+    if (!selectedRecord) {
+      return {
+        title: "Next Action",
+        description: "",
+        buttonText: "Submit",
+        disabled: true,
+      };
+    }
+
+    if (currentStatus === "Approved") {
+      return {
+        title: "Delivery",
+        description: "Warehouse can now mark this approved requisition as delivered.",
+        buttonText: "Mark Delivered",
+        disabled: false,
+      };
+    }
+
+    if (currentStatus === "Delivered" || currentStatus === "Cancelled") {
+      return {
+        title: "Completed",
+        description: "No further warehouse action is needed for this requisition.",
+        buttonText: "Done",
+        disabled: true,
+      };
+    }
+
+    if (currentStatus === "Availability Checked") {
+      return {
+        title: "Awaiting Maintenance Review",
+        description:
+          "Stock availability has been submitted. Waiting for maintenance manager action.",
+        buttonText: "Waiting",
+        disabled: true,
+      };
+    }
+
+    if (currentStatus === "To Be Ordered") {
+      return {
+        title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
+        description:
+          hasUnsavedStockChanges
+            ? "Save the edited stock quantities first."
+            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
+        disabled: hasUnsavedStockChanges
+          ? !allQuantitiesFilled
+          : !allRestockItemsReady,
+      };
+    }
+
+    if (currentStatus === "Ordered") {
+      return {
+        title: "Awaiting Approval",
+        description:
+          "Warehouse already confirmed the items are restocked. Waiting for maintenance manager approval.",
+        buttonText: "Waiting",
+        disabled: true,
+      };
+    }
+
+    return {
+      title: "Stock Review",
+      description:
+        "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results.",
+      buttonText: "Submit Stock Review",
+      disabled: !allQuantitiesFilled,
+    };
+  }, [
+    allQuantitiesFilled,
+    allRestockItemsReady,
+    availQtyMap,
+    currentStatus,
+    hasUnsavedStockChanges,
+    persistedQtyMap,
+    selectedRecord,
+  ]);
+
+  const updateRequisition = async (payload, successMessage, shouldClose = true) => {
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-requisition/update-requisition/${selectedRecord._id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(await getAuthHeader()),
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null);
+        console.error("WRS update failed", {
+          payload,
+          responseStatus: response.status,
+          errorPayload,
+        });
+        throw new Error(errorPayload?.message || "Failed to update requisition");
+      }
+
+      message.success(successMessage);
+      onUpdated?.();
+      if (shouldClose) {
+        onClose();
+      }
+    } catch (error) {
+      message.error(error.message || "Failed to update requisition");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedRecord) {
+      return;
+    }
+
+    const warehouseName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Warehouse Department";
+
+    if (currentStatus === "Approved") {
+      await updateRequisition(
+        {
+          status: "Delivered",
+          dateDelivered: new Date().toISOString(),
+          dateReceived: new Date().toISOString(),
+          deliveredBy: warehouseName,
+          warehouseBy: warehouseName,
+          items: (selectedRecord.items || []).map((item) => ({
+            ...item,
+            availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+            stockStatus: "Delivered",
+          })),
+        },
+        "Requisition marked as delivered.",
+      );
+      return;
+    }
+
+      const updatedItems = (selectedRecord.items || []).map((item) => {
+      const availableQty = Number(availQtyMap[item._id] ?? item.availableQty ?? 0);
+
+      return {
+        ...item,
+        availableQty,
+        stockStatus: getItemStockStatus(item, availableQty),
+      };
     });
-  };
 
-  const renderActionButtons = (status) => {
-    // MM or OIC approve/reject
-    if (isMMorOIC && status === "Pending") {
-      return (
-        <Row
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            textAlign: "center",
-            gap: 16,
-            justifyContent: "space-between",
-            padding: 20,
-          }}
-        >
-          <Col span={24}>
-            <Text>SELECT AN ACTION</Text>
-          </Col>
-          <Col
-            span={24}
-            style={{ display: "flex", justifyContent: "center", gap: 8 }}
-          >
-            <Popconfirm
-              title="Are you sure you want to approve this requisition?"
-              onConfirm={() => {
-                message.success("Requisition approved!");
-                onClose();
-              }}
-            >
-              <Button type="primary" icon={<CheckOutlined />} size="large">
-                APPROVE
-              </Button>
-            </Popconfirm>
-            <Popconfirm
-              title="Are you sure you want to reject this requisition?"
-              onConfirm={() => {
-                message.error("Requisition rejected!");
-                onClose();
-              }}
-            >
-              <Button danger icon={<CloseOutlined />} size="large">
-                REJECT
-              </Button>
-            </Popconfirm>
-          </Col>
-        </Row>
+    if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
+      const savedItems = (selectedRecord.items || []).map((item) => ({
+        ...item,
+        availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+        stockStatus: normalizeItemStatus(item.stockStatus),
+      }));
+
+      await updateRequisition(
+        {
+          status: "To Be Ordered",
+          warehouseBy: warehouseName,
+          items: savedItems,
+        },
+        "Stock quantities saved.",
+        false,
       );
+      setPersistedQtyMap({ ...availQtyMap });
+      return;
     }
 
-    // Warehouse Department submit/cancel
-    if (isWD && ["Approved", "In Progress"].includes(status)) {
-      return (
-        <Row
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            textAlign: "center",
-            gap: 16,
-            justifyContent: "space-between",
-            padding: 20,
-          }}
-        >
-          <Col span={24}>
-            <Text>SELECT AN ACTION</Text>
-          </Col>
-          <Col
-            span={24}
-            style={{ display: "flex", justifyContent: "center", gap: 8 }}
-          >
-            <Popconfirm
-              title="Submit available quantities?"
-              description="This will save the entered quantities and update item statuses."
-              onConfirm={() => {
-                message.success("Available quantities submitted successfully.");
-                onClose();
-              }}
-              disabled={!isAllFilled()}
-            >
-              <Button
-                type="primary"
-                icon={<CheckOutlined />}
-                size="large"
-                disabled={!isAllFilled()}
-              >
-                SUBMIT
-              </Button>
-            </Popconfirm>
-            <Popconfirm
-              title="Discard entered quantities?"
-              description="This will reset all entered values for this requisition."
-              onConfirm={() => {
-                setAvailQtyMap({});
-                message.warning("Entered quantities have been discarded.");
-                onClose();
-              }}
-            >
-              <Button danger icon={<CloseOutlined />} size="large">
-                CANCEL
-              </Button>
-            </Popconfirm>
-          </Col>
-        </Row>
+    const nextStatus =
+      currentStatus === "To Be Ordered"
+        ? updatedItems.some(
+            (item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered",
+          )
+          ? "To Be Ordered"
+          : "Ordered"
+        : currentStatus;
+
+    const finalItems = updatedItems;
+
+    if (currentStatus === "Parts Requested") {
+      const hasPartialOrZeroStock = finalItems.some(
+        (item) => Number(item.availableQty) < Number(item.quantity),
       );
+
+      if (hasPartialOrZeroStock) {
+        const proceed = await new Promise((resolve) => {
+          Modal.confirm({
+            title: "Confirm Stock Review Submission",
+            content:
+              "Some items have partial or zero available quantity. Submit stock review anyway?",
+            okText: "Submit",
+            cancelText: "Cancel",
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+
+        if (!proceed) {
+          return;
+        }
+      }
     }
 
-    return null;
+    await updateRequisition(
+      {
+        status: nextStatus,
+        ...(currentStatus === "Parts Requested"
+          ? { dateWarehouseReviewed: new Date().toISOString() }
+          : {}),
+        ...(currentStatus === "To Be Ordered"
+          ? { dateOrdered: new Date().toISOString() }
+          : {}),
+        warehouseBy: warehouseName,
+        items: finalItems,
+      },
+      currentStatus === "To Be Ordered"
+        ? nextStatus === "Ordered"
+          ? "Requisition marked as restocked."
+          : "Remaining items are still to be restocked."
+        : "Warehouse stock review submitted successfully.",
+    );
   };
+
+  if (!selectedRecord) return null;
 
   return (
     <Modal
       open={visible}
       onCancel={onClose}
-      width="max(700px, 70vw)"
+      width={1100}
       centered
-      title={
-        <Title level={4} style={{ margin: 0 }}>
-          {isMMorOIC && selectedRecord.status === "Pending"
-            ? "Review Requisition"
-            : "Warehouse Requisition Details"}
-        </Title>
-      }
       footer={null}
+      title={
+        <div>
+          <Title level={4} style={{ margin: 0 }}>
+            Warehouse Requisition Details
+          </Title>
+          <Text type="secondary">
+            Review stock, confirm ordered items, and mark approved requisitions as
+            delivered.
+          </Text>
+        </div>
+      }
     >
-      <Card
-        style={{ backgroundColor: "#f6f6f6", marginBottom: 20 }}
-        bordered={false}
-      >
-        <Row gutter={[10, 10]}>
-          <Col
-            xs={12}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
+      <Row gutter={[20, 20]}>
+        <Col xs={24} xl={15}>
+          <Card
+            variant="borderless"
+            style={{ borderRadius: 18, background: "#fafafa" }}
           >
-            <Text type="secondary">WRS NO:</Text>
-            <Text strong>{selectedRecord.wrsNo}</Text>
-          </Col>
-          <Col
-            xs={12}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">Status:</Text>
-            <Tag
-              icon={
-                selectedRecord.status === "Pending" ? (
-                  <ClockCircleOutlined />
-                ) : selectedRecord.status === "Approved" ? (
-                  <CheckCircleOutlined />
-                ) : selectedRecord.status === "In Progress" ? (
-                  <SyncOutlined spin />
-                ) : selectedRecord.status === "Completed" ? (
-                  <FileDoneOutlined />
-                ) : (
-                  <CloseOutlined />
-                )
-              }
-              color={
-                selectedRecord.status === "Pending"
-                  ? "blue"
-                  : selectedRecord.status === "Approved"
-                    ? "cyan"
-                    : selectedRecord.status === "In Progress"
-                      ? "purple"
-                      : selectedRecord.status === "Completed"
-                        ? "green"
-                        : "red"
-              }
-              style={{
-                height: 30,
-                width: 100,
-                textAlign: "center",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 5,
-              }}
-            >
-              {selectedRecord.status}
-            </Tag>
-          </Col>
-          <Col
-            xs={24}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">SLOC NAME/CODE</Text>
-            <Text strong>{selectedRecord.slocNameCode}</Text>
-          </Col>
-          <Col
-            xs={24}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">REQUISITIONED BY</Text>
-            <Text strong>{selectedRecord.staff.employeeName}</Text>
-          </Col>
-          <Col
-            xs={24}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">DATE REQUESTED</Text>
-            <Text strong>{selectedRecord.dateRequested}</Text>
-          </Col>
-          <Col
-            xs={24}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">TOTAL ITEMS</Text>
-            <Text strong>{selectedRecord.items.length}</Text>
-          </Col>
-          <Col
-            xs={24}
-            sm={12}
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Text type="secondary">TOTAL QUANTITY</Text>
-            <Text strong>{selectedRecord.totalQty}</Text>
-          </Col>
-        </Row>
-      </Card>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">WRS No.</Text>
+                <Title level={5} style={{ marginTop: 6 }}>
+                  {selectedRecord.wrsNo}
+                </Title>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Status</Text>
+                <div style={{ marginTop: 6 }}>
+                  <Tag color={statusMeta.color} icon={statusMeta.icon}>
+                    {getStatusDisplayLabel(currentStatus)}
+                  </Tag>
+                </div>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Aircraft</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.aircraft}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Requested By</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>
+                    {selectedRecord.staff?.employeeName ||
+                      selectedRecord.staff?.requisitioner}
+                  </Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Date Requested</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.dateRequested}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Total Items</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{selectedRecord.items.length}</Text>
+                </Paragraph>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Text type="secondary">Total Quantity</Text>
+                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                  <Text strong>{totalQty}</Text>
+                </Paragraph>
+              </Col>
+            </Row>
+          </Card>
 
-      <Row gutter={[10, 10]}>
-        <Col xs={24}>
-          {!isWD ? (
-            <>
-              <Text type="secondary">REQUESTED ITEMS</Text>
-              <Table
-                dataSource={selectedRecord.items}
-                pagination={
-                  selectedRecord.items.length > 5
-                    ? { pageSize: 5, hideOnSinglePage: true }
-                    : false
-                }
-                scroll={{ y: 200 }}
-                columns={[
-                  {
-                    title: "MATCODE NO.",
-                    dataIndex: "matCodeNo",
-                    width: "20%",
-                  },
-                  {
-                    title: "PARTICULAR",
-                    dataIndex: "particular",
-                    width: "65%",
-                  },
-                  { title: "QTY", dataIndex: "quantity", width: "15%" },
-                ]}
-                size="small"
-              />
-            </>
-          ) : (
-            <WRSTable
-              data={selectedRecord.items}
-              availQtyMap={availQtyMap}
-              setAvailQtyMap={setAvailQtyMap}
-            />
-          )}
+          <Divider titlePlacement="left">Requested Items</Divider>
+
+          <WRSTable
+            data={selectedRecord.items}
+            availQtyMap={availQtyMap}
+            persistedQtyMap={persistedQtyMap}
+            setAvailQtyMap={setAvailQtyMap}
+            disabled={
+              currentStatus !== "Parts Requested" &&
+              currentStatus !== "To Be Ordered"
+            }
+          />
         </Col>
 
-        <Col
-          span={24}
-          style={{ display: "flex", justifyContent: "center", gap: 8 }}
-        >
-          {renderActionButtons(selectedRecord.status)}
+        <Col xs={24} xl={9}>
+          <Card
+            variant="borderless"
+            style={{ borderRadius: 18, marginBottom: 16 }}
+          >
+            <Title level={5}>Warehouse Flow</Title>
+            <Timeline
+              items={statusSteps.map((step, index) => {
+                const isCompleted = index < currentStepIndex;
+                const isCurrent = index === currentStepIndex;
+
+                return {
+                  icon: isCompleted ? (
+                    <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                  ) : isCurrent ? (
+                    <ClockCircleOutlined style={{ color: "#13c2c2" }} />
+                  ) : (
+                    <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
+                  ),
+                  content: (
+                    <div
+                      style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
+                    >
+                      <Text strong>{getStatusDisplayLabel(step)}</Text>
+                      <div>
+                        <Text type="secondary">
+                          {step === "Approved" &&
+                            "Maintenance manager approved the requisition because all items are available."}
+                          {step === "Parts Requested" &&
+                            "Warehouse checks whether each requested item is in stock or out of stock."}
+                          {step === "Availability Checked" &&
+                            "Stock review submitted. Maintenance is now reviewing warehouse availability."}
+                          {step === "To Be Ordered" &&
+                            "Maintenance manager requested ordering for the unavailable items."}
+                          {step === "Ordered" &&
+                            "Warehouse confirmed the previously unavailable items are now restocked."}
+                          {step === "Delivered" &&
+                            "Warehouse completed the release and marked the requisition as delivered."}
+                        </Text>
+                      </div>
+                    </div>
+                  ),
+                };
+              })}
+            />
+          </Card>
+
+          <Card variant="borderless" style={{ borderRadius: 18 }}>
+            <Title level={5}>{nextAction.title}</Title>
+            <Paragraph type="secondary">{nextAction.description}</Paragraph>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Button onClick={onClose}>Close</Button>
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                loading={submitting}
+                disabled={nextAction.disabled}
+                onClick={handleSubmit}
+              >
+                {nextAction.buttonText}
+              </Button>
+            </div>
+          </Card>
         </Col>
       </Row>
     </Modal>

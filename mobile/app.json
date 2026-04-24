@@ -17,7 +17,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.com.ngcp-aviation-dept.airms"
+      "bundleIdentifier": "com.ngcp-aviation-dept.airms"
     },
     "android": {
       "package": "com.ngcp-aviation-dept.airms",
@@ -34,6 +34,13 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/AirMS_mobile.png",
+          "color": "#26866F"
+        }
+      ],
       [
         "expo-image-picker",
         {

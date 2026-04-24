@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   Text,
@@ -28,12 +29,32 @@ export default function PartsRequisitionEntry({
   visible,
   onClose,
   onSubmit,
+  title = "New Entry",
+  submitLabel = "Submit",
+  selectedAircraft,
+  onChangeAircraft,
+  aircraftOptions = [],
+  initialAircraft = "",
+  initialItems = [],
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
 
   useEffect(() => {
     if (visible) {
-      setItems([createEmptyItem(1)]);
+      const nextItems =
+        initialItems.length > 0
+          ? initialItems.map((item, index) => ({
+              id: item.id || item._id || Date.now() + index,
+              materialCodeNumber: item.materialCodeNumber || item.matCodeNo || "",
+              particular: item.particular || "",
+              quantity: item.quantity ? String(item.quantity) : "",
+              unit: item.unit || item.unitOfMeasure || "pcs",
+              purpose: item.purpose || "",
+            }))
+          : [createEmptyItem(1)];
+
+      setItems(nextItems);
+      onChangeAircraft?.(initialAircraft || "");
     }
   }, [visible]);
 
@@ -135,7 +156,7 @@ export default function PartsRequisitionEntry({
                 color: COLORS.black,
               }}
             >
-              New Entry
+              {title}
             </Text>
 
             <TouchableOpacity
@@ -159,6 +180,68 @@ export default function PartsRequisitionEntry({
               paddingBottom: 20,
             }}
           >
+            <View
+              style={{
+                backgroundColor: COLORS.white,
+                borderRadius: 20,
+                paddingHorizontal: 18,
+                paddingTop: 22,
+                paddingBottom: 16,
+                marginBottom: 18,
+                elevation: 4,
+                shadowColor: COLORS.black,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                borderWidth: 1,
+                borderColor: "#EEEEEE",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "700",
+                  color: "#3C3C3C",
+                  marginBottom: 14,
+                }}
+              >
+                Choose Aircraft
+              </Text>
+
+              <View
+                style={{
+                  backgroundColor: "#F1F1F1",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  minHeight: 48,
+                  justifyContent: "center",
+                }}
+              >
+                <Picker
+                  selectedValue={selectedAircraft}
+                  onValueChange={onChangeAircraft}
+                  mode="dropdown"
+                  style={{
+                    height: Platform.OS === "android" ? 52 : 48,
+                    width: "100%",
+                    color: selectedAircraft ? COLORS.black : COLORS.grayDark,
+                    marginLeft: Platform.OS === "android" ? 2 : -6,
+                    marginTop: Platform.OS === "android" ? -1 : 0,
+                  }}
+                  dropdownIconColor={COLORS.grayDark}
+                >
+                  <Picker.Item label="Choose Aircraft" value="" />
+                  {aircraftOptions.map((aircraft) => (
+                    <Picker.Item
+                      key={aircraft.id || aircraft.name}
+                      label={aircraft.name}
+                      value={aircraft.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+
             {items.map((item, index) => (
               <View
                 key={item.id}
@@ -196,7 +279,7 @@ export default function PartsRequisitionEntry({
                     Item {index + 1}
                   </Text>
 
-                  {index > 0 && (
+                  {items.length > 1 && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => removeItem(item.id)}
@@ -238,7 +321,7 @@ export default function PartsRequisitionEntry({
                       backgroundColor: "#F1F1F1",
                       borderRadius: 6,
                       overflow: "hidden",
-                      height: 40,
+                      minHeight: 44,
                     }}
                   >
                     <TextInput
@@ -250,7 +333,7 @@ export default function PartsRequisitionEntry({
                       placeholderTextColor="#7C7C7C"
                       style={{
                         flex: 1,
-                        height: 40,
+                        height: 44,
                         paddingHorizontal: 12,
                         fontSize: 15,
                         color: COLORS.black,
@@ -258,8 +341,8 @@ export default function PartsRequisitionEntry({
                     />
                     <View
                       style={{
-                        width: 72,
-                        height: 40,
+                        width: 92,
+                        height: 44,
                         justifyContent: "center",
                         borderLeftWidth: 1,
                         borderLeftColor: "#DEDEDE",
@@ -270,11 +353,13 @@ export default function PartsRequisitionEntry({
                         onValueChange={(value) =>
                           updateItem(item.id, "unit", value)
                         }
+                        mode="dropdown"
                         style={{
-                          height: 40,
-                          width: 72,
-                          color: COLORS.grayDark,
-                          marginTop: -2,
+                          height: Platform.OS === "android" ? 52 : 44,
+                          width: 92,
+                          color: item.unit ? COLORS.black : COLORS.grayDark,
+                          marginLeft: Platform.OS === "android" ? 2 : -6,
+                          marginTop: Platform.OS === "android" ? -1 : 0,
                         }}
                         dropdownIconColor={COLORS.grayDark}
                       >
@@ -326,7 +411,7 @@ export default function PartsRequisitionEntry({
             <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => onSubmit?.(items)}
+                onPress={() => onSubmit?.({ aircraft: selectedAircraft, items })}
                 style={{
                   backgroundColor: COLORS.primaryLight,
                   paddingHorizontal: 22,
@@ -341,7 +426,7 @@ export default function PartsRequisitionEntry({
                     fontWeight: "600",
                   }}
                 >
-                  Submit
+                  {submitLabel}
                 </Text>
               </TouchableOpacity>
             </View>

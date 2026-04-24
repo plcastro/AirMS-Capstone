@@ -36,19 +36,38 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
   };
 
   const getStatusBadgeStyle = (status) => {
-    if (status === "completed") {
-      return {
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
-        label: "Completed",
-      };
+    switch (status) {
+      case "pending_release":
+        return {
+          backgroundColor: "#FFF3E0",
+          textColor: "#ED6C02",
+          label: "Pending Release",
+        };
+      case "pending_acceptance":
+        return {
+          backgroundColor: "#E3F2FD",
+          textColor: "#1565C0",
+          label: "Released",
+        };
+      case "accepted":
+        return {
+          backgroundColor: "#FFF8E1",
+          textColor: "#A37300",
+          label: "Accepted",
+        };
+      case "completed":
+        return {
+          backgroundColor: "#E8F5E9",
+          textColor: "#2E7D32",
+          label: "Completed",
+        };
+      default:
+        return {
+          backgroundColor: "#FFF3E0",
+          textColor: "#ED6C02",
+          label: "Ongoing",
+        };
     }
-    // pending_release, pending_acceptance, ongoing all show as "Ongoing"
-    return {
-      backgroundColor: "#FFF3E0",
-      textColor: "#ED6C02",
-      label: "Ongoing",
-    };
   };
 
   if (!logs || logs.length === 0) {
@@ -107,24 +126,20 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
             }}
           >
             {/* Green Header with RP/C, Export Button, and Status Badge */}
-            <View
-              style={{
-                backgroundColor: COLORS.primaryLight,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Text
-                style={{
-                  color: COLORS.white,
-                  fontSize: 18,
-                  fontWeight: "600",
-                }}
-              >
-                RP/C: {log.rpc || "N/A"}
+            <View style={{
+              backgroundColor: COLORS.primaryLight,
+              paddingVertical: 18,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <Text style={{
+                color: COLORS.white,
+                fontSize: 18,
+                fontWeight: "600"
+              }}>
+                RP-C: {log.rpc || "N/A"}
               </Text>
               <View
                 style={{ flexDirection: "row", gap: 12, alignItems: "center" }}

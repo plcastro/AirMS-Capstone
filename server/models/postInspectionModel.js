@@ -11,6 +11,16 @@ const signatureSchema = new mongoose.Schema(
 
 const postInspectionSchema = new mongoose.Schema(
   {
+    preInspectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PreInspection",
+      default: null,
+      index: true,
+    },
+    linkedFromPreFlight: {
+      type: Boolean,
+      default: false,
+    },
     aircraftType: { type: String, required: true, trim: true },
     rpc: { type: String, required: true, trim: true },
     date: { type: String, required: true },

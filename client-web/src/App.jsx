@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import React, { Suspense, lazy, useEffect, useContext } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
-import { ConfigProvider, Spin } from "antd";
+import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
 
@@ -31,6 +31,9 @@ const UserManagement = lazy(
 const UserLogs = lazy(
   () => import("./pages/dashboard/user-management/UserLogs"),
 );
+const AdminDashboard = lazy(
+  () => import("./pages/dashboard/user-management/AdminDashboard"),
+);
 const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
@@ -57,145 +60,178 @@ const Profile = lazy(
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AppRouter = () => {
-  const { loading } = useContext(AuthContext);
+  const {
+    loading,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
 
   if (loading) {
     return <LoadingScreen />;
   }
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+    <>
+      <Modal
+        open={showSessionTimeoutWarning}
+        closable={false}
+        mask={{ closable: false }}
+        centered
+        footer={[
+          <Button key="logout" onClick={() => logoutUser()}>
+            Sign out now
+          </Button>,
+          <Button key="continue" type="primary" onClick={continueSession}>
+            Continue session
+          </Button>,
+        ]}
+        title="Session Timeout Warning"
+      >
+        <p style={{ marginBottom: 8 }}>
+          You&apos;ve been inactive for a while. For your security, you&apos;ll
+          be signed out in 2 minutes unless you continue.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
+        </p>
+      </Modal>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Authentication */}
-        <Route element={<RootLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot" element={<ForgotPassword />} />
-          <Route path="/verification" element={<OTP />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/security-setup" element={<SecuritySetup />} />
-        </Route>
+          {/* Authentication */}
+          <Route element={<RootLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot" element={<ForgotPassword />} />
+            <Route path="/verification" element={<OTP />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/security-setup" element={<SecuritySetup />} />
+          </Route>
 
-        {/* Dashboard pages */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
+          {/* Dashboard pages */}
           <Route
-            path="user-management/view-users"
+            path="/dashboard"
             element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <UserManagement />
+              <ProtectedRoute>
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="user-management/activity-logs"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <UserLogs />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="flight-log"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <FlightLog />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-log"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceLog />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="parts-lifespan-monitoring"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <PartsLifespanMonitoring />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-tracking"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceTracking />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route
+              path="user-management/admin-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="user-management/view-users"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UserManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="user-management/activity-logs"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UserLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="flight-log"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                >
+                  <FlightLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-log"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                >
+                  <MaintenanceLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="parts-lifespan-monitoring"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                >
+                  <PartsLifespanMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-tracking"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                >
+                  <MaintenanceTracking />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="maintenance-priority"
-            element={
-              <ProtectedRoute allowedRoles={["maintenance manager"]}>
-                <MaintenancePriority />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-dashboard"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="parts-requisition"
-            element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "maintenance manager",
-                  "officer-in-charge",
-                  "warehouse department",
-                ]}
-              >
-                <PartsRequisition />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="profile"
-            element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "admin",
-                  "maintenance manager",
-                  "officer-in-charge",
-                  "warehouse department",
-                ]}
-              >
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="maintenance-priority"
+              element={
+                <ProtectedRoute allowedRoles={["maintenance manager"]}>
+                  <MaintenancePriority />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-dashboard"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                >
+                  <MaintenanceDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="parts-requisition"
+              element={
+                <ProtectedRoute allowedRoles={["warehouse department"]}>
+                  <PartsRequisition />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "warehouse department",
+                  ]}
+                >
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
-        </Route>
-
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   );
 };
 export default function App() {
@@ -245,11 +281,13 @@ export default function App() {
         },
       }}
     >
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRouter />
-        </BrowserRouter>
-      </AuthProvider>
+      <AntdApp>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRouter />
+          </BrowserRouter>
+        </AuthProvider>
+      </AntdApp>
     </ConfigProvider>
   );
 }

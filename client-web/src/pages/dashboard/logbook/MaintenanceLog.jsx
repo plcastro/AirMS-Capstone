@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
+import {
+  Input,
+  Row,
+  Col,
+  Card,
+  Button,
+  Typography,
+  Space,
+  Divider,
+  Tag,
+} from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -14,6 +24,15 @@ export default function MaintenanceLog() {
   const [viewLevel, setViewLevel] = useState("dashboard"); // dashboard, aircraft, or report
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
+
+  const compactAddonStyle = {
+    border: "1px solid #d9d9d9",
+    borderRight: 0,
+    background: "#fafafa",
+    padding: "0 11px",
+    lineHeight: "30px",
+    whiteSpace: "nowrap",
+  };
 
   // Mock data matching your aviation theme
   const mockData = [
@@ -73,56 +92,79 @@ export default function MaintenanceLog() {
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
   };
 
-  // --- VIEW 1: DASHBOARD (2 Cards Per Row) ---
+  const renderLabeledInput = (label, value = "") => (
+    <Space.Compact style={{ width: "100%" }}>
+      <span style={compactAddonStyle}>{label}</span>
+      <Input value={value} readOnly />
+    </Space.Compact>
+  );
+
+  // --- VIEW 1: DASHBOARD (Aircraft Cards) ---
   if (viewLevel === "dashboard") {
     const uniqueAircraft = [...new Set(allEntries.map((e) => e.aircraft))];
     return (
-      <div style={{ padding: "40px 20px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 40,
-          }}
-        >
-          <Input
-            placeholder="Search defect..."
-            prefix={<SearchOutlined />}
-            style={{ width: "50%", borderRadius: 10 }}
-          />
-        </div>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <Title level={3} style={{ marginBottom: 20 }}>
-            REMARKS
-          </Title>
-          <Row gutter={[16, 16]}>
-            {uniqueAircraft.map((reg) => (
-              <Col span={12} key={reg}>
+      <div style={{ padding: 20 }}>
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} md={8}>
+            <Input
+              size="large"
+              placeholder="Search defect..."
+              prefix={<SearchOutlined />}
+              allowClear
+            />
+          </Col>
+          <Col xs={24} md={16} style={{ textAlign: "right" }}>
+            <Text type="secondary">
+              Showing <Text strong>{uniqueAircraft.length}</Text> aircraft
+            </Text>
+          </Col>
+        </Row>
+
+        <Title level={4} style={{ marginBottom: 14 }}>
+          Maintenance Remarks
+        </Title>
+        <Row gutter={[16, 16]}>
+          {uniqueAircraft.map((reg) => {
+            const aircraftEntry = allEntries.find(
+              (entry) => entry.aircraft === reg,
+            );
+            return (
+              <Col xs={24} md={12} key={reg}>
                 <Card
                   hoverable
                   onClick={() => navigateToAircraft(reg)}
-                  styles={{ body: { display: "flex", padding: 0 } }}
+                  styles={{ body: { padding: 0 } }}
+                  style={{ borderRadius: 12, overflow: "hidden" }}
                 >
-                  <div
-                    style={{
-                      width: 140,
-                      background: "#d1c4e9",
-                      borderRadius: "4px 0 0 4px",
-                    }}
-                  />
-                  <div style={{ padding: 15 }}>
-                    <Title level={5} style={{ margin: 0 }}>
-                      {reg}
-                    </Title>
-                    <Text type="secondary">ACFT TYPE: AS350 B3</Text>
-                    <br />
-                    <Text type="secondary">ACFT S/N: 7247</Text>
+                  <div style={{ display: "flex", minHeight: 120 }}>
+                    <div
+                      style={{
+                        width: 10,
+                        background: "#26866f",
+                      }}
+                    />
+                    <div style={{ padding: 16, flex: 1 }}>
+                      <Space size={[8, 8]} wrap>
+                        <Tag color="green">AIRCRAFT</Tag>
+                        <Text type="secondary">Tap to view work orders</Text>
+                      </Space>
+                      <Title level={5} style={{ margin: "10px 0 6px" }}>
+                        {reg}
+                      </Title>
+                      <Text type="secondary">
+                        ACFT TYPE: {aircraftEntry?.type || "-"}
+                      </Text>
+                      <br />
+                      <Text type="secondary">
+                        ACFT S/N: {aircraftEntry?.sn || "-"}
+                      </Text>
+                    </div>
                   </div>
                 </Card>
               </Col>
-            ))}
-          </Row>
-        </div>
+            );
+          })}
+        </Row>
       </div>
     );
   }
@@ -130,41 +172,59 @@ export default function MaintenanceLog() {
   // --- VIEW 2: AIRCRAFT DETAILS (Split View) ---
   if (viewLevel === "aircraft") {
     return (
-      <div style={{ padding: "20px" }}>
+      <div style={{ padding: 20 }}>
         <Button
           icon={<ArrowLeftOutlined />}
           type="text"
           onClick={goBack}
-          style={{ marginBottom: 20 }}
-        />
-        <Row gutter={24} style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <Col span={14}>
-            <Card styles={{ body: { display: "flex", padding: 0 } }}>
-              <div style={{ width: 250, background: "#d1c4e9" }} />
-              <div style={{ padding: "20px" }}>
-                <Title level={3}>{selectedAircraft?.aircraft}</Title>
+          style={{ marginBottom: 12 }}
+        >
+          Back
+        </Button>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} lg={14}>
+            <Card>
+              <Space orientation="vertical" size={10} style={{ width: "100%" }}>
+                <Tag color="green" style={{ width: "fit-content" }}>
+                  AIRCRAFT PROFILE
+                </Tag>
+                <Title level={3} style={{ margin: 0 }}>
+                  {selectedAircraft?.aircraft}
+                </Title>
                 <Text type="secondary">Lightweight Utility Aircraft</Text>
-                <Row style={{ marginTop: 25 }} gutter={[0, 12]}>
-                  <Col span={12}>
+                <Divider style={{ margin: "8px 0" }} />
+                <Row gutter={[16, 10]}>
+                  <Col xs={24} sm={12}>
                     <Text strong>ACFT TYPE:</Text> {selectedAircraft?.type}
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Text strong>LANDING CYC:</Text> 2522
                   </Col>
+                  <Col xs={24} sm={12}>
+                    <Text strong>ACFT S/N:</Text> {selectedAircraft?.sn}
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Text strong>WORK ORDERS:</Text>{" "}
+                    {selectedAircraft?.entries?.length || 0}
+                  </Col>
                 </Row>
-              </div>
+              </Space>
             </Card>
           </Col>
-          <Col span={10}>
-            <MLogTable
-              headers={[
-                { title: "W.O. #", key: "id" },
-                { title: "DATE", key: "dateDefectRectified" },
-              ]}
-              data={selectedAircraft?.entries || []}
-              onRowClick={navigateToReport}
-              isSimple={true}
-            />
+
+          <Col xs={24} lg={10}>
+            <Card title="Work Orders" styles={{ body: { padding: 0 } }}>
+              <MLogTable
+                headers={[
+                  { title: "W.O. #", key: "id" },
+                  { title: "DATE", key: "dateDefectRectified" },
+                ]}
+                data={selectedAircraft?.entries || []}
+                onRowClick={navigateToReport}
+                isSimple={true}
+              />
+            </Card>
           </Col>
         </Row>
       </div>
@@ -175,20 +235,17 @@ export default function MaintenanceLog() {
   if (viewLevel === "report") {
     return (
       <div style={{ padding: "20px" }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          type="text"
-          onClick={goBack}
+        <Row
+          justify="space-between"
+          align="middle"
           style={{ marginBottom: 10 }}
-        />
-        <div style={{ maxWidth: 950, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: 10,
-            }}
-          >
+        >
+          <Col>
+            <Button icon={<ArrowLeftOutlined />} type="text" onClick={goBack}>
+              Back
+            </Button>
+          </Col>
+          <Col>
             <Button
               icon={<PrinterOutlined />}
               type="primary"
@@ -196,66 +253,62 @@ export default function MaintenanceLog() {
             >
               Print
             </Button>
-          </div>
-          <Card style={{ marginBottom: 15 }}>
-            <Row gutter={[16, 12]}>
-              <Col span={12}>
-                <Space.Compact>
-                  {addon}
-                  <Input addonBefore="Aircraft Type:" value="" readOnly />
-                </Space.Compact>
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft Reg:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Landing Cyc:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft S/N:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="W.O. #:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine Cyc:" value="" readOnly />
-              </Col>
-            </Row>
-          </Card>
-          <Title level={5} style={{ marginBottom: 10 }}>
-            WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE
-          </Title>
-          <div
-            style={{
-              border: "1px solid #d9d9d9",
-              borderRadius: 4,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                background: "#26866f",
-                color: "white",
-                padding: "10px 15px",
-                fontWeight: "bold",
-              }}
-            >
-              DESCRIPTION OF WORK
-            </div>
-            <MLogTable
-              headers={[{ title: "", key: "description" }]}
-              data={selectedWO?.workDetails || []}
-              isSimple={true}
-              isWorkReport={true}
-            />
-          </div>
-        </div>
+          </Col>
+        </Row>
+
+        <Card style={{ marginBottom: 15 }}>
+          <Row gutter={[16, 12]}>
+            <Col xs={24} md={12}>
+              {renderLabeledInput(
+                "Aircraft Type:",
+                selectedAircraft?.type || "",
+              )}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("Aircraft TT:", "")}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput(
+                "Aircraft Reg:",
+                selectedAircraft?.aircraft || "",
+              )}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("Landing Cyc:", "2522")}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("Aircraft S/N:", selectedAircraft?.sn || "")}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("Engine TT:", "")}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("W.O. #:", selectedWO?.id || "")}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderLabeledInput("Engine Cyc:", "")}
+            </Col>
+          </Row>
+        </Card>
+
+        <Card
+          title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
+          styles={{
+            header: {
+              background: "#26866f",
+              color: "#fff",
+              fontWeight: 700,
+            },
+            body: { padding: 0 },
+          }}
+        >
+          <MLogTable
+            headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
+            data={selectedWO?.workDetails || []}
+            isSimple={true}
+            isWorkReport={true}
+          />
+        </Card>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,16 +10,19 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
+import { NotificationContext } from "../../Context/NotificationContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 
-export default function FlightLog() {
+export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
+  const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -35,7 +38,7 @@ export default function FlightLog() {
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
-  const fetchFlightLogs = async () => {
+  const fetchFlightLogs = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -48,7 +51,10 @@ export default function FlightLog() {
         params.append("aircraftRPC", selectedAircraft);
       }
       if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", selectedStatus);
+        params.append(
+          "status",
+          selectedStatus === "released" ? "pending_acceptance" : selectedStatus,
+        );
       }
 
       console.log(
@@ -86,7 +92,29 @@ export default function FlightLog() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [selectedAircraft, selectedStatus]);
+
+  const fetchFlightLogById = useCallback(async (flightLogId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/flightlogs/${flightLogId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success || !data?.data) {
+        return null;
+      }
+
+      return data.data;
+    } catch (error) {
+      console.error("Fetch flight log by id error:", error);
+      return null;
+    }
+  }, []);
 
   // SEARCH FLIGHT LOGS
   const searchFlightLogs = async (query) => {
@@ -131,14 +159,21 @@ export default function FlightLog() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newEntry),
+        body: JSON.stringify({
+          ...newEntry,
+          createdByName:
+            `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+            "Unknown User",
+          createdByUserId: user?.id || null,
+        }),
       });
 
       // Read ONLY ONCE
       const data = await response.json();
 
       if (response.ok) {
-        fetchFlightLogs(); // Refresh the list
+        fetchFlightLogs();
+        fetchNotifications();
         setShowNewEntryModal(false);
       } else {
         Alert.alert("Error", data.message || "Failed to add flight log");
@@ -150,7 +185,7 @@ export default function FlightLog() {
   };
 
   // UPDATE FLIGHT LOG (NO AUTH)
-  const handleSaveEdit = async (updatedLog) => {
+  const handleSaveEdit = async (updatedLog, options = { closeOnSave: true }) => {
     try {
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
@@ -166,9 +201,14 @@ export default function FlightLog() {
       const data = await response.json();
 
       if (response.ok) {
-        fetchFlightLogs(); // Refresh the list
-        setShowEditModal(false);
-        setSelectedLog(null);
+        fetchFlightLogs();
+        fetchNotifications();
+        if (options.closeOnSave) {
+          setShowEditModal(false);
+          setSelectedLog(null);
+        } else {
+          setSelectedLog(updatedLog);
+        }
         Alert.alert("Success", "Flight log updated successfully");
       } else {
         Alert.alert("Error", data.message || "Failed to update flight log");
@@ -195,7 +235,32 @@ export default function FlightLog() {
   // Fetch when filters change
   useEffect(() => {
     fetchFlightLogs();
-  }, [selectedAircraft, selectedStatus]);
+  }, [fetchFlightLogs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFlightLogs();
+      fetchNotifications();
+    }, [fetchFlightLogs, fetchNotifications]),
+  );
+
+  useEffect(() => {
+    if (!route?.params?.refreshAt) {
+      return;
+    }
+
+    fetchFlightLogs();
+    fetchNotifications();
+  }, [fetchFlightLogs, fetchNotifications, route?.params?.refreshAt]);
+
+  useEffect(() => {
+    if (!route?.params?.targetFlightLogId) {
+      return;
+    }
+
+    setSelectedAircraft("");
+    setSelectedStatus(route?.params?.notificationStatus || "all");
+  }, [route?.params?.notificationStatus, route?.params?.targetFlightLogId]);
 
   const aircraftOptions = [
     "all",
@@ -205,8 +270,7 @@ export default function FlightLog() {
   const statusOptions = [
     { label: "All", value: "all" },
     { label: "Pending Release", value: "pending_release" },
-    { label: "Pending Acceptance", value: "pending_acceptance" },
-    { label: "Released", value: "released" },
+    { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
     { label: "Completed", value: "completed" },
   ];
@@ -228,6 +292,41 @@ export default function FlightLog() {
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
+
+  useEffect(() => {
+    const openTargetFlightLog = async () => {
+      const targetFlightLogId = route?.params?.targetFlightLogId;
+
+      if (!targetFlightLogId) {
+        return;
+      }
+
+      let matchedLog = flightLogs.find((log) => log._id === targetFlightLogId);
+
+      if (!matchedLog) {
+        matchedLog = await fetchFlightLogById(targetFlightLogId);
+      }
+
+      if (!matchedLog) {
+        return;
+      }
+
+      setSelectedLog(matchedLog);
+      setShowEditModal(true);
+      navigation?.setParams?.({
+        refreshAt: undefined,
+        targetFlightLogId: undefined,
+        notificationStatus: undefined,
+      });
+    };
+
+    openTargetFlightLog();
+  }, [
+    fetchFlightLogById,
+    flightLogs,
+    navigation,
+    route?.params?.targetFlightLogId,
+  ]);
 
   const handleEdit = (log) => {
     setSelectedLog(log);
@@ -255,6 +354,7 @@ export default function FlightLog() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchFlightLogs();
+    fetchNotifications();
   };
 
   return (
@@ -353,17 +453,12 @@ export default function FlightLog() {
               }}
               onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
             >
-              <Text
-                style={{
-                  fontSize: 15,
-                  color:
-                    selectedAircraft && selectedAircraft !== "all"
-                      ? COLORS.black
-                      : COLORS.grayDark,
-                }}
-              >
-                {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+              <Text style={{ 
+                fontSize: 15, 
+                color: selectedAircraft && selectedAircraft !== "all" ? COLORS.black : COLORS.grayDark 
+              }}>
+                {selectedAircraft && selectedAircraft !== "all" 
+                  ? `RP-C: ${selectedAircraft}` 
                   : "Choose Aircraft"}
               </Text>
               <MaterialCommunityIcons

@@ -13,12 +13,15 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogModalInfo from "./FlightLogModalInfo";
 import FlightLogModalDestinations from "./FlightLogModalDestinations";
-import FlightLogModalComponentTimes from "./FlightLogModalComponentTimes";
+import FlightLogModalBroughtForward from "./FlightLogModalBroughtForward";
+import FlightLogModalThisFlight from "./FlightLogModalThisFlight";
+import FlightLogModalToDate from "./FlightLogModalToDate";
 import FlightLogModalFuelServicing from "./FlightLogModalFuelServicing";
 import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import { API_BASE } from "../../utilities/API_BASE";
 
 const parseDate = (dateValue) => {
   if (!dateValue) return new Date();
@@ -50,15 +53,18 @@ export default function FlightLogEditEntry({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const scrollViewRef = useRef(null);
-  const isPilot = userRole === "pilot";
+  const normalizedRole = (userRole || "").toLowerCase();
+  const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    userRole.toLowerCase() === "mechanic" || userRole === "maintenance manager";
+    normalizedRole === "mechanic" || normalizedRole === "maintenance manager";
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
   const [workItems, setWorkItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [toDateData, setToDateData] = useState({});
 
+  // Load log data
   useEffect(() => {
     if (logData) {
       setFormData({
@@ -77,57 +83,75 @@ export default function FlightLogEditEntry({
     }
   }, [logData]);
 
+  // Calculate toDateData whenever broughtForwardData or thisFlightData changes
+  useEffect(() => {
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const calculated = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
+    setToDateData(calculated);
+    // Also keep componentData.toDateData in sync for saving
+    setComponentData(prev => ({ ...prev, toDateData: calculated }));
+  }, [componentData.broughtForwardData, componentData.thisFlightData]);
+
+  // Reset page when modal opens
   useEffect(() => {
     if (visible) {
       setCurrentPage(0);
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: false });
-      }
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     }
   }, [visible]);
 
+  // Scroll to top on page change
   useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: 0, animated: false });
-    }
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentPage]);
 
+  // Helper functions
   const hasDiscrepancy = () => {
-    return (
-      (formData.remarks && formData.remarks.trim() !== "") ||
-      (formData.sling && formData.sling.trim() !== "")
-    );
+    return formData.remarks && formData.remarks.trim() !== "";
   };
 
-  const showThisFlightToDate = formData.notifiedForCompletion === true;
+  const getPilotTabs = () => {
+    return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
+  };
 
-  const getTabs = () => {
-    const tabs = [
+  const getMechanicTabs = () => {
+    const baseTabs = [
       "Basic Information",
       "Destination/s",
-      "Component Times",
+      "Brought Forward",
+      "This Flight",
+      "To Date",
       "Fuel Servicing",
       "Oil Servicing",
       "Discrepancy/Remarks",
     ];
     if (hasDiscrepancy()) {
-      tabs.push("Work Done");
+      baseTabs.push("Work Done");
     }
-    return tabs;
+    return baseTabs;
   };
 
-  const tabs = getTabs();
+  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const isBasicInfoEditable =
-    (isPilot && formData.createdBy === "pilot") ||
-    (isMechanic && formData.createdBy === "mechanic");
-
-  const isDestinationsEditable =
-    (isPilot && formData.createdBy === "pilot") ||
-    (isPilot && formData.createdBy === "mechanic");
-
+  // Keep edit permissions aligned with FlightLogEntry role rules.
+  const isBasicInfoEditable = true;
+  const isDestinationsEditable = true;
   const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
@@ -135,6 +159,7 @@ export default function FlightLogEditEntry({
   const isDiscrepancyEditable = true;
   const isWorkDoneEditable = isMechanic;
 
+  // Update functions
   const updateForm = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -156,10 +181,11 @@ export default function FlightLogEditEntry({
   };
 
   const updateComponent = (section, field, value) => {
-    setComponentData((prev) => ({
+    setComponentData(prev => ({
       ...prev,
       [section]: { ...prev[section], [field]: value },
     }));
+    // toDateData will be recalculated by the useEffect above
   };
 
   const updateWorkItems = (newWorkItems) => {
@@ -167,63 +193,153 @@ export default function FlightLogEditEntry({
     setFormData((prev) => ({ ...prev, workItems: newWorkItems }));
   };
 
-  const handleRelease = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const persistLog = async (updatedFormData, closeOnSave = false) => {
+    const bf = componentData.broughtForwardData || {};
+    const tf = componentData.thisFlightData || {};
+    const calculatedToDate = {
+      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
+      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
+      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+      airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
+      engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
+    };
+
+    const finalComponentData = {
+      ...componentData,
+      toDateData: calculatedToDate,
+    };
+
+    const allFieldsFilled =
+      componentData.broughtForwardData &&
+      Object.values(componentData.broughtForwardData).every((v) => v !== "");
+
+    const payload = {
+      ...updatedFormData,
+      componentData: finalComponentData,
+      workItems,
+      broughtForwardLocked: isMechanic && allFieldsFilled,
+    };
+
+    if (onSave) {
+      await onSave(payload, { closeOnSave });
+    }
+  };
+
+  // Handlers for release/accept/complete
+  const handleRelease = async (signature) => {
+    const updated = {
+      ...formData,
       releasedBy: {
         name: "Mechanic",
         signature,
         timestamp: new Date().toISOString(),
       },
-      status: "ongoing",
-    }));
+      status: "pending_acceptance",
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been released");
   };
 
-  const handleAccept = (signature) => {
-    setFormData((prev) => ({
-      ...prev,
+  const handleAccept = async (signature) => {
+    const updated = {
+      ...formData,
       acceptedBy: {
         name: "Pilot",
         signature,
         timestamp: new Date().toISOString(),
       },
-      status: "ongoing",
-    }));
+      status: "accepted",
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
     Alert.alert("Success", "Flight log has been accepted");
   };
 
-  const handleNotifyMechanic = () => {
-    setFormData((prev) => ({
-      ...prev,
-      notifiedForCompletion: true,
-    }));
-    Alert.alert(
-      "Success",
-      "Mechanic has been notified to complete the flight log",
-    );
-  };
-
-  const handleComplete = () => {
-    setFormData((prev) => ({
-      ...prev,
-      status: "completed",
-    }));
-    Alert.alert("Success", "Flight log has been marked as completed");
-  };
-
-  const handleSave = () => {
-    const allFieldsFilled =
-      componentData.broughtForwardData &&
-      Object.values(componentData.broughtForwardData).every((v) => v !== "");
-
-    onSave({
+  const handleNotifyMechanic = async () => {
+    const updated = {
       ...formData,
-      componentData,
-      workItems,
-      broughtForwardLocked: isMechanic && allFieldsFilled,
-    });
-    onClose();
+      notifiedForCompletion: true,
+    };
+    setFormData(updated);
+    await persistLog(updated, false);
+    Alert.alert("Success", "Mechanic has been notified to complete the flight log");
+  };
+
+  const handleComplete = async () => {
+    try {
+      const aircraft = formData.aircraft || formData.rpc;
+      if (!aircraft) {
+        Alert.alert("Error", "Aircraft identifier is missing.");
+        return;
+      }
+
+      const payload = {
+        acftTT: Number(toDateData.airframe) || 0,
+        n1Cycles: Number(toDateData.cycleN1) || 0,
+        n2Cycles: Number(toDateData.cycleN2) || 0,
+        landings: Number(toDateData.landingCycle) || 0,
+        updatedBy: userRole,
+      };
+
+      // ✅ Correct URL: add '/api' prefix
+      const url = `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`;
+
+      console.log('🔗 Complete PUT URL:', url);
+      console.log('📦 Payload:', payload);
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await response.text();
+      console.log('📨 Response status:', response.status);
+      console.log('📝 Raw response (first 500 chars):', text.substring(0, 500));
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          `Server returned ${contentType} instead of JSON. ` +
+          `Status: ${response.status}. ` +
+          `Response preview: ${text.substring(0, 200)}`
+        );
+      }
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${text.substring(0, 200)}`);
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || `HTTP ${response.status}: Failed to update aircraft totals.`);
+      }
+
+      const updated = { ...formData, status: 'completed' };
+      setFormData(updated);
+      await persistLog(updated, false);
+      Alert.alert('Success', 'Flight log completed and totals updated.');
+    } catch (error) {
+      console.error('❌ Complete error:', error);
+      Alert.alert('Update Failed', error.message);
+    }
+  };
+
+  const handleSave = async () => {
+    await persistLog(formData, true);
   };
 
   const handleNext = () => {
@@ -238,16 +354,19 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const showActionButtons = isLastPage;
-
   const showReleaseButton = isMechanic && formData.status === "pending_release";
   const showAcceptButton = isPilot && formData.status === "pending_acceptance";
   const showNotifyButton =
-    isPilot && formData.status === "ongoing" && !formData.notifiedForCompletion;
+    isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
   const showCompleteButton =
-    isMechanic &&
-    formData.status === "ongoing" &&
-    formData.notifiedForCompletion;
+    isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+  const showActionButtons =
+    showReleaseButton ||
+    showAcceptButton ||
+    showNotifyButton ||
+    showCompleteButton ||
+    Boolean(formData.releasedBy?.signature) ||
+    Boolean(formData.acceptedBy?.signature);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -272,45 +391,38 @@ export default function FlightLogEditEntry({
           />
         );
 
-      case "Component Times":
+      case "Brought Forward":
         return (
-          <>
-            <FlightLogModalComponentTimes
-              currentComponentPage={0}
-              componentData={componentData.broughtForwardData}
-              onUpdateComponent={(field, value) =>
-                updateComponent("broughtForwardData", field, value)
-              }
-              isEditable={isComponentEditable}
-              isLocked={isBroughtForwardLocked}
-            />
-            {showThisFlightToDate && (
-              <>
-                <View style={{ marginTop: 20 }}>
-                  <FlightLogModalComponentTimes
-                    currentComponentPage={1}
-                    componentData={componentData.thisFlightData}
-                    onUpdateComponent={(field, value) =>
-                      updateComponent("thisFlightData", field, value)
-                    }
-                    isEditable={isComponentEditable}
-                    isLocked={false}
-                  />
-                </View>
-                <View style={{ marginTop: 20 }}>
-                  <FlightLogModalComponentTimes
-                    currentComponentPage={2}
-                    componentData={componentData.toDateData}
-                    onUpdateComponent={(field, value) =>
-                      updateComponent("toDateData", field, value)
-                    }
-                    isEditable={isComponentEditable}
-                    isLocked={false}
-                  />
-                </View>
-              </>
-            )}
-          </>
+          <FlightLogModalBroughtForward
+            componentData={componentData.broughtForwardData}
+            onUpdateComponent={(field, value) =>
+              updateComponent("broughtForwardData", field, value)
+            }
+            isEditable={isComponentEditable}
+            isLocked={isBroughtForwardLocked}
+          />
+        );
+
+      case "This Flight":
+        return (
+          <FlightLogModalThisFlight
+            componentData={componentData.thisFlightData}
+            onUpdateComponent={(field, value) =>
+              updateComponent("thisFlightData", field, value)
+            }
+            isEditable={isComponentEditable}
+          />
+        );
+
+      case "To Date":
+        return (
+          <FlightLogModalToDate
+            componentData={toDateData}
+            onUpdateComponent={(field, value) =>
+              updateComponent("toDateData", field, value)
+            }
+            isEditable={false}
+          />
         );
 
       case "Fuel Servicing":
@@ -568,9 +680,7 @@ export default function FlightLogEditEntry({
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {formData.releasedBy?.timestamp
-                        ? new Date(
-                            formData.releasedBy.timestamp,
-                          ).toLocaleString()
+                        ? new Date(formData.releasedBy.timestamp).toLocaleString()
                         : ""}
                     </Text>
                   </View>
@@ -617,9 +727,7 @@ export default function FlightLogEditEntry({
                     </Text>
                     <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {formData.acceptedBy?.timestamp
-                        ? new Date(
-                            formData.acceptedBy.timestamp,
-                          ).toLocaleString()
+                        ? new Date(formData.acceptedBy.timestamp).toLocaleString()
                         : ""}
                     </Text>
                   </View>
@@ -652,9 +760,7 @@ export default function FlightLogEditEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
-              Previous
-            </Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Previous</Text>
           </TouchableOpacity>
 
           <View
@@ -665,9 +771,7 @@ export default function FlightLogEditEntry({
               borderRadius: 4,
             }}
           >
-            <Text
-              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
-            >
+            <Text style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}>
               {currentPage + 1}
             </Text>
           </View>
@@ -682,9 +786,7 @@ export default function FlightLogEditEntry({
               opacity: 1,
             }}
           >
-            <Text
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
-            >
+            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
               {isLastPage ? "Save" : "Next"}
             </Text>
           </TouchableOpacity>

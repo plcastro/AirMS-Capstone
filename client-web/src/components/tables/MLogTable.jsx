@@ -2,6 +2,15 @@ import React from "react";
 import { Table } from "antd";
 
 export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkReport }) {
+  const tableData = (data || []).map((record, idx) => ({
+    ...record,
+    __rowKey:
+      record?._id ||
+      record?.id ||
+      record?.key ||
+      `${record?.aircraft || "row"}-${record?.dateDefectRectified || "date"}-${idx}`,
+  }));
+
   const columns = headers.map((header) => ({
     title: header.title,
     dataIndex: header.key,
@@ -17,8 +26,8 @@ export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkR
   return (
     <Table
       columns={columns}
-      dataSource={data}
-      rowKey={(record, index) => index}
+      dataSource={tableData}
+      rowKey="__rowKey"
       pagination={false}
       onRow={(record) => ({
         onClick: () => onRowClick && onRowClick(record),

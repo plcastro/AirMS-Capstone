@@ -99,6 +99,7 @@ export default function PreInspectionCards({
     <>
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
+        const isReleased = inspection.status === "released";
 
         return (
           <View
@@ -220,9 +221,9 @@ export default function PreInspectionCards({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="pencil"
+                    name={isReleased ? "eye-outline" : "pencil"}
                     size={20}
-                    color="#777"
+                    color={isReleased ? COLORS.primaryLight : "#777"}
                   />
                 </View>
               </View>

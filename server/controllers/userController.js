@@ -4,14 +4,37 @@ const sendEmail = require("../utilities/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
+const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utilities/generateUniqueUsername");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
+const getAuditActorId = (req, fallbackId = null) =>
+  req.user?.id || req.userRecord?._id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
+const MOBILE_ALLOWED_JOB_TITLES = new Set([
+  "maintenance manager",
+  "pilot",
+  "officer-in-charge",
+  "mechanic",
+  "engineer",
+]);
+
+const canUseMobileClient = (user) => {
+  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
+
+  return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
+};
 
 const getAllUsers = async (req, res) => {
   try {
@@ -24,7 +47,14 @@ const getAllUsers = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    let { identifier, password } = req.body;
+    if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
+      console.error("Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing");
+      return res.status(500).json({
+        message: "Server authentication configuration error.",
+      });
+    }
+
+    let { identifier, password, client } = req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
       return res.status(400).json({
@@ -34,6 +64,8 @@ const loginUser = async (req, res) => {
 
     identifier = identifier.trim();
     password = password.trim();
+    const normalizedClient =
+      typeof client === "string" ? client.trim().toLowerCase() : "";
 
     if (!identifier || !password) {
       return res
@@ -88,6 +120,11 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
+      if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
+        return res.status(403).json({
+          message: "This account is only allowed to log in on the web portal.",
+        });
+      }
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -103,6 +140,7 @@ const loginUser = async (req, res) => {
         requireSetup: true,
         user: {
           id: user._id,
+          email: user.email,
           status: user.status,
           setupToken,
         },
@@ -122,6 +160,13 @@ const loginUser = async (req, res) => {
         .json({ message: "Invalid username/email or password" });
     }
 
+    // Enforce platform access on the server so web-only / non-mobile roles cannot sign in on mobile.
+    if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
+      return res.status(403).json({
+        message: "This account is only allowed to log in on the web portal.",
+      });
+    }
+
     // Reset failed login attempts
     user.failedLoginAttempts = 0;
     user.isLocked = false;
@@ -131,7 +176,13 @@ const loginUser = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { id: user._id, username: user.username, jobTitle: user.jobTitle },
+      {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        jobTitle: user.jobTitle,
+        access: user.access,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "30m" },
     );
@@ -151,11 +202,13 @@ const loginUser = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // console.log(
-    //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
-    // );
-
-    await auditLog("User logged in", user._id);
+    auditLog(
+      `User log in: ${user.username} (actorId: ${user._id})`,
+      user._id,
+      user.username,
+    ).catch((logError) => {
+      console.error("Login audit log failed:", logError);
+    });
 
     const responseUser = {
       id: user._id,
@@ -164,8 +217,11 @@ const loginUser = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       jobTitle: user.jobTitle,
+      access: user.access,
       status: user.status,
       image: user.image,
+      signature: user.signature,
+      securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
     };
 
@@ -188,6 +244,8 @@ const unlockUser = async (req, res) => {
   user.lockUntil = undefined;
 
   await user.save();
+  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+  await auditLog(audit.action, audit.actorId);
 
   res.json({ message: "Account unlocked successfully" });
 };
@@ -211,7 +269,9 @@ const refreshToken = async (req, res) => {
       {
         id: user._id,
         username: user.username,
+        email: user.email,
         jobTitle: user.jobTitle,
+        access: user.access,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -236,8 +296,9 @@ const logoutUser = async (req, res) => {
     }
 
     await auditLog(
-      `User logged out: ${decoded.username || decoded.id}`,
+      `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
+      decoded.username || null,
     );
 
     res.clearCookie("refreshToken", {
@@ -251,6 +312,57 @@ const logoutUser = async (req, res) => {
     console.error("Logout error:", err);
     await auditLog("Logout failed", null);
     res.status(500).json({ message: "Logout failed" });
+  }
+};
+
+const registerMobilePushDevice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { deviceId, expoPushToken, platform } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!deviceId || !expoPushToken) {
+      return res.status(400).json({ message: "deviceId and expoPushToken are required" });
+    }
+
+    await UserModel.updateMany(
+      {
+        $or: [
+          { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.expoPushToken": expoPushToken },
+        ],
+      },
+      {
+        $pull: {
+          mobilePushDevices: {
+            $or: [{ deviceId }, { expoPushToken }],
+          },
+        },
+      },
+    );
+
+    await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $push: {
+          mobilePushDevices: {
+            deviceId,
+            expoPushToken,
+            platform: platform || "unknown",
+            lastSeenAt: new Date(),
+          },
+        },
+      },
+      { new: true },
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("registerMobilePushDevice error:", error);
+    res.status(500).json({ message: "Failed to register push device" });
   }
 };
 
@@ -339,10 +451,10 @@ const createUser = async (req, res) => {
 
     let imagePath = "";
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+      imagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
     }
 
-    let newUserData = {
+    const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
@@ -356,12 +468,14 @@ const createUser = async (req, res) => {
       licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
         ? licenseNo
         : null,
-    };
+    });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User created: ${username}, email sent successfully`,
       newUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "User created successfully",
@@ -425,6 +539,12 @@ const completeSecuritySetup = async (req, res) => {
     user.tempPasswordExpires = undefined;
 
     await user.save();
+    const audit = withActorId(
+      req,
+      `Security setup completed for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     return res.status(200).json({
       message: "Security setup completed successfully",
@@ -463,39 +583,72 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    let { firstName, lastName, email, username, access, jobTitle } = req.body;
+    let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
+      req.body;
 
-    if (
-      typeof firstName !== "string" ||
-      typeof lastName !== "string" ||
-      typeof email !== "string" ||
-      typeof username !== "string"
-    ) {
-      return res.status(400).json({
-        message: "Invalid input type",
-      });
+    const parseString = (value) =>
+      typeof value === "string" ? value.trim() : "";
+
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    username = parseString(username);
+    access = parseString(access);
+    jobTitle = parseString(jobTitle);
+    licenseNo = parseString(licenseNo);
+
+    if (!firstName || !lastName || !email || !username || !access || !jobTitle) {
+      return res.status(400).json({ message: "Employee information required" });
     }
 
-    firstName = firstName.trim();
-    lastName = lastName.trim();
-    email = email.trim();
-    username = username.trim();
-    access = access.trim();
-    jobTitle = jobTitle.trim();
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
 
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !username ||
-      !access ||
-      !jobTitle
-    ) {
-      return res.status(400).json({ message: "Employee information required" });
+    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    if (!allowedAccess.has(access)) {
+      return res.status(400).json({ message: "Invalid access level" });
+    }
+
+    const rolesRequiringLicense = new Set([
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ]);
+    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    if (requiresLicense && !licenseNo) {
+      return res.status(400).json({ message: "License no. is required" });
     }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const existingEmail = await UserModel.findOne({
+      email,
+      _id: { $ne: id },
+    });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const existingUsername = await UserModel.findOne({
+      username,
+      _id: { $ne: id },
+    });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already taken" });
+    }
+
+    if (requiresLicense && licenseNo) {
+      const existingLicense = await UserModel.findOne({
+        licenseNo,
+        _id: { $ne: id },
+      });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
+    }
 
     const changes = {};
     if (firstName && firstName !== user.firstName)
@@ -510,28 +663,47 @@ const updateUser = async (req, res) => {
       changes.jobTitle = { old: user.jobTitle, new: jobTitle };
     if (access && access !== user.access)
       changes.access = { old: user.access, new: access };
+    if (requiresLicense && licenseNo !== (user.licenseNo || ""))
+      changes.licenseNo = { old: user.licenseNo || "", new: licenseNo };
+    if (!requiresLicense && user.licenseNo) {
+      changes.licenseNo = { old: user.licenseNo, new: "" };
+    }
+
+    const updateData = {
+      firstName,
+      lastName,
+      email,
+      username,
+      access,
+      jobTitle,
+      licenseNo: requiresLicense ? licenseNo : null,
+    };
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
-      { firstName, lastName, email, username, access, jobTitle },
-      { returnDocument: "after" },
+      updateData,
+      { new: true, runValidators: true },
     );
 
     if (Object.keys(changes).length > 0) {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     } else {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User update attempted but no changes detected: ${username}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     }
 
     res
       .status(200)
-      .json({ message: "User updated successfully", user: updatedUser });
+      .json({ message: "User updated successfully", user: updatedUser, data: updatedUser });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
@@ -577,10 +749,12 @@ const updateUserProfile = async (req, res) => {
       returnDocument: "after",
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User name updated: ${updatedUser.username}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -605,10 +779,12 @@ const updateUserStatus = async (req, res) => {
       { returnDocument: "after" },
     );
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User status updated: ${user.username}. Old: ${user.status}, New: ${status}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -621,11 +797,17 @@ const updateUserStatus = async (req, res) => {
       .json({ message: err.message || "Failed to update user status" });
   }
 };
-const deleteFile = (filePath) => {
+const deleteFile = async (filePath) => {
   // 1. Exit if the user doesn't have an image (prevents the 'null' deletion crash)
   if (!filePath || typeof filePath !== "string" || filePath === "null") return;
 
   try {
+    if (filePath.startsWith("http")) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+      await del(filePath, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      return;
+    }
+
     // 2. Normalize the path (remove leading slash)
     const cleanPath = filePath.startsWith("/")
       ? filePath.substring(1)
@@ -635,7 +817,7 @@ const deleteFile = (filePath) => {
     const fullPath = path.resolve(process.cwd(), cleanPath);
 
     if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+      await fs.promises.unlink(fullPath);
       console.log("Successfully deleted old image:", fullPath);
     }
   } catch (err) {
@@ -651,6 +833,11 @@ const updateUserImage = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let newImagePath = user.image;
+    const shouldRemoveImage =
+      req.method === "DELETE" ||
+      req.body?.removeImage === true ||
+      req.body?.image === null ||
+      req.body?.image === "null";
 
     if (req.file) {
       if (
@@ -658,24 +845,42 @@ const updateUserImage = async (req, res) => {
         typeof user.image === "string" &&
         user.image !== "null"
       ) {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
 
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
 
       console.log("New image path ready for DB:", newImagePath);
-    } else if (req.body.image === null || req.body.image === "null") {
+    } else if (shouldRemoveImage) {
       if (user.image && typeof user.image === "string") {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
-      newImagePath = null;
+      // Keep image as a string field to avoid validation/casting issues.
+      newImagePath = "";
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { $set: { image: newImagePath } },
-      { returnDocument: "after", runValidators: true },
+      { new: true, runValidators: true },
     );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    try {
+      const audit = withActorId(
+        req,
+        newImagePath
+          ? `User image updated: ${updatedUser.username}`
+          : `User image removed: ${updatedUser.username}`,
+        updatedUser._id,
+      );
+      await auditLog(audit.action, audit.actorId);
+    } catch (auditErr) {
+      console.error("Image update audit log failed:", auditErr);
+    }
 
     res.status(200).json({
       message: newImagePath ? "Avatar updated" : "Avatar removed",
@@ -702,10 +907,6 @@ const updatePassword = async (req, res) => {
 
     currentPassword = currentPassword.trim();
     newPassword = newPassword.trim();
-
-    if (!id) {
-      return res.status(400).json({ message: "User ID is required." });
-    }
 
     if (!currentPassword || !newPassword) {
       return res
@@ -745,6 +946,12 @@ const updatePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await UserModel.updateOne({ _id: id }, { password: hashedPassword });
+    const audit = withActorId(
+      req,
+      `Password updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -778,6 +985,12 @@ const updatePIN = async (req, res) => {
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
     await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
+    const audit = withActorId(
+      req,
+      `PIN updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "PIN updated", user });
   } catch (err) {
     console.error(err);
@@ -787,17 +1000,34 @@ const updatePIN = async (req, res) => {
 
 const updateSignature = async (req, res) => {
   try {
-    const { signature } = req.body;
-    if (!signature)
-      return res.status(400).json({ message: "Signature is required" });
+    const user = await UserModel.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const user = await UserModel.findByIdAndUpdate(
+    if (user.signature) {
+      return res.status(400).json({
+        message: "Signature specimen has already been uploaded.",
+      });
+    }
+
+    const signature = req.file?.savedPath || req.body.signature;
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required" });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
       { signature },
       { returnDocument: "after" },
     );
 
-    res.status(200).json({ message: "Signature updated", user });
+    const audit = withActorId(
+      req,
+      `Signature updated for ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    res.status(200).json({ message: "Signature updated", user: updatedUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -835,7 +1065,12 @@ const activateUser = async (req, res) => {
     user.securitySetupCompleted = true;
     await user.save();
 
-    await auditLog("User account activated successfully", user._id);
+    const audit = withActorId(
+      req,
+      "User account activated successfully",
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -880,7 +1115,8 @@ const resendActivation = async (req, res) => {
              <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
     });
 
-    await auditLog("Activation email resent", user._id);
+    const audit = withActorId(req, "Activation email resent", user._id);
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "Activation email resent" });
   } catch (err) {
     console.error(err);
@@ -893,6 +1129,7 @@ module.exports = {
   refreshToken,
   unlockUser,
   logoutUser,
+  registerMobilePushDevice,
   createUser,
   checkUsernameExists,
   updateUser,

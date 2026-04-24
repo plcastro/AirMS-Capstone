@@ -14,7 +14,11 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
     <Table
       columns={headers}
       dataSource={data}
-      rowKey={(record) => record.index || record._id}
+      rowKey={(record) =>
+        record._id ||
+        record.id ||
+        `${record.rpc || record.aircraft || "unknown"}-${record.component || record.name || "item"}-${record.date || record.dateDiscovered || "na"}`
+      }
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
       pagination={{

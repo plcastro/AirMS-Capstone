@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, ScrollView, TextInput } from "react-native";
+import { View, Text, Modal, ScrollView, TextInput, Alert } from "react-native";
 import Button from "../Button";
 import ReviewTask from "./ReviewTask";
 import { styles } from "../../stylesheets/styles";
@@ -24,17 +24,23 @@ export default function TaskChecklist({
 
   useEffect(() => {
     if (task?.checklistItems) {
-      if (task.checklistState) {
-        setChecklistState(task.checklistState);
-      } else if (
-        task.status === "Completed" ||
-        task.status === "Turned in" ||
-        task.status === "Approved"
-      ) {
-        setChecklistState(task.checklistItems.map(() => true));
-      } else {
-        setChecklistState(task.checklistItems.map(() => false));
-      }
+      const normalizedChecklistState = task.checklistItems.map((_, index) => {
+        if (Array.isArray(task.checklistState)) {
+          return task.checklistState[index] === true;
+        }
+
+        if (
+          task.status === "Completed" ||
+          task.status === "Turned in" ||
+          task.status === "Approved"
+        ) {
+          return true;
+        }
+
+        return false;
+      });
+
+      setChecklistState(normalizedChecklistState);
 
       if (
         task.status === "Completed" ||
@@ -46,11 +52,7 @@ export default function TaskChecklist({
         setIsStarted(task.status === "Ongoing" || task.status === "Returned");
       }
 
-      if (task.findings) {
-        setFindings(task.findings);
-      } else {
-        setFindings("");
-      }
+      setFindings(task.findings || "");
     }
   }, [task]);
 
@@ -60,8 +62,9 @@ export default function TaskChecklist({
       task.status === "Completed" ||
       task.status === "Turned in" ||
       task.status === "Approved"
-    )
+    ) {
       return;
+    }
 
     const updated = [...checklistState];
     updated[index] = !updated[index];
@@ -84,18 +87,22 @@ export default function TaskChecklist({
     if (isHeadView) return;
 
     if (options.undo) {
-      const now = new Date();
-      const dueDate = new Date(task.dueDate);
-      const isPastDue = dueDate < now;
-      const newStatus = isPastDue ? "Ongoing" : "Ongoing";
-
       onTurnIn?.(task, checklistState, findings, {
         undo: true,
-        newStatus,
+        newStatus: "Ongoing",
       });
     } else {
+      if (!allCheckboxesChecked) {
+        Alert.alert(
+          "Checklist incomplete",
+          "Please check all checklist items before turning in the task.",
+        );
+        return;
+      }
+
       onTurnIn?.(task, checklistState, findings);
     }
+
     onClose();
   };
 
@@ -127,9 +134,11 @@ export default function TaskChecklist({
 
   if (!task) return null;
 
-  const isPending = task.status === "Pending";
+  const checklistItems = Array.isArray(task.checklistItems)
+    ? task.checklistItems
+    : [];
+
   const isReturned = task.status === "Returned";
-  const isOngoing = task.status === "Ongoing";
   const isTurnedIn = task.status === "Turned in";
   const isCompleted =
     task.status === "Completed" ||
@@ -137,13 +146,14 @@ export default function TaskChecklist({
     task.status === "Approved";
 
   const isApproved = task.isApproved || false;
-  const approvedBy = task.approvedBy || "John Smith";
-  const approvedDate = task.approvedDate || "Mar 04, 2026 at 2:30 PM";
+  const approvedBy = task.approvedBy || "";
+  const approvedDate = task.approvedAt || task.approvedDate || "";
 
   const allCheckboxesChecked =
-    checklistState.every((item) => item === true) && checklistState.length > 0;
+    checklistItems.length > 0 &&
+    checklistItems.every((_, index) => checklistState[index] === true);
 
-  const formatDueDateTime = (dateString) => {
+  const formatScheduleDateTime = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     const formattedDate = date.toLocaleDateString("en-US", {
@@ -175,6 +185,66 @@ export default function TaskChecklist({
     return `${formattedDate} at ${formattedTime}`;
   };
 
+  const renderChecklistTitle = (item, isDisabled) => {
+    if (isHeadView) {
+      return item.taskName;
+    }
+
+    const checklistMeta = [item.taskId, item.inspectionTypeFull]
+      .filter(Boolean)
+      .join(" | ");
+
+    return (
+      <View>
+        {!!checklistMeta && (
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "600",
+              color: isDisabled ? "#999" : "#666",
+              marginBottom: 2,
+            }}
+          >
+            {checklistMeta}
+          </Text>
+        )}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: isDisabled ? "#999" : "#000",
+            marginBottom: item.description ? 2 : 0,
+          }}
+        >
+          {item.taskName}
+        </Text>
+        {!!item.documentation && (
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "600",
+              color: isDisabled ? "#999" : "#4f6b66",
+              marginBottom: item.description ? 2 : 0,
+            }}
+          >
+            AMM: {item.documentation}
+          </Text>
+        )}
+        {!!item.description && (
+          <Text
+            style={{
+              fontSize: 13,
+              lineHeight: 18,
+              color: isDisabled ? "#999" : "#555",
+            }}
+          >
+            {item.description}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
   return (
     <>
       <Modal
@@ -194,17 +264,15 @@ export default function TaskChecklist({
               padding: 24,
             }}
           >
-            {/* Task Title */}
             <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 6 }}>
               {task.title}
             </Text>
 
-            {/* Due Date with Time and Aircraft */}
             <Text style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
-              Due {formatDueDateTime(task.dueDate)} | Aircraft {task.aircraft}
+              End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
+              {" "}Aircraft {task.aircraft}
             </Text>
 
-            {/* For head view - Show Approve/Return buttons on To Be Reviewed tasks */}
             {isHeadView && isTurnedIn && !isApproved && (
               <View
                 style={{
@@ -229,7 +297,6 @@ export default function TaskChecklist({
               </View>
             )}
 
-            {/* Returned for Rework message */}
             {isHeadView && isReturned && (
               <View
                 style={{
@@ -259,7 +326,6 @@ export default function TaskChecklist({
               </View>
             )}
 
-            {/* Returned Badge and Info (if applicable) for mechanic view */}
             {isReturned && !isHeadView && (
               <View
                 style={{
@@ -289,12 +355,13 @@ export default function TaskChecklist({
                 </Text>
                 <Text style={{ fontSize: 12, color: "#e57373" }}>
                   Returned on{" "}
-                  {formatReturnedDateTime(task.returnedDate || new Date())}
+                  {formatReturnedDateTime(
+                    task.returnedAt || task.returnedDate || new Date(),
+                  )}
                 </Text>
               </View>
             )}
 
-            {/* Completed Badge and Approval Status (if applicable) */}
             {isCompleted && (
               <View
                 style={{
@@ -327,11 +394,11 @@ export default function TaskChecklist({
                     <Text
                       style={{
                         color: "#fff",
-                        fontSize: 14,
+                        fontSize: 11,
                         fontWeight: "bold",
                       }}
                     >
-                      ✓
+                      OK
                     </Text>
                   </View>
                   <Text
@@ -345,7 +412,6 @@ export default function TaskChecklist({
                   </Text>
                 </View>
 
-                {/* Approval Status */}
                 <View
                   style={{
                     backgroundColor: "#fff",
@@ -370,10 +436,12 @@ export default function TaskChecklist({
                           marginBottom: 2,
                         }}
                       >
-                        ✓ Approved
+                        Approved
                       </Text>
                       <Text style={{ fontSize: 13, color: "#666" }}>
-                        Approved by {approvedBy} on {approvedDate}
+                        {approvedDate
+                          ? `Approved by ${approvedBy || "Maintenance Manager"} on ${formatReturnedDateTime(approvedDate)}`
+                          : `Approved by ${approvedBy || "Maintenance Manager"}`}
                       </Text>
                     </View>
                   ) : (
@@ -386,7 +454,7 @@ export default function TaskChecklist({
                           marginBottom: 2,
                         }}
                       >
-                        ⏳ Not Yet Approved
+                        Pending Approval
                       </Text>
                       <Text style={{ fontSize: 13, color: "#666" }}>
                         Pending review by Maintenance Manager
@@ -401,21 +469,19 @@ export default function TaskChecklist({
               style={{ marginBottom: 20 }}
               showsVerticalScrollIndicator={false}
             >
-              {/* Checklist Section */}
               <Text
                 style={{ fontSize: 18, fontWeight: "600", marginBottom: 12 }}
               >
                 Checklist
               </Text>
 
-              {task.checklistItems.map((item, index) => {
-                // Determine if this item should be grayed out
+              {checklistItems.map((item, index) => {
                 const isDisabled = !isStarted || isCompleted || isHeadView;
 
                 return (
                   <View key={index} style={{ marginBottom: 10 }}>
                     <CheckBox
-                      title={item.taskName}
+                      title={renderChecklistTitle(item, isDisabled)}
                       value={checklistState[index]}
                       onValueChange={() => toggleItem(index)}
                       checkboxStyle={styles.checkBox}
@@ -427,7 +493,6 @@ export default function TaskChecklist({
                 );
               })}
 
-              {/* Findings Section - ONLY for mechanic view, NEVER for head view */}
               {!isHeadView && isStarted && (
                 <>
                   <Text
@@ -488,7 +553,6 @@ export default function TaskChecklist({
               )}
             </ScrollView>
 
-            {/* Buttons */}
             <View
               style={{
                 flexDirection: "row",
@@ -551,7 +615,6 @@ export default function TaskChecklist({
         </View>
       </Modal>
 
-      {/* Review Modal - handles both Return and Approve */}
       <ReviewTask
         visible={showReviewModal}
         onClose={handleReviewCancel}

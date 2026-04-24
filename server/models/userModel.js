@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   pin: { type: String, default: "", select: false },
   signature: { type: String, default: "" },
+  securitySetupCompleted: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
@@ -44,6 +45,17 @@ const userSchema = new mongoose.Schema({
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
+  mobilePushDevices: {
+    type: [
+      {
+        deviceId: { type: String, required: true },
+        expoPushToken: { type: String, required: true },
+        platform: { type: String, default: "unknown" },
+        lastSeenAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
 
   // --- PASSWORD RESET ---
   resetPasswordToken: String,

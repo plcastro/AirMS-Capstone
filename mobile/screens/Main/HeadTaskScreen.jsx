@@ -18,9 +18,9 @@ import { API_BASE } from "../../utilities/API_BASE";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) =>
-  ["engineer", "mechanic"].includes(user?.jobTitle?.toLowerCase());
+  user?.jobTitle?.toLowerCase() === "mechanic";
 
-export default function HeadTaskScreen() {
+export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
@@ -46,30 +46,52 @@ export default function HeadTaskScreen() {
           setTasks(data.data || []);
         } else {
           console.error("Failed to fetch tasks");
+          Alert.alert("Error", "Failed to fetch tasks");
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
+        Alert.alert("Error", "Failed to fetch tasks");
       }
     };
     fetchTasks();
   }, []);
 
-  // Fetch assignable employees (temporarily supports mechanics too)
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) {
+      return;
+    }
+
+    const match = tasks.find(
+      (task) =>
+        String(task._id) === String(targetTaskId) ||
+        String(task.id) === String(targetTaskId),
+    );
+
+    if (match) {
+      setSelectedTask(match);
+      setChecklistVisible(true);
+      if (targetNotificationStatus === "Turned in") {
+        setActiveTab("To Be Reviewed");
+      }
+    }
+  }, [targetTaskId, targetNotificationStatus, tasks]);
+
+  // Fetch assignable employees from the users collection
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/user/getAllUsers`, {
+        const response = await fetch(`${API_BASE}/api/user/get-all-users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         if (response.ok) {
           const data = await response.json();
-          const assignableUsers = (data.data || []).filter(
+          const mechanics = (data.data || []).filter(
             (user) => isAssignableUser(user) && user.status === "active",
           );
-          const mappedEmployees = assignableUsers.map((user) => ({
+          const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
             jobTitle: user.jobTitle,
@@ -88,9 +110,11 @@ export default function HeadTaskScreen() {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
+    const taskTitle = task?.title || task?.maintenanceType || "";
+
     if (
       searchQuery &&
-      !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
     )
       return false;
 
@@ -121,6 +145,7 @@ export default function HeadTaskScreen() {
         : "Reviewed Tasks";
 
   const formatDisplayDate = (dateString) => {
+    if (!dateString) return "Not set";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -210,24 +235,15 @@ export default function HeadTaskScreen() {
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const now = new Date().toISOString();
 
     const updatedTask = {
       ...task,
       status: "Approved",
       isApproved: true,
       approvedBy: approveData?.signature || "You",
-      approvedDate: `${formattedDate} at ${formattedTime}`,
+      reviewedAt: now,
+      approvedAt: now,
     };
 
     try {
@@ -256,12 +272,15 @@ export default function HeadTaskScreen() {
   };
 
   const handleReturnTask = async (task, returnData) => {
+    const now = new Date().toISOString();
+
     const updatedTask = {
       ...task,
       status: "Returned",
       returnComments: returnData?.comments || "Please revise findings",
       returnedBy: returnData?.signature || "Head Mechanic",
-      returnedDate: new Date().toISOString(),
+      reviewedAt: now,
+      returnedAt: now,
       isApproved: false,
     };
 
@@ -304,7 +323,7 @@ export default function HeadTaskScreen() {
           }}
         >
           <Text style={{ fontWeight: "600", fontSize: 16 }}>
-            {formatDisplayDate(item.dueDate)}
+            {formatDisplayDate(item.endDateTime || item.dueDate)}
           </Text>
         </View>
 
@@ -388,7 +407,7 @@ export default function HeadTaskScreen() {
       <View style={styles.taskTable}>
         <FlatList
           data={filteredTasks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id || item._id}
           renderItem={renderTask}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", marginTop: 20 }}>

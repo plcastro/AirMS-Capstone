@@ -14,6 +14,10 @@ import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import {
+  readPendingRedirect,
+  clearPendingRedirect,
+} from "../../utilities/pendingRedirect";
 
 export default function Login() {
   const nav = useNavigation();
@@ -65,6 +69,9 @@ export default function Login() {
   };
 
   const login = async () => {
+    setLoading(true);
+    setMessage("");
+
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
@@ -72,18 +79,46 @@ export default function Login() {
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
+          client: "mobile",
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = null;
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (error) {
+        console.error("Login returned non-JSON response:", responseText);
+        setMessage(
+          responseText || "Login failed. Server returned an invalid response.",
+        );
+        return;
+      }
 
       if (response.ok) {
         const { user, token } = data;
+        const normalizedJobTitle = (user?.jobTitle || "").trim().toLowerCase();
+        const allowedMobileJobTitles = [
+          "maintenance manager",
+          "pilot",
+          "officer-in-charge",
+          "mechanic",
+          "engineer",
+        ];
 
         // Deactivated account
         if (user.status === "deactivated") {
           setMessage(
             "This account is deactivated. Please contact AirMS Support",
+          );
+          return;
+        }
+
+        // Block users with no mobile modules.
+        if (!allowedMobileJobTitles.includes(normalizedJobTitle)) {
+          setMessage(
+            "This account is only allowed to log in on the web portal.",
           );
           return;
         }
@@ -115,14 +150,27 @@ export default function Login() {
         }
         setLoginSuccess(true);
         await loginUser(user, token);
+        const pendingRedirect = await readPendingRedirect();
+
+        if (pendingRedirect?.screen) {
+          await clearPendingRedirect();
+          nav.replace("dashboard", {
+            screen: pendingRedirect.screen,
+            params: pendingRedirect.params || {},
+          });
+          return;
+        }
+
         nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
-        setMessage("Login Failed", data.message || "Unauthorized");
+        setMessage(data.message || "Login failed");
       }
     } catch (err) {
       console.error(err);
       setMessage("Too many login attempts. Please try again later");
+    } finally {
+      setLoading(false);
     }
   };
 

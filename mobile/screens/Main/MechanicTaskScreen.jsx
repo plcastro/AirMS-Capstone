@@ -7,9 +7,8 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-const { width } = Dimensions.get("window");
 
-export default function EngineerTaskScreen() {
+export default function MechanicTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -19,11 +18,26 @@ export default function EngineerTaskScreen() {
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
+  const currentUserId = user?.id || user?._id || "";
 
-  // Fetch tasks assigned to the current engineer
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
+  // Fetch tasks assigned to the current mechanic
   useEffect(() => {
     const fetchTasks = async () => {
-      console.log("User:", user);
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
@@ -31,14 +45,11 @@ export default function EngineerTaskScreen() {
             Authorization: `Bearer ${token}`,
           },
         });
-        console.log("Response status:", response.status);
         if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched tasks:", data.data);
-          const assignedTasks = (data.data || []).filter(
-            (task) => String(task.assignedTo) === String(user?.id),
+          const data = await parseJsonSafely(response);
+          const assignedTasks = (data?.data || []).filter(
+            (task) => String(task.assignedTo) === String(currentUserId),
           );
-          console.log("Assigned tasks:", assignedTasks);
           setTasks(assignedTasks || []);
         } else {
           console.error("Failed to fetch tasks, status:", response.status);
@@ -51,10 +62,30 @@ export default function EngineerTaskScreen() {
         setTasks([]);
       }
     };
-    if (user) {
+    if (currentUserId) {
       fetchTasks();
     }
-  }, [user]);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) {
+      return;
+    }
+
+    const match = tasks.find(
+      (task) =>
+        String(task._id) === String(targetTaskId) ||
+        String(task.id) === String(targetTaskId),
+    );
+
+    if (match) {
+      setSelectedTask(match);
+      setModalVisible(true);
+      if (targetNotificationStatus === "Turned in") {
+        setSelectedAircraft(match.aircraft || "all");
+      }
+    }
+  }, [targetTaskId, targetNotificationStatus, tasks]);
 
   // Fetch aircraft options
   useEffect(() => {
@@ -84,9 +115,11 @@ export default function EngineerTaskScreen() {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
+    const taskTitle = task?.title || task?.maintenanceType || "";
+
     if (
       searchQuery &&
-      !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
     )
       return false;
 
@@ -106,21 +139,11 @@ export default function EngineerTaskScreen() {
 
   const handleStartTask = async (task) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
       status: "Ongoing",
-      startDateTime: `${formattedDate} ${formattedTime}`,
+      startDateTime: now.toISOString(),
     };
 
     try {
@@ -134,14 +157,15 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          t.id === task.id ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask({
-          ...data.data,
-          findings: data.data.findings || "",
+          ...savedTask,
+          findings: savedTask.findings || "",
         });
       } else {
         Alert.alert("Error", "Failed to start task");
@@ -170,13 +194,15 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          t.id === task.id ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
-          ...data.data,
+          ...(prev || {}),
+          ...savedTask,
         }));
       } else {
         Alert.alert("Error", "Failed to save draft");
@@ -188,17 +214,7 @@ export default function EngineerTaskScreen() {
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const now = new Date().toISOString();
 
     const updatedTask = {
       ...task,
@@ -209,9 +225,11 @@ export default function EngineerTaskScreen() {
     if (options.undo) {
       updatedTask.status = options.newStatus || "Ongoing";
       updatedTask.endDateTime = "";
+      updatedTask.completedAt = null;
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = `${formattedDate} ${formattedTime}`;
+      updatedTask.endDateTime = now;
+      updatedTask.completedAt = now;
     }
 
     try {
@@ -225,9 +243,10 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          t.id === task.id ? savedTask : t,
         );
         setTasks(updatedTasks);
       } else {

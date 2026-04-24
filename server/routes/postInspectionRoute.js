@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/authMiddleware");
 const {
   createPostInspection,
   getAllPostInspections,
@@ -7,6 +8,8 @@ const {
   updatePostInspection,
   deletePostInspection,
 } = require("../controllers/postInspectionController");
+
+router.use(verifyToken);
 
 router.post("/createPostInspection", createPostInspection);
 router.get("/getAllPostInspection", getAllPostInspections);

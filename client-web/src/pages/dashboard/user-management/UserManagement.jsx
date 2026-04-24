@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Input, Button, Divider, TreeSelect } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
+import { AuthContext } from "../../../context/AuthContext";
 
 const accessLevelData = [
   {
@@ -42,6 +43,7 @@ const accessLevelData = [
 ];
 
 export default function UserManagement() {
+  const { getValidToken } = useContext(AuthContext);
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -81,7 +83,12 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/get-all-users`);
+      const token = await getValidToken();
+      const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const json = await res.json();
       if (Array.isArray(json.data)) {
         const formatted = json.data.map((u, idx) => ({
@@ -143,18 +150,26 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     if (user._id === currentUserId) return;
+    const token = await getValidToken();
     await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ status: "deactivated" }),
     });
     fetchUsers();
   };
 
   const handleReactivateUser = async (user) => {
+    const token = await getValidToken();
     await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ status: "active" }),
     });
     fetchUsers();
