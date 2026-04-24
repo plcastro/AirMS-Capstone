@@ -25,6 +25,7 @@ const notificationRoutes = require("./routes/notificationRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const sendEmail = require("./utilities/sendEmail");
+const { startInvitationLifecycleJob } = require("./utilities/invitationLifecycleService");
 
 const app = express();
 
@@ -75,7 +76,10 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => console.log("Connected to MongoDB"))
+  .then(() => {
+    console.log("Connected to MongoDB");
+    startInvitationLifecycleJob();
+  })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
   });

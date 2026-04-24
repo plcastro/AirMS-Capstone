@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Input, Button, Divider, TreeSelect } from "antd";
+import { Input, Button, Divider, TreeSelect, message } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -64,6 +64,8 @@ export default function UserManagement() {
     { label: "Access Control", key: "access" },
     { label: "Date Created", key: "dateCreated" },
     { label: "Status", key: "status" },
+    { label: "Invite Status", key: "invitationStatus" },
+    { label: "Invite Expires", key: "invitationExpiresAt" },
     { label: "Actions", key: "actions" },
   ];
 
@@ -91,10 +93,19 @@ export default function UserManagement() {
       });
       const json = await res.json();
       if (Array.isArray(json.data)) {
+        const now = Date.now();
         const formatted = json.data.map((u, idx) => ({
           ...u,
           index: idx + 1,
           fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
+          invitationStatus:
+            u.invitationStatus ||
+            (u.status === "active"
+              ? "claimed"
+              : u.tempPasswordExpires && new Date(u.tempPasswordExpires).getTime() < now
+                ? "expired"
+                : "pending"),
+          invitationExpiresAt: u.invitationExpiresAt || u.tempPasswordExpires || null,
           dateCreated: u.dateCreated
             ? new Date(u.dateCreated).toLocaleString()
             : "N/A",
@@ -129,7 +140,7 @@ export default function UserManagement() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>
-        [u.fullname, u.username, u.email, u.jobTitle, u.access]
+        [u.fullname, u.username, u.email, u.jobTitle, u.access, u.invitationStatus]
           .join(" ")
           .toLowerCase()
           .includes(q),
@@ -160,6 +171,57 @@ export default function UserManagement() {
       body: JSON.stringify({ status: "deactivated" }),
     });
     fetchUsers();
+  };
+
+  const runInviteAction = async (endpoint, method = "PUT", payload = null) => {
+    const token = await getValidToken();
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Request failed");
+    }
+
+    return data;
+  };
+
+  const handleResendInvite = async (user) => {
+    try {
+      await runInviteAction(`/api/user/resend-activation/${user._id}`, "POST");
+      message.success(`Activation email resent to ${user.email}`);
+      fetchUsers();
+    } catch (error) {
+      message.error(error.message || "Failed to resend invite");
+    }
+  };
+
+  const handleExtendInvite = async (user) => {
+    try {
+      await runInviteAction(`/api/user/extend-invitation-expiry/${user._id}`, "PUT", {
+        hours: 24,
+      });
+      message.success("Invitation expiry extended by 24 hours");
+      fetchUsers();
+    } catch (error) {
+      message.error(error.message || "Failed to extend invitation");
+    }
+  };
+
+  const handleRevokeInvite = async (user) => {
+    try {
+      await runInviteAction(`/api/user/revoke-invitation/${user._id}`, "PUT");
+      message.success("Invitation revoked");
+      fetchUsers();
+    } catch (error) {
+      message.error(error.message || "Failed to revoke invitation");
+    }
   };
 
   const handleReactivateUser = async (user) => {
@@ -274,6 +336,9 @@ export default function UserManagement() {
         onEditUser={handleEditUser}
         onDeactivateUser={handleDeactivateUser}
         onReactivateUser={handleReactivateUser}
+        onResendInvite={handleResendInvite}
+        onExtendInvite={handleExtendInvite}
+        onRevokeInvite={handleRevokeInvite}
         currentUserId={currentUserId}
         loading={loading}
       />

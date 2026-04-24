@@ -220,7 +220,9 @@ export default function UserForm({
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
         image: savedUserData?.image || imageUrl,
-        status: savedUserData?.status || "active",
+        status: savedUserData?.status || "inactive",
+        invitationStatus: savedUserData?.invitationStatus || "pending",
+        invitationExpiresAt: savedUserData?.invitationExpiresAt || null,
         licenseNo: savedUserData?.licenseNo || licenseNo || "",
       };
 
