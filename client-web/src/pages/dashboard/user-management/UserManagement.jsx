@@ -52,6 +52,17 @@ export default function UserManagement() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const maskEmail = (email) => {
+    if (!email) return "";
+
+    const [name, domain] = email.split("@");
+    if (!name || !domain) return email;
+
+    const visible = name.slice(0, 2);
+    const masked = "*".repeat(Math.max(name.length - 2, 0));
+
+    return `${visible}${masked}@${domain}`;
+  };
   // Filtering states
   const [treeValue, setTreeValue] = useState(undefined);
 
@@ -98,14 +109,17 @@ export default function UserManagement() {
           ...u,
           index: idx + 1,
           fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
+          email: maskEmail(u.email),
           invitationStatus:
             u.invitationStatus ||
             (u.status === "active"
               ? "claimed"
-              : u.tempPasswordExpires && new Date(u.tempPasswordExpires).getTime() < now
+              : u.tempPasswordExpires &&
+                  new Date(u.tempPasswordExpires).getTime() < now
                 ? "expired"
                 : "pending"),
-          invitationExpiresAt: u.invitationExpiresAt || u.tempPasswordExpires || null,
+          invitationExpiresAt:
+            u.invitationExpiresAt || u.tempPasswordExpires || null,
           dateCreated: u.dateCreated
             ? new Date(u.dateCreated).toLocaleString()
             : "N/A",
@@ -140,7 +154,14 @@ export default function UserManagement() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((u) =>
-        [u.fullname, u.username, u.email, u.jobTitle, u.access, u.invitationStatus]
+        [
+          u.fullname,
+          u.username,
+          u.email,
+          u.jobTitle,
+          u.access,
+          u.invitationStatus,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(q),
@@ -204,9 +225,13 @@ export default function UserManagement() {
 
   const handleExtendInvite = async (user) => {
     try {
-      await runInviteAction(`/api/user/extend-invitation-expiry/${user._id}`, "PUT", {
-        hours: 24,
-      });
+      await runInviteAction(
+        `/api/user/extend-invitation-expiry/${user._id}`,
+        "PUT",
+        {
+          hours: 24,
+        },
+      );
       message.success("Invitation expiry extended by 24 hours");
       fetchUsers();
     } catch (error) {
