@@ -98,12 +98,14 @@ export default function UserLogs() {
           onChange={(e) => handleSearchChange(e.target.value)}
           style={{ width: 300 }}
           allowClear
+          size="large"
         />
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
           format="YYYY-MM-DD"
           allowClear
+          size="large"
         />
       </Space>
 

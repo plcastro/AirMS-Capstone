@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import {
   Modal,
   Upload,
@@ -14,6 +14,7 @@ import {
 import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 
 const { Text } = Typography;
 
@@ -24,6 +25,7 @@ export default function UserForm({
   user,
   allUsers,
 }) {
+  const { getValidToken } = useContext(AuthContext);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -145,8 +147,11 @@ export default function UserForm({
     setLoading(true);
 
     try {
+      const token = await getValidToken();
       let body;
-      let headers = {};
+      let headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
       if (file) {
         body = new FormData();
