@@ -157,7 +157,11 @@ const AppRouter = () => {
               path="maintenance-log"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                  ]}
                 >
                   <MaintenanceLog />
                 </ProtectedRoute>
@@ -219,6 +223,7 @@ const AppRouter = () => {
                     "maintenance manager",
                     "officer-in-charge",
                     "warehouse department",
+                    "mechanic",
                   ]}
                 >
                   <Profile />

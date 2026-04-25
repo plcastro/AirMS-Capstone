@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
-import { Menu, Button, Modal } from "antd";
+import { Menu, Button, Modal, Grid } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ScheduleOutlined,
@@ -17,7 +17,14 @@ import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
 import { AuthContext } from "../../context/AuthContext";
 
-const Sidebar = ({ collapsed }) => {
+const { useBreakpoint } = Grid;
+
+const Sidebar = ({ collapsed, onNavigate }) => {
+  const isSameKeys = (a = [], b = []) =>
+    a.length === b.length && a.every((key, i) => key === b[i]);
+
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { user, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +32,7 @@ const Sidebar = ({ collapsed }) => {
   const [current, setCurrent] = useState();
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [openKeys, setOpenKeys] = useState([]);
   const menuItems = [
     {
       key: "1",
@@ -57,7 +65,7 @@ const Sidebar = ({ collapsed }) => {
       key: "4-5",
       label: "Aircraft Health Logbook",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
+      roles: ["maintenance manager", "officer-in-charge", "mechanic"],
       children: [
         {
           key: "4",
@@ -76,7 +84,7 @@ const Sidebar = ({ collapsed }) => {
           key: "5",
           label: "Maintenance Logs",
           icon: <ToolOutlined style={{ fontSize: 24 }} />,
-          roles: ["maintenance manager", "officer-in-charge"],
+          roles: ["maintenance manager", "officer-in-charge", "mechanic"],
         },
       ],
     },
@@ -128,6 +136,7 @@ const Sidebar = ({ collapsed }) => {
         "officer-in-charge",
         "warehouse department",
         "admin",
+        "mechanic",
       ],
     },
   ];
@@ -164,11 +173,41 @@ const Sidebar = ({ collapsed }) => {
     [],
   );
 
+  const parentByChildKey = useMemo(() => {
+    const map = {};
+    filteredItems.forEach((item) => {
+      if (item.children?.length) {
+        item.children.forEach((child) => {
+          map[child.key] = item.key;
+        });
+      }
+    });
+    return map;
+  }, [filteredItems]);
+
   useEffect(() => {
     const key =
       routeToKey[location.pathname] || (jobTitle === "admin" ? "1" : "10");
     setCurrent(key);
   }, [location.pathname, routeToKey, jobTitle]);
+
+  useEffect(() => {
+    const parent = current ? parentByChildKey[current] : null;
+
+    setOpenKeys((prev) => {
+      let next = prev;
+
+      if (collapsed) {
+        next = [];
+      } else if (isMobile) {
+        next = parent ? [parent] : [];
+      } else if (parent) {
+        next = prev.includes(parent) ? prev : [...prev, parent];
+      }
+
+      return isSameKeys(prev, next) ? prev : next;
+    });
+  }, [collapsed, current, isMobile, parentByChildKey]);
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
@@ -181,6 +220,22 @@ const Sidebar = ({ collapsed }) => {
           ? "/dashboard/user-management/admin-dashboard"
           : "/dashboard/profile"),
     );
+    if (isMobile) {
+      onNavigate?.();
+    }
+  };
+
+  const onOpenChange = (nextOpenKeys) => {
+    if (!isMobile) {
+      setOpenKeys((prev) =>
+        isSameKeys(prev, nextOpenKeys) ? prev : nextOpenKeys,
+      );
+      return;
+    }
+
+    const latestOpenedKey = nextOpenKeys.find((k) => !openKeys.includes(k));
+    const next = latestOpenedKey ? [latestOpenedKey] : [];
+    setOpenKeys((prev) => (isSameKeys(prev, next) ? prev : next));
   };
 
   const showModal = () => setOpen(true);
@@ -223,9 +278,16 @@ const Sidebar = ({ collapsed }) => {
         theme="light"
         mode="inline"
         selectedKeys={[current]}
-        openKeys={["2-3", "4-5", "6-7-9"]}
+        openKeys={openKeys}
+        onOpenChange={onOpenChange}
         onClick={onClickMenu}
-        style={{ flex: 1, borderRight: 0, textAlign: "left" }}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          borderRight: 0,
+          textAlign: "left",
+        }}
         items={filteredItems}
       />
 

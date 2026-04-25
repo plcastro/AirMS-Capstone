@@ -135,14 +135,14 @@ const Login = () => {
       case "admin":
         navigate("/dashboard/user-management/admin-dashboard");
         break;
-      case "pilot":
-        navigate("/dashboard/flight-log");
+      case "mechanic":
+        navigate("/dashboard/maintenance-log");
         break;
       case "maintenance manager":
         navigate("/dashboard/maintenance-log");
         break;
       case "officer-in-charge":
-        navigate("/dashboard/parts-lifespan-monitoring");
+        navigate("/dashboard/flight-log");
         break;
       case "warehouse department":
         navigate("/dashboard/parts-requisition");

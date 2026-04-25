@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Input, Button, Divider, TreeSelect, message } from "antd";
+import { Input, Button, Divider, TreeSelect, message, Grid } from "antd";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
+
+const { useBreakpoint } = Grid;
 
 const accessLevelData = [
   {
@@ -43,6 +45,8 @@ const accessLevelData = [
 ];
 
 export default function UserManagement() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { getValidToken } = useContext(AuthContext);
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -63,6 +67,16 @@ export default function UserManagement() {
 
     return `${visible}${masked}@${domain}`;
   };
+
+  const formatUserForTable = (u, index = null) => ({
+    ...u,
+    ...(index !== null ? { index } : {}),
+    fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
+    maskedEmail: maskEmail(u.email),
+    dateCreated: u.dateCreated
+      ? new Date(u.dateCreated).toLocaleString()
+      : "N/A",
+  });
   // Filtering states
   const [treeValue, setTreeValue] = useState(undefined);
 
@@ -103,26 +117,24 @@ export default function UserManagement() {
       const json = await res.json();
       if (Array.isArray(json.data)) {
         const now = Date.now();
-        const formatted = json.data.map((u, idx) => ({
-          ...u,
-          index: idx + 1,
-          fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
-          // add masked version for table
-          maskedEmail: maskEmail(u.email),
-          invitationStatus:
-            u.invitationStatus ||
-            (u.status === "active"
-              ? "claimed"
-              : u.tempPasswordExpires &&
-                  new Date(u.tempPasswordExpires).getTime() < now
-                ? "expired"
-                : "pending"),
-          invitationExpiresAt:
-            u.invitationExpiresAt || u.tempPasswordExpires || null,
-          dateCreated: u.dateCreated
-            ? new Date(u.dateCreated).toLocaleString()
-            : "N/A",
-        }));
+        const formatted = json.data.map((u, idx) =>
+          formatUserForTable(
+            {
+              ...u,
+              invitationStatus:
+                u.invitationStatus ||
+                (u.status === "active"
+                  ? "claimed"
+                  : u.tempPasswordExpires &&
+                      new Date(u.tempPasswordExpires).getTime() < now
+                    ? "expired"
+                    : "pending"),
+              invitationExpiresAt:
+                u.invitationExpiresAt || u.tempPasswordExpires || null,
+            },
+            idx + 1,
+          ),
+        );
         setAllUsers(formatted);
         setFilteredUsers(formatted);
       }
@@ -271,21 +283,15 @@ export default function UserManagement() {
       const index = prevUsers.findIndex((u) => u._id === updatedUser._id);
       if (index !== -1) {
         const newUsers = [...prevUsers];
-        newUsers[index] = {
-          ...updatedUser,
-          fullname: `${updatedUser.firstName} ${updatedUser.lastName}`,
-          dateCreated: new Date(updatedUser.dateCreated).toLocaleString(),
-        };
+        newUsers[index] = formatUserForTable(
+          { ...newUsers[index], ...updatedUser },
+          newUsers[index].index ?? index + 1,
+        );
         return newUsers;
       }
       return [
         ...prevUsers,
-        {
-          ...updatedUser,
-          index: prevUsers.length + 1,
-          fullname: `${updatedUser.firstName} ${updatedUser.lastName}`,
-          dateCreated: new Date(updatedUser.dateCreated).toLocaleString(),
-        },
+        formatUserForTable(updatedUser, prevUsers.length + 1),
       ];
     });
 
@@ -293,25 +299,33 @@ export default function UserManagement() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div style={{ padding: isMobile ? 12 : 20 }}>
       <div
         style={{
           display: "flex",
           gap: 15,
           marginBottom: 20,
           alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
         <Input
           placeholder="Search name, email, etc..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: 350, height: 40 }}
+          style={{
+            width: isMobile ? "100%" : 350,
+            minWidth: isMobile ? "100%" : 240,
+            height: 40,
+          }}
           allowClear
         />
 
         <TreeSelect
-          style={{ width: 250 }}
+          style={{
+            width: isMobile ? "100%" : 250,
+            minWidth: isMobile ? "100%" : 180,
+          }}
           value={treeValue}
           styles={{
             popup: {
@@ -337,15 +351,19 @@ export default function UserManagement() {
         <div
           style={{
             display: "flex",
-            flexDirection: " column",
-            alignItems: "flex-end",
+            flexDirection: "column",
+            alignItems: isMobile ? "stretch" : "flex-end",
             width: "100%",
           }}
         >
           <Button
             type="primary"
             onClick={handleAddUser}
-            style={{ width: 100, height: 40, marginBottom: 10 }}
+            style={{
+              width: isMobile ? "100%" : 120,
+              height: 40,
+              marginBottom: 10,
+            }}
             icon={<UserAddOutlined />}
           >
             Add User
