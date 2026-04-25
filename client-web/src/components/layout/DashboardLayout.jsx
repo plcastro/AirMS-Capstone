@@ -44,9 +44,11 @@ const DashboardLayout = () => {
           overflow: "auto",
           fontSize: 16,
         }}
-        onClick={() => screens.xs && setCollapsed(true)}
       >
-        <Sidebar collapsed={collapsed} />
+        <Sidebar
+          collapsed={collapsed}
+          onNavigate={() => screens.xs && setCollapsed(true)}
+        />
       </Sider>
 
       <Layout>

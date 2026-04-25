@@ -1,13 +1,16 @@
 import React, { useContext, useEffect, useState } from "react";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
-import { Input, DatePicker, Space } from "antd";
+import { Input, DatePicker, Space, Grid } from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 export default function UserLogs() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { getValidToken } = useContext(AuthContext);
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,13 +93,18 @@ export default function UserLogs() {
   }, [dateRange]);
 
   return (
-    <div style={{ padding: 20, maxWidth: "100%", overflow: "hidden" }}>
-      <Space style={{ marginBottom: 16 }} wrap>
+    <div style={{ padding: isMobile ? 12 : 20, maxWidth: "100%", overflow: "hidden" }}>
+      <Space
+        style={{ marginBottom: 16, width: "100%" }}
+        direction={isMobile ? "vertical" : "horizontal"}
+        size={isMobile ? 10 : 8}
+        wrap
+      >
         <Input
           placeholder="Search logs..."
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
-          style={{ width: 300 }}
+          style={{ width: isMobile ? "100%" : 300 }}
           allowClear
           size="large"
         />
@@ -106,6 +114,7 @@ export default function UserLogs() {
           format="YYYY-MM-DD"
           allowClear
           size="large"
+          style={{ width: isMobile ? "100%" : 320 }}
         />
       </Space>
 

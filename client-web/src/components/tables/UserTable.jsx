@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
+import { Table, Button, Tag, Space, Popconfirm, message, Grid } from "antd";
 import { EditOutlined } from "@ant-design/icons";
+
+const { useBreakpoint } = Grid;
 
 export default function UserTable({
   headers = [],
@@ -14,6 +16,8 @@ export default function UserTable({
   currentUserId,
   loading = false,
 }) {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -174,6 +178,7 @@ export default function UserTable({
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}
+      size={isMobile ? "small" : "middle"}
       loading={loading}
       scroll={{ x: "max-content" }}
       pagination={{
@@ -182,7 +187,9 @@ export default function UserTable({
         pageSizeOptions: ["10", "20", "50"],
         current: currentPage,
         onChange: (page) => setCurrentPage(page),
-        placement: "bottomEnd",
+        showLessItems: isMobile,
+        size: isMobile ? "small" : "default",
+        position: isMobile ? ["bottomCenter"] : ["bottomRight"],
       }}
     />
   );
