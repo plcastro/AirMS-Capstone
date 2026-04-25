@@ -36,12 +36,20 @@ const canUseMobileClient = (user) => {
   return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
 };
 
+const canUseWebClient = (user) => {
+  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
+
+  // Pilot accounts are restricted to the mobile client.
+  return normalizedJobTitle !== "pilot";
+};
+
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
 
 const getPortalUrlByJobTitle = (jobTitle) =>
   jobTitle === "Maintenance Manager" ||
   jobTitle === "Officer-In-Charge" ||
-  jobTitle === "Admin"
+  jobTitle === "Admin" ||
+  jobTitle === "Mechanic"
     ? `${WEB_URL}/login`
     : `${MOBILE_URL}/login`;
 
@@ -215,6 +223,12 @@ const loginUser = async (req, res) => {
           message: "This account is only allowed to log in on the web portal.",
         });
       }
+      if (normalizedClient === "web" && !canUseWebClient(user)) {
+        return res.status(403).json({
+          message:
+            "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
+        });
+      }
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -254,6 +268,12 @@ const loginUser = async (req, res) => {
     if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
       return res.status(403).json({
         message: "This account is only allowed to log in on the web portal.",
+      });
+    }
+    if (normalizedClient === "web" && !canUseWebClient(user)) {
+      return res.status(403).json({
+        message:
+          "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
       });
     }
 
