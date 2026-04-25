@@ -9,7 +9,7 @@ import {
   Card,
   Divider,
 } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 // Import the default processor for AS350B3
 import { processDataWithFormulas as processAS350, getToday } from "../../../utils/partsFormula-AS350B3";
@@ -304,9 +304,6 @@ export default function PartsMonitoring() {
                 </Option>
               ))}
             </Select>
-            <Button type="primary" icon={<PlusOutlined />}>
-              Add Aircraft
-            </Button>
             <Button
               type="primary"
               icon={<SaveOutlined />}

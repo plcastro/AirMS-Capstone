@@ -16,6 +16,7 @@ const {
   updatePassword,
   updateUserImage,
   updatePIN,
+  verifyPIN,
   updateSignature,
   activateUser,
   resendActivation,
@@ -50,6 +51,7 @@ router.put(
 router.put("/update-user-profile/:id", updateUserProfile);
 router.put("/change-password/:id", updatePassword);
 router.put("/update-pin/:id", updatePIN);
+router.post("/verify-pin/:id", rateLimiter, verifyPIN);
 router.put("/update-user-status/:id", updateUserStatus);
 router.put(
   "/update-user-image/:id",

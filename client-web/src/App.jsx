@@ -162,6 +162,18 @@ const AppRouter = () => {
             }
           />
           <Route
+            path="reports-and-analytics"
+            element={<Navigate to="/dashboard/maintenance-dashboard" replace />}
+          />
+          <Route
+            path="reports"
+            element={<Navigate to="/dashboard/maintenance-dashboard" replace />}
+          />
+          <Route
+            path="analytics"
+            element={<Navigate to="/dashboard/maintenance-dashboard" replace />}
+          />
+          <Route
             path="parts-requisition"
             element={
               <ProtectedRoute allowedRoles={["warehouse department"]}>

@@ -163,6 +163,11 @@ const taskSchema = new mongoose.Schema({
     default: "",
   },
 
+  approvedSignature: {
+    type: String,
+    default: "",
+  },
+
   returnedBy: {
     type: String,
     default: "",

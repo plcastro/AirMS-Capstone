@@ -125,9 +125,25 @@
   color: #2e7d32;
 }
 
-.fl-badge--ongoing {
+.fl-badge--ongoing,
+.fl-badge--pending-release {
   background: #fff3e0;
   color: #ed6c02;
+}
+
+.fl-badge--released {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.fl-badge--accepted {
+  background: #ede7f6;
+  color: #5e35b1;
+}
+
+.fl-badge--for-completion {
+  background: #fff8e1;
+  color: #8a5a00;
 }
 
 /* ── Entry modal shell ──────────────────────────────────── */

@@ -4,6 +4,7 @@ const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
+    signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
   { _id: false },
@@ -28,7 +29,7 @@ const postInspectionSchema = new mongoose.Schema(
     createdBy: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["pending", "completed"],
+      enum: ["pending", "released", "completed"],
       default: "pending",
     },
     station1_transparentPanels_condition: { type: Boolean, default: false },
@@ -119,6 +120,7 @@ const postInspectionSchema = new mongoose.Schema(
     cabin_vemd_recordData: { type: Boolean, default: false },
     cabin_batterySwitchOff_off: { type: Boolean, default: false },
     releasedBy: { type: signatureSchema, default: () => ({}) },
+    acceptedBy: { type: signatureSchema, default: () => ({}) },
   },
   { collection: "post_inspections", timestamps: true },
 );

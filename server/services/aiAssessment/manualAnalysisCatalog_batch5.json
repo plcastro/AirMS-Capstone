@@ -1,0 +1,100 @@
+{
+  "source": "OCR-assisted analysis of tail rotor, tail drive line, tail gear box, hydraulic control, and engine fault-isolation manuals",
+  "note": "This catalog records the recovered AMM families for the final user-supplied PDF batch analyzed on April 20, 2026. OCR was performed locally using the repo extractor with Windows OCR fallback for image-only PDFs.",
+  "families": [
+    {
+      "family": "Tail Rotor Blades Inspection Criteria",
+      "chapter": "AMM 64-10-00",
+      "documents": [
+        "64-10-00,6-12 Detailed inspection criteria for blanking cap on chin weights",
+        "64-10-00,6-11 Visual inspection criteria for blanking cover on chin weights",
+        "64-10-00,6-10 Detailed inspection criteria for pitch horn assembly POST MOD variants",
+        "64-10-00,6-9 Visual inspection criteria for pitch horn assembly POST MOD variants",
+        "64-10-00,6-6 Edge tab",
+        "64-10-00,6-1 Tail rotor blades with inserted tab PRE / POST MOD 075595"
+      ]
+    },
+    {
+      "family": "Tail Drive Line Inspection Criteria",
+      "chapter": "AMM 65-11-00",
+      "documents": [
+        "65-11-00,6-16 Visual inspection criteria for sliding flange",
+        "65-11-00,6-15 Visual inspection criteria for bearing hangers PRE / POST MOD variants",
+        "65-11-00,6-14 Visual inspection criteria for flexible coupling",
+        "65-11-00,6-13 Visual inspection criteria for rear shaft section",
+        "65-11-00,6-11 Visual inspection criteria for equipped front section",
+        "65-11-00,6-7 Flexible coupling attachment",
+        "65-11-00,6-6 Sliding flange",
+        "65-11-00,6-5 Detailed inspection criteria for bearings",
+        "65-11-00,6-4 Detailed inspection criteria for flexible coupling",
+        "65-11-00,6-3 Detailed inspection criteria for rear shaft section",
+        "65-11-00,6-1 Detailed inspection criteria for equipped front section",
+        "65-11-00,6-29 Inspection criteria for the inside of the rear section"
+      ]
+    },
+    {
+      "family": "Tail Gear Box Inspection Criteria",
+      "chapter": "AMM 65-21-00",
+      "documents": [
+        "65-21-00,6-27 Control lever with removal",
+        "65-21-00,6-24 Control lever bushes and yoke lug",
+        "65-21-00,6-21 Detailed inspection check of elastomer pitch change rods POST MOD 075606 / 076602",
+        "65-21-00,6-19 Rotor shaft",
+        "65-21-00,6-16 Pitch change spider spherical bearing",
+        "65-21-00,6-15 Baffle and nut retainers",
+        "65-21-00,6-14 Expansion pin with control lever PN 350A33-1058-00",
+        "65-21-00,6-13 TGB housing",
+        "65-21-00,6-12 Control lever without removal",
+        "65-21-00,6-11 Elastomer pitch change rods POST MOD variants and pitch change links PRE MOD variants",
+        "65-21-00,6-10 Hub body with laminated hinges",
+        "65-21-00,6-9 Split bushes / scraper lip seals",
+        "65-21-00,6-8 Control plate bearing family with PRE / POST MOD splits",
+        "65-21-00,6-4 Flange input"
+      ]
+    },
+    {
+      "family": "Dual Hydraulic Rotor Actuator Inspection Criteria",
+      "chapter": "AMM 67-31-00",
+      "documents": [
+        "67-31-00,6-1 Servocontrols / rotor actuators (dual hydraulic)"
+      ]
+    },
+    {
+      "family": "Load Compensator Leak Acceptance and Fault Isolation",
+      "chapter": "AMM 67-34-00",
+      "documents": [
+        "67-34-00,6-3 Acceptance criteria concerning hydraulic fluid leaks",
+        "67-34-00,1-1 Fault isolation for load compensator"
+      ]
+    },
+    {
+      "family": "ARRIEL 2B1 VEMD Fail-Code Fault Isolation",
+      "chapter": "AMM 71-11-00",
+      "documents": [
+        "71-11-00,1-9 FAIL CODE 143 SURV FADEC 25",
+        "71-11-00,1-8 FAIL CODE 135 SURV FADEC 17",
+        "71-11-00,1-7 FAIL CODE 125 SURV FADEC 7",
+        "71-11-00,1-6 FAIL CODE 123 SURV FADEC 5",
+        "71-11-00,1-5 FAIL CODE 122 SURV FADEC 4",
+        "71-11-00,1-4 MALFUNCTION CODE 121 SURV FADEC 2",
+        "71-11-00,1-3 FAIL CODE 48 SURV REC NGMD A and FAIL CODE 49 SURV REC NGMC A",
+        "71-11-00,1-2 FAIL CODE 47 SURV REC FF A and FAIL CODE 71 SURV DOM FF R",
+        "71-11-00,1-1 FAIL CODE 44 SURV REC NF A"
+      ]
+    },
+    {
+      "family": "Twist Grip Fuel Flow Control Fault Diagnosis",
+      "chapter": "AMM 76-00-00",
+      "documents": [
+        "76-00-00,1-1 Twist grip fuel flow control fault diagnosis"
+      ]
+    },
+    {
+      "family": "Engine Oil Pressure or Temperature Fault Isolation",
+      "chapter": "AMM 79-30-00",
+      "documents": [
+        "79-30-00,1-1 Engine oil pressure / temperature indicating system fault isolation"
+      ]
+    }
+  ]
+}

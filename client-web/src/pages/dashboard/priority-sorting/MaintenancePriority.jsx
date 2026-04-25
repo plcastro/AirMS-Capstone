@@ -9,7 +9,6 @@ import {
   Row,
   Space,
   Statistic,
-  Switch,
   Table,
   Tag,
   Typography,
@@ -431,15 +430,6 @@ export default function MaintenancePriority() {
                   updateDraftRule("longTurnaroundHours", value)
                 }
               />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Space direction="vertical" style={{ marginTop: 28 }}>
-                <Text>Safety-critical auto escalation</Text>
-                <Switch
-                  checked={draftRules.safetyBoostEnabled}
-                  onChange={(checked) => updateDraftRule("safetyBoostEnabled", checked)}
-                />
-              </Space>
             </Col>
             <Col xs={24}>
               <Space wrap>

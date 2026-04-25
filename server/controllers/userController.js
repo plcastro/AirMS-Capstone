@@ -911,6 +911,37 @@ const updatePIN = async (req, res) => {
   }
 };
 
+const verifyPIN = async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin) {
+      return res.status(400).json({ message: "PIN is required" });
+    }
+
+    const user = await UserModel.findById(req.params.id).select("+pin");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.pin) {
+      return res.status(400).json({ message: "User has no PIN set." });
+    }
+
+    const isMatch = await bcrypt.compare(pin, user.pin);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "PIN is incorrect." });
+    }
+
+    res.status(200).json({ message: "PIN verified" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const updateSignature = async (req, res) => {
   try {
     const user = await UserModel.findById(req.params.id);
@@ -1051,6 +1082,7 @@ module.exports = {
   updateUserProfile,
   updatePassword,
   updatePIN,
+  verifyPIN,
   updateUserImage,
   updateSignature,
   completeSecuritySetup,

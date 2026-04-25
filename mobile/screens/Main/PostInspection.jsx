@@ -15,9 +15,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { exportPostInspectionPdf } from "../../utilities/pdfExport";
 
 const getDisplayStatus = (status) =>
-  status === "completed" ? "completed" : "ongoing";
+  status === "completed"
+    ? "completed"
+    : status === "released"
+      ? "released"
+      : "pending";
 
 export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
@@ -119,7 +124,8 @@ export default function PostInspection({ route }) {
 
   const statusOptions = [
     { label: "All", value: "all" },
-    { label: "Ongoing", value: "ongoing" },
+    { label: "Pending Release", value: "pending" },
+    { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -149,8 +155,8 @@ export default function PostInspection({ route }) {
     setShowEditModal(true);
   };
 
-  const handleExport = (inspection) => {
-    Alert.alert("Export", `Exporting inspection for ${inspection.rpc}`);
+  const handleExport = async (inspection) => {
+    await exportPostInspectionPdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
@@ -196,7 +202,7 @@ export default function PostInspection({ route }) {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Q Search aircraft"
+              placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,

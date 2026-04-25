@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Input, Button } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 
@@ -12,6 +12,7 @@ const getOrdinalSuffix = (n) => {
 
 function LegSignaturePad({ value, onChange, disabled }) {
   const sigRef = useRef(null);
+  const [isReplacing, setIsReplacing] = useState(false);
 
   const handleEnd = () => {
     if (sigRef.current && onChange) onChange(sigRef.current.toDataURL("image/png"));
@@ -20,12 +21,15 @@ function LegSignaturePad({ value, onChange, disabled }) {
   const handleClear = () => {
     if (sigRef.current) sigRef.current.clear();
     if (onChange) onChange("");
+    setIsReplacing(false);
   };
+
+  const showSavedSignature = value && (disabled || !isReplacing);
 
   return (
     <div>
       <div className="fl-sig-box">
-        {value && disabled ? (
+        {showSavedSignature ? (
           <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
@@ -39,9 +43,16 @@ function LegSignaturePad({ value, onChange, disabled }) {
         )}
       </div>
       {!disabled && (
-        <Button size="small" danger onClick={handleClear} style={{ marginTop: 4, float: "right" }}>
-          Clear
-        </Button>
+        <div style={{ marginTop: 4, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {value && !isReplacing && (
+            <Button size="small" onClick={() => setIsReplacing(true)}>
+              Replace
+            </Button>
+          )}
+          <Button size="small" danger onClick={handleClear}>
+            Clear
+          </Button>
+        </div>
       )}
     </div>
   );

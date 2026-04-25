@@ -9,12 +9,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AnalysisChartMockData } from "./MockData";
 
-export const FailureAnalysisChart = () => {
-  const rawData = AnalysisChartMockData;
-  // Sort data so the most "failure prone" (highest failure count) is at the top
+export const FailureAnalysisChart = ({ data = [] }) => {
+  const rawData = data;
+  // Sort data so the components needing attention appear first.
   const sortedData = [...rawData].sort((a, b) => b.failures - a.failures);
+
+  if (sortedData.length === 0) {
+    return (
+      <div style={{ width: "100%", height: 400, display: "grid", placeItems: "center" }}>
+        No critical component data available
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: "100%", height: 400 }}>
@@ -32,8 +39,7 @@ export const FailureAnalysisChart = () => {
 
           <XAxis
             type="number"
-            domain={[0, 100]}
-            tickFormatter={(value) => `${value}%`}
+            allowDecimals={false}
           />
 
           <YAxis
@@ -54,7 +60,7 @@ export const FailureAnalysisChart = () => {
           <Legend verticalAlign="top" height={36} />
           <Bar
             dataKey="failures"
-            name="Reported Failures"
+            name="Critical Component Count"
             fill="#ff4d4f"
             radius={[0, 4, 4, 0]}
             barSize={20}

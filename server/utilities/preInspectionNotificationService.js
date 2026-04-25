@@ -54,6 +54,27 @@ const getCreatorUserId = async (inspection) => {
   return resolveUserIdByFullName(inspection.createdBy);
 };
 
+const getRecipientsForStatus = (status, creatorUserId, mechanicRoles) => {
+  switch (status) {
+    case "released":
+      return {
+        recipientRoles: [ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "completed":
+      return {
+        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "pending":
+    default:
+      return {
+        recipientRoles: mechanicRoles,
+        recipientUsers: [],
+      };
+  }
+};
+
 const createNotification = async ({
   title,
   description,
@@ -154,6 +175,19 @@ const createPreInspectionNotifications = async ({
   }
 
   if (previousStatus === currentStatus) {
+    const recipients = getRecipientsForStatus(
+      currentStatus,
+      creatorUserId,
+      mechanicRoles,
+    );
+
+    await createNotification({
+      title: `Pre-inspection for RP-C ${inspection.rpc} has been updated`,
+      description: "The pre-flight inspection details were updated.",
+      inspection,
+      ...recipients,
+      metadata: { notificationType: "updated" },
+    });
     return;
   }
 

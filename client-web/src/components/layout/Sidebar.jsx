@@ -66,7 +66,7 @@ const Sidebar = ({ collapsed }) => {
       key: "6",
       label: "Maintenance Tracking",
       icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager"],
+      roles: ["maintenance manager", "officer-in-charge"],
     },
     {
       key: "7",
