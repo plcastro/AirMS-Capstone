@@ -138,10 +138,9 @@ const rbacMiddleware = {
     const targetLevel = accessHierarchy[targetAccessLevel];
 
     // Only superuser can create/modify admins and superusers
-    if (targetLevel >= 1 && req.user.access !== "Superuser") {
+    if (targetLevel >= 1 && req.user.access !== "Admin") {
       return res.status(403).json({
-        message:
-          "Forbidden: Only superuser can assign Admin or Superuser roles",
+        message: "Forbidden: Only admin can assign Admin or Superuser roles",
         attemptedRole: targetAccessLevel,
       });
     }

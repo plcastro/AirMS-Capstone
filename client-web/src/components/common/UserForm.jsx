@@ -396,9 +396,12 @@ export default function UserForm({
               value={licenseNo}
               onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
               maxLength={6}
-              required={["maintenance manager", "pilot", "mechanic"].includes(
-                jobTitle.toLowerCase(),
-              )}
+              required={[
+                "maintenance manager",
+                "pilot",
+                "mechanic",
+                "officer-in-charge",
+              ].includes(jobTitle.toLowerCase())}
             />
           </Col>
         ) : null}
