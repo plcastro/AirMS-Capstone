@@ -1,0 +1,70 @@
+{
+  "source": "OCR-assisted analysis of remaining user-supplied PDF batches",
+  "note": "This catalog records the recovered AMM families for the remaining optional-equipment, avionics, communication, electrical, environmental-control, and weight-and-balance manuals analyzed on April 19, 2026.",
+  "families": [
+    {
+      "family": "Mission Equipment and Optional Installation Fault Isolation",
+      "chapter": "AMM 25 / 26",
+      "documents": [
+        "26-11-00,1-1 Fire detection",
+        "25-96-00,1-1 Electrical rear-view mirror PRE / POST MOD 074282",
+        "25-92-00,1-1 Cargo sling installation PRE / POST MOD 074281",
+        "25-91-00,1-1 Cargo swing installation PRE / POST MOD 074281",
+        "25-87-12,1-1 BAMBI BUCKET installation failures and corrective actions",
+        "25-87-11,1-1 ISOLAIR water bomber system",
+        "25-67-00,1-1 Emergency floatation gear PRE / POST MOD 074240",
+        "25-10-40,1-1 Imaging and Flight Data Monitoring Device"
+      ]
+    },
+    {
+      "family": "Emergency Locator, Electrical Power, and ICS Fault Isolation",
+      "chapter": "AMM 25 / 24 / 23",
+      "documents": [
+        "25-66-20,1-1 KANNAD INTEGRA AP-H Emergency Locator Transmitter",
+        "25-66-08 Emergency Locator family - ELT 96-406 SOCATA",
+        "25-66-04,1-1 Emergency Locator family - JOLLIET JE2 / JE2NG",
+        "25-66-02,1-1 KANNAD 121 AF-H and 406 AF-H Emergency Locator Transmitter",
+        "24-30-00,1-1 DC power supply system including POST MOD 074836 variant",
+        "24-22-00,1-1 AC Generation 250VA",
+        "23-41-25,1-1 GARMIN GMA 350H ICS System",
+        "23-41-18,1-1 GARMIN GMA 340 ICS System",
+        "23-41-17,1-1 TEAM SIB 120 ICS System",
+        "23-41-15,1-1 NAT AMS 43 TSO ICS System",
+        "23-41-14,1-1 KMA 24H-71 ICS System",
+        "23-41-03,1-1 TEAM TB 31 ICS System",
+        "23-41-01,1-1 TEAM TB 27 ICS System"
+      ]
+    },
+    {
+      "family": "Communication, Automatic Pilot, and Environmental-Control Fault Isolation",
+      "chapter": "AMM 23 / 22 / 21",
+      "documents": [
+        "23-13-21,1-1 COLLINS 422 VHF AM System",
+        "23-12-51,1-1 GTN 650 VHF family including installation reference",
+        "23-12-50,1-1 GNC 255 VHF System",
+        "23-12-49,1-1 GNS 430 VHF AM System",
+        "23-12-46,1-1 NAT NPX 138 VHF FM System",
+        "23-12-21,1-1 KING KX 165 A VHF AM System",
+        "23-12-20,1-1 COLLINS 20 B VHF System",
+        "23-12-19,1-1 MARCONI ART 132 VHF FM System",
+        "23-12-03,1-1 BECKER AR 2009 / 25 VHF System",
+        "23-12-02,1-1 COLLINS 251 E VHF System",
+        "23-12-01,1-1 KING KY 196 A VHF System",
+        "23-11-12,1-1 COLLINS HF 9100 HF SSB System",
+        "23-11-05,1-1 KING KHF-950 HF SSB System",
+        "22-00-02,1-1 / 22-10-02,6-1 SFIM 85T31 Automatic pilot family",
+        "21-51-10,1-1 Air conditioning with refrigerant",
+        "21-21-00,1-1 Demist / heating / ventilation"
+      ]
+    },
+    {
+      "family": "Levelling, Weighing, and Balance-Correction Procedures",
+      "chapter": "AMM 08 / 07",
+      "documents": [
+        "08-20-00,3-1 Levelling",
+        "08-10-00,3-1 Weighing",
+        "08-10-00,3-2 Balance correction"
+      ]
+    }
+  ]
+}

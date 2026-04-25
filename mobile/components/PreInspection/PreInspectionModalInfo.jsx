@@ -80,9 +80,65 @@ export default function PreInspectionModalInfo({
     }
   };
 
+  const getFlightLogDateValue = (flightLog = {}) => {
+    const value = flightLog.date || flightLog.createdAt || flightLog.updatedAt;
+    if (!value) return 0;
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  };
+
+  const getLatestFlightLogFuelOnBoard = (flightLogs = []) => {
+    const sortedLogs = [...flightLogs].sort(
+      (left, right) => getFlightLogDateValue(right) - getFlightLogDateValue(left),
+    );
+
+    for (const flightLog of sortedLogs) {
+      const fuelRows = Array.isArray(flightLog.fuelServicing)
+        ? [...flightLog.fuelServicing].reverse()
+        : [];
+
+      const fuelRow = fuelRows.find((row) =>
+        String(row?.mainTotal || row?.mainRemG || "").trim(),
+      );
+
+      if (fuelRow?.mainTotal) return String(fuelRow.mainTotal);
+      if (fuelRow?.mainRemG) return String(fuelRow.mainRemG);
+    }
+
+    return "";
+  };
+
+  const resolveFobByRpc = async (rpc) => {
+    try {
+      if (!rpc || String(formData.fob || "").trim()) return;
+
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/aircraft/${encodeURIComponent(rpc)}?limit=20`,
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const flightLogs = Array.isArray(data?.data) ? data.data : [];
+      const fob = getLatestFlightLogFuelOnBoard(flightLogs);
+
+      if (fob && !String(formData.fob || "").trim()) {
+        updateForm("fob", fob);
+      }
+    } catch (error) {
+      console.error("Error resolving FOB from previous flight log:", error);
+    }
+  };
+
   useEffect(() => {
     if (formData.rpc && !formData.aircraftType) {
       resolveAircraftTypeByRpc(formData.rpc);
+    }
+  }, [formData.rpc]);
+
+  useEffect(() => {
+    if (formData.rpc && !String(formData.fob || "").trim()) {
+      resolveFobByRpc(formData.rpc);
     }
   }, [formData.rpc]);
 
@@ -168,6 +224,7 @@ export default function PreInspectionModalInfo({
                 onPress={() => {
                   updateForm("rpc", rpc);
                   resolveAircraftTypeByRpc(rpc);
+                  resolveFobByRpc(rpc);
                   setShowRPCDropdown(false);
                 }}
               >

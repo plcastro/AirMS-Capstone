@@ -25,18 +25,24 @@ const formatDate = (value) => {
   return date.toLocaleDateString("en-CA");
 };
 
+const getDiscoveredAt = (task = {}) =>
+  task.maintenanceHistory?.defectDiscoveredAt ||
+  task.dateDiscovered ||
+  task.createdAt;
+
+const getRectifiedAt = (task = {}) =>
+  task.maintenanceHistory?.defectRectifiedAt ||
+  task.dateRectified ||
+  task.approvedAt ||
+  task.completedAt ||
+  task.updatedAt;
+
 export default function MaintenanceHistory({ tasks = [], loading = false }) {
   const historyRows = tasks.map((task, index) => ({
     key: task._id || task.id || `${task.title}-${index}`,
     aircraft: task.aircraft || "---",
-    dateDiscovered: formatDate(
-      task.maintenanceHistory?.defectDiscoveredAt || task.dateDiscovered,
-    ),
-    dateRectified: formatDate(
-      task.maintenanceHistory?.defectRectifiedAt ||
-        task.dateRectified ||
-        task.completedAt,
-    ),
+    dateDiscovered: formatDate(getDiscoveredAt(task)),
+    dateRectified: formatDate(getRectifiedAt(task)),
     task: task.title || task.summary?.category || "---",
     assignedMechanic:
       task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
@@ -45,8 +51,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   const recentTasks = tasks.filter((task) => {
-    const discoveredAt =
-      task.maintenanceHistory?.defectDiscoveredAt || task.dateDiscovered;
+    const discoveredAt = getDiscoveredAt(task);
 
     if (!discoveredAt) return false;
 
@@ -56,12 +61,8 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
 
   const sameDayRepairMap = recentTasks.reduce((acc, task) => {
     const aircraft = task.aircraft || "Unassigned";
-    const discoveredAt =
-      task.maintenanceHistory?.defectDiscoveredAt || task.dateDiscovered;
-    const rectifiedAt =
-      task.maintenanceHistory?.defectRectifiedAt ||
-      task.dateRectified ||
-      task.completedAt;
+    const discoveredAt = getDiscoveredAt(task);
+    const rectifiedAt = getRectifiedAt(task);
 
     if (!discoveredAt || !rectifiedAt) return acc;
 
@@ -81,12 +82,8 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
 
   const rectificationBuckets = recentTasks.reduce(
     (acc, task) => {
-      const discoveredAt =
-        task.maintenanceHistory?.defectDiscoveredAt || task.dateDiscovered;
-      const rectifiedAt =
-        task.maintenanceHistory?.defectRectifiedAt ||
-        task.dateRectified ||
-        task.completedAt;
+      const discoveredAt = getDiscoveredAt(task);
+      const rectifiedAt = getRectifiedAt(task);
 
       if (!discoveredAt || !rectifiedAt) return acc;
 
@@ -94,33 +91,33 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       const rectified = new Date(rectifiedAt);
       if (isNaN(discovered.getTime()) || isNaN(rectified.getTime())) return acc;
 
-      const diffDays = Math.max(
+      const diffHours = Math.max(
         0,
         Math.ceil(
-          (rectified.getTime() - discovered.getTime()) / (1000 * 60 * 60 * 24),
+          (rectified.getTime() - discovered.getTime()) / (1000 * 60 * 60),
         ),
       );
 
       const bucket =
-        diffDays <= 10
-          ? "0 - 10 days"
-          : diffDays <= 20
-            ? "11 - 20 days"
-            : diffDays <= 30
-              ? "21 - 30 days"
-              : diffDays <= 40
-                ? "31 - 40 days"
-                : "More than 40 days";
+        diffHours <= 1
+          ? "0 - 1 hours"
+          : diffHours <= 3
+            ? "2 - 3 hours"
+            : diffHours <= 6
+              ? "4 - 6 hours"
+              : diffHours <= 12
+                ? "7 - 12 hours"
+                : "More than 12 hours";
 
       acc[bucket] = (acc[bucket] || 0) + 1;
       return acc;
     },
     {
-      "0 - 10 days": 0,
-      "11 - 20 days": 0,
-      "21 - 30 days": 0,
-      "31 - 40 days": 0,
-      "More than 40 days": 0,
+      "0 - 1 hours": 0,
+      "2 - 3 hours": 0,
+      "4 - 6 hours": 0,
+      "7 - 12 hours": 0,
+      "More than 12 hours": 0,
     },
   );
 
@@ -190,7 +187,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
         <Col xs={24} md={12}>
           <Card style={{ padding: 10 }}>
             <Title level={5} style={{ margin: 0 }}>
-              Average Rectification Time
+              Average Rectification Time (Hours)
             </Title>
             <ARTChart data={artChartData} />
           </Card>

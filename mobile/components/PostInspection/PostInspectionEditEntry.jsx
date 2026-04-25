@@ -7,6 +7,7 @@ import {
   ScrollView,
   StatusBar,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -34,6 +35,7 @@ export default function PostInspectionEditEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPilot = userRole === "pilot";
@@ -108,12 +110,35 @@ export default function PostInspectionEditEntry({
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
+        signature: signatureData.signature,
+        timestamp: new Date().toISOString(),
+      },
+      status: "released",
+    };
+
+    await persistInspection(nextFormData);
+  };
+
+  const handleAccept = async (signatureData) => {
+    if (!areAllPostInspectionChecksComplete(formData)) {
+      Alert.alert(
+        "Validation Error",
+        "All checklist fields must be checked before acceptance.",
+      );
+      return;
+    }
+
+    const nextFormData = {
+      ...formData,
+      acceptedBy: {
+        name: signatureData.name,
+        id: signatureData.id,
+        signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
     };
 
-    setShowReleaseModal(false);
     await persistInspection(nextFormData);
   };
 
@@ -142,7 +167,8 @@ export default function PostInspectionEditEntry({
   };
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
-  const isFormEditable = !isPilot && !hasReleaseSignature;
+  const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
+  const isFormEditable = !isPilot && !hasReleaseSignature && !hasAcceptSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -213,8 +239,16 @@ export default function PostInspectionEditEntry({
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
+  const showAcceptButton =
+    isPilot &&
+    hasReleaseSignature &&
+    !hasAcceptSignature &&
+    formData.status === "released" &&
+    !isSubmitting;
   const footerActionLabel =
-    isPilot || formData.status === "completed" ? "Close" : "Save";
+    isPilot || formData.status === "released" || formData.status === "completed"
+      ? "Close"
+      : "Save";
   const handleFooterAction = () => {
     if (footerActionLabel === "Close") {
       onClose();
@@ -320,6 +354,29 @@ export default function PostInspectionEditEntry({
                 </TouchableOpacity>
               )}
 
+              {showAcceptButton && (
+                <TouchableOpacity
+                  onPress={() => setShowAcceptModal(true)}
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    alignItems: "center",
+                    marginBottom: 20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
+                    Accept
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {formData.releasedBy?.name && (
                 <View
                   style={{
@@ -379,6 +436,91 @@ export default function PostInspectionEditEntry({
                     >
                       {formatDate(formData.releasedBy.timestamp)}
                     </Text>
+                    {!!formData.releasedBy.signature && (
+                      <Image
+                        source={{ uri: formData.releasedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {formData.acceptedBy?.name && (
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
+                      ACCEPTED BY:
+                    </Text>
+                  </View>
+                  <View style={{ padding: 20 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: COLORS.black,
+                        marginBottom: 4,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {formData.acceptedBy.name} / {formData.acceptedBy.id}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      PILOT
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
+                      {formatDate(formData.acceptedBy.timestamp)}
+                    </Text>
+                    {!!formData.acceptedBy.signature && (
+                      <Image
+                        source={{ uri: formData.acceptedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -456,11 +598,16 @@ export default function PostInspectionEditEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role={
-            userRole === "maintenance manager"
-              ? "MAINTENANCE MANAGER"
-              : "MECHANIC"
-          }
+          actionLabel="release"
+        />
+
+        <PostInspectionSignatureModal
+          visible={showAcceptModal}
+          title="Accept Signature"
+          onClose={() => setShowAcceptModal(false)}
+          onSave={handleAccept}
+          aircraftRPC={formData.rpc}
+          actionLabel="accept"
         />
       </SafeAreaView>
     </Modal>

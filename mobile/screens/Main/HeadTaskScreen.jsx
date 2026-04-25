@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   View,
   TextInput,
@@ -15,12 +15,14 @@ import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
+import { AuthContext } from "../../Context/AuthContext";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) =>
   user?.jobTitle?.toLowerCase() === "mechanic";
 
 export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus }) {
+  const { user } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
@@ -236,12 +238,17 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
 
   const handleApproveTask = async (task, approveData) => {
     const now = new Date().toISOString();
+    const approverName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      user?.username ||
+      "Maintenance Manager";
 
     const updatedTask = {
       ...task,
       status: "Approved",
       isApproved: true,
-      approvedBy: approveData?.signature || "You",
+      approvedBy: approverName,
+      approvedSignature: approveData?.signature || "",
       reviewedAt: now,
       approvedAt: now,
     };
@@ -263,11 +270,12 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
         );
         setTasks(updatedTasks);
       } else {
-        Alert.alert("Error", "Failed to approve task");
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to approve task");
       }
     } catch (error) {
       console.error("Error approving task:", error);
-      Alert.alert("Error", "Failed to approve task");
+      throw error;
     }
   };
 

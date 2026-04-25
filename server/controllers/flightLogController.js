@@ -306,6 +306,13 @@ const updateFlightLog = async (req, res) => {
       });
     }
 
+    if (existingFlightLog.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed flight logs cannot be edited",
+      });
+    }
+
     // Remove fields that shouldn't be updated directly
     delete updates._id;
     delete updates.id;

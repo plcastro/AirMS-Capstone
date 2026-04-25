@@ -10,7 +10,11 @@ export default function PostInspectionCards({
   userRole,
 }) {
   const getDisplayStatus = (status) =>
-    status === "completed" ? "completed" : "ongoing";
+    status === "completed"
+      ? "completed"
+      : status === "released"
+        ? "released"
+        : "pending";
 
   const getStatusStyle = (status) => {
     switch (getDisplayStatus(status)) {
@@ -20,9 +24,15 @@ export default function PostInspectionCards({
           backgroundColor: "#E8F5E9",
           textColor: "#2E7D32",
         };
+      case "released":
+        return {
+          label: "Released",
+          backgroundColor: "#E3F2FD",
+          textColor: "#1565C0",
+        };
       default:
         return {
-          label: "Ongoing",
+          label: "Pending Release",
           backgroundColor: "#FFF3E0",
           textColor: "#ED6C02",
         };

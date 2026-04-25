@@ -11,6 +11,79 @@ import {
 } from "./MockData";
 import { message } from "antd";
 
+const EXCLUDED_EXPORT_KEYS = new Set([
+  "_id",
+  "__v",
+  "id",
+  "createdAt",
+  "updatedAt",
+]);
+
+const formatExportLabel = (key) =>
+  String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatExportValue = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "N/A";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (value instanceof Date) {
+    return value.toLocaleString();
+  }
+
+  return String(value);
+};
+
+const flattenRecord = (value, prefix = "") => {
+  if (value === null || value === undefined) {
+    return prefix ? [{ label: prefix, value: "N/A" }] : [];
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return prefix ? [{ label: prefix, value: "N/A" }] : [];
+    }
+
+    return value.flatMap((item, index) =>
+      flattenRecord(item, prefix ? `${prefix} ${index + 1}` : `Item ${index + 1}`),
+    );
+  }
+
+  if (typeof value === "object" && !(value instanceof Date)) {
+    const entries = Object.entries(value).filter(
+      ([key]) => !EXCLUDED_EXPORT_KEYS.has(key),
+    );
+
+    if (entries.length === 0) {
+      return prefix ? [{ label: prefix, value: "N/A" }] : [];
+    }
+
+    return entries.flatMap(([key, nestedValue]) => {
+      const nextPrefix = prefix
+        ? `${prefix} - ${formatExportLabel(key)}`
+        : formatExportLabel(key);
+      return flattenRecord(nestedValue, nextPrefix);
+    });
+  }
+
+  return prefix ? [{ label: prefix, value: formatExportValue(value) }] : [];
+};
+
+const buildSafeFileName = (value, fallback) =>
+  String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
 export const exportToPDF = async () => {
   try {
     const doc = new jsPDF("p", "pt", "a4");
@@ -67,6 +140,58 @@ export const exportToPDF = async () => {
     });
 
     doc.save("MaintenanceDashboard.pdf");
+    message.success("PDF exported successfully!");
+  } catch (err) {
+    console.error(err);
+    message.error("PDF export failed: " + err.message);
+  }
+};
+
+export const exportRecordToPDF = async ({
+  title,
+  fileName,
+  record,
+  subtitle,
+}) => {
+  try {
+    const rows = flattenRecord(record);
+
+    if (rows.length === 0) {
+      throw new Error("No exportable data found");
+    }
+
+    const doc = new jsPDF("p", "pt", "a4");
+    doc.setFontSize(18);
+    doc.text(title || "Export", 40, 40);
+
+    if (subtitle) {
+      doc.setFontSize(11);
+      doc.setTextColor(90);
+      doc.text(subtitle, 40, 60);
+      doc.setTextColor(0);
+    }
+
+    autoTable(doc, {
+      head: [["Field", "Value"]],
+      body: rows.map(({ label, value }) => [label, value]),
+      startY: subtitle ? 78 : 60,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 6,
+        overflow: "linebreak",
+        valign: "top",
+      },
+      columnStyles: {
+        0: { cellWidth: 190, fontStyle: "bold" },
+        1: { cellWidth: 325 },
+      },
+      headStyles: {
+        fillColor: [4, 138, 37],
+      },
+    });
+
+    doc.save(buildSafeFileName(fileName, title || "export") + ".pdf");
     message.success("PDF exported successfully!");
   } catch (err) {
     console.error(err);

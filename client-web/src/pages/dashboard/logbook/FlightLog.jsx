@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Input, Button, Table, Space, message, Modal } from "antd";
 import {
   PlusOutlined,
@@ -9,6 +16,8 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
+import { exportRecordToPDF } from "../../../components/common/ExportFile";
+import SignatureCanvas from "react-signature-canvas";
 import "./flightlog.css";
 
 export default function FlightLog() {
@@ -31,6 +40,12 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
+  const [releaseConfirm, setReleaseConfirm] = useState({
+    step: "signature",
+    signature: "",
+    pin: "",
+  });
+  const releaseSignatureRef = useRef(null);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
@@ -46,9 +61,18 @@ export default function FlightLog() {
     if (statusValue === "released") {
       return "pending_acceptance";
     }
+    if (statusValue === "for_completion") {
+      return "accepted";
+    }
 
     return statusValue || "all";
   }, []);
+
+  const normalizeFlightLogStatus = (statusValue = "") =>
+    String(statusValue || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
 
   const fetchFlightLogs = useCallback(async () => {
     try {
@@ -219,9 +243,13 @@ export default function FlightLog() {
     }
   };
 
-  const handleExport = (record) => {
-    console.log("Export log:", record);
-    message.info(`Export log: ${record.rpc}`);
+  const handleExport = async (record) => {
+    await exportRecordToPDF({
+      title: "Flight Log",
+      fileName: `FlightLog-${record?.rpc || record?._id || "record"}`,
+      subtitle: `RP/C: ${record?.rpc || "N/A"} | Date: ${record?.date || "N/A"}`,
+      record,
+    });
   };
 
   const getUserDisplayName = () => {
@@ -273,10 +301,43 @@ export default function FlightLog() {
 
   const openWorkflowModal = (action, log) => {
     setWorkflowModal({ open: true, action, log });
+    if (action === "release") {
+      setReleaseConfirm({ step: "signature", signature: "", pin: "" });
+    }
   };
 
   const closeWorkflowModal = () => {
     setWorkflowModal({ open: false, action: null, log: null });
+    setReleaseConfirm({ step: "signature", signature: "", pin: "" });
+  };
+
+  const handleReleaseSignatureEnd = () => {
+    const signature = releaseSignatureRef.current?.toDataURL("image/png") || "";
+    setReleaseConfirm((prev) => ({ ...prev, signature }));
+  };
+
+  const clearReleaseSignature = () => {
+    releaseSignatureRef.current?.clear();
+    setReleaseConfirm((prev) => ({ ...prev, signature: "" }));
+  };
+
+  const verifyReleasePin = async () => {
+    const userId = user?.id || user?._id;
+
+    if (!userId) {
+      throw new Error("Your user ID is missing. Please sign in again.");
+    }
+
+    const response = await fetch(`${API_BASE}/api/user/verify-pin/${userId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: releaseConfirm.pin }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "PIN verification failed");
+    }
   };
 
   const handleWorkflowAction = async () => {
@@ -287,12 +348,29 @@ export default function FlightLog() {
       setSaving(true);
 
       if (action === "release") {
+        if (releaseConfirm.step === "signature") {
+          if (!releaseConfirm.signature) {
+            message.error("Please draw your signature before continuing.");
+            return;
+          }
+
+          setReleaseConfirm((prev) => ({ ...prev, step: "pin" }));
+          return;
+        }
+
+        if (!/^\d{6}$/.test(releaseConfirm.pin)) {
+          message.error("Enter your 6-digit PIN to confirm this release.");
+          return;
+        }
+
+        await verifyReleasePin();
+
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/release`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: getUserDisplayName(),
-            signature: user?.signature || getUserDisplayName(),
+            signature: releaseConfirm.signature,
           }),
         });
         const data = await response.json();
@@ -427,6 +505,7 @@ export default function FlightLog() {
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
+    { label: "For Completion", value: "for_completion" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -442,9 +521,14 @@ export default function FlightLog() {
       selectedAircraft === "all" ||
       log.rpc === selectedAircraft;
 
+    const normalizedStatus = normalizeFlightLogStatus(log.status);
     const matchesStatus =
       selectedStatus === "all" ||
-      log.status === normalizeStatusFilterValue(selectedStatus);
+      (selectedStatus === "for_completion"
+        ? normalizedStatus === "accepted" && log.notifiedForCompletion
+        : selectedStatus === "accepted"
+          ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+          : normalizedStatus === normalizeStatusFilterValue(selectedStatus));
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
@@ -477,25 +561,37 @@ export default function FlightLog() {
   }, [fetchFlightLogById, flightLogs, location.search, navigate]);
 
   const isPilotAcceptableStatus = (status) =>
-    ["pending_acceptance", "released"].includes(status);
+    ["pending_acceptance", "released"].includes(normalizeFlightLogStatus(status));
 
-  const getStatusBadge = (status) => {
-    if (status === "pending_release") {
-      return <span className="fl-badge fl-badge--ongoing">Pending Release</span>;
+  const getStatusMeta = (record = {}) => {
+    const status = normalizeFlightLogStatus(record.status);
+
+    if (status === "pending_release" || status === "ongoing") {
+      return { label: "Pending Release", className: "fl-badge--pending-release" };
     }
-    if (status === "pending_acceptance") {
-      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+    if (status === "pending_acceptance" || status === "released") {
+      return { label: "Released", className: "fl-badge--released" };
     }
-    if (status === "released") {
-      return <span className="fl-badge fl-badge--ongoing">Released</span>;
+    if (status === "accepted" && record.notifiedForCompletion) {
+      return { label: "For Completion", className: "fl-badge--for-completion" };
     }
     if (status === "accepted") {
-      return <span className="fl-badge fl-badge--ongoing">Accepted</span>;
+      return { label: "Accepted", className: "fl-badge--accepted" };
     }
     if (status === "completed") {
-      return <span className="fl-badge fl-badge--completed">Completed</span>;
+      return { label: "Completed", className: "fl-badge--completed" };
     }
-    return <span className="fl-badge fl-badge--ongoing">Ongoing</span>;
+
+    return { label: "Pending Release", className: "fl-badge--pending-release" };
+  };
+
+  const getStatusBadge = (record) => {
+    const statusMeta = getStatusMeta(record);
+    return (
+      <span className={`fl-badge ${statusMeta.className}`}>
+        {statusMeta.label}
+      </span>
+    );
   };
 
   const columns = [
@@ -518,7 +614,7 @@ export default function FlightLog() {
       title: "Status",
       key: "status",
       width: 100,
-      render: (_, record) => getStatusBadge(record.status),
+      render: (_, record) => getStatusBadge(record),
     },
     {
       title: "Action",
@@ -702,6 +798,18 @@ export default function FlightLog() {
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
+        okText={
+          workflowModal.action === "release" && releaseConfirm.step === "signature"
+            ? "Continue"
+            : workflowModal.action === "release"
+              ? "Sign and Release"
+              : "OK"
+        }
+        cancelText={
+          workflowModal.action === "release" && releaseConfirm.step === "pin"
+            ? "Cancel Signing"
+            : "Cancel"
+        }
         title={
           workflowModal.action === "release"
             ? "Release Flight Log"
@@ -713,7 +821,74 @@ export default function FlightLog() {
         }
       >
         {workflowModal.action === "release" && (
-          <p>Release this flight log to pilot acceptance?</p>
+          <>
+            {releaseConfirm.step === "signature" ? (
+              <div>
+                <p>
+                  Draw your release signature below. This signature will be attached
+                  to the flight log and sent to the pilot for acceptance.
+                </p>
+                <div
+                  className="fl-sig-box"
+                  style={{ height: 120, marginTop: 12, marginBottom: 8 }}
+                >
+                  <SignatureCanvas
+                    ref={releaseSignatureRef}
+                    penColor="#000"
+                    canvasProps={{ style: { width: "100%", height: 120 } }}
+                    onEnd={handleReleaseSignatureEnd}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <Button size="small" danger onClick={clearReleaseSignature}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p>
+                  Enter your 6-digit PIN to confirm that you want to sign and
+                  release this flight log.
+                </p>
+                <Input.Password
+                  value={releaseConfirm.pin}
+                  onChange={(e) =>
+                    setReleaseConfirm((prev) => ({
+                      ...prev,
+                      pin: e.target.value.replace(/\D/g, "").slice(0, 6),
+                    }))
+                  }
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Enter 6-digit PIN"
+                />
+                {releaseConfirm.signature && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
+                      Signature to be applied:
+                    </div>
+                    <div className="fl-sig-box">
+                      <img
+                        src={releaseConfirm.signature}
+                        alt="release signature"
+                        style={{ width: "100%", height: 60, objectFit: "contain" }}
+                      />
+                    </div>
+                    <Button
+                      size="small"
+                      style={{ marginTop: 8 }}
+                      onClick={() =>
+                        setReleaseConfirm((prev) => ({ ...prev, step: "signature" }))
+                      }
+                    >
+                      Redraw Signature
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
         {workflowModal.action === "accept" && (
           <p>Accept this flight log as pilot?</p>
