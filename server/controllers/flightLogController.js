@@ -17,7 +17,9 @@ const toComparableFlightLog = (flightLog) => {
     return null;
   }
 
-  return typeof flightLog.toObject === "function" ? flightLog.toObject() : flightLog;
+  return typeof flightLog.toObject === "function"
+    ? flightLog.toObject()
+    : flightLog;
 };
 
 // @desc    Create a new flight log
@@ -201,9 +203,12 @@ const getFlightLogs = async (req, res) => {
     // Build filter object
     const filter = {};
 
-    if (typeof status === "string" && status.trim()) filter.status = status.trim();
-    if (typeof aircraftRPC === "string" && aircraftRPC.trim()) filter.rpc = aircraftRPC.trim();
-    if (typeof createdBy === "string" && createdBy.trim()) filter.createdBy = createdBy.trim();
+    if (typeof status === "string" && status.trim())
+      filter.status = status.trim();
+    if (typeof aircraftRPC === "string" && aircraftRPC.trim())
+      filter.rpc = aircraftRPC.trim();
+    if (typeof createdBy === "string" && createdBy.trim())
+      filter.createdBy = createdBy.trim();
 
     // Date range filter
     if (startDate || endDate) {
@@ -354,7 +359,7 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { returnDocument: 'after', runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     await createFlightLogNotifications({
