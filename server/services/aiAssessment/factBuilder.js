@@ -72,10 +72,7 @@ const MANUAL_SIGNAL_KEYWORDS = {
     "oil temperature",
     "oil temp",
   ],
-  twistGripFuelControl: [
-    "twist grip",
-    "fuel flow control",
-  ],
+  twistGripFuelControl: ["twist grip", "fuel flow control"],
   tailDriveLine: [
     "tail drive line",
     "rear shaft section",
@@ -121,11 +118,18 @@ const MANUAL_SIGNAL_KEYWORDS = {
     "rear section",
   ],
   tailDriveLineFrontSection: ["equipped front section", "front section"],
-  tailDriveLineBearingHangers: ["bearing hangers", "bearings hangers", "hanger bearing"],
+  tailDriveLineBearingHangers: [
+    "bearing hangers",
+    "bearings hangers",
+    "hanger bearing",
+  ],
   tailGearBoxHousing: ["tgb housing"],
   tailGearBoxRotorShaft: ["rotor shaft"],
   tailGearBoxControlLever: ["control lever"],
-  tailGearBoxPitchChangeRods: ["pitch change rods", "elastomer pitch change rods"],
+  tailGearBoxPitchChangeRods: [
+    "pitch change rods",
+    "elastomer pitch change rods",
+  ],
   tailGearBoxControlPlateBearing: ["control plate bearing"],
   tailRotorBladesPitchHornAssembly: ["pitch horn assembly", "pitch horn"],
   tailRotorBladesEdgeTab: ["edge tab"],
@@ -137,7 +141,19 @@ const MANUAL_SIGNAL_KEYWORDS = {
   ],
 };
 
-const ARRIEL_FADEC_CODES = ["44", "47", "48", "49", "71", "121", "122", "123", "125", "135", "143"];
+const ARRIEL_FADEC_CODES = [
+  "44",
+  "47",
+  "48",
+  "49",
+  "71",
+  "121",
+  "122",
+  "123",
+  "125",
+  "135",
+  "143",
+];
 const normalizeText = (value = "") =>
   String(value || "")
     .toLowerCase()
@@ -147,44 +163,43 @@ const normalizeText = (value = "") =>
 const includesAnyKeyword = (text = "", keywords = []) =>
   keywords.some((keyword) => text.includes(keyword));
 
-const collectTaskNarrativeTexts = (task = {}) => [
-  task.title,
-  task.findings,
-  task.defects,
-  task.correctiveActionDone,
-  task.completionNotes,
-  task.maintenanceHistory?.historyNotes,
-  task.performance?.delayReason,
-  task.summary?.category,
-  task.summary?.severity,
-  task.summary?.result,
-  task.summary?.remarks,
-  ...(task.checklistItems || []).flatMap((item) => [
-    item.taskName,
-    item.component,
-    item.description,
-    item.correctiveAction,
-    item.documentation,
-    item.inspectionName,
-    item.inspectionTypeFull,
-    item.environmentalCondition,
-  ]),
-].filter(Boolean);
+const collectTaskNarrativeTexts = (task = {}) =>
+  [
+    task.title,
+    task.findings,
+    task.defects,
+    task.correctiveActionDone,
+    task.completionNotes,
+    task.maintenanceHistory?.historyNotes,
+    task.performance?.delayReason,
+    task.summary?.category,
+    task.summary?.severity,
+    task.summary?.result,
+    task.summary?.remarks,
+    ...(task.checklistItems || []).flatMap((item) => [
+      item.taskName,
+      item.component,
+      item.description,
+      item.correctiveAction,
+      item.documentation,
+      item.inspectionName,
+      item.inspectionTypeFull,
+      item.environmentalCondition,
+    ]),
+  ].filter(Boolean);
 
-const collectMaintenanceLogNarrativeTexts = (log = {}) => [
-  log.defects,
-  log.correctiveActionDone,
-  log.status,
-].filter(Boolean);
+const collectMaintenanceLogNarrativeTexts = (log = {}) =>
+  [log.defects, log.correctiveActionDone, log.status].filter(Boolean);
 
-const collectFlightNarrativeTexts = (log = {}) => [
-  log.remarks,
-  ...(log.workItems || []).flatMap((item) => [
-    item.description,
-    item.performedBy,
-  ]),
-  ...(log.oilServicing || []).flatMap((item) => [item.remarks]),
-].filter(Boolean);
+const collectFlightNarrativeTexts = (log = {}) =>
+  [
+    log.remarks,
+    ...(log.workItems || []).flatMap((item) => [
+      item.description,
+      item.performedBy,
+    ]),
+    ...(log.oilServicing || []).flatMap((item) => [item.remarks]),
+  ].filter(Boolean);
 
 const getStructuredTaskComponentFacts = (text = "") => ({
   "tasks.component.engineMgbDriveLineCount": includesAnyKeyword(text, [
@@ -211,43 +226,47 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     "drive bearing",
     "belt driven hydraulic pump drive bearing",
   ]),
-  "tasks.component.engineMgbDriveLineFlexibleCouplingCount": includesAnyKeyword(text, [
-    "belt driven hydraulic pump flexible coupling",
-    "flexible couplings",
-    "flexible coupling",
-  ]),
-  "tasks.component.engineMgbDriveLineSealingSleeveCount": includesAnyKeyword(text, [
-    "sealing sleeve",
-  ]),
+  "tasks.component.engineMgbDriveLineFlexibleCouplingCount": includesAnyKeyword(
+    text,
+    [
+      "belt driven hydraulic pump flexible coupling",
+      "flexible couplings",
+      "flexible coupling",
+    ],
+  ),
+  "tasks.component.engineMgbDriveLineSealingSleeveCount": includesAnyKeyword(
+    text,
+    ["sealing sleeve"],
+  ),
   "tasks.component.engineMgbDriveLineSplinesCount": includesAnyKeyword(text, [
     "drive splines",
     "pump drive splines",
     "belt driven hydraulic pump drive splines",
   ]),
-  "tasks.component.engineMgbDriveLineDriveShaftCount": includesAnyKeyword(text, [
-    "mgb drive shaft",
-    "drive shaft",
-  ]),
+  "tasks.component.engineMgbDriveLineDriveShaftCount": includesAnyKeyword(
+    text,
+    ["mgb drive shaft", "drive shaft"],
+  ),
   "tasks.component.engineMgbDriveLineGimbalCount": includesAnyKeyword(text, [
     "gimbal ring",
     "gimbal ring pin",
   ]),
-  "tasks.component.engineMgbDriveLineDriveFlangeCount": includesAnyKeyword(text, [
-    "drive flange",
-    "pump drive flange",
-  ]),
-  "tasks.component.engineMgbDriveLineEngineFlangeCount": includesAnyKeyword(text, [
-    "engine flange",
-  ]),
-  "tasks.component.engineMgbDriveLineCouplingHousingCount": includesAnyKeyword(text, [
-    "engine coupling housing",
-    "mgb coupling housing",
-    "coupling housing",
-  ]),
-  "tasks.component.engineMgbDriveLineDrivenPulleyCount": includesAnyKeyword(text, [
-    "driven pulley",
-    "poly v",
-  ]),
+  "tasks.component.engineMgbDriveLineDriveFlangeCount": includesAnyKeyword(
+    text,
+    ["drive flange", "pump drive flange"],
+  ),
+  "tasks.component.engineMgbDriveLineEngineFlangeCount": includesAnyKeyword(
+    text,
+    ["engine flange"],
+  ),
+  "tasks.component.engineMgbDriveLineCouplingHousingCount": includesAnyKeyword(
+    text,
+    ["engine coupling housing", "mgb coupling housing", "coupling housing"],
+  ),
+  "tasks.component.engineMgbDriveLineDrivenPulleyCount": includesAnyKeyword(
+    text,
+    ["driven pulley", "poly v"],
+  ),
   "tasks.component.biDirectionalSuspensionCount": includesAnyKeyword(text, [
     "bi directional suspension",
     "bi directional",
@@ -255,22 +274,21 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     "suspension crossbeam",
     "laminated stops",
   ]),
-  "tasks.component.biDirectionalSuspensionCrossbeamCount": includesAnyKeyword(text, [
-    "suspension crossbeam",
-    "350a38 1018",
-    "350a38 1040",
-  ]),
-  "tasks.component.biDirectionalSuspensionLaminatedStopsCount": includesAnyKeyword(text, [
-    "laminated stops",
-  ]),
-  "tasks.component.biDirectionalSuspensionBlockPinsCount": includesAnyKeyword(text, [
-    "laminated suspension block pins",
-    "block pins",
-  ]),
-  "tasks.component.biDirectionalSuspensionBlockSupportsCount": includesAnyKeyword(text, [
-    "laminated suspension block supports",
-    "block supports",
-  ]),
+  "tasks.component.biDirectionalSuspensionCrossbeamCount": includesAnyKeyword(
+    text,
+    ["suspension crossbeam", "350a38 1018", "350a38 1040"],
+  ),
+  "tasks.component.biDirectionalSuspensionLaminatedStopsCount":
+    includesAnyKeyword(text, ["laminated stops"]),
+  "tasks.component.biDirectionalSuspensionBlockPinsCount": includesAnyKeyword(
+    text,
+    ["laminated suspension block pins", "block pins"],
+  ),
+  "tasks.component.biDirectionalSuspensionBlockSupportsCount":
+    includesAnyKeyword(text, [
+      "laminated suspension block supports",
+      "block supports",
+    ]),
   "tasks.component.mgbSuspensionBarCount": includesAnyKeyword(text, [
     "mgb suspension bar",
     "mgb bar",
@@ -291,10 +309,10 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     "tail rotor blades with inserted tab",
     "inserted tab",
   ]),
-  "tasks.component.tailRotorBladesPitchHornAssemblyCount": includesAnyKeyword(text, [
-    "pitch horn assembly",
-    "pitch horn",
-  ]),
+  "tasks.component.tailRotorBladesPitchHornAssemblyCount": includesAnyKeyword(
+    text,
+    ["pitch horn assembly", "pitch horn"],
+  ),
   "tasks.component.tailRotorBladesEdgeTabCount": includesAnyKeyword(text, [
     "edge tab",
   ]),
@@ -315,10 +333,10 @@ const getStructuredTaskComponentFacts = (text = "") => ({
   "tasks.component.tailDriveLineSlidingFlangeCount": includesAnyKeyword(text, [
     "sliding flange",
   ]),
-  "tasks.component.tailDriveLineFlexibleCouplingCount": includesAnyKeyword(text, [
-    "flexible coupling",
-    "flexible coupling attachment",
-  ]),
+  "tasks.component.tailDriveLineFlexibleCouplingCount": includesAnyKeyword(
+    text,
+    ["flexible coupling", "flexible coupling attachment"],
+  ),
   "tasks.component.tailDriveLineRearSectionCount": includesAnyKeyword(text, [
     "rear shaft section",
     "inside of the rear section",
@@ -358,16 +376,19 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     "elastomer pitch change rods",
     "pitch change links",
   ]),
-  "tasks.component.tailGearBoxControlPlateBearingCount": includesAnyKeyword(text, [
-    "control plate bearing",
-  ]),
+  "tasks.component.tailGearBoxControlPlateBearingCount": includesAnyKeyword(
+    text,
+    ["control plate bearing"],
+  ),
   "tasks.component.rotorActuatorsDualHydraulicCount": includesAnyKeyword(text, [
     "servocontrol",
     "servocontrols",
     "rotor actuators",
     "dual hydraulic",
   ]),
-  "tasks.component.loadCompensatorCount": includesAnyKeyword(text, ["load compensator"]),
+  "tasks.component.loadCompensatorCount": includesAnyKeyword(text, [
+    "load compensator",
+  ]),
   "tasks.component.engineControlsCount": includesAnyKeyword(text, [
     "twist grip",
     "fuel flow control",
@@ -445,7 +466,9 @@ const incrementStructuredTaskFacts = (facts = {}, item = {}) => {
     facts["tasks.mod.postCount"] += 1;
   }
 
-  const modificationNumbers = Array.isArray(item.conditions?.modificationNumbers)
+  const modificationNumbers = Array.isArray(
+    item.conditions?.modificationNumbers,
+  )
     ? item.conditions.modificationNumbers
     : [];
   modificationNumbers.forEach((rawNumber) => {
@@ -488,7 +511,11 @@ const collectSignalHits = (text = "") => {
     hits[key] = includesAnyKeyword(text, keywords);
   });
 
-  if (text.includes("arriel 2b1") || text.includes("fadec") || text.includes("vemd")) {
+  if (
+    text.includes("arriel 2b1") ||
+    text.includes("fadec") ||
+    text.includes("vemd")
+  ) {
     hits.arrielFadecCodes = ARRIEL_FADEC_CODES.filter(
       (code) =>
         text.includes(`fail code ${code}`) ||
@@ -570,10 +597,16 @@ const incrementSignalFacts = (facts = {}, hits = {}) => {
     facts["signals.tailRotorBladesChinWeightsCount"] += 1;
   }
 
-  if (Array.isArray(hits.arrielFadecCodes) && hits.arrielFadecCodes.length > 0) {
+  if (
+    Array.isArray(hits.arrielFadecCodes) &&
+    hits.arrielFadecCodes.length > 0
+  ) {
     facts["signals.arrielFadecCodeCount"] += hits.arrielFadecCodes.length;
     facts["signals.arrielFadecCodes"] = Array.from(
-      new Set([...(facts["signals.arrielFadecCodes"] || []), ...hits.arrielFadecCodes]),
+      new Set([
+        ...(facts["signals.arrielFadecCodes"] || []),
+        ...hits.arrielFadecCodes,
+      ]),
     );
     hits.arrielFadecCodes.forEach((code) => {
       const codeCountFact = `signals.arrielFadecCode${code}Count`;
@@ -591,11 +624,14 @@ const getHydraulicFlags = (...values) => {
   return {
     text,
     hasHydraulicContext,
-    hasLeak: hasHydraulicContext && includesAnyKeyword(text, HYDRAULIC_LEAK_KEYWORDS),
+    hasLeak:
+      hasHydraulicContext && includesAnyKeyword(text, HYDRAULIC_LEAK_KEYWORDS),
     hasPressure:
-      hasHydraulicContext && includesAnyKeyword(text, HYDRAULIC_PRESSURE_KEYWORDS),
+      hasHydraulicContext &&
+      includesAnyKeyword(text, HYDRAULIC_PRESSURE_KEYWORDS),
     hasFilter:
-      hasHydraulicContext && includesAnyKeyword(text, HYDRAULIC_FILTER_KEYWORDS),
+      hasHydraulicContext &&
+      includesAnyKeyword(text, HYDRAULIC_FILTER_KEYWORDS),
   };
 };
 
@@ -800,7 +836,8 @@ const buildFactsMap = async () => {
     if (!current.aircraftModel && defaults.aircraftModel) {
       current.aircraftModel = defaults.aircraftModel;
     }
-    current.facts["aircraft.model"] = current.aircraftModel || defaults.aircraftModel || "";
+    current.facts["aircraft.model"] =
+      current.aircraftModel || defaults.aircraftModel || "";
 
     return current;
   };
@@ -847,7 +884,10 @@ const buildFactsMap = async () => {
       }
 
       const partSignalText = normalizeText(part.componentName);
-      incrementSignalFacts(aircraftEntry.facts, collectSignalHits(partSignalText));
+      incrementSignalFacts(
+        aircraftEntry.facts,
+        collectSignalHits(partSignalText),
+      );
 
       if (
         remainingHours !== null &&
@@ -941,7 +981,9 @@ const buildFactsMap = async () => {
     const isOverdue = dueDate && dueDate < new Date() && !isClosed;
     const taskNarrativeTexts = collectTaskNarrativeTexts(task);
     const hydraulicFlags = getHydraulicFlags(...taskNarrativeTexts);
-    const signalHits = collectSignalHits(normalizeText(taskNarrativeTexts.join(" ")));
+    const signalHits = collectSignalHits(
+      normalizeText(taskNarrativeTexts.join(" ")),
+    );
     incrementSignalFacts(aircraftEntry.facts, signalHits);
     (task.checklistItems || []).forEach((item) => {
       incrementStructuredTaskFacts(aircraftEntry.facts, item);
@@ -1012,10 +1054,14 @@ const buildFactsMap = async () => {
       const remark = String(log.remarks || "").trim();
       const flightNarrativeTexts = collectFlightNarrativeTexts(log);
       const hydraulicFlags = getHydraulicFlags(...flightNarrativeTexts);
-      const signalHits = collectSignalHits(normalizeText(flightNarrativeTexts.join(" ")));
+      const signalHits = collectSignalHits(
+        normalizeText(flightNarrativeTexts.join(" ")),
+      );
       incrementSignalFacts(aircraftEntry.facts, signalHits);
 
-      if (["pending_release", "pending_acceptance", "released"].includes(status)) {
+      if (
+        ["pending_release", "pending_acceptance", "released"].includes(status)
+      ) {
         aircraftEntry.facts["flight.pendingWorkflowCount"] += 1;
         aircraftEntry.evidence.pendingFlights.push({
           id: log._id?.toString?.() || "",
