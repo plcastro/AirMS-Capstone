@@ -1,14 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import {
-  App,
-  Input,
-  Row,
-  Col,
-  Card,
-  Button,
-  Typography,
-  Space,
-} from "antd";
+import { App, Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -176,6 +167,10 @@ export default function MaintenanceLog() {
 
   const addWorkDetail = () => {
     setEditableWorkDetails((prev) => [...prev, { description: "" }]);
+  };
+
+  const cancelWorkDetailsChanges = () => {
+    setEditableWorkDetails(selectedWO?.workDetails || []);
   };
 
   const renderReadOnlyField = (label, value) => (
@@ -372,50 +367,160 @@ export default function MaintenanceLog() {
 
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={14}>
-            <Card>
-              <Title level={3} style={{ marginBottom: 8 }}>
-                {selectedAircraft?.aircraft || "N/A"}
-              </Title>
-              <Text type="secondary">
-                Completed task records synced to maintenance logs
-              </Text>
+            <Card
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid #e8f0ec",
+              }}
+              styles={{ body: { padding: 0 } }}
+            >
+              <div
+                style={{
+                  padding: "18px 20px",
+                  background:
+                    "linear-gradient(135deg, #1f5f49 0%, #26866f 55%, #52a18b 100%)",
+                  color: "#fff",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 12,
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  MAINTENANCE SNAPSHOT
+                </Text>
+                <Title level={3} style={{ margin: "4px 0 2px", color: "#fff" }}>
+                  {selectedAircraft?.aircraft || "N/A"}
+                </Title>
+                <Text style={{ color: "rgba(255,255,255,0.88)" }}>
+                  Completed task records synced to maintenance logs
+                </Text>
+              </div>
 
-              <Row gutter={[0, 10]} style={{ marginTop: 18 }}>
-                <Col span={12}>
-                  <Text strong>REPORTED BY:</Text>{" "}
-                  {selectedAircraft?.reportedBy || "N/A"}
-                </Col>
-                <Col span={12}>
-                  <Text strong>STATUS:</Text>{" "}
-                  {selectedAircraft?.status || "N/A"}
-                </Col>
-                <Col span={12}>
-                  <Text strong>ACFT S/N:</Text> {selectedAircraft?.sn || "N/A"}
-                </Col>
-                <Col span={12}>
-                  <Text strong>WORK ORDERS:</Text>{" "}
-                  {selectedAircraft?.entries?.length || 0}
-                </Col>
-              </Row>
+              <div style={{ padding: 18 }}>
+                <Row gutter={[12, 12]}>
+                  {[
+                    {
+                      label: "Reported By",
+                      value: selectedAircraft?.reportedBy || "N/A",
+                    },
+                    {
+                      label: "Status",
+                      value: selectedAircraft?.status || "N/A",
+                    },
+                    {
+                      label: "ACFT S/N",
+                      value: selectedAircraft?.sn || "N/A",
+                    },
+                    {
+                      label: "Work Orders",
+                      value: String(selectedAircraft?.entries?.length || 0),
+                    },
+                  ].map((item) => (
+                    <Col xs={24} sm={12} key={item.label}>
+                      <div
+                        style={{
+                          border: "1px solid #edf3f0",
+                          background: "#fbfdfc",
+                          borderRadius: 10,
+                          padding: "10px 12px",
+                          minHeight: 72,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            color: "#5a7268",
+                          }}
+                        >
+                          {item.label}
+                        </Text>
+                        <Text
+                          strong
+                          style={{
+                            fontSize: 16,
+                            marginTop: 2,
+                            color: "#1b3d2f",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {item.value}
+                        </Text>
+                      </div>
+                    </Col>
+                  ))}
+                </Row>
+              </div>
             </Card>
           </Col>
 
           <Col xs={24} lg={10}>
-            <Card title="Work Orders" styles={{ body: { padding: 0 } }}>
-              <MLogTable
-                headers={[
-                  { title: "W.O. #", key: "id" },
-                  { title: "DATE", key: "dateDefectRectified" },
-                ]}
-                data={(selectedAircraft?.entries || []).map((entry) => ({
-                  ...entry,
-                  dateDefectRectified: formatDisplayDate(
-                    entry.dateDefectRectified,
-                  ),
-                }))}
-                onRowClick={navigateToReport}
-                isSimple={true}
-              />
+            <Card
+              title={
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <Text strong style={{ color: "#1b3d2f" }}>
+                    Work Orders
+                  </Text>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 28,
+                      height: 24,
+                      padding: "0 8px",
+                      borderRadius: 999,
+                      background: "#e6f4ef",
+                      color: "#1f5f49",
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    {selectedAircraft?.entries?.length || 0}
+                  </span>
+                </div>
+              }
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid #e8f0ec",
+              }}
+              styles={{
+                body: { padding: 0 },
+                header: { borderBottom: "1px solid #edf3f0" },
+              }}
+            >
+              <div style={{ maxHeight: 430, overflowY: "auto" }}>
+                <MLogTable
+                  headers={[
+                    { title: "W.O. #", key: "id", width: "20%" },
+                    { title: "DATE", key: "dateDefectRectified", width: "30%" },
+                  ]}
+                  data={(selectedAircraft?.entries || []).map((entry) => ({
+                    ...entry,
+                    dateDefectRectified: formatDisplayDate(
+                      entry.dateDefectRectified,
+                    ),
+                  }))}
+                  onRowClick={navigateToReport}
+                  isSimple={true}
+                />
+              </div>
             </Card>
           </Col>
         </Row>
@@ -463,7 +568,10 @@ export default function MaintenanceLog() {
               {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
             </Col>
             <Col xs={24} md={12}>
-              {renderReadOnlyField("Task Status:", selectedWO?.sourceTaskStatus)}
+              {renderReadOnlyField(
+                "Task Status:",
+                selectedWO?.sourceTaskStatus,
+              )}
             </Col>
             <Col xs={24} md={12}>
               {renderReadOnlyField("Log Status:", selectedWO?.status)}
@@ -479,59 +587,65 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </Card>
-
-        <Card
-          title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
-          styles={{
-            header: {
-              background: "#26866f",
-              color: "#fff",
-              fontWeight: 700,
-            },
-          }}
-        >
-          <Space
-            style={{
-              width: "100%",
-              justifyContent: "space-between",
-              marginBottom: 10,
+        <div style={{ minHeight: "100vh", overflowY: "auto" }}>
+          <Card
+            title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
+            styles={{
+              header: {
+                background: "#26866f",
+                color: "#fff",
+                fontWeight: 700,
+              },
             }}
-            wrap
           >
-            <Text
-              type={selectedWO?.workDetailsLocked ? "secondary" : undefined}
+            <Space
+              style={{
+                width: "100%",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+              wrap
             >
-              {selectedWO?.workDetailsLocked
-                ? "Description of work is locked after saving."
-                : "You may add or edit descriptions before saving. Rows cannot be deleted."}
-            </Text>
+              <Text
+                type={selectedWO?.workDetailsLocked ? "secondary" : undefined}
+              >
+                {selectedWO?.workDetailsLocked
+                  ? "Description of work is locked after saving."
+                  : "You may add or edit descriptions before saving. Rows cannot be deleted."}
+              </Text>
 
-            {!selectedWO?.workDetailsLocked && (
-              <Space>
-                <Button onClick={addWorkDetail}>Add Description</Button>
-                {workDetailsChanged && (
-                  <Button
-                    type="primary"
-                    loading={savingWorkDetails}
-                    onClick={saveWorkDetails}
-                    style={{ backgroundColor: "#26866f", border: "none" }}
-                  >
-                    Save Changes
-                  </Button>
-                )}
-              </Space>
-            )}
-          </Space>
+              {!selectedWO?.workDetailsLocked && (
+                <Space>
+                  <Button onClick={addWorkDetail}>Add Description</Button>
+                  {workDetailsChanged && (
+                    <Button onClick={cancelWorkDetailsChanges}>Cancel</Button>
+                  )}
+                  {workDetailsChanged && (
+                    <Button
+                      type="primary"
+                      loading={savingWorkDetails}
+                      onClick={saveWorkDetails}
+                      style={{ backgroundColor: "#26866f", border: "none" }}
+                    >
+                      Save Changes
+                    </Button>
+                  )}
+                </Space>
+              )}
+            </Space>
 
-          <MLogTable
-            headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
-            data={editableWorkDetails}
-            isSimple={true}
-            isWorkReport={true}
-            isWorkReportEditable={!selectedWO?.workDetailsLocked}
-            onWorkDetailChange={updateWorkDetail}
-          />
-        </Card>
+            <div style={{ maxHeight: 420, overflowY: "auto", paddingRight: 4 }}>
+              <MLogTable
+                headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
+                data={editableWorkDetails}
+                isSimple={true}
+                isWorkReport={true}
+                isWorkReportEditable={!selectedWO?.workDetailsLocked}
+                onWorkDetailChange={updateWorkDetail}
+              />
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }

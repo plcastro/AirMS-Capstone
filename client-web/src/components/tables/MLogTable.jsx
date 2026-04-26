@@ -19,6 +19,7 @@ export default function MLogTable({
     title: header.title,
     dataIndex: header.key,
     key: header.key,
+    width: header.width,
     render: (text, record, index) => {
       if (isWorkReport && header.key === "description") {
         if (isWorkReportEditable) {
