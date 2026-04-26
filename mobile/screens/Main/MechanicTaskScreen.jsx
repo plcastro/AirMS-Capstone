@@ -35,6 +35,9 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
     }
   };
 
+  const isSameTask = (left, right) =>
+    String(left?.id || left?._id || "") === String(right?.id || right?._id || "");
+
   // Fetch tasks assigned to the current mechanic
   useEffect(() => {
     const fetchTasks = async () => {
@@ -160,7 +163,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask({
@@ -197,7 +200,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
@@ -224,11 +227,9 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
 
     if (options.undo) {
       updatedTask.status = options.newStatus || "Ongoing";
-      updatedTask.endDateTime = "";
       updatedTask.completedAt = null;
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = now;
       updatedTask.completedAt = now;
     }
 
@@ -246,9 +247,10 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
+        setSelectedTask(savedTask);
       } else {
         Alert.alert("Error", "Failed to turn in task");
       }

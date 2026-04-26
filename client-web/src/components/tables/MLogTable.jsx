@@ -1,14 +1,18 @@
 import React from "react";
-import { Table } from "antd";
+import { Input, Table } from "antd";
 
-export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkReport }) {
-  const tableData = (data || []).map((record, idx) => ({
-    ...record,
-    __rowKey:
-      record?._id ||
-      record?.id ||
-      record?.key ||
-      `${record?.aircraft || "row"}-${record?.dateDefectRectified || "date"}-${idx}`,
+export default function MLogTable({
+  headers,
+  data,
+  onRowClick,
+  isSimple,
+  isWorkReport,
+  isWorkReportEditable = false,
+  onWorkDetailChange,
+}) {
+  const tableData = (data || []).map((item, index) => ({
+    ...item,
+    __rowKey: item?._id || item?.id || `row-${index}`,
   }));
 
   const columns = headers.map((header) => ({
@@ -17,10 +21,29 @@ export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkR
     key: header.key,
     render: (text, record, index) => {
       if (isWorkReport && header.key === "description") {
-        return <div style={{ minHeight: '30px' }}>{index + 1}. {text}</div>;
+        if (isWorkReportEditable) {
+          return (
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ paddingTop: 5 }}>{index + 1}.</span>
+              <Input.TextArea
+                value={text}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                onChange={(event) =>
+                  onWorkDetailChange?.(index, event.target.value)
+                }
+                placeholder="Enter description of work"
+              />
+            </div>
+          );
+        }
+        return (
+          <div style={{ minHeight: "30px" }}>
+            {index + 1}. {text}
+          </div>
+        );
       }
       return text || "N/A";
-    }
+    },
   }));
 
   return (
@@ -31,20 +54,29 @@ export default function MLogTable({ headers, data, onRowClick, isSimple, isWorkR
       pagination={false}
       onRow={(record) => ({
         onClick: () => onRowClick && onRowClick(record),
-        style: { cursor: onRowClick ? 'pointer' : 'default' }
+        style: { cursor: onRowClick ? "pointer" : "default" },
       })}
-      components={isSimple ? {
-        header: {
-          cell: (props) => (
-            <th {...props} style={{ 
-              background: '#26866f', color: 'white', textAlign: 'center',
-              display: isWorkReport ? 'none' : 'table-cell' 
-            }}>
-              {props.children}
-            </th>
-          ),
-        },
-      } : undefined}
+      components={
+        isSimple
+          ? {
+              header: {
+                cell: (props) => (
+                  <th
+                    {...props}
+                    style={{
+                      background: "#26866f",
+                      color: "white",
+                      textAlign: "center",
+                      display: isWorkReport ? "none" : "table-cell",
+                    }}
+                  >
+                    {props.children}
+                  </th>
+                ),
+              },
+            }
+          : undefined
+      }
       bordered={true}
       size="small"
     />

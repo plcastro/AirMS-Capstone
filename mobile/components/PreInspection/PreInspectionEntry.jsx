@@ -68,7 +68,7 @@ export default function PreInspectionEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       Alert.alert("Validation Error", "Aircraft RPC is required");
       return;
@@ -77,7 +77,12 @@ export default function PreInspectionEntry({
       Alert.alert("Validation Error", "Aircraft Type is required");
       return;
     }
-    onSave(formData);
+    try {
+      await persistInspection(formData);
+    } catch (error) {
+      console.error("Error saving pre-inspection:", error);
+      Alert.alert("Error", "Failed to save pre-inspection");
+    }
   };
 
   const handleNext = () => {
@@ -141,6 +146,7 @@ export default function PreInspectionEntry({
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
+        signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
       status: "released",
@@ -154,6 +160,7 @@ export default function PreInspectionEntry({
     } catch (error) {
       console.error("Error releasing pre-inspection:", error);
       Alert.alert("Error", "Failed to release pre-inspection");
+      throw error;
     }
   };
 
@@ -346,22 +353,24 @@ export default function PreInspectionEntry({
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={isLastPage ? handleSave : handleNext}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 4,
-              backgroundColor: COLORS.primaryLight,
-              opacity: 1,
-            }}
-          >
-            <Text
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+          {!isLastPage && (
+            <TouchableOpacity
+              onPress={handleNext}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 24,
+                borderRadius: 4,
+                backgroundColor: COLORS.primaryLight,
+                opacity: 1,
+              }}
             >
-              {isLastPage ? "Add" : "Next"}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+              >
+                Next
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <PreInspectionSignatureModal
@@ -370,7 +379,7 @@ export default function PreInspectionEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role="MECHANIC"
+          actionLabel="release"
         />
       </SafeAreaView>
     </Modal>

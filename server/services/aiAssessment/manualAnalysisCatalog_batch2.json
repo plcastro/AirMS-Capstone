@@ -1,0 +1,71 @@
+{
+  "source": "OCR-assisted analysis of second user-supplied PDF batch",
+  "note": "This catalog records the recovered AMM families for the rotor inspection-criteria and additional fault-isolation manuals analyzed on April 19, 2026.",
+  "families": [
+    {
+      "family": "Main Rotor Hub Inspection Criteria",
+      "chapter": "AMM 62-21-00",
+      "documents": [
+        "6-22 Lower stop bracket family including PN 350A31-1852-20 and PN 350A31-2050-02 variants",
+        "6-18 Bonding of taper shims to the top sleeve flanges",
+        "6-14 Frequency adapter / sleeves pin",
+        "6-13 Droop restrainer ring",
+        "6-12 Pitch change lever",
+        "6-10 Lower stop caliper",
+        "6-9 Electrical bonding braid",
+        "6-8 Mast / hub coupling screw",
+        "6-7 Frequency adapters PRE / POST MOD 076232",
+        "6-6 Blade attachment pin PRE / POST MOD OP6305",
+        "6-5 Spherical thrust bearing PRE / POST MOD 076160",
+        "6-4 Spherical thrust bearing PN variants",
+        "6-3 Cheek plates of the upper and lower sleeves",
+        "6-2 STARFLEX spherical bearing",
+        "6-1 STARFLEX star assembly"
+      ]
+    },
+    {
+      "family": "Rotor Control / Swashplates / Rotor Mast Inspection Criteria",
+      "chapter": "AMM 62-33-00 / 62-32-00 / 62-31-00",
+      "documents": [
+        "62-33-00,6-3 Scissors link",
+        "62-33-00,6-2 Diapason scissors link",
+        "62-33-00,6-1 Pitch rod",
+        "62-32-00,6-9 Swashplates guide with removal",
+        "62-32-00,6-6 Ball bearing swashplate",
+        "62-32-00,6-5 Rotating cyclic swashplate",
+        "62-32-00,6-4 Stationary cyclic swashplate",
+        "62-32-00,6-3 Swashplate ball-joint",
+        "62-31-00,6-7 Scissors driver",
+        "62-31-00,6-5 Lower part of rotor mast",
+        "62-31-00,6-1 Upper and center part of rotor mast"
+      ],
+      "spotCheckNeeded": [
+        "Without removal - Swashplates Guide - Swashplates.pdf produced noisy OCR and should be rechecked before exact sub-reference is used in executable logic."
+      ]
+    },
+    {
+      "family": "Vehicle / Engine Display and Recording Fault Isolation",
+      "chapter": "AMM 31",
+      "documents": [
+        "31-71-00,1-1 wACS System",
+        "31-61-00,1-1 VEMD family including ARRIEL 2B, 2B1, and 2D variants",
+        "31-51-00,1-1 Warning Caution Panel",
+        "31-42-00,1-1 Control unit",
+        "31-41-00,1-1 ASU",
+        "31-33-01,1-1 AIRS-400 Camera",
+        "31-32-01,1-1 Flight Data Recording System"
+      ]
+    },
+    {
+      "family": "Fuel / Hydraulic / Mechanical Indication Fault Isolation",
+      "chapter": "AMM 60 / 29 / 28",
+      "documents": [
+        "60-00-00,1-1A Electric chip detectors - General instructions - Mechanical assemblies",
+        "29-00-00,1-1 Hydraulic Power System - General",
+        "28-41-00,1-1 Flowmeter - Indicating",
+        "28-00-01,1-1 Fuel System / Crashworthy Fuel Tank",
+        "28-00-00,1-1 Fuel System family including PRE MOD 073264, POST MOD 073264, and generic variants"
+      ]
+    }
+  ]
+}

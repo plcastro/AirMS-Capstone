@@ -24,10 +24,27 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const [searchText, setSearchText] = useState("");
   const [dateRange, setDateRange] = useState(null);
 
+  const isCompletedTask = (task = {}) => {
+    const status = String(task.status || "").trim().toLowerCase();
+    return (
+      ["completed", "turned in", "approved"].includes(status) ||
+      task.isApproved === true ||
+      Boolean(task.completedAt)
+    );
+  };
+
+  const getReportDate = (task = {}) =>
+    task.approvedAt ||
+    task.completedAt ||
+    task.dateRectified ||
+    task.updatedAt ||
+    task.createdAt ||
+    task.dueDate;
+
   const mappedTasks = tasks.map((task, index) => ({
     key: task._id || task.id || `${task.title}-${index}`,
     aircraft: task.aircraft || "---",
-    date: formatDate(task.date || task.completedAt || task.createdAt || task.dueDate),
+    date: formatDate(getReportDate(task)),
     task: task.title || task.summary?.category || "---",
     assignedMechanic:
       task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
@@ -52,10 +69,11 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
 
   const repairData = tasks
     .filter((task, index) =>
-      visibleTaskKeys.has(task._id || task.id || `${task.title}-${index}`),
+      visibleTaskKeys.has(task._id || task.id || `${task.title}-${index}`) &&
+      isCompletedTask(task),
     )
     .reduce((acc, task) => {
-      const rawDate = task.date || task.completedAt || task.createdAt || task.dueDate;
+      const rawDate = getReportDate(task);
       const aircraft = task.aircraft || "Unassigned";
       const parsedDate = new Date(rawDate);
 
@@ -108,7 +126,8 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       key: "status",
       render: (status) => {
         const normalizedStatus = status?.toLowerCase();
-        const isCompleted = normalizedStatus === "completed";
+        const isCompleted =
+          ["completed", "turned in", "approved"].includes(normalizedStatus);
         const isOngoing =
           normalizedStatus === "ongoing" || normalizedStatus === "pending";
 

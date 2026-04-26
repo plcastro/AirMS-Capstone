@@ -16,9 +16,14 @@ import PreInspectionCards from "../../components/PreInspection/PreInspectionCard
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { exportPreInspectionPdf } from "../../utilities/pdfExport";
 
 const getDisplayStatus = (status) =>
-  status === "completed" ? "completed" : "ongoing";
+  status === "completed"
+    ? "completed"
+    : status === "released"
+      ? "released"
+      : "pending";
 
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
@@ -125,7 +130,8 @@ export default function PreInspection({ route }) {
 
   const statusOptions = [
     { label: "All", value: "all" },
-    { label: "Ongoing", value: "ongoing" },
+    { label: "Pending Release", value: "pending" },
+    { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -155,8 +161,8 @@ export default function PreInspection({ route }) {
     setShowEditModal(true);
   };
 
-  const handleExport = (inspection) => {
-    Alert.alert("Export", `Exporting inspection for ${inspection.rpc}`);
+  const handleExport = async (inspection) => {
+    await exportPreInspectionPdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
@@ -483,6 +489,7 @@ export default function PreInspection({ route }) {
           } catch (error) {
             console.error("Error creating pre-inspection:", error);
             Alert.alert("Error", "Failed to create pre-inspection");
+            throw error;
           }
         }}
         userRole={userRole}
@@ -528,6 +535,7 @@ export default function PreInspection({ route }) {
           } catch (error) {
             console.error("Error updating pre-inspection:", error);
             Alert.alert("Error", "Failed to update pre-inspection");
+            throw error;
           }
         }}
         userRole={userRole}

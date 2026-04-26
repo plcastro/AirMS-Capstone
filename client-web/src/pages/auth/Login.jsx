@@ -3,11 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import {
+  App,
   Card,
   Input,
   Checkbox,
   Button,
-  message as antMessage,
   Typography,
   Row,
   Col,
@@ -18,6 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 
 const { Title, Text } = Typography;
 const Login = () => {
+  const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -115,7 +116,7 @@ const Login = () => {
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-        antMessage.success("Logged in successfully!");
+        message.success("Logged in successfully!");
         handleNavigate(data.user);
       } else {
         setError(data.message || "Login failed");

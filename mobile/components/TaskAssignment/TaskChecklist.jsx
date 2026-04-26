@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, ScrollView, TextInput, Alert } from "react-native";
+import { View, Text, Modal, ScrollView, TextInput, Alert, Image } from "react-native";
 import Button from "../Button";
 import ReviewTask from "./ReviewTask";
 import { styles } from "../../stylesheets/styles";
@@ -106,14 +106,14 @@ export default function TaskChecklist({
     onClose();
   };
 
-  const handleReturnConfirm = ({ note, signature }) => {
-    onReturn?.(task, { comments: note, signature });
+  const handleReturnConfirm = async ({ note, signature }) => {
+    await onReturn?.(task, { comments: note, signature });
     setShowReviewModal(false);
     onClose();
   };
 
-  const handleApproveConfirm = ({ signature }) => {
-    onApprove?.(task, { signature });
+  const handleApproveConfirm = async ({ signature }) => {
+    await onApprove?.(task, { signature });
     setShowReviewModal(false);
     onClose();
   };
@@ -148,6 +148,7 @@ export default function TaskChecklist({
   const isApproved = task.isApproved || false;
   const approvedBy = task.approvedBy || "";
   const approvedDate = task.approvedAt || task.approvedDate || "";
+  const approvedSignature = task.approvedSignature || "";
 
   const allCheckboxesChecked =
     checklistItems.length > 0 &&
@@ -443,6 +444,24 @@ export default function TaskChecklist({
                           ? `Approved by ${approvedBy || "Maintenance Manager"} on ${formatReturnedDateTime(approvedDate)}`
                           : `Approved by ${approvedBy || "Maintenance Manager"}`}
                       </Text>
+                      {!!approvedSignature && (
+                        <View
+                          style={{
+                            borderWidth: 1,
+                            borderColor: "#c8e6c9",
+                            borderRadius: 6,
+                            height: 70,
+                            marginTop: 10,
+                            backgroundColor: "#fff",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Image
+                            source={{ uri: approvedSignature }}
+                            style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                          />
+                        </View>
+                      )}
                     </View>
                   ) : (
                     <View>
@@ -503,7 +522,17 @@ export default function TaskChecklist({
                       marginBottom: 12,
                     }}
                   >
-                    Findings
+                    Findings (AI-interpreted)
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: "#667085",
+                      marginBottom: 10,
+                      lineHeight: 18,
+                    }}
+                  >
+                    These findings are used by the AI maintenance tracker. Include symptoms, affected components, inspection results, and corrective details when available.
                   </Text>
                   <View
                     style={{
@@ -544,7 +573,7 @@ export default function TaskChecklist({
                       multiline
                       value={findings}
                       onChangeText={setFindings}
-                      placeholder="Enter your findings here..."
+                      placeholder="Enter findings, symptoms, affected parts, and inspection results here..."
                       placeholderTextColor="#999"
                       editable={!isCompleted || isReturned}
                     />

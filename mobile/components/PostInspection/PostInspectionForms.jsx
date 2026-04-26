@@ -1,6 +1,7 @@
 export const getDefaultPostInspectionSignature = () => ({
   name: "",
   id: "",
+  signature: "",
   timestamp: "",
 });
 
@@ -11,6 +12,7 @@ export const getDefaultPostInspectionFormData = (userRole = "") => ({
   createdBy: userRole,
   status: "pending",
   releasedBy: getDefaultPostInspectionSignature(),
+  acceptedBy: getDefaultPostInspectionSignature(),
   station1_transparentPanels_condition: false,
   station1_transparentPanels_clean: false,
   station1_doorsPillars_condition: false,

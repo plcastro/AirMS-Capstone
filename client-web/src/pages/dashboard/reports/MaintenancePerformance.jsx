@@ -14,10 +14,27 @@ export default function MaintenancePerformance({ tasks = [] }) {
 
   useEffect(() => {
     try {
-      const monthlyMap = tasks.reduce((acc, task) => {
-        if (!task.createdAt) return acc;
+      const isCompletedTask = (task = {}) => {
+        const status = String(task.status || "").trim().toLowerCase();
+        return (
+          ["completed", "turned in", "approved"].includes(status) ||
+          task.isApproved === true ||
+          Boolean(task.completedAt)
+        );
+      };
 
-        const date = new Date(task.createdAt);
+      const monthlyMap = tasks.reduce((acc, task) => {
+        if (!isCompletedTask(task)) return acc;
+
+        const completedDate =
+          task.approvedAt ||
+          task.completedAt ||
+          task.dateRectified ||
+          task.updatedAt ||
+          task.createdAt;
+        if (!completedDate) return acc;
+
+        const date = new Date(completedDate);
         if (isNaN(date.getTime())) return acc;
 
         const month = date.toLocaleString("default", { month: "short" });
