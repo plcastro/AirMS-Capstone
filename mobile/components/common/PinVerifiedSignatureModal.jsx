@@ -16,21 +16,14 @@ import CodeInputField from "../CodeInputField";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
-const getUserName = (user) =>
-  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-  user?.username ||
-  "Unknown User";
-
-const getUserIdentifier = (user) =>
-  user?.licenseNo || user?.username || user?.id || user?._id || "";
-
-export default function PostInspectionSignatureModal({
+export default function PinVerifiedSignatureModal({
   visible,
-  title,
+  title = "Signature",
+  description = "Draw your signature below.",
+  confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
   onClose,
   onSave,
-  aircraftRPC,
-  actionLabel = "sign",
+  saveLabel = "Sign and Confirm",
 }) {
   const { user } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -50,21 +43,7 @@ export default function PostInspectionSignatureModal({
 
   const handleClose = () => {
     reset();
-    onClose();
-  };
-
-  const handleSignatureSaved = (signatureData) => {
-    setSignature(signatureData);
-
-    if (advanceAfterSignature) {
-      setAdvanceAfterSignature(false);
-      setStep("pin");
-    }
-  };
-
-  const saveSignature = (advance = false) => {
-    setAdvanceAfterSignature(advance);
-    signatureRef.current?.readSignature();
+    onClose?.();
   };
 
   const verifyPin = async () => {
@@ -90,6 +69,20 @@ export default function PostInspectionSignatureModal({
     }
   };
 
+  const handleSignatureSaved = (signatureData) => {
+    setSignature(signatureData);
+
+    if (advanceAfterSignature) {
+      setAdvanceAfterSignature(false);
+      setStep("pin");
+    }
+  };
+
+  const saveSignature = (advance = false) => {
+    setAdvanceAfterSignature(advance);
+    signatureRef.current?.readSignature();
+  };
+
   const handleConfirm = async () => {
     if (step === "signature") {
       if (!signature) {
@@ -109,13 +102,9 @@ export default function PostInspectionSignatureModal({
     try {
       setSubmitting(true);
       await verifyPin();
-      await onSave({
-        name: getUserName(user),
-        id: getUserIdentifier(user),
-        signature,
-      });
+      await onSave?.(signature);
       reset();
-      onClose();
+      onClose?.();
     } catch (error) {
       Alert.alert("Signature Failed", error.message || "Could not verify your PIN.");
     } finally {
@@ -124,58 +113,23 @@ export default function PostInspectionSignatureModal({
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            width: "92%",
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.black }}>
-              {title}
-            </Text>
-            <TouchableOpacity onPress={handleClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+        <View style={{ backgroundColor: COLORS.white, borderRadius: 12, width: "92%", padding: 20 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.black }}>{title}</Text>
+            <TouchableOpacity onPress={handleClose} disabled={submitting}>
               <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
             </TouchableOpacity>
           </View>
 
           <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 16 }}>
-            {step === "signature"
-              ? `Draw your signature below to ${actionLabel} the post-flight inspection for RP-C ${aircraftRPC || "N/A"}.`
-              : `Enter your 6-digit PIN to confirm that you want to ${actionLabel} this post-flight inspection.`}
+            {step === "signature" ? description : confirmDescription}
           </Text>
 
           {step === "signature" ? (
             <>
-              <View
-                style={{
-                  height: 190,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  backgroundColor: COLORS.white,
-                  marginBottom: 12,
-                }}
-              >
+              <View style={{ height: 190, borderWidth: 1, borderColor: COLORS.grayMedium, borderRadius: 8, overflow: "hidden", backgroundColor: COLORS.white, marginBottom: 12 }}>
                 <SignatureCanvas
                   ref={signatureRef}
                   onOK={handleSignatureSaved}
@@ -198,23 +152,13 @@ export default function PostInspectionSignatureModal({
                     signatureRef.current?.clearSignature();
                     setSignature("");
                   }}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#D9534F",
-                  }}
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#D9534F" }}
                 >
                   <Text style={{ color: COLORS.white, fontWeight: "600" }}>Clear</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => saveSignature(false)}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: COLORS.primaryLight,
-                  }}
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: COLORS.primaryLight }}
                 >
                   <Text style={{ color: COLORS.white, fontWeight: "600" }}>Save Sign</Text>
                 </TouchableOpacity>
@@ -231,21 +175,8 @@ export default function PostInspectionSignatureModal({
                 inputContainerStyle={{ width: "100%" }}
               />
               {!!signature && (
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    height: 80,
-                    marginBottom: 12,
-                    justifyContent: "center",
-                    backgroundColor: COLORS.white,
-                  }}
-                >
-                  <Image
-                    source={{ uri: signature }}
-                    style={{ width: "100%", height: "100%", resizeMode: "contain" }}
-                  />
+                <View style={{ borderWidth: 1, borderColor: COLORS.grayMedium, borderRadius: 8, height: 80, marginBottom: 12, justifyContent: "center", backgroundColor: COLORS.white }}>
+                  <Image source={{ uri: signature }} style={{ width: "100%", height: "100%", resizeMode: "contain" }} />
                 </View>
               )}
             </>
@@ -255,34 +186,17 @@ export default function PostInspectionSignatureModal({
             <TouchableOpacity
               onPress={handleClose}
               disabled={submitting}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 18,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                opacity: submitting ? 0.6 : 1,
-              }}
+              style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: submitting ? 0.6 : 1 }}
             >
               <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleConfirm}
               disabled={submitting}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 18,
-                borderRadius: 8,
-                backgroundColor: COLORS.primaryLight,
-                opacity: submitting ? 0.6 : 1,
-              }}
+              style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, backgroundColor: COLORS.primaryLight, opacity: submitting ? 0.6 : 1 }}
             >
               <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                {submitting
-                  ? "Please wait..."
-                  : step === "signature"
-                    ? "Continue"
-                    : "Sign and Confirm"}
+                {submitting ? "Please wait..." : step === "signature" ? "Continue" : saveLabel}
               </Text>
             </TouchableOpacity>
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
