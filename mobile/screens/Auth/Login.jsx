@@ -18,6 +18,7 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import LoadingScreen from "../LoadingScreen";
 
 export default function Login() {
   const nav = useNavigation();
@@ -176,6 +177,10 @@ export default function Login() {
 
   const goToForgotPassword = () => nav.navigate("forgotPassword");
 
+  if (loading) {
+    return <LoadingScreen message="Signing you in..." showLogo />;
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
@@ -228,7 +233,7 @@ export default function Login() {
         </View>
         <Button
           onPress={validate}
-          label={loading ? "Logging in..." : "LOGIN"}
+          label="LOGIN"
           disabled={loading}
           buttonStyle={[styles.primaryBtn]}
           buttonTextStyle={styles.primaryBtnTxt}

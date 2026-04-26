@@ -15,6 +15,7 @@ import {
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
+import AirMSLogo from "../../assets/AirMS_logo.png";
 
 const { Title, Text } = Typography;
 const Login = () => {
@@ -227,6 +228,19 @@ const Login = () => {
           {loading ? "PLEASE WAIT..." : "LOGIN"}
         </Button>
       </Form>
+
+      {loading && (
+        <div className="login-loading-overlay" aria-live="polite" aria-busy="true">
+          <div className="login-loading-card">
+            <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
+            <div className="login-loading-spinner" />
+            <p className="login-loading-title">Signing You In</p>
+            <p className="login-loading-subtitle">
+              Verifying your account and preparing your workspace.
+            </p>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };
