@@ -71,7 +71,7 @@ const sendActivationCredentialsEmail = async ({
     subject,
     html: `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #0056b3; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+      <div style="background-color: #26866f; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
         <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
       </div>
 
@@ -79,13 +79,13 @@ const sendActivationCredentialsEmail = async ({
         <p>Hello <strong>${firstName}</strong>,</p>
         <p>Your AirMS account credentials are ready. Use the temporary credentials below to sign in and finish setup.</p>
 
-        <div style="background: #f8f9fa; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0;">
+        <div style="background: #f8f9fa; border-left: 4px solid #26866f; padding: 15px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
           <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+          <a href="${portalUrl}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
         </div>
 
         <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
@@ -136,7 +136,9 @@ const getAllUsers = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
-      console.error("Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing");
+      console.error(
+        "Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing",
+      );
       return res.status(500).json({
         message: "Server authentication configuration error.",
       });
@@ -435,7 +437,9 @@ const registerMobilePushDevice = async (req, res) => {
     }
 
     if (!deviceId || !expoPushToken) {
-      return res.status(400).json({ message: "deviceId and expoPushToken are required" });
+      return res
+        .status(400)
+        .json({ message: "deviceId and expoPushToken are required" });
     }
 
     await UserModel.updateMany(
@@ -679,7 +683,14 @@ const updateUser = async (req, res) => {
     jobTitle = parseString(jobTitle);
     licenseNo = parseString(licenseNo);
 
-    if (!firstName || !lastName || !email || !username || !access || !jobTitle) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !access ||
+      !jobTitle
+    ) {
       return res.status(400).json({ message: "Employee information required" });
     }
 
@@ -761,11 +772,10 @@ const updateUser = async (req, res) => {
       licenseNo: requiresLicense ? licenseNo : null,
     };
 
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true },
-    );
+    const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (Object.keys(changes).length > 0) {
       const audit = withActorId(
@@ -785,7 +795,11 @@ const updateUser = async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "User updated successfully", user: updatedUser, data: updatedUser });
+      .json({
+        message: "User updated successfully",
+        user: updatedUser,
+        data: updatedUser,
+      });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
@@ -1245,7 +1259,10 @@ const extendInvitationExpiry = async (req, res) => {
   try {
     const { id } = req.params;
     const requestedHours = Number(req.body?.hours);
-    const hours = Number.isFinite(requestedHours) && requestedHours > 0 ? requestedHours : 24;
+    const hours =
+      Number.isFinite(requestedHours) && requestedHours > 0
+        ? requestedHours
+        : 24;
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -1275,7 +1292,9 @@ const extendInvitationExpiry = async (req, res) => {
     });
   } catch (err) {
     console.error("extendInvitationExpiry error:", err);
-    return res.status(500).json({ message: "Failed to extend invitation expiry" });
+    return res
+      .status(500)
+      .json({ message: "Failed to extend invitation expiry" });
   }
 };
 
@@ -1334,4 +1353,3 @@ module.exports = {
   extendInvitationExpiry,
   revokeInvitation,
 };
-
