@@ -40,27 +40,19 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
+
     {
-      key: "2-3",
-      label: "User Management",
+      key: "2",
+      label: "Manage Users",
       icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
-      children: [
-        {
-          key: "2",
-          label: "Manage Users",
-          icon: <TeamOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin"],
-        },
-        {
-          key: "3",
-          label: "Activity Logs",
-          icon: <AuditOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin"],
-        },
-      ],
     },
-
+    {
+      key: "3",
+      label: "Activity Logs",
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      roles: ["admin"],
+    },
     {
       key: "4-5",
       label: "Aircraft Health Logbook",
