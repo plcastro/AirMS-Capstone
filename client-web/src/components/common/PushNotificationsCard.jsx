@@ -9,6 +9,7 @@ import {
   Tag,
   Empty,
   Spin,
+  message,
 } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
@@ -71,6 +72,7 @@ export default function PushNotificationsCard({ open, onClose }) {
     } catch (error) {
       console.error("Error fetching notifications:", error);
       setNotifications([]);
+      message.error("Failed to load notifications");
     } finally {
       setLoading(false);
     }
@@ -93,10 +95,17 @@ export default function PushNotificationsCard({ open, onClose }) {
 
   const markNotificationRead = async (notificationId) => {
     try {
-      await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
-        method: "POST",
-        headers: await getAuthHeader(),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/notifications/${notificationId}/read`,
+        {
+          method: "POST",
+          headers: await getAuthHeader(),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to mark notification as read");
+      }
 
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) =>
@@ -107,15 +116,20 @@ export default function PushNotificationsCard({ open, onClose }) {
       );
     } catch (error) {
       console.error("Error marking notification as read:", error);
+      message.error("Failed to mark notification as read");
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
+      const response = await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
         method: "POST",
         headers: await getAuthHeader(),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to mark all notifications as read");
+      }
 
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) => ({
@@ -123,8 +137,10 @@ export default function PushNotificationsCard({ open, onClose }) {
           read: true,
         })),
       );
+      message.success("All notifications marked as read");
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
+      message.error("Failed to mark all notifications as read");
     }
   };
 

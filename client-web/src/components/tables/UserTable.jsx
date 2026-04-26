@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Popconfirm, message, Grid } from "antd";
+import { Table, Button, Tag, Space, Popconfirm, Grid } from "antd";
 import { EditOutlined } from "@ant-design/icons";
 
 const { useBreakpoint } = Grid;
@@ -44,10 +44,7 @@ export default function UserTable({
               {record.status === "deactivated" ? (
                 <Popconfirm
                   title="Reactivate this user?"
-                  onConfirm={() => {
-                    onReactivateUser?.(record);
-                    message.success("User reactivated");
-                  }}
+                  onConfirm={() => onReactivateUser?.(record)}
                 >
                   <Button size="small">Reactivate</Button>
                 </Popconfirm>
@@ -81,10 +78,7 @@ export default function UserTable({
               ) : record.status === "active" && record._id !== currentUserId ? (
                 <Popconfirm
                   title="Deactivate this user?"
-                  onConfirm={() => {
-                    onDeactivateUser?.(record);
-                    message.success("User deactivated");
-                  }}
+                  onConfirm={() => onDeactivateUser?.(record)}
                 >
                   <Button danger size="small" style={{ width: 100 }}>
                     Deactivate
