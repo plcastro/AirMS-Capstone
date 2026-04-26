@@ -1,14 +1,15 @@
 const mongoose = require("mongoose");
 
 let hasConfiguredDns = false;
+let connectionPromise = null;
 
 const connectToDatabase = async () => {
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
 
-  if (mongoose.connection.readyState === 2) {
-    return mongoose.connection.asPromise();
+  if (connectionPromise) {
+    return connectionPromise;
   }
 
   const atlasUrl = process.env.ATLAS_URL;
@@ -25,8 +26,19 @@ const connectToDatabase = async () => {
     hasConfiguredDns = true;
   }
 
-  await mongoose.connect(atlasUrl);
-  return mongoose.connection;
+  connectionPromise = mongoose
+    .connect(atlasUrl, {
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      family: 4,
+    })
+    .then(() => mongoose.connection)
+    .catch((error) => {
+      connectionPromise = null;
+      throw error;
+    });
+
+  return connectionPromise;
 };
 
 module.exports = connectToDatabase;

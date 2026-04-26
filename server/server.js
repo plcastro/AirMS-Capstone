@@ -87,6 +87,19 @@ connectToDatabase()
     console.error("MongoDB connection failed:", err);
   });
 
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error("Database unavailable for request:", error.message);
+    return res.status(503).json({
+      status: "error",
+      message: "Database connection unavailable. Please try again.",
+    });
+  }
+});
+
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/admin-activity", adminActivityRoutes);
