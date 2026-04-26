@@ -137,9 +137,12 @@ export default function UserManagement() {
         );
         setAllUsers(formatted);
         setFilteredUsers(formatted);
+      } else {
+        message.warning("No user records returned by the server");
       }
     } catch (err) {
       console.error(err);
+      message.error(err.message || "Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -193,16 +196,30 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     if (user._id === currentUserId) return;
-    const token = await getValidToken();
-    await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: "deactivated" }),
-    });
-    fetchUsers();
+    try {
+      const token = await getValidToken();
+      const response = await fetch(
+        `${API_BASE}/api/user/update-user-status/${user._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "deactivated" }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to deactivate user");
+      }
+
+      message.success(`User ${user.username || user.fullname} deactivated`);
+      fetchUsers();
+    } catch (error) {
+      message.error(error.message || "Failed to deactivate user");
+    }
   };
 
   const runInviteAction = async (endpoint, method = "PUT", payload = null) => {
@@ -261,16 +278,30 @@ export default function UserManagement() {
   };
 
   const handleReactivateUser = async (user) => {
-    const token = await getValidToken();
-    await fetch(`${API_BASE}/api/user/update-user-status/${user._id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: "active" }),
-    });
-    fetchUsers();
+    try {
+      const token = await getValidToken();
+      const response = await fetch(
+        `${API_BASE}/api/user/update-user-status/${user._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "active" }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to reactivate user");
+      }
+
+      message.success(`User ${user.username || user.fullname} reactivated`);
+      fetchUsers();
+    } catch (error) {
+      message.error(error.message || "Failed to reactivate user");
+    }
   };
 
   const handleModalClose = () => {

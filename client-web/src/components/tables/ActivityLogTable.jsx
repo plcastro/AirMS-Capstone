@@ -31,10 +31,7 @@ const headers = [
     width: 260,
   },
 ];
-export default function ActivityLogTable({
-  data = [],
-  loading,
-}) {
+export default function ActivityLogTable({ data = [], loading }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,7 +61,7 @@ export default function ActivityLogTable({
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         showLessItems: isMobile,
         size: isMobile ? "small" : "default",
-        position: isMobile ? ["bottomCenter"] : ["bottomRight"],
+        placement: isMobile ? ["bottomCenter"] : ["bottomRight"],
       }}
     />
   );

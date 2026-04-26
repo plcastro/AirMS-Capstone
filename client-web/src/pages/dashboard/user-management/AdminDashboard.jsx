@@ -10,6 +10,7 @@ import {
   DatePicker,
   Select,
   Space,
+  message,
 } from "antd";
 import dayjs from "dayjs";
 import { SDMChart } from "../../../components/common/PieChart";
@@ -52,11 +53,19 @@ export default function AdminDashboard() {
         },
       });
       const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.message || "Failed to fetch users");
+      }
+
       if (Array.isArray(json.data)) {
         setUsers(json.data);
+      } else {
+        setUsers([]);
+        message.warning("Unexpected user payload in admin dashboard");
       }
     } catch (error) {
       console.error("Failed to fetch admin users", error);
+      message.error(error.message || "Failed to fetch users");
     } finally {
       setLoadingUsers(false);
     }
@@ -89,6 +98,11 @@ export default function AdminDashboard() {
         },
       });
       const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Failed to fetch activity logs");
+      }
+
       if (Array.isArray(json.data)) {
         const mapped = json.data.map((log, index) => ({
           index: index + 1,
@@ -98,9 +112,13 @@ export default function AdminDashboard() {
           username: log.username || "Unknown",
         }));
         setLogs(mapped);
+      } else {
+        setLogs([]);
+        message.warning("Unexpected logs payload in admin dashboard");
       }
     } catch (error) {
       console.error("Failed to fetch admin activity logs", error);
+      message.error(error.message || "Failed to fetch activity logs");
     } finally {
       setLoadingLogs(false);
     }
@@ -114,11 +132,15 @@ export default function AdminDashboard() {
   const handleDateRangeChange = (dates) => {
     if (dates && dates[0] && dates[1]) {
       setDateRange(dates);
+      return;
     }
+
+    message.info("Please select both start and end dates to filter activity.");
   };
 
   const handleRefresh = () => {
     fetchLogs(dateRange[0], dateRange[1]);
+    message.success("Activity trends refreshed");
   };
 
   const statusCounts = useMemo(() => {
