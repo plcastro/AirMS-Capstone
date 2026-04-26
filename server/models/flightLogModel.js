@@ -26,7 +26,7 @@ const fuelServicingSchema = new mongoose.Schema({
   mainRemG: { type: String, default: "" },
   mainAdd: { type: String, default: "" },
   mainTotal: { type: String, default: "" },
-  fuelType: { type: String, enum: ["drum", "bowser"], default: "drum" },
+  fuelType: { type: String, enum: ["drum", "truck", "bowser"], default: "drum" },
   refuelerName: { type: String, default: "" },
   signature: { type: String, default: "" },
 });

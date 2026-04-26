@@ -10,7 +10,7 @@ import {
   Divider,
   Space,
 } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 // Import the default processor for AS350B3
 import {
@@ -375,7 +375,6 @@ export default function PartsMonitoring() {
                 </Option>
               ))}
             </Select>
-
             <Button
               type="primary"
               icon={<SaveOutlined />}

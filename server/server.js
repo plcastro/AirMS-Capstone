@@ -24,8 +24,11 @@ const postInspectionRoutes = require("./routes/postInspectionRoute");
 const notificationRoutes = require("./routes/notificationRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
+const aiInsightRoutes = require("./routes/aiInsightRoute");
 const sendEmail = require("./utilities/sendEmail");
-const { startInvitationLifecycleJob } = require("./utilities/invitationLifecycleService");
+const {
+  startInvitationLifecycleJob,
+} = require("./utilities/invitationLifecycleService");
 
 const app = express();
 
@@ -100,6 +103,7 @@ app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/ai-insights", aiInsightRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",

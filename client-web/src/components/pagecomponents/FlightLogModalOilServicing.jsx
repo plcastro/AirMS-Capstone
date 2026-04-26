@@ -1,6 +1,8 @@
-import React, { useRef } from "react";
-import { Input, Button } from "antd";
+import React, { useRef, useState } from "react";
+import { Input, Button, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
+
+const { Text } = Typography;
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -18,6 +20,7 @@ const OIL_GROUPS = [
 
 function LegSignaturePad({ value, onChange, disabled }) {
   const sigRef = useRef(null);
+  const [isReplacing, setIsReplacing] = useState(false);
 
   const handleEnd = () => {
     if (sigRef.current && onChange) onChange(sigRef.current.toDataURL("image/png"));
@@ -26,12 +29,15 @@ function LegSignaturePad({ value, onChange, disabled }) {
   const handleClear = () => {
     if (sigRef.current) sigRef.current.clear();
     if (onChange) onChange("");
+    setIsReplacing(false);
   };
+
+  const showSavedSignature = value && (disabled || !isReplacing);
 
   return (
     <div>
       <div className="fl-sig-box">
-        {value && disabled ? (
+        {showSavedSignature ? (
           <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
@@ -45,9 +51,16 @@ function LegSignaturePad({ value, onChange, disabled }) {
         )}
       </div>
       {!disabled && (
-        <Button size="small" danger onClick={handleClear} style={{ marginTop: 4, float: "right" }}>
-          Clear
-        </Button>
+        <div style={{ marginTop: 4, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {value && !isReplacing && (
+            <Button size="small" onClick={() => setIsReplacing(true)}>
+              Replace
+            </Button>
+          )}
+          <Button size="small" danger onClick={handleClear}>
+            Clear
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -107,13 +120,19 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
               )}
 
               <div className="fl-field-row">
-                <span className="fl-label">Remarks:</span>
-                <Input
-                  className="fl-input"
-                  value={oil.remarks || ""}
-                  onChange={(e) => updateOil(legIdx, "remarks", e.target.value)}
-                  disabled={!isEditable}
-                />
+                <span className="fl-label">Remarks (AI-interpreted):</span>
+                <div style={{ flex: 1 }}>
+                  <Input
+                    className="fl-input"
+                    value={oil.remarks || ""}
+                    onChange={(e) => updateOil(legIdx, "remarks", e.target.value)}
+                    placeholder="Enter oil, gearbox, or servicing findings"
+                    disabled={!isEditable}
+                  />
+                  <Text type="secondary" style={{ display: "block", marginTop: 4 }}>
+                    Oil-servicing remarks are included in AI maintenance tracking.
+                  </Text>
+                </div>
               </div>
               <div className="fl-field-row fl-sig-row">
                 <span className="fl-label">Sign:</span>

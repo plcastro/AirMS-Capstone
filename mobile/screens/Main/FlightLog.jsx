@@ -19,6 +19,7 @@ import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { exportFlightLogPdf } from "../../utilities/pdfExport";
 
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
@@ -333,8 +334,8 @@ export default function FlightLog({ route, navigation }) {
     setShowEditModal(true);
   };
 
-  const handleExport = (log) => {
-    console.log("Export log:", log);
+  const handleExport = async (log) => {
+    await exportFlightLogPdf(log);
   };
 
   const handleNewEntry = () => {

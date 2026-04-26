@@ -1,50 +1,44 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Legend,
+  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { AnalysisChartMockData } from "./MockData";
 
-export const FailureAnalysisChart = () => {
-  const containerRef = useRef(null);
-  const [chartSize, setChartSize] = useState({ width: 0, height: 400 });
-  const rawData = AnalysisChartMockData;
-  // Sort data so the most "failure prone" (highest failure count) is at the top
-  const sortedData = [...rawData].sort((a, b) => b.failures - a.failures);
+export const FailureAnalysisChart = ({ data = [] }) => {
+  const rawData = Array.isArray(data) ? data : [];
+  // Sort data so the components needing attention appear first.
+  const sortedData = [...rawData].sort(
+    (a, b) => (b?.failures || 0) - (a?.failures || 0),
+  );
 
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-
-    const updateSizeState = () => {
-      const { clientWidth, clientHeight } = element;
-      setChartSize({
-        width: Math.max(clientWidth, 0),
-        height: Math.max(clientHeight, 400),
-      });
-    };
-
-    updateSizeState();
-    const observer = new ResizeObserver(updateSizeState);
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, []);
+  if (sortedData.length === 0) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: 400,
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
+        No critical component data available
+      </div>
+    );
+  }
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: 400, minHeight: 400 }}>
-      {chartSize.width > 0 && (
+    <div style={{ width: "100%", height: 400, minHeight: 400 }}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          width={chartSize.width}
-          height={chartSize.height}
           layout="vertical"
           data={sortedData}
-          margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+          margin={{ top: 5, right: 30, left: 16, bottom: 5 }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -52,16 +46,12 @@ export const FailureAnalysisChart = () => {
             vertical={false}
           />
 
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            tickFormatter={(value) => `${value}%`}
-          />
+          <XAxis type="number" allowDecimals={false} />
 
           <YAxis
             dataKey="name"
             type="category"
-            width={100}
+            width={140}
             style={{ fontSize: "12px", fontWeight: "bold" }}
           />
 
@@ -76,7 +66,7 @@ export const FailureAnalysisChart = () => {
           <Legend verticalAlign="top" height={36} />
           <Bar
             dataKey="failures"
-            name="Reported Failures"
+            name="Critical Component Count"
             fill="#ff4d4f"
             radius={[0, 4, 4, 0]}
             barSize={20}
@@ -90,7 +80,7 @@ export const FailureAnalysisChart = () => {
             barSize={10}
           /> */}
         </BarChart>
-      )}
+      </ResponsiveContainer>
     </div>
   );
 };

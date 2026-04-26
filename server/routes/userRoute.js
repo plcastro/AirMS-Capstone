@@ -17,6 +17,7 @@ const {
   updatePassword,
   updateUserImage,
   updatePIN,
+  verifyPIN,
   updateSignature,
   activateUser,
   resendActivation,

@@ -127,6 +127,19 @@ const createPartsRequisitionNotifications = async ({
   }
 
   if (previousStatus === currentStatus) {
+    if (!warehouseReviewBecameAvailable) {
+      await createNotification({
+        title: `Parts requisition ${requisition.wrsNo} has been updated`,
+        description: "The parts requisition details were updated.",
+        requisition,
+        recipientRoles:
+          currentStatus === "Pending" || currentStatus === "Parts Requested"
+            ? managerRoles
+            : [ROLE_WAREHOUSE],
+        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        metadata: { notificationType: "updated" },
+      });
+    }
     return;
   }
 

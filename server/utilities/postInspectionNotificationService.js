@@ -5,6 +5,7 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_MECHANIC = "mechanic";
+const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
@@ -51,6 +52,27 @@ const getCreatorUserId = async (inspection) => {
   }
 
   return resolveUserIdByFullName(inspection.createdBy);
+};
+
+const getRecipientsForStatus = (status, creatorUserId, managerRoles, mechanicRoles) => {
+  switch (status) {
+    case "released":
+      return {
+        recipientRoles: [ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "completed":
+      return {
+        recipientRoles: managerRoles,
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "pending":
+    default:
+      return {
+        recipientRoles: mechanicRoles,
+        recipientUsers: [],
+      };
+  }
 };
 
 const createNotification = async ({
@@ -127,6 +149,18 @@ const createPostInspectionNotifications = async ({
       return;
     }
 
+    if (currentStatus === "released") {
+      await createNotification({
+        title: `Post-inspection for RP-C ${inspection.rpc} was released`,
+        description: "The post-flight inspection is ready for pilot acceptance.",
+        inspection,
+        recipientRoles: [ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+        metadata: { notificationType: "created-released" },
+      });
+      return;
+    }
+
     if (currentStatus === "completed") {
       await createNotification({
         title: `Post-inspection for RP-C ${inspection.rpc} was completed`,
@@ -141,19 +175,48 @@ const createPostInspectionNotifications = async ({
   }
 
   if (previousStatus === currentStatus) {
+    const recipients = getRecipientsForStatus(
+      currentStatus,
+      creatorUserId,
+      managerRoles,
+      mechanicRoles,
+    );
+
+    await createNotification({
+      title: `Post-inspection for RP-C ${inspection.rpc} has been updated`,
+      description: "The post-flight inspection details were updated.",
+      inspection,
+      ...recipients,
+      metadata: { notificationType: "updated" },
+    });
     return;
   }
 
-  if (currentStatus === "completed") {
-    await createNotification({
-      title: `Post-inspection for RP-C ${inspection.rpc} was completed`,
-      description:
-        "The post-flight inspection has been completed and updated.",
-      inspection,
-      recipientRoles: managerRoles,
-      recipientUsers: creatorUserId ? [creatorUserId] : [],
-      metadata: { notificationType: "completed" },
-    });
+  switch (currentStatus) {
+    case "released":
+      await createNotification({
+        title: `Post-inspection for RP-C ${inspection.rpc} is pending acceptance`,
+        description:
+          "This post-flight inspection was released and is waiting for pilot acceptance.",
+        inspection,
+        recipientRoles: [ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+        metadata: { notificationType: "released" },
+      });
+      break;
+    case "completed":
+      await createNotification({
+        title: `Post-inspection for RP-C ${inspection.rpc} was completed`,
+        description:
+          "The post-flight inspection has been completed and updated.",
+        inspection,
+        recipientRoles: managerRoles,
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+        metadata: { notificationType: "completed" },
+      });
+      break;
+    default:
+      break;
   }
 };
 

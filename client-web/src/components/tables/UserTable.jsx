@@ -189,7 +189,7 @@ export default function UserTable({
         onChange: (page) => setCurrentPage(page),
         showLessItems: isMobile,
         size: isMobile ? "small" : "default",
-        position: isMobile ? ["bottomCenter"] : ["bottomRight"],
+        placement: isMobile ? "bottom" : "bottomEnd",
       }}
     />
   );

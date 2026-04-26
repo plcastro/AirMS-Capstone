@@ -50,6 +50,36 @@ const getFlightLogCreatorUserId = async (flightLog) => {
   return resolveUserIdByFullName(flightLog?.createdByName);
 };
 
+const getFlightLogLabel = (flightLog = {}) =>
+  flightLog.rpc ? `RP-C ${flightLog.rpc}` : "the selected aircraft";
+
+const getRecipientsForStatus = (status, creatorUserId, mechanicSideRoles) => {
+  switch (status) {
+    case "pending_acceptance":
+    case "released":
+      return {
+        recipientRoles: [ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "accepted":
+      return {
+        recipientRoles: [...mechanicSideRoles, ROLE_PILOT],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "completed":
+      return {
+        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
+        recipientUsers: creatorUserId ? [creatorUserId] : [],
+      };
+    case "pending_release":
+    default:
+      return {
+        recipientRoles: mechanicSideRoles,
+        recipientUsers: [],
+      };
+  }
+};
+
 const createNotification = async ({
   title,
   description,
@@ -114,11 +144,12 @@ const createFlightLogNotifications = async ({
   ];
   const previousStatus = previousFlightLog?.status;
   const currentStatus = flightLog.status;
+  const aircraftLabel = getFlightLogLabel(flightLog);
 
   if (!previousFlightLog) {
     if (flightLog.status === "pending_acceptance") {
       await createNotification({
-        title: `Flight log for RP-C ${flightLog.rpc} is ready for acceptance`,
+        title: `Flight log for ${aircraftLabel} is ready for acceptance`,
         description:
           "A flight log is waiting for pilot acceptance.",
         flightLog,
@@ -130,7 +161,7 @@ const createFlightLogNotifications = async ({
     }
 
     await createNotification({
-      title: `Flight log for RP-C ${flightLog.rpc} is ready for release`,
+      title: `Flight log for ${aircraftLabel} is ready for release`,
       description:
         "A new flight log needs mechanic-side review and release.",
       flightLog,
@@ -154,9 +185,26 @@ const createFlightLogNotifications = async ({
       recipientRoles: mechanicSideRoles,
       metadata: { notificationType: "ready-for-completion" },
     });
+
+    if (previousStatus === currentStatus) {
+      return;
+    }
   }
 
   if (previousStatus === currentStatus) {
+    const recipients = getRecipientsForStatus(
+      currentStatus,
+      creatorUserId,
+      mechanicSideRoles,
+    );
+
+    await createNotification({
+      title: `Flight log for ${aircraftLabel} has been updated.`,
+      description: `Flight log for ${aircraftLabel} has been updated.`,
+      flightLog,
+      ...recipients,
+      metadata: { notificationType: "updated" },
+    });
     return;
   }
 

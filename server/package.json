@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon server.js",
-    "migrate:parts-requisition-statuses": "node scripts/migratePartsRequisitionStatuses.js"
+    "migrate:parts-requisition-statuses": "node scripts/migratePartsRequisitionStatuses.js",
+    "pdf:text": "powershell -ExecutionPolicy Bypass -File scripts/extractPdfText.ps1"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +29,7 @@
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
     "nodemon": "^3.1.14",
+    "pdf-parse": "^2.4.5",
     "pdfkit": "^0.18.0",
     "sharp": "^0.34.5",
     "validator": "^13.15.26"
