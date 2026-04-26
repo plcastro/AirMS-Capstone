@@ -127,7 +127,6 @@ app.use(
     },
   }),
 );
-app.use("/api/flightlogs", flightLogRoutes);
 
 app.set("trust proxy", 1);
 
