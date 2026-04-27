@@ -108,6 +108,10 @@ export default function UserLogs() {
         padding: isMobile ? 12 : 20,
         maxWidth: "100%",
         overflow: "hidden",
+        minHeight: "100vh",
+        overflowY: "auto",
+        height: "calc(100vh - 200px)",
+        paddingBottom: 100,
       }}
     >
       <Space

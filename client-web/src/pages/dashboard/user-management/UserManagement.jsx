@@ -88,7 +88,7 @@ export default function UserManagement() {
     { label: "Access Control", key: "access" },
     { label: "Status", key: "status" },
     { label: "Invite Status", key: "invitationStatus" },
-    { label: "Date Created", key: "dateCreated" },
+    { label: "Date and Time Created", key: "dateCreated" },
     { label: "Actions", key: "actions", fixed: "right", width: 150 },
   ];
 
@@ -330,7 +330,14 @@ export default function UserManagement() {
   };
 
   return (
-    <div style={{ padding: isMobile ? 12 : 20 }}>
+    <div
+      style={{
+        padding: isMobile ? 12 : 20,
+        minHeight: "100vh",
+        overflowY: "auto",
+        height: "calc(100vh - 200px)",
+      }}
+    >
       <div
         style={{
           display: "flex",
