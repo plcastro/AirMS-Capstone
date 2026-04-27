@@ -27,8 +27,6 @@ export default function UserTable({
         return {
           title: header.label,
           key: "actions",
-          fixed: header.fixed,
-          width: header.width,
           render: (_, record) => (
             <Space>
               <Button
@@ -36,7 +34,6 @@ export default function UserTable({
                 size="small"
                 icon={<EditOutlined />}
                 onClick={() => onEditUser?.(record)}
-                style={{ width: 100 }}
               >
                 Edit
               </Button>
