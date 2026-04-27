@@ -1,6 +1,6 @@
 const AdminSecurityAlert = require("../models/adminSecurityAlertModel");
 const UserModel = require("../models/userModel");
-const sendEmail = require("../utilities/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 
 /**
  * Create a security alert for critical operations

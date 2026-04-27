@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Popconfirm, Grid } from "antd";
-import { EditOutlined } from "@ant-design/icons";
+import { Table, Button, Tag, Space, Grid, Dropdown, Modal } from "antd";
+import { EditOutlined, MoreOutlined } from "@ant-design/icons";
 
 const { useBreakpoint } = Grid;
 
@@ -27,66 +27,90 @@ export default function UserTable({
         return {
           title: header.label,
           key: "actions",
-          fixed: header.fixed,
-          width: header.width,
-          render: (_, record) => (
-            <Space>
-              <Button
-                type="primary"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => onEditUser?.(record)}
-                style={{ width: 100 }}
-              >
-                Edit
-              </Button>
+          render: (_, record) => {
+            const moreActions = [];
 
-              {record.status === "deactivated" ? (
-                <Popconfirm
-                  title="Reactivate this user?"
-                  onConfirm={() => onReactivateUser?.(record)}
+            if (record.status === "deactivated") {
+              moreActions.push({
+                key: "reactivate",
+                label: "Reactivate",
+                title: "Reactivate this user?",
+                action: () => onReactivateUser?.(record),
+              });
+            } else if (record.status === "inactive") {
+              moreActions.push({
+                key: "resend",
+                label: "Resend",
+                title: "Resend activation credentials?",
+                action: () => onResendInvite?.(record),
+              });
+
+              if (record.invitationStatus === "expired") {
+                moreActions.push({
+                  key: "extend",
+                  label: "Extend 24h",
+                  title: "Extend invitation expiry by 24 hours?",
+                  action: () => onExtendInvite?.(record),
+                });
+              }
+
+              if (record.invitationStatus !== "revoked") {
+                moreActions.push({
+                  key: "revoke",
+                  label: "Revoke Invite",
+                  title: "Revoke this invitation?",
+                  action: () => onRevokeInvite?.(record),
+                  danger: true,
+                });
+              }
+            } else if (record.status === "active" && record._id !== currentUserId) {
+              moreActions.push({
+                key: "deactivate",
+                label: "Deactivate",
+                title: "Deactivate this user?",
+                action: () => onDeactivateUser?.(record),
+                danger: true,
+              });
+            }
+
+            const menuItems = moreActions.map((item) => ({
+              key: item.key,
+              label: item.label,
+              danger: item.danger,
+            }));
+
+            return (
+              <Space>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => onEditUser?.(record)}
                 >
-                  <Button size="small">Reactivate</Button>
-                </Popconfirm>
-              ) : record.status === "inactive" ? (
-                <>
-                  <Popconfirm
-                    title="Resend activation credentials?"
-                    onConfirm={() => onResendInvite?.(record)}
-                  >
-                    <Button size="small">Resend</Button>
-                  </Popconfirm>
-                  {record.invitationStatus === "expired" && (
-                    <Popconfirm
-                      title="Extend invitation expiry by 24 hours?"
-                      onConfirm={() => onExtendInvite?.(record)}
-                    >
-                      <Button size="small">Extend 24h</Button>
-                    </Popconfirm>
-                  )}
-                  {record.invitationStatus !== "revoked" && (
-                    <Popconfirm
-                      title="Revoke this invitation?"
-                      onConfirm={() => onRevokeInvite?.(record)}
-                    >
-                      <Button danger size="small">
-                        Revoke Invite
-                      </Button>
-                    </Popconfirm>
-                  )}
-                </>
-              ) : record.status === "active" && record._id !== currentUserId ? (
-                <Popconfirm
-                  title="Deactivate this user?"
-                  onConfirm={() => onDeactivateUser?.(record)}
+                  Edit
+                </Button>
+
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: menuItems,
+                    onClick: ({ key }) => {
+                      const selected = moreActions.find((item) => item.key === key);
+                      if (!selected) return;
+
+                      Modal.confirm({
+                        title: selected.title,
+                        onOk: selected.action,
+                        okText: "Confirm",
+                      });
+                    },
+                  }}
                 >
-                  <Button danger size="small" style={{ width: 100 }}>
-                    Deactivate
-                  </Button>
-                </Popconfirm>
-              ) : null}
-            </Space>
-          ),
+                  <Button size="small" icon={<MoreOutlined />} disabled={!menuItems.length} />
+                </Dropdown>
+              </Space>
+            );
+          },
         };
       }
 

@@ -1,6 +1,6 @@
 const TaskModel = require("../models/taskModel");
 const { auditLog } = require("./logsController");
-const { createTaskNotifications } = require("../utilities/taskNotificationService");
+const { createTaskNotifications } = require("../utils/taskNotificationService");
 const {
   syncMaintenanceLogFromTask,
   removeMaintenanceLogForTask,

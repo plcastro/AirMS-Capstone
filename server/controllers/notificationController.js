@@ -13,9 +13,19 @@ const getUserRole = async (userId, fallbackRole = "") => {
   return normalizeRole(user?.jobTitle || fallbackRole);
 };
 
-const buildRecipientQuery = (userId, role) => ({
-  $or: [{ recipientUsers: userId }, ...(role ? [{ recipientRoles: role }] : [])],
-});
+const buildRecipientQuery = (userId, role) => {
+  const recipientFilters = [];
+
+  if (mongoose.Types.ObjectId.isValid(userId)) {
+    recipientFilters.push({ recipientUsers: userId });
+  }
+
+  if (role) {
+    recipientFilters.push({ recipientRoles: role });
+  }
+
+  return { $or: recipientFilters };
+};
 
 const getNotifications = async (req, res) => {
   try {
@@ -27,7 +37,7 @@ const getNotifications = async (req, res) => {
 
     const role = await getUserRole(userId, req.user?.jobTitle);
     const notifications = await NotificationModel.find(
-      buildRecipientQuery(userId, role),
+      recipientQuery,
     )
       .sort({ createdAt: -1 })
       .limit(50)
@@ -42,6 +52,7 @@ const getNotifications = async (req, res) => {
 
     res.status(200).json(mappedNotifications);
   } catch (error) {
+    console.error("Failed to fetch notifications:", error);
     res.status(500).json({ message: "Failed to fetch notifications" });
   }
 };
@@ -58,7 +69,7 @@ const markNotificationRead = async (req, res) => {
     const notification = await NotificationModel.findOneAndUpdate(
       {
         _id: req.params.id,
-        ...buildRecipientQuery(userId, role),
+        ...recipientQuery,
       },
       {
         $addToSet: { readBy: userId },
@@ -72,6 +83,7 @@ const markNotificationRead = async (req, res) => {
 
     res.status(200).json({ success: true });
   } catch (error) {
+    console.error("Failed to update notification:", error);
     res.status(500).json({ message: "Failed to update notification" });
   }
 };
@@ -86,7 +98,7 @@ const markAllNotificationsRead = async (req, res) => {
 
     const role = await getUserRole(userId, req.user?.jobTitle);
     await NotificationModel.updateMany(
-      buildRecipientQuery(userId, role),
+      recipientQuery,
       {
         $addToSet: { readBy: userId },
       },
@@ -94,6 +106,7 @@ const markAllNotificationsRead = async (req, res) => {
 
     res.status(200).json({ success: true });
   } catch (error) {
+    console.error("Failed to update notifications:", error);
     res.status(500).json({ message: "Failed to update notifications" });
   }
 };
