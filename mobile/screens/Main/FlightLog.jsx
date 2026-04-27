@@ -37,6 +37,7 @@ export default function FlightLog({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
   const fetchFlightLogs = useCallback(async () => {
@@ -398,34 +399,36 @@ export default function FlightLog({ route, navigation }) {
             />
           </View>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={handleNewEntry}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
+          {!isOfficerInCharge && (
+            <TouchableOpacity
               style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
               }}
+              onPress={handleNewEntry}
             >
-              New Entry
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color={COLORS.white}
+              />
+              <Text
+                style={{
+                  color: COLORS.white,
+                  fontSize: 15,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                New Entry
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filters Row */}
@@ -626,20 +629,22 @@ export default function FlightLog({ route, navigation }) {
                 >
                   No flight logs found
                 </Text>
-                <TouchableOpacity
-                  onPress={handleNewEntry}
-                  style={{
-                    marginTop: 20,
-                    backgroundColor: COLORS.primaryLight,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Create New Entry
-                  </Text>
-                </TouchableOpacity>
+                {!isOfficerInCharge && (
+                  <TouchableOpacity
+                    onPress={handleNewEntry}
+                    style={{
+                      marginTop: 20,
+                      backgroundColor: COLORS.primaryLight,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                      Create New Entry
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <FlightLogCards
@@ -647,6 +652,7 @@ export default function FlightLog({ route, navigation }) {
                 onEdit={handleEdit}
                 onExport={handleExport}
                 userRole={userRole}
+                readOnly={isOfficerInCharge}
               />
             )}
           </ScrollView>
@@ -671,6 +677,7 @@ export default function FlightLog({ route, navigation }) {
         }}
         onSave={handleSaveEdit}
         userRole={userRole}
+        readOnly={isOfficerInCharge}
       />
     </View>
   );

@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { Input, Button, Typography } from "antd";
-import SignatureCanvas from "react-signature-canvas";
+import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 
 const { Text } = Typography;
 
@@ -19,15 +19,10 @@ const OIL_GROUPS = [
 ];
 
 function LegSignaturePad({ value, onChange, disabled }) {
-  const sigRef = useRef(null);
   const [isReplacing, setIsReplacing] = useState(false);
-
-  const handleEnd = () => {
-    if (sigRef.current && onChange) onChange(sigRef.current.toDataURL("image/png"));
-  };
+  const [isSignatureOpen, setIsSignatureOpen] = useState(false);
 
   const handleClear = () => {
-    if (sigRef.current) sigRef.current.clear();
     if (onChange) onChange("");
     setIsReplacing(false);
   };
@@ -42,12 +37,9 @@ function LegSignaturePad({ value, onChange, disabled }) {
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
         ) : (
-          <SignatureCanvas
-            ref={sigRef}
-            penColor="#000"
-            canvasProps={{ style: { width: "100%", height: 60 } }}
-            onEnd={handleEnd}
-          />
+          <Button type="link" onClick={() => setIsSignatureOpen(true)}>
+            Tap to sign
+          </Button>
         )}
       </div>
       {!disabled && (
@@ -62,6 +54,20 @@ function LegSignaturePad({ value, onChange, disabled }) {
           </Button>
         </div>
       )}
+      <PinVerifiedSignatureModal
+        open={isSignatureOpen}
+        title="Oil Servicing Signature"
+        description="Draw the oil servicing signature below."
+        confirmDescription="Enter your 6-digit PIN to save this oil servicing signature."
+        onCancel={() => {
+          setIsSignatureOpen(false);
+          setIsReplacing(false);
+        }}
+        onSave={(signature) => {
+          onChange?.(signature);
+          setIsReplacing(false);
+        }}
+      />
     </div>
   );
 }

@@ -4,14 +4,19 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from "react-native";
-import { Button, SegmentedButtons, HelperText } from "react-native-paper";
+import {
+  Button,
+  SegmentedButtons,
+  HelperText,
+  TextInput,
+  Card,
+  Text,
+} from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
+import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function UpdateSecurity() {
@@ -32,6 +37,7 @@ export default function UpdateSecurity() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinErrors, setPinErrors] = useState({});
+  const [showPin, setShowPin] = useState(false);
 
   // --- Forgot PIN Flow ---
   const [forgotPinMode, setForgotPinMode] = useState(false);
@@ -72,6 +78,20 @@ export default function UpdateSecurity() {
   };
 
   const strength = getPasswordStrength();
+
+  const renderCodeField = (label, value, setter, { secure = false } = {}) => (
+    <View style={styles.pinInputGroup}>
+      <Text style={styles.pinLabel}>{label}</Text>
+      <CodeInputField
+        code={value}
+        setCode={setter}
+        maxLength={6}
+        secure={secure}
+        containerStyle={styles.pinCodeSection}
+        inputContainerStyle={styles.pinCodeContainer}
+      />
+    </View>
+  );
 
   // --- PIN Validation ---
   useEffect(() => {
@@ -226,218 +246,206 @@ export default function UpdateSecurity() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <SegmentedButtons
-          value={activeTab}
-          onValueChange={(val) => {
-            setActiveTab(val);
-            resetAll();
-          }}
-          buttons={[
-            { value: "password", label: "Password" },
-            { value: "pin", label: "PIN" },
-          ]}
-          style={styles.tabs}
-        />
-
-        {/* --- Password Tab --- */}
-        {activeTab === "password" && (
-          <View style={styles.section}>
-            <Text style={styles.label}>Current Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Enter current password"
+        <Card style={styles.card}>
+          <Card.Content>
+            <SegmentedButtons
+              value={activeTab}
+              onValueChange={(val) => {
+                setActiveTab(val);
+                resetAll();
+              }}
+              buttons={[
+                { value: "password", label: "Password" },
+                { value: "pin", label: "PIN" },
+              ]}
+              style={styles.tabs}
             />
-            <Text style={styles.label}>New Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Enter new password"
-            />
-            {newPassword ? (
-              <Text
-                style={{
-                  color: strength.color,
-                  fontWeight: "bold",
-                  fontSize: 12,
-                }}
-              >
-                {strength.text}
-              </Text>
-            ) : null}
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Re-type new password"
-            />
-            {validationMessage ? (
-              <Text
-                style={{
-                  color: validationMessage.includes("successfully")
-                    ? "#00c88c"
-                    : "#ff4d4f",
-                  textAlign: "center",
-                  marginTop: 10,
-                }}
-              >
-                {validationMessage}
-              </Text>
-            ) : null}
-            <Button
-              mode="contained"
-              disabled={!Object.values(passwordErrors).every(Boolean)}
-              onPress={() => handleSave("Password")}
-              style={styles.mainBtn}
-            >
-              Save Password
-            </Button>
-          </View>
-        )}
 
-        {/* --- PIN Tab --- */}
-        {activeTab === "pin" && (
-          <View style={styles.section}>
-            {!forgotPinMode && (
-              <>
-                <Text style={styles.label}>Current PIN</Text>
-                <TextInput
-                  style={styles.input}
-                  secureTextEntry
-                  value={currentPin}
-                  onChangeText={setCurrentPin}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  placeholder="000000"
-                />
-                <TouchableOpacity onPress={() => setForgotPinMode(true)}>
-                  <Text style={styles.link}>Forgot PIN?</Text>
-                </TouchableOpacity>
-                <Text style={styles.label}>New PIN</Text>
-                <TextInput
-                  style={styles.input}
-                  secureTextEntry
-                  value={newPin}
-                  onChangeText={setNewPin}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  placeholder="000000"
-                />
-                <Text style={styles.label}>Confirm PIN</Text>
-                <TextInput
-                  style={styles.input}
-                  secureTextEntry
-                  value={confirmPin}
-                  onChangeText={setConfirmPin}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  placeholder="000000"
-                />
-                <Button
-                  mode="contained"
-                  disabled={!Object.values(pinErrors).every(Boolean)}
-                  onPress={() => handleSave("PIN")}
-                  style={styles.mainBtn}
-                >
-                  Save PIN
-                </Button>
-              </>
-            )}
-
-            {/* --- Forgot PIN Flow --- */}
-            {forgotPinMode && !otpSent && (
+            {activeTab === "password" && (
               <View style={styles.section}>
-                <Text style={styles.label}>
-                  Enter Current Password to Reset PIN
-                </Text>
                 <TextInput
-                  style={styles.input}
+                  label="Current Password"
+                  mode="outlined"
                   secureTextEntry
-                  value={passwordForPin}
-                  onChangeText={setPasswordForPin}
-                  placeholder="Current password"
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  style={styles.input}
+                />
+                <TextInput
+                  label="New Password"
+                  mode="outlined"
+                  secureTextEntry
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  style={styles.input}
+                />
+                {newPassword ? (
+                  <Text style={[styles.hintText, { color: strength.color }]}>
+                    {strength.text}
+                  </Text>
+                ) : null}
+                <TextInput
+                  label="Confirm Password"
+                  mode="outlined"
+                  secureTextEntry
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  style={styles.input}
                 />
                 {validationMessage ? (
-                  <Text style={{ color: "#ff4d4f" }}>{validationMessage}</Text>
+                  <Text
+                    style={[
+                      styles.validationText,
+                      {
+                        color: validationMessage.includes("successfully")
+                          ? "#00c88c"
+                          : "#ff4d4f",
+                      },
+                    ]}
+                  >
+                    {validationMessage}
+                  </Text>
                 ) : null}
                 <Button
                   mode="contained"
-                  onPress={requestOtp}
-                  disabled={!passwordForPin}
+                  disabled={!Object.values(passwordErrors).every(Boolean)}
+                  onPress={() => handleSave("Password")}
                   style={styles.mainBtn}
                 >
-                  Send OTP
+                  Save Password
                 </Button>
-                <Button onPress={resetAll}>Cancel</Button>
               </View>
             )}
 
-            {forgotPinMode && otpSent && !otpVerified && (
+            {activeTab === "pin" && (
               <View style={styles.section}>
-                <Text style={styles.label}>Enter OTP</Text>
-                <TextInput
-                  style={styles.input}
-                  value={otp}
-                  onChangeText={setOtp}
-                  placeholder="000000"
-                  keyboardType="numeric"
-                  maxLength={6}
-                />
-                {validationMessage ? (
-                  <Text style={{ color: "#ff4d4f" }}>{validationMessage}</Text>
-                ) : null}
-                <Button
-                  mode="contained"
-                  onPress={verifyOtp}
-                  disabled={!otp}
-                  style={styles.mainBtn}
-                >
-                  Verify OTP
-                </Button>
-                <Button onPress={() => setOtpSent(false)}>Back</Button>
-              </View>
-            )}
+                {!forgotPinMode && (
+                  <>
+                    {renderCodeField("Current PIN", currentPin, setCurrentPin, {
+                      secure: !showPin,
+                    })}
+                    <Button
+                      mode="text"
+                      onPress={() => setForgotPinMode(true)}
+                      compact
+                      style={styles.linkButton}
+                    >
+                      Forgot PIN?
+                    </Button>
+                    {renderCodeField("New PIN", newPin, setNewPin, {
+                      secure: !showPin,
+                    })}
+                    {renderCodeField("Confirm PIN", confirmPin, setConfirmPin, {
+                      secure: !showPin,
+                    })}
+                    <Button
+                      mode="text"
+                      onPress={() => setShowPin((current) => !current)}
+                      compact
+                      style={styles.linkButton}
+                    >
+                      {showPin ? "Hide PIN" : "Show PIN"}
+                    </Button>
+                    <Button
+                      mode="contained"
+                      disabled={!Object.values(pinErrors).every(Boolean)}
+                      onPress={() => handleSave("PIN")}
+                      style={styles.mainBtn}
+                    >
+                      Save PIN
+                    </Button>
+                  </>
+                )}
 
-            {forgotPinMode && otpVerified && (
-              <View style={styles.section}>
-                <Text style={styles.label}>New PIN</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPin}
-                  onChangeText={setNewPin}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  secureTextEntry
-                  placeholder="000000"
-                />
-                <Text style={styles.label}>Confirm New PIN</Text>
-                <TextInput
-                  style={styles.input}
-                  value={confirmPin}
-                  onChangeText={setConfirmPin}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  secureTextEntry
-                  placeholder="000000"
-                />
-                <Button
-                  mode="contained"
-                  disabled={!Object.values(pinErrors).every(Boolean)}
-                  onPress={() => handleReset("PIN")}
-                  style={styles.mainBtn}
-                >
-                  Reset PIN
-                </Button>
+                {forgotPinMode && !otpSent && (
+                  <View style={styles.section}>
+                    <TextInput
+                      label="Current Password"
+                      mode="outlined"
+                      secureTextEntry
+                      value={passwordForPin}
+                      onChangeText={setPasswordForPin}
+                      style={styles.input}
+                    />
+                    {validationMessage ? (
+                      <Text style={styles.validationText}>
+                        {validationMessage}
+                      </Text>
+                    ) : null}
+                    <Button
+                      mode="contained"
+                      onPress={requestOtp}
+                      disabled={!passwordForPin}
+                      style={styles.mainBtn}
+                    >
+                      Send OTP
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      onPress={resetAll}
+                      style={styles.secondaryBtn}
+                    >
+                      Cancel
+                    </Button>
+                  </View>
+                )}
+
+                {forgotPinMode && otpSent && !otpVerified && (
+                  <View style={styles.section}>
+                    {renderCodeField("OTP", otp, setOtp)}
+                    {validationMessage ? (
+                      <Text style={styles.validationText}>
+                        {validationMessage}
+                      </Text>
+                    ) : null}
+                    <Button
+                      mode="contained"
+                      onPress={verifyOtp}
+                      disabled={!otp}
+                      style={styles.mainBtn}
+                    >
+                      Verify OTP
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      onPress={() => setOtpSent(false)}
+                      style={styles.secondaryBtn}
+                    >
+                      Back
+                    </Button>
+                  </View>
+                )}
+
+                {forgotPinMode && otpVerified && (
+                  <View style={styles.section}>
+                    {renderCodeField("New PIN", newPin, setNewPin, {
+                      secure: !showPin,
+                    })}
+                    {renderCodeField("Confirm New PIN", confirmPin, setConfirmPin, {
+                      secure: !showPin,
+                    })}
+                    <Button
+                      mode="text"
+                      onPress={() => setShowPin((current) => !current)}
+                      compact
+                      style={styles.linkButton}
+                    >
+                      {showPin ? "Hide PIN" : "Show PIN"}
+                    </Button>
+                    <Button
+                      mode="contained"
+                      disabled={!Object.values(pinErrors).every(Boolean)}
+                      onPress={() => handleReset("PIN")}
+                      style={styles.mainBtn}
+                    >
+                      Reset PIN
+                    </Button>
+                  </View>
+                )}
               </View>
             )}
-          </View>
-        )}
+          </Card.Content>
+        </Card>
 
         <View style={{ height: needScrollHeight }} />
       </ScrollView>
@@ -446,19 +454,19 @@ export default function UpdateSecurity() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, flexGrow: 1 },
+  container: { padding: 16, flexGrow: 1, backgroundColor: "#fff" },
+  card: { borderRadius: 12, margin: 16, elevation: 2 },
   tabs: { marginBottom: 20 },
-  section: { gap: 10 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginTop: 5 },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    backgroundColor: "#fff",
-  },
-  link: { color: "#2196F3", marginVertical: 8, fontWeight: "bold" },
-  mainBtn: { marginTop: 15, paddingVertical: 5 },
+  section: { marginBottom: 16 },
+  input: { marginBottom: 12, backgroundColor: "#fff" },
+  mainBtn: { marginTop: 15 },
+  secondaryBtn: { marginTop: 10 },
+  linkButton: { alignSelf: "flex-start", marginBottom: 10 },
+  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  pinInputGroup: { marginBottom: 12 },
+  pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  pinCodeSection: { flex: 0, alignItems: "stretch", marginVertical: 0 },
+  pinCodeContainer: { width: "100%" },
+  validationText: { color: "#ff4d4f", textAlign: "center", marginTop: 10 },
+  hintText: { fontSize: 12, marginBottom: 10 },
 });

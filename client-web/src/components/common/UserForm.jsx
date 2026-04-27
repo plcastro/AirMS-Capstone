@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import {
   Modal,
   Upload,
@@ -10,12 +10,15 @@ import {
   Col,
   Row,
   Typography,
+  Grid,
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function UserForm({
   visible,
@@ -24,6 +27,9 @@ export default function UserForm({
   user,
   allUsers,
 }) {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+  const { getValidToken } = useContext(AuthContext);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -61,7 +67,8 @@ export default function UserForm({
       setEmail(user.email || "");
       setUsername(user.username || "");
       setJobTitle(user.jobTitle || "");
-      setAccessLevel(roleMap[user.jobTitle] || "");
+      setAccessLevel(user.access || roleMap[user.jobTitle] || "");
+      setLicenseNo(user.licenseNo || "");
       setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
       setImageUrl(user.image || null);
       setFile(null);
@@ -76,6 +83,7 @@ export default function UserForm({
       setImageUrl(null);
       setFile(null);
       setUsername("");
+      setLicenseNo("");
     }
   }, [visible, user]);
 
@@ -143,8 +151,11 @@ export default function UserForm({
     setLoading(true);
 
     try {
+      const token = await getValidToken();
       let body;
-      let headers = {};
+      let headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
       if (file) {
         body = new FormData();
@@ -196,6 +207,7 @@ export default function UserForm({
         throw new Error(errorData.message || "Operation failed");
       }
       const savedUser = await res.json();
+      const savedUserData = savedUser?.data || savedUser?.user || null;
       antMessage.success(
         user ? "User updated successfully!" : "User added successfully!",
       );
@@ -208,7 +220,7 @@ export default function UserForm({
       }
 
       const updatedUser = {
-        _id: savedUser?.data?._id || user?._id,
+        _id: savedUserData?._id || user?._id,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -216,8 +228,11 @@ export default function UserForm({
         jobTitle,
         access: accessLevel,
         dateCreated: joinedDate.toISOString(),
-        image: savedUser?.data?.image || imageUrl,
-        status: savedUser?.data?.status || "active",
+        image: savedUserData?.image || imageUrl,
+        status: savedUserData?.status || "inactive",
+        invitationStatus: savedUserData?.invitationStatus || "pending",
+        invitationExpiresAt: savedUserData?.invitationExpiresAt || null,
+        licenseNo: savedUserData?.licenseNo || licenseNo || "",
       };
 
       onUserSaved?.(updatedUser);
@@ -235,9 +250,20 @@ export default function UserForm({
       open={visible}
       title={user ? "Edit User" : "Add User"}
       onCancel={onClose}
-      width={600}
+      width={isMobile ? "94vw" : 600}
+      centered
+      styles={{
+        body: {
+          maxHeight: isMobile ? "70vh" : "75vh",
+          overflowY: "auto",
+        },
+      }}
       footer={[
-        <Button key="cancel" onClick={onClose}>
+        <Button
+          key="cancel"
+          onClick={onClose}
+          style={{ width: isMobile ? "48%" : "auto" }}
+        >
           Cancel
         </Button>,
         <Button
@@ -246,6 +272,7 @@ export default function UserForm({
           loading={loading}
           onClick={handleSave}
           disabled={isFormInvalid}
+          style={{ width: isMobile ? "48%" : "auto" }}
         >
           {user ? "Update" : "Save"}
         </Button>,
@@ -273,7 +300,7 @@ export default function UserForm({
           </ImgCrop>
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Text strong>First Name</Text>
           <Input
             maxLength={128}
@@ -294,7 +321,7 @@ export default function UserForm({
           )}
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Text strong>Last Name</Text>
           <Input
             maxLength={128}
@@ -316,7 +343,7 @@ export default function UserForm({
         </Col>
 
         {/* Email */}
-        <Col span={24}>
+        <Col xs={24} md={24}>
           <Text strong>Email Address</Text>
           <Input
             placeholder="Enter email address"
@@ -334,12 +361,12 @@ export default function UserForm({
           )}
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Text strong>Generated Username</Text>
           <Input size="large" value={username} disabled />
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Text strong>Job Title</Text>
           <Select
             status={touched.jobTitle && errors.jobTitle ? "error" : ""}
@@ -366,7 +393,7 @@ export default function UserForm({
           )}
         </Col>
 
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Text strong>Access Level</Text>
           <Input value={accessLevel} disabled />
         </Col>
@@ -377,7 +404,7 @@ export default function UserForm({
           "mechanic",
           "officer-in-charge",
         ].includes(jobTitle.toLowerCase()) ? (
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Text strong>License No.</Text>
             <Input
               placeholder="Enter license number"
@@ -385,21 +412,15 @@ export default function UserForm({
               value={licenseNo}
               onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
               maxLength={6}
-              required={["maintenance manager", "pilot", "mechanic"].includes(
-                jobTitle.toLowerCase(),
-              )}
+              required={[
+                "maintenance manager",
+                "pilot",
+                "mechanic",
+                "officer-in-charge",
+              ].includes(jobTitle.toLowerCase())}
             />
           </Col>
         ) : null}
-
-        <Col span={12}>
-          <Text strong>Date Joined</Text>
-          <Input
-            size="large"
-            value={joinedDate.toLocaleDateString()}
-            disabled
-          />
-        </Col>
       </Row>
     </Modal>
   );

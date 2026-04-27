@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  App as AntdApp,
   Button,
   Card,
   Col,
@@ -12,7 +13,6 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -64,6 +64,7 @@ const formatDate = (value) => {
 };
 
 export default function MaintenancePriority() {
+  const { message } = AntdApp.useApp();
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
@@ -92,7 +93,9 @@ export default function MaintenancePriority() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to fetch maintenance priority");
+        throw new Error(
+          result.message || "Failed to fetch maintenance priority",
+        );
       }
 
       setPriorityData(Array.isArray(result.data) ? result.data : []);
@@ -115,7 +118,9 @@ export default function MaintenancePriority() {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || "Failed to fetch maintenance priority rules");
+          throw new Error(
+            result.message || "Failed to fetch maintenance priority rules",
+          );
         }
 
         const loadedRules = {
@@ -128,7 +133,9 @@ export default function MaintenancePriority() {
         await fetchPriorityData(loadedRules);
       } catch (error) {
         console.error("Failed to fetch maintenance priority rules:", error);
-        message.error(error.message || "Failed to load maintenance priority rules");
+        message.error(
+          error.message || "Failed to load maintenance priority rules",
+        );
         await fetchPriorityData(DEFAULT_RULES);
       }
     };
@@ -164,7 +171,9 @@ export default function MaintenancePriority() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to save maintenance priority rules");
+        throw new Error(
+          result.message || "Failed to save maintenance priority rules",
+        );
       }
 
       const savedRules = {
@@ -178,7 +187,9 @@ export default function MaintenancePriority() {
       await fetchPriorityData(savedRules);
     } catch (error) {
       console.error("Failed to save maintenance priority rules:", error);
-      message.error(error.message || "Failed to save maintenance priority rules");
+      message.error(
+        error.message || "Failed to save maintenance priority rules",
+      );
     } finally {
       setSavingRules(false);
     }
@@ -219,7 +230,10 @@ export default function MaintenancePriority() {
       (item) => item.priorityLevel === "High",
     ).length;
     const fastestTurnaround = priorityData.reduce((lowest, item) => {
-      if (item.estimatedTurnaroundHours === null || item.estimatedTurnaroundHours === undefined) {
+      if (
+        item.estimatedTurnaroundHours === null ||
+        item.estimatedTurnaroundHours === undefined
+      ) {
         return lowest;
       }
 
@@ -299,7 +313,10 @@ export default function MaintenancePriority() {
       key: "priorityLevel",
       width: 110,
       render: (value) => (
-        <Tag color={PRIORITY_COLORS[value] || "default"} style={{ fontWeight: 700 }}>
+        <Tag
+          color={PRIORITY_COLORS[value] || "default"}
+          style={{ fontWeight: 700 }}
+        >
           {value}
         </Tag>
       ),
@@ -339,8 +356,9 @@ export default function MaintenancePriority() {
               Adjustable Rule-Based Maintenance Ranking
             </Title>
             <Text type="secondary">
-              Adjust rule thresholds to control schedule escalation. Aircraft are
-              ranked by the active rules first, then by urgency and turnaround.
+              Adjust rule thresholds to control schedule escalation. Aircraft
+              are ranked by the active rules first, then by urgency and
+              turnaround.
             </Text>
           </Col>
           <Col xs={24} md={8}>
@@ -439,9 +457,7 @@ export default function MaintenancePriority() {
                 <Button onClick={saveRules} loading={savingRules}>
                   Save as Default
                 </Button>
-                <Button onClick={resetRules}>
-                  Reset Rules
-                </Button>
+                <Button onClick={resetRules}>Reset Rules</Button>
               </Space>
             </Col>
           </Row>
@@ -456,12 +472,20 @@ export default function MaintenancePriority() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="Critical" value={stats.criticalCount} valueStyle={{ color: "#cf1322" }} />
+            <Statistic
+              title="Critical"
+              value={stats.criticalCount}
+              styles={{ content: { color: "#cf1322" } }}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="High" value={stats.highCount} valueStyle={{ color: "#d46b08" }} />
+            <Statistic
+              title="High"
+              value={stats.highCount}
+              styles={{ content: { color: "#d46b08" } }}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
@@ -469,7 +493,8 @@ export default function MaintenancePriority() {
             <Statistic
               title="Fastest Turnaround"
               value={
-                stats.fastestTurnaround !== null && stats.fastestTurnaround !== undefined
+                stats.fastestTurnaround !== null &&
+                stats.fastestTurnaround !== undefined
                   ? `${stats.fastestTurnaround} hrs`
                   : "N/A"
               }
@@ -482,14 +507,24 @@ export default function MaintenancePriority() {
         <Alert
           type="info"
           showIcon
-          message="Priority tie-break logic"
+          title="Priority tie-break logic"
           description={`If inspections are within ${meta.tieBreakHours} flight hours, ${meta.tieBreakDays} days, or an urgency ratio gap of ${meta.tieBreakUrgencyRatio}, the aircraft with the shorter turnaround is ranked first. Active rules: Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH, High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.`}
         />
       )}
 
       <Card>
         <Table
-          rowKey={(record) => `${record.aircraft}-${record.inspectionKey}`}
+          rowKey={(record) =>
+            [
+              record.inspectionKey,
+              record.sourceRow,
+              record.aircraft,
+              record.nextInspection,
+              record.rank,
+            ]
+              .filter(Boolean)
+              .join("-")
+          }
           loading={loading}
           columns={columns}
           dataSource={filteredData}

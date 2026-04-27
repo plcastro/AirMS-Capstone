@@ -33,7 +33,10 @@ export const styles = StyleSheet.create({
   },
   codeInputFocused: {
     borderColor: COLORS.primaryLight,
-    minWidth: "15%",
+    minWidth: "14%",
+    maxWidth: "16%",
+    width: "14%",
+    height: 50,
     borderWidth: 2,
     borderRadius: 5,
     padding: 12,

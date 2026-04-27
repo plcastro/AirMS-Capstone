@@ -3,10 +3,21 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { Input, Button, Table, Space, message, Modal } from "antd";
+import {
+  Input,
+  Row,
+  Col,
+  Button,
+  Table,
+  Space,
+  message,
+  Modal,
+  Typography,
+  Select,
+  Card,
+} from "antd";
 import {
   PlusOutlined,
   SearchOutlined,
@@ -17,18 +28,39 @@ import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecordToPDF } from "../../../components/common/ExportFile";
-import SignatureCanvas from "react-signature-canvas";
+import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
+const { Text } = Typography;
+
 export default function FlightLog() {
-  const { user } = useContext(AuthContext);
+  const formatDisplayDate = (value) => {
+    if (!value) return "N/A";
+
+    const raw = String(value).trim();
+
+    // Keep already-formatted dates as-is.
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      return raw;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) {
+      return raw;
+    }
+
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const year = parsed.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  const { user, getAuthHeader } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,20 +72,19 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
-  const [releaseConfirm, setReleaseConfirm] = useState({
-    step: "signature",
-    signature: "",
-    pin: "",
+  const [signatureWorkflow, setSignatureWorkflow] = useState({
+    open: false,
+    action: null,
+    log: null,
   });
-  const releaseSignatureRef = useRef(null);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
   const isMechanic = [
     "engineer",
     "mechanic",
     "maintenance manager",
-    "officer-in-charge",
     "head of maintenance",
   ].includes(userRole);
 
@@ -89,12 +120,15 @@ export default function FlightLog() {
         params.append("status", normalizeStatusFilterValue(selectedStatus));
       }
 
-      const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       const data = await response.json();
 
@@ -113,12 +147,15 @@ export default function FlightLog() {
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/flightlogs/${flightLogId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${flightLogId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       const data = await response.json();
 
@@ -213,17 +250,20 @@ export default function FlightLog() {
     try {
       setSaving(true);
 
-      const response = await fetch(`${API_BASE}/api/flightlogs/${selectedLog._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${selectedLog._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...selectedLog,
+            ...data,
+            _id: selectedLog._id,
+          }),
         },
-        body: JSON.stringify({
-          ...selectedLog,
-          ...data,
-          _id: selectedLog._id,
-        }),
-      });
+      );
 
       const result = await response.json();
 
@@ -300,43 +340,76 @@ export default function FlightLog() {
   };
 
   const openWorkflowModal = (action, log) => {
-    setWorkflowModal({ open: true, action, log });
-    if (action === "release") {
-      setReleaseConfirm({ step: "signature", signature: "", pin: "" });
+    if (action === "release" || action === "accept") {
+      setSignatureWorkflow({ open: true, action, log });
+      return;
     }
+
+    setWorkflowModal({ open: true, action, log });
   };
 
   const closeWorkflowModal = () => {
     setWorkflowModal({ open: false, action: null, log: null });
-    setReleaseConfirm({ step: "signature", signature: "", pin: "" });
   };
 
-  const handleReleaseSignatureEnd = () => {
-    const signature = releaseSignatureRef.current?.toDataURL("image/png") || "";
-    setReleaseConfirm((prev) => ({ ...prev, signature }));
+  const closeSignatureWorkflow = () => {
+    setSignatureWorkflow({ open: false, action: null, log: null });
   };
 
-  const clearReleaseSignature = () => {
-    releaseSignatureRef.current?.clear();
-    setReleaseConfirm((prev) => ({ ...prev, signature: "" }));
-  };
+  const handleSignedWorkflowAction = async (signature) => {
+    const { action, log } = signatureWorkflow;
+    if (!action || !log?._id) return;
 
-  const verifyReleasePin = async () => {
-    const userId = user?.id || user?._id;
+    try {
+      setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
-    if (!userId) {
-      throw new Error("Your user ID is missing. Please sign in again.");
-    }
+      if (action === "release") {
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/release`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...authHeader },
+            body: JSON.stringify({
+              name: getUserDisplayName(),
+              signature,
+            }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to release flight log");
+        }
+        message.success("Flight log released");
+      }
 
-    const response = await fetch(`${API_BASE}/api/user/verify-pin/${userId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: releaseConfirm.pin }),
-    });
-    const data = await response.json();
+      if (action === "accept") {
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/accept`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...authHeader },
+            body: JSON.stringify({
+              name: getUserDisplayName(),
+              signature,
+              userRole: "pilot",
+            }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to accept flight log");
+        }
+        message.success("Flight log accepted");
+      }
 
-    if (!response.ok) {
-      throw new Error(data.message || "PIN verification failed");
+      closeSignatureWorkflow();
+      await fetchFlightLogs();
+    } catch (error) {
+      console.error("Signed workflow action error:", error);
+      message.error(error.message || "Flight log workflow action failed");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -347,60 +420,13 @@ export default function FlightLog() {
     try {
       setSaving(true);
 
-      if (action === "release") {
-        if (releaseConfirm.step === "signature") {
-          if (!releaseConfirm.signature) {
-            message.error("Please draw your signature before continuing.");
-            return;
-          }
-
-          setReleaseConfirm((prev) => ({ ...prev, step: "pin" }));
-          return;
-        }
-
-        if (!/^\d{6}$/.test(releaseConfirm.pin)) {
-          message.error("Enter your 6-digit PIN to confirm this release.");
-          return;
-        }
-
-        await verifyReleasePin();
-
-        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/release`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: getUserDisplayName(),
-            signature: releaseConfirm.signature,
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to release flight log");
-        }
-        message.success("Flight log released");
-      }
-
-      if (action === "accept") {
-        const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}/accept`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: getUserDisplayName(),
-            signature: user?.signature || getUserDisplayName(),
-            userRole: "pilot",
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to accept flight log");
-        }
-        message.success("Flight log accepted");
-      }
-
       if (action === "notify") {
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(getAuthHeader ? await getAuthHeader() : {}),
+          },
           body: JSON.stringify({
             ...log,
             _id: log._id,
@@ -442,16 +468,26 @@ export default function FlightLog() {
         );
         const totalsData = await totalsResponse.json();
         if (!totalsResponse.ok) {
-          throw new Error(totalsData.message || "Failed to update aircraft totals");
+          throw new Error(
+            totalsData.message || "Failed to update aircraft totals",
+          );
         }
 
-        const completeResponse = await fetch(`${API_BASE}/api/flightlogs/${log._id}/complete`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-        });
+        const completeResponse = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}/complete`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
+          },
+        );
         const completeData = await completeResponse.json();
         if (!completeResponse.ok) {
-          throw new Error(completeData.message || "Failed to complete flight log");
+          throw new Error(
+            completeData.message || "Failed to complete flight log",
+          );
         }
         message.success("Flight log completed");
       }
@@ -561,13 +597,18 @@ export default function FlightLog() {
   }, [fetchFlightLogById, flightLogs, location.search, navigate]);
 
   const isPilotAcceptableStatus = (status) =>
-    ["pending_acceptance", "released"].includes(normalizeFlightLogStatus(status));
+    ["pending_acceptance", "released"].includes(
+      normalizeFlightLogStatus(status),
+    );
 
   const getStatusMeta = (record = {}) => {
     const status = normalizeFlightLogStatus(record.status);
 
     if (status === "pending_release" || status === "ongoing") {
-      return { label: "Pending Release", className: "fl-badge--pending-release" };
+      return {
+        label: "Pending Release",
+        className: "fl-badge--pending-release",
+      };
     }
     if (status === "pending_acceptance" || status === "released") {
       return { label: "Released", className: "fl-badge--released" };
@@ -602,7 +643,13 @@ export default function FlightLog() {
       width: 140,
     },
     { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
-    { title: "Date", dataIndex: "date", key: "date", width: 100 },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      width: 120,
+      render: (value) => formatDisplayDate(value),
+    },
     {
       title: "Control",
       dataIndex: "controlNo",
@@ -622,29 +669,50 @@ export default function FlightLog() {
       width: 280,
       render: (_, record) => (
         <Space size={4}>
-          <Button type="primary" size="small" onClick={() => handleEdit(record)}>
-            Edit
+          <Button
+            type={isOfficerInCharge ? "default" : "primary"}
+            size="small"
+            onClick={() => handleEdit(record)}
+          >
+            {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {isMechanic && record.status === "pending_release" && (
-            <Button size="small" onClick={() => openWorkflowModal("release", record)}>
+          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
+            <Button
+              size="small"
+              onClick={() => openWorkflowModal("release", record)}
+            >
               Release
             </Button>
           )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button size="small" onClick={() => openWorkflowModal("accept", record)}>
+            <Button
+              size="small"
+              onClick={() => openWorkflowModal("accept", record)}
+            >
               Accept
             </Button>
           )}
-          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
-            <Button size="small" onClick={() => openWorkflowModal("notify", record)}>
-              Notify
-            </Button>
-          )}
-          {isMechanic && record.status === "accepted" && record.notifiedForCompletion && (
-            <Button size="small" onClick={() => openWorkflowModal("complete", record)}>
-              Complete
-            </Button>
-          )}
+          {isPilot &&
+            record.status === "accepted" &&
+            !record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("notify", record)}
+              >
+                Notify
+              </Button>
+            )}
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "accepted" &&
+            record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("complete", record)}
+              >
+                Complete
+              </Button>
+            )}
           <Button
             type="text"
             size="small"
@@ -658,102 +726,61 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      <div className="fl-search-row">
-        <div className="fl-search-wrapper">
+      <Row gutter={[12, 12]} align="middle">
+        <Col xs={24} md={8}>
           <Input
+            size="large"
             className="fl-search"
-            placeholder="Search"
+            placeholder="Search by RP/C, type, or date"
             prefix={<SearchOutlined />}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             allowClear
           />
-        </div>
-
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setEntryModalVisible(true)}
-          className="fl-new-entry-btn"
-        >
-          New Entry
-        </Button>
-      </div>
-
-      <div className="fl-filters-row">
-        <div className="fl-filter-dropdown">
-          <div
-            className="fl-filter-selector"
-            onClick={() => setShowAircraftDropdown((prev) => !prev)}
-          >
-            <span
-              className={
-                selectedAircraft && selectedAircraft !== "all"
-                  ? "fl-filter-selected"
-                  : "fl-filter-placeholder"
-              }
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select
+            size="large"
+            style={{ width: "100%" }}
+            value={selectedAircraft || "all"}
+            onChange={(value) =>
+              setSelectedAircraft(value === "all" ? "" : value)
+            }
+            options={aircraftOptions.map((aircraft) => ({
+              value: aircraft,
+              label: aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
+            }))}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select
+            size="large"
+            style={{ width: "100%" }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            options={statusOptions}
+          />
+        </Col>
+        {!isOfficerInCharge && (
+          <Col xs={24} md={4} style={{ textAlign: "right" }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setEntryModalVisible(true)}
             >
-              {selectedAircraft && selectedAircraft !== "all"
-                ? `RP/C: ${selectedAircraft}`
-                : "Choose Aircraft"}
-            </span>
-            <span className="fl-filter-arrow">
-              {showAircraftDropdown ? "▲" : "▼"}
-            </span>
-          </div>
+              New Entry
+            </Button>
+          </Col>
+        )}
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+          </Text>
+        </Col>
+      </Row>
 
-          {showAircraftDropdown && (
-            <div className="fl-dropdown-menu">
-              {aircraftOptions.map((aircraft) => (
-                <div
-                  key={aircraft}
-                  className="fl-dropdown-item"
-                  onClick={() => {
-                    setSelectedAircraft(aircraft);
-                    setShowAircraftDropdown(false);
-                  }}
-                >
-                  {aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="fl-filter-dropdown" style={{ width: 150 }}>
-          <div
-            className="fl-filter-selector"
-            onClick={() => setShowStatusDropdown((prev) => !prev)}
-          >
-            <span className="fl-filter-selected">
-              {statusOptions.find((option) => option.value === selectedStatus)?.label ||
-                "Status"}
-            </span>
-            <span className="fl-filter-arrow">
-              {showStatusDropdown ? "▲" : "▼"}
-            </span>
-          </div>
-
-          {showStatusDropdown && (
-            <div className="fl-dropdown-menu">
-              {statusOptions.map((option) => (
-                <div
-                  key={option.value}
-                  className="fl-dropdown-item"
-                  onClick={() => {
-                    setSelectedStatus(option.value);
-                    setShowStatusDropdown(false);
-                  }}
-                >
-                  {option.label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="fl-table-wrapper">
+      <Card className="fl-table-wrapper" styles={{ body: { padding: 0 } }}>
         <Table
           className="fl-table"
           columns={columns}
@@ -762,13 +789,14 @@ export default function FlightLog() {
           rowKey={(record) => record._id || record.id}
           pagination={{ pageSize: 10, showSizeChanger: false }}
           locale={{
-            emptyText: searchQuery || selectedAircraft || selectedStatus !== "all"
-              ? "No flight logs found"
-              : "No flight logs yet",
+            emptyText:
+              searchQuery || selectedAircraft || selectedStatus !== "all"
+                ? "No flight logs found"
+                : "No flight logs yet",
           }}
           size="small"
         />
-      </div>
+      </Card>
 
       <FlightLogEntry
         visible={entryModalVisible}
@@ -790,114 +818,55 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
+          readOnly={isOfficerInCharge}
         />
       )}
+
+      <PinVerifiedSignatureModal
+        open={signatureWorkflow.open}
+        title={
+          signatureWorkflow.action === "release"
+            ? "Release Flight Log"
+            : "Accept Flight Log"
+        }
+        description={
+          signatureWorkflow.action === "release"
+            ? "Draw your release signature below. This signature will be attached to the flight log and sent to the pilot for acceptance."
+            : "Draw your acceptance signature below. This signature will be attached to the flight log as pilot acceptance."
+        }
+        confirmDescription={
+          signatureWorkflow.action === "release"
+            ? "Enter your 6-digit PIN to confirm that you want to sign and release this flight log."
+            : "Enter your 6-digit PIN to confirm that you want to sign and accept this flight log."
+        }
+        onCancel={closeSignatureWorkflow}
+        onSave={handleSignedWorkflowAction}
+      />
 
       <Modal
         open={workflowModal.open}
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
-        okText={
-          workflowModal.action === "release" && releaseConfirm.step === "signature"
-            ? "Continue"
-            : workflowModal.action === "release"
-              ? "Sign and Release"
-              : "OK"
-        }
-        cancelText={
-          workflowModal.action === "release" && releaseConfirm.step === "pin"
-            ? "Cancel Signing"
-            : "Cancel"
-        }
+        okText="OK"
+        cancelText="Cancel"
         title={
-          workflowModal.action === "release"
-            ? "Release Flight Log"
-            : workflowModal.action === "accept"
-              ? "Accept Flight Log"
-              : workflowModal.action === "notify"
-                ? "Notify Mechanic"
-                : "Complete Flight Log"
+          workflowModal.action === "notify"
+            ? "Notify Mechanic"
+            : "Complete Flight Log"
         }
       >
-        {workflowModal.action === "release" && (
-          <>
-            {releaseConfirm.step === "signature" ? (
-              <div>
-                <p>
-                  Draw your release signature below. This signature will be attached
-                  to the flight log and sent to the pilot for acceptance.
-                </p>
-                <div
-                  className="fl-sig-box"
-                  style={{ height: 120, marginTop: 12, marginBottom: 8 }}
-                >
-                  <SignatureCanvas
-                    ref={releaseSignatureRef}
-                    penColor="#000"
-                    canvasProps={{ style: { width: "100%", height: 120 } }}
-                    onEnd={handleReleaseSignatureEnd}
-                  />
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Button size="small" danger onClick={clearReleaseSignature}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p>
-                  Enter your 6-digit PIN to confirm that you want to sign and
-                  release this flight log.
-                </p>
-                <Input.Password
-                  value={releaseConfirm.pin}
-                  onChange={(e) =>
-                    setReleaseConfirm((prev) => ({
-                      ...prev,
-                      pin: e.target.value.replace(/\D/g, "").slice(0, 6),
-                    }))
-                  }
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Enter 6-digit PIN"
-                />
-                {releaseConfirm.signature && (
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
-                      Signature to be applied:
-                    </div>
-                    <div className="fl-sig-box">
-                      <img
-                        src={releaseConfirm.signature}
-                        alt="release signature"
-                        style={{ width: "100%", height: 60, objectFit: "contain" }}
-                      />
-                    </div>
-                    <Button
-                      size="small"
-                      style={{ marginTop: 8 }}
-                      onClick={() =>
-                        setReleaseConfirm((prev) => ({ ...prev, step: "signature" }))
-                      }
-                    >
-                      Redraw Signature
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-        {workflowModal.action === "accept" && (
-          <p>Accept this flight log as pilot?</p>
-        )}
         {workflowModal.action === "notify" && (
-          <p>Notify the mechanic that this accepted flight log is ready for completion?</p>
+          <p>
+            Notify the mechanic that this accepted flight log is ready for
+            completion?
+          </p>
         )}
         {workflowModal.action === "complete" && (
-          <p>Complete this flight log and update parts-monitoring totals from its to-date values?</p>
+          <p>
+            Complete this flight log and update parts-monitoring totals from its
+            to-date values?
+          </p>
         )}
       </Modal>
     </div>

@@ -5,7 +5,6 @@ import {
   Image,
   Modal,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -13,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import SignatureCanvas from "react-native-signature-canvas";
 import { AuthContext } from "../../Context/AuthContext";
+import CodeInputField from "../CodeInputField";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 
@@ -222,23 +222,13 @@ export default function PostInspectionSignatureModal({
             </>
           ) : (
             <>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  backgroundColor: COLORS.grayLight,
-                  marginBottom: 12,
-                }}
-                value={pin}
-                onChangeText={(text) => setPin(text.replace(/\D/g, "").slice(0, 6))}
-                placeholder="Enter 6-digit PIN"
-                placeholderTextColor={COLORS.grayDark}
-                keyboardType="number-pad"
-                secureTextEntry
+              <CodeInputField
+                code={pin}
+                setCode={setPin}
                 maxLength={6}
+                secure
+                containerStyle={{ flex: 0, marginVertical: 8, marginBottom: 16 }}
+                inputContainerStyle={{ width: "100%" }}
               />
               {!!signature && (
                 <View

@@ -3,17 +3,17 @@ import { ResponsiveContainer, PieChart, Pie, Tooltip, Legend } from "recharts";
 
 const EMPTY_DATA = [{ name: "No data", value: 1, fill: "#d9d9d9" }];
 
-export const SDMChart = ({ data = [] }) => {
+export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
+    <ResponsiveContainer width="100%" height={height}>
       <PieChart>
         <Pie
           data={chartData}
           cx="50%"
           cy="50%"
-          outerRadius={100}
+          outerRadius={outerRadius}
           paddingAngle={0}
           dataKey="value"
           stroke="none"

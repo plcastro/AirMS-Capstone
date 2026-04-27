@@ -11,25 +11,34 @@ import {
 } from "recharts";
 
 export const FailureAnalysisChart = ({ data = [] }) => {
-  const rawData = data;
+  const rawData = Array.isArray(data) ? data : [];
   // Sort data so the components needing attention appear first.
-  const sortedData = [...rawData].sort((a, b) => b.failures - a.failures);
+  const sortedData = [...rawData].sort(
+    (a, b) => (b?.failures || 0) - (a?.failures || 0),
+  );
 
   if (sortedData.length === 0) {
     return (
-      <div style={{ width: "100%", height: 400, display: "grid", placeItems: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          height: 400,
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
         No critical component data available
       </div>
     );
   }
 
   return (
-    <div style={{ width: "100%", height: 400 }}>
+    <div style={{ width: "100%", height: 400, minHeight: 400 }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           layout="vertical"
           data={sortedData}
-          margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+          margin={{ top: 5, right: 30, left: 16, bottom: 5 }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -37,15 +46,12 @@ export const FailureAnalysisChart = ({ data = [] }) => {
             vertical={false}
           />
 
-          <XAxis
-            type="number"
-            allowDecimals={false}
-          />
+          <XAxis type="number" allowDecimals={false} />
 
           <YAxis
             dataKey="name"
             type="category"
-            width={100}
+            width={140}
             style={{ fontSize: "12px", fontWeight: "bold" }}
           />
 

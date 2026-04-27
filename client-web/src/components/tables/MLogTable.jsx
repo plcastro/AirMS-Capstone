@@ -10,10 +10,16 @@ export default function MLogTable({
   isWorkReportEditable = false,
   onWorkDetailChange,
 }) {
+  const tableData = (data || []).map((item, index) => ({
+    ...item,
+    __rowKey: item?._id || item?.id || `row-${index}`,
+  }));
+
   const columns = headers.map((header) => ({
     title: header.title,
     dataIndex: header.key,
     key: header.key,
+    width: header.width,
     render: (text, record, index) => {
       if (isWorkReport && header.key === "description") {
         if (isWorkReportEditable) {
@@ -31,34 +37,47 @@ export default function MLogTable({
             </div>
           );
         }
-        return <div style={{ minHeight: '30px' }}>{index + 1}. {text}</div>;
+        return (
+          <div style={{ minHeight: "30px" }}>
+            {index + 1}. {text}
+          </div>
+        );
       }
       return text || "N/A";
-    }
+    },
   }));
 
   return (
     <Table
       columns={columns}
-      dataSource={data}
-      rowKey={(record, index) => index}
+      dataSource={tableData}
+      rowKey="__rowKey"
       pagination={false}
       onRow={(record) => ({
         onClick: () => onRowClick && onRowClick(record),
-        style: { cursor: onRowClick ? 'pointer' : 'default' }
+        style: { cursor: onRowClick ? "pointer" : "default" },
       })}
-      components={isSimple ? {
-        header: {
-          cell: (props) => (
-            <th {...props} style={{ 
-              background: '#26866f', color: 'white', textAlign: 'center',
-              display: isWorkReport ? 'none' : 'table-cell' 
-            }}>
-              {props.children}
-            </th>
-          ),
-        },
-      } : undefined}
+      components={
+        isSimple
+          ? {
+              header: {
+                cell: (props) => (
+                  <th
+                    {...props}
+                    style={{
+                      background: "#26866f",
+                      color: "white",
+                      textAlign: "center",
+                      display: isWorkReport ? "none" : "table-cell",
+                    }}
+                  >
+                    {props.children}
+                  </th>
+                ),
+              },
+            }
+          : undefined
+      }
       bordered={true}
       size="small"
     />

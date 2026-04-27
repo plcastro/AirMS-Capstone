@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -12,6 +12,7 @@ import {
 } from "antd";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
@@ -51,6 +52,8 @@ const columnHeader = [
 ];
 
 export default function MaintenanceTracking() {
+  const { user } = useContext(AuthContext);
+  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
@@ -77,12 +80,16 @@ export default function MaintenanceTracking() {
           );
         }
 
-        setInsights(Array.isArray(insightsResult.data) ? insightsResult.data : []);
+        setInsights(
+          Array.isArray(insightsResult.data) ? insightsResult.data : [],
+        );
         setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
-        message.error(error.message || "Failed to load AI maintenance insights");
+        message.error(
+          error.message || "Failed to load AI maintenance insights",
+        );
       } finally {
         setLoading(false);
       }
@@ -105,7 +112,9 @@ export default function MaintenanceTracking() {
 
       setInsights(Array.isArray(result.data) ? result.data : []);
       setMeta(result.meta || null);
-      message.success(`Requested Gemini summaries for up to ${llmLimit} highest-risk aircraft.`);
+      message.success(
+        `Requested Gemini summaries for up to ${llmLimit} highest-risk aircraft.`,
+      );
     } catch (error) {
       console.error("Failed to load Gemini summaries:", error);
       message.error(error.message || "Failed to load Gemini summaries");
@@ -136,10 +145,13 @@ export default function MaintenanceTracking() {
         shortFinding: item.shortFinding,
         managerSummary: item.managerSummary || item.shortFinding,
         managerSummarySource:
-          item.managerSummarySource === "gemini" ? "Gemini AI" : "Rule Fallback",
+          item.managerSummarySource === "gemini"
+            ? "Gemini AI"
+            : "Rule Fallback",
         recommendedAction: item.recommendedAction,
         manualReference:
-          Array.isArray(item.manualReferences) && item.manualReferences.length > 0
+          Array.isArray(item.manualReferences) &&
+          item.manualReferences.length > 0
             ? item.manualReferences.join(" | ")
             : "Pending manual mapping",
       })),
@@ -169,61 +181,78 @@ export default function MaintenanceTracking() {
         display: "flex",
         flexDirection: "column",
         gap: 16,
+        height: "calc(100vh - 64px)",
+        overflowY: "auto",
+        paddingBottom: 32,
       }}
     >
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
-            <Statistic title="Aircraft Assessed" value={summary.totalAircraft} />
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
+            <Statistic
+              title="Aircraft Assessed"
+              value={summary.totalAircraft}
+            />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Critical + High"
               value={(summary.critical || 0) + (summary.high || 0)}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={24} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Medium + Low"
               value={(summary.medium || 0) + (summary.low || 0)}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
-            <Statistic title="Gemini Summaries" value={summarySourceCounts.gemini} />
+        <Col xs={24} sm={12} md={4}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
+            <Statistic
+              title="Gemini Summaries"
+              value={summarySourceCounts.gemini}
+            />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
-            <Statistic title="Rule Fallbacks" value={summarySourceCounts.fallback} />
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
+            <Statistic
+              title="Rule Fallbacks"
+              value={summarySourceCounts.fallback}
+            />
           </Card>
         </Col>
       </Row>
 
       <Card>
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Title level={4} style={{ margin: 0 }}>
             AI Maintenance Tracking
           </Title>
           <Text type="secondary">
-            AirMS now condenses maintenance, task, flight, and parts records into one maintenance decision dashboard.
+            AirMS now condenses maintenance, task, flight, and parts records
+            into one maintenance decision dashboard.
           </Text>
           <Space wrap>
-            <Button
-              type="primary"
-              onClick={fetchGeminiSummaries}
-              loading={summaryLoading}
-              disabled={!llmHealth?.configured}
-            >
-              Generate Gemini Summaries
-            </Button>
+            {!isOfficerInCharge && (
+              <Button
+                type="primary"
+                onClick={fetchGeminiSummaries}
+                loading={summaryLoading}
+                disabled={!llmHealth?.configured}
+              >
+                Generate Gemini Summaries
+              </Button>
+            )}
             <Text type="secondary">
-              Rule-engine results load by default. Gemini is requested only on demand for up to {llmLimit} highest-risk aircraft.
+              Rule-engine results load by default.
+              {!isOfficerInCharge &&
+                ` Gemini is requested only on demand for up to ${llmLimit} highest-risk aircraft.`}
             </Text>
           </Space>
         </Space>
@@ -233,16 +262,22 @@ export default function MaintenanceTracking() {
         <Alert
           type="info"
           showIcon
-          message="AI implementation mode"
+          title="AI implementation mode"
           description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "Gemini summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current Gemini request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
         />
       )}
 
       {llmHealth && (
         <Alert
-          type={llmHealth.reachable ? "success" : llmHealth.configured ? "warning" : "error"}
+          type={
+            llmHealth.reachable
+              ? "success"
+              : llmHealth.configured
+                ? "warning"
+                : "error"
+          }
           showIcon
-          message="Gemini health"
+          title="Gemini health"
           description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Reachable: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
         />
       )}
