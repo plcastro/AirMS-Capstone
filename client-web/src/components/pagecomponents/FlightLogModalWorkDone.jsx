@@ -1,7 +1,7 @@
-import React, { useRef } from "react";
+import React, { useState } from "react";
 import { Input, Button } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
-import SignatureCanvas from "react-signature-canvas";
+import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 
 const { TextArea } = Input;
 
@@ -14,14 +14,9 @@ const emptyWorkItem = () => ({
 });
 
 function WorkItemSignaturePad({ value, onChange, disabled }) {
-  const sigRef = useRef(null);
-
-  const handleEnd = () => {
-    if (sigRef.current && onChange) onChange(sigRef.current.toDataURL("image/png"));
-  };
+  const [isSignatureOpen, setIsSignatureOpen] = useState(false);
 
   const handleClear = () => {
-    if (sigRef.current) sigRef.current.clear();
     if (onChange) onChange("");
   };
 
@@ -32,20 +27,34 @@ function WorkItemSignaturePad({ value, onChange, disabled }) {
           <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
+        ) : value ? (
+          <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
         ) : (
-          <SignatureCanvas
-            ref={sigRef}
-            penColor="#000"
-            canvasProps={{ style: { width: "100%", height: 60 } }}
-            onEnd={handleEnd}
-          />
+          <Button type="link" onClick={() => setIsSignatureOpen(true)}>
+            Tap to sign
+          </Button>
         )}
       </div>
       {!disabled && (
-        <Button size="small" danger onClick={handleClear} style={{ marginTop: 4, float: "right" }}>
-          Clear
-        </Button>
+        <div style={{ marginTop: 4, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {value && (
+            <Button size="small" onClick={() => setIsSignatureOpen(true)}>
+              Replace
+            </Button>
+          )}
+          <Button size="small" danger onClick={handleClear}>
+            Clear
+          </Button>
+        </div>
       )}
+      <PinVerifiedSignatureModal
+        open={isSignatureOpen}
+        title="Work Done Signature"
+        description="Draw the work-done signature below."
+        confirmDescription="Enter your 6-digit PIN to save this work-done signature."
+        onCancel={() => setIsSignatureOpen(false)}
+        onSave={(signature) => onChange?.(signature)}
+      />
     </div>
   );
 }

@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Modal,
   Image,
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import SignatureCanvas from "react-native-signature-canvas";
+import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 
 export default function FlightLogModalOilServicing({
   legs,
@@ -19,7 +17,6 @@ export default function FlightLogModalOilServicing({
   isEditable = true,
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
-  const signatureRef = useRef(null);
 
   const getOrdinalSuffix = (num) => {
     const j = num % 10;
@@ -70,58 +67,14 @@ export default function FlightLogModalOilServicing({
   );
 
   const renderSignatureModal = (legIndex, title, onSave, onClose) => (
-    <Modal
+    <PinVerifiedSignatureModal
       visible={showSignatureModal === legIndex}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
-        <View style={{ backgroundColor: COLORS.white, borderRadius: 12, width: "90%", height: "50%", overflow: "hidden" }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.grayMedium }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.black }}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={{ flex: 1 }}>
-            <SignatureCanvas
-              ref={signatureRef}
-              onOK={(sig) => onSave(legIndex, sig)}
-              onEmpty={onClose}
-              webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
-              descriptionText=""
-              clearText="Clear"
-              confirmText="Save"
-              penColor="#000000"
-              backgroundColor="rgba(255,255,255,0)"
-              imageType="image/png"
-              webviewProps={{
-                cacheEnabled: true,
-                androidLayerType: "hardware",
-                style: { backgroundColor: "transparent" }
-              }}
-            />
-          </View>
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between", padding: 16, borderTopWidth: 1, borderTopColor: COLORS.grayMedium }}>
-            <TouchableOpacity
-              onPress={() => signatureRef.current?.clearSignature()}
-              style={{ paddingVertical: 8, paddingHorizontal: 20, backgroundColor: "#D9534F", borderRadius: 6 }}
-            >
-              <Text style={{ color: COLORS.white, fontWeight: "500" }}>Clear</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => signatureRef.current?.readSignature()}
-              style={{ paddingVertical: 8, paddingHorizontal: 20, backgroundColor: COLORS.primaryLight, borderRadius: 6 }}
-            >
-              <Text style={{ color: COLORS.white, fontWeight: "500" }}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      title={title}
+      description="Draw the oil servicing signature below."
+      confirmDescription="Enter your 6-digit PIN to save this oil servicing signature."
+      onClose={onClose}
+      onSave={(sig) => onSave(legIndex, sig)}
+    />
   );
 
   if (!legs || legs.length === 0) {

@@ -98,6 +98,12 @@ router.put(
   rbacMiddleware.requireSelfOrAdmin("id"),
   updatePIN,
 );
+router.post(
+  "/verify-pin/:id",
+  verifyToken,
+  rbacMiddleware.requireSelfOrAdmin("id"),
+  verifyPIN,
+);
 router.put(
   "/update-user-status/:id",
   verifyToken,
