@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +20,7 @@ import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PreInspectionEditEntry({
   visible,
@@ -89,18 +89,12 @@ export default function PreInspectionEditEntry({
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
-      Alert.alert(
-        "Validation Error",
-        `FOB must be filled in before ${actionLabel}.`,
-      );
+      showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
 
     if (!areAllInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        `All checklist fields must be checked before ${actionLabel}.`,
-      );
+      showToast(`All checklist fields must be checked before ${actionLabel}.`);
       return false;
     }
 
@@ -136,10 +130,10 @@ export default function PreInspectionEditEntry({
 
     try {
       await persistInspection(updatedFormData);
-      Alert.alert("Success", "Pre-inspection has been completed");
+      showToast("Pre-inspection has been completed");
     } catch (error) {
       console.error("Error completing pre-inspection:", error);
-      Alert.alert("Error", "Failed to complete pre-inspection");
+      showToast("Failed to complete pre-inspection");
       throw error;
     }
   };
@@ -164,21 +158,21 @@ export default function PreInspectionEditEntry({
 
     try {
       await persistInspection(updatedFormData);
-      Alert.alert("Success", "Pre-inspection has been released");
+      showToast("Pre-inspection has been released");
     } catch (error) {
       console.error("Error releasing pre-inspection:", error);
-      Alert.alert("Error", "Failed to release pre-inspection");
+      showToast("Failed to release pre-inspection");
       throw error;
     }
   };
 
   const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return;
     }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return;
     }
 
@@ -186,7 +180,7 @@ export default function PreInspectionEditEntry({
       await persistInspection(formData);
     } catch (error) {
       console.error("Error saving pre-inspection:", error);
-      Alert.alert("Error", "Failed to save pre-inspection");
+      showToast("Failed to save pre-inspection");
     }
   };
 
@@ -361,7 +355,11 @@ export default function PreInspectionEditEntry({
             <View style={{ marginTop: 20, marginBottom: 20 }}>
               {showReleaseButton && (
                 <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
+                  onPress={() => {
+                    if (validateBeforeSigning("release")) {
+                      setShowReleaseModal(true);
+                    }
+                  }}
                   style={{
                     backgroundColor: COLORS.primaryLight,
                     paddingVertical: 12,
@@ -384,7 +382,11 @@ export default function PreInspectionEditEntry({
 
               {showAcceptButton && (
                 <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
+                  onPress={() => {
+                    if (validateBeforeSigning("acceptance")) {
+                      setShowAcceptModal(true);
+                    }
+                  }}
                   style={{
                     backgroundColor: COLORS.primaryLight,
                     paddingVertical: 12,

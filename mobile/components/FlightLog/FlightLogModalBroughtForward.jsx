@@ -8,9 +8,12 @@ export default function FlightLogModalBroughtForward({
   isEditable = true,
   isLocked = false,
 }) {
-  const editable = isEditable && !isLocked;
+  const isFieldEditable = (field) => isEditable && field === "usage";
 
-  const renderField = (label, field) => (
+  const renderField = (label, field) => {
+    const editable = isFieldEditable(field);
+
+    return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
@@ -30,7 +33,8 @@ export default function FlightLogModalBroughtForward({
         keyboardType={field === "airframeNextInsp" || field === "engineNextInsp" ? "default" : "numeric"}
       />
     </View>
-  );
+    );
+  };
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>

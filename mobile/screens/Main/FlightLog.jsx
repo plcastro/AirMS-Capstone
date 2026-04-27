@@ -8,7 +8,6 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
@@ -20,6 +19,7 @@ import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
+import { showToast } from "../../utilities/toast";
 
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
@@ -82,14 +82,11 @@ export default function FlightLog({ route, navigation }) {
         setFlightLogs(data.data || []);
       } else {
         console.error("Error fetching logs:", data.message);
-        Alert.alert("Error", data.message || "Failed to fetch flight logs");
+        showToast(data.message || "Failed to fetch flight logs");
       }
     } catch (error) {
       console.error("Fetch error:", error);
-      Alert.alert(
-        "Error",
-        "Failed to connect to server. Please check your network.",
-      );
+      showToast("Failed to connect to server. Please check your network.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -178,11 +175,11 @@ export default function FlightLog({ route, navigation }) {
         fetchNotifications();
         setShowNewEntryModal(false);
       } else {
-        Alert.alert("Error", data.message || "Failed to add flight log");
+        showToast(data.message || "Failed to add flight log");
       }
     } catch (error) {
       console.error("Save error:", error);
-      Alert.alert("Error", "Failed to connect to server");
+      showToast("Failed to connect to server");
     }
   };
 
@@ -211,13 +208,13 @@ export default function FlightLog({ route, navigation }) {
         } else {
           setSelectedLog(updatedLog);
         }
-        Alert.alert("Success", "Flight log updated successfully");
+        showToast("Flight log updated successfully");
       } else {
-        Alert.alert("Error", data.message || "Failed to update flight log");
+        showToast(data.message || "Failed to update flight log");
       }
     } catch (error) {
       console.error("Update error:", error);
-      Alert.alert("Error", "Failed to connect to server");
+      showToast("Failed to connect to server");
     }
   };
 

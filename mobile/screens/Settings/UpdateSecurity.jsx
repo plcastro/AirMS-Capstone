@@ -18,7 +18,7 @@ import {
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
-
+import { showToast } from "../../utilities/toast";
 export default function UpdateSecurity() {
   const { user, setUser } = useContext(AuthContext);
   const scrollRef = useRef(null);
@@ -152,7 +152,7 @@ export default function UpdateSecurity() {
       resetAll();
     } catch (err) {
       setValidationMessage(err.message);
-      Alert.alert("Error", err.message);
+      showToast(err.message);
     }
   };
 
@@ -225,10 +225,10 @@ export default function UpdateSecurity() {
         if (!res.ok) throw new Error(data.message);
 
         setUser((prev) => ({ ...prev, pin: newPin }));
-        Alert.alert("Success", "PIN successfully reset!");
+        showToast("PIN successfully reset!");
         resetAll();
       } catch (err) {
-        Alert.alert("Error", err.message);
+        showToast(err.message);
       }
     }
   };

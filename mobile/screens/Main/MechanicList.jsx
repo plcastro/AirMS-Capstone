@@ -72,7 +72,7 @@ export default function MechanicList() {
         );
       } catch (error) {
         console.error("Error fetching assignable user list:", error);
-        Alert.alert("Error", error.message || "Failed to fetch employees");
+        showToast(error.message || "Failed to fetch employees");
       }
     };
 

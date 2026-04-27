@@ -100,13 +100,13 @@ export default function TaskCard({
       return {
         value: diffHours,
         unit: "hour",
-        text: `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`,
+        text: `Submitted late by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`,
       };
     } else {
       return {
         value: diffDays,
         unit: "day",
-        text: `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`,
+        text: `Submitted late by ${diffDays} day${diffDays !== 1 ? "s" : ""}`,
       };
     }
   };

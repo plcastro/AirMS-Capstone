@@ -215,38 +215,6 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole, readO
                     Control: {log.control || "N/A"}
                   </Text>
                 </View>
-                {/* Created By Badge */}
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 10,
-                    right: 10,
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor:
-                        log.createdBy === "pilot" ? "#E3F2FD" : "#F3E5F5",
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        color:
-                          log.createdBy === "pilot" ? "#1976D2" : "#7B1FA2",
-                        fontWeight: "500",
-                      }}
-                    >
-                      {log.createdBy === "pilot"
-                        ? "Pilot Created"
-                        : "Mechanic Created"}
-                    </Text>
-                  </View>
-                </View>
-
                 <View
                   style={{
                     position: "absolute",
