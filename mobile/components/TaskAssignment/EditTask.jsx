@@ -212,6 +212,7 @@ export default function EditTask({
     visible,
     onToggle,
     onSelect,
+    disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
@@ -221,10 +222,12 @@ export default function EditTask({
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => {
+          if (disabled) return;
           const nextVisible = !visible;
           closeAllDropdowns();
           onToggle(nextVisible);
         }}
+        disabled={disabled}
         style={{
           minHeight: 48,
           backgroundColor: COLORS.grayLight,
@@ -254,7 +257,7 @@ export default function EditTask({
         </Text>
       </TouchableOpacity>
 
-      {visible && (
+      {visible && !disabled && (
         <View
           style={{
             marginTop: 6,
@@ -366,6 +369,7 @@ export default function EditTask({
               visible: showAircraftDropdown,
               onToggle: setShowAircraftDropdown,
               onSelect: setSelectedAircraft,
+              disabled: true,
             })}
 
             {renderDropdownField({
@@ -396,6 +400,7 @@ export default function EditTask({
                 marginBottom: 15,
               }}
               onPress={() => openDateTimePicker("start")}
+              disabled={true}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
@@ -426,6 +431,7 @@ export default function EditTask({
                 marginBottom: 20,
               }}
               onPress={() => openDateTimePicker("end")}
+              disabled={true}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}

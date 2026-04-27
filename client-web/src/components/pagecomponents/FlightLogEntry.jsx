@@ -21,7 +21,7 @@ import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 const resolveRole = (role = "") => {
   const r = role.toLowerCase();
   if (r === "pilot") return "pilot";
-  if (r === "engineer" || r === "maintenance manager") return "mechanic";
+  if (r === "engineer" || r === "maintenance manager" || r === "officer-in-charge") return "mechanic";
   return "pilot";
 };
 
@@ -133,6 +133,7 @@ export default function FlightLogEntry({
   editMode = false,
   initialData = null,
   initialComponentData = null,
+  readOnly = false,
 }) {
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
@@ -404,16 +405,16 @@ export default function FlightLogEntry({
   };
 
   // EDIT PERMISSIONS (who can edit what)
-  const canEditBasicInfo = !editMode || formData.createdBy === userRole;
+  const canEditBasicInfo = !readOnly && (!editMode || formData.createdBy === userRole);
   const isCompletedLog = editMode && formData.status === "completed";
-  const canEditDestinations = !editMode ? isPilot : isPilot && editMode;
+  const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
   const canEditComponent = !editMode
-    ? isMechanic
-    : isMechanic && editMode && !formData.broughtForwardLocked;
-  const canEditFuelOil = !editMode ? isMechanic : isMechanic && editMode;
-  const canEditWorkDone = !editMode ? isMechanic : isMechanic && editMode;
-  const canEditDiscrepancy = true; // Anyone can edit discrepancy
-  const canSave = !isCompletedLog;
+    ? !readOnly && isMechanic
+    : !readOnly && isMechanic && editMode && !formData.broughtForwardLocked;
+  const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditDiscrepancy = !readOnly;
+  const canSave = !readOnly && !isCompletedLog;
 
   const handleSave = async () => {
     if (isCompletedLog) {

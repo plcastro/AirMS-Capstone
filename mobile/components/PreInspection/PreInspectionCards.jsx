@@ -110,6 +110,7 @@ export default function PreInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isReleased = inspection.status === "released";
+        const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
           <View
@@ -231,9 +232,9 @@ export default function PreInspectionCards({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name={isReleased ? "eye-outline" : "pencil"}
+                    name={isReleased || isOfficerInCharge ? "eye-outline" : "pencil"}
                     size={20}
-                    color={isReleased ? COLORS.primaryLight : "#777"}
+                    color={isReleased || isOfficerInCharge ? COLORS.primaryLight : "#777"}
                   />
                 </View>
               </View>
