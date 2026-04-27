@@ -39,6 +39,7 @@ export default function PostInspection({ route }) {
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
 
   useEffect(() => {
     const fetchPostInspections = async () => {
@@ -447,6 +448,7 @@ export default function PostInspection({ route }) {
           }
         }}
         userRole={userRole}
+        readOnly={isOfficerInCharge}
       />
     </View>
   );

@@ -109,6 +109,7 @@ export default function PostInspectionCards({
     <>
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
+        const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
           <View
@@ -230,9 +231,9 @@ export default function PostInspectionCards({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="pencil"
+                    name={isOfficerInCharge ? "eye-outline" : "pencil"}
                     size={20}
-                    color="#777"
+                    color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
                   />
                 </View>
               </View>

@@ -80,11 +80,11 @@ export default function FlightLog() {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
   const isMechanic = [
     "engineer",
     "mechanic",
     "maintenance manager",
-    "officer-in-charge",
     "head of maintenance",
   ].includes(userRole);
 
@@ -670,13 +670,13 @@ export default function FlightLog() {
       render: (_, record) => (
         <Space size={4}>
           <Button
-            type="primary"
+            type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
           >
-            Edit
+            {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {isMechanic && record.status === "pending_release" && (
+          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
             <Button
               size="small"
               onClick={() => openWorkflowModal("release", record)}
@@ -702,7 +702,8 @@ export default function FlightLog() {
                 Notify
               </Button>
             )}
-          {isMechanic &&
+          {!isOfficerInCharge &&
+            isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
               <Button
@@ -760,16 +761,18 @@ export default function FlightLog() {
             options={statusOptions}
           />
         </Col>
-        <Col xs={24} md={4} style={{ textAlign: "right" }}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={() => setEntryModalVisible(true)}
-          >
-            New Entry
-          </Button>
-        </Col>
+        {!isOfficerInCharge && (
+          <Col xs={24} md={4} style={{ textAlign: "right" }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setEntryModalVisible(true)}
+            >
+              New Entry
+            </Button>
+          </Col>
+        )}
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
             Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
@@ -815,6 +818,7 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
+          readOnly={isOfficerInCharge}
         />
       )}
 

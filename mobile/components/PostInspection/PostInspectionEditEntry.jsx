@@ -31,6 +31,7 @@ export default function PostInspectionEditEntry({
   onSave,
   userRole,
   rpcOptions = [],
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -168,7 +169,8 @@ export default function PostInspectionEditEntry({
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
   const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
-  const isFormEditable = !isPilot && !hasReleaseSignature && !hasAcceptSignature;
+  const isFormEditable =
+    !readOnly && !isPilot && !hasReleaseSignature && !hasAcceptSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -236,17 +238,19 @@ export default function PostInspectionEditEntry({
 
   const showReleaseButton =
     canReleasePostInspection &&
+    !readOnly &&
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
   const showAcceptButton =
     isPilot &&
+    !readOnly &&
     hasReleaseSignature &&
     !hasAcceptSignature &&
     formData.status === "released" &&
     !isSubmitting;
   const footerActionLabel =
-    isPilot || formData.status === "released" || formData.status === "completed"
+    readOnly || isPilot || formData.status === "released" || formData.status === "completed"
       ? "Close"
       : "Save";
   const handleFooterAction = () => {
