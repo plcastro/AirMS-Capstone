@@ -1,11 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
+  const [activeTab, setActiveTab] = useState("Ongoing");
+  const isCompletedTask = (task) =>
+    ["completed", "turned in", "approved"].includes(
+      task?.status?.toLowerCase?.() || "",
+    );
   const assignedTasks = tasks.filter(
     (task) => String(task.assignedTo) === String(mechanic.id),
+  );
+  const visibleTasks = assignedTasks.filter((task) =>
+    activeTab === "Completed" ? isCompletedTask(task) : !isCompletedTask(task),
   );
 
   const getPriorityColor = (priority) => {
@@ -222,19 +230,48 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
 
       <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
         <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          Assigned Tasks ({assignedTasks.length})
+          {activeTab} Tasks ({visibleTasks.length})
         </Text>
       </View>
 
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+        {["Ongoing", "Completed"].map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 6,
+              alignItems: "center",
+              backgroundColor:
+                activeTab === tab ? COLORS.primaryLight : COLORS.white,
+              borderWidth: 1,
+              borderColor:
+                activeTab === tab ? COLORS.primaryLight : COLORS.border,
+            }}
+          >
+            <Text
+              style={{
+                color: activeTab === tab ? "#fff" : COLORS.grayDark,
+                fontWeight: "600",
+              }}
+            >
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={assignedTasks}
-        keyExtractor={(item) => item.id.toString()}
+        data={visibleTasks}
+        keyExtractor={(item) => String(item.id || item._id)}
         renderItem={renderTaskItem}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this mechanic
+              No {activeTab.toLowerCase()} tasks assigned to this mechanic
             </Text>
           </View>
         }

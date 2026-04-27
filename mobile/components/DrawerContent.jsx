@@ -51,7 +51,6 @@ const DrawerList = [
         label: "Post-Inspection",
         navigateTo: "Post-Inspection",
         jobTitle: [
-          "pilot",
           "maintenance manager",
           "officer-in-charge",
           "engineer",
@@ -67,7 +66,6 @@ const DrawerList = [
       "maintenance manager",
       "engineer",
       "mechanic",
-      "officer-in-charge",
     ],
     children: [
       {
