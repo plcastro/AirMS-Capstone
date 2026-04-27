@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
-const sendEmail = require("../utilities/sendEmail");
-const generateOTP = require("../utilities/generateOTP");
+const sendEmail = require("../utils/sendEmail");
+const generateOTP = require("../utils/generateOTP");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) =>
   req.user?.id || req.userRecord?._id || fallbackId;

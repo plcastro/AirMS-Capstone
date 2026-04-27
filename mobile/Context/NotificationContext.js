@@ -129,7 +129,7 @@ const getStoredToken = async () => {
 };
 
 export function NotificationProvider({ children }) {
-  const { user } = useContext(AuthContext);
+  const { user, logoutUser } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const notificationResponseListener = useRef(null);
@@ -258,8 +258,18 @@ export function NotificationProvider({ children }) {
         },
       });
 
+      if (response.status === 401 || response.status === 403) {
+        setNotifications([]);
+        await logoutUser?.();
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error("Failed to fetch notifications");
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.message ||
+            `Failed to fetch notifications (${response.status})`,
+        );
       }
 
       const data = await response.json();
@@ -270,7 +280,7 @@ export function NotificationProvider({ children }) {
     } finally {
       setLoadingNotifications(false);
     }
-  }, [user?.id]);
+  }, [logoutUser, user?.id]);
 
   const markAsRead = useCallback(async (notificationId) => {
     const token = await getStoredToken();
@@ -280,12 +290,17 @@ export function NotificationProvider({ children }) {
     }
 
     try {
-      await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (response.status === 401 || response.status === 403) {
+        await logoutUser?.();
+        return;
+      }
 
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) =>
@@ -297,7 +312,7 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
-  }, []);
+  }, [logoutUser]);
 
   const markAllAsRead = useCallback(async () => {
     const token = await getStoredToken();
@@ -307,12 +322,17 @@ export function NotificationProvider({ children }) {
     }
 
     try {
-      await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
+      const response = await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (response.status === 401 || response.status === 403) {
+        await logoutUser?.();
+        return;
+      }
 
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) => ({
@@ -323,7 +343,7 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
     }
-  }, []);
+  }, [logoutUser]);
 
   const openNotificationTarget = useCallback(
     async (notificationPayload) => {
