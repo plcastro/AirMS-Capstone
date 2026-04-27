@@ -7,7 +7,6 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -20,8 +19,16 @@ import {
   estimateInspectionSchedule,
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
+import { showToast } from "../../utilities/toast";
 
 const { width } = Dimensions.get("window");
+
+const getNow = () => new Date();
+
+const clampToNow = (date) => {
+  const now = getNow();
+  return date < now ? now : date;
+};
 
 const getPickerValue = (event) => {
   if (event?.type === "dismissed") {
@@ -136,7 +143,7 @@ export default function AddTask({
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
-        Alert.alert("Error", "Failed to fetch aircraft");
+        showToast("Failed to fetch aircraft");
       } finally {
         setLoading(false);
       }
@@ -173,7 +180,7 @@ export default function AddTask({
         setInspectionOptions(options);
       } catch (error) {
         console.error("Error fetching inspections:", error);
-        Alert.alert("Error", "Failed to fetch inspection schedules");
+        showToast("Failed to fetch inspection schedules");
       } finally {
         setLoading(false);
       }
@@ -184,10 +191,17 @@ export default function AddTask({
 
   const confirmAdd = () => {
     if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      Alert.alert(
-        "Missing fields",
-        "Please select an aircraft, inspection, and mechanic.",
-      );
+      showToast("Please select an aircraft, inspection, and mechanic.");
+      return;
+    }
+
+    if (startDate < getNow() || endDate < getNow()) {
+      showToast("Start and end date/time must be today or later.");
+      return;
+    }
+
+    if (endDate < startDate) {
+      showToast("End date/time must be after the start date/time.");
       return;
     }
 
@@ -316,10 +330,15 @@ export default function AddTask({
         selectedDate.getDate(),
       );
 
+      const clampedDate = clampToNow(nextDate);
+
       if (field === "start") {
-        setStartDate(nextDate);
+        setStartDate(clampedDate);
+        if (endDate < clampedDate) {
+          setEndDate(clampedDate);
+        }
       } else {
-        setEndDate(nextDate);
+        setEndDate(clampedDate);
       }
 
       setAndroidPickerMode("time");
@@ -335,9 +354,13 @@ export default function AddTask({
     }
 
     if (field === "start") {
-      setStartDate(nextDate);
+      const clampedDate = clampToNow(nextDate);
+      setStartDate(clampedDate);
+      if (endDate < clampedDate) {
+        setEndDate(clampedDate);
+      }
     } else {
-      setEndDate(nextDate);
+      setEndDate(clampToNow(nextDate));
       setEndDateManuallyAdjusted(true);
     }
 
@@ -557,7 +580,7 @@ export default function AddTask({
                   setChecklistItems(tasks);
                 } catch (error) {
                   console.error("Error fetching tasks:", error);
-                  Alert.alert("Error", "Failed to fetch inspection tasks");
+                  showToast("Failed to fetch inspection tasks");
                 } finally {
                   setLoading(false);
                 }
@@ -605,6 +628,7 @@ export default function AddTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onStartChange}
+                minimumDate={getNow()}
               />
             )}
 
@@ -650,6 +674,7 @@ export default function AddTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onEndChange}
+                minimumDate={getNow()}
               />
             )}
 

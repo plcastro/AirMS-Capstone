@@ -38,9 +38,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffHours < 24) {
-      return `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+      return `Submitted late by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
     } else {
-      return `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+      return `Submitted late by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
     }
   };
 
@@ -85,13 +85,11 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
     const now = new Date();
     const deadlineValue = item.endDateTime || item.dueDate;
     const dueDate = new Date(deadlineValue);
-    const isPastDue =
-      dueDate < now &&
-      item.status !== "Completed" &&
-      item.status !== "Turned in";
-    const overdueText = isPastDue
-      ? calculateOverdueTime(deadlineValue)
-      : null;
+    const isCompleted = isCompletedTask(item);
+    const wasLate = isCompleted
+      ? item.completedAt && new Date(item.completedAt) > dueDate
+      : dueDate < now;
+    const overdueText = wasLate ? calculateOverdueTime(deadlineValue) : null;
     const dueTime = formatDueTime(deadlineValue);
 
     return (
@@ -160,7 +158,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           Due: {formatDateTime(deadlineValue)}
         </Text>
 
-        {isPastDue && (
+        {wasLate && (
           <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
             {overdueText} | Due at {dueTime}
           </Text>

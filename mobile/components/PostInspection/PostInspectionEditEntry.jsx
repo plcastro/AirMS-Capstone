@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,6 +22,7 @@ import {
   areAllPostInspectionChecksComplete,
   getDefaultPostInspectionFormData,
 } from "./PostInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PostInspectionEditEntry({
   visible,
@@ -36,7 +36,6 @@ export default function PostInspectionEditEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPilot = userRole === "pilot";
@@ -99,10 +98,7 @@ export default function PostInspectionEditEntry({
 
   const handleRelease = async (signatureData) => {
     if (!areAllPostInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        "All checklist fields must be checked before release.",
-      );
+      showToast("All checklist fields must be checked before release.");
       return;
     }
 
@@ -114,42 +110,21 @@ export default function PostInspectionEditEntry({
         signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
-      status: "released",
-    };
-
-    await persistInspection(nextFormData);
-  };
-
-  const handleAccept = async (signatureData) => {
-    if (!areAllPostInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        "All checklist fields must be checked before acceptance.",
-      );
-      return;
-    }
-
-    const nextFormData = {
-      ...formData,
-      acceptedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
-        timestamp: new Date().toISOString(),
-      },
       status: "completed",
     };
 
     await persistInspection(nextFormData);
+    setFormData(nextFormData);
+    showToast("Post-inspection has been completed");
   };
 
   const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return;
     }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return;
     }
     await persistInspection(formData);
@@ -242,13 +217,6 @@ export default function PostInspectionEditEntry({
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
-  const showAcceptButton =
-    isPilot &&
-    !readOnly &&
-    hasReleaseSignature &&
-    !hasAcceptSignature &&
-    formData.status === "released" &&
-    !isSubmitting;
   const footerActionLabel =
     readOnly || isPilot || formData.status === "released" || formData.status === "completed"
       ? "Close"
@@ -337,7 +305,13 @@ export default function PostInspectionEditEntry({
             <View style={{ marginTop: 20, marginBottom: 20 }}>
               {showReleaseButton && (
                 <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
+                  onPress={() => {
+                    if (areAllPostInspectionChecksComplete(formData)) {
+                      setShowReleaseModal(true);
+                    } else {
+                      showToast("All checklist fields must be checked before release.");
+                    }
+                  }}
                   style={{
                     backgroundColor: COLORS.primaryLight,
                     paddingVertical: 12,
@@ -354,29 +328,6 @@ export default function PostInspectionEditEntry({
                     }}
                   >
                     Release
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {showAcceptButton && (
-                <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 16,
-                    }}
-                  >
-                    Accept
                   </Text>
                 </TouchableOpacity>
               )}
@@ -605,14 +556,6 @@ export default function PostInspectionEditEntry({
           actionLabel="release"
         />
 
-        <PostInspectionSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-          actionLabel="accept"
-        />
       </SafeAreaView>
     </Modal>
   );

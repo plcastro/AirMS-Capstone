@@ -239,13 +239,6 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              Aircraft Type:
-            </Text>
-            {renderAircraftType()}
-          </View>
-
-          <View style={{ marginBottom: 16 }}>
             <Text
               style={{
                 fontSize: 13,

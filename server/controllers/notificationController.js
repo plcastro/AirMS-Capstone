@@ -1,11 +1,16 @@
 const NotificationModel = require("../models/notificationModel");
 const UserModel = require("../models/userModel");
+const mongoose = require("mongoose");
 
-const normalizeRole = (role = "") => role.trim().toLowerCase();
+const normalizeRole = (role = "") => String(role || "").trim().toLowerCase();
 
-const getUserRole = async (userId) => {
+const getUserRole = async (userId, fallbackRole = "") => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return normalizeRole(fallbackRole);
+  }
+
   const user = await UserModel.findById(userId).select("jobTitle");
-  return normalizeRole(user?.jobTitle || "");
+  return normalizeRole(user?.jobTitle || fallbackRole);
 };
 
 const buildRecipientQuery = (userId, role) => ({
@@ -20,7 +25,7 @@ const getNotifications = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const role = await getUserRole(userId);
+    const role = await getUserRole(userId, req.user?.jobTitle);
     const notifications = await NotificationModel.find(
       buildRecipientQuery(userId, role),
     )
@@ -49,7 +54,7 @@ const markNotificationRead = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const role = await getUserRole(userId);
+    const role = await getUserRole(userId, req.user?.jobTitle);
     const notification = await NotificationModel.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -79,7 +84,7 @@ const markAllNotificationsRead = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const role = await getUserRole(userId);
+    const role = await getUserRole(userId, req.user?.jobTitle);
     await NotificationModel.updateMany(
       buildRecipientQuery(userId, role),
       {

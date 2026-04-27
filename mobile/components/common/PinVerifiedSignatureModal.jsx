@@ -1,7 +1,6 @@
 import React, { useContext, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Text,
@@ -15,6 +14,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../CodeInputField";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
+import { showToast } from "../../utilities/toast";
 
 export default function PinVerifiedSignatureModal({
   visible,
@@ -95,7 +95,7 @@ export default function PinVerifiedSignatureModal({
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      Alert.alert("PIN Required", "Enter your 6-digit PIN to confirm this signature.");
+      showToast("Enter your 6-digit PIN to confirm this signature.");
       return;
     }
 
@@ -106,7 +106,7 @@ export default function PinVerifiedSignatureModal({
       reset();
       onClose?.();
     } catch (error) {
-      Alert.alert("Signature Failed", error.message || "Could not verify your PIN.");
+      showToast(error.message || "Could not verify your PIN.");
     } finally {
       setSubmitting(false);
     }
@@ -135,7 +135,7 @@ export default function PinVerifiedSignatureModal({
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
                     setAdvanceAfterSignature(false);
-                    Alert.alert("Signature Required", "Please draw your signature before continuing.");
+                    showToast("Please draw your signature before continuing.");
                   }}
                   webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
                   descriptionText=""
@@ -148,6 +148,13 @@ export default function PinVerifiedSignatureModal({
               </View>
               <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
                 <TouchableOpacity
+                  onPress={handleClose}
+                  disabled={submitting}
+                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: COLORS.grayMedium }}
+                >
+                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   onPress={() => {
                     signatureRef.current?.clearSignature();
                     setSignature("");
@@ -155,12 +162,6 @@ export default function PinVerifiedSignatureModal({
                   style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#D9534F" }}
                 >
                   <Text style={{ color: COLORS.white, fontWeight: "600" }}>Clear</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => saveSignature(false)}
-                  style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: COLORS.primaryLight }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>Save Sign</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -183,13 +184,15 @@ export default function PinVerifiedSignatureModal({
           )}
 
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-            <TouchableOpacity
-              onPress={handleClose}
-              disabled={submitting}
-              style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: submitting ? 0.6 : 1 }}
-            >
-              <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
-            </TouchableOpacity>
+            {step === "pin" && (
+              <TouchableOpacity
+                onPress={handleClose}
+                disabled={submitting}
+                style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, borderWidth: 1, borderColor: COLORS.grayMedium, opacity: submitting ? 0.6 : 1 }}
+              >
+                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={handleConfirm}
               disabled={submitting}
