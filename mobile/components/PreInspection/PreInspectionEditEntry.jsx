@@ -29,6 +29,7 @@ export default function PreInspectionEditEntry({
   onSave,
   userRole,
   rpcOptions = [],
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -84,7 +85,7 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !isPilot && !hasAnySignature;
+  const isFormEditable = !readOnly && !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -246,16 +247,19 @@ export default function PreInspectionEditEntry({
   // Determine which action button to show on last page
   const showReleaseButton =
     isMechanic &&
+    !readOnly &&
     formData.status === "pending" &&
     !formData.releasedBy?.name &&
     !isSubmitting;
   const showAcceptButton =
     isPilot &&
+    !readOnly &&
     formData.status === "released" &&
     !formData.acceptedBy?.name &&
     !isSubmitting;
 
   const footerActionLabel =
+    readOnly ||
     isPilot ||
     formData.status === "completed" ||
     (!isFormEditable && !showAcceptButton && !showReleaseButton)

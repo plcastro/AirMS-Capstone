@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -12,6 +12,7 @@ import {
 } from "antd";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
@@ -51,6 +52,8 @@ const columnHeader = [
 ];
 
 export default function MaintenanceTracking() {
+  const { user } = useContext(AuthContext);
+  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
@@ -178,43 +181,46 @@ export default function MaintenanceTracking() {
         display: "flex",
         flexDirection: "column",
         gap: 16,
+        height: "calc(100vh - 64px)",
+        overflowY: "auto",
+        paddingBottom: 32,
       }}
     >
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Aircraft Assessed"
               value={summary.totalAircraft}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Critical + High"
               value={(summary.critical || 0) + (summary.high || 0)}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={24} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Medium + Low"
               value={(summary.medium || 0) + (summary.low || 0)}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={4}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Gemini Summaries"
               value={summarySourceCounts.gemini}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card variant="borderless">
+        <Col xs={24} sm={12} md={5}>
+          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
               title="Rule Fallbacks"
               value={summarySourceCounts.fallback}
@@ -233,17 +239,20 @@ export default function MaintenanceTracking() {
             into one maintenance decision dashboard.
           </Text>
           <Space wrap>
-            <Button
-              type="primary"
-              onClick={fetchGeminiSummaries}
-              loading={summaryLoading}
-              disabled={!llmHealth?.configured}
-            >
-              Generate Gemini Summaries
-            </Button>
+            {!isOfficerInCharge && (
+              <Button
+                type="primary"
+                onClick={fetchGeminiSummaries}
+                loading={summaryLoading}
+                disabled={!llmHealth?.configured}
+              >
+                Generate Gemini Summaries
+              </Button>
+            )}
             <Text type="secondary">
-              Rule-engine results load by default. Gemini is requested only on
-              demand for up to {llmLimit} highest-risk aircraft.
+              Rule-engine results load by default.
+              {!isOfficerInCharge &&
+                ` Gemini is requested only on demand for up to ${llmLimit} highest-risk aircraft.`}
             </Text>
           </Space>
         </Space>

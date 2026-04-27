@@ -1,23 +1,18 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { App, Input, Row, Col, Card, Button, Typography, Space } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
-  PrinterOutlined,
+  ExportOutlined,
 } from "@ant-design/icons";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { exportRecordToPDF } from "../../../components/common/ExportFile";
 
 const { Title, Text } = Typography;
 
-const normalizeWorkDetails = (details = []) =>
-  details.map((item) => ({
-    description: String(item?.description || "").trim(),
-  }));
-
 export default function MaintenanceLog() {
-  const { message, modal } = App.useApp();
   const { getAuthHeader } = useContext(AuthContext);
   const [allEntries, setAllEntries] = useState([]);
   const [searchValue, setSearchValue] = useState("");
@@ -25,8 +20,6 @@ export default function MaintenanceLog() {
   const [viewLevel, setViewLevel] = useState("dashboard");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
-  const [editableWorkDetails, setEditableWorkDetails] = useState([]);
-  const [savingWorkDetails, setSavingWorkDetails] = useState(false);
 
   useEffect(() => {
     const fetchMaintenanceLogs = async () => {
@@ -122,17 +115,6 @@ export default function MaintenanceLog() {
     [filteredEntries],
   );
 
-  const workDetailsChanged = useMemo(() => {
-    if (!selectedWO || selectedWO.workDetailsLocked) {
-      return false;
-    }
-
-    return (
-      JSON.stringify(normalizeWorkDetails(editableWorkDetails)) !==
-      JSON.stringify(normalizeWorkDetails(selectedWO.workDetails || []))
-    );
-  }, [editableWorkDetails, selectedWO]);
-
   const navigateToAircraft = (aircraftReg) => {
     const entries = filteredEntries.filter(
       (entry) => entry.aircraft === aircraftReg,
@@ -148,29 +130,12 @@ export default function MaintenanceLog() {
 
   const navigateToReport = (record) => {
     setSelectedWO(record);
-    setEditableWorkDetails(record.workDetails || []);
     setViewLevel("report");
   };
 
   const goBack = () => {
     if (viewLevel === "report") setViewLevel("aircraft");
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
-  };
-
-  const updateWorkDetail = (index, description) => {
-    setEditableWorkDetails((prev) =>
-      prev.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, description } : item,
-      ),
-    );
-  };
-
-  const addWorkDetail = () => {
-    setEditableWorkDetails((prev) => [...prev, { description: "" }]);
-  };
-
-  const cancelWorkDetailsChanges = () => {
-    setEditableWorkDetails(selectedWO?.workDetails || []);
   };
 
   const renderReadOnlyField = (label, value) => (
@@ -197,84 +162,12 @@ export default function MaintenanceLog() {
     </Space.Compact>
   );
 
-  const saveWorkDetails = async () => {
-    if (!selectedWO?._id) {
-      message.error("Maintenance log ID is missing");
-      return;
-    }
-
-    modal.confirm({
-      title: "Save description of work?",
-      content:
-        "Are you sure you want to save these changes? Once saved, the description of work table will be locked and cannot be edited again.",
-      okText: "Save and Lock",
-      cancelText: "Cancel",
-      onOk: async () => {
-        try {
-          setSavingWorkDetails(true);
-          const authHeader = await getAuthHeader();
-          const response = await fetch(
-            `${API_BASE}/api/maintenance-logs/updateMaintenanceLogById/${selectedWO._id}`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                ...authHeader,
-              },
-              body: JSON.stringify({
-                ...selectedWO,
-                workDetails: normalizeWorkDetails(editableWorkDetails),
-                workDetailsLocked: true,
-              }),
-            },
-          );
-
-          const payload = await response.json();
-          if (!response.ok) {
-            throw new Error(payload.message || "Failed to save work details");
-          }
-
-          const updatedLog = {
-            ...payload.data,
-            id: payload.data.sourceTaskId || payload.data._id,
-            type: "Task Assignment",
-            sn:
-              String(payload.data.aircraft || "").replace(/[^\d]/g, "") ||
-              "N/A",
-          };
-
-          setAllEntries((prev) =>
-            prev.map((entry) =>
-              entry._id === updatedLog._id
-                ? { ...entry, ...updatedLog }
-                : entry,
-            ),
-          );
-
-          setSelectedAircraft((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  entries: (prev.entries || []).map((entry) =>
-                    entry._id === updatedLog._id
-                      ? { ...entry, ...updatedLog }
-                      : entry,
-                  ),
-                }
-              : prev,
-          );
-
-          setSelectedWO(updatedLog);
-          setEditableWorkDetails(updatedLog.workDetails || []);
-          message.success("Description of work saved and locked");
-        } catch (error) {
-          console.error("Failed to save work details:", error);
-          message.error(error.message || "Failed to save work details");
-          throw error;
-        } finally {
-          setSavingWorkDetails(false);
-        }
-      },
+  const handleExport = async () => {
+    await exportRecordToPDF({
+      title: "Maintenance Log",
+      fileName: `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?._id || "record"}`,
+      subtitle: `Aircraft: ${selectedWO?.aircraft || "N/A"} | Task: ${selectedWO?.sourceTaskId || selectedWO?.id || "N/A"}`,
+      record: selectedWO,
     });
   };
 
@@ -543,12 +436,12 @@ export default function MaintenanceLog() {
           </Col>
           <Col>
             <Button
-              icon={<PrinterOutlined />}
+              icon={<ExportOutlined />}
               type="primary"
               style={{ backgroundColor: "#26866f", border: "none" }}
-              onClick={() => window.print()}
+              onClick={handleExport}
             >
-              Print
+              Export
             </Button>
           </Col>
         </Row>
@@ -598,50 +491,12 @@ export default function MaintenanceLog() {
               },
             }}
           >
-            <Space
-              style={{
-                width: "100%",
-                justifyContent: "space-between",
-                marginBottom: 10,
-              }}
-              wrap
-            >
-              <Text
-                type={selectedWO?.workDetailsLocked ? "secondary" : undefined}
-              >
-                {selectedWO?.workDetailsLocked
-                  ? "Description of work is locked after saving."
-                  : "You may add or edit descriptions before saving. Rows cannot be deleted."}
-              </Text>
-
-              {!selectedWO?.workDetailsLocked && (
-                <Space>
-                  <Button onClick={addWorkDetail}>Add Description</Button>
-                  {workDetailsChanged && (
-                    <Button onClick={cancelWorkDetailsChanges}>Cancel</Button>
-                  )}
-                  {workDetailsChanged && (
-                    <Button
-                      type="primary"
-                      loading={savingWorkDetails}
-                      onClick={saveWorkDetails}
-                      style={{ backgroundColor: "#26866f", border: "none" }}
-                    >
-                      Save Changes
-                    </Button>
-                  )}
-                </Space>
-              )}
-            </Space>
-
             <div style={{ maxHeight: 420, overflowY: "auto", paddingRight: 4 }}>
               <MLogTable
                 headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
-                data={editableWorkDetails}
+                data={selectedWO?.workDetails || []}
                 isSimple={true}
                 isWorkReport={true}
-                isWorkReportEditable={!selectedWO?.workDetailsLocked}
-                onWorkDetailChange={updateWorkDetail}
               />
             </div>
           </Card>

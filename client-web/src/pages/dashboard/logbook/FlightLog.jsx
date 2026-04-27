@@ -3,7 +3,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -29,7 +28,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecordToPDF } from "../../../components/common/ExportFile";
-import SignatureCanvas from "react-signature-canvas";
+import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
 const { Text } = Typography;
@@ -56,7 +55,7 @@ export default function FlightLog() {
     return `${month}/${day}/${year}`;
   };
 
-  const { user } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,20 +72,19 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
-  const [releaseConfirm, setReleaseConfirm] = useState({
-    step: "signature",
-    signature: "",
-    pin: "",
+  const [signatureWorkflow, setSignatureWorkflow] = useState({
+    open: false,
+    action: null,
+    log: null,
   });
-  const releaseSignatureRef = useRef(null);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
   const isMechanic = [
     "engineer",
     "mechanic",
     "maintenance manager",
-    "officer-in-charge",
     "head of maintenance",
   ].includes(userRole);
 
@@ -342,79 +340,39 @@ export default function FlightLog() {
   };
 
   const openWorkflowModal = (action, log) => {
-    setWorkflowModal({ open: true, action, log });
-    if (action === "release") {
-      setReleaseConfirm({ step: "signature", signature: "", pin: "" });
+    if (action === "release" || action === "accept") {
+      setSignatureWorkflow({ open: true, action, log });
+      return;
     }
+
+    setWorkflowModal({ open: true, action, log });
   };
 
   const closeWorkflowModal = () => {
     setWorkflowModal({ open: false, action: null, log: null });
-    setReleaseConfirm({ step: "signature", signature: "", pin: "" });
   };
 
-  const handleReleaseSignatureEnd = () => {
-    const signature = releaseSignatureRef.current?.toDataURL("image/png") || "";
-    setReleaseConfirm((prev) => ({ ...prev, signature }));
+  const closeSignatureWorkflow = () => {
+    setSignatureWorkflow({ open: false, action: null, log: null });
   };
 
-  const clearReleaseSignature = () => {
-    releaseSignatureRef.current?.clear();
-    setReleaseConfirm((prev) => ({ ...prev, signature: "" }));
-  };
-
-  const verifyReleasePin = async () => {
-    const userId = user?.id || user?._id;
-
-    if (!userId) {
-      throw new Error("Your user ID is missing. Please sign in again.");
-    }
-
-    const response = await fetch(`${API_BASE}/api/user/verify-pin/${userId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: releaseConfirm.pin }),
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "PIN verification failed");
-    }
-  };
-
-  const handleWorkflowAction = async () => {
-    const { action, log } = workflowModal;
+  const handleSignedWorkflowAction = async (signature) => {
+    const { action, log } = signatureWorkflow;
     if (!action || !log?._id) return;
 
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       if (action === "release") {
-        if (releaseConfirm.step === "signature") {
-          if (!releaseConfirm.signature) {
-            message.error("Please draw your signature before continuing.");
-            return;
-          }
-
-          setReleaseConfirm((prev) => ({ ...prev, step: "pin" }));
-          return;
-        }
-
-        if (!/^\d{6}$/.test(releaseConfirm.pin)) {
-          message.error("Enter your 6-digit PIN to confirm this release.");
-          return;
-        }
-
-        await verifyReleasePin();
-
         const response = await fetch(
           `${API_BASE}/api/flightlogs/${log._id}/release`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               name: getUserDisplayName(),
-              signature: releaseConfirm.signature,
+              signature,
             }),
           },
         );
@@ -430,10 +388,10 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/accept`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               name: getUserDisplayName(),
-              signature: user?.signature || getUserDisplayName(),
+              signature,
               userRole: "pilot",
             }),
           },
@@ -445,10 +403,30 @@ export default function FlightLog() {
         message.success("Flight log accepted");
       }
 
+      closeSignatureWorkflow();
+      await fetchFlightLogs();
+    } catch (error) {
+      console.error("Signed workflow action error:", error);
+      message.error(error.message || "Flight log workflow action failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleWorkflowAction = async () => {
+    const { action, log } = workflowModal;
+    if (!action || !log?._id) return;
+
+    try {
+      setSaving(true);
+
       if (action === "notify") {
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(getAuthHeader ? await getAuthHeader() : {}),
+          },
           body: JSON.stringify({
             ...log,
             _id: log._id,
@@ -499,7 +477,10 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/complete`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
           },
         );
         const completeData = await completeResponse.json();
@@ -689,13 +670,13 @@ export default function FlightLog() {
       render: (_, record) => (
         <Space size={4}>
           <Button
-            type="primary"
+            type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
           >
-            Edit
+            {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {isMechanic && record.status === "pending_release" && (
+          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
             <Button
               size="small"
               onClick={() => openWorkflowModal("release", record)}
@@ -721,7 +702,8 @@ export default function FlightLog() {
                 Notify
               </Button>
             )}
-          {isMechanic &&
+          {!isOfficerInCharge &&
+            isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
               <Button
@@ -779,16 +761,18 @@ export default function FlightLog() {
             options={statusOptions}
           />
         </Col>
-        <Col xs={24} md={4} style={{ textAlign: "right" }}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={() => setEntryModalVisible(true)}
-          >
-            New Entry
-          </Button>
-        </Col>
+        {!isOfficerInCharge && (
+          <Col xs={24} md={4} style={{ textAlign: "right" }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setEntryModalVisible(true)}
+            >
+              New Entry
+            </Button>
+          </Col>
+        )}
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
             Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
@@ -834,120 +818,44 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
+          readOnly={isOfficerInCharge}
         />
       )}
+
+      <PinVerifiedSignatureModal
+        open={signatureWorkflow.open}
+        title={
+          signatureWorkflow.action === "release"
+            ? "Release Flight Log"
+            : "Accept Flight Log"
+        }
+        description={
+          signatureWorkflow.action === "release"
+            ? "Draw your release signature below. This signature will be attached to the flight log and sent to the pilot for acceptance."
+            : "Draw your acceptance signature below. This signature will be attached to the flight log as pilot acceptance."
+        }
+        confirmDescription={
+          signatureWorkflow.action === "release"
+            ? "Enter your 6-digit PIN to confirm that you want to sign and release this flight log."
+            : "Enter your 6-digit PIN to confirm that you want to sign and accept this flight log."
+        }
+        onCancel={closeSignatureWorkflow}
+        onSave={handleSignedWorkflowAction}
+      />
 
       <Modal
         open={workflowModal.open}
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
-        okText={
-          workflowModal.action === "release" &&
-          releaseConfirm.step === "signature"
-            ? "Continue"
-            : workflowModal.action === "release"
-              ? "Sign and Release"
-              : "OK"
-        }
-        cancelText={
-          workflowModal.action === "release" && releaseConfirm.step === "pin"
-            ? "Cancel Signing"
-            : "Cancel"
-        }
+        okText="OK"
+        cancelText="Cancel"
         title={
-          workflowModal.action === "release"
-            ? "Release Flight Log"
-            : workflowModal.action === "accept"
-              ? "Accept Flight Log"
-              : workflowModal.action === "notify"
-                ? "Notify Mechanic"
-                : "Complete Flight Log"
+          workflowModal.action === "notify"
+            ? "Notify Mechanic"
+            : "Complete Flight Log"
         }
       >
-        {workflowModal.action === "release" && (
-          <>
-            {releaseConfirm.step === "signature" ? (
-              <div>
-                <p>
-                  Draw your release signature below. This signature will be
-                  attached to the flight log and sent to the pilot for
-                  acceptance.
-                </p>
-                <div
-                  className="fl-sig-box"
-                  style={{ height: 120, marginTop: 12, marginBottom: 8 }}
-                >
-                  <SignatureCanvas
-                    ref={releaseSignatureRef}
-                    penColor="#000"
-                    canvasProps={{ style: { width: "100%", height: 120 } }}
-                    onEnd={handleReleaseSignatureEnd}
-                  />
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Button size="small" danger onClick={clearReleaseSignature}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p>
-                  Enter your 6-digit PIN to confirm that you want to sign and
-                  release this flight log.
-                </p>
-                <Input.Password
-                  value={releaseConfirm.pin}
-                  onChange={(e) =>
-                    setReleaseConfirm((prev) => ({
-                      ...prev,
-                      pin: e.target.value.replace(/\D/g, "").slice(0, 6),
-                    }))
-                  }
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Enter 6-digit PIN"
-                />
-                {releaseConfirm.signature && (
-                  <div style={{ marginTop: 16 }}>
-                    <div
-                      style={{ fontSize: 12, color: "#666", marginBottom: 6 }}
-                    >
-                      Signature to be applied:
-                    </div>
-                    <div className="fl-sig-box">
-                      <img
-                        src={releaseConfirm.signature}
-                        alt="release signature"
-                        style={{
-                          width: "100%",
-                          height: 60,
-                          objectFit: "contain",
-                        }}
-                      />
-                    </div>
-                    <Button
-                      size="small"
-                      style={{ marginTop: 8 }}
-                      onClick={() =>
-                        setReleaseConfirm((prev) => ({
-                          ...prev,
-                          step: "signature",
-                        }))
-                      }
-                    >
-                      Redraw Signature
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-        {workflowModal.action === "accept" && (
-          <p>Accept this flight log as pilot?</p>
-        )}
         {workflowModal.action === "notify" && (
           <p>
             Notify the mechanic that this accepted flight log is ready for

@@ -11,6 +11,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SignatureCanvas from "react-native-signature-canvas";
 import Button from "../Button";
+import CodeInputField from "../CodeInputField";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -244,22 +245,13 @@ export default function ReviewTask({
               >
                 Confirm PIN
               </Text>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 16,
-                  backgroundColor: COLORS.grayLight,
-                }}
-                value={pin}
-                onChangeText={(text) => setPin(text.replace(/\D/g, "").slice(0, 6))}
-                placeholder="Enter 6-digit PIN"
-                placeholderTextColor="#999"
-                keyboardType="number-pad"
-                secureTextEntry
+              <CodeInputField
+                code={pin}
+                setCode={setPin}
                 maxLength={6}
+                secure
+                containerStyle={{ flex: 0, marginVertical: 8, marginBottom: 16 }}
+                inputContainerStyle={{ width: "100%" }}
               />
               {!!signature && (
                 <View
