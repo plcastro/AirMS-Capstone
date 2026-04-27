@@ -2,7 +2,7 @@ const partsRequisitionModel = require("../models/partsRequisitionModel");
 const { auditLog } = require("./logsController");
 const {
   createPartsRequisitionNotifications,
-} = require("../utilities/partsRequisitionNotificationService");
+} = require("../utils/partsRequisitionNotificationService");
 
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),

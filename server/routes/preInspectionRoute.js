@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/authMiddleware");
 const {
   createPreInspection,
   getAllPreInspections,
@@ -7,6 +8,8 @@ const {
   updatePreInspection,
   deletePreInspection,
 } = require("../controllers/preInspectionController");
+
+router.use(verifyToken);
 
 router.post("/createPreInspection", createPreInspection);
 router.get("/getAllPreInspection", getAllPreInspections);

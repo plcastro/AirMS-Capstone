@@ -1,30 +1,163 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useRef } from "react";
 import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+const WARNING_DURATION_MS = 10 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
+    useState(false);
+  const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
+    WARNING_DURATION_MS / 1000,
+  );
+
+  const inactivityWarningTimeoutRef = useRef(null);
+  const inactivityLogoutTimeoutRef = useRef(null);
+  const warningCountdownIntervalRef = useRef(null);
+  const tokenExpiryTimeoutRef = useRef(null);
 
   const normalizeUser = (userData) => ({
     ...userData,
+    id: userData.id || userData._id || null,
     jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
     access: userData.access ? userData.access.trim().toLowerCase() : null,
   });
+
+  useEffect(() => {
+    if (!user) return;
+    localStorage.setItem("currentUser", JSON.stringify(user));
+  }, [user]);
 
   const isTokenValid = (token) => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       return payload.exp * 1000 > Date.now();
-    } catch (err) {
+    } catch {
       return false;
+    }
+  };
+
+  const getTokenExpiryTime = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.exp * 1000;
+    } catch {
+      return null;
+    }
+  };
+
+  const clearInactivityTimers = () => {
+    if (inactivityWarningTimeoutRef.current) {
+      clearTimeout(inactivityWarningTimeoutRef.current);
+      inactivityWarningTimeoutRef.current = null;
+    }
+    if (inactivityLogoutTimeoutRef.current) {
+      clearTimeout(inactivityLogoutTimeoutRef.current);
+      inactivityLogoutTimeoutRef.current = null;
+    }
+    if (warningCountdownIntervalRef.current) {
+      clearInterval(warningCountdownIntervalRef.current);
+      warningCountdownIntervalRef.current = null;
+    }
+  };
+
+  const clearTokenExpiryTimer = () => {
+    if (tokenExpiryTimeoutRef.current) {
+      clearTimeout(tokenExpiryTimeoutRef.current);
+      tokenExpiryTimeoutRef.current = null;
     }
   };
 
   const clearAuthStorage = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
+  };
+
+  const scheduleTokenExpiryLogout = (token, onExpire) => {
+    clearTokenExpiryTimer();
+
+    const expiryAt = getTokenExpiryTime(token);
+    if (!expiryAt) {
+      onExpire();
+      return;
+    }
+
+    const msRemaining = expiryAt - Date.now();
+    if (msRemaining <= 0) {
+      onExpire();
+      return;
+    }
+
+    tokenExpiryTimeoutRef.current = setTimeout(() => {
+      onExpire();
+    }, msRemaining);
+  };
+
+  const startWarningCountdown = (seconds) => {
+    const safeSeconds = Math.max(0, seconds);
+    setWarningSecondsRemaining(safeSeconds);
+    setShowSessionTimeoutWarning(true);
+
+    if (warningCountdownIntervalRef.current) {
+      clearInterval(warningCountdownIntervalRef.current);
+    }
+
+    warningCountdownIntervalRef.current = setInterval(() => {
+      setWarningSecondsRemaining((previousSeconds) => {
+        if (previousSeconds <= 1) {
+          clearInterval(warningCountdownIntervalRef.current);
+          warningCountdownIntervalRef.current = null;
+          return 0;
+        }
+        return previousSeconds - 1;
+      });
+    }, 1000);
+  };
+
+  const scheduleInactivityTimers = (elapsedInMs = 0) => {
+    clearInactivityTimers();
+
+    if (!user) {
+      setShowSessionTimeoutWarning(false);
+      return;
+    }
+
+    const timeLeftBeforeLogout = INACTIVITY_LIMIT_MS - elapsedInMs;
+    if (timeLeftBeforeLogout <= 0) {
+      logoutUser();
+      return;
+    }
+
+    const warningDelay = Math.max(
+      timeLeftBeforeLogout - WARNING_DURATION_MS,
+      0,
+    );
+
+    inactivityWarningTimeoutRef.current = setTimeout(() => {
+      startWarningCountdown(
+        Math.ceil(Math.min(WARNING_DURATION_MS, timeLeftBeforeLogout) / 1000),
+      );
+    }, warningDelay);
+
+    inactivityLogoutTimeoutRef.current = setTimeout(() => {
+      logoutUser();
+    }, timeLeftBeforeLogout);
+  };
+
+  const recordActivity = () => {
+    if (!user) {
+      return;
+    }
+
+    setShowSessionTimeoutWarning(false);
+    scheduleInactivityTimers(0);
+  };
+
+  const continueSession = () => {
+    recordActivity();
   };
 
   const refreshAccessToken = async () => {
@@ -43,6 +176,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.setItem("token", data.token);
+    scheduleTokenExpiryLogout(data.token, () => logoutUser());
     return data.token;
   };
 
@@ -61,13 +195,15 @@ export const AuthProvider = ({ children }) => {
 
         if (token && isTokenValid(token)) {
           setUser(normalizeUser(parsed));
+          scheduleTokenExpiryLogout(token, () => logoutUser());
           return;
         }
 
         try {
-          await refreshAccessToken();
+          const refreshedToken = await refreshAccessToken();
+          scheduleTokenExpiryLogout(refreshedToken, () => logoutUser());
           setUser(normalizeUser(parsed));
-        } catch (refreshError) {
+        } catch {
           clearAuthStorage();
           setUser(null);
         }
@@ -98,6 +234,7 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
       localStorage.setItem("token", token);
+      scheduleTokenExpiryLogout(token, () => logoutUser());
     } catch (err) {
       console.error("Failed to store user:", err);
     } finally {
@@ -109,6 +246,9 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     try {
       setLoading(true);
+      setShowSessionTimeoutWarning(false);
+      clearInactivityTimers();
+      clearTokenExpiryTimer();
       const token = localStorage.getItem("token");
 
       if (token) {
@@ -132,16 +272,59 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
 
     if (token && isTokenValid(token)) {
+      scheduleTokenExpiryLogout(token, () => logoutUser());
       return token;
     }
 
-    return refreshAccessToken();
+    try {
+      return await refreshAccessToken();
+    } catch (error) {
+      await logoutUser();
+      throw error;
+    }
   };
 
   const getAuthHeader = async () => {
     const token = await getValidToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+
+  useEffect(() => {
+    if (!user) {
+      clearInactivityTimers();
+      setShowSessionTimeoutWarning(false);
+      return undefined;
+    }
+
+    scheduleInactivityTimers(0);
+
+    const events = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, recordActivity);
+    });
+
+    return () => {
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, recordActivity);
+      });
+      clearInactivityTimers();
+    };
+  }, [user]);
+
+  useEffect(() => {
+    return () => {
+      clearInactivityTimers();
+      clearTokenExpiryTimer();
+    };
+  }, []);
+
   if (loading) return null;
   return (
     <AuthContext.Provider
@@ -154,6 +337,9 @@ export const AuthProvider = ({ children }) => {
         refreshAccessToken,
         getAuthHeader,
         loading,
+        showSessionTimeoutWarning,
+        warningSecondsRemaining,
+        continueSession,
       }}
     >
       {children}

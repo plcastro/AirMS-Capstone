@@ -64,9 +64,7 @@ const normalizeRequisitionRecord = (record) =>
     staff: {
       ...record.staff,
       employeeName:
-        record.staff?.employeeName ||
-        record.staff?.requisitioner ||
-        "",
+        record.staff?.employeeName || record.staff?.requisitioner || "",
     },
   });
 
@@ -131,8 +129,9 @@ export default function PartsRequisition() {
         key: "Parts Requested",
         title: "Parts Requested",
         icon: <InboxOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Parts Requested")
-          .length,
+        count: warehouseRequisitions.filter(
+          (r) => r.status === "Parts Requested",
+        ).length,
       },
       {
         key: "To Be Ordered",
@@ -153,13 +152,15 @@ export default function PartsRequisition() {
         key: "Ordered",
         title: "Restocked",
         icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Ordered").length,
+        count: warehouseRequisitions.filter((r) => r.status === "Ordered")
+          .length,
       },
       {
         key: "Approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Approved").length,
+        count: warehouseRequisitions.filter((r) => r.status === "Approved")
+          .length,
       },
     ];
 
@@ -285,7 +286,7 @@ export default function PartsRequisition() {
 
       const data = await response.json();
 
-      console.log("Requisitions:", data);
+      // console.log("Requisitions:", data);
       setRequisitions(
         Array.isArray(data) ? data.map(normalizeRequisitionRecord) : [],
       );
@@ -369,14 +370,16 @@ export default function PartsRequisition() {
                   borderRadius: 12,
                   cursor: "pointer",
                   border: `1px solid ${isSelected ? "#1677ff" : "#f0f0f0"}`,
-                  boxShadow: isSelected ? "0 6px 14px rgba(22,119,255,0.2)" : "none",
+                  boxShadow: isSelected
+                    ? "0 6px 14px rgba(22,119,255,0.2)"
+                    : "none",
                 }}
               >
                 <Statistic
                   title={card.title}
                   value={card.count}
                   prefix={card.icon}
-                  valueStyle={{ fontSize: 18 }}
+                  styles={{ content: { fontSize: 18 } }}
                 />
               </Card>
             </Col>
@@ -400,7 +403,10 @@ export default function PartsRequisition() {
           style={{ marginBottom: 16 }}
         />
       )}
-      <PRMCardView data={filteredRequisitions} onUpdated={handleAllRequisitions} />
+      <PRMCardView
+        data={filteredRequisitions}
+        onUpdated={handleAllRequisitions}
+      />
     </div>
   );
 }

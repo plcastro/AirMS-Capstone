@@ -25,10 +25,16 @@ const ITEM_STATUSES = [
   "Cancelled",
 ];
 
-const RequisitionItemSchema = new mongoose.Schema({
-  itemNo: { type: Number, required: true },
+const RequisitionMatcodeParticular = new mongoose.Schema({
   matCodeNo: { type: String, required: true },
   particular: { type: String, required: true },
+})
+
+const RequisitionItemSchema = new mongoose.Schema({
+  itemNo: { type: Number, required: true },
+  codeParticular: { type: [RequisitionMatcodeParticular], default: [] },
+  // matCodeNo: { type: String, required: true },
+  // particular: { type: String, required: true },
   quantity: { type: Number, required: true },
   unitOfMeasure: { type: String, required: true },
   purpose: { type: String, default: "" },

@@ -41,6 +41,7 @@ export default function PreInspection({ route }) {
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
 
   useEffect(() => {
     const fetchPreInspections = async () => {
@@ -223,7 +224,7 @@ export default function PreInspection({ route }) {
           </View>
 
           {/* Only show New Entry button for non-pilot roles */}
-          {userRole !== 'pilot' && (
+          {userRole !== 'pilot' && !isOfficerInCharge && (
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.primaryLight,
@@ -430,7 +431,7 @@ export default function PreInspection({ route }) {
                 No pre-inspections found
               </Text>
               {/* Only show Create New Entry button for non-pilot roles */}
-              {userRole !== 'pilot' && (
+              {userRole !== 'pilot' && !isOfficerInCharge && (
                 <TouchableOpacity
                   onPress={() => setShowNewEntryModal(true)}
                   style={{
@@ -493,6 +494,7 @@ export default function PreInspection({ route }) {
           }
         }}
         userRole={userRole}
+        readOnly={isOfficerInCharge}
       />
 
       {/* Edit Entry Modal - for editing with role buttons */}

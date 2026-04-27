@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Popconfirm, message } from "antd";
+import { Table, Button, Tag, Space, Popconfirm, Grid } from "antd";
 import { EditOutlined } from "@ant-design/icons";
+
+const { useBreakpoint } = Grid;
 
 export default function UserTable({
   headers = [],
@@ -8,9 +10,14 @@ export default function UserTable({
   onEditUser,
   onDeactivateUser,
   onReactivateUser,
+  onResendInvite,
+  onExtendInvite,
+  onRevokeInvite,
   currentUserId,
   loading = false,
 }) {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -20,6 +27,8 @@ export default function UserTable({
         return {
           title: header.label,
           key: "actions",
+          fixed: header.fixed,
+          width: header.width,
           render: (_, record) => (
             <Space>
               <Button
@@ -35,20 +44,41 @@ export default function UserTable({
               {record.status === "deactivated" ? (
                 <Popconfirm
                   title="Reactivate this user?"
-                  onConfirm={() => {
-                    onReactivateUser?.(record);
-                    message.success("User reactivated");
-                  }}
+                  onConfirm={() => onReactivateUser?.(record)}
                 >
                   <Button size="small">Reactivate</Button>
                 </Popconfirm>
+              ) : record.status === "inactive" ? (
+                <>
+                  <Popconfirm
+                    title="Resend activation credentials?"
+                    onConfirm={() => onResendInvite?.(record)}
+                  >
+                    <Button size="small">Resend</Button>
+                  </Popconfirm>
+                  {record.invitationStatus === "expired" && (
+                    <Popconfirm
+                      title="Extend invitation expiry by 24 hours?"
+                      onConfirm={() => onExtendInvite?.(record)}
+                    >
+                      <Button size="small">Extend 24h</Button>
+                    </Popconfirm>
+                  )}
+                  {record.invitationStatus !== "revoked" && (
+                    <Popconfirm
+                      title="Revoke this invitation?"
+                      onConfirm={() => onRevokeInvite?.(record)}
+                    >
+                      <Button danger size="small">
+                        Revoke Invite
+                      </Button>
+                    </Popconfirm>
+                  )}
+                </>
               ) : record.status === "active" && record._id !== currentUserId ? (
                 <Popconfirm
                   title="Deactivate this user?"
-                  onConfirm={() => {
-                    onDeactivateUser?.(record);
-                    message.success("User deactivated");
-                  }}
+                  onConfirm={() => onDeactivateUser?.(record)}
                 >
                   <Button danger size="small" style={{ width: 100 }}>
                     Deactivate
@@ -81,6 +111,41 @@ export default function UserTable({
         };
       }
 
+      if (header.key === "invitationStatus") {
+        return {
+          title: header.label,
+          dataIndex: "invitationStatus",
+          key: "invitationStatus",
+          render: (invitationStatus, record) => {
+            if (record.status === "active")
+              return <Tag color="green">claimed</Tag>;
+            if (!invitationStatus) return "N/A";
+
+            let color = "default";
+            if (invitationStatus === "pending") color = "blue";
+            if (invitationStatus === "expired") color = "orange";
+            if (invitationStatus === "claimed") color = "green";
+            if (invitationStatus === "revoked") color = "red";
+            return <Tag color={color}>{invitationStatus}</Tag>;
+          },
+        };
+      }
+
+      if (header.key === "invitationExpiresAt") {
+        return {
+          title: header.label,
+          dataIndex: "invitationExpiresAt",
+          key: "invitationExpiresAt",
+          render: (value, record) => {
+            if (record.status === "active") return "N/A";
+            return value ? new Date(value).toLocaleString() : "N/A";
+          },
+          sorter: (a, b) =>
+            new Date(a.invitationExpiresAt || 0).getTime() -
+            new Date(b.invitationExpiresAt || 0).getTime(),
+        };
+      }
+
       return {
         title: header.label,
         dataIndex: header.key,
@@ -91,13 +156,23 @@ export default function UserTable({
           ),
       };
     });
-  }, [headers, currentUserId, onEditUser, onDeactivateUser, onReactivateUser]);
+  }, [
+    headers,
+    currentUserId,
+    onEditUser,
+    onDeactivateUser,
+    onReactivateUser,
+    onResendInvite,
+    onExtendInvite,
+    onRevokeInvite,
+  ]);
 
   return (
     <Table
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}
+      size={isMobile ? "small" : "middle"}
       loading={loading}
       scroll={{ x: "max-content" }}
       pagination={{
@@ -106,7 +181,9 @@ export default function UserTable({
         pageSizeOptions: ["10", "20", "50"],
         current: currentPage,
         onChange: (page) => setCurrentPage(page),
-        placement: "bottomEnd",
+        showLessItems: isMobile,
+        size: isMobile ? "small" : "default",
+        placement: isMobile ? "bottom" : "bottomEnd",
       }}
     />
   );

@@ -35,11 +35,76 @@ body {
 }
 
 .login-container {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   max-width: 550px;
   background-color: var(--color-white);
   border-radius: 10px;
   box-shadow: 0 5px 10px var(--color-gray-light);
+}
+
+.login-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(36, 77, 59, 0.18), transparent 45%),
+    radial-gradient(circle at 90% 80%, rgba(38, 134, 111, 0.2), transparent 50%),
+    rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+}
+
+.login-loading-card {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 16px;
+  padding: 24px 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(36, 77, 59, 0.16);
+  box-shadow: 0 12px 30px rgba(36, 77, 59, 0.2);
+  text-align: center;
+}
+
+.login-loading-logo {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.login-loading-spinner {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 3px solid rgba(38, 134, 111, 0.2);
+  border-top-color: var(--color-primary);
+  animation: login-spin 0.8s linear infinite;
+}
+
+.login-loading-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #173628;
+}
+
+.login-loading-subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #426355;
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .title {
@@ -321,6 +386,15 @@ input[type="password"]:focus {
 
   .forgot-password {
     font-size: 13px;
+  }
+
+  .login-loading-card {
+    padding: 18px 16px;
+  }
+
+  .login-loading-logo {
+    width: 72px;
+    height: 72px;
   }
 
   .signup-link {

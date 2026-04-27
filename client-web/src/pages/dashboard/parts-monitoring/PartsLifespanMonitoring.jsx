@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useContext, useState, useMemo, useEffect } from "react";
 import {
   Row,
   Col,
@@ -8,17 +8,22 @@ import {
   Input,
   Card,
   Divider,
+  Space,
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 // Import the default processor for AS350B3
-import { processDataWithFormulas as processAS350, getToday } from "../../../utils/partsFormula-AS350B3";
+import {
+  processDataWithFormulas as processAS350,
+  getToday,
+} from "../../../utils/partsFormula-AS350B3";
 // Import the processor for Bell 412 (create it if needed)
 //import { processDataWithFormulas as processB412 } from "../../../utils/partsFormula-B412";
 import "./PartsLifespanMonitoring.css";
 import { message } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 // Import default raw data for each aircraft
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
@@ -31,10 +36,30 @@ import { rawData as rawData9511 } from "../../../utils/9511RawData";
 // Default reference values for each aircraft (acftTT, n1Cycles, n2Cycles, landings)
 const defaultRefsMap = {
   "RP-C8912": { acftTT: 902.1, n1Cycles: 810, n2Cycles: 302, landings: 613 },
-  "RP-C7247": { acftTT: 3233.7, n1Cycles: 2952.77, n2Cycles: 6677.3, landings: 3388 },
-  "RP-C7226": { acftTT: 2813.4, n1Cycles: 5990.9, n2Cycles: 2949.59, landings: 3416 },
-  "RP-C7057": { acftTT: 3344.4, n1Cycles: 2276.44, n2Cycles: 1736.34, landings: 4140 },
-  "RP-C9511": { acftTT: 814.5, n1Cycles: 364.86, n2Cycles: 145.87, landings: 861 },
+  "RP-C7247": {
+    acftTT: 3233.7,
+    n1Cycles: 2952.77,
+    n2Cycles: 6677.3,
+    landings: 3388,
+  },
+  "RP-C7226": {
+    acftTT: 2813.4,
+    n1Cycles: 5990.9,
+    n2Cycles: 2949.59,
+    landings: 3416,
+  },
+  "RP-C7057": {
+    acftTT: 3344.4,
+    n1Cycles: 2276.44,
+    n2Cycles: 1736.34,
+    landings: 4140,
+  },
+  "RP-C9511": {
+    acftTT: 814.5,
+    n1Cycles: 364.86,
+    n2Cycles: 145.87,
+    landings: 861,
+  },
   //"RP-C2810": { acftTT: 1625.1, n1Cycles: 1655, n2Cycles: 1655, landings: 2243 }, // Bell 412 uses engine cycles instead of N1/N2
 };
 
@@ -62,7 +87,8 @@ const { Option } = Select;
 // Column headers (same as before)
 const columnHeader = [
   {
-    title: "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
+    title:
+      "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
     dataIndex: "componentName",
     key: "componentName",
     width: 300,
@@ -71,24 +97,61 @@ const columnHeader = [
     title: "HOUR/ CYC LIMIT",
     children: [
       { title: "", dataIndex: "hourLimit1", key: "hourLimit1", width: 90 },
-      { title: "H/C/OC", dataIndex: "hourLimit2", key: "hourLimit2", width: 90 },
+      {
+        title: "H/C/OC",
+        dataIndex: "hourLimit2",
+        key: "hourLimit2",
+        width: 90,
+      },
     ],
   },
   { title: "DAY LIMIT", dataIndex: "dayLimit", key: "dayLimit", width: 100 },
   { title: "D/OC", dataIndex: "dayType", key: "dayType", width: 80 },
-  { title: "DATE C/W mm/dd/yr", dataIndex: "dateCW", key: "dateCW", width: 140 },
+  {
+    title: "DATE C/W mm/dd/yr",
+    dataIndex: "dateCW",
+    key: "dateCW",
+    width: 140,
+  },
   { title: "HRS C/W", dataIndex: "hoursCW", key: "hoursCW", width: 100 },
-  { title: "DAYS REMAINING", dataIndex: "daysRemaining", key: "daysRemaining", width: 130 },
-  { title: "TIME/CYC REMAINING", dataIndex: "timeRemaining", key: "timeRemaining", width: 150 },
+  {
+    title: "DAYS REMAINING",
+    dataIndex: "daysRemaining",
+    key: "daysRemaining",
+    width: 130,
+  },
+  {
+    title: "TIME/CYC REMAINING",
+    dataIndex: "timeRemaining",
+    key: "timeRemaining",
+    width: 150,
+  },
   { title: "DATE DUE", dataIndex: "dateDue", key: "dateDue", width: 120 },
-  { title: "TT/CYC DUE", dataIndex: "ttCycleDue", key: "ttCycleDue", width: 120 },
+  {
+    title: "TT/CYC DUE",
+    dataIndex: "ttCycleDue",
+    key: "ttCycleDue",
+    width: 120,
+  },
   { title: "DUE", dataIndex: "due", key: "due", width: 80 },
   { title: "H/D", dataIndex: "hd", key: "hd", width: 80 },
-  { title: "TIME SINCE INSTALLATION", dataIndex: "timeSinceInstall", key: "timeSinceInstall", width: 180 },
-  { title: "TOTAL TIME SINCE NEW", dataIndex: "totalTimeSinceNew", key: "totalTimeSinceNew", width: 180 },
+  {
+    title: "TIME SINCE INSTALLATION",
+    dataIndex: "timeSinceInstall",
+    key: "timeSinceInstall",
+    width: 180,
+  },
+  {
+    title: "TOTAL TIME SINCE NEW",
+    dataIndex: "totalTimeSinceNew",
+    key: "totalTimeSinceNew",
+    width: 180,
+  },
 ];
 
 export default function PartsMonitoring() {
+  const { user } = useContext(AuthContext);
+  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [refs, setRefs] = useState({
     today: getToday(),
     acftTT: 0,
@@ -116,7 +179,9 @@ export default function PartsMonitoring() {
   const fetchAircraftList = async () => {
     setLoadingAircraft(true);
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
       const data = await response.json();
       if (response.ok && data.success) {
         setAircraftOptions(data.data);
@@ -190,12 +255,23 @@ export default function PartsMonitoring() {
   const loadDataFromDatabase = async (aircraft) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/${aircraft}`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${aircraft}`,
+      );
       const data = await response.json();
       if (response.ok && data.success && data.data) {
-        const { referenceData, parts, dateManufactured, aircraftType, creepDamage, serialNumber } = data.data;
+        const {
+          referenceData,
+          parts,
+          dateManufactured,
+          aircraftType,
+          creepDamage,
+          serialNumber,
+        } = data.data;
         setAircraftDetails({
-          dateManufactured: dateManufactured ? new Date(dateManufactured) : null,
+          dateManufactured: dateManufactured
+            ? new Date(dateManufactured)
+            : null,
           aircraftType: aircraftType || "",
           creepDamage: creepDamage || "",
           serialNumber: serialNumber || "",
@@ -214,11 +290,9 @@ export default function PartsMonitoring() {
           setRawData(parts);
           message.success(`Loaded saved data for ${aircraft}`);
         } else {
-          // No parts in saved data, fallback to default
           loadDefaultData(aircraft);
         }
       } else if (response.status === 404) {
-        // No saved data, use default
         loadDefaultData(aircraft);
       } else {
         message.error(data.message || "Error loading data");
@@ -233,7 +307,6 @@ export default function PartsMonitoring() {
     }
   };
 
-  // Reload when aircraft changes
   useEffect(() => {
     if (selectedAircraft) {
       loadDataFromDatabase(selectedAircraft);
@@ -248,7 +321,6 @@ export default function PartsMonitoring() {
     }
   }, [selectedAircraft]);
 
-  // Compute derived data using the correct formula processor for the selected aircraft
   const computedData = useMemo(() => {
     if (!selectedAircraft || rawData.length === 0) return [];
     const processor = getFormulaProcessor(selectedAircraft);
@@ -275,7 +347,9 @@ export default function PartsMonitoring() {
 
   const handleCellEdit = (recordId, dataIndex, newValue) => {
     setRawData((prev) =>
-      prev.map((row) => (row._id === recordId ? { ...row, [dataIndex]: newValue } : row))
+      prev.map((row) =>
+        row._id === recordId ? { ...row, [dataIndex]: newValue } : row,
+      ),
     );
   };
 
@@ -304,18 +378,23 @@ export default function PartsMonitoring() {
                 </Option>
               ))}
             </Select>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSaveToDatabase}
-              loading={saving}
-              disabled={!selectedAircraft}
-              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
-            >
-              Save to Database
-            </Button>
+            {!isOfficerInCharge && (
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={handleSaveToDatabase}
+                loading={saving}
+                disabled={!selectedAircraft}
+                style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              >
+                Save to Database
+              </Button>
+            )}
             {lastSaved && (
-              <Text type="secondary" style={{ fontSize: "12px", marginLeft: "8px" }}>
+              <Text
+                type="secondary"
+                style={{ fontSize: "12px", marginLeft: "8px" }}
+              >
                 Last saved: {lastSaved.toLocaleTimeString()}
               </Text>
             )}
@@ -331,7 +410,9 @@ export default function PartsMonitoring() {
             <div className="card-content">
               <div className="info-item">
                 <Text className="info-label">Aircraft: </Text>
-                <Text className="info-value">{selectedAircraft || "Not selected"}</Text>
+                <Text className="info-value">
+                  {selectedAircraft || "Not selected"}
+                </Text>
               </div>
               <div className="info-item">
                 <Text className="info-label">Date Manufactured: </Text>
@@ -343,11 +424,15 @@ export default function PartsMonitoring() {
               </div>
               <div className="info-item">
                 <Text className="info-label">Acft. Type: </Text>
-                <Text className="info-value">{aircraftDetails.aircraftType || "Not available"}</Text>
+                <Text className="info-value">
+                  {aircraftDetails.aircraftType || "Not available"}
+                </Text>
               </div>
               <div>
                 <Text className="info-label">Creep Damage: </Text>
-                <Text className="info-value">{aircraftDetails.creepDamage || "Not available"}</Text>
+                <Text className="info-value">
+                  {aircraftDetails.creepDamage + "%" || "Not available"}
+                </Text>
               </div>
             </div>
           </Card>
@@ -358,116 +443,162 @@ export default function PartsMonitoring() {
           <Card>
             <Row gutter={[16, 16]}>
               {/* Engine Cycle */}
-              <Col xs={24} md={12}>
-                <Text>Engine Cycle:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.landings}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Engine Cycle:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.landings}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        landings: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
               </Col>
 
-              {/* Date */}
-              <Col xs={24} md={12}>
-                <Text>Date:</Text>
-                <Input
-                  type="date"
-                  value={refs.today.toISOString().split("T")[0]}
-                  onChange={(e) => setRefs((prev) => ({ ...prev, today: new Date(e.target.value) }))}
-                  disabled={!selectedAircraft}
-                />
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
-              {/* N1 */}
-              <Col xs={12} md={6}>
-                <Text>N1:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.n1Cycles}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, n1Cycles: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
-              </Col>
-
-              {/* N2 */}
-              <Col xs={12} md={6}>
-                <Text>N2:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.n2Cycles}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, n2Cycles: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
-              </Col>
-
-              {/* Engine TT */}
-              <Col xs={12} md={6}>
-                <Text>Eng. TT:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.engTT}
-                  onChange={(e) =>
-                    setRefs((prev) => ({
-                      ...prev,
-                      engTT: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  disabled={!selectedAircraft}
-                />
-              </Col>
-
-              {/* Aircraft TT */}
-              <Col xs={12} md={6}>
-                <Text>Acft. TT:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.acftTT}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, acftTT: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Date:</Text>
+                  <Input
+                    type="date"
+                    value={refs.today.toISOString().split("T")[0]}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        today: new Date(e.target.value),
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
               </Col>
             </Row>
 
             <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
-              {/* Landings */}
-              <Col xs={12} md={6}>
-                <Text>Landings:</Text>
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={refs.landings}
-                  onChange={(e) =>
-                    setRefs((prev) => ({ ...prev, landings: parseFloat(e.target.value) || 0 }))
-                  }
-                  disabled={!selectedAircraft}
-                />
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>N1:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.n1Cycles}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        n1Cycles: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
               </Col>
 
-              <Col xs={12} md={6}>
-                <Text>Sling:</Text>
-                <Input disabled={!selectedAircraft} />
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Eng. TT:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.engTT}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        engTT: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
+              </Col>
+            </Row>
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>N2:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.n2Cycles}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        n2Cycles: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
+              </Col>
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Acft. TT:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.acftTT}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        acftTT: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Landings:</Text>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refs.landings}
+                    onChange={(e) =>
+                      setRefs((prev) => ({
+                        ...prev,
+                        landings: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    disabled={!selectedAircraft || isOfficerInCharge}
+                  />
+                </Space>
+              </Col>
+
+              <Col xs={24} sm={24} md={12}>
+                <Space
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <Text>Sling:</Text>
+                  <Input disabled={!selectedAircraft || isOfficerInCharge} />
+                </Space>
               </Col>
             </Row>
           </Card>
@@ -499,18 +630,16 @@ export default function PartsMonitoring() {
         </div>
       </Card>
 
-      <div className="table-container">
-        <PMonitoringTable
-          headers={columnHeader}
-          data={computedData}
-          loading={loading}
-          editable={!!selectedAircraft}
-          isCellEditable={isCellEditable}
-          onCellEdit={handleCellEdit}
-          rowKey="_id"
-          scroll={{ x: 1500 }}
-        />
-      </div>
+      <PMonitoringTable
+        headers={columnHeader}
+        data={computedData}
+        loading={loading}
+        editable={!!selectedAircraft && !isOfficerInCharge}
+        isCellEditable={isCellEditable}
+        onCellEdit={handleCellEdit}
+        rowKey="_id"
+        scroll={{ x: 1500 }}
+      />
     </div>
   );
 }

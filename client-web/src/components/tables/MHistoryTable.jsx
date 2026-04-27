@@ -14,7 +14,7 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
     <Table
       columns={headers}
       dataSource={data}
-      rowKey={(record) => record.index || record._id}
+      rowKey={(record) => record.key}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
       pagination={{

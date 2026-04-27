@@ -4,9 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
-const mongoose = require("mongoose");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
+const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const defectLogRoutes = require("./routes/defectLogRoute");
@@ -22,8 +22,13 @@ const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
 const notificationRoutes = require("./routes/notificationRoute");
+const adminActivityRoutes = require("./routes/adminActivityRoute");
+const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
-const sendEmail = require("./utilities/sendEmail");
+const sendEmail = require("./utils/sendEmail");
+const {
+  startInvitationLifecycleJob,
+} = require("./utils/invitationLifecycleService");
 
 const app = express();
 
@@ -69,21 +74,36 @@ app.use((req, res, next) => {
   if (req.params) {
     mongoSanitize.sanitize(req.params, { replaceWith: "_" });
   }
-  // We leave req.query untouched to prevent the crash
+  // leave req.query untouched to prevent the crash
   next();
 });
 
-const ATLAS_URL = process.env.ATLAS_URL;
-require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
-mongoose
-  .connect(ATLAS_URL)
-  .then(() => console.log("Connected to MongoDB"))
+connectToDatabase()
+  .then(() => {
+    console.log("Connected to MongoDB");
+    startInvitationLifecycleJob();
+  })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
   });
 
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error("Database unavailable for request:", error.message);
+    return res.status(503).json({
+      status: "error",
+      message: "Database connection unavailable. Please try again.",
+    });
+  }
+});
+
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/admin-activity", adminActivityRoutes);
+app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
 app.use("/api/defect-logs", defectLogRoutes);
@@ -107,7 +127,6 @@ app.use(
     },
   }),
 );
-app.use("/api/flightlogs", flightLogRoutes);
 
 app.set("trust proxy", 1);
 
@@ -129,9 +148,13 @@ app.use((err, req, res, next) => {
   }
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-  console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
-});
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
+    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
+  });
+}
+
+module.exports = app;

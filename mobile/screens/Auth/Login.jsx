@@ -14,7 +14,11 @@ import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
-import { readPendingRedirect, clearPendingRedirect } from "../../utilities/pendingRedirect";
+import {
+  readPendingRedirect,
+  clearPendingRedirect,
+} from "../../utilities/pendingRedirect";
+import LoadingScreen from "../LoadingScreen";
 
 export default function Login() {
   const nav = useNavigation();
@@ -87,7 +91,9 @@ export default function Login() {
         data = responseText ? JSON.parse(responseText) : {};
       } catch (error) {
         console.error("Login returned non-JSON response:", responseText);
-        setMessage(responseText || "Login failed. Server returned an invalid response.");
+        setMessage(
+          responseText || "Login failed. Server returned an invalid response.",
+        );
         return;
       }
 
@@ -171,6 +177,10 @@ export default function Login() {
 
   const goToForgotPassword = () => nav.navigate("forgotPassword");
 
+  if (loading) {
+    return <LoadingScreen message="Signing you in..." showLogo />;
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.formCard}
@@ -223,7 +233,7 @@ export default function Login() {
         </View>
         <Button
           onPress={validate}
-          label={loading ? "Logging in..." : "LOGIN"}
+          label="LOGIN"
           disabled={loading}
           buttonStyle={[styles.primaryBtn]}
           buttonTextStyle={styles.primaryBtnTxt}
