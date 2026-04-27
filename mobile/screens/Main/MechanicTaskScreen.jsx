@@ -7,7 +7,7 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-
+import { showToast } from "../../utilities/toast";
 export default function MechanicTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
@@ -171,11 +171,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           findings: savedTask.findings || "",
         });
       } else {
-        Alert.alert("Error", "Failed to start task");
+        showToast("Failed to start task");
       }
     } catch (error) {
       console.error("Error starting task:", error);
-      Alert.alert("Error", "Failed to start task");
+      showToast("Failed to start task");
     }
   };
 
@@ -208,11 +208,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           ...savedTask,
         }));
       } else {
-        Alert.alert("Error", "Failed to save draft");
+        showToast("Failed to save draft");
       }
     } catch (error) {
       console.error("Error saving draft:", error);
-      Alert.alert("Error", "Failed to save draft");
+      showToast("Failed to save draft");
     }
   };
 
@@ -252,11 +252,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         setTasks(updatedTasks);
         setSelectedTask(savedTask);
       } else {
-        Alert.alert("Error", "Failed to turn in task");
+        showToast("Failed to turn in task");
       }
     } catch (error) {
       console.error("Error turning in task:", error);
-      Alert.alert("Error", "Failed to turn in task");
+      showToast("Failed to turn in task");
     }
   };
 

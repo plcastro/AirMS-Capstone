@@ -14,8 +14,15 @@ import Button from "../Button";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
+import { showToast } from "../../utilities/toast";
 
 const { width } = Dimensions.get("window");
+
+const getNow = () => new Date();
+const clampToNow = (date) => {
+  const now = getNow();
+  return date < now ? now : date;
+};
 
 export default function EditTask({
   visible,
@@ -80,6 +87,16 @@ export default function EditTask({
   }, [task]);
 
   const confirmSave = () => {
+    if (startDate < getNow() || endDate < getNow()) {
+      showToast("Start and end date/time must be today or later.");
+      return;
+    }
+
+    if (endDate < startDate) {
+      showToast("End date/time must be after the start date/time.");
+      return;
+    }
+
     const updatedTask = {
       ...task,
       title: taskTitle,
@@ -160,10 +177,15 @@ export default function EditTask({
         selectedDate.getDate(),
       );
 
+      const clampedDate = clampToNow(nextDate);
+
       if (field === "start") {
-        setStartDate(nextDate);
+        setStartDate(clampedDate);
+        if (endDate < clampedDate) {
+          setEndDate(clampedDate);
+        }
       } else {
-        setEndDate(nextDate);
+        setEndDate(clampedDate);
       }
 
       setAndroidPickerMode("time");
@@ -179,9 +201,13 @@ export default function EditTask({
     }
 
     if (field === "start") {
-      setStartDate(nextDate);
+      const clampedDate = clampToNow(nextDate);
+      setStartDate(clampedDate);
+      if (endDate < clampedDate) {
+        setEndDate(clampedDate);
+      }
     } else {
-      setEndDate(nextDate);
+      setEndDate(clampToNow(nextDate));
     }
 
     closePicker();
@@ -400,7 +426,6 @@ export default function EditTask({
                 marginBottom: 15,
               }}
               onPress={() => openDateTimePicker("start")}
-              disabled={true}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
@@ -413,6 +438,7 @@ export default function EditTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onStartChange}
+                minimumDate={getNow()}
               />
             )}
 
@@ -431,7 +457,6 @@ export default function EditTask({
                 marginBottom: 20,
               }}
               onPress={() => openDateTimePicker("end")}
-              disabled={true}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}
@@ -444,6 +469,7 @@ export default function EditTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onEndChange}
+                minimumDate={getNow()}
               />
             )}
 

@@ -2,17 +2,15 @@ const NotificationModel = require("../models/notificationModel");
 const UserModel = require("../models/userModel");
 const mongoose = require("mongoose");
 
-const normalizeRole = (role = "") => role.trim().toLowerCase();
+const normalizeRole = (role = "") => String(role || "").trim().toLowerCase();
 
-const getUserRole = async (userId, tokenRole = "") => {
-  const normalizedTokenRole = normalizeRole(tokenRole);
-
-  if (normalizedTokenRole) {
-    return normalizedTokenRole;
+const getUserRole = async (userId, fallbackRole = "") => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return normalizeRole(fallbackRole);
   }
 
   const user = await UserModel.findById(userId).select("jobTitle");
-  return normalizeRole(user?.jobTitle || "");
+  return normalizeRole(user?.jobTitle || fallbackRole);
 };
 
 const buildRecipientQuery = (userId, role) => {
@@ -38,12 +36,6 @@ const getNotifications = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
-    const recipientQuery = buildRecipientQuery(userId, role);
-
-    if (recipientQuery.$or.length === 0) {
-      return res.status(200).json([]);
-    }
-
     const notifications = await NotificationModel.find(
       recipientQuery,
     )
@@ -74,12 +66,6 @@ const markNotificationRead = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
-    const recipientQuery = buildRecipientQuery(userId, role);
-
-    if (recipientQuery.$or.length === 0) {
-      return res.status(404).json({ message: "Notification not found" });
-    }
-
     const notification = await NotificationModel.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -111,12 +97,6 @@ const markAllNotificationsRead = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
-    const recipientQuery = buildRecipientQuery(userId, role);
-
-    if (recipientQuery.$or.length === 0) {
-      return res.status(200).json({ success: true });
-    }
-
     await NotificationModel.updateMany(
       recipientQuery,
       {
