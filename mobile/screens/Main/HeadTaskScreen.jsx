@@ -318,7 +318,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
   };
 
   const renderTask = ({ item }) => {
-    const showEditDelete = activeTab === "Assigned";
+    const showEditDelete = activeTab === "Assigned" && item.status === "Pending";
 
     return (
       <View>

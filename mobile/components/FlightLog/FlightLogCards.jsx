@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
+export default function FlightLogCards({ logs, onEdit, onExport, userRole, readOnly = false }) {
   const formatDate = (dateString) => {
     if (!dateString) return "Date not set";
 
@@ -255,9 +255,9 @@ export default function FlightLogCards({ logs, onEdit, onExport, userRole }) {
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="pencil"
+                    name={readOnly ? "eye-outline" : "pencil"}
                     size={20}
-                    color="#777"
+                    color={readOnly ? COLORS.primaryLight : "#777"}
                   />
                 </View>
               </View>

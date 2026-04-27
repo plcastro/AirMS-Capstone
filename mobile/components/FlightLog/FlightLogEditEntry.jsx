@@ -48,6 +48,7 @@ export default function FlightLogEditEntry({
   onClose,
   onSave,
   userRole,
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -151,15 +152,15 @@ export default function FlightLogEditEntry({
   const isCompletedLog = formData.status === "completed";
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
-  const isBasicInfoEditable = !isCompletedLog;
-  const isDestinationsEditable = !isCompletedLog;
+  const isBasicInfoEditable = !readOnly && !isCompletedLog;
+  const isDestinationsEditable = !readOnly && !isCompletedLog;
   const isComponentEditable =
-    !isCompletedLog && isMechanic && !formData.broughtForwardLocked;
+    !readOnly && !isCompletedLog && isMechanic && !formData.broughtForwardLocked;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
-  const isFuelOilEditable = !isCompletedLog && isMechanic;
-  const isDiscrepancyEditable = !isCompletedLog;
-  const isWorkDoneEditable = !isCompletedLog && isMechanic;
+  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
+  const isDiscrepancyEditable = !readOnly && !isCompletedLog;
+  const isWorkDoneEditable = !readOnly && !isCompletedLog && isMechanic;
 
   // Update functions
   const updateForm = (field, value) => {
@@ -362,15 +363,17 @@ export default function FlightLogEditEntry({
   };
 
   const showReleaseButton =
-    !isCompletedLog && isMechanic && formData.status === "pending_release";
+    !readOnly && !isCompletedLog && isMechanic && formData.status === "pending_release";
   const showAcceptButton =
-    !isCompletedLog && isPilot && formData.status === "pending_acceptance";
+    !readOnly && !isCompletedLog && isPilot && formData.status === "pending_acceptance";
   const showNotifyButton =
+    !readOnly &&
     !isCompletedLog &&
     isPilot &&
     formData.status === "accepted" &&
     !formData.notifiedForCompletion;
   const showCompleteButton =
+    !readOnly &&
     !isCompletedLog &&
     isMechanic &&
     formData.status === "accepted" &&
@@ -793,7 +796,7 @@ export default function FlightLogEditEntry({
 
           <TouchableOpacity
             onPress={
-              isLastPage ? (isCompletedLog ? onClose : handleSave) : handleNext
+              isLastPage ? (readOnly || isCompletedLog ? onClose : handleSave) : handleNext
             }
             style={{
               paddingVertical: 8,
@@ -804,7 +807,7 @@ export default function FlightLogEditEntry({
             }}
           >
             <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
-              {isLastPage ? (isCompletedLog ? "Close" : "Save") : "Next"}
+              {isLastPage ? (readOnly || isCompletedLog ? "Close" : "Save") : "Next"}
             </Text>
           </TouchableOpacity>
         </View>
