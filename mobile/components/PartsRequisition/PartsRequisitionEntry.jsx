@@ -18,7 +18,6 @@ const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
 
 const createEmptyItem = (id) => ({
   id,
-  materialCodeNumber: "",
   particular: "",
   quantity: "",
   unit: "pcs",
@@ -45,7 +44,6 @@ export default function PartsRequisitionEntry({
         initialItems.length > 0
           ? initialItems.map((item, index) => ({
               id: item.id || item._id || Date.now() + index,
-              materialCodeNumber: item.materialCodeNumber || item.matCodeNo || "",
               particular: item.particular || "",
               quantity: item.quantity ? String(item.quantity) : "",
               unit: item.unit || item.unitOfMeasure || "pcs",
@@ -293,11 +291,6 @@ export default function PartsRequisitionEntry({
                   )}
                 </View>
 
-                {renderInput(
-                  "Material code number:",
-                  item.materialCodeNumber,
-                  (value) => updateItem(item.id, "materialCodeNumber", value),
-                )}
 
                 {renderInput("Particular:", item.particular, (value) =>
                   updateItem(item.id, "particular", value),
@@ -338,6 +331,7 @@ export default function PartsRequisitionEntry({
                         fontSize: 15,
                         color: COLORS.black,
                       }}
+                      keyboardType="number-pad"
                     />
                     <View
                       style={{

@@ -17,6 +17,7 @@ import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntr
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportPreInspectionPdf } from "../../utilities/pdfExport";
+import { showToast } from "../../utilities/toast";
 
 const getDisplayStatus = (status) =>
   status === "completed"
@@ -64,7 +65,7 @@ export default function PreInspection({ route }) {
         setInspections(data.data || []);
       } catch (error) {
         console.error("Error fetching pre-inspections:", error);
-        Alert.alert("Error", "Failed to fetch pre-inspections");
+        showToast("Failed to fetch pre-inspections");
       }
     };
 
@@ -486,10 +487,10 @@ export default function PreInspection({ route }) {
             const data = await response.json();
             setInspections((prev) => [data.data, ...prev]);
             setShowNewEntryModal(false);
-            Alert.alert("Success", "Pre-inspection created successfully");
+            showToast("Pre-inspection created successfully");
           } catch (error) {
             console.error("Error creating pre-inspection:", error);
-            Alert.alert("Error", "Failed to create pre-inspection");
+            showToast("Failed to create pre-inspection");
             throw error;
           }
         }}
@@ -533,10 +534,10 @@ export default function PreInspection({ route }) {
             );
             setShowEditModal(false);
             setSelectedInspection(null);
-            Alert.alert("Success", "Pre-inspection updated successfully");
+            showToast("Pre-inspection updated successfully");
           } catch (error) {
             console.error("Error updating pre-inspection:", error);
-            Alert.alert("Error", "Failed to update pre-inspection");
+            showToast("Failed to update pre-inspection");
             throw error;
           }
         }}

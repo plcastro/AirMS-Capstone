@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, ScrollView, TextInput, Alert, Image } from "react-native";
+import { View, Text, Modal, ScrollView, TextInput, Image } from "react-native";
 import Button from "../Button";
 import ReviewTask from "./ReviewTask";
 import { styles } from "../../stylesheets/styles";
 import CheckBox from "../CheckBox";
+import { showToast } from "../../utilities/toast";
 
 export default function TaskChecklist({
   visible,
@@ -93,10 +94,7 @@ export default function TaskChecklist({
       });
     } else {
       if (!allCheckboxesChecked) {
-        Alert.alert(
-          "Checklist incomplete",
-          "Please check all checklist items before turning in the task.",
-        );
+        showToast("Please check all checklist items before turning in the task.");
         return;
       }
 
@@ -273,30 +271,6 @@ export default function TaskChecklist({
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
               {" "}Aircraft {task.aircraft}
             </Text>
-
-            {isHeadView && isTurnedIn && !isApproved && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 12,
-                  marginBottom: 20,
-                }}
-              >
-                <Button
-                  label="Return Task"
-                  onPress={openReturnModal}
-                  buttonStyle={[styles.dangerBtn, { width: 120 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-                <Button
-                  label="Approve"
-                  onPress={openApproveModal}
-                  buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-              </View>
-            )}
 
             {isHeadView && isReturned && (
               <View
@@ -588,13 +562,35 @@ export default function TaskChecklist({
                 justifyContent: "flex-end",
                 gap: 12,
               }}
-            >
+            >{isHeadView && isTurnedIn && !isApproved && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: 12,
+                  marginBottom: 20,
+                }}
+              >
+                <Button
+                  label="Return Task"
+                  onPress={openReturnModal}
+                  buttonStyle={[styles.dangerBtn, { width: 120 }]}
+                  buttonTextStyle={styles.primaryBtnTxt}
+                />
+                <Button
+                  label="Approve"
+                  onPress={openApproveModal}
+                  buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+                  buttonTextStyle={styles.primaryBtnTxt}
+                />
+              </View>
+            )}
               {isHeadView ? (
                 <Button
                   label="Close"
                   onPress={onClose}
-                  buttonStyle={[styles.primaryAlertBtn, { width: 100 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
+                  buttonStyle={[styles.secondaryAlertBtn, { width: 100 }]}
+                  buttonTextStyle={styles.secondaryBtnTxt}
                 />
               ) : isCompleted ? (
                 <>

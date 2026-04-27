@@ -22,6 +22,7 @@ import {
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
+  EyeOutlined, EditOutlined
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -673,6 +674,7 @@ export default function FlightLog() {
             type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
+            icon={isOfficerInCharge ? <EyeOutlined />: <EditOutlined />}
           >
             {isOfficerInCharge ? "View" : "Edit"}
           </Button>

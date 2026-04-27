@@ -467,6 +467,13 @@ const acceptFlightLog = async (req, res) => {
       });
     }
 
+    if (!flightLog.releasedBy?.signature && !flightLog.releasedBy?.name) {
+      return res.status(400).json({
+        success: false,
+        message: "Flight log must be released by a mechanic before acceptance",
+      });
+    }
+
     // Accept the flight log
     const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.accept(name, signature);

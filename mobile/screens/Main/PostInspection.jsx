@@ -16,7 +16,7 @@ import PostInspectionCards from "../../components/PostInspection/PostInspectionC
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportPostInspectionPdf } from "../../utilities/pdfExport";
-
+import { showToast } from "../../utilities/toast";
 const getDisplayStatus = (status) =>
   status === "completed"
     ? "completed"
@@ -62,7 +62,7 @@ export default function PostInspection({ route }) {
         setInspections(data.data || []);
       } catch (error) {
         console.error("Error fetching post-inspections:", error);
-        Alert.alert("Error", "Failed to fetch post-inspections");
+        showToast("Failed to fetch post-inspections");
       }
     };
 
@@ -440,10 +440,10 @@ export default function PostInspection({ route }) {
             );
             setShowEditModal(false);
             setSelectedInspection(null);
-            Alert.alert("Success", "Post-inspection updated successfully");
+            showToast( "Post-inspection updated successfully");
           } catch (error) {
             console.error("Error updating post-inspection:", error);
-            Alert.alert("Error", "Failed to update post-inspection");
+            showToast("Failed to update post-inspection");
             throw error;
           }
         }}

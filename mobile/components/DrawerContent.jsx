@@ -31,7 +31,7 @@ const DrawerList = [
           "pilot",
           "maintenance manager",
           "officer-in-charge",
-          "engineer",
+          "mechanic",
         ],
       },
       {
@@ -42,7 +42,6 @@ const DrawerList = [
           "pilot",
           "maintenance manager",
           "officer-in-charge",
-          "engineer",
           "mechanic",
         ],
       },
@@ -53,7 +52,6 @@ const DrawerList = [
         jobTitle: [
           "maintenance manager",
           "officer-in-charge",
-          "engineer",
           "mechanic",
         ],
       },
@@ -64,7 +62,6 @@ const DrawerList = [
     label: "Task Assignment and Monitoring",
     jobTitle: [
       "maintenance manager",
-      "engineer",
       "mechanic",
     ],
     children: [
@@ -72,7 +69,7 @@ const DrawerList = [
         icon: "clipboard-text",
         label: "Tasks",
         navigateTo: "Tasks",
-        jobTitle: ["maintenance manager", "engineer", "mechanic"],
+        jobTitle: ["maintenance manager", "mechanic"],
       },
       {
         icon: "account-group",
@@ -93,10 +90,9 @@ const DrawerList = [
     label: "My Profile",
     navigateTo: "Profile",
     jobTitle: [
-      "admin",
       "pilot",
       "maintenance manager",
-      "engineer",
+      "mechanic",
       "officer-in-charge",
     ],
   },

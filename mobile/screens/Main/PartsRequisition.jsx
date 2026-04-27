@@ -18,7 +18,7 @@ import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequis
 import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
 import { API_BASE } from "../../utilities/API_BASE";
-
+import { showToast } from "../../utilities/toast";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -302,7 +302,7 @@ export default function PartsRequisition({ route, navigation }) {
       setRequisitions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching requisitions:", error);
-      Alert.alert("Error", "Failed to fetch parts requisitions.");
+      showToast("Failed to fetch parts requisitions.");
     } finally {
       setLoading(false);
     }
@@ -443,7 +443,6 @@ export default function PartsRequisition({ route, navigation }) {
   const buildRequestItemsPayload = (items) =>
     items.map((item, index) => ({
       itemNo: index + 1,
-      matCodeNo: item.materialCodeNumber.trim(),
       particular: item.particular.trim(),
       quantity: Number(item.quantity),
       unitOfMeasure: item.unit,
@@ -488,11 +487,11 @@ export default function PartsRequisition({ route, navigation }) {
         await fetchRequisitions();
 
         if (successMessage) {
-          Alert.alert("Success", successMessage);
+          showToast(successMessage);
         }
       } catch (error) {
         console.error("Error updating requisition:", error);
-        Alert.alert("Error", error.message || "Failed to update requisition.");
+        showToast(error.message || "Failed to update requisition.");
       }
     },
     [fetchRequisitions],
@@ -528,27 +527,26 @@ export default function PartsRequisition({ route, navigation }) {
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
     if (!aircraft) {
-      Alert.alert("Validation Error", "Please choose an aircraft.");
+      showToast("Please choose an aircraft.");
       return;
     }
 
     if (!items?.length) {
-      Alert.alert("Validation Error", "Please add at least one item.");
+      showToast("Please add at least one item.");
       return;
     }
 
     if (
       items.some(
         (item) =>
-          !item.materialCodeNumber.trim() ||
           !item.particular.trim() ||
           !item.quantity ||
           Number(item.quantity) <= 0,
       )
     ) {
-      Alert.alert(
-        "Validation Error",
-        "Material code number, particular, and quantity are required for each item.",
+      showToast(
+        
+        "Particular, and quantity are required for each item.",
       );
       return;
     }
@@ -618,7 +616,7 @@ export default function PartsRequisition({ route, navigation }) {
       Alert.alert("Submit Entry", `${nextSlipNo} added successfully.`);
     } catch (error) {
       console.error("Error creating requisition:", error);
-      Alert.alert("Error", error.message || "Failed to create requisition.");
+      showToast(error.message || "Failed to create requisition.");
     }
   };
 
@@ -706,7 +704,6 @@ export default function PartsRequisition({ route, navigation }) {
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
-        matCodeNo: item.matCodeNo,
         particular: item.particular,
         quantity: item.quantity,
         unitOfMeasure: item.unitOfMeasure,

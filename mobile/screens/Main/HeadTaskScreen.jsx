@@ -16,6 +16,7 @@ import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
+import { showToast } from "../../utilities/toast";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) =>
@@ -48,11 +49,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           setTasks(data.data || []);
         } else {
           console.error("Failed to fetch tasks");
-          Alert.alert("Error", "Failed to fetch tasks");
+          showToast("Failed to fetch tasks");
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
-        Alert.alert("Error", "Failed to fetch tasks");
+        showToast("Failed to fetch tasks");
       }
     };
     fetchTasks();
@@ -101,11 +102,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           setEmployees(mappedEmployees);
         } else {
           console.error("Failed to fetch employees");
-          Alert.alert("Error", "Failed to fetch employees");
+          showToast("Failed to fetch employees");
         }
       } catch (error) {
         console.error("Error fetching employees:", error);
-        Alert.alert("Error", "Failed to fetch employees");
+        showToast("Failed to fetch employees");
       }
     };
     fetchEmployees();
@@ -180,11 +181,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
       } else {
         const errorData = await response.json();
         console.error("Failed to add task:", errorData);
-        Alert.alert("Error", "Failed to add task");
+        showToast("Failed to add task");
       }
     } catch (error) {
       console.error("Error adding task:", error);
-      Alert.alert("Error", "Failed to add task");
+      showToast("Failed to add task");
     }
   };
 
@@ -207,11 +208,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
         setTasks(updatedTasks);
         setEditModalVisible(false);
       } else {
-        Alert.alert("Error", "Failed to update task");
+        showToast("Failed to update task");
       }
     } catch (error) {
       console.error("Error updating task:", error);
-      Alert.alert("Error", "Failed to update task");
+      showToast("Failed to update task");
     }
   };
 
@@ -228,11 +229,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
         const updatedTasks = tasks.filter((t) => t.id !== taskId);
         setTasks(updatedTasks);
       } else {
-        Alert.alert("Error", "Failed to delete task");
+        showToast("Failed to delete task");
       }
     } catch (error) {
       console.error("Error deleting task:", error);
-      Alert.alert("Error", "Failed to delete task");
+      showToast("Failed to delete task");
     }
   };
 
@@ -309,11 +310,11 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
         );
         setTasks(updatedTasks);
       } else {
-        Alert.alert("Error", "Failed to return task");
+        showToast("Failed to return task");
       }
     } catch (error) {
       console.error("Error returning task:", error);
-      Alert.alert("Error", "Failed to return task");
+      showToast("Failed to return task");
     }
   };
 

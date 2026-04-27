@@ -1,7 +1,6 @@
 import React, { useContext, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   View,
   Text,
@@ -16,6 +15,7 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { showToast } from "../../utilities/toast";
 
 export default function ReviewTask({
   visible,
@@ -96,7 +96,7 @@ export default function ReviewTask({
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      Alert.alert("PIN Required", "Enter your 6-digit PIN to confirm this approval.");
+      showToast("Enter your 6-digit PIN to confirm this approval.");
       return;
     }
 
@@ -107,7 +107,7 @@ export default function ReviewTask({
       resetForm();
       onClose();
     } catch (error) {
-      Alert.alert("Approval Failed", error.message || "Could not approve this task.");
+      showToast(error.message || "Could not approve this task.");
     } finally {
       setSubmitting(false);
     }
@@ -200,7 +200,7 @@ export default function ReviewTask({
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
                     setAdvanceAfterSignature(false);
-                    Alert.alert("Signature Required", "Please draw your signature before continuing.");
+                    showToast("Please draw your signature before continuing.");
                   }}
                   webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
                   descriptionText=""
@@ -226,12 +226,6 @@ export default function ReviewTask({
                     setSignature("");
                   }}
                   buttonStyle={[styles.dangerBtn, { width: 90 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-                <Button
-                  label="SAVE SIGN"
-                  onPress={() => saveSignature(false)}
-                  buttonStyle={[styles.primaryAlertBtn, { width: 110 }]}
                   buttonTextStyle={styles.primaryBtnTxt}
                 />
               </View>
@@ -301,7 +295,7 @@ export default function ReviewTask({
               onPress={handleConfirm}
               buttonStyle={[
                 mode === "return" ? styles.dangerBtn : styles.primaryAlertBtn,
-                { width: mode === "approve" && step === "pin" ? 140 : 100 },
+                { width: mode === "approve" && step === "pin" ? 140 : 120 },
               ]}
               buttonTextStyle={styles.primaryBtnTxt}
             />

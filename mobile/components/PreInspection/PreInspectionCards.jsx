@@ -178,19 +178,6 @@ export default function PreInspectionCards({
               </View>
             </View>
 
-            {/* Date */}
-            <View
-              style={{
-                paddingHorizontal: 20,
-                paddingTop: 16,
-                paddingBottom: 8,
-              }}
-            >
-              <Text style={{ color: "#777", fontSize: 14, fontWeight: "500" }}>
-                {formatDate(inspection.dateAdded || inspection.date)}
-              </Text>
-            </View>
-
             {/* Card Content */}
             <TouchableOpacity
               activeOpacity={0.7}
@@ -217,12 +204,6 @@ export default function PreInspectionCards({
                     RP/C: {inspection.rpc || "N/A"}
                   </Text>
                 </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Date: {formatDate(inspection.date)}
-                  </Text>
-                </View>
-
                 {/* Edit Icon */}
                 <View
                   style={{

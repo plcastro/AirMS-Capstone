@@ -22,7 +22,7 @@ import DefaultAvatar from "../../assets/images/default_avatar.jpg";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
-
+import { showToast } from "../../utilities/toast";
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
 
@@ -124,9 +124,9 @@ export default function Profile() {
 
       setUser({ ...user, ...formData });
       setIsEditing(false);
-      Alert.alert("Success", "Profile updated!");
+      showToast("Profile updated!");
     } catch (err) {
-      Alert.alert("Error", err.message);
+      showToast(err.message);
     } finally {
       setLoading(false);
     }
@@ -172,9 +172,9 @@ export default function Profile() {
           : `${API_BASE}${data?.user?.image || ""}`;
       setPreviewUri(uploadedImagePath || null);
       setFile(null);
-      Alert.alert("Success", "Image updated!");
+      showToast("Image updated!");
     } catch (err) {
-      Alert.alert("Error", err.message);
+      showToast(err.message);
     } finally {
       setLoading(false);
     }
@@ -211,9 +211,9 @@ export default function Profile() {
               setUser((prev) => ({ ...prev, image: null }));
               setPreviewUri(null); // Will fallback to DefaultAvatar in render
               setFile(null);
-              Alert.alert("Success", "Profile picture removed!");
+              showToast("Profile picture removed!");
             } catch (err) {
-              Alert.alert("Error", err.message || "Image removal failed");
+              showToast(err.message || "Image removal failed");
             }
           },
         },
