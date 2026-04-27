@@ -1,13 +1,13 @@
-﻿const bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendEmail = require("../utilities/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
 const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
 const { auditLog } = require("./logsController");
-const generateUniqueUsername = require("../utilities/generateUniqueUsername");
+const generateUniqueUsername = require("../utils/generateUniqueUsername");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
 const getAuditActorId = (req, fallbackId = null) =>

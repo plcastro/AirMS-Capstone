@@ -2,7 +2,7 @@ const FlightLog = require("../models/flightLogModel");
 const { auditLog } = require("./logsController");
 const {
   createFlightLogNotifications,
-} = require("../utilities/flightLogNotificationService");
+} = require("../utils/flightLogNotificationService");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
