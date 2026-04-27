@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useContext, useState, useMemo, useEffect } from "react";
 import {
   Row,
   Col,
@@ -23,6 +23,7 @@ import "./PartsLifespanMonitoring.css";
 import { message } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 // Import default raw data for each aircraft
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
@@ -149,6 +150,8 @@ const columnHeader = [
 ];
 
 export default function PartsMonitoring() {
+  const { user } = useContext(AuthContext);
+  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [refs, setRefs] = useState({
     today: getToday(),
     acftTT: 0,
@@ -375,16 +378,18 @@ export default function PartsMonitoring() {
                 </Option>
               ))}
             </Select>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSaveToDatabase}
-              loading={saving}
-              disabled={!selectedAircraft}
-              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
-            >
-              Save to Database
-            </Button>
+            {!isOfficerInCharge && (
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={handleSaveToDatabase}
+                loading={saving}
+                disabled={!selectedAircraft}
+                style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              >
+                Save to Database
+              </Button>
+            )}
             {lastSaved && (
               <Text
                 type="secondary"
@@ -454,7 +459,7 @@ export default function PartsMonitoring() {
                         landings: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -473,7 +478,7 @@ export default function PartsMonitoring() {
                         today: new Date(e.target.value),
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -496,7 +501,7 @@ export default function PartsMonitoring() {
                         n1Cycles: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -517,7 +522,7 @@ export default function PartsMonitoring() {
                         engTT: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -539,7 +544,7 @@ export default function PartsMonitoring() {
                         n2Cycles: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -559,7 +564,7 @@ export default function PartsMonitoring() {
                         acftTT: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -582,7 +587,7 @@ export default function PartsMonitoring() {
                         landings: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    disabled={!selectedAircraft}
+                    disabled={!selectedAircraft || isOfficerInCharge}
                   />
                 </Space>
               </Col>
@@ -592,7 +597,7 @@ export default function PartsMonitoring() {
                   style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   <Text>Sling:</Text>
-                  <Input disabled={!selectedAircraft} />
+                  <Input disabled={!selectedAircraft || isOfficerInCharge} />
                 </Space>
               </Col>
             </Row>
@@ -629,7 +634,7 @@ export default function PartsMonitoring() {
         headers={columnHeader}
         data={computedData}
         loading={loading}
-        editable={!!selectedAircraft}
+        editable={!!selectedAircraft && !isOfficerInCharge}
         isCellEditable={isCellEditable}
         onCellEdit={handleCellEdit}
         rowKey="_id"

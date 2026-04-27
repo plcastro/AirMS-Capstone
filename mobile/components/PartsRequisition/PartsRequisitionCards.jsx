@@ -141,8 +141,10 @@ export default function PartsRequisitionCards({
         const statusStyle = getStatusStyle(item.status);
 
         return (
-          <View
+          <TouchableOpacity
             key={item.id}
+            activeOpacity={0.75}
+            onPress={() => onViewDetails?.(item)}
             style={{
               backgroundColor: COLORS.white,
               borderRadius: 7,
@@ -235,32 +237,11 @@ export default function PartsRequisitionCards({
                 <View
                   style={{
                     flexDirection: "row",
-                    justifyContent: showActions ? "space-between" : "center",
+                    justifyContent: "flex-end",
                     alignItems: "center",
                     marginTop: 10,
                   }}
                 >
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => onViewDetails?.(item)}
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      paddingHorizontal: 14,
-                      paddingVertical: 8,
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: COLORS.white,
-                        fontSize: 14,
-                        fontWeight: "600",
-                      }}
-                    >
-                      View Request Details
-                    </Text>
-                  </TouchableOpacity>
-
                   {showActions && (
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
                       <TouchableOpacity
@@ -292,7 +273,7 @@ export default function PartsRequisitionCards({
                 </View>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         );
       })}
     </>

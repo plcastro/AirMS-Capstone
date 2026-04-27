@@ -224,7 +224,7 @@ export const exportToExcel = async () => {
     // Add your 4 sheets
     addSheet("Performance", PACChartMock);
     addSheet("Summary", summarydata);
-    addSheet("History", mhistorydata);
+    addSheet("Maintenance History", mhistorydata);
     addSheet("Components", componentData);
 
     // Generate the buffer
