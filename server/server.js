@@ -25,10 +25,10 @@ const notificationRoutes = require("./routes/notificationRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
-const sendEmail = require("./utilities/sendEmail");
+const sendEmail = require("./utils/sendEmail");
 const {
   startInvitationLifecycleJob,
-} = require("./utilities/invitationLifecycleService");
+} = require("./utils/invitationLifecycleService");
 
 const app = express();
 
