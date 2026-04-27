@@ -613,7 +613,7 @@ export default function PartsRequisition({ route, navigation }) {
       resetEntryModal();
       setSelectedTab("Active");
       await fetchRequisitions();
-      Alert.alert("Submit Entry", `${nextSlipNo} added successfully.`);
+      showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
       console.error("Error creating requisition:", error);
       showToast(error.message || "Failed to create requisition.");
