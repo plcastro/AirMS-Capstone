@@ -76,8 +76,8 @@ export default function FlightLogModalBroughtForward({
           {renderField("Cycle N2", "cycleN2")}
           {renderField("Usage", "usage")}
           {renderField("Landing Cycle", "landingCycle")}
-          {renderField("Airframe Next Insp", "airframeNextInsp")}
-          {renderField("Engine Next Insp", "engineNextInsp")}
+          {renderField("Aircraft Insp. Next Due At", "airframeNextInsp")}
+          {renderField("Engine Insp. Next Due At", "engineNextInsp")}
         </View>
       </View>
     </ScrollView>

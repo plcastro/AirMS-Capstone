@@ -291,7 +291,7 @@ export default function Profile() {
         <Card style={styles.formCard}>
           <Card.Content>
             <TextInput
-              label="First Name"
+              label="First Name *"
               mode="outlined"
               value={formData.firstName}
               onChangeText={(t) => setFormData({ ...formData, firstName: t })}
@@ -304,7 +304,7 @@ export default function Profile() {
             )}
 
             <TextInput
-              label="Last Name"
+              label="Last Name *"
               mode="outlined"
               value={formData.lastName}
               onChangeText={(t) => setFormData({ ...formData, lastName: t })}

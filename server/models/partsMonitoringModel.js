@@ -21,6 +21,7 @@ const partsMonitoringSchema = new mongoose.Schema(
     referenceData: {
       today: { type: Date, default: Date.now },
       acftTT: { type: Number, default: 902.1 },
+      engTT: { type: Number, default: 902.1 },
       n1Cycles: { type: Number, default: 810 },
       n2Cycles: { type: Number, default: 302 },
       landings: { type: Number, default: 613 },
@@ -57,6 +58,7 @@ const partsMonitoringSchema = new mongoose.Schema(
         hd: { type: String, default: "" },
         timeSinceInstall: { type: String, default: "" },
         totalTimeSinceNew: { type: String, default: "" },
+        formulas: { type: mongoose.Schema.Types.Mixed, default: undefined },
       },
     ],
     lastUpdated: {

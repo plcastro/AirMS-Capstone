@@ -53,12 +53,7 @@ const dedupeChecklistItems = (items = []) => {
   });
 };
 
-export default function AddTask({
-  visible,
-  onClose,
-  onAddTask,
-  employees,
-}) {
+export default function AddTask({ visible, onClose, onAddTask, employees }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
@@ -370,7 +365,12 @@ export default function AddTask({
     const nextDate = new Date(currentValue);
 
     if (Platform.OS === "android") {
-      nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      nextDate.setHours(
+        selectedDate.getHours(),
+        selectedDate.getMinutes(),
+        0,
+        0,
+      );
     } else {
       nextDate.setTime(selectedDate.getTime());
     }
@@ -506,7 +506,9 @@ export default function AddTask({
                   borderBottomWidth: index < options.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.border,
                   backgroundColor:
-                    value === item.label ? `${COLORS.primaryLight}12` : COLORS.white,
+                    value === item.label
+                      ? `${COLORS.primaryLight}12`
+                      : COLORS.white,
                 }}
               >
                 <Text
@@ -526,9 +528,11 @@ export default function AddTask({
   );
 
   const selectedAircraftLabel =
-    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)?.name || "";
+    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
+      ?.name || "";
   const selectedInspectionLabel =
-    inspectionOptions.find((inspection) => inspection.id === inspectionType)?.name || "";
+    inspectionOptions.find((inspection) => inspection.id === inspectionType)
+      ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
@@ -690,7 +694,8 @@ export default function AddTask({
                 marginBottom: 20,
               }}
             >
-              Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)}
+              Estimated duration:{" "}
+              {formatEstimatedDuration(scheduleEstimate.minutes)}
               {" | "}
               {scheduleEstimate.itemCount} checklist item
               {scheduleEstimate.itemCount === 1 ? "" : "s"}
@@ -719,7 +724,9 @@ export default function AddTask({
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
-                    {[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ")}
+                    {[item.taskId, item.inspectionTypeFull]
+                      .filter(Boolean)
+                      .join(" | ")}
                   </Text>
 
                   <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>

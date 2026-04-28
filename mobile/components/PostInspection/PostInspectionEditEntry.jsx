@@ -18,6 +18,7 @@ import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
+import AlertComp from "../AlertComp";
 import {
   areAllPostInspectionChecksComplete,
   getDefaultPostInspectionFormData,
@@ -37,6 +38,12 @@ export default function PostInspectionEditEntry({
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    closeOnFinish: false,
+  });
 
   const isPilot = userRole === "pilot";
   const canReleasePostInspection =
@@ -84,13 +91,13 @@ export default function PostInspectionEditEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const persistInspection = async (nextFormData) => {
+  const persistInspection = async (nextFormData, options) => {
     if (isSubmitting) {
       return;
     }
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData);
+      await onSave(nextFormData, options);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,21 +120,15 @@ export default function PostInspectionEditEntry({
       status: "completed",
     };
 
-    await persistInspection(nextFormData);
+    await persistInspection(nextFormData, { closeOnSave: false });
     setFormData(nextFormData);
-    showToast("Post-inspection has been completed");
-  };
-
-  const handleSave = async () => {
-    if (!formData.rpc || formData.rpc.trim() === "") {
-      showToast("Aircraft RPC is required");
-      return;
-    }
-    if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      showToast("Aircraft Type is required");
-      return;
-    }
-    await persistInspection(formData);
+    setShowReleaseModal(false);
+    setFeedbackAlert({
+      visible: true,
+      title: "Success",
+      message: "Post-inspection has been completed",
+      closeOnFinish: true,
+    });
   };
 
   const handleNext = () => {
@@ -217,17 +218,7 @@ export default function PostInspectionEditEntry({
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
-  const footerActionLabel =
-    readOnly || isPilot || formData.status === "released" || formData.status === "completed"
-      ? "Close"
-      : "Save";
-  const handleFooterAction = () => {
-    if (footerActionLabel === "Close") {
-      onClose();
-      return;
-    }
-    handleSave();
-  };
+  const footerActionLabel = "Close";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -529,7 +520,7 @@ export default function PostInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleFooterAction : handleNext}
+            onPress={isLastPage ? onClose : handleNext}
             disabled={isSubmitting}
             style={{
               paddingVertical: 8,
@@ -556,6 +547,19 @@ export default function PostInspectionEditEntry({
           actionLabel="release"
         />
 
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
+        />
       </SafeAreaView>
     </Modal>
   );

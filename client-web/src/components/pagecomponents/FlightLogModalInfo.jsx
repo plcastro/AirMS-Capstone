@@ -74,7 +74,7 @@ export default function FlightLogModalInfo({
         <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
         <div className="fl-card-body">
           <div className="fl-field-row">
-            <span className="fl-label">RP-C:</span>
+            <span className="fl-label">RP-C: *</span>
             <div className="fl-dropdown-container">
               <Select
                 className="fl-rpc-select"

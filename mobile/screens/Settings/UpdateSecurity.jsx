@@ -81,7 +81,7 @@ export default function UpdateSecurity() {
 
   const renderCodeField = (label, value, setter, { secure = false } = {}) => (
     <View style={styles.pinInputGroup}>
-      <Text style={styles.pinLabel}>{label}</Text>
+      <Text style={styles.pinLabel}>{label} *</Text>
       <CodeInputField
         code={value}
         setCode={setter}
@@ -264,7 +264,7 @@ export default function UpdateSecurity() {
             {activeTab === "password" && (
               <View style={styles.section}>
                 <TextInput
-                  label="Current Password"
+                  label="Current Password *"
                   mode="outlined"
                   secureTextEntry
                   value={currentPassword}
@@ -272,7 +272,7 @@ export default function UpdateSecurity() {
                   style={styles.input}
                 />
                 <TextInput
-                  label="New Password"
+                  label="New Password *"
                   mode="outlined"
                   secureTextEntry
                   value={newPassword}
@@ -285,7 +285,7 @@ export default function UpdateSecurity() {
                   </Text>
                 ) : null}
                 <TextInput
-                  label="Confirm Password"
+                  label="Confirm Password *"
                   mode="outlined"
                   secureTextEntry
                   value={confirmPassword}
@@ -360,7 +360,7 @@ export default function UpdateSecurity() {
                 {forgotPinMode && !otpSent && (
                   <View style={styles.section}>
                     <TextInput
-                      label="Current Password"
+                      label="Current Password *"
                       mode="outlined"
                       secureTextEntry
                       value={passwordForPin}
