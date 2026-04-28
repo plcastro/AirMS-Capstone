@@ -79,9 +79,21 @@ export default function ReviewTask({
 
   const handleConfirm = async () => {
     if (mode === "return") {
-      onConfirm({ note, signature });
-      resetForm();
-      onClose();
+      if (!note.trim()) {
+        showToast("Please enter return remarks before returning this task.");
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        await onConfirm({ note, signature });
+        resetForm();
+        onClose();
+      } catch (error) {
+        showToast(error.message || "Could not return this task.");
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -293,6 +305,7 @@ export default function ReviewTask({
                       : "SIGN & APPROVE"
               }
               onPress={handleConfirm}
+              disabled={submitting}
               buttonStyle={[
                 mode === "return" ? styles.dangerBtn : styles.primaryAlertBtn,
                 { width: mode === "approve" && step === "pin" ? 140 : 120 },

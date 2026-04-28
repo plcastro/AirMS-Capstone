@@ -34,7 +34,7 @@ const RequisitionItemSchema = new mongoose.Schema({
   itemNo: { type: Number, required: true },
   codeParticular: { type: [RequisitionMatcodeParticular], default: [] },
   // matCodeNo: { type: String, required: true },
-  // particular: { type: String, required: true },
+  particular: { type: String, default: "" },
   quantity: { type: Number, required: true },
   unitOfMeasure: { type: String, required: true },
   purpose: { type: String, default: "" },

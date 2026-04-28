@@ -11,6 +11,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import Button from "../Button";
+import AlertComp from "../AlertComp";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -46,6 +47,7 @@ export default function EditTask({
 
   const [checklistItems, setChecklistItems] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
 
   useEffect(() => {
     const fetchAircraft = async () => {
@@ -86,18 +88,18 @@ export default function EditTask({
     }
   }, [task]);
 
-  const confirmSave = () => {
+  const buildUpdatedTask = () => {
     if (startDate < getNow() || endDate < getNow()) {
       showToast("Start and end date/time must be today or later.");
-      return;
+      return null;
     }
 
     if (endDate < startDate) {
       showToast("End date/time must be after the start date/time.");
-      return;
+      return null;
     }
 
-    const updatedTask = {
+    return {
       ...task,
       title: taskTitle,
       aircraft: selectedAircraft,
@@ -109,6 +111,18 @@ export default function EditTask({
         task.assignedToName,
       checklistItems,
     };
+  };
+
+  const requestSave = () => {
+    const updatedTask = buildUpdatedTask();
+    if (!updatedTask) return;
+    setSaveConfirmVisible(true);
+  };
+
+  const confirmSave = () => {
+    const updatedTask = buildUpdatedTask();
+    if (!updatedTask) return;
+    setSaveConfirmVisible(false);
     onSave(updatedTask);
   };
 
@@ -232,6 +246,7 @@ export default function EditTask({
 
   const renderDropdownField = ({
     label,
+    required = false,
     value,
     placeholder,
     options,
@@ -243,6 +258,7 @@ export default function EditTask({
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
+        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
       </Text>
 
       <TouchableOpacity
@@ -278,9 +294,11 @@ export default function EditTask({
           {value || placeholder}
         </Text>
 
-        <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
-          {visible ? "^" : "v"}
-        </Text>
+        {!disabled && (
+          <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
+            {visible ? "^" : "v"}
+          </Text>
+        )}
       </TouchableOpacity>
 
       {visible && !disabled && (
@@ -338,20 +356,21 @@ export default function EditTask({
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.alertOverlay}>
-        <View
-          style={[
-            styles.alertContainer,
-            {
-              width: width > 425 ? 600 : width - 32,
-              maxWidth: "92%",
-              maxHeight: "90%",
-              paddingVertical: 18,
-              paddingHorizontal: 14,
-            },
-          ]}
-        >
+    <>
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={styles.alertOverlay}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                width: width > 425 ? 600 : width - 32,
+                maxWidth: "92%",
+                maxHeight: "90%",
+                paddingVertical: 18,
+                paddingHorizontal: 14,
+              },
+            ]}
+          >
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -386,6 +405,7 @@ export default function EditTask({
 
             {renderDropdownField({
               label: "Aircraft",
+              required: true,
               value: selectedAircraftLabel,
               placeholder: "Tail No.",
               options: aircraftOptions.map((aircraft) => ({
@@ -400,6 +420,7 @@ export default function EditTask({
 
             {renderDropdownField({
               label: "Mechanic",
+              required: true,
               value: selectedEmployeeLabel,
               placeholder: "Pick Mechanic",
               options: employees.map((emp) => ({
@@ -415,6 +436,7 @@ export default function EditTask({
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -446,6 +468,7 @@ export default function EditTask({
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -529,13 +552,23 @@ export default function EditTask({
             />
             <Button
               label="Save Changes"
-              onPress={confirmSave}
+              onPress={requestSave}
               buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.primaryBtnTxt}
             />
           </View>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={saveConfirmVisible}
+        title="Save Changes?"
+        message="This will update the task assignment details."
+        confirmText="Save"
+        cancelText="Cancel"
+        onCancel={() => setSaveConfirmVisible(false)}
+        onConfirm={confirmSave}
+      />
+    </>
   );
 }
