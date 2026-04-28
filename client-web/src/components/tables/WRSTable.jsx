@@ -79,12 +79,6 @@ export default function WRSTable({
       width: 50,
     },
     {
-      title: "MATCODE NO.",
-      dataIndex: "matCodeNo",
-      key: "matCodeNo",
-      width: 100,
-    },
-    {
       title: "PARTICULAR",
       dataIndex: "particular",
       key: "particular",
@@ -133,7 +127,7 @@ export default function WRSTable({
     },
 
     {
-      title: "UNIT OF MEASURE",
+      title: "UOM",
       dataIndex: "unitOfMeasure",
       key: "unitOfMeasure",
       width: 120,

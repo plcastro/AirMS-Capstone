@@ -31,7 +31,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const tabs = ["Assigned", "To Be Reviewed", "Reviewed"];
+  const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
 
   // Fetch tasks on mount
@@ -74,7 +74,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
       setSelectedTask(match);
       setChecklistVisible(true);
       if (targetNotificationStatus === "Turned in") {
-        setActiveTab("To Be Reviewed");
+        setActiveTab("For Review");
       }
     }
   }, [targetTaskId, targetNotificationStatus, tasks]);
@@ -128,7 +128,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           task.status === "Ongoing" ||
           task.status === "Returned"
         );
-      case "To Be Reviewed":
+      case "For Review":
         return (
           task.status === "Turned in" ||
           (task.status === "Completed" && !task.isApproved)
@@ -143,8 +143,8 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
   const taskHeader =
     activeTab === "Assigned"
       ? "Assigned Tasks"
-      : activeTab === "To Be Reviewed"
-        ? "To Be Reviewed"
+      : activeTab === "For Review"
+        ? "For Review"
         : "Reviewed Tasks";
 
   const formatDisplayDate = (dateString) => {
@@ -381,6 +381,14 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           gap: 5,
         }}
       >
+        <View>
+          <Button
+          label="+ Add Task"
+          onPress={() => setAddModalVisible(true)}
+          buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+          buttonTextStyle={styles.primaryBtnTxt}
+        /></View>
+       
         {tabs.map((tab) => (
           <Button
             key={tab}
@@ -388,7 +396,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              width < 425 ? { width: "30%" } : { width: 150 },
+              width < 425 ? { width: "30%" } : { width: 120 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
@@ -397,12 +405,7 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           />
         ))}
 
-        <Button
-          label="+ Add Task"
-          onPress={() => setAddModalVisible(true)}
-          buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
+        
       </View>
 
       {/* Header */}
@@ -422,8 +425,8 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
             <Text style={{ textAlign: "center", marginTop: 20 }}>
               {activeTab === "Assigned"
                 ? "No tasks assigned in this tab"
-                : activeTab === "To Be Reviewed"
-                  ? "No tasks to be reviewed in this tab"
+                : activeTab === "For Review"
+                  ? "No tasks for review in this tab"
                   : "No tasks reviewed in this tab"}
             </Text>
           }
