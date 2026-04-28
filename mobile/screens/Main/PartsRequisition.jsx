@@ -90,6 +90,12 @@ const isItemAvailableForApproval = (status) =>
     normalizeItemStatus(status),
   );
 
+const getItemParticular = (item = {}) =>
+  item.particular ||
+  item.codeParticular?.[0]?.particular ||
+  item.itemName ||
+  "";
+
 const getDisplayStatusLabel = (status) => {
   switch (status) {
     case "To Be Ordered":
@@ -186,6 +192,7 @@ const mapRequisitionToCard = (record) => {
     0,
   );
   const firstItem = items[0];
+  const firstItemParticular = getItemParticular(firstItem);
   const rawStatus = normalizeOverallStatus(record.status);
   const reviewed = hasWarehouseAssessment({ ...record, items });
 
@@ -200,8 +207,8 @@ const mapRequisitionToCard = (record) => {
     aircraft: record.aircraft || "-",
     itemSummary: firstItem
       ? items.length === 1
-        ? `${firstItem.particular} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
-        : `${firstItem.particular} +${items.length - 1} more`
+        ? `${firstItemParticular || "-"} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
+        : `${firstItemParticular || "-"} +${items.length - 1} more`
       : "No items",
     purpose: firstItem?.purpose || "-",
     totalItems: items.length,
@@ -219,7 +226,7 @@ const mapRequisitionToCard = (record) => {
       rawStatus,
       hasWarehouseAssessment: reviewed,
       requestItems: items.map((item) => ({
-        itemName: item.particular || "-",
+        itemName: getItemParticular(item) || "-",
         purpose: item.purpose || "-",
         requested: `${item.quantity || 0} ${item.unitOfMeasure || ""}`.trim(),
         availableQty: `${item.availableQty || 0}`,
@@ -715,7 +722,7 @@ export default function PartsRequisition({ route, navigation }) {
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
-        particular: item.particular,
+        particular: getItemParticular(item),
         quantity: item.quantity,
         unitOfMeasure: item.unitOfMeasure,
         purpose: item.purpose,
