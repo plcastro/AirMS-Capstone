@@ -184,7 +184,7 @@ export default function FlightLogModalDestinations({
 
             <View style={{ padding: 20 }}>
               <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
-                Station
+                Station *
               </Text>
 
               {/* Stations List */}

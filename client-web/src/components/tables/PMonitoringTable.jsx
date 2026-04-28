@@ -1,5 +1,5 @@
 import { Table, Tag, Input } from "antd";
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 
 // Helper to format YYYY-MM-DD to DD/MM/YYYY for display
 const formatDateForDisplay = (dateStr) => {
@@ -183,7 +183,7 @@ export default function PMonitoringTable({
         dataIndex: header.key,
         key: header.key,
         width: header.width,
-        onCell: (_, index) => getColumnStyle(header.key),
+        onCell: () => getColumnStyle(header.key),
         render: renderCell,
         sorter: (a, b) => {
           const valA = a[header.key] ?? "";
@@ -197,9 +197,7 @@ export default function PMonitoringTable({
     });
   };
 
-  const columns = useMemo(() => {
-    return processColumns(headers);
-  }, [headers, editable, isCellEditable, onCellEdit]);
+  const columns = processColumns(headers);
 
   return (
     <Table

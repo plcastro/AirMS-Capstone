@@ -7,7 +7,11 @@ export default function FlightLogModalThisFlight({
   onUpdateComponent,
   isEditable = true,
 }) {
-  const renderField = (label, field) => (
+  const renderField = (label, field) => {
+    const isNextDueDateField =
+      field === "airframeNextInsp" || field === "engineNextInsp";
+
+    return (
     <View style={{ marginBottom: 16 }}>
       <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
@@ -24,10 +28,11 @@ export default function FlightLogModalThisFlight({
         value={componentData[field] || ""}
         onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
         editable={isEditable}
-        keyboardType="numeric"
+        keyboardType={isNextDueDateField ? "default" : "numeric"}
       />
     </View>
-  );
+    );
+  };
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -69,8 +74,8 @@ export default function FlightLogModalThisFlight({
           {renderField("Cycle N2", "cycleN2")}
           {renderField("Usage", "usage")}
           {renderField("Landing Cycle", "landingCycle")}
-          {renderField("Airframe Next Insp", "airframeNextInsp")}
-          {renderField("Engine Next Insp", "engineNextInsp")}
+          {renderField("Aircraft Insp. Next Due At", "airframeNextInsp")}
+          {renderField("Engine Insp. Next Due At", "engineNextInsp")}
         </View>
       </View>
     </ScrollView>

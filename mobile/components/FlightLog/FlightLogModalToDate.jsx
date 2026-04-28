@@ -64,8 +64,8 @@ export default function FlightLogModalToDate({
           {renderReadOnlyField("Cycle N2", componentData.cycleN2)}
           {renderReadOnlyField("Usage", componentData.usage)}
           {renderReadOnlyField("Landing Cycle", componentData.landingCycle)}
-          {renderReadOnlyField("Airframe Next Insp", componentData.airframeNextInsp)}
-          {renderReadOnlyField("Engine Next Insp", componentData.engineNextInsp)}
+          {renderReadOnlyField("Aircraft Insp. Next Due At", componentData.airframeNextInsp)}
+          {renderReadOnlyField("Engine Insp. Next Due At", componentData.engineNextInsp)}
         </View>
       </View>
     </ScrollView>

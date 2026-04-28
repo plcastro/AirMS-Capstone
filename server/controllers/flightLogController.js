@@ -22,6 +22,22 @@ const toComparableFlightLog = (flightLog) => {
     : flightLog;
 };
 
+const isReleasedFlightLogStatus = (status = "") =>
+  ["pending_acceptance", "released", "accepted", "completed"].includes(
+    String(status || "").trim().toLowerCase(),
+  );
+
+const hasDestinationInfo = (flightLog = {}) =>
+  Array.isArray(flightLog.legs) &&
+  flightLog.legs.some((leg) =>
+    Array.isArray(leg?.stations) &&
+    leg.stations.some(
+      (station) =>
+        String(station?.from || "").trim() &&
+        String(station?.to || "").trim(),
+    ),
+  );
+
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
 // @access  Private (pilot or mechanic)
@@ -354,6 +370,28 @@ const updateFlightLog = async (req, res) => {
     delete updates.id;
     delete updates.createdAt;
     delete updates.__v;
+
+    if (isReleasedFlightLogStatus(existingFlightLog.status)) {
+      delete updates.rpc;
+    }
+
+    if (
+      updates.notifiedForCompletion === true &&
+      existingFlightLog.notifiedForCompletion !== true
+    ) {
+      const nextFlightLog = {
+        ...toComparableFlightLog(existingFlightLog),
+        ...updates,
+      };
+
+      if (!hasDestinationInfo(nextFlightLog)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Add at least one complete From-To station in Destination/s before notifying for completion.",
+        });
+      }
+    }
 
     // Update the flight log
     const flightLog = await FlightLog.findByIdAndUpdate(

@@ -102,16 +102,21 @@ export default function PreInspectionModalInfo({
         String(row?.mainTotal || row?.mainRemG || "").trim(),
       );
 
-      if (fuelRow?.mainTotal) return String(fuelRow.mainTotal);
-      if (fuelRow?.mainRemG) return String(fuelRow.mainRemG);
+      const fuelValue = fuelRow?.mainTotal || fuelRow?.mainRemG;
+      const numericFuel = Number(String(fuelValue || "").replace(/,/g, ""));
+
+      if (Number.isFinite(numericFuel) && numericFuel > 0) {
+        const percent = Math.round(Math.min((numericFuel / 200) * 100, 100));
+        return String(percent);
+      }
     }
 
     return "";
   };
 
-  const resolveFobByRpc = async (rpc) => {
+  const resolveFobByRpc = async (rpc, { force = false } = {}) => {
     try {
-      if (!rpc || String(formData.fob || "").trim()) return;
+      if (!rpc || (!force && String(formData.fob || "").trim())) return;
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs/aircraft/${encodeURIComponent(rpc)}?limit=20`,
@@ -122,7 +127,7 @@ export default function PreInspectionModalInfo({
       const flightLogs = Array.isArray(data?.data) ? data.data : [];
       const fob = getLatestFlightLogFuelOnBoard(flightLogs);
 
-      if (fob && !String(formData.fob || "").trim()) {
+      if (fob && (force || !String(formData.fob || "").trim())) {
         updateForm("fob", fob);
       }
     } catch (error) {
@@ -194,10 +199,7 @@ export default function PreInspectionModalInfo({
 
       {showRPCDropdown && isEditable && (
         <View style={{
-          position: "absolute",
-          top: 46,
-          left: 0,
-          right: 0,
+          marginTop: 6,
           backgroundColor: COLORS.white,
           borderRadius: 6,
           borderWidth: 1,
@@ -208,7 +210,7 @@ export default function PreInspectionModalInfo({
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
-          maxHeight: 200,
+          maxHeight: 240,
         }}>
           <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
             {dynamicRpcOptions.map((rpc, index) => (
@@ -224,7 +226,7 @@ export default function PreInspectionModalInfo({
                 onPress={() => {
                   updateForm("rpc", rpc);
                   resolveAircraftTypeByRpc(rpc);
-                  resolveFobByRpc(rpc);
+                  resolveFobByRpc(rpc, { force: rpc !== formData.rpc });
                   setShowRPCDropdown(false);
                 }}
               >
@@ -258,7 +260,7 @@ export default function PreInspectionModalInfo({
         shadowOpacity: 0.05,
         shadowRadius: 6,
         elevation: 2,
-        overflow: "hidden",
+        overflow: "visible",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
           <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
@@ -269,14 +271,14 @@ export default function PreInspectionModalInfo({
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              RP-C:
+              RP-C: *
             </Text>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              Aircraft Type:
+              Aircraft Type: *
             </Text>
             {renderAircraftTypeField()}
           </View>

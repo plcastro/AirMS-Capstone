@@ -106,6 +106,17 @@ export default function FlightLog() {
       .toLowerCase()
       .replace(/\s+/g, "_");
 
+  const hasDestinationInfo = (log = {}) =>
+    Array.isArray(log.legs) &&
+    log.legs.some((leg) =>
+      Array.isArray(leg?.stations) &&
+      leg.stations.some(
+        (station) =>
+          String(station?.from || "").trim() &&
+          String(station?.to || "").trim(),
+      ),
+    );
+
   const fetchFlightLogs = useCallback(async () => {
     try {
       setLoading(true);
@@ -422,6 +433,12 @@ export default function FlightLog() {
       setSaving(true);
 
       if (action === "notify") {
+        if (!hasDestinationInfo(log)) {
+          throw new Error(
+            "Add at least one complete From-To station in Destination/s before notifying for completion.",
+          );
+        }
+
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
           method: "PUT",
           headers: {

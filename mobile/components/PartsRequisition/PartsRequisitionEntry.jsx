@@ -203,7 +203,7 @@ export default function PartsRequisitionEntry({
                   marginBottom: 14,
                 }}
               >
-                Choose Aircraft
+                Choose Aircraft *
               </Text>
 
               <View
@@ -292,7 +292,7 @@ export default function PartsRequisitionEntry({
                 </View>
 
 
-                {renderInput("Particular:", item.particular, (value) =>
+                {renderInput("Particular: *", item.particular, (value) =>
                   updateItem(item.id, "particular", value),
                 )}
 
@@ -305,7 +305,7 @@ export default function PartsRequisitionEntry({
                       marginBottom: 8,
                     }}
                   >
-                    Quantity:
+                    Quantity: *
                   </Text>
                   <View
                     style={{
