@@ -33,29 +33,43 @@ import { rawData as rawData7057 } from "../../../utils/7057RawData";
 import { rawData as rawData9511 } from "../../../utils/9511RawData";
 //import { rawData as rawData2810 } from "../../../utils/2810RawData"; // Bell 412
 
-// Default reference values for each aircraft (acftTT, n1Cycles, n2Cycles, landings)
+// Default reference values for each aircraft from the latest tracking workbooks.
 const defaultRefsMap = {
-  "RP-C8912": { acftTT: 902.1, n1Cycles: 810, n2Cycles: 302, landings: 613 },
+  "RP-C8912": {
+    acftTT: 902.1,
+    engTT: 902.1,
+    n1Cycles: 810,
+    n2Cycles: 302,
+    landings: 613,
+  },
   "RP-C7247": {
     acftTT: 3233.7,
+    engTT: 3233.7,
     n1Cycles: 2952.77,
     n2Cycles: 6677.3,
     landings: 3388,
   },
   "RP-C7226": {
-    acftTT: 2813.4,
+    acftTT: 3079.7,
+    engTT: 2813.4,
     n1Cycles: 5990.9,
     n2Cycles: 2949.59,
     landings: 3416,
+    referenceCells: {
+      J2: 498.8,
+      N3: 1130.8,
+    },
   },
   "RP-C7057": {
     acftTT: 3344.4,
+    engTT: 3344.4,
     n1Cycles: 2276.44,
     n2Cycles: 1736.34,
     landings: 4140,
   },
   "RP-C9511": {
     acftTT: 814.5,
+    engTT: 372.1,
     n1Cycles: 364.86,
     n2Cycles: 145.87,
     landings: 861,
@@ -159,6 +173,7 @@ export default function PartsMonitoring() {
     n1Cycles: 0,
     n2Cycles: 0,
     landings: 0,
+    referenceCells: {},
   });
   const [rawData, setRawData] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -239,10 +254,11 @@ export default function PartsMonitoring() {
       setRefs({
         today: getToday(),
         acftTT: defaultRefsValues.acftTT,
-        engTT: defaultRefsValues.acftTT,
+        engTT: defaultRefsValues.engTT ?? defaultRefsValues.acftTT,
         n1Cycles: defaultRefsValues.n1Cycles,
         n2Cycles: defaultRefsValues.n2Cycles,
         landings: defaultRefsValues.landings,
+        referenceCells: defaultRefsValues.referenceCells || {},
       });
       message.info(`Loaded default data for ${aircraft}`);
     } else {
@@ -284,6 +300,7 @@ export default function PartsMonitoring() {
             n1Cycles: referenceData.n1Cycles,
             n2Cycles: referenceData.n2Cycles,
             landings: referenceData.landings,
+            referenceCells: referenceData.referenceCells || {},
           });
         }
         if (parts && parts.length > 0) {

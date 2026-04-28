@@ -20,6 +20,12 @@ export default function MaintenanceLog() {
   const [viewLevel, setViewLevel] = useState("dashboard");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
+  const pageScrollStyle = {
+    padding: 20,
+    height: "calc(100vh - 64px)",
+    overflowY: "auto",
+    overflowX: "hidden",
+  };
 
   useEffect(() => {
     const fetchMaintenanceLogs = async () => {
@@ -173,7 +179,7 @@ export default function MaintenanceLog() {
 
   if (viewLevel === "dashboard") {
     return (
-      <div style={{ padding: 20 }}>
+      <div style={pageScrollStyle}>
         <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 18 }}>
           <Col xs={24} md={10}>
             <Input
@@ -248,7 +254,7 @@ export default function MaintenanceLog() {
 
   if (viewLevel === "aircraft") {
     return (
-      <div style={{ padding: 20 }}>
+      <div style={pageScrollStyle}>
         <Button
           icon={<ArrowLeftOutlined />}
           type="text"
@@ -398,7 +404,7 @@ export default function MaintenanceLog() {
                 header: { borderBottom: "1px solid #edf3f0" },
               }}
             >
-              <div style={{ maxHeight: 430, overflowY: "auto" }}>
+              <div>
                 <MLogTable
                   headers={[
                     { title: "W.O. #", key: "id", width: "20%" },
@@ -423,7 +429,7 @@ export default function MaintenanceLog() {
 
   if (viewLevel === "report") {
     return (
-      <div style={{ padding: 20 }}>
+      <div style={pageScrollStyle}>
         <Row
           justify="space-between"
           align="middle"
@@ -480,27 +486,23 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </Card>
-        <div style={{ minHeight: "100vh", overflowY: "auto" }}>
-          <Card
-            title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
-            styles={{
-              header: {
-                background: "#26866f",
-                color: "#fff",
-                fontWeight: 700,
-              },
-            }}
-          >
-            <div style={{ maxHeight: 420, overflowY: "auto", paddingRight: 4 }}>
-              <MLogTable
-                headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
-                data={selectedWO?.workDetails || []}
-                isSimple={true}
-                isWorkReport={true}
-              />
-            </div>
-          </Card>
-        </div>
+        <Card
+          title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
+          styles={{
+            header: {
+              background: "#26866f",
+              color: "#fff",
+              fontWeight: 700,
+            },
+          }}
+        >
+          <MLogTable
+            headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
+            data={selectedWO?.workDetails || []}
+            isSimple={true}
+            isWorkReport={true}
+          />
+        </Card>
       </div>
     );
   }

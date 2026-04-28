@@ -30,6 +30,12 @@ const PRIORITY_RANKS = {
   Medium: 3,
   Low: 4,
 };
+const DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT = {
+  "RP-C7226": {
+    J2: 498.8,
+    N3: 1130.8,
+  },
+};
 
 const normalizeAircraftModel = (value = "") => {
   const normalized = String(value || "")
@@ -472,7 +478,7 @@ const resolveAircraftModelForRecord = (record = {}, computedParts = [], schedule
 exports.updateAircraftTotals = async (req, res) => {
   try {
     const { aircraft } = req.params;
-    const { acftTT, n1Cycles, n2Cycles, landings } = req.body;
+    const { acftTT, engTT, n1Cycles, n2Cycles, landings } = req.body;
 
     if (!aircraft) {
       return res.status(400).json({
@@ -516,6 +522,7 @@ exports.updateAircraftTotals = async (req, res) => {
 
     // Update the reference totals
     partsData.referenceData.acftTT = acftTT;
+    partsData.referenceData.engTT = engTT ?? partsData.referenceData.engTT ?? acftTT;
     partsData.referenceData.n1Cycles = n1Cycles;
     partsData.referenceData.n2Cycles = n2Cycles;
     partsData.referenceData.landings = landings;
@@ -722,9 +729,17 @@ exports.getMaintenancePriority = async (req, res) => {
         const refs = {
           today: getToday(),
           acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+          engTT:
+            parseNumber(record?.referenceData?.engTT) ??
+            parseNumber(record?.referenceData?.acftTT) ??
+            0,
           n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
           n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
           landings: parseNumber(record?.referenceData?.landings) || 0,
+          referenceCells:
+            record?.referenceData?.referenceCells ||
+            DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
+            {},
         };
 
         const computedParts = processDataWithFormulas(record.parts || [], refs);

@@ -119,6 +119,7 @@ export default function ResetPassword() {
         <Text style={styles.headerText}>Reset Password</Text>
         <Text style={styles.subHeaderText}>Enter your new password</Text>
 
+        <Text style={styles.label}>New Password *</Text>
         <TextInput
           style={styles.formInput}
           placeholder="New Password"
@@ -128,6 +129,7 @@ export default function ResetPassword() {
           onChangeText={(text) => handleChange("newPassword", text)}
         />
 
+        <Text style={styles.label}>Confirm Password *</Text>
         <TextInput
           style={styles.formInput}
           placeholder="Confirm Password"

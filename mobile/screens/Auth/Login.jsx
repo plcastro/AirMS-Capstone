@@ -192,6 +192,7 @@ export default function Login() {
         <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
           Please enter your username and password
         </Text>
+        <Text style={styles.label}>Username/Email *</Text>
         <TextInput
           style={styles.formInput}
           maxLength={100}
@@ -202,6 +203,7 @@ export default function Login() {
           value={formData.identifier}
           onChangeText={(text) => changeHandler("identifier", text)}
         />
+        <Text style={styles.label}>Password *</Text>
         <TextInput
           style={styles.formInput}
           maxLength={100}

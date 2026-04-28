@@ -45,7 +45,10 @@ const buildMaintenanceInsights = async ({
       aircraftId: entry.aircraftId,
       aircraft: entry.aircraftLabel,
       aircraftModel: entry.aircraftModel || "",
-      component: inference.matchedRules[0]?.component || "General Maintenance",
+      component:
+        inference.primaryRule?.component ||
+        inference.matchedRules[0]?.component ||
+        "General Maintenance",
       riskLevel: inference.riskLevel,
       issueTitle: inference.issueTitle,
       shortFinding: inference.shortFinding,
@@ -54,7 +57,7 @@ const buildMaintenanceInsights = async ({
       manualReferences: inference.manualReferences,
       matchedRules: inference.matchedRules,
       explanation: inference.explanation,
-      managerSummary: inference.shortFinding,
+      managerSummary: inference.managerSummary,
       managerSummarySource: "rule-fallback",
       sourceCounts: entry.sourceCounts,
         evidenceCounts: {
@@ -97,7 +100,7 @@ const buildMaintenanceInsights = async ({
       const llmSummary = await summarizeInsightWithLLM(insight);
       return {
         aircraftId: insight.aircraftId,
-        managerSummary: llmSummary || insight.shortFinding,
+        managerSummary: llmSummary || insight.managerSummary,
         managerSummarySource: llmSummary ? "gemini" : "rule-fallback",
       };
     }),

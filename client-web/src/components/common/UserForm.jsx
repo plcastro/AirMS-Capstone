@@ -301,7 +301,7 @@ export default function UserForm({
         </Col>
 
         <Col xs={24} md={12}>
-          <Text strong>First Name</Text>
+          <Text strong>First Name *</Text>
           <Input
             maxLength={128}
             size="large"
@@ -322,7 +322,7 @@ export default function UserForm({
         </Col>
 
         <Col xs={24} md={12}>
-          <Text strong>Last Name</Text>
+          <Text strong>Last Name *</Text>
           <Input
             maxLength={128}
             size="large"
@@ -344,7 +344,7 @@ export default function UserForm({
 
         {/* Email */}
         <Col xs={24} md={24}>
-          <Text strong>Email Address</Text>
+          <Text strong>Email Address *</Text>
           <Input
             placeholder="Enter email address"
             size="large"
@@ -367,7 +367,7 @@ export default function UserForm({
         </Col>
 
         <Col xs={24} md={12}>
-          <Text strong>Job Title</Text>
+          <Text strong>Job Title *</Text>
           <Select
             status={touched.jobTitle && errors.jobTitle ? "error" : ""}
             size="large"
@@ -405,7 +405,7 @@ export default function UserForm({
           "officer-in-charge",
         ].includes(jobTitle.toLowerCase()) ? (
           <Col xs={24} md={12}>
-            <Text strong>License No.</Text>
+            <Text strong>License No. *</Text>
             <Input
               placeholder="Enter license number"
               size="large"

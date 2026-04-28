@@ -155,7 +155,10 @@ export default function FlightLog({ route, navigation }) {
   };
 
   // CREATE NEW FLIGHT LOG
-  const handleSaveNewEntry = async (newEntry) => {
+  const handleSaveNewEntry = async (
+    newEntry,
+    options = { closeOnSave: true, showToast: true },
+  ) => {
     try {
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
@@ -177,7 +180,12 @@ export default function FlightLog({ route, navigation }) {
       if (response.ok) {
         fetchFlightLogs();
         fetchNotifications();
-        setShowNewEntryModal(false);
+        if (options.closeOnSave !== false) {
+          setShowNewEntryModal(false);
+        }
+        if (options.showToast) {
+          showToast("Flight log added successfully");
+        }
       } else {
         showToast(data.message || "Failed to add flight log");
       }
@@ -190,7 +198,7 @@ export default function FlightLog({ route, navigation }) {
   // UPDATE FLIGHT LOG (NO AUTH)
   const handleSaveEdit = async (
     updatedLog,
-    options = { closeOnSave: true },
+    options = { closeOnSave: true, showToast: true },
   ) => {
     try {
       const response = await fetch(
@@ -215,7 +223,9 @@ export default function FlightLog({ route, navigation }) {
         } else {
           setSelectedLog(updatedLog);
         }
-        showToast("Flight log updated successfully");
+        if (options.showToast !== false) {
+          showToast("Flight log updated successfully");
+        }
       } else {
         showToast(data.message || "Failed to update flight log");
       }
