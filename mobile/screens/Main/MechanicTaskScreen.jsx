@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput, Dimensions, Alert } from "react-native";
+import { View, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -276,22 +276,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           },
         ]}
       >
-        <View style={{ flex: 0.58 }}>
+        <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
           <TextInput
             placeholder="Search tasks"
-            placeholderTextColor="gray"
-            style={[
-              styles.searchInput,
-              {
-                height: 50,
-                width: "100%",
-                backgroundColor: "#fff",
-                borderWidth: 1,
-                borderColor: "#d4d4d4",
-                borderRadius: 8,
-                paddingHorizontal: 12,
-              },
-            ]}
+            placeholderTextColor="#666"
+            style={styles.unifiedSearchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -300,11 +289,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         <View
           style={{
             flex: 0.42,
-            minHeight: 40,
+            minHeight: 48,
             backgroundColor: "#fff",
             borderWidth: 1,
-            borderColor: "#d4d4d4",
-            borderRadius: 8,
+            borderColor: "#d1d5db",
+            borderRadius: 10,
             overflow: "hidden",
             justifyContent: "center",
           }}

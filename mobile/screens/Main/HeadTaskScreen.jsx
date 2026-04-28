@@ -14,15 +14,18 @@ import AddTask from "../../components/TaskAssignment/AddTask";
 import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
+import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
 const { width } = Dimensions.get("window");
 
-const isAssignableUser = (user) =>
-  user?.jobTitle?.toLowerCase() === "mechanic";
+const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 
-export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus }) {
+export default function HeadTaskScreen({
+  targetTaskId,
+  targetNotificationStatus,
+}) {
   const { user } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -319,7 +322,8 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
   };
 
   const renderTask = ({ item }) => {
-    const showEditDelete = activeTab === "Assigned" && item.status === "Pending";
+    const showEditDelete =
+      activeTab === "Assigned" && item.status === "Pending";
 
     return (
       <View>
@@ -360,13 +364,34 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
   return (
     <View style={styles.container}>
       {/* Search Bar */}
-      <View style={[styles.searchRow, { maxWidth: 550, marginBottom: 10 }]}>
+      <View
+        style={[styles.searchRow, { marginBottom: 10, flexWrap: "nowrap" }]}
+      >
         <TextInput
           placeholder="Search tasks"
-          placeholderTextColor="gray"
-          style={[styles.searchInput, { flex: 1, backgroundColor: "#ffffff" }]}
+          placeholderTextColor={COLORS.grayDark}
+          style={[
+            styles.searchInput,
+            {
+              flex: 1,
+              minWidth: 0,
+              width: "auto",
+              marginRight: 0,
+              height: 48,
+              borderRadius: 10,
+            },
+          ]}
           value={searchQuery}
           onChangeText={setSearchQuery}
+        />
+        <Button
+          label="+ Task"
+          onPress={() => setAddModalVisible(true)}
+          buttonStyle={[
+            styles.unifiedActionButton,
+            { marginLeft: 5, width: 120 },
+          ]}
+          buttonTextStyle={styles.primaryBtnTxt}
         />
       </View>
       <View style={styles.maintenanceSearchDivider} />
@@ -381,14 +406,6 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
           gap: 5,
         }}
       >
-        <View>
-          <Button
-          label="+ Add Task"
-          onPress={() => setAddModalVisible(true)}
-          buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        /></View>
-       
         {tabs.map((tab) => (
           <Button
             key={tab}
@@ -404,8 +421,6 @@ export default function HeadTaskScreen({ targetTaskId, targetNotificationStatus 
             ]}
           />
         ))}
-
-        
       </View>
 
       {/* Header */}

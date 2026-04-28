@@ -24,6 +24,10 @@ const buildRecipientQuery = (userId, role) => {
     recipientFilters.push({ recipientRoles: role });
   }
 
+  if (recipientFilters.length === 0) {
+    return null;
+  }
+
   return { $or: recipientFilters };
 };
 
@@ -36,9 +40,12 @@ const getNotifications = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
-    const notifications = await NotificationModel.find(
-      recipientQuery,
-    )
+    const recipientQuery = buildRecipientQuery(userId, role);
+    if (!recipientQuery) {
+      return res.status(200).json([]);
+    }
+
+    const notifications = await NotificationModel.find(recipientQuery)
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -66,6 +73,11 @@ const markNotificationRead = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
+    const recipientQuery = buildRecipientQuery(userId, role);
+    if (!recipientQuery) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
     const notification = await NotificationModel.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -97,6 +109,11 @@ const markAllNotificationsRead = async (req, res) => {
     }
 
     const role = await getUserRole(userId, req.user?.jobTitle);
+    const recipientQuery = buildRecipientQuery(userId, role);
+    if (!recipientQuery) {
+      return res.status(200).json({ success: true });
+    }
+
     await NotificationModel.updateMany(
       recipientQuery,
       {

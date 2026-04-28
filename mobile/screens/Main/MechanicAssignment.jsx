@@ -12,9 +12,17 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   const assignedTasks = tasks.filter(
     (task) => String(task.assignedTo) === String(mechanic.id),
   );
-  const visibleTasks = assignedTasks.filter((task) =>
-    activeTab === "Completed" ? isCompletedTask(task) : !isCompletedTask(task),
-  );
+  const completedTasks = assignedTasks.filter((task) => isCompletedTask(task));
+  const ongoingTasks = assignedTasks.filter((task) => !isCompletedTask(task));
+  const visibleTasks =
+    activeTab === "Completed" ? completedTasks : ongoingTasks;
+  const isOnline = Boolean(mechanic?.isOnline ?? mechanic?.online);
+  const activePlatform =
+    mechanic?.platform === "web"
+      ? "Web"
+      : mechanic?.platform === "mobile"
+        ? "Mobile"
+        : "Unknown";
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -223,13 +231,27 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
             {mechanic.jobTitle || "Mechanic"}
           </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginTop: 6,
+              gap: 6,
+            }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: isOnline ? "#22c55e" : "#9ca3af",
+              }}
+            />
+            <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
+              {isOnline ? "Online" : "Offline"} • {activePlatform}
+            </Text>
+          </View>
         </View>
-      </View>
-
-      <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          {activeTab} Tasks ({visibleTasks.length})
-        </Text>
       </View>
 
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
@@ -255,7 +277,11 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 fontWeight: "600",
               }}
             >
-              {tab}
+              {tab} Tasks (
+              {tab === "Completed"
+                ? completedTasks.length
+                : ongoingTasks.length}
+              )
             </Text>
           </TouchableOpacity>
         ))}

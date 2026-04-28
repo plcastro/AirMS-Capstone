@@ -172,7 +172,7 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
           <Button
             label="+ Add Task"
             onPress={() => setShowAddModal(true)}
-            buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+            buttonStyle={[styles.unifiedActionButton, { width: 130 }]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}

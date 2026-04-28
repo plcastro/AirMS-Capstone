@@ -53,6 +53,13 @@ const userSchema = new mongoose.Schema({
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
+  isOnline: { type: Boolean, default: false },
+  platform: {
+    type: String,
+    enum: ["web", "mobile", "unknown"],
+    default: "unknown",
+  },
+  lastSeenAt: { type: Date, default: null },
   mobilePushDevices: {
     type: [
       {

@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   ScrollView,
@@ -109,7 +115,9 @@ const buildTimeline = (record) => {
   if (hasWarehouseAssessment(record)) {
     timeline.push({
       status: "Availability Checked",
-      dateTime: formatDateTime(record.dateWarehouseReviewed || record.updatedAt),
+      dateTime: formatDateTime(
+        record.dateWarehouseReviewed || record.updatedAt,
+      ),
       by: record.staff?.warehouseBy || "Warehouse Department",
       description: "Warehouse reviewed item stock availability",
     });
@@ -166,11 +174,13 @@ const buildTimeline = (record) => {
 };
 
 const mapRequisitionToCard = (record) => {
-  const items = (Array.isArray(record.items) ? record.items : []).map((item) => ({
-    ...item,
-    stockStatus: normalizeItemStatus(item.stockStatus),
-    availableQty: Number(item.availableQty) || 0,
-  }));
+  const items = (Array.isArray(record.items) ? record.items : []).map(
+    (item) => ({
+      ...item,
+      stockStatus: normalizeItemStatus(item.stockStatus),
+      availableQty: Number(item.availableQty) || 0,
+    }),
+  );
   const totalQuantity = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0),
     0,
@@ -233,7 +243,8 @@ const resolveTabForRequest = (request, isManager) => {
       : "History";
   }
 
-  return request.rawStatus === "Parts Requested" && !request.hasWarehouseAssessment
+  return request.rawStatus === "Parts Requested" &&
+    !request.hasWarehouseAssessment
     ? "Active"
     : "History";
 };
@@ -256,7 +267,9 @@ export default function PartsRequisition({ route, navigation }) {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
-  const tabLabels = isManager ? ["For Review", "History"] : ["Active", "History"];
+  const tabLabels = isManager
+    ? ["For Review", "History"]
+    : ["Active", "History"];
 
   useEffect(() => {
     setSelectedTab(isManager ? "For Review" : "Active");
@@ -310,7 +323,9 @@ export default function PartsRequisition({ route, navigation }) {
 
   const fetchAircraftOptions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch aircraft options");
@@ -366,7 +381,9 @@ export default function PartsRequisition({ route, navigation }) {
 
       return selectedTab === "Active"
         ? item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
-        : !(item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment);
+        : !(
+            item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
+          );
     });
 
     return sourceData.filter((item) => {
@@ -380,12 +397,7 @@ export default function PartsRequisition({ route, navigation }) {
 
       return matchesSearch;
     });
-  }, [
-    isManager,
-    mappedRequisitions,
-    searchQuery,
-    selectedTab,
-  ]);
+  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
 
   useEffect(() => {
     const targetRequestId = route?.params?.targetRequestId;
@@ -544,15 +556,13 @@ export default function PartsRequisition({ route, navigation }) {
           Number(item.quantity) <= 0,
       )
     ) {
-      showToast(
-        
-        "Particular, and quantity are required for each item.",
-      );
+      showToast("Particular, and quantity are required for each item.");
       return;
     }
 
     const fullName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
     const requestItems = buildRequestItemsPayload(items);
 
     try {
@@ -642,7 +652,8 @@ export default function PartsRequisition({ route, navigation }) {
 
   const handleApproveRequest = async (request) => {
     const fullName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
     const updatedItems = (request.rawRecord.items || []).map((item) => ({
       ...item,
       stockStatus: "Approved",
@@ -673,7 +684,7 @@ export default function PartsRequisition({ route, navigation }) {
             minWidth: 92,
             paddingHorizontal: 18,
             paddingVertical: 10,
-            borderRadius: 20,
+            borderRadius: 7,
             backgroundColor: COLORS.white,
             borderWidth: 1,
             borderColor: COLORS.grayMedium,
@@ -742,7 +753,9 @@ export default function PartsRequisition({ route, navigation }) {
       : "Order";
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}>
+    <View
+      style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
@@ -766,7 +779,7 @@ export default function PartsRequisition({ route, navigation }) {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Search by mechanic"
+              placeholder="Search by WRS#"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,

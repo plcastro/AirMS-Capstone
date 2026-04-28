@@ -156,6 +156,10 @@ const loginUser = async (req, res) => {
     password = password.trim();
     const normalizedClient =
       typeof client === "string" ? client.trim().toLowerCase() : "";
+    const loginPlatform =
+      normalizedClient === "web" || normalizedClient === "mobile"
+        ? normalizedClient
+        : "unknown";
 
     if (!identifier || !password) {
       return res
@@ -284,6 +288,9 @@ const loginUser = async (req, res) => {
     user.isLocked = false;
     user.lockUntil = undefined;
     user.lastLogin = new Date();
+    user.isOnline = true;
+    user.platform = loginPlatform;
+    user.lastSeenAt = new Date();
     await user.save();
 
     // Generate JWT
@@ -335,6 +342,9 @@ const loginUser = async (req, res) => {
       signature: user.signature,
       securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
+      isOnline: user.isOnline,
+      platform: user.platform,
+      lastSeenAt: user.lastSeenAt,
     };
 
     return res.status(200).json({
@@ -406,6 +416,11 @@ const logoutUser = async (req, res) => {
     } catch (err) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
+
+    await UserModel.findByIdAndUpdate(decoded.id, {
+      isOnline: false,
+      lastSeenAt: new Date(),
+    });
 
     await auditLog(
       `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
