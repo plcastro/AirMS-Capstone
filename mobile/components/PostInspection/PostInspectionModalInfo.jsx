@@ -138,10 +138,7 @@ export default function PostInspectionModalInfo({
 
       {showRPCDropdown && isEditable && (
         <View style={{
-          position: "absolute",
-          top: 46,
-          left: 0,
-          right: 0,
+          marginTop: 6,
           backgroundColor: COLORS.white,
           borderRadius: 6,
           borderWidth: 1,
@@ -152,7 +149,7 @@ export default function PostInspectionModalInfo({
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
-          maxHeight: 200,
+          maxHeight: 240,
         }}>
           <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
             {dynamicRpcOptions.map((rpc, index) => (
@@ -201,7 +198,7 @@ export default function PostInspectionModalInfo({
         shadowOpacity: 0.05,
         shadowRadius: 6,
         elevation: 2,
-        overflow: "hidden",
+        overflow: "visible",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
           <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
@@ -212,14 +209,14 @@ export default function PostInspectionModalInfo({
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              RP-C:
+              RP-C: *
             </Text>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              Aircraft Type:
+              Aircraft Type: *
             </Text>
             {renderAircraftTypeField()}
           </View>

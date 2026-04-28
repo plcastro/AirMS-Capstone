@@ -1,24 +1,48 @@
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const colMap = {
+  A: "componentName",
+  B: "hourLimit1",
+  C: "hourLimit2",
+  D: "hourLimit3",
+  E: "dayLimit",
+  F: "dayType",
+  G: "dateCW",
+  H: "hoursCW",
+  I: "daysRemaining",
+  J: "timeRemaining",
+  K: "dateDue",
+  L: "ttCycleDue",
+  M: "due",
+  N: "hd",
+  O: "timeSinceInstall",
+  P: "totalTimeSinceNew",
+};
+
+const formulaFieldOrder = [
+  "dateDue",
+  "ttCycleDue",
+  "daysRemaining",
+  "timeRemaining",
+  "due",
+  "hd",
+];
+
 const parseDate = (dateStr) => {
   if (!dateStr || dateStr === "N/A" || dateStr === "") return null;
+  if (dateStr instanceof Date) return Number.isNaN(dateStr.getTime()) ? null : dateStr;
 
-  if (typeof dateStr === "number") {
-    const excelEpoch = new Date(1900, 0, 1);
-    const daysOffset = dateStr - 2;
-    return new Date(excelEpoch.getTime() + daysOffset * 86400000);
-  }
-
-  const str = String(dateStr);
-
+  const str = String(dateStr).trim();
   let parts = str.split(" ")[0].split("-");
   if (parts.length === 3) {
-    return new Date(parts[0], parts[1] - 1, parts[2]);
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   }
 
   parts = str.split(" ")[0].split("/");
   if (parts.length === 3) {
     let year = parts[2];
     if (year.length === 2) year = `20${year}`;
-    return new Date(year, parts[0] - 1, parts[1]);
+    return new Date(Number(year), Number(parts[0]) - 1, Number(parts[1]));
   }
 
   return null;
@@ -26,10 +50,10 @@ const parseDate = (dateStr) => {
 
 const formatDate = (date) => {
   if (!date || Number.isNaN(date.getTime())) return "";
+  const yyyy = String(date.getFullYear());
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const yy = String(date.getFullYear()).slice(-2);
-  return `${mm}/${dd}/${yy}`;
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const getToday = () => {
@@ -40,288 +64,233 @@ const getToday = () => {
 
 const daysBetween = (date1, date2) => {
   if (!date1 || !date2) return null;
-  const diffTime = date2 - date1;
-  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  return Math.round((date2 - date1) / MS_PER_DAY);
 };
 
-const safeEvaluate = (expression) => {
-  const expr = expression.replace(/\s/g, "");
-
-  if (!/^[\d+\-*/().]+$/.test(expr)) {
-    throw new Error("Invalid expression");
-  }
-
-  const fn = new Function(`return (${expr})`);
-  const result = fn();
-
-  if (typeof result !== "number" || Number.isNaN(result)) {
-    throw new Error("Result is not a number");
-  }
-
-  return result;
-};
-
-const evaluateFormula = (formula, row, allData, rowIndex, refs) => {
-  if (!formula || !formula.startsWith("=")) return formula;
-
-  const expression = formula.substring(1);
-  const cellRegex = /([A-Z]+)(\$?)(\d+)/g;
-  let evaluatedExpression = expression;
-  let match;
-
-  while ((match = cellRegex.exec(expression)) !== null) {
-    const colLetter = match[1];
-    const isAbsolute = match[2] === "$";
-    const rowNum = parseInt(match[3], 10);
-    const cellRef = match[0];
-
-    let value;
-
-    if (isAbsolute && rowNum === 1) {
-      if (colLetter === "L") value = refs.today;
-      else if (colLetter === "K") value = "";
-      else value = "";
-    } else {
-      const targetRowIndex = rowNum - 1;
-      if (targetRowIndex >= 0 && targetRowIndex < allData.length) {
-        const targetRow = allData[targetRowIndex];
-        const colMap = {
-          A: "componentName",
-          B: "hourLimit1",
-          C: "hourLimit2",
-          D: "hourLimit3",
-          E: "dayLimit",
-          F: "dayType",
-          G: "dateCW",
-          H: "hoursCW",
-          I: "daysRemaining",
-          J: "timeRemaining",
-          K: "dateDue",
-          L: "ttCycleDue",
-          M: "due",
-          N: "hd",
-          O: "timeSinceInstall",
-          P: "totalTimeSinceNew",
-        };
-        const dataIndex = colMap[colLetter];
-        if (dataIndex && targetRow[dataIndex]) {
-          value = targetRow[dataIndex];
-        }
-      }
-    }
-
-    evaluatedExpression = evaluatedExpression.replace(
-      cellRef,
-      value !== undefined ? value : "0",
-    );
-  }
-
-  try {
-    if (
-      evaluatedExpression.includes("+") ||
-      evaluatedExpression.includes("-")
-    ) {
-      const parts = evaluatedExpression.split(/([+-])/);
-      if (parts.length >= 3) {
-        const left = parts[0].trim();
-        const operator = parts[1];
-        const right = parts[2].trim();
-        const leftDate = parseDate(left);
-
-        if (leftDate && !Number.isNaN(Number(right))) {
-          const resultDate = new Date(leftDate);
-          if (operator === "+") {
-            resultDate.setDate(resultDate.getDate() + parseFloat(right));
-          } else if (operator === "-") {
-            resultDate.setDate(resultDate.getDate() - parseFloat(right));
-          }
-          return formatDate(resultDate);
-        }
-      }
-    }
-
-    return safeEvaluate(evaluatedExpression);
-  } catch (error) {
-    return formula;
-  }
-};
-
-const calculateTTCycleDue = (hourLimit, hoursCW, row, allData, rowIndex, refs) => {
-  if (hourLimit && hourLimit.startsWith("=")) {
-    hourLimit = evaluateFormula(hourLimit, row, allData, rowIndex, refs);
-  }
-  if (hoursCW && hoursCW.startsWith("=")) {
-    hoursCW = evaluateFormula(hoursCW, row, allData, rowIndex, refs);
-  }
-
-  if (!hourLimit && !hoursCW) return "";
-
-  const limit = parseFloat(hourLimit) || 0;
-  const hrs = parseFloat(hoursCW) || 0;
-
-  if (limit === 0 && hrs === 0) return "";
-
-  return (limit + hrs).toFixed(1);
-};
-
-const calculateDaysRemaining = (dateCW, dayLimit, today, row, allData, rowIndex, refs) => {
-  if (dateCW && dateCW.startsWith("=")) {
-    dateCW = evaluateFormula(dateCW, row, allData, rowIndex, refs);
-  }
-  if (dayLimit && dayLimit.startsWith("=")) {
-    dayLimit = evaluateFormula(dayLimit, row, allData, rowIndex, refs);
-  }
-
-  if (!dateCW || !dayLimit) return "";
-
-  const cwDate = parseDate(dateCW);
-  if (!cwDate) return "";
-
-  const dueDate = new Date(cwDate);
-  dueDate.setDate(dueDate.getDate() + parseInt(dayLimit, 10));
-  return daysBetween(today, dueDate);
-};
-
-const calculateDateDue = (dateCW, dayLimit, row, allData, rowIndex, refs) => {
-  if (dateCW && dateCW.startsWith("=")) {
-    dateCW = evaluateFormula(dateCW, row, allData, rowIndex, refs);
-  }
-  if (dayLimit && dayLimit.startsWith("=")) {
-    dayLimit = evaluateFormula(dayLimit, row, allData, rowIndex, refs);
-  }
-
-  if (!dateCW || !dayLimit) return "";
-
-  const cwDate = parseDate(dateCW);
-  if (!cwDate) return "";
-
-  const dueDate = new Date(cwDate);
-  dueDate.setDate(dueDate.getDate() + parseInt(dayLimit, 10));
-  return formatDate(dueDate);
-};
-
-const calculateTimeRemaining = (
-  ttCycleDue,
-  acftTT,
-  n1Cycles,
-  n2Cycles,
-  componentName,
-  row,
-  allData,
-  rowIndex,
-  refs,
-) => {
-  if (ttCycleDue && ttCycleDue.startsWith("=")) {
-    ttCycleDue = evaluateFormula(ttCycleDue, row, allData, rowIndex, refs);
-  }
-
-  if (!ttCycleDue) return "";
-
-  const due = parseFloat(ttCycleDue);
-  if (Number.isNaN(due)) return "";
-
-  const name = componentName || "";
-
-  if (name.includes("N1") || name.includes("N1 ")) {
-    return (due - n1Cycles).toFixed(1);
-  }
-  if (name.includes("N2")) {
-    return (due - n2Cycles).toFixed(1);
-  }
-
-  return (due - acftTT).toFixed(1);
-};
-
-const checkDue = (timeRemaining, daysRemaining) => {
-  if (timeRemaining && parseFloat(timeRemaining) <= 30) return "DUE";
-  if (daysRemaining && daysRemaining <= 30) return "DUE";
-  return "";
+const toNumber = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(String(value).replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const toPlainRow = (row) => {
-  if (!row) {
-    return {};
-  }
-
-  if (typeof row.toObject === "function") {
-    return row.toObject();
-  }
-
-  return { ...row };
+  if (!row) return {};
+  return typeof row.toObject === "function" ? row.toObject() : { ...row };
 };
 
-const applyFormulas = (row, allData, rowIndex, refs) => {
-  const { today, acftTT, n1Cycles, n2Cycles } = refs;
+const normalizeFormulaResult = (value) => {
+  if (value instanceof Date) return formatDate(value);
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+  }
+  return value === undefined || value === null ? "" : String(value);
+};
+
+const buildRowLookup = (rows) =>
+  rows.reduce((lookup, row, index) => {
+    lookup.set(String(row._id || index + 1), row);
+    return lookup;
+  }, new Map());
+
+const getReferenceCellValue = (cell, refs = {}) => {
+  const key = cell.replace(/\$/g, "").toUpperCase();
+  const referenceCells = refs.referenceCells || {};
+
+  if (referenceCells[key] !== undefined) return referenceCells[key];
+  if (key === "J1") return refs.landings;
+  if (key === "L1") return refs.today;
+  if (key === "L2") return refs.engTT ?? refs.acftTT;
+  if (key === "H3") return refs.n1Cycles;
+  if (key === "J3") return refs.n2Cycles;
+  if (key === "L3") return refs.acftTT;
+  return "";
+};
+
+const compareValues = (left, operator, right) => {
+  const leftNumber = toNumber(left);
+  const rightNumber = toNumber(right);
+  if (leftNumber === null || rightNumber === null) return false;
+
+  if (operator === "<=") return leftNumber <= rightNumber;
+  if (operator === ">=") return leftNumber >= rightNumber;
+  if (operator === "<") return leftNumber < rightNumber;
+  if (operator === ">") return leftNumber > rightNumber;
+  if (operator === "=" || operator === "==") return leftNumber === rightNumber;
+  return false;
+};
+
+const splitArithmetic = (expression) => {
+  const parts = [];
+  let token = "";
+  for (let index = 0; index < expression.length; index += 1) {
+    const char = expression[index];
+    if ((char === "+" || char === "-") && token !== "") {
+      parts.push(token.trim(), char);
+      token = "";
+    } else {
+      token += char;
+    }
+  }
+  if (token) parts.push(token.trim());
+  return parts;
+};
+
+const applyArithmetic = (left, operator, right) => {
+  const leftDate = parseDate(left);
+  const rightDate = parseDate(right);
+  const leftNumber = left === "" ? 0 : toNumber(left);
+  const rightNumber = right === "" ? 0 : toNumber(right);
+
+  if (leftDate && rightDate && operator === "-") {
+    return (leftDate - rightDate) / MS_PER_DAY;
+  }
+
+  if (leftDate && rightNumber !== null) {
+    return new Date(leftDate.getTime() + (operator === "+" ? rightNumber : -rightNumber) * MS_PER_DAY);
+  }
+
+  if (rightDate && leftNumber !== null && operator === "+") {
+    return new Date(rightDate.getTime() + leftNumber * MS_PER_DAY);
+  }
+
+  if (leftNumber !== null && rightNumber !== null) {
+    return operator === "+" ? leftNumber + rightNumber : leftNumber - rightNumber;
+  }
+
+  return "";
+};
+
+const evaluateOperand = (operand, context) => {
+  const clean = String(operand || "").trim();
+  if (/^".*"$/.test(clean)) return clean.slice(1, -1);
+  if (/^-?\d+(\.\d+)?$/.test(clean)) return Number(clean);
+
+  const cellMatch = clean.match(/^\$?([A-Z]+)\$?(\d+)$/i);
+  if (cellMatch) {
+    const [, col, rowNum] = cellMatch;
+    if (Number(rowNum) < 6) {
+      return getReferenceCellValue(clean, context.refs);
+    }
+
+    const targetRow = context.rowLookup.get(String(rowNum));
+    const field = colMap[col.toUpperCase()];
+    if (!targetRow || !field) return "";
+
+    return evaluateField(targetRow, field, context);
+  }
+
+  return clean;
+};
+
+const evaluateExpression = (expression, context) => {
+  const ifMatch = expression.match(/^IF\((.+?)(<=|>=|=|<|>)(.+?),("[^"]*"|[^,]*),("[^"]*"|[^)]*)\)$/i);
+  if (ifMatch) {
+    const [, leftExpr, operator, rightExpr, trueValue, falseValue] = ifMatch;
+    return compareValues(
+      evaluateExpression(leftExpr, context),
+      operator,
+      evaluateExpression(rightExpr, context),
+    )
+      ? evaluateOperand(trueValue, context)
+      : evaluateOperand(falseValue, context);
+  }
+
+  const parts = splitArithmetic(expression);
+  if (parts.length === 1) return evaluateOperand(parts[0], context);
+
+  let result = evaluateOperand(parts[0], context);
+  for (let index = 1; index < parts.length; index += 2) {
+    result = applyArithmetic(result, parts[index], evaluateOperand(parts[index + 1], context));
+  }
+  return result;
+};
+
+function evaluateField(row, field, context) {
+  const key = `${row._id}:${field}`;
+  if (context.visiting.has(key)) return row[field] || "";
+  if (context.cache.has(key)) return context.cache.get(key);
+
+  const formula = row.formulas?.[field];
+  if (!formula) return row[field] || "";
+
+  context.visiting.add(key);
+  const result = evaluateExpression(String(formula).replace(/^=/, ""), context);
+  context.visiting.delete(key);
+  context.cache.set(key, result);
+  return result;
+}
+
+const fallbackTTCycleDue = (row) => {
+  if (row.ttCycleDue !== "") return row.ttCycleDue || "";
+  const limit = toNumber(row.hourLimit1);
+  const hrs = toNumber(row.hoursCW);
+  if (limit === null && hrs === null) return "";
+  return normalizeFormulaResult((limit || 0) + (hrs || 0));
+};
+
+const fallbackTimeRemaining = (row, refs) => {
+  const due = toNumber(row.ttCycleDue);
+  if (due === null) return row.timeRemaining || "";
+
+  const name = String(row.componentName || "").toUpperCase();
+  const hourCycleType = String(row.hourLimit1 || row.hourLimit2 || row.hd || "").toUpperCase();
+  let current = refs.acftTT;
+
+  if (name.includes("N1") || hourCycleType.includes("N1")) current = refs.n1Cycles;
+  else if (name.includes("N2") || hourCycleType.includes("N2")) current = refs.n2Cycles;
+  else if (name.includes("ENGINE") || name.includes("POWERPLANT")) current = refs.engTT ?? refs.acftTT;
+
+  const currentNumber = toNumber(current);
+  return currentNumber === null ? "" : normalizeFormulaResult(due - currentNumber);
+};
+
+const fallbackDue = (timeRemaining, daysRemaining) => {
+  const time = toNumber(timeRemaining);
+  const days = toNumber(daysRemaining);
+  if (time !== null && time <= 30) return "DUE";
+  if (days !== null && days <= 30) return "DUE";
+  return "";
+};
+
+const applyFormulas = (row, allData, rowIndex, refs, sharedContext) => {
   const nextRow = toPlainRow(row);
-
-  if (
-    (row.dateCW && row.dateCW !== "N/A" && row.dateCW !== "") ||
-    (row.dayLimit && row.dayLimit !== "")
-  ) {
-    const daysRemaining = calculateDaysRemaining(
-      row.dateCW,
-      row.dayLimit,
-      today,
-      row,
-      allData,
-      rowIndex,
+  const context =
+    sharedContext ||
+    {
       refs,
-    );
+      rowLookup: buildRowLookup(allData),
+      cache: new Map(),
+      visiting: new Set(),
+    };
 
-    nextRow.daysRemaining = daysRemaining !== null ? daysRemaining : "";
-    nextRow.dateDue = calculateDateDue(
-      row.dateCW,
-      row.dayLimit,
-      row,
-      allData,
-      rowIndex,
-      refs,
-    );
-  }
-
-  if (
-    (row.hourLimit1 && row.hourLimit1 !== "") ||
-    (row.hoursCW && row.hoursCW !== "")
-  ) {
-    nextRow.ttCycleDue = calculateTTCycleDue(
-      row.hourLimit1,
-      row.hoursCW,
-      row,
-      allData,
-      rowIndex,
-      refs,
-    );
-  }
-
-  if (nextRow.ttCycleDue) {
-    nextRow.timeRemaining = calculateTimeRemaining(
-      nextRow.ttCycleDue,
-      acftTT,
-      n1Cycles,
-      n2Cycles,
-      row.componentName,
-      row,
-      allData,
-      rowIndex,
-      refs,
-    );
-  }
-
-  nextRow.due = checkDue(nextRow.timeRemaining, nextRow.daysRemaining);
+  formulaFieldOrder.forEach((field) => {
+    if (nextRow.formulas?.[field]) {
+      nextRow[field] = normalizeFormulaResult(evaluateField(nextRow, field, context));
+    }
+  });
 
   return nextRow;
 };
 
 const processDataWithFormulas = (data, refs) => {
-  let processedData = data.map((row, index) =>
-    applyFormulas(row, data, index, refs),
+  const rows = data.map(toPlainRow);
+  const context = {
+    refs,
+    rowLookup: buildRowLookup(rows),
+    cache: new Map(),
+    visiting: new Set(),
+  };
+
+  const processedData = rows.map((row, index) =>
+    applyFormulas(row, rows, index, refs, context),
   );
 
-  processedData = processedData.map((row, index) =>
-    applyFormulas(row, processedData, index, refs),
-  );
+  context.rowLookup = buildRowLookup(processedData);
+  context.cache = new Map();
 
-  return processedData;
+  return processedData.map((row, index) =>
+    applyFormulas(row, processedData, index, refs, context),
+  );
 };
 
 module.exports = {

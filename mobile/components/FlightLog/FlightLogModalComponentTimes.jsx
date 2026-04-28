@@ -45,13 +45,13 @@ export default function FlightLogModalComponentTimes({
     { label: "Gear Box (TAIL)", key: "gearBoxTail" },
     { label: "Rotor (MAIN)", key: "rotorMain" },
     { label: "Rotor (TAIL)", key: "rotorTail" },  
-    { label: "Airframe Next Insp. Due At", key: "airframeNextInsp" },
+    { label: "Aircraft Insp. Next Due At", key: "airframeNextInsp" },
     { label: "Engine", key: "engine" },
     { label: "Cycle (N1)", key: "cycleN1" },
     { label: "Cycle (N2)", key: "cycleN2" },
     { label: "Usage", key: "usage" },
     { label: "Landing Cycle", key: "landingCycle" },
-    { label: "Engine Next Insp. Due At", key: "engineNextInsp" },
+    { label: "Engine Insp. Next Due At", key: "engineNextInsp" },
   ];
 
   const renderField = (label, fieldKey) => {
@@ -83,7 +83,11 @@ export default function FlightLogModalComponentTimes({
           }}
           value={value}
           onChangeText={(text) => onUpdateComponent(fieldKey, text)}
-          keyboardType="numeric"
+          keyboardType={
+            fieldKey === "airframeNextInsp" || fieldKey === "engineNextInsp"
+              ? "default"
+              : "numeric"
+          }
           editable={isFieldEditable}
         />
         {isLocked && (

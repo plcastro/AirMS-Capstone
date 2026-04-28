@@ -346,7 +346,7 @@ export default function PostInspection({ route }) {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
-        onSave={async (updatedInspection) => {
+        onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
@@ -371,9 +371,13 @@ export default function PostInspection({ route }) {
                 inspection._id === data.data._id ? data.data : inspection,
               ),
             );
-            setShowEditModal(false);
-            setSelectedInspection(null);
-            showToast("Post-inspection updated successfully");
+            if (options.closeOnSave) {
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              showToast("Post-inspection updated successfully");
+            } else {
+              setSelectedInspection(data.data);
+            }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
             showToast("Failed to update post-inspection");

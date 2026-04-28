@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -20,6 +21,7 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
@@ -42,6 +44,36 @@ const parseDate = (dateValue) => {
   return new Date();
 };
 
+const isReleasedFlightLogStatus = (status = "") =>
+  ["pending_acceptance", "released", "accepted", "completed"].includes(
+    String(status || "").trim().toLowerCase(),
+  );
+
+const hasDestinationInfo = (log = {}) =>
+  Array.isArray(log.legs) &&
+  log.legs.some((leg) =>
+    Array.isArray(leg?.stations) &&
+    leg.stations.some(
+      (station) =>
+        String(station?.from || "").trim() &&
+        String(station?.to || "").trim(),
+    ),
+  );
+
+const formatSignatureDate = (timestamp) => {
+  if (!timestamp) return "";
+
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toLocaleString();
+};
+
+const getSignerLabel = (signatureData = {}) =>
+  signatureData.id
+    ? `${signatureData.name || "Unknown"} / ${signatureData.id}`
+    : signatureData.name || "Unknown";
+
 export default function FlightLogEditEntry({
   visible,
   logData,
@@ -53,6 +85,12 @@ export default function FlightLogEditEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    closeOnFinish: false,
+  });
   const scrollViewRef = useRef(null);
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
@@ -150,6 +188,7 @@ export default function FlightLogEditEntry({
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
   const isBasicInfoEditable = !readOnly && !isCompletedLog;
+  const isRPCEditable = !isReleasedFlightLogStatus(formData.status);
   const isDestinationsEditable = !readOnly && !isCompletedLog && isPilot;
   const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
@@ -234,8 +273,17 @@ export default function FlightLogEditEntry({
     };
 
     if (onSave) {
-      await onSave(payload, { closeOnSave });
+      await onSave(payload, { closeOnSave, showToast: closeOnSave });
     }
+  };
+
+  const showFeedbackAlert = (message, closeOnFinish = true, title = "Success") => {
+    setFeedbackAlert({
+      visible: true,
+      title,
+      message,
+      closeOnFinish,
+    });
   };
 
   // Handlers for release/accept/complete
@@ -251,7 +299,8 @@ export default function FlightLogEditEntry({
     };
     setFormData(updated);
     await persistLog(updated, false);
-    showToast("Flight log has been released");
+    setShowReleaseModal(false);
+    showFeedbackAlert("Flight log has been released");
   };
 
   const handleAccept = async (signature) => {
@@ -271,17 +320,25 @@ export default function FlightLogEditEntry({
     };
     setFormData(updated);
     await persistLog(updated, false);
-    showToast("Flight log has been accepted");
+    setShowAcceptModal(false);
+    showFeedbackAlert("Flight log has been accepted");
   };
 
   const handleNotifyMechanic = async () => {
+    if (!hasDestinationInfo(formData)) {
+      showToast(
+        "Add at least one complete From-To station in Destination/s before notifying for completion.",
+      );
+      return;
+    }
+
     const updated = {
       ...formData,
       notifiedForCompletion: true,
     };
     setFormData(updated);
     await persistLog(updated, false);
-    showToast("Mechanic has been notified to complete the flight log");
+    showFeedbackAlert("Mechanic has been notified to complete the flight log");
   };
 
   const handleComplete = async () => {
@@ -294,6 +351,7 @@ export default function FlightLogEditEntry({
 
       const payload = {
         acftTT: Number(toDateData.airframe) || 0,
+        engTT: Number(toDateData.engine) || Number(toDateData.airframe) || 0,
         n1Cycles: Number(toDateData.cycleN1) || 0,
         n2Cycles: Number(toDateData.cycleN2) || 0,
         landings: Number(toDateData.landingCycle) || 0,
@@ -342,7 +400,7 @@ export default function FlightLogEditEntry({
       const updated = { ...formData, status: 'completed' };
       setFormData(updated);
       await persistLog(updated, false);
-      showToast('Flight log completed and totals updated.');
+      showFeedbackAlert("Flight log completed and totals updated.");
     } catch (error) {
       console.error('❌ Complete error:', error);
       showToast(error.message || "Update failed");
@@ -408,6 +466,7 @@ export default function FlightLogEditEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
+            isRPCEditable={isRPCEditable}
           />
         );
 
@@ -670,7 +729,7 @@ export default function FlightLogEditEntry({
                 </TouchableOpacity>
               )}
 
-              {formData.releasedBy?.signature && (
+              {(formData.releasedBy?.name || formData.releasedBy?.signature) && (
                 <View
                   style={{
                     backgroundColor: COLORS.white,
@@ -703,21 +762,49 @@ export default function FlightLogEditEntry({
                       style={{
                         fontSize: 14,
                         color: COLORS.black,
-                        marginBottom: 8,
+                        marginBottom: 4,
+                        fontWeight: "500",
                       }}
                     >
-                      {formData.releasedBy?.name || "Unknown"}
+                      {getSignerLabel(formData.releasedBy)}
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {formData.releasedBy?.timestamp
-                        ? new Date(formData.releasedBy.timestamp).toLocaleString()
-                        : ""}
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {userRole === "maintenance manager"
+                        ? "MAINTENANCE MANAGER"
+                        : "MECHANIC"}
                     </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
+                      {formatSignatureDate(formData.releasedBy?.timestamp)}
+                    </Text>
+                    {!!formData.releasedBy?.signature && (
+                      <Image
+                        source={{ uri: formData.releasedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
 
-              {formData.acceptedBy?.signature && (
+              {(formData.acceptedBy?.name || formData.acceptedBy?.signature) && (
                 <View
                   style={{
                     backgroundColor: COLORS.white,
@@ -750,16 +837,42 @@ export default function FlightLogEditEntry({
                       style={{
                         fontSize: 14,
                         color: COLORS.black,
-                        marginBottom: 8,
+                        marginBottom: 4,
+                        fontWeight: "500",
                       }}
                     >
-                      {formData.acceptedBy?.name || "Unknown"}
+                      {getSignerLabel(formData.acceptedBy)}
                     </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {formData.acceptedBy?.timestamp
-                        ? new Date(formData.acceptedBy.timestamp).toLocaleString()
-                        : ""}
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      PILOT
                     </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
+                      {formatSignatureDate(formData.acceptedBy?.timestamp)}
+                    </Text>
+                    {!!formData.acceptedBy?.signature && (
+                      <Image
+                        source={{ uri: formData.acceptedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -838,6 +951,20 @@ export default function FlightLogEditEntry({
           onClose={() => setShowAcceptModal(false)}
           onSave={handleAccept}
           aircraftRPC={formData.rpc}
+        />
+
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
         />
       </SafeAreaView>
     </Modal>

@@ -386,7 +386,7 @@ export default function PreInspectionModalFloatsOnboard({
               fontWeight: "bold",
             }}
           >
-            FOB:
+            FOB: *
           </Text>
           <View
             style={{

@@ -20,6 +20,7 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
@@ -27,6 +28,12 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    closeOnFinish: false,
+  });
   const scrollViewRef = useRef(null);
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
@@ -499,7 +506,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     };
   };
 
-  const handleRelease = (signature) => {
+  const handleRelease = async (signature) => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       showToast("Aircraft RPC is required");
       return;
@@ -517,8 +524,16 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
     setFormData(updatedFormData);
     setShowReleaseModal(false);
-    onSave(buildFlightLogPayload(updatedFormData));
-    showToast("Flight log has been released");
+    await onSave(buildFlightLogPayload(updatedFormData), {
+      closeOnSave: false,
+      showToast: false,
+    });
+    setFeedbackAlert({
+      visible: true,
+      title: "Success",
+      message: "Flight log has been released",
+      closeOnFinish: true,
+    });
   };
 
   const handleSave = () => {
@@ -784,6 +799,28 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <FlightLogSignatureModal
+          visible={showReleaseModal}
+          title="Release Signature"
+          onClose={() => setShowReleaseModal(false)}
+          onSave={handleRelease}
+          aircraftRPC={formData.rpc}
+        />
+
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
+        />
       </SafeAreaView>
     </Modal>
   );

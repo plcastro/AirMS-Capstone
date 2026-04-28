@@ -11,9 +11,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { flightLogsMockData } from "../../components/FlightLog/FlightLogMockData";
 import { API_BASE } from "../../utilities/API_BASE";
 
-export default function FlightLogModalInfo({ formData, updateForm, isEditable = true, onAircraftDataLoaded }) {
+export default function FlightLogModalInfo({
+  formData,
+  updateForm,
+  isEditable = true,
+  isRPCEditable = true,
+  onAircraftDataLoaded,
+}) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
+  const canEditRPC = isEditable && isRPCEditable;
 
   const fetchAircraftOptions = async () => {
     try {
@@ -67,7 +74,9 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
   };
 
   const toggleRPCDropdown = () => {
-    setShowRPCDropdown(!showRPCDropdown);
+    if (canEditRPC) {
+      setShowRPCDropdown(!showRPCDropdown);
+    }
   };
 
   const renderAircraftType = () => (
@@ -96,14 +105,14 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          backgroundColor: canEditRPC ? "#F8F8F8" : "#E8E8E8",
           borderRadius: 6,
           borderWidth: 1,
           borderColor: COLORS.grayMedium,
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? toggleRPCDropdown : null}
+        onPress={canEditRPC ? toggleRPCDropdown : null}
       >
         <Text style={{
           fontSize: 14,
@@ -111,7 +120,7 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
         }}>
           {formData.rpc || "Select RP-C"}
         </Text>
-        {isEditable && (
+        {canEditRPC && (
           <MaterialCommunityIcons
             name={showRPCDropdown ? "chevron-up" : "chevron-down"}
             size={20}
@@ -120,12 +129,9 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
         )}
       </TouchableOpacity>
 
-      {showRPCDropdown && isEditable && (
+      {showRPCDropdown && canEditRPC && (
         <View style={{
-          position: "absolute",
-          top: 46,
-          left: 0,
-          right: 0,
+          marginTop: 6,
           backgroundColor: COLORS.white,
           borderRadius: 6,
           borderWidth: 1,
@@ -136,7 +142,7 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
-          maxHeight: 200,
+          maxHeight: 240,
         }}>
           <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
             {aircraftOptions.map((rpc, index) => (
@@ -163,7 +169,7 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
 
                       if (response.ok) {
                         updateForm("aircraftType", data.data.aircraftType);
-                        onAircraftDataLoaded(data.data);
+                        onAircraftDataLoaded?.(data.data);
                         console.log (data.data)
                       }
 
@@ -213,7 +219,7 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
           shadowOpacity: 0.05,
           shadowRadius: 6,
           elevation: 2,
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         <View
@@ -233,7 +239,7 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              RP-C:
+              RP-C: *
             </Text>
             {renderRPCDropdown()}
           </View>

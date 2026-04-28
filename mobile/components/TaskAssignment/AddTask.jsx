@@ -413,7 +413,7 @@ export default function AddTask({
   }) => (
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
-        {label}
+        {label} *
       </Text>
 
       <TouchableOpacity
@@ -604,7 +604,7 @@ export default function AddTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Start Date and Time
+              Start Date and Time *
             </Text>
             <TouchableOpacity
               style={{
@@ -635,7 +635,7 @@ export default function AddTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              End Date and Time
+              End Date and Time *
             </Text>
             <TouchableOpacity
               style={{
