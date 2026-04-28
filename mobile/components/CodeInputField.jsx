@@ -7,6 +7,9 @@ export default function CodeInputField({
   code,
   setCode,
   maxLength,
+  secure = false,
+  containerStyle,
+  inputContainerStyle,
 }) {
   const codeDigitsArray = new Array(maxLength).fill(0);
   const textInputRef = useRef(null);
@@ -21,13 +24,17 @@ export default function CodeInputField({
   };
 
   useEffect(() => {
-    setPinReady(code.length === maxLength);
-    return () => setPinReady(false);
-  }, [code]);
+    setPinReady?.(code.length === maxLength);
+    return () => setPinReady?.(false);
+  }, [code, maxLength, setPinReady]);
+
+  const handleCodeChange = (value) => {
+    setCode(value.replace(/\D/g, "").slice(0, maxLength));
+  };
 
   const toCodeDigitInput = (value, index) => {
     const emptyInputChar = " ";
-    const digit = code[index] || emptyInputChar;
+    const digit = code[index] ? (secure ? "•" : code[index]) : emptyInputChar;
     const isCurrentDigit = index === code.length;
     const isLastDigit = index === maxLength - 1;
     const isCodeFull = code.length === maxLength;
@@ -46,15 +53,15 @@ export default function CodeInputField({
     );
   };
   return (
-    <View style={styles.codeInputSection}>
-      <Pressable onPress={handleOnPress} style={styles.codeInputContainer}>
+    <View style={[styles.codeInputSection, containerStyle]}>
+      <Pressable onPress={handleOnPress} style={[styles.codeInputContainer, inputContainerStyle]}>
         {codeDigitsArray.map(toCodeDigitInput)}
       </Pressable>
       <TextInput
         style={styles.hiddenTextInput}
         ref={textInputRef}
         value={code}
-        onChangeText={setCode}
+        onChangeText={handleCodeChange}
         onSubmitEditing={handleOnBlur}
         keyboardType="number-pad"
         returnKeyType="done"

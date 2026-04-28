@@ -24,7 +24,11 @@ const postInspectionRoutes = require("./routes/postInspectionRoute");
 const notificationRoutes = require("./routes/notificationRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
-const sendEmail = require("./utilities/sendEmail");
+const aiInsightRoutes = require("./routes/aiInsightRoute");
+const sendEmail = require("./utils/sendEmail");
+const {
+  startInvitationLifecycleJob,
+} = require("./utils/invitationLifecycleService");
 
 const app = express();
 
@@ -75,10 +79,26 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => console.log("Connected to MongoDB"))
+  .then(() => {
+    console.log("Connected to MongoDB");
+    startInvitationLifecycleJob();
+  })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
   });
+
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error("Database unavailable for request:", error.message);
+    return res.status(503).json({
+      status: "error",
+      message: "Database connection unavailable. Please try again.",
+    });
+  }
+});
 
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
@@ -96,6 +116,7 @@ app.use("/api/inspections", inspectionRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/ai-insights", aiInsightRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",
@@ -106,7 +127,6 @@ app.use(
     },
   }),
 );
-app.use("/api/flightlogs", flightLogRoutes);
 
 app.set("trust proxy", 1);
 

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -20,6 +19,7 @@ import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PreInspectionEntry({
   visible,
@@ -68,16 +68,21 @@ export default function PreInspectionEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return;
     }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return;
     }
-    onSave(formData);
+    try {
+      await persistInspection(formData);
+    } catch (error) {
+      console.error("Error saving pre-inspection:", error);
+      showToast("Failed to save pre-inspection");
+    }
   };
 
   const handleNext = () => {
@@ -94,28 +99,22 @@ export default function PreInspectionEntry({
 
   const validateBeforeSigning = (actionLabel) => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return false;
     }
 
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return false;
     }
 
     if (!String(formData.fob || "").trim()) {
-      Alert.alert(
-        "Validation Error",
-        `FOB must be filled in before ${actionLabel}.`,
-      );
+      showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
 
     if (!areAllInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        `All checklist fields must be checked before ${actionLabel}.`,
-      );
+      showToast(`All checklist fields must be checked before ${actionLabel}.`);
       return false;
     }
 
@@ -141,6 +140,7 @@ export default function PreInspectionEntry({
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
+        signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
       status: "released",
@@ -150,10 +150,11 @@ export default function PreInspectionEntry({
 
     try {
       await persistInspection(updatedFormData);
-      Alert.alert("Success", "Pre-inspection has been released");
+      showToast("Pre-inspection has been released");
     } catch (error) {
       console.error("Error releasing pre-inspection:", error);
-      Alert.alert("Error", "Failed to release pre-inspection");
+      showToast("Failed to release pre-inspection");
+      throw error;
     }
   };
 
@@ -276,7 +277,11 @@ export default function PreInspectionEntry({
           {isLastPage && isMechanic && formData.status === "pending" && (
             <View style={{ marginTop: 20, marginBottom: 20 }}>
               <TouchableOpacity
-                onPress={() => setShowReleaseModal(true)}
+                onPress={() => {
+                  if (validateBeforeSigning("release")) {
+                    setShowReleaseModal(true);
+                  }
+                }}
                 disabled={isSubmitting}
                 style={{
                   backgroundColor: COLORS.primaryLight,
@@ -346,22 +351,24 @@ export default function PreInspectionEntry({
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={isLastPage ? handleSave : handleNext}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 4,
-              backgroundColor: COLORS.primaryLight,
-              opacity: 1,
-            }}
-          >
-            <Text
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+          {!isLastPage && (
+            <TouchableOpacity
+              onPress={handleNext}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 24,
+                borderRadius: 4,
+                backgroundColor: COLORS.primaryLight,
+                opacity: 1,
+              }}
             >
-              {isLastPage ? "Add" : "Next"}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+              >
+                Next
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <PreInspectionSignatureModal
@@ -370,7 +377,7 @@ export default function PreInspectionEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role="MECHANIC"
+          actionLabel="release"
         />
       </SafeAreaView>
     </Modal>

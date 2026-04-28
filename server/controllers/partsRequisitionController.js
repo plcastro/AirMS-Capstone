@@ -2,7 +2,7 @@ const partsRequisitionModel = require("../models/partsRequisitionModel");
 const { auditLog } = require("./logsController");
 const {
   createPartsRequisitionNotifications,
-} = require("../utilities/partsRequisitionNotificationService");
+} = require("../utils/partsRequisitionNotificationService");
 
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),
@@ -46,6 +46,11 @@ const normalizeRequisitionStatus = (status) => {
 const sanitizeIncomingItems = (items = []) =>
   items.map((item) => ({
     ...item,
+    particular:
+      item.particular ||
+      item.codeParticular?.[0]?.particular ||
+      item.itemName ||
+      "",
     quantity: Number(item.quantity) || 0,
     availableQty: Number(item.availableQty) || 0,
   }));
@@ -139,7 +144,7 @@ const createRequisition = async (req, res) => {
         ...staff,
         requisitionerId: req.user?.id || staff?.requisitionerId,
       },
-      items,
+      items: sanitizeIncomingItems(items),
       dateRequested,
       dateApproved,
       dateReceived,

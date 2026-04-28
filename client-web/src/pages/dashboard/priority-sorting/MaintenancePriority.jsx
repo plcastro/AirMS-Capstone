@@ -10,7 +10,6 @@ import {
   Row,
   Space,
   Statistic,
-  Switch,
   Table,
   Tag,
   Typography,
@@ -94,7 +93,9 @@ export default function MaintenancePriority() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to fetch maintenance priority");
+        throw new Error(
+          result.message || "Failed to fetch maintenance priority",
+        );
       }
 
       setPriorityData(Array.isArray(result.data) ? result.data : []);
@@ -117,7 +118,9 @@ export default function MaintenancePriority() {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || "Failed to fetch maintenance priority rules");
+          throw new Error(
+            result.message || "Failed to fetch maintenance priority rules",
+          );
         }
 
         const loadedRules = {
@@ -130,7 +133,9 @@ export default function MaintenancePriority() {
         await fetchPriorityData(loadedRules);
       } catch (error) {
         console.error("Failed to fetch maintenance priority rules:", error);
-        message.error(error.message || "Failed to load maintenance priority rules");
+        message.error(
+          error.message || "Failed to load maintenance priority rules",
+        );
         await fetchPriorityData(DEFAULT_RULES);
       }
     };
@@ -166,7 +171,9 @@ export default function MaintenancePriority() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to save maintenance priority rules");
+        throw new Error(
+          result.message || "Failed to save maintenance priority rules",
+        );
       }
 
       const savedRules = {
@@ -180,7 +187,9 @@ export default function MaintenancePriority() {
       await fetchPriorityData(savedRules);
     } catch (error) {
       console.error("Failed to save maintenance priority rules:", error);
-      message.error(error.message || "Failed to save maintenance priority rules");
+      message.error(
+        error.message || "Failed to save maintenance priority rules",
+      );
     } finally {
       setSavingRules(false);
     }
@@ -221,7 +230,10 @@ export default function MaintenancePriority() {
       (item) => item.priorityLevel === "High",
     ).length;
     const fastestTurnaround = priorityData.reduce((lowest, item) => {
-      if (item.estimatedTurnaroundHours === null || item.estimatedTurnaroundHours === undefined) {
+      if (
+        item.estimatedTurnaroundHours === null ||
+        item.estimatedTurnaroundHours === undefined
+      ) {
         return lowest;
       }
 
@@ -301,7 +313,10 @@ export default function MaintenancePriority() {
       key: "priorityLevel",
       width: 110,
       render: (value) => (
-        <Tag color={PRIORITY_COLORS[value] || "default"} style={{ fontWeight: 700 }}>
+        <Tag
+          color={PRIORITY_COLORS[value] || "default"}
+          style={{ fontWeight: 700 }}
+        >
           {value}
         </Tag>
       ),
@@ -341,8 +356,9 @@ export default function MaintenancePriority() {
               Adjustable Rule-Based Maintenance Ranking
             </Title>
             <Text type="secondary">
-              Adjust rule thresholds to control schedule escalation. Aircraft are
-              ranked by the active rules first, then by urgency and turnaround.
+              Adjust rule thresholds to control schedule escalation. Aircraft
+              are ranked by the active rules first, then by urgency and
+              turnaround.
             </Text>
           </Col>
           <Col xs={24} md={8}>
@@ -433,15 +449,6 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Space orientation="vertical" style={{ marginTop: 28 }}>
-                <Text>Safety-critical auto escalation</Text>
-                <Switch
-                  checked={draftRules.safetyBoostEnabled}
-                  onChange={(checked) => updateDraftRule("safetyBoostEnabled", checked)}
-                />
-              </Space>
-            </Col>
             <Col xs={24}>
               <Space wrap>
                 <Button type="primary" onClick={applyRules} loading={loading}>
@@ -450,9 +457,7 @@ export default function MaintenancePriority() {
                 <Button onClick={saveRules} loading={savingRules}>
                   Save as Default
                 </Button>
-                <Button onClick={resetRules}>
-                  Reset Rules
-                </Button>
+                <Button onClick={resetRules}>Reset Rules</Button>
               </Space>
             </Col>
           </Row>
@@ -467,12 +472,20 @@ export default function MaintenancePriority() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="Critical" value={stats.criticalCount} styles={{ content: { color: "#cf1322" } }} />
+            <Statistic
+              title="Critical"
+              value={stats.criticalCount}
+              styles={{ content: { color: "#cf1322" } }}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="High" value={stats.highCount} styles={{ content: { color: "#d46b08" } }} />
+            <Statistic
+              title="High"
+              value={stats.highCount}
+              styles={{ content: { color: "#d46b08" } }}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
@@ -480,7 +493,8 @@ export default function MaintenancePriority() {
             <Statistic
               title="Fastest Turnaround"
               value={
-                stats.fastestTurnaround !== null && stats.fastestTurnaround !== undefined
+                stats.fastestTurnaround !== null &&
+                stats.fastestTurnaround !== undefined
                   ? `${stats.fastestTurnaround} hrs`
                   : "N/A"
               }

@@ -7,7 +7,6 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -20,8 +19,16 @@ import {
   estimateInspectionSchedule,
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
+import { showToast } from "../../utilities/toast";
 
 const { width } = Dimensions.get("window");
+
+const getNow = () => new Date();
+
+const clampToNow = (date) => {
+  const now = getNow();
+  return date < now ? now : date;
+};
 
 const getPickerValue = (event) => {
   if (event?.type === "dismissed") {
@@ -75,6 +82,24 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
+
+  const resetForm = () => {
+    const now = new Date();
+    setSelectedAircraft("");
+    setSelectedEmployee("");
+    setInspectionType("");
+    setSelectedInspection(null);
+    setStartDate(now);
+    setEndDate(new Date(now.getTime() + 60 * 60 * 1000));
+    setChecklistItems([]);
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setShowAircraftDropdown(false);
+    setShowInspectionDropdown(false);
+    setShowMechanicDropdown(false);
+    setAndroidPickerMode("date");
+    setEndDateManuallyAdjusted(false);
+  };
 
   const fetchInspectionTasks = async (inspection) => {
     const response = await fetch(
@@ -136,7 +161,7 @@ export default function AddTask({
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
-        Alert.alert("Error", "Failed to fetch aircraft");
+        showToast("Failed to fetch aircraft");
       } finally {
         setLoading(false);
       }
@@ -146,9 +171,12 @@ export default function AddTask({
   }, []);
 
   useEffect(() => {
-    const fetchInspections = async () => {
-      if (!visible) return;
+    if (!visible) {
+      resetForm();
+      return;
+    }
 
+    const fetchInspections = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${API_BASE}/api/inspections/schedules`);
@@ -173,7 +201,7 @@ export default function AddTask({
         setInspectionOptions(options);
       } catch (error) {
         console.error("Error fetching inspections:", error);
-        Alert.alert("Error", "Failed to fetch inspection schedules");
+        showToast("Failed to fetch inspection schedules");
       } finally {
         setLoading(false);
       }
@@ -184,10 +212,17 @@ export default function AddTask({
 
   const confirmAdd = () => {
     if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      Alert.alert(
-        "Missing fields",
-        "Please select an aircraft, inspection, and mechanic.",
-      );
+      showToast("Please select an aircraft, inspection, and mechanic.");
+      return;
+    }
+
+    if (startDate < getNow() || endDate < getNow()) {
+      showToast("Start and end date/time must be today or later.");
+      return;
+    }
+
+    if (endDate < startDate) {
+      showToast("End date/time must be after the start date/time.");
       return;
     }
 
@@ -252,6 +287,7 @@ export default function AddTask({
   };
 
   const confirmDiscard = () => {
+    resetForm();
     onClose();
   };
 
@@ -316,10 +352,15 @@ export default function AddTask({
         selectedDate.getDate(),
       );
 
+      const clampedDate = clampToNow(nextDate);
+
       if (field === "start") {
-        setStartDate(nextDate);
+        setStartDate(clampedDate);
+        if (endDate < clampedDate) {
+          setEndDate(clampedDate);
+        }
       } else {
-        setEndDate(nextDate);
+        setEndDate(clampedDate);
       }
 
       setAndroidPickerMode("time");
@@ -335,9 +376,13 @@ export default function AddTask({
     }
 
     if (field === "start") {
-      setStartDate(nextDate);
+      const clampedDate = clampToNow(nextDate);
+      setStartDate(clampedDate);
+      if (endDate < clampedDate) {
+        setEndDate(clampedDate);
+      }
     } else {
-      setEndDate(nextDate);
+      setEndDate(clampToNow(nextDate));
       setEndDateManuallyAdjusted(true);
     }
 
@@ -380,6 +425,7 @@ export default function AddTask({
 
   const renderDropdownField = ({
     label,
+    required = false,
     value,
     placeholder,
     options,
@@ -391,6 +437,7 @@ export default function AddTask({
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
+        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
       </Text>
 
       <TouchableOpacity
@@ -515,6 +562,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Aircraft",
+              required: true,
               value: selectedAircraftLabel,
               placeholder: "Tail No.",
               options: aircraftOptions.map((aircraft) => ({
@@ -528,6 +576,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Inspection",
+              required: true,
               value: selectedInspectionLabel,
               placeholder:
                 loading && inspectionOptions.length === 0
@@ -557,7 +606,7 @@ export default function AddTask({
                   setChecklistItems(tasks);
                 } catch (error) {
                   console.error("Error fetching tasks:", error);
-                  Alert.alert("Error", "Failed to fetch inspection tasks");
+                  showToast("Failed to fetch inspection tasks");
                 } finally {
                   setLoading(false);
                 }
@@ -567,6 +616,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Mechanic",
+              required: true,
               value: selectedEmployeeLabel,
               placeholder: "Pick Mechanic",
               options: employees.map((emp) => ({
@@ -582,6 +632,7 @@ export default function AddTask({
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -605,6 +656,7 @@ export default function AddTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onStartChange}
+                minimumDate={getNow()}
               />
             )}
 
@@ -612,6 +664,7 @@ export default function AddTask({
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -650,6 +703,7 @@ export default function AddTask({
                 mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onEndChange}
+                minimumDate={getNow()}
               />
             )}
 
@@ -691,7 +745,7 @@ export default function AddTask({
             }}
           >
             <Button
-              label="Discard Task"
+              label="Discard"
               onPress={confirmDiscard}
               buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.secondaryAlertBtnTxt}

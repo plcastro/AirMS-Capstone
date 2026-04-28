@@ -3,11 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import {
+  App,
   Card,
   Input,
   Checkbox,
   Button,
-  message as antMessage,
   Typography,
   Row,
   Col,
@@ -15,9 +15,11 @@ import {
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
+import AirMSLogo from "../../assets/AirMS_logo.png";
 
 const { Title, Text } = Typography;
 const Login = () => {
+  const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -115,7 +117,7 @@ const Login = () => {
           localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-        antMessage.success("Logged in successfully!");
+        message.success("Logged in successfully!");
         handleNavigate(data.user);
       } else {
         setError(data.message || "Login failed");
@@ -135,14 +137,14 @@ const Login = () => {
       case "admin":
         navigate("/dashboard/user-management/admin-dashboard");
         break;
-      case "pilot":
-        navigate("/dashboard/flight-log");
+      case "mechanic":
+        navigate("/dashboard/maintenance-log");
         break;
       case "maintenance manager":
         navigate("/dashboard/maintenance-log");
         break;
       case "officer-in-charge":
-        navigate("/dashboard/parts-lifespan-monitoring");
+        navigate("/dashboard/flight-log");
         break;
       case "warehouse department":
         navigate("/dashboard/parts-requisition");
@@ -226,6 +228,19 @@ const Login = () => {
           {loading ? "PLEASE WAIT..." : "LOGIN"}
         </Button>
       </Form>
+
+      {loading && (
+        <div className="login-loading-overlay" aria-live="polite" aria-busy="true">
+          <div className="login-loading-card">
+            <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
+            <div className="login-loading-spinner" />
+            <p className="login-loading-title">Signing You In</p>
+            <p className="login-loading-subtitle">
+              Verifying your account and preparing your workspace.
+            </p>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

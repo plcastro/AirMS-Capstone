@@ -1,13 +1,16 @@
 import React, { useContext, useEffect, useState } from "react";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
-import { Input, DatePicker, Space } from "antd";
+import { Input, DatePicker, Space, Grid, message } from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 
 const { RangePicker } = DatePicker;
+const { useBreakpoint } = Grid;
 
 export default function UserLogs() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { getValidToken } = useContext(AuthContext);
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,8 +42,14 @@ export default function UserLogs() {
       });
       const json = await response.json();
 
+      if (!response.ok) {
+        throw new Error(json?.message || "Failed to fetch user activity logs");
+      }
+
       if (!Array.isArray(json.data)) {
         console.log("Unexpected response:", json);
+        message.warning("Unexpected log response format from server");
+        setAllUserLogs([]);
         return;
       }
       const mappedLogs = json.data.map((log, index) => ({
@@ -56,6 +65,7 @@ export default function UserLogs() {
       setAllUserLogs(mappedLogs);
     } catch (error) {
       console.error("Error fetching user logs:", error);
+      message.error(error.message || "Failed to fetch user logs");
     } finally {
       setLoading(false);
     }
@@ -67,6 +77,9 @@ export default function UserLogs() {
 
   const handleDateRangeChange = (dates) => {
     setDateRange(dates);
+    if (!dates || !dates[0] || !dates[1]) {
+      message.info("Date range cleared. Showing all available logs.");
+    }
   };
 
   useEffect(() => {
@@ -90,20 +103,38 @@ export default function UserLogs() {
   }, [dateRange]);
 
   return (
-    <div style={{ padding: 20, maxWidth: "100%", overflow: "hidden" }}>
-      <Space style={{ marginBottom: 16 }} wrap>
+    <div
+      style={{
+        padding: isMobile ? 12 : 20,
+        maxWidth: "100%",
+        overflow: "hidden",
+        minHeight: "100vh",
+        overflowY: "auto",
+        height: "calc(100vh - 200px)",
+        paddingBottom: 100,
+      }}
+    >
+      <Space
+        style={{ marginBottom: 16, width: "100%" }}
+        direction={isMobile ? "vertical" : "horizontal"}
+        size={isMobile ? 10 : 8}
+        wrap
+      >
         <Input
           placeholder="Search logs..."
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
-          style={{ width: 300 }}
+          style={{ width: isMobile ? "100%" : 300 }}
           allowClear
+          size="large"
         />
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
           format="YYYY-MM-DD"
           allowClear
+          size="large"
+          style={{ width: isMobile ? "100%" : 320 }}
         />
       </Space>
 

@@ -1,5 +1,5 @@
 const PostInspection = require("../models/postInspectionModel");
-const { createPostInspectionNotifications } = require("../utilities/postInspectionNotificationService");
+const { createPostInspectionNotifications } = require("../utils/postInspectionNotificationService");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {

@@ -1,7 +1,8 @@
 import React from "react";
-import { Input } from "antd";
+import { Input, Typography } from "antd";
 
 const { TextArea } = Input;
+const { Text } = Typography;
 
 export default function FlightLogDiscrepancyRemarks({ formData, updateForm, isEditable = true }) {
   return (
@@ -12,12 +13,17 @@ export default function FlightLogDiscrepancyRemarks({ formData, updateForm, isEd
         <div className="fl-card-body">
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
-              <div className="fl-label" style={{ marginBottom: 6 }}>Discrepancy/Remarks:</div>
+              <div className="fl-label" style={{ marginBottom: 6 }}>
+                Discrepancy/Remarks (AI-interpreted):
+              </div>
+              <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                The AI maintenance tracker reads these remarks for discrepancy and component signals.
+              </Text>
               <TextArea
                 rows={6}
                 value={formData.remarks || ""}
                 onChange={(e) => updateForm("remarks", e.target.value)}
-                placeholder="Enter any discrepancies or remarks"
+                placeholder="Enter discrepancies, symptoms, components affected, or remarks"
                 disabled={!isEditable}
                 style={{ resize: "none", backgroundColor: isEditable ? "#fff" : "#f5f5f5" }}
               />

@@ -16,8 +16,9 @@ import {
   Text,
 } from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
+import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
-
+import { showToast } from "../../utilities/toast";
 export default function UpdateSecurity() {
   const { user, setUser } = useContext(AuthContext);
   const scrollRef = useRef(null);
@@ -78,6 +79,20 @@ export default function UpdateSecurity() {
 
   const strength = getPasswordStrength();
 
+  const renderCodeField = (label, value, setter, { secure = false } = {}) => (
+    <View style={styles.pinInputGroup}>
+      <Text style={styles.pinLabel}>{label}</Text>
+      <CodeInputField
+        code={value}
+        setCode={setter}
+        maxLength={6}
+        secure={secure}
+        containerStyle={styles.pinCodeSection}
+        inputContainerStyle={styles.pinCodeContainer}
+      />
+    </View>
+  );
+
   // --- PIN Validation ---
   useEffect(() => {
     setPinErrors({
@@ -137,7 +152,7 @@ export default function UpdateSecurity() {
       resetAll();
     } catch (err) {
       setValidationMessage(err.message);
-      Alert.alert("Error", err.message);
+      showToast(err.message);
     }
   };
 
@@ -210,10 +225,10 @@ export default function UpdateSecurity() {
         if (!res.ok) throw new Error(data.message);
 
         setUser((prev) => ({ ...prev, pin: newPin }));
-        Alert.alert("Success", "PIN successfully reset!");
+        showToast("PIN successfully reset!");
         resetAll();
       } catch (err) {
-        Alert.alert("Error", err.message);
+        showToast(err.message);
       }
     }
   };
@@ -306,22 +321,9 @@ export default function UpdateSecurity() {
               <View style={styles.section}>
                 {!forgotPinMode && (
                   <>
-                    <TextInput
-                      label="Current PIN"
-                      mode="outlined"
-                      secureTextEntry={!showPin}
-                      value={currentPin}
-                      onChangeText={setCurrentPin}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      right={
-                        <TextInput.Icon
-                          icon={showPin ? "eye-off" : "eye"}
-                          onPress={() => setShowPin(!showPin)}
-                        />
-                      }
-                      style={styles.input}
-                    />
+                    {renderCodeField("Current PIN", currentPin, setCurrentPin, {
+                      secure: !showPin,
+                    })}
                     <Button
                       mode="text"
                       onPress={() => setForgotPinMode(true)}
@@ -330,38 +332,20 @@ export default function UpdateSecurity() {
                     >
                       Forgot PIN?
                     </Button>
-                    <TextInput
-                      label="New PIN"
-                      mode="outlined"
-                      secureTextEntry={!showPin}
-                      value={newPin}
-                      onChangeText={setNewPin}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      right={
-                        <TextInput.Icon
-                          icon={showPin ? "eye-off" : "eye"}
-                          onPress={() => setShowPin(!showPin)}
-                        />
-                      }
-                      style={styles.input}
-                    />
-                    <TextInput
-                      label="Confirm PIN"
-                      mode="outlined"
-                      secureTextEntry={!showPin}
-                      value={confirmPin}
-                      onChangeText={setConfirmPin}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      right={
-                        <TextInput.Icon
-                          icon={showPin ? "eye-off" : "eye"}
-                          onPress={() => setShowPin(!showPin)}
-                        />
-                      }
-                      style={styles.input}
-                    />
+                    {renderCodeField("New PIN", newPin, setNewPin, {
+                      secure: !showPin,
+                    })}
+                    {renderCodeField("Confirm PIN", confirmPin, setConfirmPin, {
+                      secure: !showPin,
+                    })}
+                    <Button
+                      mode="text"
+                      onPress={() => setShowPin((current) => !current)}
+                      compact
+                      style={styles.linkButton}
+                    >
+                      {showPin ? "Hide PIN" : "Show PIN"}
+                    </Button>
                     <Button
                       mode="contained"
                       disabled={!Object.values(pinErrors).every(Boolean)}
@@ -408,15 +392,7 @@ export default function UpdateSecurity() {
 
                 {forgotPinMode && otpSent && !otpVerified && (
                   <View style={styles.section}>
-                    <TextInput
-                      label="OTP"
-                      mode="outlined"
-                      value={otp}
-                      onChangeText={setOtp}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      style={styles.input}
-                    />
+                    {renderCodeField("OTP", otp, setOtp)}
                     {validationMessage ? (
                       <Text style={styles.validationText}>
                         {validationMessage}
@@ -442,38 +418,20 @@ export default function UpdateSecurity() {
 
                 {forgotPinMode && otpVerified && (
                   <View style={styles.section}>
-                    <TextInput
-                      label="New PIN"
-                      mode="outlined"
-                      secureTextEntry={!showPin}
-                      value={newPin}
-                      onChangeText={setNewPin}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      right={
-                        <TextInput.Icon
-                          icon={showPin ? "eye-off" : "eye"}
-                          onPress={() => setShowPin(!showPin)}
-                        />
-                      }
-                      style={styles.input}
-                    />
-                    <TextInput
-                      label="Confirm New PIN"
-                      mode="outlined"
-                      secureTextEntry={!showPin}
-                      value={confirmPin}
-                      onChangeText={setConfirmPin}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      right={
-                        <TextInput.Icon
-                          icon={showPin ? "eye-off" : "eye"}
-                          onPress={() => setShowPin(!showPin)}
-                        />
-                      }
-                      style={styles.input}
-                    />
+                    {renderCodeField("New PIN", newPin, setNewPin, {
+                      secure: !showPin,
+                    })}
+                    {renderCodeField("Confirm New PIN", confirmPin, setConfirmPin, {
+                      secure: !showPin,
+                    })}
+                    <Button
+                      mode="text"
+                      onPress={() => setShowPin((current) => !current)}
+                      compact
+                      style={styles.linkButton}
+                    >
+                      {showPin ? "Hide PIN" : "Show PIN"}
+                    </Button>
                     <Button
                       mode="contained"
                       disabled={!Object.values(pinErrors).every(Boolean)}
@@ -505,6 +463,10 @@ const styles = StyleSheet.create({
   secondaryBtn: { marginTop: 10 },
   linkButton: { alignSelf: "flex-start", marginBottom: 10 },
   label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  pinInputGroup: { marginBottom: 12 },
+  pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  pinCodeSection: { flex: 0, alignItems: "stretch", marginVertical: 0 },
+  pinCodeContainer: { width: "100%" },
   validationText: { color: "#ff4d4f", textAlign: "center", marginTop: 10 },
   hintText: { fontSize: 12, marginBottom: 10 },
 });

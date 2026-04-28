@@ -10,7 +10,11 @@ export default function PostInspectionCards({
   userRole,
 }) {
   const getDisplayStatus = (status) =>
-    status === "completed" ? "completed" : "ongoing";
+    status === "completed"
+      ? "completed"
+      : status === "released"
+        ? "released"
+        : "pending";
 
   const getStatusStyle = (status) => {
     switch (getDisplayStatus(status)) {
@@ -20,9 +24,15 @@ export default function PostInspectionCards({
           backgroundColor: "#E8F5E9",
           textColor: "#2E7D32",
         };
+      case "released":
+        return {
+          label: "Released",
+          backgroundColor: "#E3F2FD",
+          textColor: "#1565C0",
+        };
       default:
         return {
-          label: "Ongoing",
+          label: "Pending Release",
           backgroundColor: "#FFF3E0",
           textColor: "#ED6C02",
         };
@@ -99,6 +109,7 @@ export default function PostInspectionCards({
     <>
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
+        const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
           <View
@@ -166,19 +177,6 @@ export default function PostInspectionCards({
               </View>
             </View>
 
-            {/* Date */}
-            <View
-              style={{
-                paddingHorizontal: 20,
-                paddingTop: 16,
-                paddingBottom: 8,
-              }}
-            >
-              <Text style={{ color: "#777", fontSize: 14, fontWeight: "500" }}>
-                {formatDate(inspection.dateAdded || inspection.date)}
-              </Text>
-            </View>
-
             {/* Card Content */}
             <TouchableOpacity
               activeOpacity={0.7}
@@ -205,12 +203,6 @@ export default function PostInspectionCards({
                     RP/C: {inspection.rpc || "N/A"}
                   </Text>
                 </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Date: {formatDate(inspection.date)}
-                  </Text>
-                </View>
-
                 {/* Edit Icon */}
                 <View
                   style={{
@@ -220,9 +212,9 @@ export default function PostInspectionCards({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="pencil"
+                    name={isOfficerInCharge ? "eye-outline" : "pencil"}
                     size={20}
-                    color="#777"
+                    color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
                   />
                 </View>
               </View>

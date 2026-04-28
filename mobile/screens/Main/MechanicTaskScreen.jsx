@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput, Dimensions, Alert } from "react-native";
+import { View, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -7,7 +7,7 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-
+import { showToast } from "../../utilities/toast";
 export default function MechanicTaskScreen({ targetTaskId, targetNotificationStatus }) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,6 +15,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
@@ -35,33 +36,42 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
     }
   };
 
-  // Fetch tasks assigned to the current mechanic
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await parseJsonSafely(response);
-          const assignedTasks = (data?.data || []).filter(
-            (task) => String(task.assignedTo) === String(currentUserId),
-          );
-          setTasks(assignedTasks || []);
-        } else {
-          console.error("Failed to fetch tasks, status:", response.status);
-          const errorText = await response.text();
-          console.error("Error response:", errorText);
-          setTasks([]);
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
+  const isSameTask = (left, right) =>
+    String(left?.id || left?._id || "") === String(right?.id || right?._id || "");
+
+  const fetchTasks = async ({ silent = false } = {}) => {
+    if (!currentUserId) return;
+
+    try {
+      if (!silent) setRefreshing(true);
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const assignedTasks = (data?.data || []).filter(
+          (task) => String(task.assignedTo) === String(currentUserId),
+        );
+        setTasks(assignedTasks || []);
+      } else {
+        console.error("Failed to fetch tasks, status:", response.status);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
         setTasks([]);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setTasks([]);
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  };
+
+  // Fetch tasks assigned to the current mechanic
+  useEffect(() => {
     if (currentUserId) {
       fetchTasks();
     }
@@ -160,19 +170,20 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask({
           ...savedTask,
           findings: savedTask.findings || "",
         });
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to start task");
+        showToast("Failed to start task");
       }
     } catch (error) {
       console.error("Error starting task:", error);
-      Alert.alert("Error", "Failed to start task");
+      showToast("Failed to start task");
     }
   };
 
@@ -197,19 +208,20 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
           ...(prev || {}),
           ...savedTask,
         }));
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to save draft");
+        showToast("Failed to save draft");
       }
     } catch (error) {
       console.error("Error saving draft:", error);
-      Alert.alert("Error", "Failed to save draft");
+      showToast("Failed to save draft");
     }
   };
 
@@ -224,11 +236,9 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
 
     if (options.undo) {
       updatedTask.status = options.newStatus || "Ongoing";
-      updatedTask.endDateTime = "";
       updatedTask.completedAt = null;
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = now;
       updatedTask.completedAt = now;
     }
 
@@ -246,15 +256,17 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? savedTask : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
+        setSelectedTask(savedTask);
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to turn in task");
+        showToast("Failed to turn in task");
       }
     } catch (error) {
       console.error("Error turning in task:", error);
-      Alert.alert("Error", "Failed to turn in task");
+      showToast("Failed to turn in task");
     }
   };
 
@@ -274,22 +286,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           },
         ]}
       >
-        <View style={{ flex: 0.58 }}>
+        <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
           <TextInput
             placeholder="Search tasks"
-            placeholderTextColor="gray"
-            style={[
-              styles.searchInput,
-              {
-                height: 50,
-                width: "100%",
-                backgroundColor: "#fff",
-                borderWidth: 1,
-                borderColor: "#d4d4d4",
-                borderRadius: 8,
-                paddingHorizontal: 12,
-              },
-            ]}
+            placeholderTextColor="#666"
+            style={styles.unifiedSearchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -298,11 +299,11 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         <View
           style={{
             flex: 0.42,
-            minHeight: 40,
+            minHeight: 48,
             backgroundColor: "#fff",
             borderWidth: 1,
-            borderColor: "#d4d4d4",
-            borderRadius: 8,
+            borderColor: "#d1d5db",
+            borderRadius: 10,
             overflow: "hidden",
             justifyContent: "center",
           }}
@@ -335,7 +336,12 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
       </View>
       <View style={styles.maintenanceSearchDivider} />
 
-      <TaskTabs tasks={filteredTasks} onTaskPress={handleTaskPress} />
+      <TaskTabs
+        tasks={filteredTasks}
+        onTaskPress={handleTaskPress}
+        onRefresh={fetchTasks}
+        refreshing={refreshing}
+      />
 
       <TaskChecklist
         visible={modalVisible}

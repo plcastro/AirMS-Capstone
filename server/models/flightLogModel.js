@@ -26,7 +26,11 @@ const fuelServicingSchema = new mongoose.Schema({
   mainRemG: { type: String, default: "" },
   mainAdd: { type: String, default: "" },
   mainTotal: { type: String, default: "" },
-  fuelType: { type: String, enum: ["drum", "bowser"], default: "drum" },
+  fuelType: {
+    type: String,
+    enum: ["drum", "truck", "bowser"],
+    default: "drum",
+  },
   refuelerName: { type: String, default: "" },
   signature: { type: String, default: "" },
 });
@@ -49,9 +53,16 @@ const oilServicingSchema = new mongoose.Schema({
 
 // Work Item Schema
 const workItemSchema = new mongoose.Schema({
+  id: { type: String, default: "" },
+  selectedWorkTypes: { type: [String], default: [] },
   description: { type: String, default: "" },
   performedBy: { type: String, default: "" },
   date: { type: String, default: "" },
+  aircraft: { type: String, default: "" },
+  workDone: { type: String, default: "" },
+  name: { type: String, default: "" },
+  certificateNumber: { type: String, default: "" },
+  signature: { type: String, default: "" },
 });
 
 // Component Times Data Schema

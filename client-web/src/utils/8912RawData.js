@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 export const rawData = [
-  // Row 6 - AIRWORTHINES CERTIFICATE
-  { _id: "6", rowType: "part", componentName: "AIRWORTHINES CERTIFICATE", hourLimit1: "", hourLimit2: "", hourLimit3: "", dayLimit: "365", dayType: "D", dateCW: "2024-11-05", hoursCW: "", daysRemaining: "", timeRemaining: "", dateDue: "", ttCycleDue: "", due: "", hd: "", timeSinceInstall: "", totalTimeSinceNew: "" },
+  // Row 6 - AIRWORTHINESS CERTIFICATE
+  { _id: "6", rowType: "part", componentName: "AIRWORTHINESS CERTIFICATE", hourLimit1: "", hourLimit2: "", hourLimit3: "", dayLimit: "365", dayType: "D", dateCW: "2024-11-05", hoursCW: "", daysRemaining: "", timeRemaining: "", dateDue: "", ttCycleDue: "", due: "", hd: "", timeSinceInstall: "", totalTimeSinceNew: "" },
 
   // Row 7 - REGISTRATION CERTIFICATE
   { _id: "7", rowType: "part", componentName: "REGISTRATION CERTIFICATE", hourLimit1: "", hourLimit2: "", hourLimit3: "", dayLimit: "365", dayType: "D", dateCW: "2025-10-10", hoursCW: "", daysRemaining: "", timeRemaining: "", dateDue: "2028-10-10", ttCycleDue: "", due: "", hd: "", timeSinceInstall: "", totalTimeSinceNew: "" },

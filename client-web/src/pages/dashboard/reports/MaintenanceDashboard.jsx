@@ -6,7 +6,6 @@ import MaintenancePerformance from "./MaintenancePerformance";
 import MaintenanceSummary from "./MaintenanceSummary";
 import MaintenanceHistory from "./MaintenanceHistory";
 import ComponentUsage from "./ComponentUsage";
-import { componentData } from "../../../components/common/MockData";
 import { AuthContext } from "../../../context/AuthContext";
 import {
   exportToExcel,
@@ -20,8 +19,26 @@ export default function MaintenanceDashboard() {
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
   const [tasks, setTasks] = useState([]);
+  const [partsRecords, setPartsRecords] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
+
+  const isCompletedTask = (task = {}) => {
+    const status = String(task.status || "").trim().toLowerCase();
+    return (
+      ["completed", "turned in", "approved"].includes(status) ||
+      task.isApproved === true ||
+      Boolean(task.completedAt)
+    );
+  };
+
+  const getTaskDueDate = (task = {}) => {
+    const value = task.dueDate || task.endDateTime || task.dateRectified;
+    if (!value) return null;
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -36,6 +53,12 @@ export default function MaintenanceDashboard() {
         const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        const partsResponse = await fetch(
+          `${API_BASE}/api/parts-monitoring?page=1&limit=1000`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -44,27 +67,33 @@ export default function MaintenanceDashboard() {
           }
           throw new Error(`Failed to fetch tasks (${response.status})`);
         }
+        if (!partsResponse.ok) {
+          throw new Error(`Failed to fetch parts monitoring (${partsResponse.status})`);
+        }
 
         const result = await response.json();
+        const partsResult = await partsResponse.json();
         const taskData = Array.isArray(result.data) ? result.data : [];
+        const partsData = Array.isArray(partsResult.data) ? partsResult.data : [];
         setTasks(taskData);
+        setPartsRecords(partsData);
 
         const now = new Date();
         const threeDaysLater = new Date();
         threeDaysLater.setDate(now.getDate() + 3);
 
         const completed = taskData.filter(
-          (task) => task.status === "Completed",
+          (task) => isCompletedTask(task),
         ).length;
         const dueSoon = taskData.filter((task) => {
-          if (task.status === "Completed" || !task.dueDate) return false;
-          const dueDate = new Date(task.dueDate);
-          return !isNaN(dueDate.getTime()) && dueDate >= now && dueDate <= threeDaysLater;
+          if (isCompletedTask(task)) return false;
+          const dueDate = getTaskDueDate(task);
+          return dueDate && dueDate >= now && dueDate <= threeDaysLater;
         }).length;
         const overdue = taskData.filter((task) => {
-          if (task.status === "Completed" || !task.dueDate) return false;
-          const dueDate = new Date(task.dueDate);
-          return !isNaN(dueDate.getTime()) && dueDate < now;
+          if (isCompletedTask(task)) return false;
+          const dueDate = getTaskDueDate(task);
+          return dueDate && dueDate < now;
         }).length;
 
         setStats({ completed, dueSoon, overdue });
@@ -101,7 +130,7 @@ export default function MaintenanceDashboard() {
     {
       key: "component",
       title: "Component Analysis",
-      component: <ComponentUsage data={componentData} />,
+      component: <ComponentUsage records={partsRecords} loading={loadingTasks} />,
       keywords: ["component", "usage", "analysis"],
     },
   ];

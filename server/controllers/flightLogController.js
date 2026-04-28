@@ -2,7 +2,7 @@ const FlightLog = require("../models/flightLogModel");
 const { auditLog } = require("./logsController");
 const {
   createFlightLogNotifications,
-} = require("../utilities/flightLogNotificationService");
+} = require("../utils/flightLogNotificationService");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -17,7 +17,9 @@ const toComparableFlightLog = (flightLog) => {
     return null;
   }
 
-  return typeof flightLog.toObject === "function" ? flightLog.toObject() : flightLog;
+  return typeof flightLog.toObject === "function"
+    ? flightLog.toObject()
+    : flightLog;
 };
 
 // @desc    Create a new flight log
@@ -201,9 +203,12 @@ const getFlightLogs = async (req, res) => {
     // Build filter object
     const filter = {};
 
-    if (typeof status === "string" && status.trim()) filter.status = status.trim();
-    if (typeof aircraftRPC === "string" && aircraftRPC.trim()) filter.rpc = aircraftRPC.trim();
-    if (typeof createdBy === "string" && createdBy.trim()) filter.createdBy = createdBy.trim();
+    if (typeof status === "string" && status.trim())
+      filter.status = status.trim();
+    if (typeof aircraftRPC === "string" && aircraftRPC.trim())
+      filter.rpc = aircraftRPC.trim();
+    if (typeof createdBy === "string" && createdBy.trim())
+      filter.createdBy = createdBy.trim();
 
     // Date range filter
     if (startDate || endDate) {
@@ -337,6 +342,13 @@ const updateFlightLog = async (req, res) => {
       });
     }
 
+    if (existingFlightLog.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed flight logs cannot be edited",
+      });
+    }
+
     // Remove fields that shouldn't be updated directly
     delete updates._id;
     delete updates.id;
@@ -347,7 +359,7 @@ const updateFlightLog = async (req, res) => {
     const flightLog = await FlightLog.findByIdAndUpdate(
       id,
       { ...updates, updatedAt: new Date() },
-      { returnDocument: 'after', runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     await createFlightLogNotifications({
@@ -452,6 +464,13 @@ const acceptFlightLog = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Cannot accept flight log in ${flightLog.status} status`,
+      });
+    }
+
+    if (!flightLog.releasedBy?.signature && !flightLog.releasedBy?.name) {
+      return res.status(400).json({
+        success: false,
+        message: "Flight log must be released by a mechanic before acceptance",
       });
     }
 

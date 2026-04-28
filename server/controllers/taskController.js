@@ -1,6 +1,10 @@
 const TaskModel = require("../models/taskModel");
 const { auditLog } = require("./logsController");
-const { createTaskNotifications } = require("../utilities/taskNotificationService");
+const { createTaskNotifications } = require("../utils/taskNotificationService");
+const {
+  syncMaintenanceLogFromTask,
+  removeMaintenanceLogForTask,
+} = require("./maintenanceLogController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -66,6 +70,22 @@ const normalizeDateInput = (...values) => {
   return null;
 };
 
+const hasOwn = (object, key) =>
+  Object.prototype.hasOwnProperty.call(object || {}, key);
+
+const resolveDateField = (payload = {}, key, existingValue, ...fallbackValues) => {
+  if (hasOwn(payload, key)) {
+    const explicitValue = payload[key];
+    if (explicitValue === null || explicitValue === "") {
+      return null;
+    }
+
+    return normalizeDateInput(explicitValue, ...fallbackValues);
+  }
+
+  return normalizeDateInput(existingValue, ...fallbackValues);
+};
+
 const buildPerformanceData = (existingTask, nextTask) => {
   const performance = {
     ...(existingTask?.performance || {}),
@@ -109,24 +129,28 @@ const prepareTaskUpdate = (existingTask, payload = {}) => {
   const nextStatus = sanitizedPayload.status || currentStatus;
   const nowIso = new Date().toISOString();
 
-  nextTask.completedAt = normalizeDateInput(
-    sanitizedPayload.completedAt,
+  nextTask.completedAt = resolveDateField(
+    sanitizedPayload,
+    "completedAt",
     existingTask?.completedAt,
   );
-  nextTask.reviewedAt = normalizeDateInput(
-    sanitizedPayload.reviewedAt,
+  nextTask.reviewedAt = resolveDateField(
+    sanitizedPayload,
+    "reviewedAt",
     existingTask?.reviewedAt,
   );
-  nextTask.returnedAt = normalizeDateInput(
-    sanitizedPayload.returnedAt,
-    sanitizedPayload.returnedDate,
+  nextTask.returnedAt = resolveDateField(
+    sanitizedPayload,
+    "returnedAt",
     existingTask?.returnedAt,
+    sanitizedPayload.returnedDate,
     existingTask?.returnedDate,
   );
-  nextTask.approvedAt = normalizeDateInput(
-    sanitizedPayload.approvedAt,
-    sanitizedPayload.approvedDate,
+  nextTask.approvedAt = resolveDateField(
+    sanitizedPayload,
+    "approvedAt",
     existingTask?.approvedAt,
+    sanitizedPayload.approvedDate,
     existingTask?.approvedDate,
   );
 
@@ -185,6 +209,7 @@ const createTask = async (req, res) => {
     const taskData = prepareTaskUpdate(null, req.body);
     const task = new TaskModel(taskData);
     await task.save();
+    await syncMaintenanceLogFromTask(task);
     try {
       await createTaskNotifications({ task });
     } catch (notifyErr) {
@@ -241,6 +266,7 @@ const updateTask = async (req, res) => {
     );
 
     const refreshedTask = await TaskModel.findOne({ id: req.params.id });
+    await syncMaintenanceLogFromTask(refreshedTask);
     try {
       await createTaskNotifications({ previousTask: existingTask, task: refreshedTask });
     } catch (notifyErr) {
@@ -287,6 +313,7 @@ const deleteTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
+    await removeMaintenanceLogForTask(task);
     const audit = withActorId(req, `Task deleted: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(200).json({ status: "Ok", message: "Task deleted" });

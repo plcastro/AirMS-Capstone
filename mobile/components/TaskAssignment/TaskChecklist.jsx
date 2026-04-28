@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, ScrollView, TextInput, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Modal,
+  ScrollView,
+  TextInput,
+  Image,
+  TouchableOpacity,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Button from "../Button";
 import ReviewTask from "./ReviewTask";
 import { styles } from "../../stylesheets/styles";
 import CheckBox from "../CheckBox";
+import { showToast } from "../../utilities/toast";
+import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskChecklist({
   visible,
@@ -77,43 +88,40 @@ export default function TaskChecklist({
     onStartTask?.(task);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isHeadView) return;
-    onSaveDraft?.(task, checklistState, findings);
+    await onSaveDraft?.(task, checklistState, findings);
     onClose();
   };
 
-  const handleTurnIn = (options = {}) => {
+  const handleTurnIn = async (options = {}) => {
     if (isHeadView) return;
 
     if (options.undo) {
-      onTurnIn?.(task, checklistState, findings, {
+      await onTurnIn?.(task, checklistState, findings, {
         undo: true,
         newStatus: "Ongoing",
       });
     } else {
       if (!allCheckboxesChecked) {
-        Alert.alert(
-          "Checklist incomplete",
-          "Please check all checklist items before turning in the task.",
-        );
+        showToast("Please check all checklist items before turning in the task.");
         return;
       }
 
-      onTurnIn?.(task, checklistState, findings);
+      await onTurnIn?.(task, checklistState, findings);
     }
 
     onClose();
   };
 
-  const handleReturnConfirm = ({ note, signature }) => {
-    onReturn?.(task, { comments: note, signature });
+  const handleReturnConfirm = async ({ note, signature }) => {
+    await onReturn?.(task, { comments: note, signature });
     setShowReviewModal(false);
     onClose();
   };
 
-  const handleApproveConfirm = ({ signature }) => {
-    onApprove?.(task, { signature });
+  const handleApproveConfirm = async ({ signature }) => {
+    await onApprove?.(task, { signature });
     setShowReviewModal(false);
     onClose();
   };
@@ -145,9 +153,10 @@ export default function TaskChecklist({
     task.status === "Turned in" ||
     task.status === "Approved";
 
-  const isApproved = task.isApproved || false;
+  const isApproved = task.isApproved || task.status === "Approved" || false;
   const approvedBy = task.approvedBy || "";
   const approvedDate = task.approvedAt || task.approvedDate || "";
+  const approvedSignature = task.approvedSignature || "";
 
   const allCheckboxesChecked =
     checklistItems.length > 0 &&
@@ -264,7 +273,39 @@ export default function TaskChecklist({
               padding: 24,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 6 }}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Close task details"
+              activeOpacity={0.75}
+              onPress={onClose}
+              style={{
+                position: "absolute",
+                top: 14,
+                right: 14,
+                zIndex: 2,
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#f5f5f5",
+              }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                marginBottom: 6,
+                marginRight: 42,
+              }}
+            >
               {task.title}
             </Text>
 
@@ -272,30 +313,6 @@ export default function TaskChecklist({
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
               {" "}Aircraft {task.aircraft}
             </Text>
-
-            {isHeadView && isTurnedIn && !isApproved && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 12,
-                  marginBottom: 20,
-                }}
-              >
-                <Button
-                  label="Return Task"
-                  onPress={openReturnModal}
-                  buttonStyle={[styles.dangerBtn, { width: 120 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-                <Button
-                  label="Approve"
-                  onPress={openApproveModal}
-                  buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-              </View>
-            )}
 
             {isHeadView && isReturned && (
               <View
@@ -443,6 +460,24 @@ export default function TaskChecklist({
                           ? `Approved by ${approvedBy || "Maintenance Manager"} on ${formatReturnedDateTime(approvedDate)}`
                           : `Approved by ${approvedBy || "Maintenance Manager"}`}
                       </Text>
+                      {!!approvedSignature && (
+                        <View
+                          style={{
+                            borderWidth: 1,
+                            borderColor: "#c8e6c9",
+                            borderRadius: 6,
+                            height: 70,
+                            marginTop: 10,
+                            backgroundColor: "#fff",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Image
+                            source={{ uri: approvedSignature }}
+                            style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                          />
+                        </View>
+                      )}
                     </View>
                   ) : (
                     <View>
@@ -503,7 +538,17 @@ export default function TaskChecklist({
                       marginBottom: 12,
                     }}
                   >
-                    Findings
+                    Findings (AI-interpreted)
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: "#667085",
+                      marginBottom: 10,
+                      lineHeight: 18,
+                    }}
+                  >
+                    These findings are used by the AI maintenance tracker. Include symptoms, affected components, inspection results, and corrective details when available.
                   </Text>
                   <View
                     style={{
@@ -544,7 +589,7 @@ export default function TaskChecklist({
                       multiline
                       value={findings}
                       onChangeText={setFindings}
-                      placeholder="Enter your findings here..."
+                      placeholder="Enter findings, symptoms, affected parts, and inspection results here..."
                       placeholderTextColor="#999"
                       editable={!isCompleted || isReturned}
                     />
@@ -560,36 +605,39 @@ export default function TaskChecklist({
                 gap: 12,
               }}
             >
-              {isHeadView ? (
+              {isHeadView && isTurnedIn && !isApproved ? (
+                <>
+                  <Button
+                    label="Return"
+                    onPress={openReturnModal}
+                    buttonStyle={[styles.dangerBtn, { width: 120 }]}
+                    buttonTextStyle={styles.primaryBtnTxt}
+                  />
+                  <Button
+                    label="Approve"
+                    onPress={openApproveModal}
+                    buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+                    buttonTextStyle={styles.primaryBtnTxt}
+                  />
+                </>
+              ) : isHeadView && isApproved ? null : isHeadView ? (
                 <Button
                   label="Close"
                   onPress={onClose}
-                  buttonStyle={[styles.primaryAlertBtn, { width: 100 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
+                  buttonStyle={[styles.secondaryAlertBtn, { width: 100 }]}
+                  buttonTextStyle={styles.secondaryBtnTxt}
                 />
               ) : isCompleted ? (
                 <>
                   <Button
-                    label="Close"
-                    onPress={onClose}
-                    buttonStyle={[styles.secondaryBtn, { width: 100 }]}
-                    buttonTextStyle={styles.secondaryBtnTxt}
-                  />
-                  <Button
                     label="Undo Turn In"
                     onPress={() => handleTurnIn({ undo: true })}
-                    buttonStyle={[styles.neutralBtn, { width: 120 }]}
+                    buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
                     buttonTextStyle={styles.primaryBtnTxt}
                   />
                 </>
               ) : (
                 <>
-                  <Button
-                    label="Cancel"
-                    onPress={onClose}
-                    buttonStyle={[styles.secondaryBtn, { width: 100 }]}
-                    buttonTextStyle={styles.secondaryBtnTxt}
-                  />
 
                   {!isStarted ? (
                     <Button

@@ -17,10 +17,14 @@ const {
   updatePassword,
   updateUserImage,
   updatePIN,
+  verifyPIN,
   updateSignature,
   activateUser,
   resendActivation,
   completeSecuritySetup,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
 } = require("../controllers/userController");
 
 const {
@@ -94,6 +98,12 @@ router.put(
   rbacMiddleware.requireSelfOrAdmin("id"),
   updatePIN,
 );
+router.post(
+  "/verify-pin/:id",
+  verifyToken,
+  rbacMiddleware.requireSelfOrAdmin("id"),
+  verifyPIN,
+);
 router.put(
   "/update-user-status/:id",
   verifyToken,
@@ -124,6 +134,27 @@ router.put(
 
 router.post("/activate", activateUser);
 router.post("/resend-activation", resendActivation);
+router.post(
+  "/resend-activation/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  resendActivationByAdmin,
+);
+router.put(
+  "/extend-invitation-expiry/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  extendInvitationExpiry,
+);
+router.put(
+  "/revoke-invitation/:id",
+  verifyToken,
+  rbacMiddleware.requireAdmin,
+  rbacMiddleware.logAdminAction,
+  revokeInvitation,
+);
 router.post("/complete-security-setup", completeSecuritySetup);
 
 router.post("/request-password-reset", requestPasswordReset);

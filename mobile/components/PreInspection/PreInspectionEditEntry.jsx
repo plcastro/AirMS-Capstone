@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -20,6 +20,7 @@ import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PreInspectionEditEntry({
   visible,
@@ -28,9 +29,11 @@ export default function PreInspectionEditEntry({
   onSave,
   userRole,
   rpcOptions = [],
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -82,22 +85,16 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !isPilot && !hasAnySignature;
+  const isFormEditable = !readOnly && !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
-      Alert.alert(
-        "Validation Error",
-        `FOB must be filled in before ${actionLabel}.`,
-      );
+      showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
 
     if (!areAllInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        `All checklist fields must be checked before ${actionLabel}.`,
-      );
+      showToast(`All checklist fields must be checked before ${actionLabel}.`);
       return false;
     }
 
@@ -123,6 +120,7 @@ export default function PreInspectionEditEntry({
       acceptedBy: {
         name: signatureData.name,
         id: signatureData.id,
+        signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
@@ -132,20 +130,49 @@ export default function PreInspectionEditEntry({
 
     try {
       await persistInspection(updatedFormData);
-      Alert.alert("Success", "Pre-inspection has been completed");
+      showToast("Pre-inspection has been completed");
     } catch (error) {
       console.error("Error completing pre-inspection:", error);
-      Alert.alert("Error", "Failed to complete pre-inspection");
+      showToast("Failed to complete pre-inspection");
+      throw error;
+    }
+  };
+
+  const handleRelease = async (signatureData) => {
+    if (!validateBeforeSigning("release")) {
+      return;
+    }
+
+    const updatedFormData = {
+      ...formData,
+      releasedBy: {
+        name: signatureData.name,
+        id: signatureData.id,
+        signature: signatureData.signature,
+        timestamp: new Date().toISOString(),
+      },
+      status: "released",
+    };
+
+    setFormData(updatedFormData);
+
+    try {
+      await persistInspection(updatedFormData);
+      showToast("Pre-inspection has been released");
+    } catch (error) {
+      console.error("Error releasing pre-inspection:", error);
+      showToast("Failed to release pre-inspection");
+      throw error;
     }
   };
 
   const handleSave = async () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return;
     }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return;
     }
 
@@ -153,24 +180,8 @@ export default function PreInspectionEditEntry({
       await persistInspection(formData);
     } catch (error) {
       console.error("Error saving pre-inspection:", error);
-      Alert.alert("Error", "Failed to save pre-inspection");
+      showToast("Failed to save pre-inspection");
     }
-  };
-
-  const footerActionLabel =
-    isPilot ||
-    formData.status === "completed" ||
-    (!isFormEditable && !showAcceptButton)
-      ? "Close"
-      : "Save";
-
-  const handleFooterAction = () => {
-    if (footerActionLabel === "Close") {
-      onClose();
-      return;
-    }
-
-    handleSave();
   };
 
   const handleNext = () => {
@@ -228,11 +239,35 @@ export default function PreInspectionEditEntry({
   };
 
   // Determine which action button to show on last page
+  const showReleaseButton =
+    isMechanic &&
+    !readOnly &&
+    formData.status === "pending" &&
+    !formData.releasedBy?.name &&
+    !isSubmitting;
   const showAcceptButton =
     isPilot &&
+    !readOnly &&
     formData.status === "released" &&
     !formData.acceptedBy?.name &&
     !isSubmitting;
+
+  const footerActionLabel =
+    readOnly ||
+    isPilot ||
+    formData.status === "completed" ||
+    (!isFormEditable && !showAcceptButton && !showReleaseButton)
+      ? "Close"
+      : "Save";
+
+  const handleFooterAction = () => {
+    if (footerActionLabel === "Close") {
+      onClose();
+      return;
+    }
+
+    handleSave();
+  };
 
   // Format timestamp
   const formatDate = (timestamp) => {
@@ -318,9 +353,40 @@ export default function PreInspectionEditEntry({
           {/* Action Buttons and Signatures - Only on Last Page */}
           {isLastPage && (
             <View style={{ marginTop: 20, marginBottom: 20 }}>
+              {showReleaseButton && (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (validateBeforeSigning("release")) {
+                      setShowReleaseModal(true);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    alignItems: "center",
+                    marginBottom: 20,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 16,
+                    }}
+                  >
+                    Release
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {showAcceptButton && (
                 <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
+                  onPress={() => {
+                    if (validateBeforeSigning("acceptance")) {
+                      setShowAcceptModal(true);
+                    }
+                  }}
                   style={{
                     backgroundColor: COLORS.primaryLight,
                     paddingVertical: 12,
@@ -399,6 +465,18 @@ export default function PreInspectionEditEntry({
                     >
                       {formatDate(formData.releasedBy.timestamp)}
                     </Text>
+                    {!!formData.releasedBy.signature && (
+                      <Image
+                        source={{ uri: formData.releasedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -461,6 +539,18 @@ export default function PreInspectionEditEntry({
                     >
                       {formatDate(formData.acceptedBy.timestamp)}
                     </Text>
+                    {!!formData.acceptedBy.signature && (
+                      <Image
+                        source={{ uri: formData.acceptedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -533,14 +623,22 @@ export default function PreInspectionEditEntry({
           </TouchableOpacity>
         </View>
 
-        {/* Accept Signature Modal */}
+        <PreInspectionSignatureModal
+          visible={showReleaseModal}
+          title="Release Signature"
+          onClose={() => setShowReleaseModal(false)}
+          onSave={handleRelease}
+          aircraftRPC={formData.rpc}
+          actionLabel="release"
+        />
+
         <PreInspectionSignatureModal
           visible={showAcceptModal}
           title="Accept Signature"
           onClose={() => setShowAcceptModal(false)}
           onSave={handleAccept}
           aircraftRPC={formData.rpc}
-          role="PILOT"
+          actionLabel="accept"
         />
       </SafeAreaView>
     </Modal>

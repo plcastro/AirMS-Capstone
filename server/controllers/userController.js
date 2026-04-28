@@ -1,13 +1,13 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendEmail = require("../utilities/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
 const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
 const { auditLog } = require("./logsController");
-const generateUniqueUsername = require("../utilities/generateUniqueUsername");
+const generateUniqueUsername = require("../utils/generateUniqueUsername");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
 const getAuditActorId = (req, fallbackId = null) =>
@@ -36,6 +36,94 @@ const canUseMobileClient = (user) => {
   return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
 };
 
+const canUseWebClient = (user) => {
+  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
+
+  // Pilot accounts are restricted to the mobile client.
+  return normalizedJobTitle !== "pilot";
+};
+
+const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
+
+const getPortalUrlByJobTitle = (jobTitle) =>
+  jobTitle === "Maintenance Manager" ||
+  jobTitle === "Officer-In-Charge" ||
+  jobTitle === "Admin" ||
+  jobTitle === "Mechanic"
+    ? `${WEB_URL}/login`
+    : `${MOBILE_URL}/login`;
+
+const sendActivationCredentialsEmail = async ({
+  to,
+  firstName,
+  username,
+  tempPassword,
+  jobTitle,
+  isResend = false,
+}) => {
+  const portalUrl = getPortalUrlByJobTitle(jobTitle);
+  const subject = isResend
+    ? "AirMS Account Activation - Resend"
+    : "Welcome to AirMS - Your Account Details";
+
+  await sendEmail({
+    to,
+    subject,
+    html: `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+      <div style="background-color: #26866f; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
+      </div>
+
+      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+        <p>Hello <strong>${firstName}</strong>,</p>
+        <p>Your AirMS account credentials are ready. Use the temporary credentials below to sign in and finish setup.</p>
+
+        <div style="background: #f8f9fa; border-left: 4px solid #26866f; padding: 15px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
+          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalUrl}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+        </div>
+
+        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
+          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>.
+        </p>
+      </div>
+
+      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
+      </p>
+    </div>
+  `,
+  });
+};
+
+const resendActivationForUser = async (user) => {
+  const newTempPassword = Math.random().toString(36).slice(-8);
+  const newExpiry = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
+
+  user.password = await bcrypt.hash(newTempPassword, 12);
+  user.status = "inactive";
+  user.invitationStatus = "pending";
+  user.invitationSentAt = new Date();
+  user.invitationExpiresAt = new Date(newExpiry);
+  user.invitationClaimedAt = null;
+  user.tempPasswordExpires = newExpiry;
+  await user.save();
+
+  await sendActivationCredentialsEmail({
+    to: user.email,
+    firstName: user.firstName,
+    username: user.username,
+    tempPassword: newTempPassword,
+    jobTitle: user.jobTitle,
+    isResend: true,
+  });
+};
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await UserModel.find({});
@@ -48,7 +136,9 @@ const getAllUsers = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
-      console.error("Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing");
+      console.error(
+        "Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing",
+      );
       return res.status(500).json({
         message: "Server authentication configuration error.",
       });
@@ -66,6 +156,10 @@ const loginUser = async (req, res) => {
     password = password.trim();
     const normalizedClient =
       typeof client === "string" ? client.trim().toLowerCase() : "";
+    const loginPlatform =
+      normalizedClient === "web" || normalizedClient === "mobile"
+        ? normalizedClient
+        : "unknown";
 
     if (!identifier || !password) {
       return res
@@ -110,7 +204,17 @@ const loginUser = async (req, res) => {
 
     // Handle inactive users separately
     if (user.status === "inactive") {
+      if (user.invitationStatus === "revoked") {
+        return res.status(403).json({
+          message: "Invitation revoked. Contact your administrator.",
+        });
+      }
+
       if (!user.tempPasswordExpires || user.tempPasswordExpires < Date.now()) {
+        if (user.invitationStatus !== "expired") {
+          user.invitationStatus = "expired";
+          await user.save();
+        }
         return res.status(401).json({
           message: "Temporary password expired. Resend activation.",
         });
@@ -123,6 +227,12 @@ const loginUser = async (req, res) => {
       if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
         return res.status(403).json({
           message: "This account is only allowed to log in on the web portal.",
+        });
+      }
+      if (normalizedClient === "web" && !canUseWebClient(user)) {
+        return res.status(403).json({
+          message:
+            "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
         });
       }
       if (!process.env.JWT_SECRET) {
@@ -166,12 +276,21 @@ const loginUser = async (req, res) => {
         message: "This account is only allowed to log in on the web portal.",
       });
     }
+    if (normalizedClient === "web" && !canUseWebClient(user)) {
+      return res.status(403).json({
+        message:
+          "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
+      });
+    }
 
     // Reset failed login attempts
     user.failedLoginAttempts = 0;
     user.isLocked = false;
     user.lockUntil = undefined;
     user.lastLogin = new Date();
+    user.isOnline = true;
+    user.platform = loginPlatform;
+    user.lastSeenAt = new Date();
     await user.save();
 
     // Generate JWT
@@ -223,6 +342,9 @@ const loginUser = async (req, res) => {
       signature: user.signature,
       securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
+      isOnline: user.isOnline,
+      platform: user.platform,
+      lastSeenAt: user.lastSeenAt,
     };
 
     return res.status(200).json({
@@ -295,6 +417,11 @@ const logoutUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
 
+    await UserModel.findByIdAndUpdate(decoded.id, {
+      isOnline: false,
+      lastSeenAt: new Date(),
+    });
+
     await auditLog(
       `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
@@ -325,7 +452,9 @@ const registerMobilePushDevice = async (req, res) => {
     }
 
     if (!deviceId || !expoPushToken) {
-      return res.status(400).json({ message: "deviceId and expoPushToken are required" });
+      return res
+        .status(400)
+        .json({ message: "deviceId and expoPushToken are required" });
     }
 
     await UserModel.updateMany(
@@ -404,49 +533,15 @@ const createUser = async (req, res) => {
 
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    const tempPasswordExpires = Date.now() + 60 * 60 * 1000;
+    const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
 
-    const portalUrl =
-      jobTitle === "Maintenance Manager" ||
-      jobTitle === "Officer-In-Charge" ||
-      jobTitle === "Admin"
-        ? `${WEB_URL}/login`
-        : `${MOBILE_URL}/login`;
-
-    await sendEmail({
+    await sendActivationCredentialsEmail({
       to: email,
-      subject: "Welcome to AirMS – Your Account Details",
-      html: `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #0056b3; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
-      </div>
-      
-      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your AirMS account has been successfully created. You can now log in using the temporary credentials provided below:</p>
-        
-        <div style="background: #f8f9fa; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
-          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
-        </div>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
-        </div>
-
-        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
-          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>. You will be prompted to set a permanent password upon your first login.
-        </p>
-        
-        <p style="margin-top: 25px;">If you didn't expect this email, please contact your administrator.</p>
-      </div>
-      
-      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
-        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
-      </p>
-    </div>
-  `,
+      firstName,
+      username,
+      tempPassword,
+      jobTitle,
+      isResend: false,
     });
 
     let imagePath = "";
@@ -461,6 +556,9 @@ const createUser = async (req, res) => {
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
+      invitationStatus: "pending",
+      invitationSentAt: new Date(),
+      invitationExpiresAt: new Date(tempPasswordExpires),
       status: "inactive",
       image: imagePath,
       jobTitle,
@@ -536,7 +634,10 @@ const completeSecuritySetup = async (req, res) => {
 
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
+    user.securitySetupCompleted = true;
     user.tempPasswordExpires = undefined;
+    user.invitationStatus = "claimed";
+    user.invitationClaimedAt = new Date();
 
     await user.save();
     const audit = withActorId(
@@ -597,7 +698,14 @@ const updateUser = async (req, res) => {
     jobTitle = parseString(jobTitle);
     licenseNo = parseString(licenseNo);
 
-    if (!firstName || !lastName || !email || !username || !access || !jobTitle) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !access ||
+      !jobTitle
+    ) {
       return res.status(400).json({ message: "Employee information required" });
     }
 
@@ -679,11 +787,10 @@ const updateUser = async (req, res) => {
       licenseNo: requiresLicense ? licenseNo : null,
     };
 
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true },
-    );
+    const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (Object.keys(changes).length > 0) {
       const audit = withActorId(
@@ -703,7 +810,11 @@ const updateUser = async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "User updated successfully", user: updatedUser, data: updatedUser });
+      .json({
+        message: "User updated successfully",
+        user: updatedUser,
+        data: updatedUser,
+      });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
@@ -998,6 +1109,37 @@ const updatePIN = async (req, res) => {
   }
 };
 
+const verifyPIN = async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin) {
+      return res.status(400).json({ message: "PIN is required" });
+    }
+
+    const user = await UserModel.findById(req.params.id).select("+pin");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.pin) {
+      return res.status(400).json({ message: "User has no PIN set." });
+    }
+
+    const isMatch = await bcrypt.compare(pin, user.pin);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "PIN is incorrect." });
+    }
+
+    res.status(200).json({ message: "PIN verified" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 const updateSignature = async (req, res) => {
   try {
     const user = await UserModel.findById(req.params.id);
@@ -1063,6 +1205,9 @@ const activateUser = async (req, res) => {
     user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
     user.securitySetupCompleted = true;
+    user.tempPasswordExpires = undefined;
+    user.invitationStatus = "claimed";
+    user.invitationClaimedAt = new Date();
     await user.save();
 
     const audit = withActorId(
@@ -1089,31 +1234,7 @@ const resendActivation = async (req, res) => {
     if (user.status === "active")
       return res.status(400).json({ message: "Account is already active" });
 
-    // Reset temporary password
-    const newTempPassword = Math.random().toString(36).slice(-8);
-    user.password = await bcrypt.hash(newTempPassword, 12);
-    user.tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-    await user.save();
-
-    // Portal link just goes to login page
-    const portalLink = [
-      "Admin",
-      "Maintenance Manager",
-      "Officer-In-Charge",
-      "Warehouse Department",
-    ].includes(user.jobTitle)
-      ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
-      : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
-
-    await sendEmail({
-      to: user.email,
-      subject: "AirMS Account Activation – Resend",
-      html: `<p>Hello <strong>${user.firstName}</strong>,</p>
-             <p>Your temporary password has been reset. Use it to log in:</p>
-             <p>Temporary password: <strong>${newTempPassword}</strong></p>
-             ${portalLink}
-             <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
-    });
+    await resendActivationForUser(user);
 
     const audit = withActorId(req, "Activation email resent", user._id);
     await auditLog(audit.action, audit.actorId);
@@ -1121,6 +1242,105 @@ const resendActivation = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to resend activation" });
+  }
+};
+
+const resendActivationByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await UserModel.findById(id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status === "active")
+      return res.status(400).json({ message: "Account is already active" });
+
+    await resendActivationForUser(user);
+
+    const audit = withActorId(
+      req,
+      `Activation email resent by admin for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({ message: "Activation email resent" });
+  } catch (err) {
+    console.error("resendActivationByAdmin error:", err);
+    return res.status(500).json({ message: "Failed to resend activation" });
+  }
+};
+
+const extendInvitationExpiry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const requestedHours = Number(req.body?.hours);
+    const hours =
+      Number.isFinite(requestedHours) && requestedHours > 0
+        ? requestedHours
+        : 24;
+
+    const user = await UserModel.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status !== "inactive") {
+      return res.status(400).json({
+        message: "Only inactive users can have invitation expiry extended",
+      });
+    }
+
+    const newExpiry = Date.now() + hours * 60 * 60 * 1000;
+    user.tempPasswordExpires = newExpiry;
+    user.invitationExpiresAt = new Date(newExpiry);
+    user.invitationStatus = "pending";
+    await user.save();
+
+    const audit = withActorId(
+      req,
+      `Invitation expiry extended for ${user.username} by ${hours} hour(s)`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({
+      message: "Invitation expiry extended",
+      invitationExpiresAt: user.invitationExpiresAt,
+      invitationStatus: user.invitationStatus,
+    });
+  } catch (err) {
+    console.error("extendInvitationExpiry error:", err);
+    return res
+      .status(500)
+      .json({ message: "Failed to extend invitation expiry" });
+  }
+};
+
+const revokeInvitation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await UserModel.findById(id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status === "active") {
+      return res.status(400).json({
+        message: "Cannot revoke invitation for an active user",
+      });
+    }
+
+    user.invitationStatus = "revoked";
+    user.tempPasswordExpires = undefined;
+    user.invitationExpiresAt = null;
+    await user.save();
+
+    const audit = withActorId(
+      req,
+      `Invitation revoked for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({ message: "Invitation revoked" });
+  } catch (err) {
+    console.error("revokeInvitation error:", err);
+    return res.status(500).json({ message: "Failed to revoke invitation" });
   }
 };
 
@@ -1138,9 +1358,13 @@ module.exports = {
   updateUserProfile,
   updatePassword,
   updatePIN,
+  verifyPIN,
   updateUserImage,
   updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
 };

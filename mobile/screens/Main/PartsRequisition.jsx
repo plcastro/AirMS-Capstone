@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   ScrollView,
@@ -18,7 +24,7 @@ import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequis
 import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
 import { API_BASE } from "../../utilities/API_BASE";
-
+import { showToast } from "../../utilities/toast";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -84,6 +90,12 @@ const isItemAvailableForApproval = (status) =>
     normalizeItemStatus(status),
   );
 
+const getItemParticular = (item = {}) =>
+  item.particular ||
+  item.codeParticular?.[0]?.particular ||
+  item.itemName ||
+  "";
+
 const getDisplayStatusLabel = (status) => {
   switch (status) {
     case "To Be Ordered":
@@ -109,7 +121,9 @@ const buildTimeline = (record) => {
   if (hasWarehouseAssessment(record)) {
     timeline.push({
       status: "Availability Checked",
-      dateTime: formatDateTime(record.dateWarehouseReviewed || record.updatedAt),
+      dateTime: formatDateTime(
+        record.dateWarehouseReviewed || record.updatedAt,
+      ),
       by: record.staff?.warehouseBy || "Warehouse Department",
       description: "Warehouse reviewed item stock availability",
     });
@@ -166,16 +180,19 @@ const buildTimeline = (record) => {
 };
 
 const mapRequisitionToCard = (record) => {
-  const items = (Array.isArray(record.items) ? record.items : []).map((item) => ({
-    ...item,
-    stockStatus: normalizeItemStatus(item.stockStatus),
-    availableQty: Number(item.availableQty) || 0,
-  }));
+  const items = (Array.isArray(record.items) ? record.items : []).map(
+    (item) => ({
+      ...item,
+      stockStatus: normalizeItemStatus(item.stockStatus),
+      availableQty: Number(item.availableQty) || 0,
+    }),
+  );
   const totalQuantity = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0),
     0,
   );
   const firstItem = items[0];
+  const firstItemParticular = getItemParticular(firstItem);
   const rawStatus = normalizeOverallStatus(record.status);
   const reviewed = hasWarehouseAssessment({ ...record, items });
 
@@ -190,8 +207,8 @@ const mapRequisitionToCard = (record) => {
     aircraft: record.aircraft || "-",
     itemSummary: firstItem
       ? items.length === 1
-        ? `${firstItem.particular} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
-        : `${firstItem.particular} +${items.length - 1} more`
+        ? `${firstItemParticular || "-"} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
+        : `${firstItemParticular || "-"} +${items.length - 1} more`
       : "No items",
     purpose: firstItem?.purpose || "-",
     totalItems: items.length,
@@ -209,7 +226,7 @@ const mapRequisitionToCard = (record) => {
       rawStatus,
       hasWarehouseAssessment: reviewed,
       requestItems: items.map((item) => ({
-        itemName: item.particular || "-",
+        itemName: getItemParticular(item) || "-",
         purpose: item.purpose || "-",
         requested: `${item.quantity || 0} ${item.unitOfMeasure || ""}`.trim(),
         availableQty: `${item.availableQty || 0}`,
@@ -233,7 +250,8 @@ const resolveTabForRequest = (request, isManager) => {
       : "History";
   }
 
-  return request.rawStatus === "Parts Requested" && !request.hasWarehouseAssessment
+  return request.rawStatus === "Parts Requested" &&
+    !request.hasWarehouseAssessment
     ? "Active"
     : "History";
 };
@@ -256,7 +274,9 @@ export default function PartsRequisition({ route, navigation }) {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
-  const tabLabels = isManager ? ["For Review", "History"] : ["Active", "History"];
+  const tabLabels = isManager
+    ? ["For Review", "History"]
+    : ["Active", "History"];
 
   useEffect(() => {
     setSelectedTab(isManager ? "For Review" : "Active");
@@ -302,7 +322,7 @@ export default function PartsRequisition({ route, navigation }) {
       setRequisitions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching requisitions:", error);
-      Alert.alert("Error", "Failed to fetch parts requisitions.");
+      showToast("Failed to fetch parts requisitions.");
     } finally {
       setLoading(false);
     }
@@ -310,7 +330,9 @@ export default function PartsRequisition({ route, navigation }) {
 
   const fetchAircraftOptions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch aircraft options");
@@ -366,7 +388,9 @@ export default function PartsRequisition({ route, navigation }) {
 
       return selectedTab === "Active"
         ? item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
-        : !(item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment);
+        : !(
+            item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
+          );
     });
 
     return sourceData.filter((item) => {
@@ -380,12 +404,7 @@ export default function PartsRequisition({ route, navigation }) {
 
       return matchesSearch;
     });
-  }, [
-    isManager,
-    mappedRequisitions,
-    searchQuery,
-    selectedTab,
-  ]);
+  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
 
   useEffect(() => {
     const targetRequestId = route?.params?.targetRequestId;
@@ -443,7 +462,6 @@ export default function PartsRequisition({ route, navigation }) {
   const buildRequestItemsPayload = (items) =>
     items.map((item, index) => ({
       itemNo: index + 1,
-      matCodeNo: item.materialCodeNumber.trim(),
       particular: item.particular.trim(),
       quantity: Number(item.quantity),
       unitOfMeasure: item.unit,
@@ -488,11 +506,11 @@ export default function PartsRequisition({ route, navigation }) {
         await fetchRequisitions();
 
         if (successMessage) {
-          Alert.alert("Success", successMessage);
+          showToast(successMessage);
         }
       } catch (error) {
         console.error("Error updating requisition:", error);
-        Alert.alert("Error", error.message || "Failed to update requisition.");
+        showToast(error.message || "Failed to update requisition.");
       }
     },
     [fetchRequisitions],
@@ -528,33 +546,30 @@ export default function PartsRequisition({ route, navigation }) {
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
     if (!aircraft) {
-      Alert.alert("Validation Error", "Please choose an aircraft.");
+      showToast("Please choose an aircraft.");
       return;
     }
 
     if (!items?.length) {
-      Alert.alert("Validation Error", "Please add at least one item.");
+      showToast("Please add at least one item.");
       return;
     }
 
     if (
       items.some(
         (item) =>
-          !item.materialCodeNumber.trim() ||
           !item.particular.trim() ||
           !item.quantity ||
           Number(item.quantity) <= 0,
       )
     ) {
-      Alert.alert(
-        "Validation Error",
-        "Material code number, particular, and quantity are required for each item.",
-      );
+      showToast("Particular, and quantity are required for each item.");
       return;
     }
 
     const fullName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
     const requestItems = buildRequestItemsPayload(items);
 
     try {
@@ -615,10 +630,10 @@ export default function PartsRequisition({ route, navigation }) {
       resetEntryModal();
       setSelectedTab("Active");
       await fetchRequisitions();
-      Alert.alert("Submit Entry", `${nextSlipNo} added successfully.`);
+      showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
       console.error("Error creating requisition:", error);
-      Alert.alert("Error", error.message || "Failed to create requisition.");
+      showToast(error.message || "Failed to create requisition.");
     }
   };
 
@@ -644,7 +659,8 @@ export default function PartsRequisition({ route, navigation }) {
 
   const handleApproveRequest = async (request) => {
     const fullName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Unknown User";
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
     const updatedItems = (request.rawRecord.items || []).map((item) => ({
       ...item,
       stockStatus: "Approved",
@@ -675,7 +691,7 @@ export default function PartsRequisition({ route, navigation }) {
             minWidth: 92,
             paddingHorizontal: 18,
             paddingVertical: 10,
-            borderRadius: 20,
+            borderRadius: 7,
             backgroundColor: COLORS.white,
             borderWidth: 1,
             borderColor: COLORS.grayMedium,
@@ -706,8 +722,7 @@ export default function PartsRequisition({ route, navigation }) {
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
-        matCodeNo: item.matCodeNo,
-        particular: item.particular,
+        particular: getItemParticular(item),
         quantity: item.quantity,
         unitOfMeasure: item.unitOfMeasure,
         purpose: item.purpose,
@@ -745,7 +760,9 @@ export default function PartsRequisition({ route, navigation }) {
       : "Order";
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}>
+    <View
+      style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
@@ -769,7 +786,7 @@ export default function PartsRequisition({ route, navigation }) {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Search by mechanic"
+              placeholder="Search by WRS#"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,

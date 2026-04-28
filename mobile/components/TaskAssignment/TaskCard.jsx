@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import React, { useContext } from "react";
 import * as Progress from "react-native-progress";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { styles } from "../../stylesheets/styles";
-import Button from "../Button";
 import { AuthContext } from "../../Context/AuthContext";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -31,9 +31,11 @@ export default function TaskCard({
     returnComments,
     checklistItems,
     checklistState,
+    completedAt,
   } = data;
   const { user } = useContext(AuthContext);
   const deadline = endDateTime || dueDate;
+  const submittedAt = completedAt;
 
   // Calculate progress for ongoing tasks
   const calculateProgress = () => {
@@ -64,15 +66,6 @@ export default function TaskCard({
     return `${formattedDate} ${formattedTime}`;
   };
 
-  const formatDisplayDate = (dateString) => {
-    if (!dateString || dateString === "") return "Not set";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const formatDisplayDateTime = (dateString) => {
     if (!dateString || dateString === "") return "Not set";
     const date = new Date(dateString);
@@ -88,27 +81,50 @@ export default function TaskCard({
     return `${formattedDate} ${formattedTime}`;
   };
 
-  // Calculate overdue time (days or hours)
-  const calculateOverdueTime = (deadlineValue) => {
-    const now = new Date();
-    const due = new Date(deadlineValue);
-    const diffMs = now - due;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const formatDuration = (diffMs) => {
+    const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+    const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffHours < 24) {
-      return {
-        value: diffHours,
-        unit: "hour",
-        text: `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`,
-      };
-    } else {
-      return {
-        value: diffDays,
-        unit: "day",
-        text: `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`,
-      };
+    if (diffDays >= 1) {
+      return `${diffDays} day${diffDays !== 1 ? "s" : ""}`;
     }
+
+    if (diffHours >= 1) {
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+    }
+
+    return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""}`;
+  };
+
+  const getSubmissionTimingText = () => {
+    if (!deadline || !submittedAt) return "";
+
+    const due = new Date(deadline);
+    const submitted = new Date(submittedAt);
+
+    if (Number.isNaN(due.getTime()) || Number.isNaN(submitted.getTime())) {
+      return "";
+    }
+
+    const diffMs = submitted - due;
+    if (diffMs <= 0) return "Submitted on time";
+
+    return `Submitted late by ${formatDuration(diffMs)}`;
+  };
+
+  const calculateOverdueTime = (deadlineValue) => {
+    const compareDate = submittedAt ? new Date(submittedAt) : new Date();
+    const due = new Date(deadlineValue);
+    const diffMs = compareDate - due;
+
+    if (Number.isNaN(due.getTime()) || diffMs <= 0) {
+      return "Due now";
+    }
+
+    return submittedAt
+      ? `Submitted late by ${formatDuration(diffMs)}`
+      : `Overdue by ${formatDuration(diffMs)}`;
   };
 
   const formatDueTime = (deadlineValue) => {
@@ -125,6 +141,47 @@ export default function TaskCard({
       <View style={[styles.taskCard, { marginBottom: 8, padding: 15 }]}>
         {children}
       </View>
+    </TouchableOpacity>
+  );
+
+  const renderScheduleDetails = ({ includeSubmitted = false } = {}) => {
+    const submissionText = includeSubmitted ? getSubmissionTimingText() : "";
+    const submissionColor = submissionText.includes("late")
+      ? "#c62828"
+      : "#2e7d32";
+
+    return (
+      <>
+        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+          Due: {formatDisplayDateTime(deadline)}
+        </Text>
+        {includeSubmitted && (
+          <>
+            <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+              Submitted: {formatDisplayDateTime(submittedAt)}
+            </Text>
+            {!!submissionText && (
+              <Text
+                style={{ color: submissionColor, fontSize: 13, marginBottom: 4 }}
+              >
+                {submissionText}
+              </Text>
+            )}
+          </>
+        )}
+      </>
+    );
+  };
+
+  const renderIconButton = ({ icon, color, label, onPress }) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      activeOpacity={0.75}
+      onPress={onPress}
+      style={{ padding: 4, marginLeft: 2 }}
+    >
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
     </TouchableOpacity>
   );
 
@@ -188,6 +245,8 @@ export default function TaskCard({
             Start: {formatDateTime(startDateTime)}
           </Text>
         </View>
+
+        {renderScheduleDetails()}
 
         {/* Progress Bar - Shows for ongoing and returned tasks */}
         {(status === "Ongoing" || status === "Returned") && (
@@ -276,7 +335,7 @@ export default function TaskCard({
         </Text>
 
         <Text style={{ color: "#ff6b6b", fontSize: 14, marginBottom: 8 }}>
-          {overdueTime.text} • Due at {dueTime}
+          {overdueTime} - Due at {dueTime}
         </Text>
 
         {/* Progress Bar - Shows for ongoing and returned tasks in past due */}
@@ -359,6 +418,8 @@ export default function TaskCard({
         <Text style={{ color: "#666", fontSize: 14 }}>
           Start: {formatDateTime(startDateTime)}
         </Text>
+
+        {renderScheduleDetails({ includeSubmitted: true })}
       </>,
     );
   }
@@ -488,10 +549,12 @@ export default function TaskCard({
         </View>
       )}
 
-      {/* Due date only */}
-      <Text style={{ color: "#666", fontSize: 13, marginTop: 4 }}>
-        Due: {formatDisplayDateTime(deadline)}
-      </Text>
+      {renderScheduleDetails({
+        includeSubmitted:
+          status === "Turned in" ||
+          status === "Completed" ||
+          status === "Approved",
+      })}
 
       {/* Edit/Delete buttons - only for head view on Assigned tab */}
       {showEditDelete && (
@@ -503,18 +566,18 @@ export default function TaskCard({
             marginTop: 12,
           }}
         >
-          <Button
-            onPress={onEditTask}
-            label="Edit"
-            buttonStyle={[styles.neutralBtn, { width: 80 }]}
-            buttonTextStyle={styles.primaryBtnTxt}
-          />
-          <Button
-            onPress={onDeleteTask}
-            label="Delete"
-            buttonStyle={[styles.dangerBtn, { width: 80 }]}
-            buttonTextStyle={styles.primaryBtnTxt}
-          />
+          {renderIconButton({
+            icon: "pencil",
+            color: "#777",
+            label: "Edit task",
+            onPress: onEditTask,
+          })}
+          {renderIconButton({
+            icon: "delete",
+            color: "#F45B5B",
+            label: "Delete task",
+            onPress: onDeleteTask,
+          })}
         </View>
       )}
     </>,

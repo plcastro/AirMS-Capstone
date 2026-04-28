@@ -1,33 +1,35 @@
 import React, {
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  useCallback,
 } from "react";
 import {
   Input,
+  Row,
+  Col,
   Button,
   Table,
   Space,
   message,
   Modal,
+  Typography,
   Select,
   Card,
-  Row,
-  Col,
-  Tag,
-  Typography,
 } from "antd";
 import {
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
+  EyeOutlined, EditOutlined
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
+import { exportRecordToPDF } from "../../../components/common/ExportFile";
+import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
 const { Text } = Typography;
@@ -54,7 +56,7 @@ export default function FlightLog() {
     return `${month}/${day}/${year}`;
   };
 
-  const { user } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,14 +73,19 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
+  const [signatureWorkflow, setSignatureWorkflow] = useState({
+    open: false,
+    action: null,
+    log: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
   const isMechanic = [
     "engineer",
     "mechanic",
     "maintenance manager",
-    "officer-in-charge",
     "head of maintenance",
   ].includes(userRole);
 
@@ -86,9 +93,18 @@ export default function FlightLog() {
     if (statusValue === "released") {
       return "pending_acceptance";
     }
+    if (statusValue === "for_completion") {
+      return "accepted";
+    }
 
     return statusValue || "all";
   }, []);
+
+  const normalizeFlightLogStatus = (statusValue = "") =>
+    String(statusValue || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
 
   const fetchFlightLogs = useCallback(async () => {
     try {
@@ -268,9 +284,13 @@ export default function FlightLog() {
     }
   };
 
-  const handleExport = (record) => {
-    console.log("Export log:", record);
-    message.info(`Export log: ${record.rpc}`);
+  const handleExport = async (record) => {
+    await exportRecordToPDF({
+      title: "Flight Log",
+      fileName: `FlightLog-${record?.rpc || record?._id || "record"}`,
+      subtitle: `RP/C: ${record?.rpc || "N/A"} | Date: ${record?.date || "N/A"}`,
+      record,
+    });
   };
 
   const getUserDisplayName = () => {
@@ -321,6 +341,11 @@ export default function FlightLog() {
   };
 
   const openWorkflowModal = (action, log) => {
+    if (action === "release" || action === "accept") {
+      setSignatureWorkflow({ open: true, action, log });
+      return;
+    }
+
     setWorkflowModal({ open: true, action, log });
   };
 
@@ -328,22 +353,27 @@ export default function FlightLog() {
     setWorkflowModal({ open: false, action: null, log: null });
   };
 
-  const handleWorkflowAction = async () => {
-    const { action, log } = workflowModal;
+  const closeSignatureWorkflow = () => {
+    setSignatureWorkflow({ open: false, action: null, log: null });
+  };
+
+  const handleSignedWorkflowAction = async (signature) => {
+    const { action, log } = signatureWorkflow;
     if (!action || !log?._id) return;
 
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       if (action === "release") {
         const response = await fetch(
           `${API_BASE}/api/flightlogs/${log._id}/release`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               name: getUserDisplayName(),
-              signature: user?.signature || getUserDisplayName(),
+              signature,
             }),
           },
         );
@@ -359,10 +389,10 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/accept`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               name: getUserDisplayName(),
-              signature: user?.signature || getUserDisplayName(),
+              signature,
               userRole: "pilot",
             }),
           },
@@ -374,10 +404,30 @@ export default function FlightLog() {
         message.success("Flight log accepted");
       }
 
+      closeSignatureWorkflow();
+      await fetchFlightLogs();
+    } catch (error) {
+      console.error("Signed workflow action error:", error);
+      message.error(error.message || "Flight log workflow action failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleWorkflowAction = async () => {
+    const { action, log } = workflowModal;
+    if (!action || !log?._id) return;
+
+    try {
+      setSaving(true);
+
       if (action === "notify") {
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(getAuthHeader ? await getAuthHeader() : {}),
+          },
           body: JSON.stringify({
             ...log,
             _id: log._id,
@@ -428,7 +478,10 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/complete`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
           },
         );
         const completeData = await completeResponse.json();
@@ -489,6 +542,7 @@ export default function FlightLog() {
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
+    { label: "For Completion", value: "for_completion" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -504,9 +558,14 @@ export default function FlightLog() {
       selectedAircraft === "all" ||
       log.rpc === selectedAircraft;
 
+    const normalizedStatus = normalizeFlightLogStatus(log.status);
     const matchesStatus =
       selectedStatus === "all" ||
-      log.status === normalizeStatusFilterValue(selectedStatus);
+      (selectedStatus === "for_completion"
+        ? normalizedStatus === "accepted" && log.notifiedForCompletion
+        : selectedStatus === "accepted"
+          ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+          : normalizedStatus === normalizeStatusFilterValue(selectedStatus));
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
@@ -539,25 +598,42 @@ export default function FlightLog() {
   }, [fetchFlightLogById, flightLogs, location.search, navigate]);
 
   const isPilotAcceptableStatus = (status) =>
-    ["pending_acceptance", "released"].includes(status);
+    ["pending_acceptance", "released"].includes(
+      normalizeFlightLogStatus(status),
+    );
 
-  const getStatusBadge = (status) => {
-    if (status === "pending_release") {
-      return <Tag color="orange">Pending Release</Tag>;
+  const getStatusMeta = (record = {}) => {
+    const status = normalizeFlightLogStatus(record.status);
+
+    if (status === "pending_release" || status === "ongoing") {
+      return {
+        label: "Pending Release",
+        className: "fl-badge--pending-release",
+      };
     }
-    if (status === "pending_acceptance") {
-      return <Tag color="gold">Released</Tag>;
+    if (status === "pending_acceptance" || status === "released") {
+      return { label: "Released", className: "fl-badge--released" };
     }
-    if (status === "released") {
-      return <Tag color="gold">Released</Tag>;
+    if (status === "accepted" && record.notifiedForCompletion) {
+      return { label: "For Completion", className: "fl-badge--for-completion" };
     }
     if (status === "accepted") {
-      return <Tag color="blue">Accepted</Tag>;
+      return { label: "Accepted", className: "fl-badge--accepted" };
     }
     if (status === "completed") {
-      return <Tag color="green">Completed</Tag>;
+      return { label: "Completed", className: "fl-badge--completed" };
     }
-    return <Tag>Ongoing</Tag>;
+
+    return { label: "Pending Release", className: "fl-badge--pending-release" };
+  };
+
+  const getStatusBadge = (record) => {
+    const statusMeta = getStatusMeta(record);
+    return (
+      <span className={`fl-badge ${statusMeta.className}`}>
+        {statusMeta.label}
+      </span>
+    );
   };
 
   const columns = [
@@ -586,7 +662,7 @@ export default function FlightLog() {
       title: "Status",
       key: "status",
       width: 100,
-      render: (_, record) => getStatusBadge(record.status),
+      render: (_, record) => getStatusBadge(record),
     },
     {
       title: "Action",
@@ -595,13 +671,14 @@ export default function FlightLog() {
       render: (_, record) => (
         <Space size={4}>
           <Button
-            type="primary"
+            type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
+            icon={isOfficerInCharge ? <EyeOutlined />: <EditOutlined />}
           >
-            Edit
+            {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {isMechanic && record.status === "pending_release" && (
+          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
             <Button
               size="small"
               onClick={() => openWorkflowModal("release", record)}
@@ -627,7 +704,8 @@ export default function FlightLog() {
                 Notify
               </Button>
             )}
-          {isMechanic &&
+          {!isOfficerInCharge &&
+            isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
               <Button
@@ -685,16 +763,18 @@ export default function FlightLog() {
             options={statusOptions}
           />
         </Col>
-        <Col xs={24} md={4} style={{ textAlign: "right" }}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={() => setEntryModalVisible(true)}
-          >
-            New Entry
-          </Button>
-        </Col>
+        {!isOfficerInCharge && (
+          <Col xs={24} md={4} style={{ textAlign: "right" }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setEntryModalVisible(true)}
+            >
+              New Entry
+            </Button>
+          </Col>
+        )}
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
             Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
@@ -740,30 +820,44 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
+          readOnly={isOfficerInCharge}
         />
       )}
+
+      <PinVerifiedSignatureModal
+        open={signatureWorkflow.open}
+        title={
+          signatureWorkflow.action === "release"
+            ? "Release Flight Log"
+            : "Accept Flight Log"
+        }
+        description={
+          signatureWorkflow.action === "release"
+            ? "Draw your release signature below. This signature will be attached to the flight log and sent to the pilot for acceptance."
+            : "Draw your acceptance signature below. This signature will be attached to the flight log as pilot acceptance."
+        }
+        confirmDescription={
+          signatureWorkflow.action === "release"
+            ? "Enter your 6-digit PIN to confirm that you want to sign and release this flight log."
+            : "Enter your 6-digit PIN to confirm that you want to sign and accept this flight log."
+        }
+        onCancel={closeSignatureWorkflow}
+        onSave={handleSignedWorkflowAction}
+      />
 
       <Modal
         open={workflowModal.open}
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
+        okText="OK"
+        cancelText="Cancel"
         title={
-          workflowModal.action === "release"
-            ? "Release Flight Log"
-            : workflowModal.action === "accept"
-              ? "Accept Flight Log"
-              : workflowModal.action === "notify"
-                ? "Notify Mechanic"
-                : "Complete Flight Log"
+          workflowModal.action === "notify"
+            ? "Notify Mechanic"
+            : "Complete Flight Log"
         }
       >
-        {workflowModal.action === "release" && (
-          <p>Release this flight log to pilot acceptance?</p>
-        )}
-        {workflowModal.action === "accept" && (
-          <p>Accept this flight log as pilot?</p>
-        )}
         {workflowModal.action === "notify" && (
           <p>
             Notify the mechanic that this accepted flight log is ready for

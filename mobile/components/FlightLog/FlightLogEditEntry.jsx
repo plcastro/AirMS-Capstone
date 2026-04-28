@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -22,6 +21,7 @@ import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import { API_BASE } from "../../utilities/API_BASE";
+import { showToast } from "../../utilities/toast";
 
 const parseDate = (dateValue) => {
   if (!dateValue) return new Date();
@@ -48,6 +48,7 @@ export default function FlightLogEditEntry({
   onClose,
   onSave,
   userRole,
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -119,17 +120,12 @@ export default function FlightLogEditEntry({
     scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentPage]);
 
-  // Helper functions
   const hasDiscrepancy = () => {
     return formData.remarks && formData.remarks.trim() !== "";
   };
 
-  const getPilotTabs = () => {
-    return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
-  };
-
-  const getMechanicTabs = () => {
-    const baseTabs = [
+  const getFlightLogTabs = () => {
+    const nextTabs = [
       "Basic Information",
       "Destination/s",
       "Brought Forward",
@@ -139,25 +135,35 @@ export default function FlightLogEditEntry({
       "Oil Servicing",
       "Discrepancy/Remarks",
     ];
+
     if (hasDiscrepancy()) {
-      baseTabs.push("Work Done");
+      nextTabs.push("Work Done");
     }
-    return baseTabs;
+
+    return nextTabs;
   };
 
-  const tabs = isPilot ? getPilotTabs() : getMechanicTabs();
+  const tabs = getFlightLogTabs();
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
+  const isCompletedLog = formData.status === "completed";
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
-  const isBasicInfoEditable = true;
-  const isDestinationsEditable = true;
-  const isComponentEditable = isMechanic && !formData.broughtForwardLocked;
+  const isBasicInfoEditable = !readOnly && !isCompletedLog;
+  const isDestinationsEditable = !readOnly && !isCompletedLog && isPilot;
+  const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
-  const isFuelOilEditable = isMechanic;
-  const isDiscrepancyEditable = true;
-  const isWorkDoneEditable = isMechanic;
+  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
+  const isDiscrepancyEditable = !readOnly && !isCompletedLog;
+  const isWorkDoneEditable =
+    !readOnly && !isCompletedLog && isMechanic && formData.status === "pending_release";
+
+  useEffect(() => {
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(Math.max(totalPages - 1, 0));
+    }
+  }, [currentPage, totalPages]);
 
   // Update functions
   const updateForm = (field, value) => {
@@ -245,10 +251,15 @@ export default function FlightLogEditEntry({
     };
     setFormData(updated);
     await persistLog(updated, false);
-    Alert.alert("Success", "Flight log has been released");
+    showToast("Flight log has been released");
   };
 
   const handleAccept = async (signature) => {
+    if (!formData.releasedBy?.signature && !formData.releasedBy?.name) {
+      showToast("This flight log must be released by a mechanic before acceptance.");
+      return;
+    }
+
     const updated = {
       ...formData,
       acceptedBy: {
@@ -260,7 +271,7 @@ export default function FlightLogEditEntry({
     };
     setFormData(updated);
     await persistLog(updated, false);
-    Alert.alert("Success", "Flight log has been accepted");
+    showToast("Flight log has been accepted");
   };
 
   const handleNotifyMechanic = async () => {
@@ -270,14 +281,14 @@ export default function FlightLogEditEntry({
     };
     setFormData(updated);
     await persistLog(updated, false);
-    Alert.alert("Success", "Mechanic has been notified to complete the flight log");
+    showToast("Mechanic has been notified to complete the flight log");
   };
 
   const handleComplete = async () => {
     try {
       const aircraft = formData.aircraft || formData.rpc;
       if (!aircraft) {
-        Alert.alert("Error", "Aircraft identifier is missing.");
+        showToast("Aircraft identifier is missing.");
         return;
       }
 
@@ -331,14 +342,19 @@ export default function FlightLogEditEntry({
       const updated = { ...formData, status: 'completed' };
       setFormData(updated);
       await persistLog(updated, false);
-      Alert.alert('Success', 'Flight log completed and totals updated.');
+      showToast('Flight log completed and totals updated.');
     } catch (error) {
       console.error('❌ Complete error:', error);
-      Alert.alert('Update Failed', error.message);
+      showToast(error.message || "Update failed");
     }
   };
 
   const handleSave = async () => {
+    if (isCompletedLog) {
+      showToast("Completed flight logs cannot be edited.");
+      return;
+    }
+
     await persistLog(formData, true);
   };
 
@@ -354,12 +370,26 @@ export default function FlightLogEditEntry({
     }
   };
 
-  const showReleaseButton = isMechanic && formData.status === "pending_release";
-  const showAcceptButton = isPilot && formData.status === "pending_acceptance";
+  const showReleaseButton =
+    !readOnly && !isCompletedLog && isMechanic && formData.status === "pending_release";
+  const showAcceptButton =
+    !readOnly &&
+    !isCompletedLog &&
+    isPilot &&
+    formData.status === "pending_acceptance" &&
+    Boolean(formData.releasedBy?.signature || formData.releasedBy?.name);
   const showNotifyButton =
-    isPilot && formData.status === "accepted" && !formData.notifiedForCompletion;
+    !readOnly &&
+    !isCompletedLog &&
+    isPilot &&
+    formData.status === "accepted" &&
+    !formData.notifiedForCompletion;
   const showCompleteButton =
-    isMechanic && formData.status === "accepted" && formData.notifiedForCompletion;
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic &&
+    formData.status === "accepted" &&
+    formData.notifiedForCompletion;
   const showActionButtons =
     showReleaseButton ||
     showAcceptButton ||
@@ -777,7 +807,9 @@ export default function FlightLogEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleSave : handleNext}
+            onPress={
+              isLastPage ? (readOnly || isCompletedLog ? onClose : handleSave) : handleNext
+            }
             style={{
               paddingVertical: 8,
               paddingHorizontal: 24,
@@ -787,7 +819,7 @@ export default function FlightLogEditEntry({
             }}
           >
             <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}>
-              {isLastPage ? "Save" : "Next"}
+              {isLastPage ? (readOnly || isCompletedLog ? "Close" : "Save") : "Next"}
             </Text>
           </TouchableOpacity>
         </View>

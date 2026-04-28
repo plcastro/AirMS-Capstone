@@ -21,7 +21,7 @@ import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 const resolveRole = (role = "") => {
   const r = role.toLowerCase();
   if (r === "pilot") return "pilot";
-  if (r === "engineer" || r === "maintenance manager") return "mechanic";
+  if (r === "engineer" || r === "maintenance manager" || r === "officer-in-charge") return "mechanic";
   return "pilot";
 };
 
@@ -133,6 +133,7 @@ export default function FlightLogEntry({
   editMode = false,
   initialData = null,
   initialComponentData = null,
+  readOnly = false,
 }) {
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
@@ -404,16 +405,23 @@ export default function FlightLogEntry({
   };
 
   // EDIT PERMISSIONS (who can edit what)
-  const canEditBasicInfo = !editMode || formData.createdBy === userRole;
-  const canEditDestinations = !editMode ? isPilot : isPilot && editMode;
+  const canEditBasicInfo = !readOnly && (!editMode || formData.createdBy === userRole);
+  const isCompletedLog = editMode && formData.status === "completed";
+  const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
   const canEditComponent = !editMode
-    ? isMechanic
-    : isMechanic && editMode && !formData.broughtForwardLocked;
-  const canEditFuelOil = !editMode ? isMechanic : isMechanic && editMode;
-  const canEditWorkDone = !editMode ? isMechanic : isMechanic && editMode;
-  const canEditDiscrepancy = true; // Anyone can edit discrepancy
+    ? !readOnly && isMechanic
+    : !readOnly && isMechanic && editMode && !formData.broughtForwardLocked;
+  const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditDiscrepancy = !readOnly;
+  const canSave = !readOnly && !isCompletedLog;
 
   const handleSave = async () => {
+    if (isCompletedLog) {
+      message.info("Completed flight logs are view-only.");
+      return;
+    }
+
     if (!formData.rpc?.trim()) {
       message.error("Aircraft RPC is required");
       return;
@@ -442,7 +450,7 @@ export default function FlightLogEntry({
           <FlightLogModalInfo
             formData={formData}
             updateForm={updateForm}
-            isEditable={canEditBasicInfo}
+            isEditable={canSave && canEditBasicInfo}
             isRPCEditable={!editMode}
             onAircraftDataLoaded={setLoadedAircraftData}
           />
@@ -452,7 +460,7 @@ export default function FlightLogEntry({
           <FlightLogModalDestinations
             formData={formData}
             handlers={legHandlers}
-            isEditable={canEditDestinations}
+            isEditable={canSave && canEditDestinations}
           />
         );
       case "component":
@@ -460,7 +468,7 @@ export default function FlightLogEntry({
           <FlightLogModalComponentTimes
             componentData={componentData}
             updateComponent={updateComponent}
-            isEditable={canEditComponent}
+            isEditable={canSave && canEditComponent}
             isLocked={formData.broughtForwardLocked}
           />
         );
@@ -469,7 +477,7 @@ export default function FlightLogEntry({
           <FlightLogModalFuelServicing
             formData={formData}
             updateFuel={updateFuel}
-            isEditable={canEditFuelOil}
+            isEditable={canSave && canEditFuelOil}
           />
         );
       case "oil":
@@ -477,7 +485,7 @@ export default function FlightLogEntry({
           <FlightLogModalOilServicing
             formData={formData}
             updateOil={updateOil}
-            isEditable={canEditFuelOil}
+            isEditable={canSave && canEditFuelOil}
           />
         );
       case "discrepancy":
@@ -485,7 +493,7 @@ export default function FlightLogEntry({
           <FlightLogDiscrepancyRemarks
             formData={formData}
             updateForm={updateForm}
-            isEditable={canEditDiscrepancy}
+            isEditable={canSave && canEditDiscrepancy}
           />
         );
       case "workdone":
@@ -493,7 +501,7 @@ export default function FlightLogEntry({
           <FlightLogModalWorkDone
             formData={formData}
             updateForm={updateForm}
-            isEditable={canEditWorkDone}
+            isEditable={canSave && canEditWorkDone}
           />
         );
       default:
@@ -548,7 +556,7 @@ export default function FlightLogEntry({
             >
               Next
             </Button>
-          ) : (
+          ) : canSave ? (
             <Button
               type="primary"
               className="fl-nav-btn"
@@ -556,6 +564,10 @@ export default function FlightLogEntry({
               loading={submitting}
             >
               {editMode ? "Save" : "Add"}
+            </Button>
+          ) : (
+            <Button className="fl-nav-btn" onClick={onClose}>
+              Close
             </Button>
           )}
         </div>

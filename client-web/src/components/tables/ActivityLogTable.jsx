@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import { Table, Grid } from "antd";
+const { useBreakpoint } = Grid;
 const headers = [
   {
     title: "#",
@@ -30,10 +31,9 @@ const headers = [
     width: 260,
   },
 ];
-export default function ActivityLogTable({
-  data = [],
-  loading,
-}) {
+export default function ActivityLogTable({ data = [], loading }) {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -48,7 +48,8 @@ export default function ActivityLogTable({
       dataSource={data}
       rowKey={(record) => record._id || record.index}
       loading={loading}
-      scroll={{ x: "max-content", y: "100%" }}
+      size={isMobile ? "small" : "middle"}
+      scroll={{ x: 980 }}
       pagination={{
         current: currentPage,
         pageSize,
@@ -58,7 +59,9 @@ export default function ActivityLogTable({
         onChange: handlePageChange,
         onShowSizeChange: handlePageChange,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-        placement: "bottomEnd",
+        showLessItems: isMobile,
+        size: isMobile ? "small" : "default",
+        placement: isMobile ? ["bottomCenter"] : ["bottomRight"],
       }}
     />
   );

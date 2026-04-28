@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Input, Button, Form, DatePicker, message } from "antd";
+import { Modal, Input, Button, Form, DatePicker, Typography, message } from "antd";
 import dayjs from "dayjs";
+
+const { Text } = Typography;
 
 export default function MaintenanceEntryModal({
   visible,
@@ -96,9 +98,10 @@ export default function MaintenanceEntryModal({
         </Form.Item>
 
         <Form.Item
-          label="Defect Description"
+          label="Defect Description (AI-interpreted)"
           name="defectDescription"
           rules={[{ required: true }]}
+          extra="The AI maintenance tracker reads this field when generating maintenance findings."
         >
           <Input.TextArea rows={4} placeholder="Enter defect description..." />
         </Form.Item>
@@ -107,7 +110,11 @@ export default function MaintenanceEntryModal({
           <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
         </Form.Item>
 
-        <Form.Item label="Corrective Action Done" name="correctiveActionDone">
+        <Form.Item
+          label="Corrective Action Done (AI-interpreted)"
+          name="correctiveActionDone"
+          extra="Corrective action notes are also interpreted by the AI maintenance tracker."
+        >
           <Input placeholder="Enter corrective action taken..." />
         </Form.Item>
 
@@ -125,6 +132,10 @@ export default function MaintenanceEntryModal({
         {dateError && (
           <div style={{ color: "#dc3545", marginTop: 4 }}>{dateError}</div>
         )}
+
+        <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+          AI tip: specific symptoms, affected components, and inspection findings improve maintenance-tracking results.
+        </Text>
       </Form>
     </Modal>
   );

@@ -1,4 +1,4 @@
-import { View, ScrollView, Text } from "react-native";
+import { View, ScrollView, Text, RefreshControl } from "react-native";
 import React, { useState, useContext } from "react";
 import TaskCard from "./TaskCard";
 import Button from "../Button";
@@ -7,7 +7,13 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 
-export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
+export default function TaskTabs({
+  tasks,
+  employees = [],
+  onTaskPress,
+  onRefresh,
+  refreshing = false,
+}) {
   const { user } = useContext(AuthContext);
   const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
 
@@ -172,7 +178,7 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
           <Button
             label="+ Add Task"
             onPress={() => setShowAddModal(true)}
-            buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+            buttonStyle={[styles.unifiedActionButton, { width: 130 }]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
@@ -187,7 +193,14 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
 
       {/* Task List */}
       <View style={styles.taskTable}>
-        <ScrollView contentContainerStyle={{ padding: 10 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 10 }}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            ) : undefined
+          }
+        >
           {!isHead && groupedTasks.length > 0
             ? groupedTasks.map((section) => (
                 <View key={section.title}>
