@@ -324,7 +324,12 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    const normalizedUser = normalizeUser({ ...userData }); // keep case
+    const normalizedUser = normalizeUser({
+      ...userData,
+      isOnline: true,
+      online: true,
+      platform: "mobile",
+    }); // keep case
     setUser(normalizedUser); // update state immediately
 
     if (Platform.OS === "web") {

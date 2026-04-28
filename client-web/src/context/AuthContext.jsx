@@ -228,7 +228,12 @@ export const AuthProvider = ({ children }) => {
         console.error("No token provided");
         return;
       }
-      const normalizedUser = normalizeUser(userData);
+      const normalizedUser = normalizeUser({
+        ...userData,
+        isOnline: true,
+        online: true,
+        platform: "web",
+      });
 
       setUser(normalizedUser);
 

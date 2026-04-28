@@ -18,6 +18,7 @@ import PreInspectionEditEntry from "../../components/PreInspection/PreInspection
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportPreInspectionPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
+import { styles } from "../../stylesheets/styles";
 
 const getDisplayStatus = (status) =>
   status === "completed"
@@ -96,7 +97,9 @@ export default function PreInspection({ route }) {
   useEffect(() => {
     const fetchAircraftRpcOptions = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch aircraft RP-Cs");
         }
@@ -183,27 +186,8 @@ export default function PreInspection({ route }) {
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
         {/* Search Bar Row with New Entry Button */}
-        <View
-          style={{
-            flexDirection: "row",
-            marginBottom: 12,
-            gap: 12,
-            marginTop: 8,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              height: 48,
-              paddingHorizontal: 12,
-            }}
-          >
+        <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
+          <View style={styles.unifiedSearchBox}>
             <MaterialCommunityIcons
               name="magnify"
               size={22}
@@ -212,30 +196,16 @@ export default function PreInspection({ route }) {
             <TextInput
               placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 16,
-                color: COLORS.black,
-                padding: 0,
-              }}
+              style={styles.unifiedSearchInput}
               value={searchQuery}
               onChangeText={handleSearchChange}
             />
           </View>
 
           {/* Only show New Entry button for non-pilot roles */}
-          {userRole !== 'pilot' && !isOfficerInCharge && (
+          {userRole !== "pilot" && !isOfficerInCharge && (
             <TouchableOpacity
-              style={{
-                backgroundColor: COLORS.primaryLight,
-                borderRadius: 10,
-                height: 48,
-                paddingHorizontal: 16,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              style={styles.unifiedActionButton}
               onPress={() => setShowNewEntryModal(true)}
             >
               <MaterialCommunityIcons
@@ -243,14 +213,7 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text
-                style={{
-                  color: COLORS.white,
-                  fontSize: 15,
-                  fontWeight: "600",
-                  marginLeft: 6,
-                }}
-              >
+              <Text style={styles.unifiedActionButtonText}>
                 New Entry
               </Text>
             </TouchableOpacity>
@@ -261,30 +224,22 @@ export default function PreInspection({ route }) {
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => {
                 setShowAircraftDropdown(!showAircraftDropdown);
                 setShowStatusDropdown(false);
               }}
             >
               <Text
-                style={{
-                  fontSize: 15,
-                  color:
-                    selectedAircraft && selectedAircraft !== "all"
-                      ? COLORS.black
-                      : COLORS.grayDark,
-                }}
+                style={[
+                  styles.unifiedFilterButtonText,
+                  {
+                    color:
+                      selectedAircraft && selectedAircraft !== "all"
+                        ? COLORS.black
+                        : COLORS.grayDark,
+                  },
+                ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP/C: ${selectedAircraft}`
@@ -298,35 +253,20 @@ export default function PreInspection({ route }) {
             </TouchableOpacity>
 
             {showAircraftDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                  maxHeight: 300,
-                }}
-              >
+              <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
                 <ScrollView>
                   {aircraftOptions.map((aircraft, index) => (
                     <TouchableOpacity
                       key={index}
                       style={{
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
+                        ...styles.unifiedDropdownItem,
                         borderBottomWidth:
                           index < aircraftOptions.length - 1 ? 1 : 0,
                         borderBottomColor: COLORS.grayMedium,
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={{ fontSize: 15 }}>
+                      <Text style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
@@ -340,23 +280,13 @@ export default function PreInspection({ route }) {
 
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => {
                 setShowStatusDropdown(!showStatusDropdown);
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={{ fontSize: 15, color: COLORS.black }}>
+              <Text style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </Text>
@@ -368,33 +298,21 @@ export default function PreInspection({ route }) {
             </TouchableOpacity>
 
             {showStatusDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                }}
-              >
+              <View style={styles.unifiedDropdownMenu}>
                 {statusOptions.map((option, index) => (
                   <TouchableOpacity
                     key={option.value}
                     style={{
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
+                      ...styles.unifiedDropdownItem,
                       borderBottomWidth:
                         index < statusOptions.length - 1 ? 1 : 0,
                       borderBottomColor: COLORS.grayMedium,
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={{ fontSize: 15 }}>{option.label}</Text>
+                    <Text style={styles.unifiedDropdownItemText}>
+                      {option.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -432,7 +350,7 @@ export default function PreInspection({ route }) {
                 No pre-inspections found
               </Text>
               {/* Only show Create New Entry button for non-pilot roles */}
-              {userRole !== 'pilot' && !isOfficerInCharge && (
+              {userRole !== "pilot" && !isOfficerInCharge && (
                 <TouchableOpacity
                   onPress={() => setShowNewEntryModal(true)}
                   style={{
