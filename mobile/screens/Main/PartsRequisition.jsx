@@ -85,6 +85,26 @@ const hasWarehouseAssessment = (record) =>
     (item) => normalizeItemStatus(item.stockStatus) !== "Parts Requested",
   );
 
+const hasRestockFlow = (record, overallStatus) => {
+  const assessed = hasWarehouseAssessment(record);
+
+  return (
+    Boolean(record.dateOrdered) ||
+    ["To Be Ordered", "Ordered"].includes(overallStatus) ||
+    (assessed &&
+      (record.items || []).some((item) => {
+        const status = normalizeItemStatus(item.stockStatus);
+
+        return (
+          status === "Out of Stock" ||
+          status === "To Be Ordered" ||
+          status === "Ordered" ||
+          Number(item.availableQty || 0) < Number(item.quantity || 0)
+        );
+      }))
+  );
+};
+
 const isItemAvailableForApproval = (status) =>
   ["In Stock", "Ordered", "Approved", "Delivered"].includes(
     normalizeItemStatus(status),
@@ -109,74 +129,87 @@ const getDisplayStatusLabel = (status) => {
 
 const buildTimeline = (record) => {
   const overallStatus = normalizeOverallStatus(record.status);
-  const timeline = [
-    {
+  const currentStatus =
+    overallStatus === "Parts Requested" && hasWarehouseAssessment(record)
+      ? "Availability Checked"
+      : overallStatus;
+  const statusSteps = ["Parts Requested", "Availability Checked"];
+
+  if (hasRestockFlow(record, overallStatus)) {
+    statusSteps.push("To Be Ordered", "Ordered");
+  }
+
+  statusSteps.push("Approved", "Delivered");
+
+  const currentStepIndex = Math.max(statusSteps.indexOf(currentStatus), 0);
+  const stepDetails = {
+    "Parts Requested": {
       status: "Parts Requested",
       dateTime: formatDateTime(record.dateRequested || record.createdAt),
       by: record.staff?.requisitioner || "-",
       description: `Request submitted with ${record.items?.length || 0} item(s)`,
     },
-  ];
-
-  if (hasWarehouseAssessment(record)) {
-    timeline.push({
+    "Availability Checked": {
       status: "Availability Checked",
       dateTime: formatDateTime(
         record.dateWarehouseReviewed || record.updatedAt,
       ),
       by: record.staff?.warehouseBy || "Warehouse Department",
       description: "Warehouse reviewed item stock availability",
-    });
-  }
-
-  if (overallStatus === "To Be Ordered") {
-    timeline.push({
+    },
+    "To Be Ordered": {
       status: "To Be Ordered",
       dateTime: formatDateTime(record.dateOrdered || record.updatedAt),
       by: record.staff?.approvedBy || "Maintenance Manager",
       description: "Unavailable items were marked to be restocked",
-    });
-  }
-
-  if (overallStatus === "Ordered") {
-    timeline.push({
+    },
+    Ordered: {
       status: "Ordered",
       dateTime: formatDateTime(record.updatedAt),
       by: record.staff?.warehouseBy || "Warehouse Department",
       description: "Warehouse confirmed the restocked items are available",
-    });
-  }
-
-  if (overallStatus === "Approved") {
-    timeline.push({
+    },
+    Approved: {
       status: "Approved",
       dateTime: formatDateTime(record.dateApproved || record.updatedAt),
       by: record.staff?.approvedBy || "-",
       description: "Requisition approved by maintenance manager",
-    });
-  }
-
-  if (overallStatus === "Delivered") {
-    timeline.push({
+    },
+    Delivered: {
       status: "Delivered",
       dateTime: formatDateTime(
         record.dateDelivered || record.dateReceived || record.updatedAt,
       ),
       by: record.staff?.deliveredBy || record.staff?.warehouseBy || "-",
       description: "Warehouse marked the requisition as delivered",
-    });
-  }
+    },
+  };
 
   if (overallStatus === "Cancelled") {
-    timeline.push({
-      status: "Cancelled",
-      dateTime: formatDateTime(record.dateCancelled || record.updatedAt),
-      by: record.staff?.requisitioner || "-",
-      description: "Requisition was cancelled",
-    });
+    return [
+      {
+        ...stepDetails["Parts Requested"],
+        isCompleted: true,
+        isCurrent: false,
+      },
+      {
+        status: "Cancelled",
+        dateTime: formatDateTime(record.dateCancelled || record.updatedAt),
+        by: record.staff?.requisitioner || "-",
+        description: "Requisition was cancelled",
+        isCurrent: true,
+        isCompleted: false,
+      },
+    ];
   }
 
-  return timeline;
+  return statusSteps.map((step, index) => ({
+    ...stepDetails[step],
+    dateTime: index <= currentStepIndex ? stepDetails[step].dateTime : "Pending",
+    by: index <= currentStepIndex ? stepDetails[step].by : "-",
+    isCompleted: index < currentStepIndex,
+    isCurrent: index === currentStepIndex,
+  }));
 };
 
 const mapRequisitionToCard = (record) => {

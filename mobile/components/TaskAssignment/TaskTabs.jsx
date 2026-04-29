@@ -83,6 +83,40 @@ export default function TaskTabs({
     }
   };
 
+  const getMechanicTabCount = (tab) =>
+    tasks.filter((task) => {
+      const deadline = task.endDateTime || task.dueDate;
+      if (!deadline) return false;
+
+      const dueDate = new Date(deadline);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const isPastDue = dueDate < today;
+
+      switch (tab) {
+        case "Upcoming":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            !isPastDue
+          );
+        case "Past Due":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            isPastDue
+          );
+        case "Completed":
+          return task.status === "Completed" || task.status === "Turned in";
+        default:
+          return false;
+      }
+    }).length;
+
+  const getTabLabel = (tab) =>
+    isHead ? tab : `${tab} (${getMechanicTabCount(tab)})`;
+
   const getGroupedTasks = () => {
     if (isHead) return [];
 
@@ -160,11 +194,11 @@ export default function TaskTabs({
         {tabsToRender.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={getTabLabel(tab)}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { width: 120 },
+              { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,

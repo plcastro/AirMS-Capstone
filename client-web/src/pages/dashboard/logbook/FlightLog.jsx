@@ -654,13 +654,13 @@ export default function FlightLog() {
   };
 
   const columns = [
+    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Aircraft Type",
       dataIndex: "aircraftType",
       key: "aircraftType",
       width: 140,
     },
-    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Date",
       dataIndex: "date",
