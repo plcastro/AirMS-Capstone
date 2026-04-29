@@ -1,5 +1,15 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Row, Col, Card, Input, Button, Select, Statistic, message } from "antd";
+import {
+  Row,
+  Col,
+  Card,
+  Input,
+  Button,
+  Select,
+  Statistic,
+  message,
+  Typography,
+} from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
 import MaintenancePerformance from "./MaintenancePerformance";
@@ -12,6 +22,7 @@ import {
   exportToPDF,
 } from "../../../components/common/ExportFile";
 import { API_BASE } from "../../../utils/API_BASE";
+const { Title, Text } = Typography;
 
 export default function MaintenanceDashboard() {
   const { getValidToken } = useContext(AuthContext);
@@ -24,7 +35,9 @@ export default function MaintenanceDashboard() {
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
 
   const isCompletedTask = (task = {}) => {
-    const status = String(task.status || "").trim().toLowerCase();
+    const status = String(task.status || "")
+      .trim()
+      .toLowerCase();
     return (
       ["completed", "turned in", "approved"].includes(status) ||
       task.isApproved === true ||
@@ -68,13 +81,17 @@ export default function MaintenanceDashboard() {
           throw new Error(`Failed to fetch tasks (${response.status})`);
         }
         if (!partsResponse.ok) {
-          throw new Error(`Failed to fetch parts monitoring (${partsResponse.status})`);
+          throw new Error(
+            `Failed to fetch parts monitoring (${partsResponse.status})`,
+          );
         }
 
         const result = await response.json();
         const partsResult = await partsResponse.json();
         const taskData = Array.isArray(result.data) ? result.data : [];
-        const partsData = Array.isArray(partsResult.data) ? partsResult.data : [];
+        const partsData = Array.isArray(partsResult.data)
+          ? partsResult.data
+          : [];
         setTasks(taskData);
         setPartsRecords(partsData);
 
@@ -82,8 +99,8 @@ export default function MaintenanceDashboard() {
         const threeDaysLater = new Date();
         threeDaysLater.setDate(now.getDate() + 3);
 
-        const completed = taskData.filter(
-          (task) => isCompletedTask(task),
+        const completed = taskData.filter((task) =>
+          isCompletedTask(task),
         ).length;
         const dueSoon = taskData.filter((task) => {
           if (isCompletedTask(task)) return false;
@@ -130,7 +147,9 @@ export default function MaintenanceDashboard() {
     {
       key: "component",
       title: "Component Analysis",
-      component: <ComponentUsage records={partsRecords} loading={loadingTasks} />,
+      component: (
+        <ComponentUsage records={partsRecords} loading={loadingTasks} />
+      ),
       keywords: ["component", "usage", "analysis"],
     },
   ];
@@ -156,45 +175,48 @@ export default function MaintenanceDashboard() {
         height: "100%",
       }}
     >
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }} align="middle">
-        <Col xs={24} sm={24} md={12} lg={10}>
-          <Input
-            size="large"
-            placeholder="Search..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-          />
-        </Col>
+      <Card style={{ marginBottom: 10 }}>
+        <Title level={3}>Maintenance Reports and Analytics</Title>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={24} md={12} lg={10}>
+            <Input
+              size="large"
+              placeholder="Search..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+          </Col>
 
-        <Col xs={12} sm={8} md={6} lg={5}>
-          <Select
-            value={selectedFileType}
-            onChange={setSelectedFileType}
-            size="large"
-            style={{ width: "100%" }}
-            options={fileTypeOptions.map((type) => ({
-              label: type,
-              value: type,
-            }))}
-          />
-        </Col>
+          <Col xs={12} sm={8} md={6} lg={5}>
+            <Select
+              value={selectedFileType}
+              onChange={setSelectedFileType}
+              size="large"
+              style={{ width: "100%" }}
+              options={fileTypeOptions.map((type) => ({
+                label: type,
+                value: type,
+              }))}
+            />
+          </Col>
 
-        <Col xs={12} sm={8} md={6} lg={4}>
-          <Button
-            type="primary"
-            icon={<ExportOutlined />}
-            block
-            onClick={() => {
-              if (selectedFileType === "PDF") exportToPDF();
-              else exportToExcel();
-            }}
-          >
-            Export
-          </Button>
-        </Col>
-      </Row>
+          <Col xs={12} sm={8} md={6} lg={4}>
+            <Button
+              type="primary"
+              icon={<ExportOutlined />}
+              block
+              onClick={() => {
+                if (selectedFileType === "PDF") exportToPDF();
+                else exportToExcel();
+              }}
+            >
+              Export
+            </Button>
+          </Col>
+        </Row>
+      </Card>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={24} sm={12} md={8}>
