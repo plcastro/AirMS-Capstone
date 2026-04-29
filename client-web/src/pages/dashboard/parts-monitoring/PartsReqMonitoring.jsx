@@ -1,12 +1,12 @@
-import React, { useContext, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useContext, useMemo, useState, useEffect } from "react";
 import {
   Alert,
-  Card,
+  Button,
   Col,
   Input,
   Row,
   Select,
-  Statistic,
+  Space,
   Tabs,
   Typography,
 } from "antd";
@@ -20,7 +20,7 @@ import {
   SyncOutlined,
 } from "@ant-design/icons";
 import { Navigate } from "react-router-dom";
-import PRMCardView from "../../../components/tables/PRMCardView";
+import PRMTable from "../../../components/tables/PRMTable";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 
@@ -80,10 +80,6 @@ export default function PartsRequisition() {
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const isWarehouseDepartment = userRole === "warehouse department";
 
-  if (!isWarehouseDepartment) {
-    return <Navigate to="/dashboard/profile" replace />;
-  }
-
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
   const stats = useMemo(
@@ -115,8 +111,8 @@ export default function PartsRequisition() {
     [stats],
   );
 
-  const statusCards = useMemo(() => {
-    const pendingCards = [
+  const statusFilters = useMemo(() => {
+    const pendingFilters = [
       {
         key: "all",
         title: "All Pending",
@@ -164,7 +160,7 @@ export default function PartsRequisition() {
       },
     ];
 
-    const completedCards = [
+    const completedFilters = [
       {
         key: "all",
         title: "All Completed",
@@ -189,7 +185,7 @@ export default function PartsRequisition() {
       },
     ];
 
-    return activeTab === "completed" ? completedCards : pendingCards;
+    return activeTab === "completed" ? completedFilters : pendingFilters;
   }, [activeTab, warehouseRequisitions]);
 
   const statusOptions = useMemo(() => {
@@ -267,7 +263,9 @@ export default function PartsRequisition() {
     setSelectedStatus("all");
   }, [activeTab]);
 
-  const handleAllRequisitions = async () => {
+  const handleAllRequisitions = useCallback(async () => {
+    if (!isWarehouseDepartment) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -296,11 +294,15 @@ export default function PartsRequisition() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, isWarehouseDepartment]);
 
   useEffect(() => {
     handleAllRequisitions();
-  }, [getAuthHeader]);
+  }, [handleAllRequisitions]);
+
+  if (!isWarehouseDepartment) {
+    return <Navigate to="/dashboard/profile" replace />;
+  }
 
   return (
     <div
@@ -357,34 +359,25 @@ export default function PartsRequisition() {
         </Col>
       </Row>
 
-      <Row gutter={[10, 10]} style={{ marginBottom: 10 }}>
-        {statusCards.map((card) => {
-          const isSelected = selectedStatus === card.key;
-          return (
-            <Col xs={12} sm={8} md={6} lg={4} key={card.key}>
-              <Card
-                size="small"
-                hoverable
-                onClick={() => setSelectedStatus(card.key)}
-                style={{
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  border: `1px solid ${isSelected ? "#1677ff" : "#f0f0f0"}`,
-                  boxShadow: isSelected
-                    ? "0 6px 14px rgba(22,119,255,0.2)"
-                    : "none",
-                }}
-              >
-                <Statistic
-                  title={card.title}
-                  value={card.count}
-                  prefix={card.icon}
-                  styles={{ content: { fontSize: 18 } }}
-                />
-              </Card>
-            </Col>
-          );
-        })}
+      <Row style={{ marginBottom: 10 }}>
+        <Col span={24}>
+          <Space size={[8, 8]} wrap>
+            {statusFilters.map((filter) => {
+              const isSelected = selectedStatus === filter.key;
+
+              return (
+                <Button
+                  key={filter.key}
+                  type={isSelected ? "primary" : "default"}
+                  icon={filter.icon}
+                  onClick={() => setSelectedStatus(filter.key)}
+                >
+                  {filter.title} ({filter.count})
+                </Button>
+              );
+            })}
+          </Space>
+        </Col>
       </Row>
 
       <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
@@ -403,8 +396,9 @@ export default function PartsRequisition() {
           style={{ marginBottom: 16 }}
         />
       )}
-      <PRMCardView
+      <PRMTable
         data={filteredRequisitions}
+        loading={loading}
         onUpdated={handleAllRequisitions}
       />
     </div>
