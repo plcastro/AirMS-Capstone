@@ -114,8 +114,8 @@ export default function TaskChecklist({
     onClose();
   };
 
-  const handleReturnConfirm = async ({ note, signature }) => {
-    await onReturn?.(task, { comments: note, signature });
+  const handleReturnConfirm = async ({ note, signature, itemsToUncheck }) => {
+    await onReturn?.(task, { comments: note, signature, itemsToUncheck });
     setShowReviewModal(false);
     onClose();
   };
@@ -670,6 +670,8 @@ export default function TaskChecklist({
           reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
         }
         mode={reviewMode}
+        checklistItems={checklistItems}
+        checklistState={checklistState}
       />
     </>
   );
