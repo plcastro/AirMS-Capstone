@@ -8,24 +8,21 @@ import {
   Input,
   Card,
   Divider,
-  Space,
+  Form,
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
-// Import the default processor for AS350B3
+
 import {
   processDataWithFormulas as processAS350,
   getToday,
 } from "../../../utils/partsFormula-AS350B3";
-// Import the processor for Bell 412 (create it if needed)
-//import { processDataWithFormulas as processB412 } from "../../../utils/partsFormula-B412";
 import "./PartsLifespanMonitoring.css";
 import { message } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 
-// Import default raw data for each aircraft
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
 import { rawData as rawData7226 } from "../../../utils/7226RawData";
@@ -96,7 +93,6 @@ const getFormulaProcessor = (aircraft) => {
 };
 
 const { Text } = Typography;
-const { Option } = Select;
 
 // Column headers (same as before)
 const columnHeader = [
@@ -165,7 +161,8 @@ const columnHeader = [
 
 export default function PartsMonitoring() {
   const { user } = useContext(AuthContext);
-  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const isOfficerInCharge =
+    user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [refs, setRefs] = useState({
     today: getToday(),
     acftTT: 0,
@@ -373,7 +370,7 @@ export default function PartsMonitoring() {
   return (
     <div className="parts-monitoring-container">
       <Row justify="space-between" align="middle" className="header-row">
-        <Col>
+        <Col flex="auto">
           <div className="header-left">
             <Input
               placeholder="Search..."
@@ -386,15 +383,14 @@ export default function PartsMonitoring() {
             <Select
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
-              style={{ width: 180 }}
+              style={{ width: 220 }}
               loading={loadingAircraft}
-            >
-              {aircraftOptions.map((aircraft) => (
-                <Option key={aircraft} value={aircraft}>
-                  {aircraft}
-                </Option>
-              ))}
-            </Select>
+              placeholder="Select aircraft"
+              options={aircraftOptions.map((aircraft) => ({
+                label: aircraft,
+                value: aircraft,
+              }))}
+            />
             {!isOfficerInCharge && (
               <Button
                 type="primary"
@@ -422,202 +418,171 @@ export default function PartsMonitoring() {
       <Divider />
 
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-        <Col span={6}>
+        <Col sm={24} md={6}>
           <Card className="aircraft-card">
-            <div className="card-content">
-              <div className="info-item">
-                <Text className="info-label">Aircraft: </Text>
-                <Text className="info-value">
-                  {selectedAircraft || "Not selected"}
-                </Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Date Manufactured: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.dateManufactured
-                    ? aircraftDetails.dateManufactured.toLocaleDateString()
-                    : "Not available"}
-                </Text>
-              </div>
-              <div className="info-item">
-                <Text className="info-label">Acft. Type: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.aircraftType || "Not available"}
-                </Text>
-              </div>
-              <div>
-                <Text className="info-label">Creep Damage: </Text>
-                <Text className="info-value">
-                  {aircraftDetails.creepDamage + "%" || "Not available"}
-                </Text>
-              </div>
+            <div>
+              <Text>Aircraft: </Text>
+              <Text className="info-value">
+                {selectedAircraft || "Not selected"}
+              </Text>
+            </div>
+
+            <div>
+              <Text>Date Manufactured: </Text>
+              <Text className="info-value">
+                {aircraftDetails.dateManufactured
+                  ? aircraftDetails.dateManufactured.toLocaleDateString()
+                  : "Not available"}
+              </Text>
+            </div>
+
+            <div>
+              <Text>Acft. Type: </Text>
+              <Text className="info-value">
+                {aircraftDetails.aircraftType || "Not available"}
+              </Text>
+            </div>
+
+            <div>
+              <Text>Creep Damage: </Text>
+              <Text className="info-value">
+                {aircraftDetails.creepDamage
+                  ? `${aircraftDetails.creepDamage}%`
+                  : "Not available"}
+              </Text>
             </div>
           </Card>
         </Col>
 
         {/* Right Card - Inputs */}
-        <Col xs={24} md={16} lg={18}>
-          <Card>
-            <Row gutter={[16, 16]}>
-              {/* Engine Cycle */}
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Engine Cycle:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.landings}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        landings: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Date:</Text>
-                  <Input
-                    type="date"
-                    value={refs.today.toISOString().split("T")[0]}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        today: new Date(e.target.value),
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>N1:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.n1Cycles}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        n1Cycles: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Eng. TT:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.engTT}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        engTT: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-            </Row>
-            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>N2:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.n2Cycles}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        n2Cycles: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Acft. TT:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.acftTT}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        acftTT: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Landings:</Text>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={refs.landings}
-                    onChange={(e) =>
-                      setRefs((prev) => ({
-                        ...prev,
-                        landings: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={!selectedAircraft || isOfficerInCharge}
-                  />
-                </Space>
-              </Col>
-
-              <Col xs={24} sm={24} md={12}>
-                <Space
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Sling:</Text>
-                  <Input disabled={!selectedAircraft || isOfficerInCharge} />
-                </Space>
-              </Col>
-            </Row>
+        <Col xs={24} md={18}>
+          <Card className="aircraft-card">
+            <Form layout="vertical" colon={false}>
+              <Row gutter={[16, 8]}>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Engine Cycle">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.engTT}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          engTT: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Date">
+                    <Input
+                      type="date"
+                      value={refs.today.toISOString().split("T")[0]}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          today: new Date(e.target.value),
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="N1">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.n1Cycles}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          n1Cycles: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Eng. TT">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.engTT}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          engTT: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="N2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.n2Cycles}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          n2Cycles: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Acft. TT">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.acftTT}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          acftTT: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Landings">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.landings}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          landings: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Form.Item label="Sling">
+                    <Input disabled={!selectedAircraft || isOfficerInCharge} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
           </Card>
         </Col>
       </Row>

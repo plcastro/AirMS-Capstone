@@ -180,27 +180,28 @@ export default function MaintenanceLog() {
   if (viewLevel === "dashboard") {
     return (
       <div style={pageScrollStyle}>
-        <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 18 }}>
-          <Col xs={24} md={10}>
-            <Input
-              size="large"
-              placeholder="Search maintenance logs..."
-              prefix={<SearchOutlined />}
-              allowClear
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-            />
-          </Col>
-          <Col xs={24} md={14} style={{ textAlign: "right" }}>
-            <Text type="secondary">
-              Showing <Text strong>{uniqueAircraft.length}</Text> aircraft
-            </Text>
-          </Col>
-        </Row>
-
-        <Title level={4} style={{ marginBottom: 14 }}>
-          Maintenance Remarks
-        </Title>
+        <Card>
+          <Title level={4} style={{ marginBottom: 14 }}>
+            Maintenance Logbook
+          </Title>
+          <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 18 }}>
+            <Col xs={24} md={10}>
+              <Input
+                size="large"
+                placeholder="Search maintenance logs..."
+                prefix={<SearchOutlined />}
+                allowClear
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+              />
+            </Col>
+          </Row>
+        </Card>
+        <Col span={24} style={{ textAlign: "right", margin: "16px 0" }}>
+          <Text type="secondary">
+            Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
+          </Text>
+        </Col>
 
         <Row gutter={[16, 16]}>
           {!loading && uniqueAircraft.length === 0 && (

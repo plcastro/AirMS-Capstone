@@ -3,7 +3,12 @@ import { ResponsiveContainer, PieChart, Pie, Tooltip, Legend } from "recharts";
 
 const EMPTY_DATA = [{ name: "No data", value: 1, fill: "#d9d9d9" }];
 
-export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
+export const SDMChart = ({
+  data = [],
+  height = 350,
+  outerRadius = 100,
+  onSliceClick,
+}) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
 
   return (
@@ -17,6 +22,8 @@ export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
           paddingAngle={0}
           dataKey="value"
           stroke="none"
+          onClick={onSliceClick}
+          cursor={onSliceClick ? "pointer" : "default"}
         />
         <Tooltip
           contentStyle={{
@@ -31,15 +38,17 @@ export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
   );
 };
 
-export const ARTChart = ({ data = [] }) => {
+export const ARTChart = ({ data = [], onSliceClick }) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
 
-  const fastestTask = chartData.reduce((prev, curr) =>
-    prev.value < curr.value ? prev : curr,
-  );
+  const validData = chartData.filter((item) => item.name !== "No data");
+  const totalValue = validData.reduce((sum, item) => sum + item.value, 0);
+  const fastestTask =
+    validData.find((item) => item.value > 0) ||
+    validData[0] || { name: "No data", value: 0, fill: "#d9d9d9" };
+  const fastestPercentage =
+    totalValue > 0 ? ((fastestTask.value / totalValue) * 100).toFixed(1) : "0.0";
 
-  const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
-  const fastestPercentage = ((fastestTask.value / totalValue) * 100).toFixed(1);
 
   return (
     <div>
@@ -54,6 +63,8 @@ export const ARTChart = ({ data = [] }) => {
             paddingAngle={0}
             dataKey="value"
             stroke="none"
+            onClick={onSliceClick}
+            cursor={onSliceClick ? "pointer" : "default"}
           />
           <Tooltip
             contentStyle={{
