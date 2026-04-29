@@ -151,6 +151,27 @@ export default function HeadTaskScreen({
     }
   });
 
+  const getTabCount = (tab) =>
+    tasks.filter((task) => {
+      switch (tab) {
+        case "Assigned":
+          return (
+            task.status === "Pending" ||
+            task.status === "Ongoing" ||
+            task.status === "Returned"
+          );
+        case "For Review":
+          return (
+            task.status === "Turned in" ||
+            (task.status === "Completed" && !task.isApproved)
+          );
+        case "Reviewed":
+          return task.isApproved === true || task.status === "Approved";
+        default:
+          return false;
+      }
+    }).length;
+
   const taskHeader =
     activeTab === "Assigned"
       ? "Assigned Tasks"
@@ -311,6 +332,18 @@ export default function HeadTaskScreen({
 
   const handleReturnTask = async (task, returnData) => {
     const now = new Date().toISOString();
+    const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
+      ? returnData.itemsToUncheck
+      : [];
+    const nextChecklistState = Array.isArray(task.checklistState)
+      ? [...task.checklistState]
+      : (task.checklistItems || []).map(() => false);
+
+    itemsToUncheck.forEach((index) => {
+      if (index >= 0 && index < nextChecklistState.length) {
+        nextChecklistState[index] = false;
+      }
+    });
 
     const updatedTask = {
       ...task,
@@ -320,6 +353,7 @@ export default function HeadTaskScreen({
       reviewedAt: now,
       returnedAt: now,
       isApproved: false,
+      checklistState: nextChecklistState,
     };
 
     try {
@@ -436,11 +470,13 @@ export default function HeadTaskScreen({
         {tabs.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={`${tab} (${getTabCount(tab)})`}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              width < 425 ? { width: "30%" } : { width: 120 },
+              width < 425
+                ? { minWidth: "30%", paddingHorizontal: 6 }
+                : { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
