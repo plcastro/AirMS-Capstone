@@ -5,10 +5,13 @@ const {
   getManualRules,
   saveManualRules,
   getLLMHealth,
+  createRectificationTask,
 } = require("../controllers/aiInsightController");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 router.get("/health", getLLMHealth);
 router.get("/maintenance-tracking", getMaintenanceInsights);
+router.post("/rectification-task", verifyToken, createRectificationTask);
 router.get("/rules", getManualRules);
 router.put("/rules", saveManualRules);
 

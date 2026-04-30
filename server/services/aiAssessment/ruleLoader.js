@@ -31,5 +31,6 @@ const getManualRules = async () => {
 
 module.exports = {
   getManualRules,
+  sanitizeRule,
   DEFAULT_MANUAL_RULES: DEFAULT_MANUAL_RULES.map(sanitizeRule),
 };

@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  TextInput,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -49,6 +50,59 @@ export default function EditTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
 
+  const buildCustomChecklistItem = (index = checklistItems.length) => ({
+    inspectionName: taskTitle || "Custom Task",
+    aircraftModel: "",
+    ata: {
+      chapter: 0,
+      chapterName: "",
+      section: 0,
+      sectionName: "",
+    },
+    taskId: `custom-${Date.now()}-${index + 1}`,
+    taskName: "",
+    component: "",
+    componentModel: "",
+    inspectionType: "Custom",
+    inspectionTypeFull: "Custom Task",
+    documentation: "",
+    description: "",
+    correctiveAction: "",
+    environmentalCondition: "",
+    engineModel: "",
+    conditions: {
+      modificationStatus: "",
+      modificationNumbers: [],
+      effectivity: [],
+    },
+    interval: {
+      flightHours: 0,
+      calendarMonths: 0,
+      specificInterval: "",
+    },
+  });
+
+  const addChecklistItem = () => {
+    setChecklistItems((currentItems) => [
+      ...currentItems,
+      buildCustomChecklistItem(currentItems.length),
+    ]);
+  };
+
+  const updateChecklistItem = (index, field, value) => {
+    setChecklistItems((currentItems) =>
+      currentItems.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const removeChecklistItem = (index) => {
+    setChecklistItems((currentItems) =>
+      currentItems.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
   useEffect(() => {
     const fetchAircraft = async () => {
       try {
@@ -89,6 +143,11 @@ export default function EditTask({
   }, [task]);
 
   const buildUpdatedTask = () => {
+    if (!taskTitle.trim()) {
+      showToast("Please enter a task title.");
+      return null;
+    }
+
     if (startDate < getNow() || endDate < getNow()) {
       showToast("Start and end date/time must be today or later.");
       return null;
@@ -96,6 +155,19 @@ export default function EditTask({
 
     if (endDate < startDate) {
       showToast("End date/time must be after the start date/time.");
+      return null;
+    }
+
+    const filteredChecklist = checklistItems
+      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .map((item, index) => ({
+        ...item,
+        inspectionName: item.inspectionName || taskTitle.trim(),
+        taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
+      }));
+
+    if (filteredChecklist.length === 0) {
+      showToast("Please add at least one checklist item.");
       return null;
     }
 
@@ -109,7 +181,7 @@ export default function EditTask({
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name ||
         task.assignedToName,
-      checklistItems,
+      checklistItems: filteredChecklist,
     };
   };
 
@@ -384,7 +456,14 @@ export default function EditTask({
               Task
             </Text>
 
-            <View
+            <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+              Task Name
+            </Text>
+            <TextInput
+              value={taskTitle}
+              onChangeText={setTaskTitle}
+              placeholder="Maintenance Task"
+              placeholderTextColor={COLORS.grayDark}
               style={{
                 minHeight: 48,
                 backgroundColor: COLORS.grayLight,
@@ -392,16 +471,10 @@ export default function EditTask({
                 borderColor: COLORS.border,
                 borderRadius: 8,
                 paddingHorizontal: 14,
-                justifyContent: "center",
+                color: COLORS.black,
                 marginBottom: 15,
               }}
-            >
-              <Text
-                style={{ color: taskTitle ? COLORS.black : COLORS.grayDark }}
-              >
-                {taskTitle || "Maintenance Task"}
-              </Text>
-            </View>
+            />
 
             {renderDropdownField({
               label: "Aircraft",
@@ -502,7 +575,7 @@ export default function EditTask({
 
             {checklistItems.map((item, index) => (
               <View
-                key={index}
+                key={item.taskId || index}
                 style={{ flexDirection: "row", marginBottom: 12 }}
               >
                 <View style={{ paddingTop: 2 }}>
@@ -515,19 +588,67 @@ export default function EditTask({
                       .filter(Boolean)
                       .join(" | ")}
                   </Text>
-                  <Text
+                  <TextInput
+                    value={item.taskName || ""}
+                    onChangeText={(value) =>
+                      updateChecklistItem(index, "taskName", value)
+                    }
+                    placeholder="Checklist item"
+                    placeholderTextColor={COLORS.grayDark}
                     style={{
                       borderBottomWidth: 1,
                       borderBottomColor: COLORS.border,
                       paddingVertical: 6,
                       fontSize: 14,
+                      color: COLORS.black,
                     }}
+                  />
+                  <TextInput
+                    value={item.description || ""}
+                    onChangeText={(value) =>
+                      updateChecklistItem(index, "description", value)
+                    }
+                    placeholder="Description / notes"
+                    placeholderTextColor={COLORS.grayDark}
+                    multiline
+                    style={{
+                      minHeight: 42,
+                      marginTop: 6,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                      borderRadius: 8,
+                      padding: 8,
+                      color: COLORS.black,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeChecklistItem(index)}
+                    style={{ alignSelf: "flex-start", marginTop: 8 }}
                   >
-                    {item.taskName}
-                  </Text>
+                    <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                      Remove
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
+
+            <TouchableOpacity
+              onPress={addChecklistItem}
+              style={{
+                marginTop: 4,
+                marginBottom: 14,
+                borderWidth: 1,
+                borderColor: COLORS.primaryLight,
+                borderRadius: 8,
+                paddingVertical: 10,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                Add Checklist Item
+              </Text>
+            </TouchableOpacity>
 
             {checklistItems.length === 0 && (
               <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>

@@ -1,4 +1,8 @@
 const { RISK_RANK } = require("./factBuilder");
+const {
+  buildProcedureSummary,
+  getProcedureForManualReference,
+} = require("./procedureCatalog");
 
 const evaluateCondition = (condition = {}, facts = {}) => {
   const actual = facts[condition.fact];
@@ -94,6 +98,29 @@ const FACT_EVIDENCE_BUILDERS = {
   "signals.tailRotorBladesEdgeTabCount": () => "edge-tab-related record(s) detected",
   "signals.tailRotorBladesChinWeightsCount": () =>
     "chin-weight-blanking-hardware-related record(s) detected",
+  "signals.condition.hardLandingCount": () => "hard-landing condition record(s) detected",
+  "signals.condition.overtorqueCount": () => "overtorque condition record(s) detected",
+  "signals.condition.rotorOverspeedCount": () => "rotor-overspeed condition record(s) detected",
+  "signals.condition.bladeImpactCount": () => "rotor blade impact or unbalance record(s) detected",
+  "signals.condition.lightningStrikeCount": () => "lightning-strike condition record(s) detected",
+  "signals.condition.immersionCount": () => "immersion or water-ingress condition record(s) detected",
+  "signals.condition.strongTurbulenceCount": () => "strong-turbulence condition record(s) detected",
+  "signals.condition.abnormalGroundRotorCount": () =>
+    "abnormal ground rotor-behavior condition record(s) detected",
+  "signals.condition.fuelContaminationCount": () => "fuel-contamination condition record(s) detected",
+  "signals.condition.oilContaminationCount": () => "oil-contamination condition record(s) detected",
+  "signals.condition.gearboxOilLeakCount": () => "gearbox oil-leak condition record(s) detected",
+  "signals.condition.chipDetectionCount": () => "chip-detection condition record(s) detected",
+  "signals.condition.freewheelJerkCount": () => "freewheel-jerk condition record(s) detected",
+  "signals.condition.negativeTorqueCount": () => "negative-torque condition record(s) detected",
+  "signals.condition.engineHealthCheckCount": () => "engine-health or power-check record(s) detected",
+  "signals.condition.hydraulicPreCloggingCount": () =>
+    "hydraulic filter pre-clogging condition record(s) detected",
+  "signals.condition.vibrationAnomalyCount": () => "vibration anomaly record(s) detected",
+  "signals.condition.fuelControlFaultCount": () => "fuel-control fault record(s) detected",
+  "signals.condition.engineOilIndicationFaultCount": () =>
+    "engine oil indication fault record(s) detected",
+  "signals.condition.loadCompensatorFaultCount": () => "load-compensator fault record(s) detected",
   "tasks.component.rotorActuatorsDualHydraulicCount": () =>
     "dual-hydraulic rotor-actuator task context detected",
   "tasks.component.engineMgbDriveLineGimbalCount": () =>
@@ -196,6 +223,10 @@ const getPrimaryMatchedRule = (matchedRules = []) => {
 };
 
 const summarizeEvidenceForRule = (rule = {}, aircraftFacts = {}) => {
+  if (!rule) {
+    return [];
+  }
+
   const { facts = {} } = aircraftFacts;
   const seen = new Set();
 
@@ -214,7 +245,7 @@ const summarizeEvidenceForRule = (rule = {}, aircraftFacts = {}) => {
 
 const buildIssueTitle = (matchedRules = []) => {
   if (!matchedRules.length) {
-    return "No AI maintenance issue detected";
+    return "No maintenance issue detected";
   }
 
   const highestRule = getPrimaryMatchedRule(matchedRules);
@@ -276,7 +307,7 @@ const getMaintenanceDirective = (rule = {}) => {
 
 const buildMaintenanceIssueTitle = (rule = {}) => {
   if (!rule) {
-    return "No AI maintenance issue detected";
+    return "No maintenance issue detected";
   }
 
   const component = rule.component || rule.title || "Maintenance item";
@@ -285,16 +316,24 @@ const buildMaintenanceIssueTitle = (rule = {}) => {
   return `${component} ${findingType} detected`;
 };
 
-const buildMaintenanceRecommendedAction = (rule = {}) => {
+const buildMaintenanceRecommendedAction = (rule = {}, procedures = []) => {
   if (!rule) {
     return "Continue monitoring current maintenance data.";
   }
 
   const component = rule.component || rule.title || "the maintenance item";
   const reference = getPrimaryManualReference(rule.manualReference);
+  const procedure = getProcedureForManualReference(reference, procedures);
   const { actionVerb } = getMaintenanceDirective(rule);
   const capitalizedAction =
     actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1);
+
+  if (procedure) {
+    if (actionVerb.startsWith("inspect")) {
+      return `${capitalizedAction} ${component} using ${procedure.reference}: ${procedure.title}.`;
+    }
+    return `${capitalizedAction} for ${component} using ${procedure.reference}: ${procedure.title}.`;
+  }
 
   if (!reference) {
     if (actionVerb.startsWith("inspect")) {
@@ -337,7 +376,7 @@ const buildRuleManagerSummary = ({
   return `${riskLevel} priority ${component} ${findingType}; ${actionVerb} before closure or release.${referenceText}`;
 };
 
-const runInference = (rules = [], aircraftFacts = {}) => {
+const runInference = (rules = [], aircraftFacts = {}, procedures = []) => {
   const matchedRules = rules
     .filter((rule) =>
       Array.isArray(rule.conditions) &&
@@ -371,9 +410,18 @@ const runInference = (rules = [], aircraftFacts = {}) => {
   const orderedRules = primaryRule
     ? [primaryRule, ...secondaryRules]
     : matchedRules;
-  const primaryRecommendedAction = buildMaintenanceRecommendedAction(primaryRule);
+  const primaryRecommendedAction = buildMaintenanceRecommendedAction(
+    primaryRule,
+    procedures,
+  );
+  const primaryProcedure = getProcedureForManualReference(
+    primaryRule?.manualReference,
+    procedures,
+  );
+  const procedureSummary = buildProcedureSummary(primaryProcedure);
   const recommendedActions = uniqueItems([
     primaryRecommendedAction,
+    procedureSummary,
     ...orderedRules.flatMap((rule) => rule.recommendedActions || []),
   ]);
   const manualReferences = primaryRule?.manualReference
@@ -385,7 +433,7 @@ const runInference = (rules = [], aircraftFacts = {}) => {
     : buildIssueTitle(matchedRules);
   const shortFinding = matchedRules.length
     ? buildEvidenceFinding(evidenceSummary)
-    : "No active AI-triggered maintenance flags found from the current records.";
+    : "No active maintenance flags found from the current records.";
   const recommendedAction =
     recommendedActions[0] || "Continue monitoring current maintenance data.";
   const managerSummary = matchedRules.length
@@ -404,6 +452,10 @@ const runInference = (rules = [], aircraftFacts = {}) => {
     recommendedAction,
     recommendedActions,
     manualReferences,
+    procedureReference: primaryProcedure?.reference || "",
+    procedureTitle: primaryProcedure?.title || "",
+    procedureSummary,
+    procedureSteps: [],
     primaryRule,
     matchedRules,
     explanation: matchedRules.map((rule) => rule.explanation),
