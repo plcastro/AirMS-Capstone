@@ -22,7 +22,8 @@ import {
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
-  EyeOutlined, EditOutlined
+  EyeOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -32,7 +33,7 @@ import { exportRecordToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
-const { Text } = Typography;
+const { Title, Text } = Typography;
 
 export default function FlightLog() {
   const formatDisplayDate = (value) => {
@@ -108,13 +109,14 @@ export default function FlightLog() {
 
   const hasDestinationInfo = (log = {}) =>
     Array.isArray(log.legs) &&
-    log.legs.some((leg) =>
-      Array.isArray(leg?.stations) &&
-      leg.stations.some(
-        (station) =>
-          String(station?.from || "").trim() &&
-          String(station?.to || "").trim(),
-      ),
+    log.legs.some(
+      (leg) =>
+        Array.isArray(leg?.stations) &&
+        leg.stations.some(
+          (station) =>
+            String(station?.from || "").trim() &&
+            String(station?.to || "").trim(),
+        ),
     );
 
   const fetchFlightLogs = useCallback(async () => {
@@ -654,13 +656,13 @@ export default function FlightLog() {
   };
 
   const columns = [
+    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Aircraft Type",
       dataIndex: "aircraftType",
       key: "aircraftType",
       width: 140,
     },
-    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Date",
       dataIndex: "date",
@@ -684,25 +686,28 @@ export default function FlightLog() {
     {
       title: "Action",
       key: "action",
-      width: 280,
+      width: 320,
+      fixed: "right",
       render: (_, record) => (
-        <Space size={4}>
+        <Space size={4} wrap>
           <Button
             type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
-            icon={isOfficerInCharge ? <EyeOutlined />: <EditOutlined />}
+            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
           >
             {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
-            <Button
-              size="small"
-              onClick={() => openWorkflowModal("release", record)}
-            >
-              Release
-            </Button>
-          )}
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "pending_release" && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("release", record)}
+              >
+                Release
+              </Button>
+            )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
             <Button
               size="small"
@@ -745,60 +750,63 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      <Row gutter={[12, 12]} align="middle">
-        <Col xs={24} md={8}>
-          <Input
-            size="large"
-            className="fl-search"
-            placeholder="Search by RP/C, type, or date"
-            prefix={<SearchOutlined />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            allowClear
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select
-            size="large"
-            style={{ width: "100%" }}
-            value={selectedAircraft || "all"}
-            onChange={(value) =>
-              setSelectedAircraft(value === "all" ? "" : value)
-            }
-            options={aircraftOptions.map((aircraft) => ({
-              value: aircraft,
-              label: aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
-            }))}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select
-            size="large"
-            style={{ width: "100%" }}
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-            options={statusOptions}
-          />
-        </Col>
-        {!isOfficerInCharge && (
-          <Col xs={24} md={4} style={{ textAlign: "right" }}>
-            <Button
-              type="primary"
+      <Card>
+        <Title level={4}>Flight Logbook</Title>
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} md={8}>
+            <Input
               size="large"
-              icon={<PlusOutlined />}
-              onClick={() => setEntryModalVisible(true)}
-            >
-              New Entry
-            </Button>
+              className="fl-search"
+              placeholder="Search by RP/C, type, or date"
+              prefix={<SearchOutlined />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              allowClear
+            />
           </Col>
-        )}
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
-          </Text>
-        </Col>
-      </Row>
-
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              size="large"
+              style={{ width: "100%" }}
+              value={selectedAircraft || "all"}
+              onChange={(value) =>
+                setSelectedAircraft(value === "all" ? "" : value)
+              }
+              options={aircraftOptions.map((aircraft) => ({
+                value: aircraft,
+                label:
+                  aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
+              }))}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={5}>
+            <Select
+              size="large"
+              style={{ width: "100%" }}
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              options={statusOptions}
+            />
+          </Col>
+          {!isOfficerInCharge && (
+            <Col xs={24} md={4} style={{ textAlign: "right" }}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<PlusOutlined />}
+                onClick={() => setEntryModalVisible(true)}
+              >
+                New Entry
+              </Button>
+            </Col>
+          )}
+        </Row>
+      </Card>
+      <Col span={24} style={{ textAlign: "right", margin: "16px 0" }}>
+        <Text type="secondary">
+          Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+        </Text>
+      </Col>
       <Card className="fl-table-wrapper" styles={{ body: { padding: 0 } }}>
         <Table
           className="fl-table"
@@ -807,6 +815,7 @@ export default function FlightLog() {
           loading={loading}
           rowKey={(record) => record._id || record.id}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          scroll={{ x: 1100 }}
           locale={{
             emptyText:
               searchQuery || selectedAircraft || selectedStatus !== "all"

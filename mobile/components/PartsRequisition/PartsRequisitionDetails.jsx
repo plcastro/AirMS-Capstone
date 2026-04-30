@@ -385,11 +385,22 @@ export default function PartsRequisitionDetails({
                 marginBottom: 12,
               }}
             >
-              Request Timeline
+              Warehouse Flow
             </Text>
 
             {request.timeline.map((entry, index) => {
               const badgeStyle = getTimelineBadgeStyle(entry.status);
+              const iconName = entry.isCompleted
+                ? "check-circle-outline"
+                : entry.isCurrent
+                  ? "clock-outline"
+                  : "circle-outline";
+              const iconColor = entry.isCompleted
+                ? "#2E7D32"
+                : entry.isCurrent
+                  ? COLORS.primaryLight
+                  : COLORS.grayMedium;
+              const contentOpacity = entry.isCompleted || entry.isCurrent ? 1 : 0.55;
 
               return (
                 <View
@@ -401,13 +412,13 @@ export default function PartsRequisitionDetails({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="check-circle-outline"
+                    name={iconName}
                     size={24}
-                    color={COLORS.primaryLight}
+                    color={iconColor}
                     style={{ marginRight: 10, marginTop: 2 }}
                   />
 
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, opacity: contentOpacity }}>
                     <View
                       style={{
                         alignSelf: "flex-start",

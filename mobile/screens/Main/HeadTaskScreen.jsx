@@ -5,7 +5,7 @@ import {
   FlatList,
   Text,
   Dimensions,
-  Alert,
+  RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
@@ -13,6 +13,7 @@ import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
 import AddTask from "../../components/TaskAssignment/AddTask";
 import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
+import AlertComp from "../../components/AlertComp";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -34,31 +35,38 @@ export default function HeadTaskScreen({
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [taskPendingDelete, setTaskPendingDelete] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
 
-  // Fetch tasks on mount
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setTasks(data.data || []);
-        } else {
-          console.error("Failed to fetch tasks");
-          showToast("Failed to fetch tasks");
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
+  const fetchTasks = async ({ silent = false } = {}) => {
+    try {
+      if (!silent) setRefreshing(true);
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTasks(data.data || []);
+      } else {
+        console.error("Failed to fetch tasks");
         showToast("Failed to fetch tasks");
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      showToast("Failed to fetch tasks");
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  };
+
+  // Fetch tasks on mount
+  useEffect(() => {
     fetchTasks();
   }, []);
 
@@ -143,6 +151,27 @@ export default function HeadTaskScreen({
     }
   });
 
+  const getTabCount = (tab) =>
+    tasks.filter((task) => {
+      switch (tab) {
+        case "Assigned":
+          return (
+            task.status === "Pending" ||
+            task.status === "Ongoing" ||
+            task.status === "Returned"
+          );
+        case "For Review":
+          return (
+            task.status === "Turned in" ||
+            (task.status === "Completed" && !task.isApproved)
+          );
+        case "Reviewed":
+          return task.isApproved === true || task.status === "Approved";
+        default:
+          return false;
+      }
+    }).length;
+
   const taskHeader =
     activeTab === "Assigned"
       ? "Assigned Tasks"
@@ -181,6 +210,7 @@ export default function HeadTaskScreen({
         console.log("Task added:", data.data);
         setTasks([...tasks, data.data]);
         setAddModalVisible(false);
+        await fetchTasks({ silent: true });
       } else {
         const errorData = await response.json();
         console.error("Failed to add task:", errorData);
@@ -210,6 +240,7 @@ export default function HeadTaskScreen({
         );
         setTasks(updatedTasks);
         setEditModalVisible(false);
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to update task");
       }
@@ -231,6 +262,7 @@ export default function HeadTaskScreen({
       if (response.ok) {
         const updatedTasks = tasks.filter((t) => t.id !== taskId);
         setTasks(updatedTasks);
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to delete task");
       }
@@ -238,6 +270,20 @@ export default function HeadTaskScreen({
       console.error("Error deleting task:", error);
       showToast("Failed to delete task");
     }
+  };
+
+  const requestDeleteTask = (task) => {
+    setTaskPendingDelete(task);
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskPendingDelete) return;
+
+    const taskId = taskPendingDelete.id || taskPendingDelete._id;
+    setDeleteConfirmVisible(false);
+    setTaskPendingDelete(null);
+    await handleDeleteTask(taskId);
   };
 
   const handleApproveTask = async (task, approveData) => {
@@ -273,6 +319,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        await fetchTasks({ silent: true });
       } else {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.message || "Failed to approve task");
@@ -285,6 +332,18 @@ export default function HeadTaskScreen({
 
   const handleReturnTask = async (task, returnData) => {
     const now = new Date().toISOString();
+    const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
+      ? returnData.itemsToUncheck
+      : [];
+    const nextChecklistState = Array.isArray(task.checklistState)
+      ? [...task.checklistState]
+      : (task.checklistItems || []).map(() => false);
+
+    itemsToUncheck.forEach((index) => {
+      if (index >= 0 && index < nextChecklistState.length) {
+        nextChecklistState[index] = false;
+      }
+    });
 
     const updatedTask = {
       ...task,
@@ -294,6 +353,7 @@ export default function HeadTaskScreen({
       reviewedAt: now,
       returnedAt: now,
       isApproved: false,
+      checklistState: nextChecklistState,
     };
 
     try {
@@ -312,6 +372,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to return task");
       }
@@ -350,7 +411,7 @@ export default function HeadTaskScreen({
             setSelectedTask(item);
             setEditModalVisible(true);
           }}
-          onDeleteTask={() => handleDeleteTask(item.id)}
+          onDeleteTask={() => requestDeleteTask(item)}
           onApprove={() => handleApproveTask(item)}
           onReturn={() => {
             setSelectedTask(item);
@@ -409,11 +470,13 @@ export default function HeadTaskScreen({
         {tabs.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={`${tab} (${getTabCount(tab)})`}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              width < 425 ? { width: "30%" } : { width: 120 },
+              width < 425
+                ? { minWidth: "30%", paddingHorizontal: 6 }
+                : { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
@@ -436,6 +499,9 @@ export default function HeadTaskScreen({
           data={filteredTasks}
           keyExtractor={(item) => item.id || item._id}
           renderItem={renderTask}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
+          }
           ListEmptyComponent={
             <Text style={{ textAlign: "center", marginTop: 20 }}>
               {activeTab === "Assigned"
@@ -471,6 +537,19 @@ export default function HeadTaskScreen({
         task={selectedTask}
         onSave={handleEditTask}
         employees={employees}
+      />
+
+      <AlertComp
+        visible={deleteConfirmVisible}
+        title="Delete Task?"
+        message="This task assignment will be removed permanently."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onCancel={() => {
+          setDeleteConfirmVisible(false);
+          setTaskPendingDelete(null);
+        }}
+        onConfirm={confirmDeleteTask}
       />
     </View>
   );
