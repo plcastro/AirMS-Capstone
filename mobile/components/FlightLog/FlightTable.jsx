@@ -215,7 +215,7 @@ export default function FlightTable({
               <Text style={styles.tableHeaderText}>
                 {header.label}
                 {sortColumn === header.key && (
-                  <Text style={{ fontSize: 10 }}>
+                  <Text style={{ fontSize: 12 }}>
                     {sortDirection === "asc" ? " ↑" : " ↓"}
                   </Text>
                 )}
@@ -238,7 +238,7 @@ export default function FlightTable({
                 style={{
                   textAlign: "center",
                   color: "#666",
-                  fontSize: 14,
+                  fontSize: 12,
                 }}
               >
                 No data available
@@ -288,7 +288,7 @@ export default function FlightTable({
                               header.numeric
                                 ? "center"
                                 : "left",
-                            fontSize: 14,
+                            fontSize: 12,
                             color: "#333",
                           },
                         ]}

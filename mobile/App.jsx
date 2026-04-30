@@ -105,7 +105,7 @@ function DrawerNav({ navigation }) {
               />
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600"}}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#777" }}>
@@ -121,7 +121,6 @@ function DrawerNav({ navigation }) {
       {[
         "maintenance manager",
         "pilot",
-        "engineer",
         "officer-in-charge",
         "mechanic",
       ].includes(user.jobTitle?.toLowerCase()) && (
@@ -148,7 +147,7 @@ function DrawerNav({ navigation }) {
         />
       )}
 
-      {["maintenance manager", "engineer", "mechanic"].includes(
+      {["maintenance manager", "mechanic"].includes(
         user.jobTitle?.toLowerCase(),
       ) && (
         <>
@@ -309,16 +308,14 @@ function AppShell({ linking }) {
               padding: 18,
             }}
           >
-            <Text
-              style={{ fontSize: 18, fontWeight: "700", marginBottom: 10 }}
-            >
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10}}>
               Session Timeout Warning
             </Text>
-            <Text style={{ fontSize: 14, color: "#333", marginBottom: 8 }}>
+            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
               You&apos;ve been inactive for a while. For your security,
               you&apos;ll be signed out in 2 minutes unless you continue.
             </Text>
-            <Text style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
               Auto sign-out in {warningSecondsRemaining} seconds.
             </Text>
             <View

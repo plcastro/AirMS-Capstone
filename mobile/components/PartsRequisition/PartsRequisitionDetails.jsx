@@ -178,7 +178,7 @@ export default function PartsRequisitionDetails({
           >
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "600",
                 color: COLORS.black,
               }}
@@ -206,7 +206,7 @@ export default function PartsRequisitionDetails({
             <View style={{ alignItems: "center", marginBottom: 18 }}>
               <Text
                 style={{
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   marginBottom: 8,
                 }}
@@ -225,7 +225,7 @@ export default function PartsRequisitionDetails({
                 <Text
                   style={{
                     color: overallStatusStyle.textColor,
-                    fontSize: 18,
+                    fontSize: 12,
                     fontWeight: "500",
                   }}
                 >
@@ -245,7 +245,7 @@ export default function PartsRequisitionDetails({
                 <View key={label} style={{ marginBottom: 10 }}>
                   <Text
                     style={{
-                      fontSize: 16,
+                      fontSize: 12,
                       color: COLORS.grayDark,
                       marginBottom: 2,
                     }}
@@ -254,7 +254,7 @@ export default function PartsRequisitionDetails({
                   </Text>
                   <Text
                     style={{
-                      fontSize: 18,
+                      fontSize: 12,
                       color: COLORS.black,
                       fontWeight: "700",
                     }}
@@ -267,7 +267,7 @@ export default function PartsRequisitionDetails({
 
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "700",
                 color: "#333333",
                 marginBottom: 12,
@@ -298,12 +298,12 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Item Name
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -313,12 +313,12 @@ export default function PartsRequisitionDetails({
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Purpose
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -328,12 +328,12 @@ export default function PartsRequisitionDetails({
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Requested
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -345,7 +345,7 @@ export default function PartsRequisitionDetails({
                     <View>
                       <Text
                         style={{
-                          fontSize: 16,
+                          fontSize: 12,
                           color: COLORS.grayDark,
                           marginBottom: 5,
                         }}
@@ -365,7 +365,7 @@ export default function PartsRequisitionDetails({
                       <Text
                         style={{
                           color: badgeStyle.textColor,
-                          fontSize: 18,
+                          fontSize: 12,
                         }}
                       >
                           {getDisplayStatusLabel(item.status)}
@@ -379,7 +379,7 @@ export default function PartsRequisitionDetails({
 
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "700",
                 color: "#333333",
                 marginBottom: 12,
@@ -433,7 +433,7 @@ export default function PartsRequisitionDetails({
                       <Text
                         style={{
                           color: badgeStyle.textColor,
-                          fontSize: 18,
+                          fontSize: 12,
                         }}
                       >
                         {getDisplayStatusLabel(entry.status)}
@@ -442,7 +442,7 @@ export default function PartsRequisitionDetails({
 
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.grayDark,
                         marginBottom: 2,
                       }}
@@ -451,7 +451,7 @@ export default function PartsRequisitionDetails({
                     </Text>
                     <Text
                       style={{
-                        fontSize: 18,
+                        fontSize: 12,
                         color: COLORS.black,
                         fontWeight: "700",
                         marginBottom: 2,
@@ -459,7 +459,7 @@ export default function PartsRequisitionDetails({
                     >
                       {entry.by}
                     </Text>
-                    <Text style={{ fontSize: 18, color: COLORS.grayDark }}>
+                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {entry.description}
                     </Text>
                   </View>
@@ -492,7 +492,7 @@ export default function PartsRequisitionDetails({
                   <Text
                     style={{
                       color: canOrder ? "#C26A00" : "#9E9E9E",
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: "600",
                     }}
                   >
@@ -514,7 +514,7 @@ export default function PartsRequisitionDetails({
                   <Text
                     style={{
                       color: COLORS.white,
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: "600",
                     }}
                   >

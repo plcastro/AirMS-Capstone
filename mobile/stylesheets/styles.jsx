@@ -1,6 +1,9 @@
 import { Dimensions, StyleSheet } from "react-native";
 import { COLORS } from "./colors";
 const { width } = Dimensions.get("window");
+const BODY_FONT_SIZE = 12;
+const SUBHEADER_FONT_SIZE = 14;
+const HEADER_FONT_SIZE = 18;
 export const styles = StyleSheet.create({
   // PIN INPUT STYLE
   codeInputSection: {
@@ -26,7 +29,7 @@ export const styles = StyleSheet.create({
     padding: 12,
   },
   codeInputText: {
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     textAlign: "center",
     color: COLORS.black,
     fontFamily: "Arial",
@@ -83,12 +86,12 @@ export const styles = StyleSheet.create({
     padding: 10,
   },
   headerText: {
-    fontSize: Math.min(Math.max(width * 0.04, 24), 32),
+    fontSize: HEADER_FONT_SIZE,
     fontWeight: "500",
     textAlign: "center",
   },
   subHeaderText: {
-    fontSize: Math.min(Math.max(width * 0.02, 16), 21),
+    fontSize: SUBHEADER_FONT_SIZE,
     textAlign: "center",
   },
   loginHelper: {
@@ -118,7 +121,7 @@ export const styles = StyleSheet.create({
   primaryBtnTxt: {
     textAlign: "center",
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     fontWeight: "500",
   },
   secondaryBtn: {
@@ -135,7 +138,7 @@ export const styles = StyleSheet.create({
   secondaryBtnTxt: {
     textAlign: "center",
     color: COLORS.primaryLight,
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     fontWeight: "500",
   },
   primaryAlertBtn: {
@@ -161,7 +164,7 @@ export const styles = StyleSheet.create({
   secondaryAlertBtnTxt: {
     textAlign: "center",
     color: COLORS.primaryLight,
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     fontWeight: "500",
   },
   error: {
@@ -176,12 +179,12 @@ export const styles = StyleSheet.create({
     paddingLeft: 5,
   },
   title: {
-    fontSize: 16,
+    fontSize: HEADER_FONT_SIZE,
     marginTop: 3,
     fontWeight: "bold",
   },
   caption: {
-    fontSize: 13,
+    fontSize: BODY_FONT_SIZE,
     lineHeight: 14,
     color: COLORS.grayDark,
   },
@@ -207,7 +210,7 @@ export const styles = StyleSheet.create({
   },
   profileContent: { alignItems: "center", width: "100%" },
   label: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     marginBottom: 4,
     color: COLORS.grayDark,
   },
@@ -233,7 +236,7 @@ export const styles = StyleSheet.create({
   },
 
   addUserTitle: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: "700",
     marginBottom: 16,
   },
@@ -253,7 +256,7 @@ export const styles = StyleSheet.create({
   },
 
   plus: {
-    fontSize: 36,
+    fontSize: 12,
     color: COLORS.grayDark,
   },
 
@@ -267,7 +270,7 @@ export const styles = StyleSheet.create({
   },
 
   label: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     marginBottom: 4,
     color: COLORS.grayDark,
   },
@@ -326,7 +329,7 @@ export const styles = StyleSheet.create({
   unifiedSearchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 15,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.black,
     padding: 0,
   },
@@ -341,7 +344,7 @@ export const styles = StyleSheet.create({
   },
   unifiedActionButtonText: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: BODY_FONT_SIZE,
     fontWeight: "600",
     marginLeft: 6,
   },
@@ -357,7 +360,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   unifiedFilterButtonText: {
-    fontSize: 14,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.black,
   },
   unifiedDropdownMenu: {
@@ -377,7 +380,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   unifiedDropdownItemText: {
-    fontSize: 14,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.black,
   },
   tableCell: { color: COLORS.black },
@@ -415,7 +418,7 @@ export const styles = StyleSheet.create({
     marginTop: 4,
   },
   pickerItem: {
-    fontSize: 14,
+    fontSize: BODY_FONT_SIZE,
   },
   /* ===== ALERT COMPONENT STYLES ===== */
   alertOverlay: {
@@ -433,13 +436,13 @@ export const styles = StyleSheet.create({
     maxWidth: 500,
   },
   alertTitle: {
-    fontSize: 18,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "bold",
     marginBottom: 10,
     textAlign: "center",
   },
   alertMessage: {
-    fontSize: 14,
+    fontSize: BODY_FONT_SIZE,
     textAlign: "center",
     marginBottom: 20,
   },
@@ -466,7 +469,7 @@ export const styles = StyleSheet.create({
   filterPicker: {
     width: 120, // Slightly narrower to fit two filters
     height: 38,
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
   },
   /* ===== USER COUNT STYLES ===== */
   userCountContainer: {
@@ -474,7 +477,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   userCountText: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.grayDark,
     fontStyle: "italic",
   },
@@ -505,7 +508,7 @@ export const styles = StyleSheet.create({
   maintenanceFilterPicker: {
     width: 120,
     height: 38,
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
   },
   maintenanceAircraftFilter: {
     backgroundColor: COLORS.grayLight,
@@ -535,7 +538,7 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
   },
   maintenanceHistoryTitle: {
-    fontSize: 18,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "600",
     color: "white",
   },
@@ -560,7 +563,7 @@ export const styles = StyleSheet.create({
   },
   maintenanceTableCell: {
     color: COLORS.black,
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
   },
   maintenanceTableHeader: {
     backgroundColor: COLORS.primaryLight,
@@ -576,7 +579,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   maintenanceLogCountText: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.grayDark,
     fontStyle: "italic",
   },
@@ -599,7 +602,7 @@ export const styles = StyleSheet.create({
     padding: 20,
   },
   newEntryTitle: {
-    fontSize: 18,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "700",
     marginBottom: 16,
     color: COLORS.primaryLight,
@@ -608,7 +611,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   newEntryLabel: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     marginBottom: 4,
     color: COLORS.grayDark,
     fontWeight: "500",
@@ -654,14 +657,14 @@ export const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   verificationAlertTitle: {
-    fontSize: 20,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "700",
     marginBottom: 16,
     color: COLORS.primaryLight,
     textAlign: "center",
   },
   verificationAlertMessage: {
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     textAlign: "center",
     marginBottom: 24,
     color: COLORS.grayDark,
@@ -672,7 +675,7 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   verificationLabel: {
-    fontSize: 14,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "600",
     marginBottom: 8,
     color: COLORS.grayDark,
@@ -684,7 +687,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.grayDark,
   },
   verificationButtonRow: {
@@ -741,7 +744,7 @@ export const styles = StyleSheet.create({
   },
 
   flightSectionTitle: {
-    fontSize: 14,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "600",
     marginBottom: 8,
     marginTop: 16,
@@ -787,7 +790,7 @@ export const styles = StyleSheet.create({
   exportText: {
     color: COLORS.white,
     fontWeight: "600",
-    fontSize: 13,
+    fontSize: BODY_FONT_SIZE,
   },
 
   /* Filters */
@@ -800,7 +803,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: BODY_FONT_SIZE,
     marginBottom: 8,
     elevation: 1,
   },
@@ -822,13 +825,13 @@ export const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    fontSize: 14,
+    fontSize: SUBHEADER_FONT_SIZE,
     color: COLORS.grayMedium,
     marginBottom: 8,
   },
 
   cardValue: {
-    fontSize: 21,
+    fontSize: 12,
     fontWeight: "bold",
     color: COLORS.grayDark,
   },
@@ -843,7 +846,7 @@ export const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 16,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "600",
     marginBottom: 12,
   },
@@ -866,12 +869,12 @@ export const styles = StyleSheet.create({
   },
 
   listTitle: {
-    fontSize: 14,
+    fontSize: SUBHEADER_FONT_SIZE,
     fontWeight: "600",
   },
 
   listSub: {
-    fontSize: 12,
+    fontSize: BODY_FONT_SIZE,
     color: COLORS.grayDark,
     marginTop: 4,
   },
@@ -879,9 +882,6 @@ export const styles = StyleSheet.create({
   // Task Assigment Styles
   taskTable: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 4,
-    padding: 10,
   },
   taskTableHeader: {
     backgroundColor: COLORS.primaryLight,

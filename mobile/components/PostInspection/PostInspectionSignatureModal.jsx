@@ -124,7 +124,12 @@ export default function PostInspectionSignatureModal({
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={handleClose}
+    >
       <View
         style={{
           flex: 1,
@@ -149,15 +154,23 @@ export default function PostInspectionSignatureModal({
               marginBottom: 12,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.black }}>
+            <Text
+              style={{ fontSize: 14, fontWeight: "600", color: COLORS.black }}
+            >
               {title}
             </Text>
             <TouchableOpacity onPress={handleClose}>
-              <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.grayDark}
+              />
             </TouchableOpacity>
           </View>
 
-          <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 16 }}>
+          <Text
+            style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 16 }}
+          >
             {step === "signature"
               ? `Draw your signature below to ${actionLabel} the post-flight inspection for RP-C ${aircraftRPC || "N/A"}.`
               : `Enter your 6-digit PIN to confirm that you want to ${actionLabel} this post-flight inspection.`}
@@ -192,7 +205,13 @@ export default function PostInspectionSignatureModal({
                   imageType="image/png"
                 />
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                }}
+              >
                 <TouchableOpacity
                   onPress={handleClose}
                   disabled={submitting}
@@ -205,7 +224,9 @@ export default function PostInspectionSignatureModal({
                     opacity: submitting ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
+                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -219,7 +240,9 @@ export default function PostInspectionSignatureModal({
                     backgroundColor: "#D9534F",
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>Clear</Text>
+                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    Clear
+                  </Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -230,7 +253,11 @@ export default function PostInspectionSignatureModal({
                 setCode={setPin}
                 maxLength={6}
                 secure
-                containerStyle={{ flex: 0, marginVertical: 8, marginBottom: 16 }}
+                containerStyle={{
+                  flex: 0,
+                  marginVertical: 8,
+                  marginBottom: 16,
+                }}
                 inputContainerStyle={{ width: "100%" }}
               />
               {!!signature && (
@@ -247,14 +274,25 @@ export default function PostInspectionSignatureModal({
                 >
                   <Image
                     source={{ uri: signature }}
-                    style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      resizeMode: "contain",
+                    }}
                   />
                 </View>
               )}
             </>
           )}
 
-          <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              gap: 10,
+              marginTop: 20,
+            }}
+          >
             {step === "pin" && (
               <TouchableOpacity
                 onPress={handleClose}
@@ -268,7 +306,9 @@ export default function PostInspectionSignatureModal({
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>Cancel</Text>
+                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity

@@ -44,7 +44,7 @@ export default function FlightLogModalFuelServicing({
 
   const renderInput = (legIndex, label, fieldKey, placeholder = "", keyboardType = "default") => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
         {label}:
       </Text>
       <TextInput
@@ -53,7 +53,7 @@ export default function FlightLogModalFuelServicing({
           borderRadius: 6,
           height: 42,
           paddingHorizontal: 12,
-          fontSize: 14,
+          fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
         }}
         value={fuelServicingData[legIndex]?.[fieldKey] || ""}
@@ -80,7 +80,7 @@ export default function FlightLogModalFuelServicing({
   if (!legs || legs.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
           Fuel Servicing
         </Text>
         <View style={{
@@ -91,7 +91,7 @@ export default function FlightLogModalFuelServicing({
           padding: 40,
           alignItems: "center",
         }}>
-          <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>No legs available</Text>
+          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No legs available</Text>
         </View>
       </ScrollView>
     );
@@ -99,7 +99,7 @@ export default function FlightLogModalFuelServicing({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Fuel Servicing
       </Text>
 
@@ -126,7 +126,7 @@ export default function FlightLogModalFuelServicing({
             }}
           >
             <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-              <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+              <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
                 {legNumber}{suffix} Leg
               </Text>
             </View>
@@ -139,7 +139,7 @@ export default function FlightLogModalFuelServicing({
               {renderInput(legIndex, "Main (TOTAL)", "mainTotal", "Total Gallons", "numeric")}
 
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Fuel:
                 </Text>
                 <View style={{ flexDirection: "row", gap: 20 }}>
@@ -156,7 +156,7 @@ export default function FlightLogModalFuelServicing({
                       borderColor: COLORS.primaryLight,
                       backgroundColor: fuelData.fuelType === "drum" ? COLORS.primaryLight : "transparent",
                     }} />
-                    <Text style={{ fontSize: 14, color: isEditable ? COLORS.black : COLORS.grayDark }}>Drum</Text>
+                    <Text style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>Drum</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -172,13 +172,13 @@ export default function FlightLogModalFuelServicing({
                       borderColor: COLORS.primaryLight,
                       backgroundColor: fuelData.fuelType === "truck" ? COLORS.primaryLight : "transparent",
                     }} />
-                    <Text style={{ fontSize: 14, color: isEditable ? COLORS.black : COLORS.grayDark }}>Truck</Text>
+                    <Text style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>Truck</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Refueler Name/Sign:
                 </Text>
                 {isEditable ? (
@@ -200,7 +200,7 @@ export default function FlightLogModalFuelServicing({
                         style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                       />
                     ) : (
-                      <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>Tap to sign</Text>
+                      <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>Tap to sign</Text>
                     )}
                   </TouchableOpacity>
                 ) : (
@@ -219,7 +219,7 @@ export default function FlightLogModalFuelServicing({
                         style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                       />
                     ) : (
-                      <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>No signature</Text>
+                      <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No signature</Text>
                     )}
                   </View>
                 )}

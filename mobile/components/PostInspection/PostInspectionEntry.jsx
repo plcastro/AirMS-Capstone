@@ -176,7 +176,7 @@ export default function PostInspectionEntry({
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -244,7 +244,7 @@ export default function PostInspectionEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>
