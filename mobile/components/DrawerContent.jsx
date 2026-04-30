@@ -49,21 +49,14 @@ const DrawerList = [
         icon: "book-open-page-variant",
         label: "Post-Inspection",
         navigateTo: "Post-Inspection",
-        jobTitle: [
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        jobTitle: ["maintenance manager", "officer-in-charge", "mechanic"],
       },
     ],
   },
   {
     icon: "clipboard-text",
     label: "Task Assignment and Monitoring",
-    jobTitle: [
-      "maintenance manager",
-      "mechanic",
-    ],
+    jobTitle: ["maintenance manager", "mechanic"],
     children: [
       {
         icon: "clipboard-text",
@@ -89,12 +82,7 @@ const DrawerList = [
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
-    jobTitle: [
-      "pilot",
-      "maintenance manager",
-      "mechanic",
-      "officer-in-charge",
-    ],
+    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
   },
 ];
 

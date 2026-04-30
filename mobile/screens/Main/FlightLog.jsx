@@ -561,7 +561,7 @@ export default function FlightLog({ route, navigation }) {
                 <Text
                   style={{
                     marginTop: 10,
-                    fontSize: 16,
+                    fontSize: 12,
                     color: COLORS.grayDark,
                     textAlign: "center",
                   }}

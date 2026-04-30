@@ -198,11 +198,11 @@ export default function TaskTabs({
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { minWidth: 120, paddingHorizontal: 8 },
+              { minWidth: 120, paddingHorizontal: 2 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 14 },
+              { fontSize: 12 },
             ]}
           />
         ))}
@@ -216,13 +216,6 @@ export default function TaskTabs({
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
-      </View>
-
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          {taskHeader}
-        </Text>
       </View>
 
       {/* Task List */}
@@ -250,7 +243,7 @@ export default function TaskTabs({
                     <Text
                       style={{
                         fontWeight: "700",
-                        fontSize: 17,
+                        fontSize: 12,
                       }}
                     >
                       {section.title}

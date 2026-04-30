@@ -740,7 +740,7 @@ export default function PartsRequisition({ route, navigation }) {
             {
               textAlign: "center",
               color: "#6A6A6A",
-              fontSize: 15,
+              fontSize: 12,
               fontWeight: "500",
             },
             isSelected && { color: COLORS.white },
@@ -824,7 +824,7 @@ export default function PartsRequisition({ route, navigation }) {
               style={{
                 flex: 1,
                 marginLeft: 10,
-                fontSize: 15,
+                fontSize: 12,
                 color: COLORS.black,
                 padding: 0,
               }}
@@ -855,7 +855,7 @@ export default function PartsRequisition({ route, navigation }) {
               <Text
                 style={{
                   color: COLORS.white,
-                  fontSize: 15,
+                  fontSize: 12,
                   fontWeight: "600",
                   marginLeft: 6,
                 }}

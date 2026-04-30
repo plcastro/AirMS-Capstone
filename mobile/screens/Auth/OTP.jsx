@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 
 import { styles } from "../../stylesheets/styles";
@@ -93,48 +99,58 @@ export default function OTP() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Account Verification</Text>
-        <Text style={styles.subHeaderText}>Enter OTP Code</Text>
-        <Text style={{ textAlign: "center", marginVertical: 20 }}>
-          Please enter the 6-digit code sent to{" "}
-          {route.params?.email || "your email"}
-        </Text>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text style={styles.headerText}>Account Verification</Text>
+            <Text style={styles.subHeaderText}>Enter OTP Code</Text>
+            <Text style={{ textAlign: "center", marginVertical: 20 }}>
+              Please enter the 6-digit code sent to{" "}
+              {route.params?.email || "your email"}
+            </Text>
 
-        <CodeInputField
-          code={code}
-          setCode={setCode}
-          setPinReady={setPinReady}
-          maxLength={MAX_CODE_LENGTH}
-        />
+            <CodeInputField
+              code={code}
+              setCode={setCode}
+              setPinReady={setPinReady}
+              maxLength={MAX_CODE_LENGTH}
+            />
 
-        <Button
-          label="Verify"
-          onPress={handleVerify}
-          disabled={!pinReady}
-          buttonStyle={[
-            styles.primaryBtn,
-            { minWidth: "100%", marginBottom: 10 },
-          ]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
+            <Button
+              label="Verify"
+              onPress={handleVerify}
+              disabled={!pinReady}
+              buttonStyle={[
+                styles.primaryBtn,
+                { minWidth: "100%", marginBottom: 10 },
+              ]}
+              buttonTextStyle={styles.primaryBtnTxt}
+            />
 
-        <Button
-          label={
-            resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"
-          }
-          onPress={handleResend}
-          disabled={resendTimer > 0}
-          buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
-          buttonTextStyle={styles.secondaryBtnTxt}
-        />
-        <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
-          {pinReady ? message : ""}
-        </Text>
+            <Button
+              label={
+                resendTimer > 0
+                  ? `Resend code (${resendTimer}s)`
+                  : "Resend code"
+              }
+              onPress={handleResend}
+              disabled={resendTimer > 0}
+              buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
+              buttonTextStyle={styles.secondaryBtnTxt}
+            />
+            <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+              {pinReady ? message : ""}
+            </Text>
+          </View>
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );

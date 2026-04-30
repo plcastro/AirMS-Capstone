@@ -56,7 +56,8 @@ export default function NotificationBell({ navigation }) {
     () =>
       [...notifications].sort(
         (left, right) =>
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
       ),
     [notifications],
   );
@@ -107,7 +108,7 @@ export default function NotificationBell({ navigation }) {
             }}
           >
             <Text
-              style={{ color: COLORS.white, fontSize: 10, fontWeight: "700" }}
+              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Text>
@@ -152,13 +153,21 @@ export default function NotificationBell({ navigation }) {
                 marginBottom: 14,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
                 <MaterialCommunityIcons
                   name="bell-outline"
                   size={20}
                   color={COLORS.black}
                 />
-                <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.black }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: COLORS.black,
+                  }}
+                >
                   Notifications
                 </Text>
                 <View
@@ -169,7 +178,13 @@ export default function NotificationBell({ navigation }) {
                     borderRadius: 999,
                   }}
                 >
-                  <Text style={{ color: "#26866F", fontSize: 12, fontWeight: "700" }}>
+                  <Text
+                    style={{
+                      color: "#26866F",
+                      fontSize: 14,
+                      fontWeight: "600",
+                    }}
+                  >
                     {unreadCount} Unread
                   </Text>
                 </View>
@@ -194,7 +209,7 @@ export default function NotificationBell({ navigation }) {
                   size={32}
                   color="#A0A0A0"
                 />
-                <Text style={{ marginTop: 10, color: "#666", fontSize: 15 }}>
+                <Text style={{ marginTop: 10, color: "#666", fontSize: 12 }}>
                   No notifications
                 </Text>
               </View>
@@ -210,7 +225,9 @@ export default function NotificationBell({ navigation }) {
                       alignItems: "flex-start",
                       padding: 12,
                       borderRadius: 12,
-                      backgroundColor: notification.read ? COLORS.white : "#F6FFED",
+                      backgroundColor: notification.read
+                        ? COLORS.white
+                        : "#F6FFED",
                       borderWidth: 1,
                       borderColor: notification.read ? "#E4E4E4" : "#CDECCB",
                       marginBottom: 10,
@@ -221,7 +238,9 @@ export default function NotificationBell({ navigation }) {
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: notification.read ? "#D9D9D9" : "#52C41A",
+                        backgroundColor: notification.read
+                          ? "#D9D9D9"
+                          : "#52C41A",
                         alignItems: "center",
                         justifyContent: "center",
                         marginRight: 12,
@@ -246,7 +265,7 @@ export default function NotificationBell({ navigation }) {
                         <Text
                           style={{
                             color: COLORS.black,
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: notification.read ? "600" : "700",
                             flexShrink: 1,
                           }}
@@ -265,7 +284,7 @@ export default function NotificationBell({ navigation }) {
                             <Text
                               style={{
                                 color: COLORS.white,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: "700",
                               }}
                             >
@@ -279,14 +298,16 @@ export default function NotificationBell({ navigation }) {
                         style={{
                           marginTop: 4,
                           color: "#666",
-                          fontSize: 13,
+                          fontSize: 12,
                           lineHeight: 18,
                         }}
                       >
                         {notification.description}
                       </Text>
 
-                      <Text style={{ marginTop: 6, color: "#999", fontSize: 12 }}>
+                      <Text
+                        style={{ marginTop: 6, color: "#999", fontSize: 12 }}
+                      >
                         {formatTimeAgo(notification.createdAt)}
                       </Text>
                     </View>
@@ -306,13 +327,17 @@ export default function NotificationBell({ navigation }) {
               }}
             >
               <TouchableOpacity onPress={markAllAsRead}>
-                <Text style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}>
+                <Text
+                  style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}
+                >
                   Mark all as read
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={fetchNotifications}>
-                <Text style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}>
+                <Text
+                  style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}
+                >
                   Refresh
                 </Text>
               </TouchableOpacity>

@@ -161,14 +161,14 @@ export default function MechanicList() {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "bold" }}>
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
             {item.name.charAt(0)}
           </Text>
         </View>
 
         {/* Mechanic Info */}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 4 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 4}}>
             {item.name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -191,14 +191,14 @@ export default function MechanicList() {
               {displayStatus}
             </Text>
 
-            <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               {item.taskCount} task{item.taskCount !== 1 ? "s" : ""}
             </Text>
           </View>
         </View>
 
         {/* Arrow Icon */}
-        <Text style={{ fontSize: 20, color: COLORS.grayDark }}></Text>
+        <Text style={{ fontSize: 12, color: COLORS.grayDark }}></Text>
       </TouchableOpacity>
     );
   };
@@ -246,7 +246,7 @@ export default function MechanicList() {
             />
           </View>
           <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
-            <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
+            <Text style={{ color: "#fff", fontWeight: "500", fontSize: 12 }}>
               Total Mechanics ({filteredMechanics.length})
             </Text>
           </View>
@@ -254,7 +254,7 @@ export default function MechanicList() {
       }
       ListEmptyComponent={
         <View style={{ alignItems: "center", marginTop: 50 }}>
-          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
             No mechanics found
           </Text>
         </View>

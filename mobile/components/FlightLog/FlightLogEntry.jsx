@@ -172,7 +172,9 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         sortBy: "createdAt",
         sortOrder: "desc",
       });
-      const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`);
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -196,21 +198,26 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     const tf = componentData.thisFlightData || {};
     const calculated = {
       airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      gearBoxMain:
+        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
       engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
       cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
       cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      landingCycle:
+        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
       usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
     };
     setToDateData(calculated);
     // Also sync to componentData.toDateData for saving
-    setComponentData(prev => ({ ...prev, toDateData: calculated }));
+    setComponentData((prev) => ({ ...prev, toDateData: calculated }));
   }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
   // Populate Brought Forward from previous To Date, falling back to aircraft reference totals.
@@ -236,7 +243,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         broughtForwardData: {
           ...prev.broughtForwardData,
           ...nextBroughtForward,
-          usage: prev.broughtForwardData?.usage || nextBroughtForward.usage || "",
+          usage:
+            prev.broughtForwardData?.usage || nextBroughtForward.usage || "",
         },
       }));
     };
@@ -276,7 +284,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const isBasicInfoEditable = true;
   const isDestinationsEditable = isPilot;
   const isMechanicSectionEditable = isMechanic;
-  const isWorkDoneEditable = isMechanic && formData.status === "pending_release";
+  const isWorkDoneEditable =
+    isMechanic && formData.status === "pending_release";
   const isDiscrepancyEditable = true;
 
   useEffect(() => {
@@ -471,20 +480,24 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   };
 
   const buildFlightLogPayload = (nextFormData) => {
-
     // Ensure toDateData is up‑to‑date before saving
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
     const finalToDateData = {
       airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      gearBoxMain:
+        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
       engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
       cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
       cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      landingCycle:
+        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
       usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
@@ -593,11 +606,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         );
 
       case "To Date":
-        return (
-          <FlightLogModalToDate
-            componentData={toDateData}
-          />
-        );
+        return <FlightLogModalToDate componentData={toDateData} />;
 
       case "Fuel Servicing":
         return (
@@ -672,7 +681,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -729,7 +738,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
                   style={{
                     color: COLORS.white,
                     fontWeight: "600",
-                    fontSize: 16,
+                    fontSize: 12,
                   }}
                 >
                   Release
@@ -762,7 +771,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>

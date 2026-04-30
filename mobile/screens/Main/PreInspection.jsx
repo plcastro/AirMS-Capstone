@@ -342,7 +342,7 @@ export default function PreInspection({ route }) {
               <Text
                 style={{
                   marginTop: 10,
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   textAlign: "center",
                 }}

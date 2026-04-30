@@ -13,7 +13,7 @@ export default function FlightLogModalThisFlight({
 
     return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </Text>
       <TextInput
@@ -22,7 +22,7 @@ export default function FlightLogModalThisFlight({
           borderRadius: 4,
           height: 38,
           paddingHorizontal: 10,
-          fontSize: 14,
+          fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
         }}
         value={componentData[field] || ""}
@@ -58,7 +58,7 @@ export default function FlightLogModalThisFlight({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             This Flight
           </Text>
         </View>

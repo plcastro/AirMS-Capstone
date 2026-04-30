@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
@@ -112,10 +113,16 @@ export default function ResetPassword() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.formContainer}>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formContainer}>
         <Text style={styles.headerText}>Reset Password</Text>
         <Text style={styles.subHeaderText}>Enter your new password</Text>
 
@@ -188,6 +195,8 @@ export default function ResetPassword() {
           buttonTextStyle={styles.primaryBtnTxt}
           disabled={loading || !isFormValid}
         />
+          </View>
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
