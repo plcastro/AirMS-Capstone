@@ -3,7 +3,7 @@ import { Table } from "antd";
 
 export default function CUsageTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
 
   const handlePageChange = (page, pageSize) => {
     setCurrentPage(page);
@@ -26,7 +26,7 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
         pageSize,
         total: data.length,
         showSizeChanger: true,
-        pageSizeOptions: ["10", "15", "20"],
+        pageSizeOptions: ["5", "10", "15"],
         onChange: handlePageChange,
         onShowSizeChange: handlePageChange,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,

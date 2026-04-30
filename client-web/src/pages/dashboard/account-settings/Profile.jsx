@@ -284,7 +284,7 @@ export default function Profile() {
             >
               <Space orientation="vertical" size={4}>
                 <Title level={3} style={{ margin: 0 }}>
-                  Account Settings
+                  Profile Settings
                 </Title>
                 <Text type="secondary">
                   Manage your profile details, picture, and security
