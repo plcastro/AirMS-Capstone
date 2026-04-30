@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Row, Col, Card, Typography } from "antd";
 
 import { SDMChart, ARTChart } from "../../../components/common/PieChart";
 import MHistoryTable from "../../../components/tables/MHistoryTable";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const PIE_COLORS = [
   "#881fe5",
@@ -37,79 +37,108 @@ const getRectifiedAt = (task = {}) =>
   task.completedAt ||
   task.updatedAt;
 
+const getRectificationBucket = (discoveredAt, rectifiedAt) => {
+  if (!discoveredAt || !rectifiedAt) return null;
+
+  const discovered = new Date(discoveredAt);
+  const rectified = new Date(rectifiedAt);
+  if (isNaN(discovered.getTime()) || isNaN(rectified.getTime())) return null;
+
+  const diffHours = Math.max(
+    0,
+    Math.ceil((rectified.getTime() - discovered.getTime()) / (1000 * 60 * 60)),
+  );
+
+  if (diffHours <= 1) return "0 - 1 hours";
+  if (diffHours <= 3) return "2 - 3 hours";
+  if (diffHours <= 6) return "4 - 6 hours";
+  if (diffHours <= 12) return "7 - 12 hours";
+  return "More than 12 hours";
+};
+
 export default function MaintenanceHistory({ tasks = [], loading = false }) {
-  const historyRows = tasks.map((task, index) => ({
-    key: task._id || task.id || `${task.title}-${index}`,
-    aircraft: task.aircraft || "---",
-    dateDiscovered: formatDate(getDiscoveredAt(task)),
-    dateRectified: formatDate(getRectifiedAt(task)),
-    task: task.title || task.summary?.category || "---",
-    assignedMechanic:
-      task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
-  }));
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
+  const [selectedRectificationBucket, setSelectedRectificationBucket] =
+    useState(null);
 
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-  const recentTasks = tasks.filter((task) => {
-    const discoveredAt = getDiscoveredAt(task);
+  const tasksWithMeta = tasks.map((task, index) => {
+    const discoveredAtRaw = getDiscoveredAt(task);
+    const rectifiedAtRaw = getRectifiedAt(task);
+    const discoveredDate = discoveredAtRaw ? new Date(discoveredAtRaw) : null;
+    const rectifiedDate = rectifiedAtRaw ? new Date(rectifiedAtRaw) : null;
+    const hasValidDiscoveredDate =
+      discoveredDate && !isNaN(discoveredDate.getTime());
+    const hasValidRectifiedDate =
+      rectifiedDate && !isNaN(rectifiedDate.getTime());
+    const isRecent = hasValidDiscoveredDate && discoveredDate.getTime() >= cutoff;
+    const isSameDay =
+      hasValidDiscoveredDate &&
+      hasValidRectifiedDate &&
+      (task.maintenanceHistory?.sameDayRepair ||
+        discoveredDate.toDateString() === rectifiedDate.toDateString());
 
-    if (!discoveredAt) return false;
+    const rectificationBucket = getRectificationBucket(
+      discoveredAtRaw,
+      rectifiedAtRaw,
+    );
 
-    const date = new Date(discoveredAt);
-    return !isNaN(date.getTime()) && date.getTime() >= cutoff;
+    return {
+      task,
+      index,
+      row: {
+        key: task._id || task.id || `${task.title}-${index}`,
+        aircraft: task.aircraft || "---",
+        dateDiscovered: formatDate(discoveredAtRaw),
+        dateRectified: formatDate(rectifiedAtRaw),
+        task: task.title || task.summary?.category || "---",
+        assignedMechanic:
+          task.assignedMechanic ||
+          task.assignedToName ||
+          task.assignedTo ||
+          "---",
+      },
+      aircraft: task.aircraft || "Unassigned",
+      isRecent,
+      isSameDay,
+      rectificationBucket,
+    };
   });
 
-  const sameDayRepairMap = recentTasks.reduce((acc, task) => {
-    const aircraft = task.aircraft || "Unassigned";
-    const discoveredAt = getDiscoveredAt(task);
-    const rectifiedAt = getRectifiedAt(task);
+  const recentTasks = tasksWithMeta.filter((entry) => entry.isRecent);
 
-    if (!discoveredAt || !rectifiedAt) return acc;
+  const historyRows = useMemo(
+    () =>
+      tasksWithMeta
+        .filter((entry) => {
+          const aircraftMatch =
+            !selectedAircraft ||
+            (entry.isRecent &&
+              entry.isSameDay &&
+              entry.aircraft === selectedAircraft);
+          const bucketMatch =
+            !selectedRectificationBucket ||
+            (entry.isRecent &&
+              entry.rectificationBucket === selectedRectificationBucket);
+          return aircraftMatch && bucketMatch;
+        })
+        .map((entry) => entry.row),
+    [tasksWithMeta, selectedAircraft, selectedRectificationBucket],
+  );
 
-    const discovered = new Date(discoveredAt);
-    const rectified = new Date(rectifiedAt);
-    if (isNaN(discovered.getTime()) || isNaN(rectified.getTime())) return acc;
+  const sameDayRepairMap = recentTasks.reduce((acc, entry) => {
+    if (!entry.isSameDay) return acc;
 
-    const sameDay =
-      task.maintenanceHistory?.sameDayRepair ||
-      discovered.toDateString() === rectified.toDateString();
-
-    if (!sameDay) return acc;
-
-    acc[aircraft] = (acc[aircraft] || 0) + 1;
+    acc[entry.aircraft] = (acc[entry.aircraft] || 0) + 1;
     return acc;
   }, {});
 
   const rectificationBuckets = recentTasks.reduce(
-    (acc, task) => {
-      const discoveredAt = getDiscoveredAt(task);
-      const rectifiedAt = getRectifiedAt(task);
+    (acc, entry) => {
+      if (!entry.rectificationBucket) return acc;
 
-      if (!discoveredAt || !rectifiedAt) return acc;
-
-      const discovered = new Date(discoveredAt);
-      const rectified = new Date(rectifiedAt);
-      if (isNaN(discovered.getTime()) || isNaN(rectified.getTime())) return acc;
-
-      const diffHours = Math.max(
-        0,
-        Math.ceil(
-          (rectified.getTime() - discovered.getTime()) / (1000 * 60 * 60),
-        ),
-      );
-
-      const bucket =
-        diffHours <= 1
-          ? "0 - 1 hours"
-          : diffHours <= 3
-            ? "2 - 3 hours"
-            : diffHours <= 6
-              ? "4 - 6 hours"
-              : diffHours <= 12
-                ? "7 - 12 hours"
-                : "More than 12 hours";
-
-      acc[bucket] = (acc[bucket] || 0) + 1;
+      acc[entry.rectificationBucket] = (acc[entry.rectificationBucket] || 0) + 1;
       return acc;
     },
     {
@@ -136,6 +165,28 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       fill: ART_COLORS[index % ART_COLORS.length],
     }),
   );
+
+  const topSameDay = sdmChartData.reduce(
+    (top, item) => (item.value > top.value ? item : top),
+    { name: "N/A", value: 0 },
+  );
+  const totalSameDay = sdmChartData.reduce((sum, item) => sum + item.value, 0);
+  const sameDayInterpretation =
+    totalSameDay > 0
+      ? `${topSameDay.name} has the highest same-day repair share (${((topSameDay.value / totalSameDay) * 100).toFixed(1)}%). Click a slice to filter the table.`
+      : "No same-day repair activity was recorded in the last 30 days.";
+
+  const fastestBucket = artChartData.find((item) => item.value > 0);
+  const totalART = artChartData.reduce((sum, item) => sum + item.value, 0);
+  const artInterpretation =
+    fastestBucket && totalART > 0
+      ? `${((fastestBucket.value / totalART) * 100).toFixed(1)}% of recent rectifications are completed within ${fastestBucket.name}. Click a slice to filter the table.`
+      : "No rectification duration data is available for the last 30 days.";
+
+  const filterInterpretation =
+    selectedAircraft || selectedRectificationBucket
+      ? `Table filters active: ${selectedAircraft ? `same-day aircraft = ${selectedAircraft}` : ""}${selectedAircraft && selectedRectificationBucket ? ", " : ""}${selectedRectificationBucket ? `rectification time = ${selectedRectificationBucket}` : ""}. Click the same slice again to clear each filter.`
+      : "No chart filter is applied. Click any pie slice to filter the table.";
 
   const headers = [
     {
@@ -181,7 +232,17 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
             <Title level={5} style={{ margin: 0 }}>
               Same-day Repairs (Last 30 days)
             </Title>
-            <SDMChart data={sdmChartData} />
+            <SDMChart
+              data={sdmChartData}
+              onSliceClick={(slice) => {
+                const clickedName = slice?.name;
+                if (!clickedName) return;
+                setSelectedAircraft((prev) =>
+                  prev === clickedName ? null : clickedName,
+                );
+              }}
+            />
+            <Text type="secondary">{sameDayInterpretation}</Text>
           </Card>
         </Col>
         <Col xs={24} md={12}>
@@ -189,12 +250,27 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
             <Title level={5} style={{ margin: 0 }}>
               Average Rectification Time (Hours)
             </Title>
-            <ARTChart data={artChartData} />
+            <ARTChart
+              data={artChartData}
+              onSliceClick={(slice) => {
+                const clickedName = slice?.name;
+                if (!clickedName) return;
+                setSelectedRectificationBucket((prev) =>
+                  prev === clickedName ? null : clickedName,
+                );
+              }}
+            />
+            <Text type="secondary">{artInterpretation}</Text>
           </Card>
         </Col>
       </Row>
       <Row>
-        <MHistoryTable headers={headers} data={historyRows} loading={loading} />
+        <Col span={24}>
+          <Text style={{ marginBottom: 8, display: "block" }} type="secondary">
+            {filterInterpretation}
+          </Text>
+          <MHistoryTable headers={headers} data={historyRows} loading={loading} />
+        </Col>
       </Row>
     </div>
   );
