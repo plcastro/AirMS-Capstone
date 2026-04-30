@@ -26,6 +26,7 @@ const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 export default function HeadTaskScreen({
   targetTaskId,
   targetNotificationStatus,
+  addTaskDraft,
 }) {
   const { user } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
@@ -40,6 +41,13 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    if (addTaskDraft) {
+      setAddModalVisible(true);
+      setActiveTab("Assigned");
+    }
+  }, [addTaskDraft]);
 
   const fetchTasks = async ({ silent = false } = {}) => {
     try {
@@ -529,6 +537,7 @@ export default function HeadTaskScreen({
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={employees}
+        initialDraft={addTaskDraft}
       />
 
       <EditTask

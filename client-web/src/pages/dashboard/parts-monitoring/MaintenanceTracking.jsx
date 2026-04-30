@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  Modal,
   Row,
   Space,
   Statistic,
@@ -16,58 +17,158 @@ import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const removeRedundantAircraftPrefix = (summary, aircraft) => {
+  const text = String(summary || "").trim();
+
+  if (!aircraft) {
+    return text;
+  }
+
+  const aircraftPattern = escapeRegExp(aircraft);
+  return text
+    .replace(new RegExp(`^for\\s+aircraft\\s+${aircraftPattern}\\s*[,;-]?\\s*`, "i"), "")
+    .replace(new RegExp(`^for\\s+${aircraftPattern}\\s*[,;-]?\\s*`, "i"), "")
+    .trim();
+};
+
 const columnHeader = [
   {
     title: "Aircraft",
     key: "aircraft",
   },
   {
-    title: "AI Risk",
+    title: "Risk",
     key: "riskLevel",
   },
   {
-    title: "Issue",
-    key: "issueTitle",
-  },
-  {
-    title: "Finding",
-    key: "shortFinding",
-  },
-  {
-    title: "AI Summary",
-    key: "managerSummary",
-  },
-  {
-    title: "Summary Source",
-    key: "managerSummarySource",
+    title: "Maintenance Finding",
+    key: "maintenanceFinding",
   },
   {
     title: "Recommended Action",
     key: "recommendedAction",
   },
   {
-    title: "Manual Reference",
+    title: "AMM Summary",
+    key: "procedureSummary",
+  },
+  {
+    title: "Reference",
     key: "manualReference",
+  },
+  {
+    title: "Rectify",
+    key: "rectifyAction",
   },
 ];
 
+const inferRectificationInspectionName = (item = {}) => {
+  const text = [
+    item.issueTitle,
+    item.component,
+    item.recommendedAction,
+    ...(Array.isArray(item.manualReferences) ? item.manualReferences : []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("tbo")) return "TBO Inspection";
+  if (text.includes("1500 fh")) return "1500 FH Inspection";
+  if (text.includes("1200 fh")) return "1200 FH Inspection";
+  if (text.includes("750 fh")) return "750 FH Inspection";
+  if (text.includes("600 fh")) return "600 FH Inspection";
+  if (text.includes("150 fh")) return "150 FH Inspection";
+  if (text.includes("48 m")) return "48 M Inspection";
+  if (text.includes("24 m")) return "24 M Inspection";
+  if (text.includes("12 m")) return "12 M Inspection";
+  if (text.includes("10 fh")) return "10 FH Inspection";
+
+  return "OC Inspection";
+};
+
+const getIndefiniteArticle = (value = "") =>
+  /^[aeiou]/i.test(String(value || "").trim()) ? "an" : "a";
+
 export default function MaintenanceTracking() {
-  const { user } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
   const [meta, setMeta] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
-  const llmLimit = 5;
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [rectifyingKey, setRectifyingKey] = useState("");
+  const llmLimit = 1;
+
+  const refreshLlmHealth = async () => {
+    const refreshedHealth = await fetch(`${API_BASE}/api/ai-insights/health`, {
+      cache: "no-store",
+    })
+      .then((healthResponse) => healthResponse.json())
+      .catch(() => null);
+
+    if (refreshedHealth) {
+      setLlmHealth(refreshedHealth);
+    }
+
+    return refreshedHealth;
+  };
+
+  useEffect(() => {
+    const cooldownUntil = llmHealth?.cooldown?.cooldownUntil;
+
+    if (!llmHealth?.cooldown?.active || !cooldownUntil) {
+      setCooldownRemaining(0);
+      return undefined;
+    }
+
+    const updateCooldown = () => {
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((new Date(cooldownUntil).getTime() - Date.now()) / 1000),
+      );
+
+      setCooldownRemaining(remainingSeconds);
+
+      if (remainingSeconds <= 0) {
+        setLlmHealth((currentHealth) =>
+          currentHealth
+            ? {
+                ...currentHealth,
+                reachable: true,
+                cooldown: {
+                  ...(currentHealth.cooldown || {}),
+                  active: false,
+                  retryAfterSeconds: 0,
+                  message: "",
+                  cooldownUntil: "",
+                },
+              }
+            : currentHealth,
+        );
+      }
+    };
+
+    updateCooldown();
+    const intervalId = window.setInterval(updateCooldown, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [llmHealth?.cooldown?.active, llmHealth?.cooldown?.cooldownUntil]);
 
   useEffect(() => {
     const fetchInsights = async () => {
       try {
         setLoading(true);
         const [insightsResponse, healthResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/ai-insights/maintenance-tracking`),
-          fetch(`${API_BASE}/api/ai-insights/health`),
+          fetch(
+            `${API_BASE}/api/ai-insights/maintenance-tracking`,
+            { cache: "no-store" },
+          ),
+          fetch(`${API_BASE}/api/ai-insights/health`, { cache: "no-store" }),
         ]);
         const [insightsResult, healthResult] = await Promise.all([
           insightsResponse.json(),
@@ -85,6 +186,7 @@ export default function MaintenanceTracking() {
         );
         setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
+        await refreshLlmHealth();
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
         message.error(
@@ -99,10 +201,29 @@ export default function MaintenanceTracking() {
   }, []);
 
   const fetchGeminiSummaries = async () => {
+    const currentHealth = await refreshLlmHealth();
+
+    if (currentHealth && currentHealth.configured === false) {
+      message.warning(
+        currentHealth.message || "Gemini is not configured on the server.",
+      );
+      return;
+    }
+
+    if (currentHealth?.cooldown?.active) {
+      message.warning(
+        `Gemini quota is cooling down. Try again in ${
+          cooldownRemaining || currentHealth.cooldown.retryAfterSeconds
+        } seconds.`,
+      );
+      return;
+    }
+
     try {
       setSummaryLoading(true);
       const response = await fetch(
         `${API_BASE}/api/ai-insights/maintenance-tracking?includeLLMSummary=1&llmLimit=${llmLimit}`,
+        { cache: "no-store" },
       );
       const result = await response.json();
 
@@ -112,9 +233,28 @@ export default function MaintenanceTracking() {
 
       setInsights(Array.isArray(result.data) ? result.data : []);
       setMeta(result.meta || null);
-      message.success(
-        `Requested Gemini summaries for up to ${llmLimit} highest-risk aircraft.`,
-      );
+      const refreshedHealth = await refreshLlmHealth();
+      const geminiCount = result.meta?.geminiSummaryCount || 0;
+      const geminiLastResult =
+        result.meta?.geminiLastResult || refreshedHealth?.lastResult || {};
+
+      if (geminiCount > 0) {
+        message.success(
+          `Updated ${geminiCount} Gemini maintenance summar${geminiCount === 1 ? "y" : "ies"}.`,
+        );
+      } else if (refreshedHealth?.cooldown?.active) {
+        message.warning(
+          `Gemini did not return summaries because quota is cooling down. Rule recommendations and references were refreshed. Try again in ${
+            cooldownRemaining || refreshedHealth.cooldown.retryAfterSeconds
+          } seconds.`,
+        );
+      } else {
+        message.info(
+          geminiLastResult.message
+            ? `Gemini did not return summaries: ${geminiLastResult.message}`
+            : "Gemini did not return new summaries. Rule recommendations and references were refreshed.",
+        );
+      }
     } catch (error) {
       console.error("Failed to load Gemini summaries:", error);
       message.error(error.message || "Failed to load Gemini summaries");
@@ -135,27 +275,122 @@ export default function MaintenanceTracking() {
     [insights.length, meta],
   );
 
+  const markFindingRectified = async (draft = {}) => {
+    const authHeader = await getAuthHeader();
+    const response = await fetch(`${API_BASE}/api/ai-insights/rectification-task`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+      },
+      body: JSON.stringify(draft),
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Failed to mark finding rectified");
+    }
+
+    return result;
+  };
+
+  const confirmFindingRectified = (draft = {}) => {
+    if (!draft) {
+      return;
+    }
+
+    Modal.confirm({
+      title: "Mark this finding as rectified?",
+      content: `This will clear the active maintenance issue for ${draft.aircraft || "this aircraft"} in Maintenance Tracking.`,
+      okText: "Mark Rectified",
+      cancelText: "Cancel",
+      onOk: async () => {
+        try {
+          setRectifyingKey(`${draft.aircraft}-${draft.issueTitle}`);
+          await markFindingRectified(draft);
+          setInsights((currentInsights) =>
+            currentInsights.filter(
+              (item) =>
+                !(
+                  item.aircraft === draft.aircraft &&
+                  item.issueTitle === draft.issueTitle
+                ),
+            ),
+          );
+          message.success("Maintenance finding marked rectified.");
+        } catch (error) {
+          console.error("Failed to mark finding rectified:", error);
+          message.error(error.message || "Failed to mark finding rectified");
+        } finally {
+          setRectifyingKey("");
+        }
+      },
+    });
+  };
+
   const tableData = useMemo(
     () =>
-      insights.map((item) => ({
-        _id: item.aircraftId,
-        aircraft: item.aircraft,
-        riskLevel: item.riskLevel,
-        issueTitle: item.issueTitle,
-        shortFinding: item.shortFinding,
-        managerSummary: item.managerSummary || item.shortFinding,
-        managerSummarySource:
-          item.managerSummarySource === "gemini"
+      insights.map((item) => {
+        const isGeminiFinding = item.managerSummarySource === "gemini";
+
+        return {
+          _id: item.aircraftId,
+          aircraft: item.aircraft,
+          riskLevel: item.riskLevel,
+          maintenanceFinding: {
+            title: item.issueTitle,
+            summary: removeRedundantAircraftPrefix(
+              item.managerSummary || item.shortFinding,
+              item.aircraft,
+            ),
+            defectDetails: item.defectDetails || null,
+            source: isGeminiFinding ? "Gemini AI" : "Rule-based",
+          },
+          managerSummarySource: isGeminiFinding
             ? "Gemini AI"
             : "Rule Fallback",
-        recommendedAction: item.recommendedAction,
-        manualReference:
-          Array.isArray(item.manualReferences) &&
-          item.manualReferences.length > 0
-            ? item.manualReferences.join(" | ")
-            : "Pending manual mapping",
-      })),
-    [insights],
+          recommendedAction: isGeminiFinding ? item.recommendedAction || "" : "",
+          procedureSummary: {
+            reference: isGeminiFinding ? item.procedureReference || "" : "",
+            title: isGeminiFinding ? item.procedureTitle || "" : "",
+            summary: isGeminiFinding ? item.procedureSummary || "" : "",
+          },
+          manualReference:
+            Array.isArray(item.manualReferences) &&
+            item.manualReferences.length > 0
+              ? item.manualReferences.join(" | ")
+              : "",
+          rectifyAction:
+            (item.matchedRules || []).length > 0
+              ? {
+                  aircraft: item.aircraft,
+                  aircraftModel: item.aircraftModel || "AS350 B3",
+                  issueTitle: item.issueTitle,
+                  component: item.component,
+                  riskLevel: item.riskLevel,
+                  recommendedAction: item.recommendedAction || "",
+                  recommendedActions: Array.isArray(item.recommendedActions)
+                    ? item.recommendedActions
+                    : [],
+                  procedureReference: item.procedureReference || "",
+                  procedureTitle: item.procedureTitle || "",
+                  procedureSummary: item.procedureSummary || "",
+                  manualReference:
+                    Array.isArray(item.manualReferences) &&
+                    item.manualReferences.length > 0
+                      ? item.manualReferences.join(" | ")
+                      : "",
+                  matchedRuleCodes: (item.matchedRules || [])
+                    .map((rule) => rule.ruleCode)
+                    .filter(Boolean),
+                  inspectionName: inferRectificationInspectionName(item),
+                  rectifying:
+                    rectifyingKey === `${item.aircraft}-${item.issueTitle}`,
+                }
+              : null,
+        };
+      }),
+    [insights, rectifyingKey],
   );
 
   const summarySourceCounts = useMemo(
@@ -244,15 +479,18 @@ export default function MaintenanceTracking() {
                 type="primary"
                 onClick={fetchGeminiSummaries}
                 loading={summaryLoading}
-                disabled={!llmHealth?.configured}
+                disabled={!llmHealth?.configured || llmHealth?.cooldown?.active}
               >
-                Generate Gemini Summaries
+                {llmHealth?.cooldown?.active
+                  ? `Gemini cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
+                  : "Regenerate Gemini Summaries"}
               </Button>
             )}
             <Text type="secondary">
-              Rule-engine results load by default.
+              Rule-engine results load first. Use Regenerate to request Gemini enrichment for detected issues.
+              When Gemini enriches a finding, AirMS selects the recommendation and reference from the matched rules.
               {!isOfficerInCharge &&
-                ` Gemini is requested only on demand for up to ${llmLimit} highest-risk aircraft.`}
+                ` Use the button to retry or refresh up to ${llmLimit} detected maintenance issues.`}
             </Text>
           </Space>
         </Space>
@@ -278,7 +516,7 @@ export default function MaintenanceTracking() {
           }
           showIcon
           title="Gemini health"
-          description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Reachable: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
+          description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
         />
       )}
 
@@ -290,7 +528,8 @@ export default function MaintenanceTracking() {
           <MTrackingTable
             headers={columnHeader}
             data={tableData}
-            loading={loading}
+            loading={loading || summaryLoading}
+            onRectifyFinding={confirmFindingRectified}
           />
         </Col>
       </Row>

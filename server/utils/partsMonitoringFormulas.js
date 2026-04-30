@@ -96,13 +96,13 @@ const getReferenceCellValue = (cell, refs = {}) => {
   const key = cell.replace(/\$/g, "").toUpperCase();
   const referenceCells = refs.referenceCells || {};
 
-  if (referenceCells[key] !== undefined) return referenceCells[key];
   if (key === "J1") return refs.landings;
   if (key === "L1") return refs.today;
   if (key === "L2") return refs.engTT ?? refs.acftTT;
   if (key === "H3") return refs.n1Cycles;
   if (key === "J3") return refs.n2Cycles;
   if (key === "L3") return refs.acftTT;
+  if (referenceCells[key] !== undefined) return referenceCells[key];
   return "";
 };
 
@@ -244,12 +244,45 @@ const fallbackTimeRemaining = (row, refs) => {
   return currentNumber === null ? "" : normalizeFormulaResult(due - currentNumber);
 };
 
+const fallbackDaysRemaining = (row, refs) => {
+  const dueDate = parseDate(row.dateDue);
+  const today = parseDate(refs.today);
+  if (!dueDate || !today) return row.daysRemaining || "";
+  return normalizeFormulaResult(daysBetween(today, dueDate));
+};
+
 const fallbackDue = (timeRemaining, daysRemaining) => {
   const time = toNumber(timeRemaining);
   const days = toNumber(daysRemaining);
   if (time !== null && time <= 30) return "DUE";
   if (days !== null && days <= 30) return "DUE";
   return "";
+};
+
+const normalizeDueColumns = (row) => {
+  const time = toNumber(row.timeRemaining);
+  const days = toNumber(row.daysRemaining);
+  const dueByTime =
+    (Boolean(row.formulas?.due) &&
+      String(row.due || "").toUpperCase() === "DUE") ||
+    (time !== null && time <= 30);
+  const dueByDays =
+    (Boolean(row.formulas?.hd) &&
+      String(row.hd || "").toUpperCase() === "DUE") ||
+    (days !== null && days <= 30);
+
+  return {
+    ...row,
+    due: dueByTime || dueByDays ? "DUE" : "",
+    hd:
+      dueByTime && dueByDays
+        ? "H/D"
+        : dueByTime
+          ? "H"
+          : dueByDays
+            ? "D"
+            : "",
+  };
 };
 
 const applyFormulas = (row, allData, rowIndex, refs, sharedContext) => {
@@ -269,7 +302,29 @@ const applyFormulas = (row, allData, rowIndex, refs, sharedContext) => {
     }
   });
 
-  return nextRow;
+  if (!nextRow.formulas?.ttCycleDue) {
+    nextRow.ttCycleDue = fallbackTTCycleDue(nextRow);
+  }
+
+  if (!nextRow.formulas?.dateDue && nextRow.dateCW && nextRow.dayLimit) {
+    const dateCW = parseDate(nextRow.dateCW);
+    const dayLimit = toNumber(nextRow.dayLimit);
+    if (dateCW && dayLimit !== null) {
+      nextRow.dateDue = normalizeFormulaResult(
+        new Date(dateCW.getTime() + dayLimit * MS_PER_DAY),
+      );
+    }
+  }
+
+  if (!nextRow.formulas?.daysRemaining || nextRow.daysRemaining === "") {
+    nextRow.daysRemaining = fallbackDaysRemaining(nextRow, refs);
+  }
+
+  if (!nextRow.formulas?.timeRemaining || nextRow.timeRemaining === "") {
+    nextRow.timeRemaining = fallbackTimeRemaining(nextRow, refs);
+  }
+
+  return normalizeDueColumns(nextRow);
 };
 
 const processDataWithFormulas = (data, refs) => {

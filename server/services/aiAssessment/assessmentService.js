@@ -1,7 +1,11 @@
 const { buildFactsMap } = require("./factBuilder");
 const { runInference } = require("./inferenceEngine");
 const { getManualRules } = require("./ruleLoader");
-const { summarizeInsightWithLLM } = require("./llmExplainer");
+const { getManualProcedures } = require("./procedureLoader");
+const {
+  enrichInsightWithLLM,
+  getGeminiCooldown,
+} = require("./llmExplainer");
 
 const RISK_SORT = {
   Critical: 1,
@@ -29,17 +33,40 @@ const collectRelatedRecordIds = (evidence = {}) => ({
   hydraulicFlights: (evidence.hydraulicFlights || []).map((item) => item.id).filter(Boolean),
 });
 
+const collectSourceSnippets = (evidence = {}) =>
+  (evidence.signalRecords || [])
+    .filter((item) => item?.text)
+    .slice(0, 8)
+    .map((item) => ({
+      source: item.source || "record",
+      text: item.text,
+      signalKeys: item.signalKeys || [],
+      recordId: item.recordId || "",
+    }));
+
+const toPublicInsight = (insight = {}) => {
+  const {
+    _ruleRecommendedAction,
+    _ruleRecommendedActions,
+    _ruleManualReferences,
+    ...publicInsight
+  } = insight;
+
+  return publicInsight;
+};
+
 const buildMaintenanceInsights = async ({
   includeLLMSummary = false,
   llmLimit = 0,
 } = {}) => {
-  const [rules, { aircraftFacts }] = await Promise.all([
+  const [rules, procedures, { aircraftFacts }] = await Promise.all([
     getManualRules(),
+    getManualProcedures(),
     buildFactsMap(),
   ]);
 
   const rawInsights = aircraftFacts.map((entry) => {
-    const inference = runInference(rules, entry);
+    const inference = runInference(rules, entry, procedures);
 
     return {
       aircraftId: entry.aircraftId,
@@ -55,10 +82,20 @@ const buildMaintenanceInsights = async ({
       recommendedAction: inference.recommendedAction,
       recommendedActions: inference.recommendedActions,
       manualReferences: inference.manualReferences,
+      procedureReference: inference.procedureReference,
+      procedureTitle: inference.procedureTitle,
+      procedureSummary: inference.procedureSummary,
+      procedureSteps: inference.procedureSteps,
+      _ruleRecommendedAction: inference.recommendedAction,
+      _ruleRecommendedActions: inference.recommendedActions,
+      _ruleManualReferences: inference.manualReferences,
       matchedRules: inference.matchedRules,
       explanation: inference.explanation,
-      managerSummary: inference.managerSummary,
+      managerSummary: inference.shortFinding,
       managerSummarySource: "rule-fallback",
+      defectDetails: null,
+      defectDetailsSource: "none",
+      sourceSnippets: collectSourceSnippets(entry.evidence),
       sourceCounts: entry.sourceCounts,
         evidenceCounts: {
           overdueParts: entry.evidence.overdueParts.length,
@@ -86,25 +123,49 @@ const buildMaintenanceInsights = async ({
   });
 
   if (!includeLLMSummary) {
-    return rawInsights;
+    return rawInsights.map(toPublicInsight);
   }
 
   const normalizedLlmLimit = Number.isFinite(Number(llmLimit))
     ? Math.max(0, Number(llmLimit))
     : 0;
-  const llmEligibleInsights =
-    normalizedLlmLimit > 0 ? rawInsights.slice(0, normalizedLlmLimit) : rawInsights;
-
-  const llmSummaries = await Promise.all(
-    llmEligibleInsights.map(async (insight) => {
-      const llmSummary = await summarizeInsightWithLLM(insight);
-      return {
-        aircraftId: insight.aircraftId,
-        managerSummary: llmSummary || insight.managerSummary,
-        managerSummarySource: llmSummary ? "gemini" : "rule-fallback",
-      };
-    }),
+  const llmEligibleInsights = rawInsights.filter(
+    (insight) => (insight.matchedRules || []).length > 0,
   );
+  const limitedLlmEligibleInsights =
+    normalizedLlmLimit > 0
+      ? llmEligibleInsights.slice(0, normalizedLlmLimit)
+      : llmEligibleInsights;
+
+  const llmSummaries = [];
+
+  for (const insight of limitedLlmEligibleInsights) {
+    if (getGeminiCooldown().active) {
+      break;
+    }
+
+    const llmInputInsight = {
+      ...insight,
+      recommendedAction: insight._ruleRecommendedAction,
+      recommendedActions: insight._ruleRecommendedActions,
+      manualReferences: insight._ruleManualReferences,
+    };
+    const llmResult = await enrichInsightWithLLM(llmInputInsight);
+    const llmSummary = llmResult?.managerSummary || "";
+    const llmUsed = Boolean(llmResult);
+    const defectDetails = llmResult?.defectDetails || null;
+
+    llmSummaries.push({
+      aircraftId: insight.aircraftId,
+      managerSummary: llmSummary || insight.managerSummary,
+      managerSummarySource: llmUsed ? "gemini" : "rule-fallback",
+      recommendedAction: insight._ruleRecommendedAction,
+      recommendedActions: insight._ruleRecommendedActions,
+      manualReferences: insight._ruleManualReferences,
+      defectDetails,
+      defectDetailsSource: defectDetails ? "gemini" : "none",
+    });
+  }
 
   const llmSummaryByAircraftId = new Map(
     llmSummaries.map((item) => [item.aircraftId, item]),
@@ -120,8 +181,13 @@ const buildMaintenanceInsights = async ({
       ...insight,
       managerSummary: llmResult.managerSummary,
       managerSummarySource: llmResult.managerSummarySource,
+      recommendedAction: llmResult.recommendedAction,
+      recommendedActions: llmResult.recommendedActions,
+      manualReferences: llmResult.manualReferences,
+      defectDetails: llmResult.defectDetails || insight.defectDetails,
+      defectDetailsSource: llmResult.defectDetailsSource,
     };
-  });
+  }).map(toPublicInsight);
 };
 
 module.exports = {

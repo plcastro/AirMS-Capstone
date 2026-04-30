@@ -1,7 +1,14 @@
 const ManualRule = require("../models/manualRuleModel");
 const { buildMaintenanceInsights } = require("../services/aiAssessment/assessmentService");
 const { DEFAULT_MANUAL_RULES } = require("../services/aiAssessment/ruleLoader");
-const { getGeminiConfig } = require("../services/aiAssessment/llmExplainer");
+const { auditLog } = require("./logsController");
+const MaintenanceLog = require("../models/maintenanceLogModel");
+const AiRectification = require("../models/aiRectificationModel");
+const {
+  getGeminiConfig,
+  getGeminiCooldown,
+  getLastGeminiResult,
+} = require("../services/aiAssessment/llmExplainer");
 
 const getMaintenanceInsights = async (req, res) => {
   try {
@@ -26,6 +33,13 @@ const getMaintenanceInsights = async (req, res) => {
         low: 0,
       },
     );
+    const geminiSummaryCount = insights.filter(
+      (insight) => insight.managerSummarySource === "gemini",
+    ).length;
+    const llmEligibleCount = insights.filter(
+      (insight) => (insight.matchedRules || []).length > 0,
+    ).length;
+    const cooldown = getGeminiCooldown();
 
     res.status(200).json({
       success: true,
@@ -36,6 +50,10 @@ const getMaintenanceInsights = async (req, res) => {
         activeModel: getGeminiConfig().model,
         llmLimitApplied:
           includeLLMSummary && Number.isFinite(llmLimit) ? Math.max(0, llmLimit) : 0,
+        llmEligibleCount,
+        geminiSummaryCount,
+        geminiCooldown: cooldown,
+        geminiLastResult: getLastGeminiResult(),
       },
     });
   } catch (error) {
@@ -116,6 +134,7 @@ const saveManualRules = async (req, res) => {
 const getLLMHealth = async (req, res) => {
   const { apiKey, model } = getGeminiConfig();
   const hasApiKey = Boolean(apiKey);
+  const cooldown = getGeminiCooldown();
 
   if (!hasApiKey) {
     return res.status(200).json({
@@ -127,59 +146,106 @@ const getLLMHealth = async (req, res) => {
     });
   }
 
+  return res.status(200).json({
+    success: true,
+    configured: true,
+    reachable: !cooldown.active,
+    cooldown,
+    lastResult: getLastGeminiResult(),
+    model,
+    message: cooldown.active
+      ? cooldown.message || `Gemini is cooling down for ${cooldown.retryAfterSeconds} seconds`
+      : "Gemini is configured. Health check does not call Gemini to avoid using quota.",
+  });
+};
+
+const createRectificationTask = async (req, res) => {
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: "Reply with exactly: OK" }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 16,
-          temperature: 0,
-        },
-      }),
-    },
-    );
+    const draft = req.body || {};
 
-    const result = await response.json().catch(() => ({}));
-    const outputText = result?.candidates?.[0]?.content?.parts?.[0]?.text
-      ? String(result.candidates[0].content.parts[0].text).trim()
-      : "";
-
-    if (!response.ok) {
-      return res.status(response.status).json({
+    if (!draft.aircraft || !draft.issueTitle) {
+      return res.status(400).json({
         success: false,
-        configured: true,
-        reachable: false,
-        model,
-        message: result?.error?.message || "Gemini health check failed",
+        message: "Aircraft and finding are required to mark the issue rectified",
       });
     }
 
-    return res.status(200).json({
+    const rectifiedAt = new Date();
+    const matchedRuleCodes = Array.isArray(draft.matchedRuleCodes)
+      ? draft.matchedRuleCodes.filter(Boolean)
+      : [];
+    const correctiveActionDone = [
+      "Marked rectified from AI Maintenance Tracking.",
+      draft.recommendedAction,
+      draft.procedureSummary,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const rectification = await AiRectification.create({
+      aircraft: draft.aircraft,
+      issueTitle: draft.issueTitle,
+      component: draft.component || "",
+      riskLevel: draft.riskLevel || "",
+      matchedRuleCodes,
+      rectifiedAt,
+      rectifiedBy: req.user?.id || null,
+      status: "active",
+    });
+
+    await MaintenanceLog.updateMany(
+      {
+        aircraft: draft.aircraft,
+        $or: [
+          { dateDefectRectified: { $exists: false } },
+          { dateDefectRectified: null },
+          { status: { $ne: "verified" } },
+        ],
+      },
+      {
+        $set: {
+          dateDefectRectified: rectifiedAt,
+          correctiveActionDone,
+          status: "verified",
+        },
+      },
+    );
+
+    await MaintenanceLog.create({
+      sourceTaskId: `AI-RECTIFIED-${rectification._id}`,
+      taskTitle: "AI maintenance finding rectified",
+      sourceTaskStatus: "rectified",
+      aircraft: draft.aircraft,
+      defects: draft.issueTitle,
+      dateDefectDiscovered: rectifiedAt,
+      correctiveActionDone,
+      workDetails: [
+        {
+          description: draft.issueTitle,
+        },
+      ],
+      workDetailsLocked: true,
+      dateDefectRectified: rectifiedAt,
+      reportedBy: req.user?.username || req.user?.id || "AI Maintenance Tracking",
+      status: "verified",
+    });
+
+    await auditLog(
+      `AI maintenance finding rectified: ${draft.aircraft} - ${draft.issueTitle}`,
+      req.user?.id || null,
+    );
+
+    return res.status(201).json({
       success: true,
-      configured: true,
-      reachable: true,
-      model,
-      message: "Gemini API key is working",
-      responsePreview: outputText || "No output text returned",
+      message: "Maintenance finding marked rectified",
+      data: rectification,
     });
   } catch (error) {
+    console.error("Error marking AI maintenance finding rectified:", error);
     return res.status(500).json({
       success: false,
-      configured: true,
-      reachable: false,
-      model,
-      message: error.message || "Gemini health check failed",
+      message: "Failed to mark maintenance finding rectified",
+      error: error.message,
     });
   }
 };
@@ -189,4 +255,5 @@ module.exports = {
   getManualRules,
   saveManualRules,
   getLLMHealth,
+  createRectificationTask,
 };
