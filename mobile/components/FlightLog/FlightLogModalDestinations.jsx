@@ -106,7 +106,7 @@ export default function FlightLogModalDestinations({
 
   const renderInput = (legIdx, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </Text>
       <TextInput
@@ -115,7 +115,7 @@ export default function FlightLogModalDestinations({
           borderRadius: 4,
           height: 38,
           paddingHorizontal: 10,
-          fontSize: 14,
+          fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
         }}
         value={legs[legIdx][fieldKey] || ""}
@@ -142,7 +142,7 @@ export default function FlightLogModalDestinations({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Destination/s
       </Text>
 
@@ -172,7 +172,7 @@ export default function FlightLogModalDestinations({
               justifyContent: "space-between",
               alignItems: "center",
             }}>
-              <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+              <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
                 {legNumber}{suffix} Leg
               </Text>
               {isEditable && legs.length > 1 && (
@@ -183,7 +183,7 @@ export default function FlightLogModalDestinations({
             </View>
 
             <View style={{ padding: 20 }}>
-              <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
                 Station *
               </Text>
 
@@ -197,7 +197,7 @@ export default function FlightLogModalDestinations({
                       borderRadius: 4,
                       height: 38,
                       paddingHorizontal: 10,
-                      fontSize: 14,
+                      fontSize: 12,
                       color: isEditable ? COLORS.black : COLORS.grayDark,
                     }}
                     value={station.from}
@@ -206,7 +206,7 @@ export default function FlightLogModalDestinations({
                     placeholderTextColor={COLORS.grayDark}
                     editable={isEditable}
                   />
-                  <Text style={{ marginHorizontal: 8, fontSize: 18, color: COLORS.black }}>-</Text>
+                  <Text style={{ marginHorizontal: 8, fontSize: 12, color: COLORS.black }}>-</Text>
                   <TextInput
                     style={{
                       flex: 1,
@@ -214,7 +214,7 @@ export default function FlightLogModalDestinations({
                       borderRadius: 4,
                       height: 38,
                       paddingHorizontal: 10,
-                      fontSize: 14,
+                      fontSize: 12,
                       color: isEditable ? COLORS.black : COLORS.grayDark,
                     }}
                     value={station.to}
@@ -254,12 +254,12 @@ export default function FlightLogModalDestinations({
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "500" }}>+ Add Station</Text>
+                  <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Station</Text>
                 </TouchableOpacity>
               )}
 
               <View style={{ marginTop: 10 }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12}}>
                   Time Information
                 </Text>
                 {renderInput(legIdx, "Block Time (ON)", "blockTimeOn")}
@@ -291,7 +291,7 @@ export default function FlightLogModalDestinations({
             marginBottom: 20,
           }}
         >
-          <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "500" }}>+ Add Leg</Text>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Leg</Text>
         </TouchableOpacity>
       )}
     </ScrollView>

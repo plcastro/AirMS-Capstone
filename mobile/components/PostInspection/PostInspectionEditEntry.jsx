@@ -250,7 +250,7 @@ export default function PostInspectionEditEntry({
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -300,7 +300,9 @@ export default function PostInspectionEditEntry({
                     if (areAllPostInspectionChecksComplete(formData)) {
                       setShowReleaseModal(true);
                     } else {
-                      showToast("All checklist fields must be checked before release.");
+                      showToast(
+                        "All checklist fields must be checked before release.",
+                      );
                     }
                   }}
                   style={{
@@ -315,7 +317,7 @@ export default function PostInspectionEditEntry({
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
-                      fontSize: 16,
+                      fontSize: 12,
                     }}
                   >
                     Release
@@ -343,7 +345,7 @@ export default function PostInspectionEditEntry({
                   >
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.white,
                         fontWeight: "600",
                       }}
@@ -354,7 +356,7 @@ export default function PostInspectionEditEntry({
                   <View style={{ padding: 20 }}>
                     <Text
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: COLORS.black,
                         marginBottom: 4,
                         fontWeight: "500",
@@ -418,7 +420,7 @@ export default function PostInspectionEditEntry({
                   >
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.white,
                         fontWeight: "600",
                       }}
@@ -429,7 +431,7 @@ export default function PostInspectionEditEntry({
                   <View style={{ padding: 20 }}>
                     <Text
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: COLORS.black,
                         marginBottom: 4,
                         fontWeight: "500",
@@ -499,7 +501,7 @@ export default function PostInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>

@@ -317,7 +317,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
                 height: 50,
                 width: "100%",
                 color: "#333",
-                fontSize: 14,
+                fontSize: 12,
                 marginTop: -4,
               },
             ]}

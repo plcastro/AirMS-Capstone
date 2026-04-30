@@ -435,7 +435,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+      <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
         {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
       </Text>
@@ -467,14 +467,14 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
           style={{
             flex: 1,
             marginRight: 10,
-            fontSize: 15,
+            fontSize: 12,
             color: value ? COLORS.black : COLORS.grayDark,
           }}
         >
           {value || placeholder}
         </Text>
 
-        <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
+        <Text style={{ color: COLORS.primaryLight, fontSize: 12 }}>
           {visible ? "^" : "v"}
         </Text>
       </TouchableOpacity>
@@ -513,7 +513,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     color: COLORS.black,
                   }}
                 >
@@ -633,7 +633,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
             })}
 
             <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
               <Text style={{ color: COLORS.dangerBorder }}> *</Text>
@@ -665,7 +665,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
             )}
 
             <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
               <Text style={{ color: COLORS.dangerBorder }}> *</Text>
@@ -712,7 +712,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               />
             )}
 
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15}}>
               Checklist
             </Text>
 

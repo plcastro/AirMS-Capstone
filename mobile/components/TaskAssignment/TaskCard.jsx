@@ -152,17 +152,21 @@ export default function TaskCard({
 
     return (
       <>
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Due: {formatDisplayDateTime(deadline)}
         </Text>
         {includeSubmitted && (
           <>
-            <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+            <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
               Submitted: {formatDisplayDateTime(submittedAt)}
             </Text>
             {!!submissionText && (
               <Text
-                style={{ color: submissionColor, fontSize: 13, marginBottom: 4 }}
+                style={{
+                  color: submissionColor,
+                  fontSize: 12,
+                  marginBottom: 4,
+                }}
               >
                 {submissionText}
               </Text>
@@ -199,7 +203,7 @@ export default function TaskCard({
           <Text
             style={{
               fontWeight: "bold",
-              fontSize: 16,
+              fontSize: 12,
               color: "#000",
               flex: 1,
               marginRight: 10,
@@ -238,10 +242,10 @@ export default function TaskCard({
             marginBottom: status === "Ongoing" || status === "Returned" ? 8 : 0,
           }}
         >
-          <Text style={{ color: "#666", fontSize: 14 }}>
+          <Text style={{ color: "#666", fontSize: 12 }}>
             Aircraft: {aircraft}
           </Text>
-          <Text style={{ color: "#666", fontSize: 14 }}>
+          <Text style={{ color: "#666", fontSize: 12 }}>
             Start: {formatDateTime(startDateTime)}
           </Text>
         </View>
@@ -295,13 +299,13 @@ export default function TaskCard({
           <Text
             style={{
               fontWeight: "bold",
-              fontSize: 16,
+              fontSize: 12,
               color: "#000",
               flex: 1,
               marginRight: 10,
             }}
           >
-          {title || maintenanceType || "Corrective Maintenance"}
+            {title || maintenanceType || "Corrective Maintenance"}
           </Text>
 
           {status === "Returned" && (
@@ -326,15 +330,15 @@ export default function TaskCard({
           )}
         </View>
 
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Aircraft: {aircraft}
         </Text>
 
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Start: {formatDateTime(startDateTime)}
         </Text>
 
-        <Text style={{ color: "#ff6b6b", fontSize: 14, marginBottom: 8 }}>
+        <Text style={{ color: "#ff6b6b", fontSize: 12, marginBottom: 8 }}>
           {overdueTime} - Due at {dueTime}
         </Text>
 
@@ -382,7 +386,7 @@ export default function TaskCard({
           <Text
             style={{
               fontWeight: "bold",
-              fontSize: 16,
+              fontSize: 12,
               color: "#000",
               flex: 1,
               marginRight: 10,
@@ -411,11 +415,11 @@ export default function TaskCard({
           </View>
         </View>
 
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Aircraft: {aircraft}
         </Text>
 
-        <Text style={{ color: "#666", fontSize: 14 }}>
+        <Text style={{ color: "#666", fontSize: 12 }}>
           Start: {formatDateTime(startDateTime)}
         </Text>
 
@@ -438,13 +442,13 @@ export default function TaskCard({
         <Text
           style={{
             fontWeight: "bold",
-            fontSize: 16,
+            fontSize: 12,
             color: "#000",
             flex: 1,
             marginRight: 10,
           }}
         >
-            {title || maintenanceType || "Corrective Maintenance"}
+          {title || maintenanceType || "Corrective Maintenance"}
         </Text>
 
         {/* Show Returned badge for returned tasks */}
@@ -492,17 +496,17 @@ export default function TaskCard({
         )}
       </View>
 
-      <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+      <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
         Aircraft: {aircraft}
       </Text>
 
       {assignedToName && isHeadView && (
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Assigned to: {assignedToName}
         </Text>
       )}
 
-      <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+      <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
         Start: {formatDateTime(startDateTime)}
       </Text>
 
@@ -525,7 +529,7 @@ export default function TaskCard({
             progress={progress}
             width={null}
             height={6}
-            color={COLORS.primaryLight}
+            color={COLORS.successBorder}
             unfilledColor="#e0e0e0"
             borderWidth={0}
             borderRadius={3}

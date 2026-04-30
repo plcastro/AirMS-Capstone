@@ -480,7 +480,7 @@ export default function HeadTaskScreen({
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 14 },
+              { fontSize: 12 },
             ]}
           />
         ))}
@@ -488,7 +488,7 @@ export default function HeadTaskScreen({
 
       {/* Header */}
       <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
+        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 12 }}>
           {taskHeader}
         </Text>
       </View>

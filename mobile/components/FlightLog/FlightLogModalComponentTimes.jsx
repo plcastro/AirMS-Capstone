@@ -64,7 +64,7 @@ export default function FlightLogModalComponentTimes({
       <View style={{ marginBottom: 16 }}>
         <Text
           style={{
-            fontSize: 13,
+            fontSize: 12,
             color: COLORS.black,
             marginBottom: 6,
             fontWeight: "500",
@@ -78,7 +78,7 @@ export default function FlightLogModalComponentTimes({
             borderRadius: 6,
             height: 42,
             paddingHorizontal: 12,
-            fontSize: 14,
+            fontSize: 12,
             color: isFieldEditable ? COLORS.black : COLORS.grayDark,
           }}
           value={value}
@@ -91,7 +91,7 @@ export default function FlightLogModalComponentTimes({
           editable={isFieldEditable}
         />
         {isLocked && (
-          <Text style={{ fontSize: 10, color: COLORS.grayDark, marginTop: 4 }}>
+          <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}>
             This section is locked and cannot be edited
           </Text>
         )}
@@ -109,7 +109,7 @@ export default function FlightLogModalComponentTimes({
     <ScrollView showsVerticalScrollIndicator={false}>
       <Text
         style={{
-          fontSize: 20,
+          fontSize: 12,
           fontWeight: "700",
           color: COLORS.grayDark,
           marginBottom: 16,
@@ -140,7 +140,7 @@ export default function FlightLogModalComponentTimes({
           }}
         >
           <Text
-            style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}
           >
             {getPageTitle()}
             {isLocked && currentComponentPage === 0 && (

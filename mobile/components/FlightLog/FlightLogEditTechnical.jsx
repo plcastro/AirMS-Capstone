@@ -357,7 +357,7 @@ export default function FlightLogVerifyTechnical({
   const renderPage = (fields) => {
     return fields.map((field, index) => (
       <View key={index} style={{ marginBottom: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "500", marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: "500", marginBottom: 4 }}>
           {field.label}
         </Text>
         <TextInput
@@ -396,7 +396,7 @@ export default function FlightLogVerifyTechnical({
                 onPress={onClose}
                 style={{ alignSelf: "flex-end", marginBottom: 10 }}
               >
-                <Text style={{ fontSize: 18, fontWeight: "600" }}>✕</Text>
+                <Text style={{ fontSize: 14, fontWeight: "600"}}>✕</Text>
               </TouchableOpacity>
 
               {/* Title */}
@@ -405,7 +405,7 @@ export default function FlightLogVerifyTechnical({
                   styles.newEntryTitle,
                   {
                     marginBottom: 20,
-                    fontSize: 20,
+                    fontSize: 12,
                     textAlign: "center",
                   },
                 ]}
