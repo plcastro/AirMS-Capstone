@@ -1,4 +1,4 @@
-import { View, ScrollView, Text } from "react-native";
+import { View, ScrollView, Text, RefreshControl } from "react-native";
 import React, { useState, useContext } from "react";
 import TaskCard from "./TaskCard";
 import Button from "../Button";
@@ -7,7 +7,13 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 
-export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
+export default function TaskTabs({
+  tasks,
+  employees = [],
+  onTaskPress,
+  onRefresh,
+  refreshing = false,
+}) {
   const { user } = useContext(AuthContext);
   const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
 
@@ -76,6 +82,40 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
       });
     }
   };
+
+  const getMechanicTabCount = (tab) =>
+    tasks.filter((task) => {
+      const deadline = task.endDateTime || task.dueDate;
+      if (!deadline) return false;
+
+      const dueDate = new Date(deadline);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const isPastDue = dueDate < today;
+
+      switch (tab) {
+        case "Upcoming":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            !isPastDue
+          );
+        case "Past Due":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            isPastDue
+          );
+        case "Completed":
+          return task.status === "Completed" || task.status === "Turned in";
+        default:
+          return false;
+      }
+    }).length;
+
+  const getTabLabel = (tab) =>
+    isHead ? tab : `${tab} (${getMechanicTabCount(tab)})`;
 
   const getGroupedTasks = () => {
     if (isHead) return [];
@@ -154,11 +194,11 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
         {tabsToRender.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={getTabLabel(tab)}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { width: 120 },
+              { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
@@ -187,7 +227,14 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
 
       {/* Task List */}
       <View style={styles.taskTable}>
-        <ScrollView contentContainerStyle={{ padding: 10 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 10 }}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            ) : undefined
+          }
+        >
           {!isHead && groupedTasks.length > 0
             ? groupedTasks.map((section) => (
                 <View key={section.title}>

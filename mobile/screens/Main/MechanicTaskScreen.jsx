@@ -15,6 +15,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
@@ -38,33 +39,39 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   const isSameTask = (left, right) =>
     String(left?.id || left?._id || "") === String(right?.id || right?._id || "");
 
-  // Fetch tasks assigned to the current mechanic
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await parseJsonSafely(response);
-          const assignedTasks = (data?.data || []).filter(
-            (task) => String(task.assignedTo) === String(currentUserId),
-          );
-          setTasks(assignedTasks || []);
-        } else {
-          console.error("Failed to fetch tasks, status:", response.status);
-          const errorText = await response.text();
-          console.error("Error response:", errorText);
-          setTasks([]);
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
+  const fetchTasks = async ({ silent = false } = {}) => {
+    if (!currentUserId) return;
+
+    try {
+      if (!silent) setRefreshing(true);
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const assignedTasks = (data?.data || []).filter(
+          (task) => String(task.assignedTo) === String(currentUserId),
+        );
+        setTasks(assignedTasks || []);
+      } else {
+        console.error("Failed to fetch tasks, status:", response.status);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
         setTasks([]);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setTasks([]);
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  };
+
+  // Fetch tasks assigned to the current mechanic
+  useEffect(() => {
     if (currentUserId) {
       fetchTasks();
     }
@@ -170,6 +177,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           ...savedTask,
           findings: savedTask.findings || "",
         });
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to start task");
       }
@@ -207,6 +215,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
           ...(prev || {}),
           ...savedTask,
         }));
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to save draft");
       }
@@ -251,6 +260,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
         );
         setTasks(updatedTasks);
         setSelectedTask(savedTask);
+        await fetchTasks({ silent: true });
       } else {
         showToast("Failed to turn in task");
       }
@@ -326,7 +336,12 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
       </View>
       <View style={styles.maintenanceSearchDivider} />
 
-      <TaskTabs tasks={filteredTasks} onTaskPress={handleTaskPress} />
+      <TaskTabs
+        tasks={filteredTasks}
+        onTaskPress={handleTaskPress}
+        onRefresh={fetchTasks}
+        refreshing={refreshing}
+      />
 
       <TaskChecklist
         visible={modalVisible}

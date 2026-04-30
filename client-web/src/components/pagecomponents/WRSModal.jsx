@@ -497,7 +497,7 @@ export default function WRSModal({
     <Modal
       open={visible}
       onCancel={onClose}
-      width={1100}
+      width={"80%"}
       centered
       footer={null}
       title={
@@ -513,7 +513,7 @@ export default function WRSModal({
       }
     >
       <Row gutter={[20, 20]}>
-        <Col xs={24} xl={15}>
+        <Col xs={24} xl={17}>
           <Card
             variant="borderless"
             style={{ borderRadius: 18, background: "#fafafa" }}
@@ -583,7 +583,7 @@ export default function WRSModal({
           />
         </Col>
 
-        <Col xs={24} xl={9}>
+        <Col xs={24} xl={7}>
           <Card
             variant="borderless"
             style={{ borderRadius: 18, marginBottom: 16 }}

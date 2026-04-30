@@ -53,12 +53,7 @@ const dedupeChecklistItems = (items = []) => {
   });
 };
 
-export default function AddTask({
-  visible,
-  onClose,
-  onAddTask,
-  employees,
-}) {
+export default function AddTask({ visible, onClose, onAddTask, employees }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
@@ -82,6 +77,24 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
+
+  const resetForm = () => {
+    const now = new Date();
+    setSelectedAircraft("");
+    setSelectedEmployee("");
+    setInspectionType("");
+    setSelectedInspection(null);
+    setStartDate(now);
+    setEndDate(new Date(now.getTime() + 60 * 60 * 1000));
+    setChecklistItems([]);
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setShowAircraftDropdown(false);
+    setShowInspectionDropdown(false);
+    setShowMechanicDropdown(false);
+    setAndroidPickerMode("date");
+    setEndDateManuallyAdjusted(false);
+  };
 
   const fetchInspectionTasks = async (inspection) => {
     const response = await fetch(
@@ -153,9 +166,12 @@ export default function AddTask({
   }, []);
 
   useEffect(() => {
-    const fetchInspections = async () => {
-      if (!visible) return;
+    if (!visible) {
+      resetForm();
+      return;
+    }
 
+    const fetchInspections = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${API_BASE}/api/inspections/schedules`);
@@ -266,6 +282,7 @@ export default function AddTask({
   };
 
   const confirmDiscard = () => {
+    resetForm();
     onClose();
   };
 
@@ -348,7 +365,12 @@ export default function AddTask({
     const nextDate = new Date(currentValue);
 
     if (Platform.OS === "android") {
-      nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      nextDate.setHours(
+        selectedDate.getHours(),
+        selectedDate.getMinutes(),
+        0,
+        0,
+      );
     } else {
       nextDate.setTime(selectedDate.getTime());
     }
@@ -403,6 +425,7 @@ export default function AddTask({
 
   const renderDropdownField = ({
     label,
+    required = false,
     value,
     placeholder,
     options,
@@ -413,7 +436,8 @@ export default function AddTask({
   }) => (
     <View style={{ marginBottom: 15 }}>
       <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
-        {label} *
+        {label}
+        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
       </Text>
 
       <TouchableOpacity
@@ -482,7 +506,9 @@ export default function AddTask({
                   borderBottomWidth: index < options.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.border,
                   backgroundColor:
-                    value === item.label ? `${COLORS.primaryLight}12` : COLORS.white,
+                    value === item.label
+                      ? `${COLORS.primaryLight}12`
+                      : COLORS.white,
                 }}
               >
                 <Text
@@ -502,9 +528,11 @@ export default function AddTask({
   );
 
   const selectedAircraftLabel =
-    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)?.name || "";
+    aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
+      ?.name || "";
   const selectedInspectionLabel =
-    inspectionOptions.find((inspection) => inspection.id === inspectionType)?.name || "";
+    inspectionOptions.find((inspection) => inspection.id === inspectionType)
+      ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
@@ -538,6 +566,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Aircraft",
+              required: true,
               value: selectedAircraftLabel,
               placeholder: "Tail No.",
               options: aircraftOptions.map((aircraft) => ({
@@ -551,6 +580,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Inspection",
+              required: true,
               value: selectedInspectionLabel,
               placeholder:
                 loading && inspectionOptions.length === 0
@@ -590,6 +620,7 @@ export default function AddTask({
 
             {renderDropdownField({
               label: "Mechanic",
+              required: true,
               value: selectedEmployeeLabel,
               placeholder: "Pick Mechanic",
               options: employees.map((emp) => ({
@@ -604,7 +635,8 @@ export default function AddTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              Start Date and Time *
+              Start Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -635,7 +667,8 @@ export default function AddTask({
             <Text
               style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
             >
-              End Date and Time *
+              End Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -661,7 +694,8 @@ export default function AddTask({
                 marginBottom: 20,
               }}
             >
-              Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)}
+              Estimated duration:{" "}
+              {formatEstimatedDuration(scheduleEstimate.minutes)}
               {" | "}
               {scheduleEstimate.itemCount} checklist item
               {scheduleEstimate.itemCount === 1 ? "" : "s"}
@@ -690,7 +724,9 @@ export default function AddTask({
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
-                    {[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ")}
+                    {[item.taskId, item.inspectionTypeFull]
+                      .filter(Boolean)
+                      .join(" | ")}
                   </Text>
 
                   <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
@@ -716,7 +752,7 @@ export default function AddTask({
             }}
           >
             <Button
-              label="Discard Task"
+              label="Discard"
               onPress={confirmDiscard}
               buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.secondaryAlertBtnTxt}

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
@@ -268,11 +267,11 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   borderRadius: 4,
                   borderWidth: 2,
-                  borderColor: value ? COLORS.primaryLight : COLORS.grayMedium,
+                  borderColor: COLORS.primaryLight,
                   backgroundColor: value ? COLORS.primaryLight : "transparent",
                   justifyContent: "center",
                   alignItems: "center",
@@ -284,7 +283,7 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
                 )}
               </View>
               <Text style={{ 
-                fontSize: 14, 
+                fontSize: 16, 
                 color: COLORS.grayDark,
                 flex: 1,
                 flexWrap: "wrap",
@@ -299,7 +298,7 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+    <View>
       {/* Main Rotor Head Card */}
       <View style={{ 
         backgroundColor: COLORS.white,
@@ -317,7 +316,7 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 20, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
             Main Rotor Head
           </Text>
         </View>
@@ -335,8 +334,8 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   borderRadius: 4,
                   borderWidth: 2,
                   borderColor: COLORS.primaryLight,
@@ -361,6 +360,6 @@ export default function PostInspectionModalMainRotor({ formData, updateForm, isE
           {mainRotorItems.map((item, index) => renderItemWithChecks(index, item))}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
