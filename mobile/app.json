@@ -21,6 +21,7 @@
     },
     "android": {
       "package": "com.ngcp-aviation-dept.airms",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"

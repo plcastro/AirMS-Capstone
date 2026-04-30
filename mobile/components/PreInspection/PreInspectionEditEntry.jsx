@@ -307,7 +307,7 @@ export default function PreInspectionEditEntry({
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -372,7 +372,7 @@ export default function PreInspectionEditEntry({
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
-                      fontSize: 16,
+                      fontSize: 12,
                     }}
                   >
                     Release
@@ -399,7 +399,7 @@ export default function PreInspectionEditEntry({
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
-                      fontSize: 16,
+                      fontSize: 12,
                     }}
                   >
                     Accept
@@ -428,7 +428,7 @@ export default function PreInspectionEditEntry({
                   >
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.white,
                         fontWeight: "600",
                       }}
@@ -439,7 +439,7 @@ export default function PreInspectionEditEntry({
                   <View style={{ padding: 20 }}>
                     <Text
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: COLORS.black,
                         marginBottom: 4,
                         fontWeight: "500",
@@ -502,7 +502,7 @@ export default function PreInspectionEditEntry({
                   >
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.white,
                         fontWeight: "600",
                       }}
@@ -513,7 +513,7 @@ export default function PreInspectionEditEntry({
                   <View style={{ padding: 20 }}>
                     <Text
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: COLORS.black,
                         marginBottom: 4,
                         fontWeight: "500",
@@ -584,7 +584,7 @@ export default function PreInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>

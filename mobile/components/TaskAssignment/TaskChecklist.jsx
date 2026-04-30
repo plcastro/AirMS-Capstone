@@ -219,7 +219,7 @@ export default function TaskChecklist({
         )}
         <Text
           style={{
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: "600",
             color: isDisabled ? "#999" : "#000",
             marginBottom: item.description ? 2 : 0,
@@ -242,7 +242,7 @@ export default function TaskChecklist({
         {!!item.description && (
           <Text
             style={{
-              fontSize: 13,
+              fontSize: 12,
               lineHeight: 18,
               color: isDisabled ? "#999" : "#555",
             }}
@@ -300,7 +300,7 @@ export default function TaskChecklist({
 
             <Text
               style={{
-                fontSize: 20,
+                fontSize: 12,
                 fontWeight: "bold",
                 marginBottom: 6,
                 marginRight: 42,
@@ -309,7 +309,7 @@ export default function TaskChecklist({
               {task.title}
             </Text>
 
-            <Text style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 20 }}>
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
               {" "}Aircraft {task.aircraft}
             </Text>
@@ -327,7 +327,7 @@ export default function TaskChecklist({
               >
                 <Text
                   style={{
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: "600",
                     color: "#c62828",
                     marginBottom: 4,
@@ -336,7 +336,7 @@ export default function TaskChecklist({
                   Returned for Rework
                 </Text>
                 {task.returnComments && (
-                  <Text style={{ fontSize: 14, color: "#b71c1c" }}>
+                  <Text style={{ fontSize: 12, color: "#b71c1c" }}>
                     {task.returnComments}
                   </Text>
                 )}
@@ -356,7 +356,7 @@ export default function TaskChecklist({
               >
                 <Text
                   style={{
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: "600",
                     color: "#c62828",
                     marginBottom: 8,
@@ -365,7 +365,7 @@ export default function TaskChecklist({
                   Remarks
                 </Text>
                 <Text
-                  style={{ fontSize: 14, color: "#b71c1c", marginBottom: 12 }}
+                  style={{ fontSize: 12, color: "#b71c1c", marginBottom: 12 }}
                 >
                   {task.returnComments ||
                     "Finding details are incomplete. Please update findings."}
@@ -411,7 +411,7 @@ export default function TaskChecklist({
                     <Text
                       style={{
                         color: "#fff",
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: "bold",
                       }}
                     >
@@ -420,7 +420,7 @@ export default function TaskChecklist({
                   </View>
                   <Text
                     style={{
-                      fontSize: 16,
+                      fontSize: 12,
                       color: "#2e7d32",
                       fontWeight: "600",
                     }}
@@ -439,7 +439,7 @@ export default function TaskChecklist({
                   }}
                 >
                   <Text
-                    style={{ fontSize: 14, color: "#555", marginBottom: 4 }}
+                    style={{ fontSize: 12, color: "#555", marginBottom: 4 }}
                   >
                     Approval Status:
                   </Text>
@@ -447,7 +447,7 @@ export default function TaskChecklist({
                     <View>
                       <Text
                         style={{
-                          fontSize: 16,
+                          fontSize: 12,
                           color: "#2e7d32",
                           fontWeight: "600",
                           marginBottom: 2,
@@ -455,7 +455,7 @@ export default function TaskChecklist({
                       >
                         Approved
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#666" }}>
+                      <Text style={{ fontSize: 12, color: "#666" }}>
                         {approvedDate
                           ? `Approved by ${approvedBy || "Maintenance Manager"} on ${formatReturnedDateTime(approvedDate)}`
                           : `Approved by ${approvedBy || "Maintenance Manager"}`}
@@ -483,7 +483,7 @@ export default function TaskChecklist({
                     <View>
                       <Text
                         style={{
-                          fontSize: 16,
+                          fontSize: 12,
                           color: "#f57c00",
                           fontWeight: "600",
                           marginBottom: 2,
@@ -491,7 +491,7 @@ export default function TaskChecklist({
                       >
                         Pending Approval
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#666" }}>
+                      <Text style={{ fontSize: 12, color: "#666" }}>
                         Pending review by Maintenance Manager
                       </Text>
                     </View>
@@ -505,7 +505,7 @@ export default function TaskChecklist({
               showsVerticalScrollIndicator={false}
             >
               <Text
-                style={{ fontSize: 18, fontWeight: "600", marginBottom: 12 }}
+                style={{ fontSize: 14, fontWeight: "600", marginBottom: 12}}
               >
                 Checklist
               </Text>
@@ -532,7 +532,7 @@ export default function TaskChecklist({
                 <>
                   <Text
                     style={{
-                      fontSize: 18,
+                      fontSize: 12,
                       fontWeight: "600",
                       marginTop: 20,
                       marginBottom: 12,
@@ -542,7 +542,7 @@ export default function TaskChecklist({
                   </Text>
                   <Text
                     style={{
-                      fontSize: 13,
+                      fontSize: 12,
                       color: "#667085",
                       marginBottom: 10,
                       lineHeight: 18,
@@ -571,7 +571,7 @@ export default function TaskChecklist({
                       <Text
                         style={{
                           fontWeight: "600",
-                          fontSize: 14,
+                          fontSize: 12,
                           color: "#333",
                         }}
                       >
@@ -582,7 +582,7 @@ export default function TaskChecklist({
                       style={{
                         minHeight: 100,
                         padding: 12,
-                        fontSize: 14,
+                        fontSize: 12,
                         textAlignVertical: "top",
                         color: isCompleted ? "#666" : "#000",
                       }}

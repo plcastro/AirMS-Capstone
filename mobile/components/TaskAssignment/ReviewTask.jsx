@@ -156,7 +156,7 @@ export default function ReviewTask({
           <Text
             style={[
               styles.alertTitle,
-              { fontSize: 24, marginBottom: 20, textAlign: "center" },
+              { fontSize: 12, marginBottom: 20, textAlign: "center" },
             ]}
           >
             {mode === "return" ? "RETURN TASK" : "APPROVE TASK"}
@@ -164,7 +164,7 @@ export default function ReviewTask({
 
           <Text
             style={{
-              fontSize: 16,
+              fontSize: 12,
               color: "#666",
               marginBottom: 20,
               textAlign: "center",
@@ -183,7 +183,7 @@ export default function ReviewTask({
                 <View style={{ marginBottom: 20 }}>
                   <Text
                     style={{
-                      fontSize: 14,
+                      fontSize: 12,
                       color: COLORS.grayDark,
                       marginBottom: 10,
                     }}
@@ -239,7 +239,7 @@ export default function ReviewTask({
                               {!!meta && (
                                 <Text
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     color: COLORS.grayDark,
                                     marginBottom: 2,
                                   }}
@@ -249,7 +249,7 @@ export default function ReviewTask({
                               )}
                               <Text
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: COLORS.black,
                                 }}
                               >
@@ -265,7 +265,7 @@ export default function ReviewTask({
               )}
               <Text
                 style={{
-                  fontSize: 14,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   marginBottom: 8,
                 }}
@@ -295,7 +295,7 @@ export default function ReviewTask({
           {mode === "approve" && step === "signature" && (
             <>
               <Text
-                style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 8 }}
+                style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Approval signature
               </Text>
@@ -350,7 +350,7 @@ export default function ReviewTask({
           {mode === "approve" && step === "pin" && (
             <>
               <Text
-                style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 8 }}
+                style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Confirm PIN
               </Text>

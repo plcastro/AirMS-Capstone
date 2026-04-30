@@ -94,7 +94,7 @@ export default function PostInspectionModalInfo({
           borderRadius: 6,
           height: 42,
           paddingHorizontal: 12,
-          fontSize: 14,
+          fontSize: 12,
           color: COLORS.grayDark,
         }}
         value={formData.aircraftType || ""}
@@ -122,7 +122,7 @@ export default function PostInspectionModalInfo({
         onPress={isEditable ? toggleRPCDropdown : null}
       >
         <Text style={{ 
-          fontSize: 14, 
+          fontSize: 12, 
           color: formData.rpc ? COLORS.black : COLORS.grayDark 
         }}>
           {formData.rpc || "Select RP/C"}
@@ -169,7 +169,7 @@ export default function PostInspectionModalInfo({
                 }}
               >
                 <Text style={{ 
-                  fontSize: 14,
+                  fontSize: 12,
                   color: formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
                 }}>
                   {rpc}
@@ -184,7 +184,7 @@ export default function PostInspectionModalInfo({
 
   return (
     <View>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Basic Information
       </Text>
 
@@ -201,28 +201,28 @@ export default function PostInspectionModalInfo({
         overflow: "visible",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Rotary Winged Aircraft - Single Engine
           </Text>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               RP-C: *
             </Text>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Aircraft Type: *
             </Text>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Date:
             </Text>
             <View style={{
@@ -234,7 +234,7 @@ export default function PostInspectionModalInfo({
               height: 42,
               paddingHorizontal: 12,
             }}>
-              <Text style={{ fontSize: 14, color: COLORS.grayDark }}>
+              <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
               </Text>
               <MaterialCommunityIcons name="calendar-blank" size={18} color={COLORS.grayDark} />

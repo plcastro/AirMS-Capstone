@@ -223,7 +223,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
     return (
       <View key={item.key} style={{ marginBottom: 20 }}>
         <Text style={{ 
-          fontSize: 16, 
+          fontSize: 12, 
           fontWeight: "bold", 
           color: COLORS.black, 
           marginBottom: 10 
@@ -266,7 +266,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                 )}
               </View>
               <Text style={{ 
-                fontSize: 16, 
+                fontSize: 12, 
                 color: COLORS.grayDark,
                 flex: 1,
                 flexWrap: "wrap",
@@ -299,7 +299,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Engine and Engine Bay
           </Text>
         </View>
@@ -332,7 +332,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -361,7 +361,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Station 3
           </Text>
         </View>
@@ -394,7 +394,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
