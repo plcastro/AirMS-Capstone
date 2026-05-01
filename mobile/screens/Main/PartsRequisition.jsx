@@ -399,12 +399,20 @@ export default function PartsRequisition({ route, navigation }) {
   }, [fetchAircraftOptions, fetchRequisitions]);
 
   useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      fetchRequisitions({ silent: true });
-      fetchNotifications();
-    }, 15000);
+    if (typeof EventSource === "undefined") return undefined;
 
-    return () => clearInterval(refreshInterval);
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchRequisitions({ silent: true });
+      await fetchNotifications();
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
   }, [fetchNotifications, fetchRequisitions]);
 
   useFocusEffect(

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   Row,
   Col,
@@ -43,8 +43,11 @@ export default function AdminDashboard() {
   ]);
   const [selectedActionType, setSelectedActionType] = useState("all");
 
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
+  const fetchUsers = useCallback(async (options = {}) => {
+    const { silent = false } = options;
+    if (!silent) {
+      setLoadingUsers(true);
+    }
     try {
       const token = await getValidToken();
       const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
@@ -67,12 +70,17 @@ export default function AdminDashboard() {
       console.error("Failed to fetch admin users", error);
       message.error(error.message || "Failed to fetch users");
     } finally {
-      setLoadingUsers(false);
+      if (!silent) {
+        setLoadingUsers(false);
+      }
     }
-  };
+  }, [getValidToken]);
 
-  const fetchLogs = async (startDate = null, endDate = null) => {
-    setLoadingLogs(true);
+  const fetchLogs = useCallback(async (startDate = null, endDate = null, options = {}) => {
+    const { silent = false } = options;
+    if (!silent) {
+      setLoadingLogs(true);
+    }
     try {
       const token = await getValidToken();
       let url = `${API_BASE}/api/logs/getAllUserLogs`;
@@ -120,14 +128,31 @@ export default function AdminDashboard() {
       console.error("Failed to fetch admin activity logs", error);
       message.error(error.message || "Failed to fetch activity logs");
     } finally {
-      setLoadingLogs(false);
+      if (!silent) {
+        setLoadingLogs(false);
+      }
     }
-  };
+  }, [getValidToken]);
 
   useEffect(() => {
     fetchUsers();
     fetchLogs(dateRange[0], dateRange[1]);
-  }, [dateRange]);
+  }, [dateRange, fetchLogs, fetchUsers]);
+
+  useEffect(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchUsers({ silent: true });
+      await fetchLogs(dateRange[0], dateRange[1], { silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [dateRange, fetchLogs, fetchUsers]);
 
   const handleDateRangeChange = (dates) => {
     if (dates && dates[0] && dates[1]) {

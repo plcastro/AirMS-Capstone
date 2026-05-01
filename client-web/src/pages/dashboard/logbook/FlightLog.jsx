@@ -119,9 +119,12 @@ export default function FlightLog() {
         ),
     );
 
-  const fetchFlightLogs = useCallback(async () => {
+  const fetchFlightLogs = useCallback(async (options = {}) => {
+    const { silent = false } = options;
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       const params = new URLSearchParams();
       params.append("page", "1");
@@ -155,7 +158,9 @@ export default function FlightLog() {
       console.error("Fetch flight logs error:", error);
       message.error(error.message || "Failed to fetch flight logs");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [normalizeStatusFilterValue, selectedAircraft, selectedStatus]);
 
@@ -524,6 +529,20 @@ export default function FlightLog() {
 
   useEffect(() => {
     fetchFlightLogs();
+  }, [fetchFlightLogs]);
+
+  useEffect(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchFlightLogs({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
   }, [fetchFlightLogs]);
 
   useEffect(() => {

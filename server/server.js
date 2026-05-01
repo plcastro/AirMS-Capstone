@@ -29,6 +29,7 @@ const sendEmail = require("./utils/sendEmail");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
+const { subscribeToEvents, publishEvent } = require("./utils/realtimeEvents");
 
 const app = express();
 
@@ -57,6 +58,9 @@ app.use(
     credentials: true,
   }),
 );
+
+app.get("/api/events/stream", subscribeToEvents);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
@@ -98,6 +102,32 @@ app.use(async (req, res, next) => {
       message: "Database connection unavailable. Please try again.",
     });
   }
+});
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const method = String(req.method || "").toUpperCase();
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      return;
+    }
+
+    if (res.statusCode >= 400) {
+      return;
+    }
+
+    if (!String(req.originalUrl || "").startsWith("/api/")) {
+      return;
+    }
+
+    publishEvent("airms:data-changed", {
+      url: req.originalUrl,
+      method,
+      statusCode: res.statusCode,
+      at: new Date().toISOString(),
+    });
+  });
+
+  next();
 });
 
 app.use("/api/user", userRoutes);
