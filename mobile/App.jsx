@@ -80,12 +80,12 @@ function DrawerNav({ navigation }) {
       screenOptions={({ navigation }) => ({
         headerShown: true,
         drawerType: "slide",
-        drawerStyle: { width: 260 },
+        drawerStyle: { width: "85%" },
         overlayColor: "transparent",
         headerRight: () => (
           <View
             style={{
-              marginHorizontal: 7,
+              paddingHorizontal: 7,
               flexDirection: "row",
               alignItems: "center",
             }}

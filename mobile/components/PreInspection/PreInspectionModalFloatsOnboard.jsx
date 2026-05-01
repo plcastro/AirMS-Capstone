@@ -371,7 +371,7 @@ export default function PreInspectionModalFloatsOnboard({
           <Text
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
-            FOB
+            Fuel On Board
           </Text>
         </View>
 
@@ -386,7 +386,7 @@ export default function PreInspectionModalFloatsOnboard({
               fontWeight: "bold",
             }}
           >
-            FOB: *
+            Fuel On Board: <Text style={{ color: "red" }}>*</Text>
           </Text>
           <View
             style={{
