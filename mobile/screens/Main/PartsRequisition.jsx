@@ -205,7 +205,8 @@ const buildTimeline = (record) => {
 
   return statusSteps.map((step, index) => ({
     ...stepDetails[step],
-    dateTime: index <= currentStepIndex ? stepDetails[step].dateTime : "Pending",
+    dateTime:
+      index <= currentStepIndex ? stepDetails[step].dateTime : "Pending",
     by: index <= currentStepIndex ? stepDetails[step].by : "-",
     isCompleted: index < currentStepIndex,
     isCurrent: index === currentStepIndex,
@@ -271,29 +272,27 @@ const mapRequisitionToCard = (record) => {
   };
 };
 
-const resolveTabForRequest = (request, isManager) => {
+const resolveTabForRequest = (request) => {
   if (!request) {
     return null;
   }
 
-  if (isManager) {
-    return request.hasWarehouseAssessment &&
-      !["Approved", "Delivered", "Cancelled"].includes(request.rawStatus)
-      ? "For Review"
-      : "History";
+  if (["Delivered", "Cancelled"].includes(request.rawStatus)) {
+    return "Closed";
   }
 
-  return request.rawStatus === "Parts Requested" &&
-    !request.hasWarehouseAssessment
-    ? "Active"
-    : "History";
+  if (request.rawStatus === "Approved") {
+    return "Approved";
+  }
+
+  return "Pending";
 };
 
 export default function PartsRequisition({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTab, setSelectedTab] = useState("Active");
+  const [selectedTab, setSelectedTab] = useState("Pending");
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -307,13 +306,7 @@ export default function PartsRequisition({ route, navigation }) {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
-  const tabLabels = isManager
-    ? ["For Review", "History"]
-    : ["Active", "History"];
-
-  useEffect(() => {
-    setSelectedTab(isManager ? "For Review" : "Active");
-  }, [isManager]);
+  const tabLabels = ["Pending", "Approved", "Closed"];
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -330,9 +323,11 @@ export default function PartsRequisition({ route, navigation }) {
     }
   };
 
-  const fetchRequisitions = useCallback(async () => {
+  const fetchRequisitions = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/get-all-requisition`,
@@ -357,7 +352,9 @@ export default function PartsRequisition({ route, navigation }) {
       console.error("Error fetching requisitions:", error);
       showToast("Failed to fetch parts requisitions.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -389,6 +386,15 @@ export default function PartsRequisition({ route, navigation }) {
     fetchAircraftOptions();
   }, [fetchAircraftOptions, fetchRequisitions]);
 
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchRequisitions({ silent: true });
+      fetchNotifications();
+    }, 15000);
+
+    return () => clearInterval(refreshInterval);
+  }, [fetchNotifications, fetchRequisitions]);
+
   useFocusEffect(
     useCallback(() => {
       fetchRequisitions();
@@ -412,18 +418,13 @@ export default function PartsRequisition({ route, navigation }) {
 
   const filteredRequisitions = useMemo(() => {
     const sourceData = mappedRequisitions.filter((item) => {
-      if (isManager) {
-        return selectedTab === "For Review"
-          ? item.hasWarehouseAssessment &&
-              !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus)
-          : ["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
+      if (selectedTab === "Pending") {
+        return !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
       }
-
-      return selectedTab === "Active"
-        ? item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
-        : !(
-            item.rawStatus === "Parts Requested" && !item.hasWarehouseAssessment
-          );
+      if (selectedTab === "Approved") {
+        return item.rawStatus === "Approved";
+      }
+      return ["Delivered", "Cancelled"].includes(item.rawStatus);
     });
 
     return sourceData.filter((item) => {
@@ -437,7 +438,23 @@ export default function PartsRequisition({ route, navigation }) {
 
       return matchesSearch;
     });
-  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
+  }, [mappedRequisitions, searchQuery, selectedTab]);
+
+  const tabCounts = useMemo(
+    () => ({
+      Pending: mappedRequisitions.filter(
+        (item) =>
+          !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
+      ).length,
+      Approved: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Approved",
+      ).length,
+      Closed: mappedRequisitions.filter((item) =>
+        ["Delivered", "Cancelled"].includes(item.rawStatus),
+      ).length,
+    }),
+    [mappedRequisitions],
+  );
 
   useEffect(() => {
     const targetRequestId = route?.params?.targetRequestId;
@@ -454,7 +471,7 @@ export default function PartsRequisition({ route, navigation }) {
       return;
     }
 
-    const nextTab = resolveTabForRequest(matchedRequest, isManager);
+    const nextTab = resolveTabForRequest(matchedRequest);
 
     if (nextTab && nextTab !== selectedTab) {
       setSelectedTab(nextTab);
@@ -468,7 +485,6 @@ export default function PartsRequisition({ route, navigation }) {
       notificationStatus: undefined,
     });
   }, [
-    isManager,
     mappedRequisitions,
     navigation,
     route?.params?.targetRequestId,
@@ -661,7 +677,7 @@ export default function PartsRequisition({ route, navigation }) {
       }
 
       resetEntryModal();
-      setSelectedTab("Active");
+      setSelectedTab("Pending");
       await fetchRequisitions();
       showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
@@ -713,6 +729,7 @@ export default function PartsRequisition({ route, navigation }) {
 
   const renderTabButton = (label) => {
     const isSelected = selectedTab === label;
+    const count = tabCounts[label] || 0;
 
     return (
       <TouchableOpacity
@@ -722,7 +739,7 @@ export default function PartsRequisition({ route, navigation }) {
         style={[
           {
             minWidth: 92,
-            paddingHorizontal: 18,
+            paddingHorizontal: 16,
             paddingVertical: 10,
             borderRadius: 7,
             backgroundColor: COLORS.white,
@@ -746,7 +763,7 @@ export default function PartsRequisition({ route, navigation }) {
             isSelected && { color: COLORS.white },
           ]}
         >
-          {label}
+          {`${label} (${count})`}
         </Text>
       </TouchableOpacity>
     );
@@ -770,7 +787,7 @@ export default function PartsRequisition({ route, navigation }) {
     detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
   const canOrder =
     isManager &&
-    selectedTab === "For Review" &&
+    selectedTab === "Pending" &&
     selectedRequest?.hasWarehouseAssessment &&
     ["Parts Requested", "Availability Checked"].includes(
       selectedRequest?.rawStatus,
@@ -778,7 +795,7 @@ export default function PartsRequisition({ route, navigation }) {
     hasMissingItems;
   const canApprove =
     isManager &&
-    selectedTab === "For Review" &&
+    selectedTab === "Pending" &&
     selectedRequest?.hasWarehouseAssessment &&
     !["Approved", "Delivered", "Cancelled"].includes(
       selectedRequest?.rawStatus,
@@ -860,13 +877,20 @@ export default function PartsRequisition({ route, navigation }) {
                   marginLeft: 6,
                 }}
               >
-                New Entry
+                Request
               </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 3,
+            marginBottom: 20,
+            justifyContent: "space-between",
+          }}
+        >
           {tabLabels.map(renderTabButton)}
         </View>
 
@@ -880,7 +904,7 @@ export default function PartsRequisition({ route, navigation }) {
             onEdit={handleEdit}
             onDelete={handleDelete}
             showActions={!isManager}
-            actionsDisabled={!isManager && selectedTab === "History"}
+            actionsDisabled={!isManager && selectedTab !== "Pending"}
             loading={loading}
           />
         </ScrollView>
@@ -905,7 +929,7 @@ export default function PartsRequisition({ route, navigation }) {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showManagerActions={isManager && selectedTab === "For Review"}
+        showManagerActions={isManager && selectedTab === "Pending"}
         canOrder={canOrder}
         canApprove={canApprove}
         orderLabel={orderLabel}

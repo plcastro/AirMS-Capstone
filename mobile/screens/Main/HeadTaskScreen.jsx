@@ -79,6 +79,14 @@ export default function HeadTaskScreen({
   }, []);
 
   useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchTasks({ silent: true });
+    }, 15000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  useEffect(() => {
     if (!targetTaskId || tasks.length === 0) {
       return;
     }

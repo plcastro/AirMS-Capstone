@@ -645,7 +645,7 @@ export default function EditTask({
                       onPress={() => removeChecklistItem(index)}
                       style={{ alignSelf: "flex-start", marginTop: 8 }}
                     >
-                      <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                      <Text style={{ color: COLORS.dangerBg || "#d32f2f" }}>
                         Remove
                       </Text>
                     </TouchableOpacity>

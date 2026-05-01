@@ -67,6 +67,12 @@ function DrawerNav({ navigation }) {
       <ScreenComponent {...props} />
     </Dashboard>
   );
+  const navLabel = {
+    headerTitleStyle: {
+      fontSize: 14,
+      fontWeight: 200,
+    },
+  };
 
   return (
     <Drawer.Navigator
@@ -105,7 +111,7 @@ function DrawerNav({ navigation }) {
               />
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600"}}>
+                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#777" }}>
@@ -128,14 +134,17 @@ function DrawerNav({ navigation }) {
           <Drawer.Screen
             name="Flight Logbook"
             component={wrapWithDashboard(FlightLog)}
+            options={navLabel}
           />
           <Drawer.Screen
             name="Pre-Inspection"
             component={wrapWithDashboard(PreInspection)}
+            options={navLabel}
           />
           <Drawer.Screen
             name="Post-Inspection"
             component={wrapWithDashboard(PostInspection)}
+            options={navLabel}
           />
         </>
       )}
@@ -144,6 +153,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Mechanics"
           component={wrapWithDashboard(MechanicList)}
+          options={navLabel}
         />
       )}
 
@@ -154,6 +164,7 @@ function DrawerNav({ navigation }) {
           <Drawer.Screen
             name="Tasks"
             component={wrapWithDashboard(TaskAssignment)}
+            options={navLabel}
           />
         </>
       )}
@@ -164,6 +175,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Parts Requisition"
           component={wrapWithDashboard(PartsRequisition)}
+          options={navLabel}
         />
       )}
       {[
@@ -172,7 +184,11 @@ function DrawerNav({ navigation }) {
         "officer-in-charge",
         "pilot",
       ].includes(user.jobTitle?.toLowerCase()) && (
-        <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+        <Drawer.Screen
+          name="Profile"
+          component={wrapWithDashboard(Profile)}
+          options={navLabel}
+        />
       )}
     </Drawer.Navigator>
   );
@@ -308,7 +324,7 @@ function AppShell({ linking }) {
               padding: 18,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10}}>
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
               Session Timeout Warning
             </Text>
             <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
