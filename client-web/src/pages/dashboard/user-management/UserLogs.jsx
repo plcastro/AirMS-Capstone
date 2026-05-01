@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { Input, DatePicker, Space, Grid, message } from "antd";
@@ -21,8 +21,11 @@ export default function UserLogs() {
   ]);
   const [loading, setLoading] = useState(false);
 
-  const fetchUserLogs = async (startDate = null, endDate = null) => {
-    setLoading(true);
+  const fetchUserLogs = useCallback(async (startDate = null, endDate = null, options = {}) => {
+    const { silent = false } = options;
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const token = await getValidToken();
       const params = new URLSearchParams({
@@ -67,9 +70,11 @@ export default function UserLogs() {
       console.error("Error fetching user logs:", error);
       message.error(error.message || "Failed to fetch user logs");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [getValidToken]);
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
@@ -100,7 +105,21 @@ export default function UserLogs() {
 
   useEffect(() => {
     fetchUserLogs(dateRange?.[0], dateRange?.[1]);
-  }, [dateRange]);
+  }, [dateRange, fetchUserLogs]);
+
+  useEffect(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchUserLogs(dateRange?.[0], dateRange?.[1], { silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [dateRange, fetchUserLogs]);
 
   return (
     <div
