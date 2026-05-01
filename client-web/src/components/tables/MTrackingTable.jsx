@@ -1,10 +1,13 @@
-import { Table, Tag } from "antd";
+import { Button, Space, Table, Tag, Typography } from "antd";
 import React, { useState, useMemo } from "react";
+
+const { Text } = Typography;
 
 export default function MTrackingTable({
   headers = [],
   data = [],
   loading = false,
+  onRectifyFinding,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -92,6 +95,113 @@ export default function MTrackingTable({
         };
       }
 
+      if (header.key === "maintenanceFinding") {
+        return {
+          title: header.title,
+          dataIndex: "maintenanceFinding",
+          key: "maintenanceFinding",
+          width: 420,
+          sorter: (a, b) =>
+            String(a.maintenanceFinding?.title ?? "").localeCompare(
+              String(b.maintenanceFinding?.title ?? ""),
+            ),
+          render: (finding) => {
+            const source = finding?.source || "Rule-based";
+            const sourceColor = source === "Gemini AI" ? "blue" : "default";
+            const defectDetails = finding?.defectDetails;
+            const hasDefectDetails =
+              defectDetails &&
+              [
+                defectDetails.defectType,
+                defectDetails.symptom,
+                defectDetails.affectedComponent,
+                defectDetails.maintenanceMeaning,
+              ].some(Boolean);
+
+            return (
+              <Space direction="vertical" size={4}>
+                <Space size={6} wrap>
+                  <Text strong>{finding?.title || "No issue detected"}</Text>
+                  <Tag color={sourceColor}>{source}</Tag>
+                </Space>
+                <Text type="secondary">
+                  {finding?.summary || "No active maintenance finding."}
+                </Text>
+                {hasDefectDetails && (
+                  <Space direction="vertical" size={2}>
+                    {defectDetails.defectType && (
+                      <Text>
+                        <Text strong>Defect:</Text> {defectDetails.defectType}
+                      </Text>
+                    )}
+                    {defectDetails.symptom && (
+                      <Text type="secondary">
+                        <Text strong>Symptom:</Text> {defectDetails.symptom}
+                      </Text>
+                    )}
+                    {defectDetails.maintenanceMeaning && (
+                      <Text type="secondary">
+                        <Text strong>Meaning:</Text>{" "}
+                        {defectDetails.maintenanceMeaning}
+                      </Text>
+                    )}
+                    <Tag color="purple">
+                      Detail confidence: {defectDetails.confidence || "low"}
+                    </Tag>
+                  </Space>
+                )}
+              </Space>
+            );
+          },
+        };
+      }
+
+      if (header.key === "rectifyAction") {
+        return {
+          title: header.title,
+          dataIndex: "rectifyAction",
+          key: "rectifyAction",
+          width: 130,
+          render: (draft) => (
+            <Button
+              type="primary"
+              size="small"
+              disabled={!draft}
+              loading={Boolean(draft?.rectifying)}
+              onClick={() => draft && onRectifyFinding?.(draft)}
+            >
+              Rectify
+            </Button>
+          ),
+        };
+      }
+
+      if (header.key === "procedureSummary") {
+        return {
+          title: header.title,
+          dataIndex: "procedureSummary",
+          key: "procedureSummary",
+          width: 460,
+          render: (procedure) => {
+            if (!procedure?.summary) {
+              return <Text type="secondary">No AMM summary available.</Text>;
+            }
+
+            return (
+              <Space direction="vertical" size={4}>
+                {procedure?.reference && (
+                  <Text strong>{procedure.reference}</Text>
+                )}
+                {procedure?.title && (
+                  <Text type="secondary">{procedure.title}</Text>
+                )}
+                <Text>{procedure.summary}</Text>
+              </Space>
+            );
+          },
+        };
+      }
+
       return {
         title: header.title,
         dataIndex: header.key,
@@ -102,7 +212,7 @@ export default function MTrackingTable({
           ),
       };
     });
-  }, [headers]);
+  }, [headers, onRectifyFinding]);
   return (
     <Table
       columns={columns}

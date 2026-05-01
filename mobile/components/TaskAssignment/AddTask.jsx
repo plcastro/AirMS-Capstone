@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  TextInput,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -22,6 +23,7 @@ import {
 import { showToast } from "../../utilities/toast";
 
 const { width } = Dimensions.get("window");
+const CUSTOM_INSPECTION_ID = "custom-task";
 
 const getNow = () => new Date();
 
@@ -53,11 +55,18 @@ const dedupeChecklistItems = (items = []) => {
   });
 };
 
-export default function AddTask({ visible, onClose, onAddTask, employees }) {
+export default function AddTask({
+  visible,
+  onClose,
+  onAddTask,
+  employees,
+  initialDraft = null,
+}) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
+  const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(
@@ -76,7 +85,199 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
   const [checklistItems, setChecklistItems] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
+  const [appliedDraftKey, setAppliedDraftKey] = useState("");
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
+  const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
+
+  const draftKey = initialDraft
+    ? JSON.stringify({
+        aircraft: initialDraft.aircraft || "",
+        inspectionName: initialDraft.inspectionName || "",
+        issueTitle: initialDraft.issueTitle || "",
+        manualReference: initialDraft.manualReference || "",
+      })
+    : "";
+
+  const buildRectificationChecklistItem = (draft = {}, inspection = {}) => ({
+    inspectionName: inspection.name || draft.inspectionName || "OC Inspection",
+    aircraftModel: inspection.aircraftModel || draft.aircraftModel || "",
+    ata: {
+      chapter: 0,
+      chapterName: "",
+      section: 0,
+      sectionName: "",
+    },
+    taskId: `ai-rectify-${Date.now()}`,
+    taskName: draft.issueTitle || "Rectify maintenance finding",
+    component: draft.component || "",
+    componentModel: "",
+    inspectionType: "Corrective",
+    inspectionTypeFull: draft.manualReference || draft.inspectionName || "",
+    documentation: draft.manualReference || "",
+    description: draft.issueTitle || "",
+    correctiveAction: draft.recommendedAction || "",
+    environmentalCondition: "",
+    engineModel: "",
+    conditions: {
+      modificationStatus: "",
+      modificationNumbers: [],
+      effectivity: [],
+    },
+    interval: {
+      flightHours: 0,
+      calendarMonths: 0,
+      specificInterval: draft.inspectionName || "",
+    },
+  });
+
+  const buildCustomChecklistItem = (index = checklistItems.length) => ({
+    inspectionName: customTaskTitle || "Custom Task",
+    aircraftModel: selectedInspection?.aircraftModel || "",
+    ata: {
+      chapter: 0,
+      chapterName: "",
+      section: 0,
+      sectionName: "",
+    },
+    taskId: `custom-${Date.now()}-${index + 1}`,
+    taskName: "",
+    component: "",
+    componentModel: "",
+    inspectionType: "Custom",
+    inspectionTypeFull: "Custom Task",
+    documentation: "",
+    description: "",
+    correctiveAction: "",
+    environmentalCondition: "",
+    engineModel: "",
+    conditions: {
+      modificationStatus: "",
+      modificationNumbers: [],
+      effectivity: [],
+    },
+    interval: {
+      flightHours: 0,
+      calendarMonths: 0,
+      specificInterval: "",
+    },
+  });
+
+  const addCustomChecklistItem = () => {
+    setChecklistItems((currentItems) => [
+      ...currentItems,
+      buildCustomChecklistItem(currentItems.length),
+    ]);
+  };
+
+  const updateChecklistItem = (index, field, value) => {
+    setChecklistItems((currentItems) =>
+      currentItems.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const removeChecklistItem = (index) => {
+    setChecklistItems((currentItems) =>
+      currentItems.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
+  const findInspectionForDraft = (draft = {}) => {
+    const wantedName = String(draft.inspectionName || "").toLowerCase();
+    const wantedModel = String(draft.aircraftModel || "").toLowerCase();
+
+    return (
+      inspectionOptions.find(
+        (inspection) =>
+          wantedName &&
+          String(inspection.name || "").toLowerCase() === wantedName &&
+          (!wantedModel ||
+            String(inspection.aircraftModel || "").toLowerCase() ===
+              wantedModel),
+      ) ||
+      inspectionOptions.find(
+        (inspection) =>
+          wantedName &&
+          String(inspection.name || "").toLowerCase() === wantedName,
+      ) ||
+      inspectionOptions.find(
+        (inspection) =>
+          String(inspection.name || "").toLowerCase() === "oc inspection",
+      ) ||
+      null
+    );
+  };
+
+  const getTaskMatchScore = (item = {}, draft = {}) => {
+    const haystack = [
+      item.taskName,
+      item.inspectionTypeFull,
+      item.documentation,
+      item.component,
+      item.description,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const needles = [draft.component, draft.issueTitle, draft.manualReference]
+      .filter(Boolean)
+      .flatMap((value) => String(value).split(/[|,/;-]/))
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length >= 4);
+
+    return needles.reduce(
+      (score, needle) => score + (haystack.includes(needle) ? 1 : 0),
+      0,
+    );
+  };
+
+  const applyDraft = async (draft = {}) => {
+    const matchedInspection = findInspectionForDraft(draft);
+
+    if (draft.aircraft) {
+      setSelectedAircraft(draft.aircraft);
+    }
+
+    if (!matchedInspection) {
+      setChecklistItems([buildRectificationChecklistItem(draft)]);
+      return;
+    }
+
+    setInspectionType(matchedInspection.id);
+    setSelectedInspection(matchedInspection);
+    setEndDateManuallyAdjusted(false);
+
+    try {
+      setLoading(true);
+      const tasks = await fetchInspectionTasks(matchedInspection);
+      const rankedTasks = [...tasks].sort(
+        (left, right) =>
+          getTaskMatchScore(right, draft) - getTaskMatchScore(left, draft),
+      );
+      const bestScore = rankedTasks.length
+        ? getTaskMatchScore(rankedTasks[0], draft)
+        : 0;
+      const rectificationItem = buildRectificationChecklistItem(
+        draft,
+        matchedInspection,
+      );
+
+      setChecklistItems(
+        bestScore > 0
+          ? [rectificationItem, ...rankedTasks]
+          : [rectificationItem, ...tasks],
+      );
+    } catch (error) {
+      console.error("Error applying AI rectification draft:", error);
+      setChecklistItems([
+        buildRectificationChecklistItem(draft, matchedInspection),
+      ]);
+      showToast("Opened task with AI rectification item");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     const now = new Date();
@@ -129,11 +330,28 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
   }, [startDate, scheduleEstimate.minutes, endDateManuallyAdjusted]);
 
   useEffect(() => {
+    if (initialDraft?.aircraft && selectedAircraft === initialDraft.aircraft) {
+      return;
+    }
+
     setChecklistItems([]);
     setInspectionType("");
     setSelectedInspection(null);
     setEndDateManuallyAdjusted(false);
-  }, [selectedAircraft]);
+  }, [selectedAircraft, initialDraft?.aircraft]);
+
+  useEffect(() => {
+    if (!visible || !initialDraft || !inspectionOptions.length) {
+      return;
+    }
+
+    if (draftKey && appliedDraftKey === draftKey) {
+      return;
+    }
+
+    setAppliedDraftKey(draftKey);
+    applyDraft(initialDraft);
+  }, [visible, initialDraft, inspectionOptions, draftKey, appliedDraftKey]);
 
   useEffect(() => {
     const fetchAircraft = async () => {
@@ -211,6 +429,11 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
       return;
     }
 
+    if (isCustomTask && !customTaskTitle.trim()) {
+      showToast("Please enter a custom task name.");
+      return;
+    }
+
     if (startDate < getNow() || endDate < getNow()) {
       showToast("Start and end date/time must be today or later.");
       return;
@@ -221,19 +444,44 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
       return;
     }
 
-    const filteredChecklist = checklistItems.filter(
-      (item) => item.taskName && item.taskName.trim() !== "",
-    );
+    const selectedInspectionName = isCustomTask
+      ? customTaskTitle.trim() || "Custom Task"
+      : inspectionOptions.find((i) => i.id === inspectionType)?.name || "";
+
+    const filteredChecklist = checklistItems
+      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .map((item, index) => ({
+        ...item,
+        inspectionName: selectedInspectionName,
+        taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
+        inspectionType: isCustomTask ? "Custom" : item.inspectionType,
+        inspectionTypeFull: isCustomTask
+          ? "Custom Task"
+          : item.inspectionTypeFull,
+      }));
+
+    if (isCustomTask && filteredChecklist.length === 0) {
+      showToast("Please add at least one checklist item.");
+      return;
+    }
 
     const newTask = {
       id: Date.now().toString(),
-      title: inspectionOptions.find((i) => i.id === inspectionType)?.name || "",
+      title: selectedInspectionName,
       aircraft: selectedAircraft,
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
-      priority: "Normal",
-      maintenanceType: "Inspection",
+      priority:
+        initialDraft?.riskLevel === "Critical" ||
+        initialDraft?.riskLevel === "High"
+          ? "High"
+          : "Normal",
+      maintenanceType: isCustomTask
+        ? "Custom Task"
+        : initialDraft
+          ? "Corrective Maintenance"
+          : "Inspection",
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
@@ -254,7 +502,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                   sectionName: "",
                 },
                 taskId: "custom",
-                taskName: "New checklist item",
+                taskName: "Custom checklist item",
                 component: "",
                 componentModel: "",
                 inspectionType: "",
@@ -276,6 +524,17 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                 },
               },
             ],
+      findings: initialDraft?.issueTitle || "",
+      defects: initialDraft?.component || "",
+      correctiveActionDone: initialDraft?.recommendedAction || "",
+      summary: initialDraft
+        ? {
+            category: "AI Maintenance Finding",
+            severity: initialDraft.riskLevel || "",
+            result: "Pending rectification",
+            remarks: initialDraft.manualReference || "",
+          }
+        : undefined,
     };
 
     onAddTask(newTask);
@@ -531,8 +790,10 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
   const selectedInspectionLabel =
-    inspectionOptions.find((inspection) => inspection.id === inspectionType)
-      ?.name || "";
+    inspectionType === CUSTOM_INSPECTION_ID
+      ? "Custom Task"
+      : inspectionOptions.find((inspection) => inspection.id === inspectionType)
+          ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
@@ -586,14 +847,24 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                 loading && inspectionOptions.length === 0
                   ? "Loading inspections..."
                   : "Pick Inspection",
-              options: inspectionOptions.map((inspection) => ({
-                label: inspection.name,
-                value: inspection.id,
-              })),
+              options: [
+                { label: "Custom Task", value: CUSTOM_INSPECTION_ID },
+                ...inspectionOptions.map((inspection) => ({
+                  label: inspection.name,
+                  value: inspection.id,
+                })),
+              ],
               visible: showInspectionDropdown,
               onToggle: setShowInspectionDropdown,
               onSelect: async (itemValue) => {
                 setInspectionType(itemValue);
+
+                if (itemValue === CUSTOM_INSPECTION_ID) {
+                  setSelectedInspection(null);
+                  setEndDateManuallyAdjusted(false);
+                  setChecklistItems([buildCustomChecklistItem(0)]);
+                  return;
+                }
 
                 const matchedInspection = inspectionOptions.find(
                   (i) => i.id === itemValue,
@@ -617,6 +888,35 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               },
               disabled: loading && inspectionOptions.length === 0,
             })}
+
+            {isCustomTask && (
+              <View style={{ marginBottom: 15 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.grayDark,
+                    marginBottom: 5,
+                  }}
+                >
+                  Custom Task Name *
+                </Text>
+                <TextInput
+                  value={customTaskTitle}
+                  onChangeText={setCustomTaskTitle}
+                  placeholder="Enter task name"
+                  placeholderTextColor={COLORS.grayDark}
+                  style={{
+                    minHeight: 48,
+                    backgroundColor: COLORS.grayLight,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    borderRadius: 8,
+                    paddingHorizontal: 14,
+                    color: COLORS.black,
+                  }}
+                />
+              </View>
+            )}
 
             {renderDropdownField({
               label: "Mechanic",
@@ -712,12 +1012,15 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               />
             )}
 
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15}}>
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
               Checklist
             </Text>
 
             {checklistItems.map((item, index) => (
-              <View key={index} style={{ flexDirection: "row", marginTop: 10 }}>
+              <View
+                key={item.taskId || index}
+                style={{ flexDirection: "row", marginTop: 10 }}
+              >
                 <View style={{ paddingTop: 2 }}>
                   <Checkbox value={false} disabled={true} />
                 </View>
@@ -729,14 +1032,78 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                       .join(" | ")}
                   </Text>
 
-                  <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
-                    {item.taskName}
-                  </Text>
+                  {isCustomTask ? (
+                    <>
+                      <TextInput
+                        value={item.taskName || ""}
+                        onChangeText={(value) =>
+                          updateChecklistItem(index, "taskName", value)
+                        }
+                        placeholder="Checklist item"
+                        placeholderTextColor={COLORS.grayDark}
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: COLORS.border,
+                          paddingVertical: 6,
+                          color: COLORS.black,
+                        }}
+                      />
+                      <TextInput
+                        value={item.description || ""}
+                        onChangeText={(value) =>
+                          updateChecklistItem(index, "description", value)
+                        }
+                        placeholder="Description / notes"
+                        placeholderTextColor={COLORS.grayDark}
+                        multiline
+                        style={{
+                          minHeight: 42,
+                          marginTop: 6,
+                          borderWidth: 1,
+                          borderColor: COLORS.border,
+                          borderRadius: 8,
+                          padding: 8,
+                          color: COLORS.black,
+                        }}
+                      />
+                      <TouchableOpacity
+                        onPress={() => removeChecklistItem(index)}
+                        style={{ alignSelf: "flex-start", marginTop: 8 }}
+                      >
+                        <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                          Remove
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                      {item.taskName}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
 
-            {checklistItems.length === 0 && (
+            {isCustomTask && (
+              <TouchableOpacity
+                onPress={addCustomChecklistItem}
+                style={{
+                  marginTop: 14,
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.primaryLight,
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                  Add Checklist Item
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {checklistItems.length === 0 && !isCustomTask && (
               <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
                 No checklist items were found for this inspection.
               </Text>

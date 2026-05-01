@@ -2,6 +2,7 @@ const PartsMonitoring = require("../../models/partsMonitoringModel");
 const MaintenanceLog = require("../../models/maintenanceLogModel");
 const Task = require("../../models/taskModel");
 const FlightLog = require("../../models/flightLogModel");
+const AiRectification = require("../../models/aiRectificationModel");
 
 const RISK_RANK = {
   Low: 1,
@@ -75,31 +76,27 @@ const MANUAL_SIGNAL_KEYWORDS = {
   twistGripFuelControl: ["twist grip", "fuel flow control"],
   tailDriveLine: [
     "tail drive line",
-    "rear shaft section",
-    "equipped front section",
-    "sliding flange",
-    "bearing hangers",
-    "flexible coupling attachment",
+    "tail rotor drive",
+    "tail drive shaft",
     "tail drive",
+    "amm 65 10",
+    "ata 65 10",
+    "65 10 00",
   ],
   tailGearBox: [
     "tail gear box",
-    "tgb housing",
-    "pitch change spider",
-    "pitch change rods",
-    "control plate bearing",
-    "control lever",
-    "rotor shaft",
-    "flange input",
+    "tail gearbox",
+    "tgb",
+    "amm 65 21",
+    "ata 65 21",
+    "65 21 00",
   ],
   tailRotorBlades: [
+    "tail rotor blade",
     "tail rotor blades",
-    "pitch horn assembly",
-    "chin weights",
-    "chinese weights",
-    "blanking cap",
-    "blanking cover",
-    "edge tab",
+    "amm 64 10",
+    "ata 64 10",
+    "64 10 00",
   ],
   rotorActuatorsDualHydraulic: [
     "servocontrol",
@@ -154,14 +151,185 @@ const ARRIEL_FADEC_CODES = [
   "135",
   "143",
 ];
+
+const ABNORMAL_CONDITION_KEYWORDS = {
+  hardLanding: ["hard landing", "heavy landing"],
+  overtorque: ["overtorque", "over torque", "torque exceedance"],
+  rotorOverspeed: ["rotor overspeed", "nr overspeed", "n rotor overspeed"],
+  bladeImpact: [
+    "blade strike",
+    "blade impact",
+    "main rotor impact",
+    "tail rotor impact",
+    "tail rotor unbalance",
+    "rotor unbalance",
+  ],
+  lightningStrike: ["lightning strike", "struck by lightning"],
+  immersion: ["immersion", "submerged", "water ingress", "flooded"],
+  strongTurbulence: ["strong turbulence", "severe turbulence"],
+  abnormalGroundRotor: [
+    "abnormal ground behaviour",
+    "abnormal ground behavior",
+    "rotor spinning on ground",
+    "non rotating blades in gusts",
+    "non-rotating blades in gusts",
+  ],
+  fuelContamination: ["fuel contamination", "contaminated fuel", "water in fuel"],
+  oilContamination: [
+    "oil contamination",
+    "contaminated oil",
+    "contaminated engine oil",
+    "metal particles in oil",
+  ],
+  gearboxOilLeak: [
+    "gearbox oil leak",
+    "mgb oil leak",
+    "tgb oil leak",
+    "oil leak from gearbox",
+    "oil leaks from the gearboxes",
+  ],
+  chipDetection: [
+    "chip detected",
+    "chips detected",
+    "chip detector",
+    "mgb chip",
+    "tgb chip",
+    "metal chip",
+  ],
+  freewheelJerk: ["freewheel jerk", "jerks on the freewheel", "freewheel slipping"],
+  negativeTorque: ["negative torque", "no torque margin"],
+  engineHealthCheck: ["engine health check", "engine power check", "power check"],
+  hydraulicPreClogging: [
+    "pre clogging indicator",
+    "pre-clogging indicator",
+    "hydraulic filter pre clogging",
+    "hydraulic filter pre-clogging",
+  ],
+  vibrationAnomaly: [
+    "abnormal vibration",
+    "vibration analysis",
+    "vibration anomaly",
+    "excessive vibration",
+    "high vibration",
+  ],
+  fuelControlFault: [
+    "twist grip fault",
+    "fuel flow control fault",
+    "fuel control binding",
+    "fuel control stiffness",
+  ],
+  engineOilIndicationFault: [
+    "engine oil pressure warning",
+    "engine oil temperature warning",
+    "oil pressure warning",
+    "oil temperature warning",
+  ],
+  loadCompensatorFault: [
+    "load compensator fault",
+    "dissymmetric load",
+    "load compensator binding",
+  ],
+};
+
 const normalizeText = (value = "") =>
   String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
+const escapeRegExp = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const includesAnyKeyword = (text = "", keywords = []) =>
-  keywords.some((keyword) => text.includes(keyword));
+  keywords.some((keyword) => {
+    const normalizedKeyword = normalizeText(keyword);
+
+    if (!normalizedKeyword) {
+      return false;
+    }
+
+    return new RegExp(
+      `(^|\\s)${escapeRegExp(normalizedKeyword)}(?=\\s|$)`,
+    ).test(text);
+  });
+
+const SIGNAL_CONTEXT_KEYWORDS = {
+  tailDriveLine: [
+    "tail drive line",
+    "tail rotor drive",
+    "tail drive shaft",
+    "amm 65 10",
+    "ata 65 10",
+    "65 10 00",
+  ],
+  tailGearBox: [
+    "tail gear box",
+    "tail gearbox",
+    "tgb",
+    "amm 65 21",
+    "ata 65 21",
+    "65 21 00",
+  ],
+  tailRotorBlades: [
+    "tail rotor blade",
+    "tail rotor blades",
+    "amm 64 10",
+    "ata 64 10",
+    "64 10 00",
+  ],
+  engineMgbDriveLine: [
+    "engine mgb drive line",
+    "engine or mgb drive line",
+    "engine drive line",
+    "mgb drive line",
+    "mgb drive",
+    "hydraulic pump drive",
+    "amm 63 11",
+    "ata 63 11",
+    "63 11 00",
+  ],
+  biDirectionalSuspension: [
+    "bi directional suspension",
+    "bi directional",
+    "laminated suspension",
+    "amm 63 31",
+    "ata 63 31",
+    "63 31 00",
+  ],
+  mgbSuspension: [
+    "mgb suspension",
+    "suspension bar",
+    "amm 63 32",
+    "ata 63 32",
+    "63 32 00",
+  ],
+};
+
+const hasSignalContext = (text = "", contextKey) =>
+  includesAnyKeyword(text, SIGNAL_CONTEXT_KEYWORDS[contextKey] || []);
+
+const getActiveSignalKeys = (hits = {}) =>
+  Object.entries(hits)
+    .filter(([key, value]) => key !== "arrielFadecCodes" && value === true)
+    .map(([key]) => key);
+
+const addSignalEvidence = (
+  aircraftEntry,
+  { source = "", text = "", recordId = "", signalKeys = [] } = {},
+) => {
+  const snippet = String(text || "").trim();
+
+  if (!aircraftEntry || !snippet || !signalKeys.length) {
+    return;
+  }
+
+  aircraftEntry.evidence.signalRecords.push({
+    source,
+    text: snippet.slice(0, 500),
+    recordId,
+    signalKeys,
+  });
+};
 
 const collectTaskNarrativeTexts = (task = {}) =>
   [
@@ -176,16 +344,20 @@ const collectTaskNarrativeTexts = (task = {}) =>
     task.summary?.severity,
     task.summary?.result,
     task.summary?.remarks,
-    ...(task.checklistItems || []).flatMap((item) => [
-      item.taskName,
-      item.component,
-      item.description,
-      item.correctiveAction,
-      item.documentation,
-      item.inspectionName,
-      item.inspectionTypeFull,
-      item.environmentalCondition,
-    ]),
+  ].filter(Boolean);
+
+const collectChecklistItemNarrativeTexts = (item = {}) =>
+  [
+    item.taskName,
+    item.component,
+    item.description,
+    item.correctiveAction,
+    item.documentation,
+    item.inspectionName,
+    item.inspectionTypeFull,
+    item.environmentalCondition,
+    item.ata?.chapterName,
+    item.ata?.sectionName,
   ].filter(Boolean);
 
 const collectMaintenanceLogNarrativeTexts = (log = {}) =>
@@ -201,7 +373,21 @@ const collectFlightNarrativeTexts = (log = {}) =>
     ...(log.oilServicing || []).flatMap((item) => [item.remarks]),
   ].filter(Boolean);
 
-const getStructuredTaskComponentFacts = (text = "") => ({
+const getStructuredTaskComponentFacts = (text = "") => {
+  const hasEngineMgbDriveLineContext = hasSignalContext(
+    text,
+    "engineMgbDriveLine",
+  );
+  const hasBiDirectionalSuspensionContext = hasSignalContext(
+    text,
+    "biDirectionalSuspension",
+  );
+  const hasMgbSuspensionContext = hasSignalContext(text, "mgbSuspension");
+  const hasTailRotorBladesContext = hasSignalContext(text, "tailRotorBlades");
+  const hasTailDriveLineContext = hasSignalContext(text, "tailDriveLine");
+  const hasTailGearBoxContext = hasSignalContext(text, "tailGearBox");
+
+  return {
   "tasks.component.engineMgbDriveLineCount": includesAnyKeyword(text, [
     "engine mgb drive line",
     "engine or mgb drive line",
@@ -230,13 +416,14 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     text,
     [
       "belt driven hydraulic pump flexible coupling",
-      "flexible couplings",
-      "flexible coupling",
+      ...(hasEngineMgbDriveLineContext
+        ? ["flexible couplings", "flexible coupling"]
+        : []),
     ],
   ),
   "tasks.component.engineMgbDriveLineSealingSleeveCount": includesAnyKeyword(
     text,
-    ["sealing sleeve"],
+    hasEngineMgbDriveLineContext ? ["sealing sleeve"] : [],
   ),
   "tasks.component.engineMgbDriveLineSplinesCount": includesAnyKeyword(text, [
     "drive splines",
@@ -245,19 +432,18 @@ const getStructuredTaskComponentFacts = (text = "") => ({
   ]),
   "tasks.component.engineMgbDriveLineDriveShaftCount": includesAnyKeyword(
     text,
-    ["mgb drive shaft", "drive shaft"],
+    ["mgb drive shaft", ...(hasEngineMgbDriveLineContext ? ["drive shaft"] : [])],
   ),
   "tasks.component.engineMgbDriveLineGimbalCount": includesAnyKeyword(text, [
-    "gimbal ring",
-    "gimbal ring pin",
+    ...(hasEngineMgbDriveLineContext ? ["gimbal ring", "gimbal ring pin"] : []),
   ]),
   "tasks.component.engineMgbDriveLineDriveFlangeCount": includesAnyKeyword(
     text,
-    ["drive flange", "pump drive flange"],
+    ["pump drive flange", ...(hasEngineMgbDriveLineContext ? ["drive flange"] : [])],
   ),
   "tasks.component.engineMgbDriveLineEngineFlangeCount": includesAnyKeyword(
     text,
-    ["engine flange"],
+    hasEngineMgbDriveLineContext ? ["engine flange"] : [],
   ),
   "tasks.component.engineMgbDriveLineCouplingHousingCount": includesAnyKeyword(
     text,
@@ -276,18 +462,26 @@ const getStructuredTaskComponentFacts = (text = "") => ({
   ]),
   "tasks.component.biDirectionalSuspensionCrossbeamCount": includesAnyKeyword(
     text,
-    ["suspension crossbeam", "350a38 1018", "350a38 1040"],
+    [
+      "350a38 1018",
+      "350a38 1040",
+      ...(hasBiDirectionalSuspensionContext ? ["suspension crossbeam"] : []),
+    ],
   ),
   "tasks.component.biDirectionalSuspensionLaminatedStopsCount":
+    hasBiDirectionalSuspensionContext &&
     includesAnyKeyword(text, ["laminated stops"]),
   "tasks.component.biDirectionalSuspensionBlockPinsCount": includesAnyKeyword(
     text,
-    ["laminated suspension block pins", "block pins"],
+    [
+      "laminated suspension block pins",
+      ...(hasBiDirectionalSuspensionContext ? ["block pins"] : []),
+    ],
   ),
   "tasks.component.biDirectionalSuspensionBlockSupportsCount":
     includesAnyKeyword(text, [
       "laminated suspension block supports",
-      "block supports",
+      ...(hasBiDirectionalSuspensionContext ? ["block supports"] : []),
     ]),
   "tasks.component.mgbSuspensionBarCount": includesAnyKeyword(text, [
     "mgb suspension bar",
@@ -295,90 +489,102 @@ const getStructuredTaskComponentFacts = (text = "") => ({
   ]),
   "tasks.component.mgbSuspensionBarBoltCount": includesAnyKeyword(text, [
     "mgb suspension bar bolt",
-    "suspension bar bolt",
+    ...(hasMgbSuspensionContext ? ["suspension bar bolt"] : []),
   ]),
   "tasks.component.tailRotorBladesCount": includesAnyKeyword(text, [
     "tail rotor blades",
-    "inserted tab",
-    "pitch horn assembly",
-    "edge tab",
-    "chin weights",
-    "chinese weights",
+    ...(hasTailRotorBladesContext
+      ? [
+          "inserted tab",
+          "pitch horn assembly",
+          "edge tab",
+          "chin weights",
+          "chinese weights",
+        ]
+      : []),
   ]),
   "tasks.component.tailRotorBladesInsertedTabCount": includesAnyKeyword(text, [
     "tail rotor blades with inserted tab",
-    "inserted tab",
+    ...(hasTailRotorBladesContext ? ["inserted tab"] : []),
   ]),
   "tasks.component.tailRotorBladesPitchHornAssemblyCount": includesAnyKeyword(
     text,
-    ["pitch horn assembly", "pitch horn"],
+    hasTailRotorBladesContext ? ["pitch horn assembly", "pitch horn"] : [],
   ),
   "tasks.component.tailRotorBladesEdgeTabCount": includesAnyKeyword(text, [
-    "edge tab",
+    ...(hasTailRotorBladesContext ? ["edge tab"] : []),
   ]),
   "tasks.component.tailRotorBladesChinWeightsCount": includesAnyKeyword(text, [
-    "chin weights",
-    "chinese weights",
-    "blanking cap",
-    "blanking cover",
+    ...(hasTailRotorBladesContext
+      ? ["chin weights", "chinese weights", "blanking cap", "blanking cover"]
+      : []),
   ]),
   "tasks.component.tailDriveLineCount": includesAnyKeyword(text, [
     "tail drive line",
-    "rear shaft section",
-    "equipped front section",
-    "sliding flange",
-    "bearing hangers",
-    "flexible coupling",
+    "tail rotor drive",
+    ...(hasTailDriveLineContext
+      ? [
+          "rear shaft section",
+          "equipped front section",
+          "sliding flange",
+          "bearing hangers",
+          "flexible coupling",
+        ]
+      : []),
   ]),
   "tasks.component.tailDriveLineSlidingFlangeCount": includesAnyKeyword(text, [
-    "sliding flange",
+    ...(hasTailDriveLineContext ? ["sliding flange"] : []),
   ]),
   "tasks.component.tailDriveLineFlexibleCouplingCount": includesAnyKeyword(
     text,
-    ["flexible coupling", "flexible coupling attachment"],
+    hasTailDriveLineContext
+      ? ["flexible coupling", "flexible coupling attachment"]
+      : [],
   ),
   "tasks.component.tailDriveLineRearSectionCount": includesAnyKeyword(text, [
-    "rear shaft section",
-    "inside of the rear section",
-    "rear section",
+    ...(hasTailDriveLineContext
+      ? ["rear shaft section", "inside of the rear section", "rear section"]
+      : []),
   ]),
   "tasks.component.tailDriveLineFrontSectionCount": includesAnyKeyword(text, [
-    "equipped front section",
-    "front section",
+    ...(hasTailDriveLineContext ? ["equipped front section", "front section"] : []),
   ]),
   "tasks.component.tailDriveLineBearingHangersCount": includesAnyKeyword(text, [
-    "bearing hangers",
-    "bearings hangers",
-    "hanger bearing",
+    ...(hasTailDriveLineContext
+      ? ["bearing hangers", "bearings hangers", "hanger bearing"]
+      : []),
   ]),
   "tasks.component.tailGearBoxCount": includesAnyKeyword(text, [
     "tail gear box",
+    "tail gearbox",
     "tgb",
+    "amm 65 21",
+    "ata 65 21",
+    "65 21 00",
     "rotor shaft",
     "control plate bearing",
     "pitch change rods",
-    "control lever",
   ]),
   "tasks.component.tailGearBoxControlLeverCount": includesAnyKeyword(text, [
-    "control lever",
-    "control lever bushes",
-    "yoke lug",
+    ...(hasTailGearBoxContext
+      ? ["control lever", "control lever bushes", "yoke lug"]
+      : []),
   ]),
   "tasks.component.tailGearBoxHousingCount": includesAnyKeyword(text, [
     "tgb housing",
     "tail gear box housing",
   ]),
   "tasks.component.tailGearBoxRotorShaftCount": includesAnyKeyword(text, [
-    "rotor shaft",
+    ...(hasTailGearBoxContext ? ["rotor shaft"] : []),
   ]),
   "tasks.component.tailGearBoxPitchChangeRodsCount": includesAnyKeyword(text, [
-    "pitch change rods",
-    "elastomer pitch change rods",
-    "pitch change links",
+    ...(hasTailGearBoxContext
+      ? ["pitch change rods", "elastomer pitch change rods", "pitch change links"]
+      : []),
   ]),
   "tasks.component.tailGearBoxControlPlateBearingCount": includesAnyKeyword(
     text,
-    ["control plate bearing"],
+    hasTailGearBoxContext ? ["control plate bearing"] : [],
   ),
   "tasks.component.rotorActuatorsDualHydraulicCount": includesAnyKeyword(text, [
     "servocontrol",
@@ -411,7 +617,8 @@ const getStructuredTaskComponentFacts = (text = "") => ({
     "rotor brake",
     "main rotor brake",
   ]),
-});
+  };
+};
 
 const incrementStructuredTaskFacts = (facts = {}, item = {}) => {
   const chapter = Number(item.ata?.chapter);
@@ -510,6 +717,35 @@ const collectSignalHits = (text = "") => {
   Object.entries(MANUAL_SIGNAL_KEYWORDS).forEach(([key, keywords]) => {
     hits[key] = includesAnyKeyword(text, keywords);
   });
+  Object.entries(ABNORMAL_CONDITION_KEYWORDS).forEach(([key, keywords]) => {
+    hits[key] = includesAnyKeyword(text, keywords);
+  });
+
+  const hasTailDriveLineContext = hasSignalContext(text, "tailDriveLine");
+  const hasTailGearBoxContext = hasSignalContext(text, "tailGearBox");
+  const hasTailRotorBladesContext = hasSignalContext(text, "tailRotorBlades");
+
+  if (!hasTailDriveLineContext) {
+    hits.tailDriveLineSlidingFlange = false;
+    hits.tailDriveLineFlexibleCoupling = false;
+    hits.tailDriveLineRearSection = false;
+    hits.tailDriveLineFrontSection = false;
+    hits.tailDriveLineBearingHangers = false;
+  }
+
+  if (!hasTailGearBoxContext) {
+    hits.tailGearBoxHousing = false;
+    hits.tailGearBoxRotorShaft = false;
+    hits.tailGearBoxControlLever = false;
+    hits.tailGearBoxPitchChangeRods = false;
+    hits.tailGearBoxControlPlateBearing = false;
+  }
+
+  if (!hasTailRotorBladesContext) {
+    hits.tailRotorBladesPitchHornAssembly = false;
+    hits.tailRotorBladesEdgeTab = false;
+    hits.tailRotorBladesChinWeights = false;
+  }
 
   if (
     text.includes("arriel 2b1") ||
@@ -597,6 +833,13 @@ const incrementSignalFacts = (facts = {}, hits = {}) => {
     facts["signals.tailRotorBladesChinWeightsCount"] += 1;
   }
 
+  Object.keys(ABNORMAL_CONDITION_KEYWORDS).forEach((key) => {
+    const factKey = `signals.condition.${key}Count`;
+    if (hits[key] && typeof facts[factKey] === "number") {
+      facts[factKey] += 1;
+    }
+  });
+
   if (
     Array.isArray(hits.arrielFadecCodes) &&
     hits.arrielFadecCodes.length > 0
@@ -655,15 +898,74 @@ const toDate = (value) => {
 
 const getAircraftKey = (value = "") => String(value || "").trim();
 
+const getRecordTime = (...values) => {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const time = new Date(value).getTime();
+    if (Number.isFinite(time)) {
+      return time;
+    }
+  }
+
+  return 0;
+};
+
+const resetAircraftFactsAfterRectification = (aircraftEntry) => {
+  Object.entries(aircraftEntry.facts).forEach(([key, value]) => {
+    if (key === "aircraft.model") {
+      return;
+    }
+
+    if (typeof value === "number") {
+      aircraftEntry.facts[key] = 0;
+    } else if (typeof value === "boolean") {
+      aircraftEntry.facts[key] = false;
+    } else if (value === null) {
+      aircraftEntry.facts[key] = null;
+    } else if (Array.isArray(value)) {
+      aircraftEntry.facts[key] = [];
+    } else {
+      aircraftEntry.facts[key] = "";
+    }
+  });
+
+  Object.keys(aircraftEntry.evidence).forEach((key) => {
+    aircraftEntry.evidence[key] = [];
+  });
+};
+
 const buildFactsMap = async () => {
-  const [partsRecords, maintenanceLogs, tasks, flightLogs] = await Promise.all([
+  const [
+    partsRecords,
+    maintenanceLogs,
+    tasks,
+    flightLogs,
+    activeRectifications,
+  ] = await Promise.all([
     PartsMonitoring.find({}).sort({ aircraft: 1 }).lean(),
     MaintenanceLog.find({}).sort({ dateDefectDiscovered: -1 }).lean(),
     Task.find({}).sort({ createdAt: -1 }).lean(),
     FlightLog.find({}).sort({ createdAt: -1 }).lean(),
+    AiRectification.find({ status: "active" }).sort({ rectifiedAt: -1 }).lean(),
   ]);
 
   const aircraftMap = new Map();
+  const latestSourceTimeByAircraft = new Map();
+
+  const noteSourceTime = (aircraft, ...values) => {
+    const key = getAircraftKey(aircraft);
+    if (!key) {
+      return;
+    }
+
+    const recordTime = getRecordTime(...values);
+    if (recordTime > (latestSourceTimeByAircraft.get(key) || 0)) {
+      latestSourceTimeByAircraft.set(key, recordTime);
+    }
+  };
 
   const ensureAircraft = (aircraftId, defaults = {}) => {
     const key = getAircraftKey(aircraftId);
@@ -782,6 +1084,26 @@ const buildFactsMap = async () => {
           "signals.tailRotorBladesPitchHornAssemblyCount": 0,
           "signals.tailRotorBladesEdgeTabCount": 0,
           "signals.tailRotorBladesChinWeightsCount": 0,
+          "signals.condition.hardLandingCount": 0,
+          "signals.condition.overtorqueCount": 0,
+          "signals.condition.rotorOverspeedCount": 0,
+          "signals.condition.bladeImpactCount": 0,
+          "signals.condition.lightningStrikeCount": 0,
+          "signals.condition.immersionCount": 0,
+          "signals.condition.strongTurbulenceCount": 0,
+          "signals.condition.abnormalGroundRotorCount": 0,
+          "signals.condition.fuelContaminationCount": 0,
+          "signals.condition.oilContaminationCount": 0,
+          "signals.condition.gearboxOilLeakCount": 0,
+          "signals.condition.chipDetectionCount": 0,
+          "signals.condition.freewheelJerkCount": 0,
+          "signals.condition.negativeTorqueCount": 0,
+          "signals.condition.engineHealthCheckCount": 0,
+          "signals.condition.hydraulicPreCloggingCount": 0,
+          "signals.condition.vibrationAnomalyCount": 0,
+          "signals.condition.fuelControlFaultCount": 0,
+          "signals.condition.engineOilIndicationFaultCount": 0,
+          "signals.condition.loadCompensatorFaultCount": 0,
           "signals.arrielFadecCodeCount": 0,
           "signals.arrielFadecCode44Count": 0,
           "signals.arrielFadecCode47Count": 0,
@@ -822,6 +1144,7 @@ const buildFactsMap = async () => {
           pendingFlights: [],
           recentRemarkFlights: [],
           hydraulicFlights: [],
+          signalRecords: [],
         },
         sourceCounts: {
           partsRecords: 0,
@@ -843,6 +1166,7 @@ const buildFactsMap = async () => {
   };
 
   partsRecords.forEach((record) => {
+    noteSourceTime(record.aircraft, record.updatedAt, record.createdAt);
     const aircraftEntry = ensureAircraft(record.aircraft, {
       aircraftModel: record.aircraftType || "",
     });
@@ -883,11 +1207,16 @@ const buildFactsMap = async () => {
         aircraftEntry.evidence.dueSoonParts.push(dueSummary);
       }
 
-      const partSignalText = normalizeText(part.componentName);
-      incrementSignalFacts(
-        aircraftEntry.facts,
-        collectSignalHits(partSignalText),
-      );
+      if (overdue || dueSoon) {
+        const partSignalText = normalizeText(part.componentName);
+        const signalHits = collectSignalHits(partSignalText);
+        incrementSignalFacts(aircraftEntry.facts, signalHits);
+        addSignalEvidence(aircraftEntry, {
+          source: overdue ? "overduePart" : "dueSoonPart",
+          text: part.componentName,
+          signalKeys: getActiveSignalKeys(signalHits),
+        });
+      }
 
       if (
         remainingHours !== null &&
@@ -913,6 +1242,12 @@ const buildFactsMap = async () => {
   });
 
   maintenanceLogs.forEach((log) => {
+    const isAiRectifiedMarker = String(log.sourceTaskId || "").startsWith(
+      "AI-RECTIFIED-",
+    );
+    if (!isAiRectifiedMarker) {
+      noteSourceTime(log.aircraft, log.dateDefectDiscovered, log.createdAt);
+    }
     const aircraftEntry = ensureAircraft(log.aircraft);
     if (!aircraftEntry) {
       return;
@@ -922,15 +1257,28 @@ const buildFactsMap = async () => {
 
     const isVerified = String(log.status || "").toLowerCase() === "verified";
     const hasRectifiedDate = Boolean(log.dateDefectRectified);
-    const isOpen = !isVerified || !hasRectifiedDate;
+    const isAiRectificationLog = String(log.sourceTaskId || "").startsWith(
+      "AI-RECTIFY-",
+    );
+    const isOpen =
+      isAiRectificationLog && hasRectifiedDate
+        ? false
+        : !isVerified || !hasRectifiedDate;
     const maintenanceNarrativeTexts = collectMaintenanceLogNarrativeTexts(log);
     const hydraulicFlags = getHydraulicFlags(...maintenanceNarrativeTexts);
-    const signalHits = collectSignalHits(
-      normalizeText(maintenanceNarrativeTexts.join(" ")),
-    );
-    incrementSignalFacts(aircraftEntry.facts, signalHits);
 
     if (isOpen) {
+      const signalHits = collectSignalHits(
+        normalizeText(maintenanceNarrativeTexts.join(" ")),
+      );
+      incrementSignalFacts(aircraftEntry.facts, signalHits);
+      addSignalEvidence(aircraftEntry, {
+        source: "maintenanceLog",
+        text: maintenanceNarrativeTexts.join(" | "),
+        recordId: log._id?.toString?.() || "",
+        signalKeys: getActiveSignalKeys(signalHits),
+      });
+
       aircraftEntry.facts["maintenance.openDiscrepancyCount"] += 1;
       aircraftEntry.evidence.maintenanceLogs.push({
         id: log._id?.toString?.() || "",
@@ -968,6 +1316,13 @@ const buildFactsMap = async () => {
   });
 
   tasks.forEach((task) => {
+    noteSourceTime(
+      task.aircraft,
+      task.updatedAt,
+      task.createdAt,
+      task.startDateTime,
+      task.date,
+    );
     const aircraftEntry = ensureAircraft(task.aircraft);
     if (!aircraftEntry) {
       return;
@@ -977,17 +1332,40 @@ const buildFactsMap = async () => {
 
     const status = String(task.status || "").toLowerCase();
     const dueDate = toDate(task.dueDate);
-    const isClosed = ["completed", "approved", "closed"].includes(status);
+    const isClosed = ["completed", "approved", "closed", "turned in"].includes(status);
     const isOverdue = dueDate && dueDate < new Date() && !isClosed;
+    const isPendingApproval = ["completed", "reviewed"].includes(status) && !task.isApproved;
+    const shouldUseTaskForSignals = !isClosed || isPendingApproval;
     const taskNarrativeTexts = collectTaskNarrativeTexts(task);
     const hydraulicFlags = getHydraulicFlags(...taskNarrativeTexts);
-    const signalHits = collectSignalHits(
-      normalizeText(taskNarrativeTexts.join(" ")),
-    );
-    incrementSignalFacts(aircraftEntry.facts, signalHits);
-    (task.checklistItems || []).forEach((item) => {
-      incrementStructuredTaskFacts(aircraftEntry.facts, item);
-    });
+
+    if (shouldUseTaskForSignals) {
+      const signalHits = collectSignalHits(
+        normalizeText(taskNarrativeTexts.join(" ")),
+      );
+      incrementSignalFacts(aircraftEntry.facts, signalHits);
+      addSignalEvidence(aircraftEntry, {
+        source: "task",
+        text: taskNarrativeTexts.join(" | "),
+        recordId: task.id || task._id?.toString?.() || "",
+        signalKeys: getActiveSignalKeys(signalHits),
+      });
+      (task.checklistItems || []).forEach((item) => {
+        incrementStructuredTaskFacts(aircraftEntry.facts, item);
+
+        const checklistTexts = collectChecklistItemNarrativeTexts(item);
+        const checklistSignalHits = collectSignalHits(
+          normalizeText(checklistTexts.join(" ")),
+        );
+        incrementSignalFacts(aircraftEntry.facts, checklistSignalHits);
+        addSignalEvidence(aircraftEntry, {
+          source: "checklistItem",
+          text: checklistTexts.join(" | "),
+          recordId: task.id || task._id?.toString?.() || "",
+          signalKeys: getActiveSignalKeys(checklistSignalHits),
+        });
+      });
+    }
 
     if (isOverdue) {
       aircraftEntry.facts["tasks.overdueOpenCount"] += 1;
@@ -1013,7 +1391,7 @@ const buildFactsMap = async () => {
       aircraftEntry.facts["tasks.hydraulicOverdueCount"] += 1;
     }
 
-    if (["completed", "reviewed"].includes(status) && !task.isApproved) {
+    if (isPendingApproval) {
       aircraftEntry.facts["tasks.completedPendingApprovalCount"] += 1;
       aircraftEntry.evidence.pendingApprovalTasks.push({
         id: task.id || task._id?.toString?.() || "",
@@ -1025,6 +1403,7 @@ const buildFactsMap = async () => {
 
   const flightLogsByAircraft = new Map();
   flightLogs.forEach((log) => {
+    noteSourceTime(log.rpc, log.updatedAt, log.createdAt, log.date);
     const aircraftKey = getAircraftKey(log.rpc);
     if (!aircraftKey) {
       return;
@@ -1058,6 +1437,12 @@ const buildFactsMap = async () => {
         normalizeText(flightNarrativeTexts.join(" ")),
       );
       incrementSignalFacts(aircraftEntry.facts, signalHits);
+      addSignalEvidence(aircraftEntry, {
+        source: "flightLog",
+        text: flightNarrativeTexts.join(" | "),
+        recordId: log._id?.toString?.() || "",
+        signalKeys: getActiveSignalKeys(signalHits),
+      });
 
       if (
         ["pending_release", "pending_acceptance", "released"].includes(status)
@@ -1093,10 +1478,46 @@ const buildFactsMap = async () => {
     });
   });
 
+  const latestRectificationByAircraft = new Map();
+  activeRectifications.forEach((rectification) => {
+    const key = getAircraftKey(rectification.aircraft);
+    const rectifiedAt = getRecordTime(rectification.rectifiedAt);
+    if (rectifiedAt > (latestRectificationByAircraft.get(key) || 0)) {
+      latestRectificationByAircraft.set(key, rectifiedAt);
+    }
+  });
+
+  activeRectifications.forEach((rectification) => {
+    const key = getAircraftKey(rectification.aircraft);
+    const latestRectifiedAt = latestRectificationByAircraft.get(key) || 0;
+    if (getRecordTime(rectification.rectifiedAt) !== latestRectifiedAt) {
+      return;
+    }
+
+    const aircraftEntry = aircraftMap.get(key);
+    if (!aircraftEntry) {
+      return;
+    }
+
+    const latestSourceTime = latestSourceTimeByAircraft.get(key) || 0;
+    if (latestSourceTime > latestRectifiedAt) {
+      return;
+    }
+
+    resetAircraftFactsAfterRectification(aircraftEntry);
+    aircraftEntry.evidence.signalRecords.push({
+      source: "aiRectification",
+      text: rectification.issueTitle
+        ? `AI finding rectified: ${rectification.issueTitle}`
+        : "AI finding rectified.",
+      recordId: rectification._id?.toString?.() || "",
+      signalKeys: [],
+    });
+  });
+
   return {
-    aircraftFacts: Array.from(aircraftMap.values()).sort((left, right) =>
-      left.aircraftId.localeCompare(right.aircraftId),
-    ),
+    aircraftFacts: Array.from(aircraftMap.values())
+      .sort((left, right) => left.aircraftId.localeCompare(right.aircraftId)),
     riskRank: RISK_RANK,
   };
 };

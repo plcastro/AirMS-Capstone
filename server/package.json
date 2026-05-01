@@ -6,6 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon server.js",
+    "seed:manual-rules": "node scripts/seedManualRules.js",
+    "seed:manual-procedures": "node scripts/seedManualProcedures.js",
     "migrate:parts-requisition-statuses": "node scripts/migratePartsRequisitionStatuses.js",
     "pdf:text": "powershell -ExecutionPolicy Bypass -File scripts/extractPdfText.ps1"
   },
