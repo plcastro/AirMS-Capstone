@@ -160,6 +160,10 @@ export default function PreInspectionCards({
                   <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
                 </Text>
+                <Text style={{ fontSize: 12, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Fuel On Board:</Text>{" "}
+                  {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
+                </Text>
               </View>
 
               {/* ✅ ACTION ICON (RIGHT ALIGNED LIKE YOUR WRS DESIGN) */}
