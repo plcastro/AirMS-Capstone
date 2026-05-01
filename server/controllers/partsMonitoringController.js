@@ -79,6 +79,25 @@ const parseNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const calculateRemainingDays = (dueDate, referenceDate = getToday()) => {
+  if (!dueDate) {
+    return null;
+  }
+
+  const due = dueDate instanceof Date ? dueDate : parseDate(dueDate);
+  const reference =
+    referenceDate instanceof Date ? referenceDate : parseDate(referenceDate);
+
+  if (!due || !reference) {
+    return null;
+  }
+
+  due.setHours(0, 0, 0, 0);
+  reference.setHours(0, 0, 0, 0);
+
+  return Math.round((due - reference) / (24 * 60 * 60 * 1000));
+};
+
 const parsePriorityRules = (query = {}) => {
   const parsedRules = { ...DEFAULT_PRIORITY_RULES };
 
@@ -266,9 +285,18 @@ const deriveInspectionKeyForPart = (part = {}) => {
   return "";
 };
 
-const computeUrgencyMetrics = (part = {}) => {
+const computeUrgencyMetrics = (part = {}, referenceDate = getToday()) => {
   const remainingHours = parseNumber(part.timeRemaining);
-  const remainingDays = parseNumber(part.daysRemaining);
+  const dueDate = parseDate(part.dateDue);
+  const calculatedRemainingDays = calculateRemainingDays(
+    dueDate,
+    referenceDate,
+  );
+  const importedRemainingDays = parseNumber(part.daysRemaining);
+  const remainingDays =
+    calculatedRemainingDays !== null
+      ? calculatedRemainingDays
+      : importedRemainingDays;
   const intervalHours = parseNumber(part.hourLimit1);
   const intervalDays = parseNumber(part.dayLimit);
 
@@ -287,7 +315,7 @@ const computeUrgencyMetrics = (part = {}) => {
     remainingHours,
     remainingDays,
     dueAtHours: parseNumber(part.ttCycleDue),
-    dueDate: parseDate(part.dateDue),
+    dueDate,
     hourRatio,
     dayRatio,
     urgencyRatio: ratios.length > 0 ? Math.min(...ratios) : Number.POSITIVE_INFINITY,
@@ -440,6 +468,44 @@ const buildPriorityReason = (inspection = {}, estimatedTurnaroundHours = null, u
   return [overdueQualifier, dueByHours, dueByDays, turnaroundReason]
     .filter(Boolean)
     .join(" | ");
+};
+
+const getDueBasis = (inspection = {}) => {
+  const overdueByHours =
+    inspection.remainingHours !== null && inspection.remainingHours <= 0;
+  const overdueByDays =
+    inspection.remainingDays !== null && inspection.remainingDays <= 0;
+
+  if (overdueByHours && overdueByDays) {
+    return "hours-and-calendar";
+  }
+
+  if (overdueByHours) {
+    return "hours";
+  }
+
+  if (overdueByDays) {
+    return "calendar";
+  }
+
+  if (
+    inspection.remainingHours !== null &&
+    inspection.remainingDays !== null
+  ) {
+    return inspection.remainingHours <= inspection.remainingDays
+      ? "hours"
+      : "calendar";
+  }
+
+  if (inspection.remainingHours !== null) {
+    return "hours";
+  }
+
+  if (inspection.remainingDays !== null) {
+    return "calendar";
+  }
+
+  return "unknown";
 };
 
 const resolveAircraftModelForRecord = (record = {}, computedParts = [], schedulesByModel = new Map()) => {
@@ -780,7 +846,7 @@ exports.getMaintenancePriority = async (req, res) => {
             }
 
             const schedule = scheduleMap.get(inspectionKey);
-            const urgency = computeUrgencyMetrics(part);
+            const urgency = computeUrgencyMetrics(part, refs.today);
 
             return {
               inspectionKey,
@@ -872,6 +938,7 @@ exports.getMaintenancePriority = async (req, res) => {
           dueByHours: roundNumber(nextInspection.remainingHours, 1),
           dueByDays: roundNumber(nextInspection.remainingDays, 0),
           dueDate: nextInspection.dueDate ? nextInspection.dueDate.toISOString() : null,
+          dueBasis: getDueBasis(nextInspection),
           dueAtHours: roundNumber(nextInspection.dueAtHours, 1),
           estimatedTurnaroundHours,
           checklistItemCount: inspectionTaskGroup.length,

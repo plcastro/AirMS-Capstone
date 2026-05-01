@@ -40,14 +40,27 @@ const formatDueSummary = (record) => {
   const segments = [];
 
   if (record.dueByHours !== null && record.dueByHours !== undefined) {
-    segments.push(`${record.dueByHours} FH`);
+    segments.push(`FH: ${record.dueByHours}`);
   }
 
   if (record.dueByDays !== null && record.dueByDays !== undefined) {
-    segments.push(`${record.dueByDays} day(s)`);
+    segments.push(`Days: ${record.dueByDays}`);
   }
 
   return segments.length > 0 ? segments.join(" | ") : "N/A";
+};
+
+const formatDueBasis = (basis) => {
+  switch (basis) {
+    case "hours-and-calendar":
+      return "Hours + calendar";
+    case "hours":
+      return "Flight hours";
+    case "calendar":
+      return "Calendar";
+    default:
+      return "N/A";
+  }
 };
 
 const formatDate = (value) => {
@@ -278,17 +291,33 @@ export default function MaintenancePriority() {
       width: 220,
     },
     {
-      title: "Due Soonest",
+      title: "Remaining",
       key: "dueSoonest",
       width: 170,
       render: (_, record) => formatDueSummary(record),
     },
     {
-      title: "Due Date",
+      title: "Calendar Due",
       dataIndex: "dueDate",
       key: "dueDate",
-      width: 120,
-      render: (value) => formatDate(value),
+      width: 150,
+      render: (value, record) => (
+        <span>
+          {formatDate(value)}
+          {record.dueBasis === "hours" && (
+            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+              not calendar overdue
+            </Text>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "Due Basis",
+      dataIndex: "dueBasis",
+      key: "dueBasis",
+      width: 140,
+      render: (value) => formatDueBasis(value),
     },
     {
       title: "Turnaround",

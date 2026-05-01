@@ -19,7 +19,6 @@ const DrawerList = [
       "pilot",
       "maintenance manager",
       "officer-in-charge",
-      "engineer",
       "mechanic",
     ],
     children: [

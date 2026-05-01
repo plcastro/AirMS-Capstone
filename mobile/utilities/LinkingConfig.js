@@ -13,7 +13,12 @@ const LinkingConfig = {
       forgotPassword: "forgot-password",
       resetPassword: "reset-password",
       securitySetup: "security-setup",
-      dashboard: "dashboard",
+      dashboard: {
+        path: "dashboard",
+        screens: {
+          Tasks: "tasks",
+        },
+      },
     },
   },
 };

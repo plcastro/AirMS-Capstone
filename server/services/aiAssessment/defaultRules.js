@@ -1,3 +1,5 @@
+const FAULT_CONDITION_RULES = require("./faultConditionRules");
+
 const buildTitleRule = ({
   ruleCode,
   title,
@@ -2868,4 +2870,4 @@ const DEFAULT_MANUAL_RULES = [
   }),
 ];
 
-module.exports = DEFAULT_MANUAL_RULES;
+module.exports = [...DEFAULT_MANUAL_RULES, ...FAULT_CONDITION_RULES];
