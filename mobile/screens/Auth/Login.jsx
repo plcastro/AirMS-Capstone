@@ -199,7 +199,7 @@ export default function Login() {
               Please enter your username and password
             </Text>
             <Text style={[styles.label, { textAlign: "left" }]}>
-              Username/Email *
+              Username/Email <Text style={{ color: "red" }}>*</Text>
             </Text>
             <TextInput
               style={styles.formInput}
@@ -211,7 +211,9 @@ export default function Login() {
               value={formData.identifier}
               onChangeText={(text) => changeHandler("identifier", text)}
             />
-            <Text style={styles.label}>Password *</Text>
+            <Text style={styles.label}>
+              Password <Text style={{ color: "red" }}>*</Text>
+            </Text>
             <TextInput
               style={styles.formInput}
               maxLength={100}

@@ -101,8 +101,8 @@ export default function PostInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                    RP/C: {inspection.rpc || "N/A"}
+                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                    {inspection.rpc || "N/A"}
                   </Text>
 
                   <Text style={{ fontSize: 10, color: "#777" }}>
@@ -158,11 +158,6 @@ export default function PostInspectionCards({
                 <Text style={{ fontSize: 11, color: "#444" }}>
                   <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
-                </Text>
-
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>RP/C:</Text>{" "}
-                  {inspection.rpc || "N/A"}
                 </Text>
               </View>
 

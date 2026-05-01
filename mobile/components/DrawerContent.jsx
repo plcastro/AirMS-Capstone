@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { CommonActions, useNavigation } from "@react-navigation/native";
-import { View, Image } from "react-native";
+import { View, Image, Text } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,12 +15,7 @@ const DrawerList = [
   {
     icon: "clipboard-search",
     label: "Aircraft Health Logbook",
-    jobTitle: [
-      "pilot",
-      "maintenance manager",
-      "officer-in-charge",
-      "mechanic",
-    ],
+    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
     children: [
       {
         icon: "book-open-page-variant",
@@ -118,8 +113,8 @@ function DrawerContent({ navigation }) {
         <Image
           source={AirMSWeb}
           style={{
-            width: 150,
-            height: 50,
+            width: 120,
+            height: 40,
             alignSelf: "center",
             marginBottom: 10,
           }}
@@ -135,13 +130,27 @@ function DrawerContent({ navigation }) {
             return (
               <View key={index}>
                 <DrawerItem
-                  label={item.label}
+                  label={() => (
+                    <Text
+                      style={{
+                        color: isActive ? "#fff" : "#777",
+                        fontSize: 12,
+                        flexWrap: "wrap",
+                      }}
+                      numberOfLines={2}
+                    >
+                      {item.label}
+                    </Text>
+                  )}
                   focused={isActive}
                   style={{
                     backgroundColor: isActive ? "#26866F" : "transparent",
-                    borderRadius: 0,
+                    borderRadius: 12,
                   }}
-                  labelStyle={{ color: isActive ? "#fff" : "#777" }}
+                  labelStyle={{
+                    color: isActive ? "#fff" : "#777",
+                    fontSize: 12,
+                  }}
                   icon={({ color, size }) => (
                     <MaterialCommunityIcons
                       name={item.icon}
@@ -164,17 +173,29 @@ function DrawerContent({ navigation }) {
                     return (
                       <DrawerItem
                         key={i}
-                        label={child.label}
+                        label={() => (
+                          <Text
+                            style={{
+                              color: childActive ? "#fff" : "#777",
+                              fontSize: 12,
+                              flexWrap: "wrap",
+                            }}
+                            numberOfLines={2}
+                          >
+                            {child.label}
+                          </Text>
+                        )}
                         focused={childActive}
                         style={{
                           backgroundColor: childActive
                             ? "#26866F"
                             : "transparent",
-                          borderRadius: 0,
+                          borderRadius: 12,
                         }}
                         labelStyle={{
                           color: childActive ? "#fff" : "#777",
-                          paddingLeft: 20,
+
+                          fontSize: 12,
                         }}
                         onPress={() =>
                           navigation.dispatch(

@@ -98,7 +98,9 @@ export default function ForgotPassword() {
               Please provide your email to proceed
             </Text>
 
-            <Text style={styles.label}>Email *</Text>
+            <Text style={styles.label}>
+              Email <Text style={{ color: "red" }}>*</Text>
+            </Text>
             <TextInput
               style={[styles.formInput, { marginBottom: 0 }]}
               maxLength={254}
