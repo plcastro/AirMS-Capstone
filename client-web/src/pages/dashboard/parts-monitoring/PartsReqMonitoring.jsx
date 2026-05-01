@@ -300,6 +300,18 @@ export default function PartsRequisition() {
     handleAllRequisitions();
   }, [handleAllRequisitions]);
 
+  useEffect(() => {
+    if (!isWarehouseDepartment) {
+      return undefined;
+    }
+
+    const refreshInterval = window.setInterval(() => {
+      handleAllRequisitions();
+    }, 15000);
+
+    return () => window.clearInterval(refreshInterval);
+  }, [handleAllRequisitions, isWarehouseDepartment]);
+
   if (!isWarehouseDepartment) {
     return <Navigate to="/dashboard/profile" replace />;
   }

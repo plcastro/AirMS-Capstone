@@ -78,6 +78,18 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   }, [currentUserId]);
 
   useEffect(() => {
+    if (!currentUserId) {
+      return undefined;
+    }
+
+    const refreshInterval = setInterval(() => {
+      fetchTasks({ silent: true });
+    }, 15000);
+
+    return () => clearInterval(refreshInterval);
+  }, [currentUserId]);
+
+  useEffect(() => {
     if (!targetTaskId || tasks.length === 0) {
       return;
     }
