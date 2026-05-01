@@ -70,8 +70,10 @@ export default function PostInspectionCards({
         const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
-          <View
+          <TouchableOpacity
             key={inspection._id}
+            activeOpacity={0.8}
+            onPress={() => onEdit?.(inspection)}
             style={{
               flexDirection: "row",
               backgroundColor: COLORS.white,
@@ -159,6 +161,10 @@ export default function PostInspectionCards({
                   <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
                 </Text>
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Fuel On Board:</Text>{" "}
+                  {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
+                </Text>
               </View>
 
               {/* ACTION ICON (RIGHT ALIGNED LIKE ALL MODULES) */}
@@ -177,7 +183,7 @@ export default function PostInspectionCards({
                 />
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         );
       })}
     </>

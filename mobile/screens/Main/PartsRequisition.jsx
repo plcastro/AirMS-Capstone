@@ -272,9 +272,14 @@ const mapRequisitionToCard = (record) => {
   };
 };
 
-const resolveTabForRequest = (request) => {
+const resolveTabForRequest = (request, isManager) => {
   if (!request) {
     return null;
+  }
+  if (isManager) {
+    return ["Delivered", "Cancelled"].includes(request.rawStatus)
+      ? "Closed"
+      : "For Review";
   }
 
   if (["Delivered", "Cancelled"].includes(request.rawStatus)) {
@@ -306,7 +311,14 @@ export default function PartsRequisition({ route, navigation }) {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
-  const tabLabels = ["Pending", "Approved", "Closed"];
+  const tabLabels = isManager
+    ? ["For Review", "Closed"]
+    : ["Pending", "Approved", "Closed"];
+  const defaultTab = isManager ? "For Review" : "Pending";
+
+  useEffect(() => {
+    setSelectedTab(defaultTab);
+  }, [defaultTab]);
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -418,6 +430,13 @@ export default function PartsRequisition({ route, navigation }) {
 
   const filteredRequisitions = useMemo(() => {
     const sourceData = mappedRequisitions.filter((item) => {
+      if (isManager) {
+        if (selectedTab === "For Review") {
+          return ["Availability Checked", "Ordered"].includes(item.rawStatus);
+        }
+        return ["Delivered", "Cancelled"].includes(item.rawStatus);
+      }
+
       if (selectedTab === "Pending") {
         return !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
       }
@@ -438,10 +457,13 @@ export default function PartsRequisition({ route, navigation }) {
 
       return matchesSearch;
     });
-  }, [mappedRequisitions, searchQuery, selectedTab]);
+  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
 
   const tabCounts = useMemo(
     () => ({
+      "For Review": mappedRequisitions.filter(
+        (item) => ["Availability Checked", "Ordered"].includes(item.rawStatus),
+      ).length,
       Pending: mappedRequisitions.filter(
         (item) =>
           !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
@@ -471,7 +493,7 @@ export default function PartsRequisition({ route, navigation }) {
       return;
     }
 
-    const nextTab = resolveTabForRequest(matchedRequest);
+    const nextTab = resolveTabForRequest(matchedRequest, isManager);
 
     if (nextTab && nextTab !== selectedTab) {
       setSelectedTab(nextTab);
@@ -485,6 +507,7 @@ export default function PartsRequisition({ route, navigation }) {
       notificationStatus: undefined,
     });
   }, [
+    isManager,
     mappedRequisitions,
     navigation,
     route?.params?.targetRequestId,
@@ -677,7 +700,7 @@ export default function PartsRequisition({ route, navigation }) {
       }
 
       resetEntryModal();
-      setSelectedTab("Pending");
+      setSelectedTab(defaultTab);
       await fetchRequisitions();
       showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
@@ -787,7 +810,7 @@ export default function PartsRequisition({ route, navigation }) {
     detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
   const canOrder =
     isManager &&
-    selectedTab === "Pending" &&
+    selectedTab === "For Review" &&
     selectedRequest?.hasWarehouseAssessment &&
     ["Parts Requested", "Availability Checked"].includes(
       selectedRequest?.rawStatus,
@@ -795,7 +818,7 @@ export default function PartsRequisition({ route, navigation }) {
     hasMissingItems;
   const canApprove =
     isManager &&
-    selectedTab === "Pending" &&
+    selectedTab === "For Review" &&
     selectedRequest?.hasWarehouseAssessment &&
     !["Approved", "Delivered", "Cancelled"].includes(
       selectedRequest?.rawStatus,
@@ -929,7 +952,7 @@ export default function PartsRequisition({ route, navigation }) {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showManagerActions={isManager && selectedTab === "Pending"}
+        showManagerActions={isManager && selectedTab === "For Review"}
         canOrder={canOrder}
         canApprove={canApprove}
         orderLabel={orderLabel}

@@ -4,16 +4,12 @@ import { View, Image, Text } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
-
 import AlertComp from "./AlertComp";
-
 import { AuthContext } from "../Context/AuthContext";
 
 const DrawerList = [
   {
-    icon: "clipboard-search",
     label: "Aircraft Health Logbook",
     jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
     children: [
@@ -48,7 +44,6 @@ const DrawerList = [
     ],
   },
   {
-    icon: "clipboard-text",
     label: "Task Assignment and Monitoring",
     jobTitle: ["maintenance manager", "mechanic"],
     children: [
@@ -84,27 +79,27 @@ function DrawerContent({ navigation }) {
   const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
-  const userjobTitle = user?.jobTitle?.toLowerCase();
+
+  const userJob = user?.jobTitle?.toLowerCase();
+
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
+
+  const isVisible = (item) => {
+    const roles = item.jobTitle?.map((r) => r.toLowerCase()) || [];
+    return roles.length === 0 || roles.includes(userJob);
+  };
+
+  const getChildren = (item) =>
+    item.children ? item.children.filter(isVisible) : [];
 
   const handleLogout = async () => {
     try {
       await logoutUser({ notifyServer: true });
       nav.replace("login");
     } catch (err) {
-      console.error("Error logging out:", err);
+      console.error(err);
     }
-  };
-
-  const isItemVisible = (item) => {
-    const jobTitles = item.jobTitle?.map((p) => p.toLowerCase()) || [];
-    return jobTitles.length === 0 || jobTitles.includes(userjobTitle);
-  };
-
-  const getChildren = (item) => {
-    if (!item.children) return [];
-    return item.children.filter(isItemVisible);
   };
 
   return (
@@ -120,42 +115,41 @@ function DrawerContent({ navigation }) {
           }}
         />
 
-        <View style={styles.drawerSection}>
-          {DrawerList.filter(isItemVisible).map((item, index) => {
+        <View>
+          {DrawerList.filter(isVisible).map((item) => {
             const isActive =
               (!item.children && item.navigateTo === activeRoute) ||
               (item.children &&
                 item.children.some((c) => c.navigateTo === activeRoute));
 
             return (
-              <View key={index}>
+              <View key={item.label}>
+                {/* PARENT ITEM */}
                 <DrawerItem
+                  focused={isActive}
+                  style={{
+                    backgroundColor: isActive ? "#E6F4F1" : "transparent",
+                    borderRadius: 10,
+                    borderLeftWidth: isActive ? 4 : 0,
+                    borderLeftColor: "#26866F",
+                  }}
                   label={() => (
                     <Text
                       style={{
-                        color: isActive ? "#fff" : "#777",
+                        color: isActive ? "#26866F" : "#777",
                         fontSize: 12,
-                        flexWrap: "wrap",
+                        fontWeight: isActive ? "600" : "400",
                       }}
                       numberOfLines={2}
                     >
                       {item.label}
                     </Text>
                   )}
-                  focused={isActive}
-                  style={{
-                    backgroundColor: isActive ? "#26866F" : "transparent",
-                    borderRadius: 12,
-                  }}
-                  labelStyle={{
-                    color: isActive ? "#fff" : "#777",
-                    fontSize: 12,
-                  }}
-                  icon={({ color, size }) => (
+                  icon={({ size }) => (
                     <MaterialCommunityIcons
                       name={item.icon}
-                      color={isActive ? "#fff" : "#777"}
                       size={size}
+                      color={isActive ? "#26866F" : "#777"}
                     />
                   )}
                   onPress={() => {
@@ -167,39 +161,48 @@ function DrawerContent({ navigation }) {
                   }}
                 />
 
+                {/* CHILD ITEMS */}
                 {item.children &&
-                  getChildren(item).map((child, i) => {
+                  getChildren(item).map((child) => {
                     const childActive = activeRoute === child.navigateTo;
+
                     return (
                       <DrawerItem
-                        key={i}
+                        key={child.navigateTo}
+                        focused={childActive}
+                        style={{
+                          backgroundColor: childActive
+                            ? "#E6F4F1"
+                            : "transparent",
+                          borderRadius: 10,
+                          marginLeft: 10,
+                          borderLeftWidth: childActive ? 4 : 0,
+                          borderLeftColor: "#26866F",
+                        }}
                         label={() => (
                           <Text
                             style={{
-                              color: childActive ? "#fff" : "#777",
+                              color: childActive ? "#26866F" : "#777",
                               fontSize: 12,
-                              flexWrap: "wrap",
+                              fontWeight: childActive ? "600" : "400",
                             }}
                             numberOfLines={2}
                           >
                             {child.label}
                           </Text>
                         )}
-                        focused={childActive}
-                        style={{
-                          backgroundColor: childActive
-                            ? "#26866F"
-                            : "transparent",
-                          borderRadius: 12,
-                        }}
-                        labelStyle={{
-                          color: childActive ? "#fff" : "#777",
-
-                          fontSize: 12,
-                        }}
+                        icon={({ size }) => (
+                          <MaterialCommunityIcons
+                            name={child.icon}
+                            size={size}
+                            color={childActive ? "#26866F" : "#777"}
+                          />
+                        )}
                         onPress={() =>
                           navigation.dispatch(
-                            CommonActions.navigate({ name: child.navigateTo }),
+                            CommonActions.navigate({
+                              name: child.navigateTo,
+                            }),
                           )
                         }
                       />
@@ -211,14 +214,14 @@ function DrawerContent({ navigation }) {
         </View>
       </DrawerContentScrollView>
 
-      <View style={styles.bottomDrawerSection}>
+      {/* LOGOUT */}
+      <View style={{ padding: 10 }}>
         <DrawerItem
-          style={{ borderRadius: 0 }}
-          icon={({ color, size }) => (
+          icon={({ size, color }) => (
             <MaterialCommunityIcons
               name="exit-to-app"
-              color={color}
               size={size}
+              color={color}
             />
           )}
           label="Log Out"

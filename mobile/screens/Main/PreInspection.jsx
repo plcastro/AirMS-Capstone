@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -213,9 +212,7 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>
-                New Entry
-              </Text>
+              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
             </TouchableOpacity>
           )}
         </View>
