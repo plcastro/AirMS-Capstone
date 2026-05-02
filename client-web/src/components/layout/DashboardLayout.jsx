@@ -133,7 +133,9 @@ const DashboardLayout = () => {
 
         <Content
           style={{
-            minHeight: "calc(100vh - 64px)",
+            height: "calc(100vh - 64px)",
+            overflowY: "auto",
+            overflowX: "hidden",
             background: "#efeeee",
             borderRadius: borderRadiusLG,
           }}

@@ -135,7 +135,7 @@ const Login = () => {
 
     switch (pos) {
       case "admin":
-        navigate("/dashboard/user-management/admin-dashboard");
+        navigate("/dashboard/user-management/view-users");
         break;
       case "mechanic":
         navigate("/dashboard/maintenance-log");
@@ -230,7 +230,11 @@ const Login = () => {
       </Form>
 
       {loading && (
-        <div className="login-loading-overlay" aria-live="polite" aria-busy="true">
+        <div
+          className="login-loading-overlay"
+          aria-live="polite"
+          aria-busy="true"
+        >
           <div className="login-loading-card">
             <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
             <div className="login-loading-spinner" />
