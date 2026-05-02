@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useMemo } from "react";
 import { Layout, Button, theme, Avatar, Grid, Row } from "antd";
 import {
   MenuFoldOutlined,
@@ -7,7 +7,7 @@ import {
   BellOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
@@ -20,9 +20,26 @@ const DashboardLayout = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user } = useContext(AuthContext);
   const nav = useNavigate();
+  const location = useLocation();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+  const pageTitle = useMemo(() => {
+    const routeTitles = {
+      "/dashboard/user-management/view-users": "User Management",
+      "/dashboard/user-management/activity-logs": "Activity Logs",
+      "/dashboard/flight-log": "Flight Logs",
+      "/dashboard/maintenance-log": "Maintenance Logs",
+      "/dashboard/parts-lifespan-monitoring": "Parts Lifespan Monitoring",
+      "/dashboard/maintenance-tracking": "Maintenance Tracking",
+      "/dashboard/maintenance-priority": "Maintenance Priority Sorting",
+      "/dashboard/parts-requisition": "Parts Requisition Monitoring",
+      "/dashboard/maintenance-dashboard": "Reports and Analytics",
+      "/dashboard/profile": "Profile",
+    };
+
+    return routeTitles[location.pathname] || "Dashboard";
+  }, [location.pathname]);
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -66,7 +83,7 @@ const DashboardLayout = () => {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 8,
             }}
           >
             <Button
@@ -79,6 +96,16 @@ const DashboardLayout = () => {
                 height: 46,
               }}
             />
+            <span
+              style={{
+                fontSize: screens.xs ? 14 : 18,
+                fontWeight: 600,
+                color: "#1f1f1f",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pageTitle}
+            </span>
           </div>
           <Row align="middle" gutter={16}>
             <Button

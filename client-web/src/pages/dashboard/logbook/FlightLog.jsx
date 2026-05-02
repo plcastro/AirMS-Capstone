@@ -119,50 +119,53 @@ export default function FlightLog() {
         ),
     );
 
-  const fetchFlightLogs = useCallback(async (options = {}) => {
-    const { silent = false } = options;
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
+  const fetchFlightLogs = useCallback(
+    async (options = {}) => {
+      const { silent = false } = options;
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
 
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "100");
+        const params = new URLSearchParams();
+        params.append("page", "1");
+        params.append("limit", "100");
 
-      if (selectedAircraft && selectedAircraft !== "all") {
-        params.append("aircraftRPC", selectedAircraft);
-      }
-      if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", normalizeStatusFilterValue(selectedStatus));
-      }
+        if (selectedAircraft && selectedAircraft !== "all") {
+          params.append("aircraftRPC", selectedAircraft);
+        }
+        if (selectedStatus && selectedStatus !== "all") {
+          params.append("status", normalizeStatusFilterValue(selectedStatus));
+        }
 
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
           },
-        },
-      );
+        );
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch flight logs");
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch flight logs");
+        }
+
+        setFlightLogs(data.data || []);
+      } catch (error) {
+        console.error("Fetch flight logs error:", error);
+        message.error(error.message || "Failed to fetch flight logs");
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
       }
-
-      setFlightLogs(data.data || []);
-    } catch (error) {
-      console.error("Fetch flight logs error:", error);
-      message.error(error.message || "Failed to fetch flight logs");
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [normalizeStatusFilterValue, selectedAircraft, selectedStatus]);
+    },
+    [normalizeStatusFilterValue, selectedAircraft, selectedStatus],
+  );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
@@ -576,7 +579,7 @@ export default function FlightLog() {
   );
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
@@ -706,7 +709,7 @@ export default function FlightLog() {
       title: "Action",
       key: "action",
       width: 320,
-      fixed: "right",
+
       render: (_, record) => (
         <Space size={4} wrap>
           <Button
@@ -769,8 +772,7 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      <Card>
-        <Title level={4}>Flight Logbook</Title>
+      <Card style={{ marginBottom: 10 }}>
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} md={8}>
             <Input
@@ -821,29 +823,28 @@ export default function FlightLog() {
           )}
         </Row>
       </Card>
-      <Col span={24} style={{ textAlign: "right", margin: "16px 0" }}>
+
+      <Table
+        className="fl-table"
+        columns={columns}
+        dataSource={filteredLogs}
+        loading={loading}
+        rowKey={(record) => record._id || record.id}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+        scroll={{ x: 1100 }}
+        locale={{
+          emptyText:
+            searchQuery || selectedAircraft || selectedStatus !== "all"
+              ? "No flight logs found"
+              : "No flight logs yet",
+        }}
+        size="small"
+      />
+      <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
         <Text type="secondary">
           Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
         </Text>
       </Col>
-      <Card className="fl-table-wrapper" styles={{ body: { padding: 0 } }}>
-        <Table
-          className="fl-table"
-          columns={columns}
-          dataSource={filteredLogs}
-          loading={loading}
-          rowKey={(record) => record._id || record.id}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          scroll={{ x: 1100 }}
-          locale={{
-            emptyText:
-              searchQuery || selectedAircraft || selectedStatus !== "all"
-                ? "No flight logs found"
-                : "No flight logs yet",
-          }}
-          size="small"
-        />
-      </Card>
 
       <FlightLogEntry
         visible={entryModalVisible}
