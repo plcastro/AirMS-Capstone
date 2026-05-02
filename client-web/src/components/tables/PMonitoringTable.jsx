@@ -214,7 +214,7 @@ export default function PMonitoringTable({
       pagination={{
         pageSize: pageSize,
         showSizeChanger: true,
-        pageSizeOptions: ["10", "20", "50"],
+        pageSizeOptions: ["10", "15", "30"],
         current: currentPage,
         onChange: (page, size) => {
           setCurrentPage(page);
