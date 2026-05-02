@@ -919,7 +919,6 @@ export default function PartsRequisition({ route, navigation }) {
             flexDirection: "row",
             gap: 3,
             marginBottom: 20,
-            justifyContent: "space-between",
           }}
         >
           {tabLabels.map(renderTabButton)}
