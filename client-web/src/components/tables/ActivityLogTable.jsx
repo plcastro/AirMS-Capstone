@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Table, Grid } from "antd";
+import dayjs from "dayjs";
 const { useBreakpoint } = Grid;
 const headers = [
   {
@@ -29,6 +30,9 @@ const headers = [
     key: "dateTime",
     sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
     width: 260,
+    render: (_, record) =>
+      record.displayDateTime ||
+      (record.dateTime ? dayjs(record.dateTime).format("MMM DD, YYYY hh:mm A") : "N/A"),
   },
 ];
 export default function ActivityLogTable({ data = [], loading }) {

@@ -38,8 +38,7 @@ const allowedOrigins = [
   "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
-  "https://www.airms.online",
-  "http://localhost:8081", // Expo / Metro bundler origin
+  "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
