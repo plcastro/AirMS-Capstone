@@ -125,6 +125,9 @@ export default function TaskCard({
             {status}
           </Text>
         </View>
+        <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
+          <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
+        </TouchableOpacity>
       </View>
 
       {/* BODY INFO */}
@@ -201,16 +204,7 @@ export default function TaskCard({
           }}
         >
           <TouchableOpacity onPress={() => onEditTask?.(data)}>
-            <MaterialCommunityIcons
-              name="pencil"
-              size={18}
-              color="#777"
-              style={{ marginRight: 12 }}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
-            <MaterialCommunityIcons name="delete" size={18} color="#F45B5B" />
+            <MaterialCommunityIcons name="pencil" size={21} color="#777" />
           </TouchableOpacity>
         </View>
       )}
