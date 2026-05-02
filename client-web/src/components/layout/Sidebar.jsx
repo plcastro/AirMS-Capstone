@@ -34,12 +34,12 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
   const menuItems = [
-    {
-      key: "1",
-      label: "Admin Dashboard",
-      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin"],
-    },
+    // {
+    //   key: "1",
+    //   label: "Admin Dashboard",
+    //   icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+    //   roles: ["admin"],
+    // },
 
     {
       key: "2",
@@ -150,7 +150,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   const routeToKey = useMemo(
     () => ({
-      "/dashboard/user-management/admin-dashboard": "1",
+      // "/dashboard/user-management/admin-dashboard": "1",
       "/dashboard/user-management/view-users": "2",
       "/dashboard/user-management/activity-logs": "3",
       "/dashboard/flight-log": "4",
