@@ -79,11 +79,19 @@ export default function HeadTaskScreen({
   }, []);
 
   useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      fetchTasks({ silent: true });
-    }, 15000);
+    if (typeof EventSource === "undefined") return undefined;
 
-    return () => clearInterval(refreshInterval);
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchTasks({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
   }, []);
 
   useEffect(() => {

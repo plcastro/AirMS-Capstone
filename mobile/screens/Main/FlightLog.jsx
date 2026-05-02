@@ -41,9 +41,11 @@ export default function FlightLog({ route, navigation }) {
   const isOfficerInCharge = userRole === "officer-in-charge";
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
-  const fetchFlightLogs = useCallback(async () => {
+  const fetchFlightLogs = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       // Build query parameters
       const params = new URLSearchParams();
@@ -89,7 +91,9 @@ export default function FlightLog({ route, navigation }) {
       console.error("Fetch error:", error);
       showToast("Failed to connect to server. Please check your network.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
       setRefreshing(false);
     }
   }, [selectedAircraft, selectedStatus]);
@@ -259,6 +263,23 @@ export default function FlightLog({ route, navigation }) {
       fetchNotifications();
     }, [fetchFlightLogs, fetchNotifications]),
   );
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [fetchFlightLogs, fetchNotifications]);
 
   useEffect(() => {
     if (!route?.params?.refreshAt) {

@@ -78,15 +78,21 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   }, [currentUserId]);
 
   useEffect(() => {
-    if (!currentUserId) {
+    if (!currentUserId || typeof EventSource === "undefined") {
       return undefined;
     }
 
-    const refreshInterval = setInterval(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
       fetchTasks({ silent: true });
-    }, 15000);
+    };
 
-    return () => clearInterval(refreshInterval);
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
   }, [currentUserId]);
 
   useEffect(() => {
