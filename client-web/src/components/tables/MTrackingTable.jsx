@@ -84,12 +84,12 @@ export default function MTrackingTable({
           dataIndex: "managerSummarySource",
           key: "managerSummarySource",
           filters: [
-            { text: "Gemini AI", value: "Gemini AI" },
+            { text: "OpenAI", value: "OpenAI" },
             { text: "Rule Fallback", value: "Rule Fallback" },
           ],
           onFilter: (value, record) => record.managerSummarySource === value,
           render: (summarySource) => {
-            const color = summarySource === "Gemini AI" ? "blue" : "default";
+            const color = summarySource === "OpenAI" ? "blue" : "default";
             return <Tag color={color}>{summarySource}</Tag>;
           },
         };
@@ -107,7 +107,7 @@ export default function MTrackingTable({
             ),
           render: (finding) => {
             const source = finding?.source || "Rule-based";
-            const sourceColor = source === "Gemini AI" ? "blue" : "default";
+            const sourceColor = source === "OpenAI" ? "blue" : "default";
             const defectDetails = finding?.defectDetails;
             const hasDefectDetails =
               defectDetails &&

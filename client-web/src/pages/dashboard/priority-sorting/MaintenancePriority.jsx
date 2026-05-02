@@ -33,7 +33,6 @@ const DEFAULT_RULES = {
   highRemainingHours: 24,
   mediumDueDays: 14,
   longTurnaroundHours: 5,
-  safetyBoostEnabled: true,
 };
 
 const formatDueSummary = (record) => {
@@ -97,7 +96,6 @@ export default function MaintenancePriority() {
         highRemainingHours: String(activeRules.highRemainingHours),
         mediumDueDays: String(activeRules.mediumDueDays),
         longTurnaroundHours: String(activeRules.longTurnaroundHours),
-        safetyBoostEnabled: activeRules.safetyBoostEnabled ? "1" : "0",
       });
 
       const response = await fetch(
