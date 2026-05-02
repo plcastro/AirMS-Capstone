@@ -541,27 +541,25 @@ export default function MaintenancePriority() {
         />
       )}
 
-      <Card>
-        <Table
-          rowKey={(record) =>
-            [
-              record.inspectionKey,
-              record.sourceRow,
-              record.aircraft,
-              record.nextInspection,
-              record.rank,
-            ]
-              .filter(Boolean)
-              .join("-")
-          }
-          loading={loading}
-          columns={columns}
-          dataSource={filteredData}
-          pagination={false}
-          scroll={{ x: 1600 }}
-          bordered
-        />
-      </Card>
+      <Table
+        rowKey={(record) =>
+          [
+            record.inspectionKey,
+            record.sourceRow,
+            record.aircraft,
+            record.nextInspection,
+            record.rank,
+          ]
+            .filter(Boolean)
+            .join("-")
+        }
+        loading={loading}
+        columns={columns}
+        dataSource={filteredData}
+        pagination={false}
+        scroll={{ x: 1600 }}
+        bordered
+      />
     </div>
   );
 }
