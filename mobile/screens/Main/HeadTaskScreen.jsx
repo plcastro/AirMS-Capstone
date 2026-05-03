@@ -474,7 +474,7 @@ export default function HeadTaskScreen({
           onPress={() => setAddModalVisible(true)}
           buttonStyle={[
             styles.unifiedActionButton,
-            { marginLeft: 5, width: 120 },
+            { marginLeft: 5, width: 100 },
           ]}
           buttonTextStyle={styles.primaryBtnTxt}
         />
@@ -508,13 +508,6 @@ export default function HeadTaskScreen({
             ]}
           />
         ))}
-      </View>
-
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 12 }}>
-          {taskHeader}
-        </Text>
       </View>
 
       {/* Task List */}

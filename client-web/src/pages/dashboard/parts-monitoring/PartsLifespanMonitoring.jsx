@@ -94,6 +94,50 @@ const getFormulaProcessor = (aircraft) => {
 
 const { Text } = Typography;
 
+const isLegendOrNoteRow = (row = {}) => {
+  const searchableText = [
+    row.componentName,
+    row.hourLimit1,
+    row.hourLimit2,
+    row.hourLimit3,
+    row.dayLimit,
+    row.dayType,
+    row.dateCW,
+    row.hoursCW,
+    row.daysRemaining,
+    row.timeRemaining,
+    row.dateDue,
+    row.ttCycleDue,
+    row.due,
+    row.hd,
+    row.timeSinceInstall,
+    row.totalTimeSinceNew,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+  return (
+    /^NOTE:?$/.test(searchableText) ||
+    searchableText.includes("NOTE:") ||
+    searchableText.includes("OC - ON CONDITION") ||
+    searchableText.includes("OC-ON CONDITION") ||
+    searchableText.includes("OC ON CONDITION") ||
+    searchableText.includes("TC - TORQUE CYCLE") ||
+    searchableText.includes("TC-TORQUE CYCLE") ||
+    searchableText.includes("TC TORQUE CYCLE") ||
+    searchableText.includes("T/C - TORQUE CYCLE") ||
+    searchableText.includes("T/C TORQUE CYCLE")
+  );
+};
+
+const removeLegendRows = (rows = []) => {
+  const firstLegendIndex = rows.findIndex(isLegendOrNoteRow);
+  return firstLegendIndex === -1 ? rows : rows.slice(0, firstLegendIndex);
+};
+
 // Column headers (same as before)
 const columnHeader = [
   {
@@ -349,7 +393,7 @@ export default function PartsMonitoring() {
   const computedData = useMemo(() => {
     if (!selectedAircraft || rawData.length === 0) return [];
     const processor = getFormulaProcessor(selectedAircraft);
-    return processor(rawData, refs);
+    return removeLegendRows(processor(rawData, refs));
   }, [rawData, refs, selectedAircraft]);
 
   const isCellEditable = (record, dataIndex) => {
@@ -595,30 +639,6 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
-      <Card className="aircraft-card legend-card">
-        <div className="legend-container">
-          <Text className="note-title">NOTE:</Text>
-          <div className="legend-grid">
-            <div className="legend-item">
-              <Text strong>OC</Text> - ON CONDITION
-            </div>
-            <div className="legend-item">
-              <Text strong>H</Text> - HOURS
-            </div>
-            <div className="legend-item">
-              <Text strong>D</Text> - DAY
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-removed" />
-              <Text>- REMOVED</Text>
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-installed" />
-              <Text>- INSTALLED</Text>
-            </div>
-          </div>
-        </div>
-      </Card>
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}

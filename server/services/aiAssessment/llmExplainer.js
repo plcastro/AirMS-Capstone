@@ -1,5 +1,4 @@
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models";
+const OPENAI_RESPONSES_API_URL = "https://api.openai.com/v1/responses";
 
 const getAircraftLabel = (insight = {}) =>
   insight.aircraft || insight.aircraftId || "the aircraft";
@@ -27,9 +26,9 @@ const EMPTY_DEFECT_DETAILS = {
   confidence: "low",
 };
 
-let geminiCooldownUntil = 0;
-let geminiCooldownMessage = "";
-let lastGeminiResult = {
+let llmCooldownUntil = 0;
+let llmCooldownMessage = "";
+let lastLlmResult = {
   ok: true,
   reason: "",
   status: 0,
@@ -38,27 +37,32 @@ let lastGeminiResult = {
   checkedAt: "",
 };
 
-const setLastGeminiResult = (result = {}) => {
-  lastGeminiResult = {
+const getLlmConfig = () => ({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.OPENAI_MODEL || "gpt-5-mini",
+});
+
+const setLastLlmResult = (result = {}) => {
+  lastLlmResult = {
     ok: Boolean(result.ok),
     reason: result.reason || "",
     status: Number(result.status) || 0,
     message: result.message || "",
-    model: result.model || getGeminiConfig().model || "",
+    model: result.model || getLlmConfig().model || "",
     checkedAt: new Date().toISOString(),
   };
 };
 
-const getLastGeminiResult = () => lastGeminiResult;
+const getLastLlmResult = () => lastLlmResult;
 
-const getGeminiCooldown = () => {
-  const remainingMs = Math.max(0, geminiCooldownUntil - Date.now());
+const getLlmCooldown = () => {
+  const remainingMs = Math.max(0, llmCooldownUntil - Date.now());
 
   return {
     active: remainingMs > 0,
     retryAfterSeconds: Math.ceil(remainingMs / 1000),
-    message: remainingMs > 0 ? geminiCooldownMessage : "",
-    cooldownUntil: remainingMs > 0 ? new Date(geminiCooldownUntil).toISOString() : "",
+    message: remainingMs > 0 ? llmCooldownMessage : "",
+    cooldownUntil: remainingMs > 0 ? new Date(llmCooldownUntil).toISOString() : "",
   };
 };
 
@@ -85,12 +89,12 @@ const parseRetryAfterSeconds = (response, result = {}) => {
   return 60;
 };
 
-const setGeminiCooldown = (seconds, message = "") => {
+const setLlmCooldown = (seconds, message = "") => {
   const paddedSeconds = Math.max(5, Number(seconds) || 60) + 2;
-  geminiCooldownUntil = Date.now() + paddedSeconds * 1000;
-  geminiCooldownMessage =
+  llmCooldownUntil = Date.now() + paddedSeconds * 1000;
+  llmCooldownMessage =
     message ||
-    `Gemini quota is cooling down. Try again in ${paddedSeconds} seconds.`;
+    `OpenAI quota is cooling down. Try again in ${paddedSeconds} seconds.`;
 };
 
 const buildDefectDetailsPrompt = (insight = {}) =>
@@ -154,11 +158,6 @@ const buildCombinedPrompt = (insight = {}) =>
     ),
   ].join("\n");
 
-const getGeminiConfig = () => ({
-  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
-  model: process.env.GEMINI_MODEL,
-});
-
 const normalizeLlmSummary = (summary = "", insight = {}) => {
   const aircraftLabel = getAircraftLabel(insight);
   return String(summary || "")
@@ -167,32 +166,58 @@ const normalizeLlmSummary = (summary = "", insight = {}) => {
     .replace(/\baircraft RP-C\b/gi, `aircraft ${aircraftLabel}`);
 };
 
-const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature = 0.3 } = {}) => {
-  const { apiKey, model } = getGeminiConfig();
-  const cooldown = getGeminiCooldown();
+const extractOpenAIText = (result = {}) => {
+  if (typeof result.output_text === "string") {
+    return result.output_text;
+  }
+
+  return (result.output || [])
+    .flatMap((item) => item.content || [])
+    .map((content) => content.text || "")
+    .join("");
+};
+
+const supportsTemperature = (model = "") =>
+  !/^gpt-5/i.test(String(model || ""));
+
+const isGpt5Model = (model = "") => /^gpt-5/i.test(String(model || ""));
+
+const getEffectiveMaxOutputTokens = (model = "", maxOutputTokens = 120) => {
+  const requestedTokens = Number(maxOutputTokens) || 120;
+
+  if (!isGpt5Model(model)) {
+    return requestedTokens;
+  }
+
+  return Math.max(requestedTokens, 1200);
+};
+
+const generateLlmText = async (prompt, { maxOutputTokens = 120, temperature = 0.3 } = {}) => {
+  const { apiKey, model } = getLlmConfig();
+  const cooldown = getLlmCooldown();
 
   if (!apiKey) {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
       reason: "not_configured",
-      message: "GEMINI_API_KEY or GOOGLE_API_KEY is not configured.",
+      message: "OPENAI_API_KEY is not configured.",
       model,
     });
     return null;
   }
 
   if (!model) {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
       reason: "model_missing",
-      message: "GEMINI_MODEL is not configured.",
+      message: "OPENAI_MODEL is not configured.",
       model,
     });
     return null;
   }
 
   if (typeof fetch !== "function") {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
       reason: "fetch_unavailable",
       message: "Node fetch is unavailable in this runtime.",
@@ -202,7 +227,7 @@ const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature =
   }
 
   if (cooldown.active) {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
       reason: "cooldown",
       message: cooldown.message,
@@ -212,26 +237,18 @@ const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature =
   }
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
+    const response = await fetch(OPENAI_RESPONSES_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens,
-          temperature,
-        },
+        model,
+        input: prompt,
+        max_output_tokens: getEffectiveMaxOutputTokens(model, maxOutputTokens),
+        ...(isGpt5Model(model) ? { reasoning: { effort: "minimal" } } : {}),
+        ...(supportsTemperature(model) ? { temperature } : {}),
       }),
     });
 
@@ -239,14 +256,14 @@ const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature =
 
     if (!response.ok) {
       const errorMessage =
-        result?.error?.message || `Gemini returned HTTP ${response.status}.`;
+        result?.error?.message || `OpenAI returned HTTP ${response.status}.`;
       if (response.status === 429) {
-        setGeminiCooldown(
+        setLlmCooldown(
           parseRetryAfterSeconds(response, result),
-          errorMessage || "Gemini quota exceeded.",
+          errorMessage || "OpenAI quota exceeded.",
         );
       }
-      setLastGeminiResult({
+      setLastLlmResult({
         ok: false,
         reason: response.status === 429 ? "quota" : "http_error",
         status: response.status,
@@ -256,31 +273,32 @@ const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature =
       return null;
     }
 
-    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const text = extractOpenAIText(result);
     if (!text) {
-      setLastGeminiResult({
+      setLastLlmResult({
         ok: false,
         reason: "empty_response",
         status: response.status,
         message:
-          result?.candidates?.[0]?.finishReason ||
-          result?.promptFeedback?.blockReason ||
-          "Gemini returned no text.",
+          result?.incomplete_details?.reason ||
+          result?.status ||
+          result?.incomplete_details?.reason ||
+          "OpenAI returned no text.",
         model,
       });
       return null;
     }
 
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: true,
       reason: "ok",
       status: response.status,
-      message: `Gemini returned ${text.length} characters.`,
+      message: `OpenAI returned ${text.length} characters.`,
       model,
     });
     return text;
   } catch (error) {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
       reason: "request_failed",
       message: error.message,
@@ -291,7 +309,7 @@ const generateGeminiText = async (prompt, { maxOutputTokens = 120, temperature =
 };
 
 const summarizeInsightWithLLM = async (insight) => {
-  const text = await generateGeminiText(buildPrompt(insight), {
+  const text = await generateLlmText(buildPrompt(insight), {
     maxOutputTokens: 120,
     temperature: 0.3,
   });
@@ -338,7 +356,7 @@ const extractDefectDetailsWithLLM = async (insight) => {
     return null;
   }
 
-  const text = await generateGeminiText(buildDefectDetailsPrompt(insight), {
+  const text = await generateLlmText(buildDefectDetailsPrompt(insight), {
     maxOutputTokens: 220,
     temperature: 0,
   });
@@ -352,20 +370,20 @@ const enrichInsightWithLLM = async (insight) => {
     return null;
   }
 
-  const text = await generateGeminiText(buildCombinedPrompt(insight), {
+  const text = await generateLlmText(buildCombinedPrompt(insight), {
     maxOutputTokens: 360,
     temperature: 0.2,
   });
   const parsed = parseJsonObject(text);
 
   if (!parsed) {
-    setLastGeminiResult({
+    setLastLlmResult({
       ok: false,
-      reason: text ? "invalid_json" : getLastGeminiResult().reason,
+      reason: text ? "invalid_json" : getLastLlmResult().reason,
       message: text
-        ? "Gemini returned text, but it was not valid JSON for the expected summary shape."
-        : getLastGeminiResult().message,
-      model: getGeminiConfig().model,
+        ? "OpenAI returned text, but it was not valid JSON for the expected summary shape."
+        : getLastLlmResult().message,
+      model: getLlmConfig().model,
     });
     return null;
   }
@@ -384,8 +402,9 @@ module.exports = {
   summarizeInsightWithLLM,
   extractDefectDetailsWithLLM,
   enrichInsightWithLLM,
-  getGeminiConfig,
-  getGeminiCooldown,
-  getLastGeminiResult,
+  generateLlmText,
+  getLlmConfig,
+  getLlmCooldown,
+  getLastLlmResult,
   normalizeLlmSummary,
 };

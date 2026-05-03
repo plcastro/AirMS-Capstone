@@ -1,5 +1,5 @@
 //Mobile
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,12 @@ import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
+import { useRoute } from "@react-navigation/native";
 
 export default function ForgotPassword() {
   const nav = useNavigation();
-  const [email, setEmail] = useState("");
+  const route = useRoute();
+  const [email, setEmail] = useState(route.params?.email || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

@@ -117,7 +117,7 @@ export default function FlightLogCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "600" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
                     {log.rpc || "N/A"}
                   </Text>
                   <Text style={{ fontSize: 10, color: "#777" }}>

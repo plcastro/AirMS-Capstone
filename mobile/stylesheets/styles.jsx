@@ -47,8 +47,8 @@ export const styles = StyleSheet.create({
   //Screens
   container: {
     flex: 1,
-    paddingHorizontal: "5%",
-    paddingVertical: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 7,
   },
   // Login, Reset, Forgot password, Security Setup Screen Styles
   formCard: {

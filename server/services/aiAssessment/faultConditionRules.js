@@ -420,6 +420,82 @@ const FAULT_CONDITION_RULES = [
     explanationTemplate:
       "Load-compensator fault language was detected, so AirMS is selecting a hydraulic/control follow-up path.",
   }),
+  buildFaultConditionRule({
+    ruleCode: "AIRMS_FAULT_021",
+    title: "Hydraulic leak wording should trigger hydraulic-system review",
+    category: "hydraulic-fault",
+    riskLevel: "High",
+    possibleIssue: "Hydraulic leak or rupture wording may require immediate hydraulic inspection.",
+    component: "Hydraulic System",
+    conditionFact: "signals.hydraulicLeakCount",
+    description:
+      "Detects hydraulic context paired with leak, leaking, rupture, or burst wording.",
+    recommendedActions: [
+      "Review the matching maintenance, task, flight, or checklist record for leak location and severity.",
+      "Inspect hydraulic lines, reservoirs, pumps, servocontrols, accumulators, and fittings as applicable.",
+      "Do not close the finding until leakage limits and rectification status are documented.",
+    ],
+    manualReference: "Applicable AMM hydraulic leak inspection and fault-isolation procedures",
+    explanationTemplate:
+      "Hydraulic leak terminology was detected in current aircraft records, so AirMS is selecting a hydraulic-system review.",
+  }),
+  buildFaultConditionRule({
+    ruleCode: "AIRMS_FAULT_022",
+    title: "Hydraulic pressure wording should trigger pressure-system review",
+    category: "hydraulic-fault",
+    riskLevel: "High",
+    possibleIssue: "Hydraulic pressure anomaly may require pressure-system troubleshooting.",
+    component: "Hydraulic Pressure System",
+    conditionFact: "signals.hydraulicPressureCount",
+    description:
+      "Detects hydraulic context paired with pressure, pressure-drop, accumulator, charging, or gauge wording.",
+    recommendedActions: [
+      "Review the pressure indication, accumulator, gauge, and charging-pressure context in the source record.",
+      "Correlate the finding with servo-control, pump, reservoir, and flight remark evidence.",
+      "Confirm pressure-system disposition before the aircraft is released.",
+    ],
+    manualReference: "Applicable AMM hydraulic pressure and accumulator procedures",
+    explanationTemplate:
+      "Hydraulic pressure terminology was detected in current aircraft records, so AirMS is selecting a pressure-system follow-up path.",
+  }),
+  buildFaultConditionRule({
+    ruleCode: "AIRMS_FAULT_023",
+    title: "Hydraulic filter or contamination wording should trigger filter review",
+    category: "hydraulic-fault",
+    riskLevel: "High",
+    possibleIssue: "Hydraulic filter, strainer, clogging, or contamination issue may require maintenance action.",
+    component: "Hydraulic Filter / Reservoir",
+    conditionFact: "signals.hydraulicFilterCount",
+    description:
+      "Detects hydraulic context paired with filter, strainer, clogging, contamination, pollution, reservoir, or CM 208 wording.",
+    recommendedActions: [
+      "Inspect the hydraulic filter, strainer, reservoir, and contamination indicators.",
+      "Review whether the record indicates pre-clogging, clogging, pollution, or servicing contamination.",
+      "Document filter/strainer disposition before closing the finding.",
+    ],
+    manualReference: "Applicable AMM hydraulic filter, strainer, and contamination procedures",
+    explanationTemplate:
+      "Hydraulic filter or contamination terminology was detected, so AirMS is selecting a hydraulic-filter review.",
+  }),
+  buildFaultConditionRule({
+    ruleCode: "AIRMS_FAULT_024",
+    title: "Generic hydraulic wording should still be visible to maintenance tracking",
+    category: "hydraulic-fault",
+    riskLevel: "High",
+    possibleIssue: "Hydraulic-related record may require maintenance review.",
+    component: "Hydraulic System",
+    conditionFact: "signals.hydraulicContextCount",
+    description:
+      "Detects general hydraulic terminology even when no leak, pressure, or filter subtype is present.",
+    recommendedActions: [
+      "Review the source record to determine whether the hydraulic mention is a task, discrepancy, flight remark, or part context.",
+      "Classify the issue into leak, pressure, filter, servocontrol, accumulator, pump, reservoir, or load-compensator handling where possible.",
+      "Keep the item visible in Maintenance Tracking until the hydraulic context is dispositioned.",
+    ],
+    manualReference: "Applicable AMM hydraulic-system maintenance procedures",
+    explanationTemplate:
+      "Hydraulic terminology was detected in current aircraft records, so AirMS is keeping the item visible for maintenance tracking.",
+  }),
 ];
 
 module.exports = FAULT_CONDITION_RULES;

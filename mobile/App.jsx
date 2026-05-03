@@ -15,7 +15,6 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
-
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
@@ -26,7 +25,6 @@ import Profile from "./screens/Settings/Profile";
 
 import FlightLog from "./screens/Main/FlightLog";
 import TaskAssignment from "./screens/Main/TaskAssignment";
-import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
 import PreInspection from "./screens/Main/PreInspection";
 import PostInspection from "./screens/Main/PostInspection";
 import PartsRequisition from "./screens/Main/PartsRequisition";
@@ -37,7 +35,6 @@ import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
-import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
 import MechanicList from "./screens/Main/MechanicList";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
@@ -373,7 +370,6 @@ function AppShell({ linking }) {
     </View>
   );
 }
-
 export default function App() {
   const linking = LinkingConfig;
   const theme = {

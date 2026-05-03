@@ -403,9 +403,7 @@ export default function FlightLogEntry({
   const isCompletedLog = editMode && formData.status === "completed";
   const isRPCEditable = !editMode || !isReleasedFlightLogStatus(formData.status);
   const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
-  const canEditComponent = !editMode
-    ? !readOnly && isMechanic
-    : !readOnly && isMechanic && editMode && !formData.broughtForwardLocked;
+  const canEditComponent = !readOnly && isMechanic;
   const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditDiscrepancy = !readOnly;
@@ -464,7 +462,6 @@ export default function FlightLogEntry({
             componentData={componentData}
             updateComponent={updateComponent}
             isEditable={canSave && canEditComponent}
-            isLocked={formData.broughtForwardLocked}
           />
         );
       case "fuel":

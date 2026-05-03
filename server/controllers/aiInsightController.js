@@ -5,9 +5,9 @@ const { auditLog } = require("./logsController");
 const MaintenanceLog = require("../models/maintenanceLogModel");
 const AiRectification = require("../models/aiRectificationModel");
 const {
-  getGeminiConfig,
-  getGeminiCooldown,
-  getLastGeminiResult,
+  getLlmConfig,
+  getLlmCooldown,
+  getLastLlmResult,
 } = require("../services/aiAssessment/llmExplainer");
 
 const getMaintenanceInsights = async (req, res) => {
@@ -33,27 +33,27 @@ const getMaintenanceInsights = async (req, res) => {
         low: 0,
       },
     );
-    const geminiSummaryCount = insights.filter(
-      (insight) => insight.managerSummarySource === "gemini",
+    const llmSummaryCount = insights.filter(
+      (insight) => insight.managerSummarySource === "openai",
     ).length;
     const llmEligibleCount = insights.filter(
       (insight) => (insight.matchedRules || []).length > 0,
     ).length;
-    const cooldown = getGeminiCooldown();
+    const cooldown = getLlmCooldown();
 
     res.status(200).json({
       success: true,
       data: insights,
       meta: {
         summary,
-        llmEnabled: Boolean(getGeminiConfig().apiKey),
-        activeModel: getGeminiConfig().model,
+        llmEnabled: Boolean(getLlmConfig().apiKey),
+        activeModel: getLlmConfig().model,
         llmLimitApplied:
           includeLLMSummary && Number.isFinite(llmLimit) ? Math.max(0, llmLimit) : 0,
         llmEligibleCount,
-        geminiSummaryCount,
-        geminiCooldown: cooldown,
-        geminiLastResult: getLastGeminiResult(),
+        llmSummaryCount,
+        llmCooldown: cooldown,
+        llmLastResult: getLastLlmResult(),
       },
     });
   } catch (error) {
@@ -132,9 +132,9 @@ const saveManualRules = async (req, res) => {
 };
 
 const getLLMHealth = async (req, res) => {
-  const { apiKey, model } = getGeminiConfig();
+  const { apiKey, model } = getLlmConfig();
   const hasApiKey = Boolean(apiKey);
-  const cooldown = getGeminiCooldown();
+  const cooldown = getLlmCooldown();
 
   if (!hasApiKey) {
     return res.status(200).json({
@@ -142,7 +142,7 @@ const getLLMHealth = async (req, res) => {
       configured: false,
       reachable: false,
       model,
-      message: "GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server",
+      message: "OPENAI_API_KEY is not configured on the server",
     });
   }
 
@@ -151,11 +151,11 @@ const getLLMHealth = async (req, res) => {
     configured: true,
     reachable: !cooldown.active,
     cooldown,
-    lastResult: getLastGeminiResult(),
+    lastResult: getLastLlmResult(),
     model,
     message: cooldown.active
-      ? cooldown.message || `Gemini is cooling down for ${cooldown.retryAfterSeconds} seconds`
-      : "Gemini is configured. Health check does not call Gemini to avoid using quota.",
+      ? cooldown.message || `OpenAI is cooling down for ${cooldown.retryAfterSeconds} seconds`
+      : "OpenAI is configured. Health check does not call OpenAI to avoid using quota.",
   });
 };
 
