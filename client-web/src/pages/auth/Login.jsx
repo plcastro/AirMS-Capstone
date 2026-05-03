@@ -135,7 +135,7 @@ const Login = () => {
 
     switch (pos) {
       case "admin":
-        navigate("/dashboard/user-management/admin-dashboard");
+        navigate("/dashboard/user-management/view-users");
         break;
       case "mechanic":
         navigate("/dashboard/maintenance-log");
@@ -166,12 +166,12 @@ const Login = () => {
       </Row>
 
       <Form layout="vertical" onFinish={handleSubmit}>
-        <Form.Item label="Username/Email" required>
+        <Form.Item label="Username or Email" required>
           <Input
             type="text"
             id="identifier"
             size="large"
-            placeholder="Enter username/email"
+            placeholder="Enter username or email"
             value={formData.identifier}
             onChange={handleInputChange}
             autoComplete="username"
@@ -213,7 +213,15 @@ const Login = () => {
             </Checkbox>
           </Col>
           <Col lg={12} style={{ textAlign: "right" }}>
-            <Link to="/forgot" className="forgot-password">
+            <Link
+              to="/forgot"
+              className="forgot-password"
+              state={{
+                email: formData.identifier.includes("@")
+                  ? formData.identifier.trim()
+                  : "",
+              }}
+            >
               Forgot password?
             </Link>
           </Col>
@@ -230,7 +238,11 @@ const Login = () => {
       </Form>
 
       {loading && (
-        <div className="login-loading-overlay" aria-live="polite" aria-busy="true">
+        <div
+          className="login-loading-overlay"
+          aria-live="polite"
+          aria-busy="true"
+        >
           <div className="login-loading-card">
             <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
             <div className="login-loading-spinner" />

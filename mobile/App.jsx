@@ -15,7 +15,6 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
-
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
@@ -26,7 +25,6 @@ import Profile from "./screens/Settings/Profile";
 
 import FlightLog from "./screens/Main/FlightLog";
 import TaskAssignment from "./screens/Main/TaskAssignment";
-import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
 import PreInspection from "./screens/Main/PreInspection";
 import PostInspection from "./screens/Main/PostInspection";
 import PartsRequisition from "./screens/Main/PartsRequisition";
@@ -37,7 +35,6 @@ import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
-import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
 import MechanicList from "./screens/Main/MechanicList";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
@@ -67,6 +64,12 @@ function DrawerNav({ navigation }) {
       <ScreenComponent {...props} />
     </Dashboard>
   );
+  const navLabel = {
+    headerTitleStyle: {
+      fontSize: 14,
+      fontWeight: 200,
+    },
+  };
 
   return (
     <Drawer.Navigator
@@ -74,12 +77,12 @@ function DrawerNav({ navigation }) {
       screenOptions={({ navigation }) => ({
         headerShown: true,
         drawerType: "slide",
-        drawerStyle: { width: 260 },
+        drawerStyle: { width: "85%" },
         overlayColor: "transparent",
         headerRight: () => (
           <View
             style={{
-              marginHorizontal: 7,
+              paddingHorizontal: 7,
               flexDirection: "row",
               alignItems: "center",
             }}
@@ -105,7 +108,7 @@ function DrawerNav({ navigation }) {
               />
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600"}}>
+                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#777" }}>
@@ -128,14 +131,17 @@ function DrawerNav({ navigation }) {
           <Drawer.Screen
             name="Flight Logbook"
             component={wrapWithDashboard(FlightLog)}
+            options={navLabel}
           />
           <Drawer.Screen
             name="Pre-Inspection"
             component={wrapWithDashboard(PreInspection)}
+            options={navLabel}
           />
           <Drawer.Screen
             name="Post-Inspection"
             component={wrapWithDashboard(PostInspection)}
+            options={navLabel}
           />
         </>
       )}
@@ -144,6 +150,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Mechanics"
           component={wrapWithDashboard(MechanicList)}
+          options={navLabel}
         />
       )}
 
@@ -154,6 +161,7 @@ function DrawerNav({ navigation }) {
           <Drawer.Screen
             name="Tasks"
             component={wrapWithDashboard(TaskAssignment)}
+            options={navLabel}
           />
         </>
       )}
@@ -164,6 +172,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Parts Requisition"
           component={wrapWithDashboard(PartsRequisition)}
+          options={navLabel}
         />
       )}
       {[
@@ -172,7 +181,11 @@ function DrawerNav({ navigation }) {
         "officer-in-charge",
         "pilot",
       ].includes(user.jobTitle?.toLowerCase()) && (
-        <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+        <Drawer.Screen
+          name="Profile"
+          component={wrapWithDashboard(Profile)}
+          options={navLabel}
+        />
       )}
     </Drawer.Navigator>
   );
@@ -308,7 +321,7 @@ function AppShell({ linking }) {
               padding: 18,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10}}>
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
               Session Timeout Warning
             </Text>
             <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
@@ -357,7 +370,6 @@ function AppShell({ linking }) {
     </View>
   );
 }
-
 export default function App() {
   const linking = LinkingConfig;
   const theme = {

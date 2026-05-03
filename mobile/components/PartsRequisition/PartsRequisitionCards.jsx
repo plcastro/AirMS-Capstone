@@ -129,6 +129,10 @@ export default function PartsRequisitionCards({
     <>
       {requisitions.map((item) => {
         const statusStyle = getStatusStyle(item.status);
+        const isAvailabilityChecked =
+          String(item.status || "").toLowerCase() === "availability checked";
+        const editDisabled = actionsDisabled || isAvailabilityChecked;
+        const deleteDisabled = actionsDisabled;
 
         return (
           <TouchableOpacity
@@ -232,26 +236,26 @@ export default function PartsRequisitionCards({
                   }}
                 >
                   <TouchableOpacity
-                    activeOpacity={actionsDisabled ? 1 : 0.7}
+                    activeOpacity={editDisabled ? 1 : 0.7}
                     onPress={() => onEdit?.(item)}
-                    disabled={actionsDisabled}
+                    disabled={editDisabled}
                   >
                     <MaterialCommunityIcons
                       name="pencil"
                       size={18}
-                      color={actionsDisabled ? "#C8C8C8" : "#777"}
+                      color={editDisabled ? "#C8C8C8" : "#777"}
                     />
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    activeOpacity={actionsDisabled ? 1 : 0.7}
+                    activeOpacity={deleteDisabled ? 1 : 0.7}
                     onPress={() => onDelete?.(item)}
-                    disabled={actionsDisabled}
+                    disabled={deleteDisabled}
                   >
                     <MaterialCommunityIcons
                       name="delete"
                       size={18}
-                      color={actionsDisabled ? "#F1B6B6" : "#F45B5B"}
+                      color={deleteDisabled ? "#F1B6B6" : "#F45B5B"}
                     />
                   </TouchableOpacity>
                 </View>

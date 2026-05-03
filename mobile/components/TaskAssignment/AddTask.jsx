@@ -193,7 +193,8 @@ export default function AddTask({
           wantedName &&
           String(inspection.name || "").toLowerCase() === wantedName &&
           (!wantedModel ||
-            String(inspection.aircraftModel || "").toLowerCase() === wantedModel),
+            String(inspection.aircraftModel || "").toLowerCase() ===
+              wantedModel),
       ) ||
       inspectionOptions.find(
         (inspection) =>
@@ -219,11 +220,7 @@ export default function AddTask({
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
-    const needles = [
-      draft.component,
-      draft.issueTitle,
-      draft.manualReference,
-    ]
+    const needles = [draft.component, draft.issueTitle, draft.manualReference]
       .filter(Boolean)
       .flatMap((value) => String(value).split(/[|,/;-]/))
       .map((value) => value.trim().toLowerCase())
@@ -273,7 +270,9 @@ export default function AddTask({
       );
     } catch (error) {
       console.error("Error applying AI rectification draft:", error);
-      setChecklistItems([buildRectificationChecklistItem(draft, matchedInspection)]);
+      setChecklistItems([
+        buildRectificationChecklistItem(draft, matchedInspection),
+      ]);
       showToast("Opened task with AI rectification item");
     } finally {
       setLoading(false);
@@ -445,10 +444,9 @@ export default function AddTask({
       return;
     }
 
-    const selectedInspectionName =
-      isCustomTask
-        ? customTaskTitle.trim() || "Custom Task"
-        : inspectionOptions.find((i) => i.id === inspectionType)?.name || "";
+    const selectedInspectionName = isCustomTask
+      ? customTaskTitle.trim() || "Custom Task"
+      : inspectionOptions.find((i) => i.id === inspectionType)?.name || "";
 
     const filteredChecklist = checklistItems
       .filter((item) => item.taskName && item.taskName.trim() !== "")
@@ -475,7 +473,8 @@ export default function AddTask({
       endDateTime: endDate.toISOString(),
       status: "Pending",
       priority:
-        initialDraft?.riskLevel === "Critical" || initialDraft?.riskLevel === "High"
+        initialDraft?.riskLevel === "Critical" ||
+        initialDraft?.riskLevel === "High"
           ? "High"
           : "Normal",
       maintenanceType: isCustomTask
@@ -793,7 +792,8 @@ export default function AddTask({
   const selectedInspectionLabel =
     inspectionType === CUSTOM_INSPECTION_ID
       ? "Custom Task"
-      : inspectionOptions.find((inspection) => inspection.id === inspectionType)?.name || "";
+      : inspectionOptions.find((inspection) => inspection.id === inspectionType)
+          ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
 
@@ -891,7 +891,13 @@ export default function AddTask({
 
             {isCustomTask && (
               <View style={{ marginBottom: 15 }}>
-                <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.grayDark,
+                    marginBottom: 5,
+                  }}
+                >
                   Custom Task Name *
                 </Text>
                 <TextInput
@@ -1011,7 +1017,10 @@ export default function AddTask({
             </Text>
 
             {checklistItems.map((item, index) => (
-              <View key={item.taskId || index} style={{ flexDirection: "row", marginTop: 10 }}>
+              <View
+                key={item.taskId || index}
+                style={{ flexDirection: "row", marginTop: 10 }}
+              >
                 <View style={{ paddingTop: 2 }}>
                   <Checkbox value={false} disabled={true} />
                 </View>

@@ -29,6 +29,7 @@ const sendEmail = require("./utils/sendEmail");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
+const { subscribeToEvents, publishEvent } = require("./utils/realtimeEvents");
 
 const app = express();
 
@@ -37,8 +38,7 @@ const allowedOrigins = [
   "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
-  "https://www.airms.online",
-  "http://localhost:8081", // Expo / Metro bundler origin
+  "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
@@ -57,6 +57,9 @@ app.use(
     credentials: true,
   }),
 );
+
+app.get("/api/events/stream", subscribeToEvents);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
@@ -98,6 +101,32 @@ app.use(async (req, res, next) => {
       message: "Database connection unavailable. Please try again.",
     });
   }
+});
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const method = String(req.method || "").toUpperCase();
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      return;
+    }
+
+    if (res.statusCode >= 400) {
+      return;
+    }
+
+    if (!String(req.originalUrl || "").startsWith("/api/")) {
+      return;
+    }
+
+    publishEvent("airms:data-changed", {
+      url: req.originalUrl,
+      method,
+      statusCode: res.statusCode,
+      at: new Date().toISOString(),
+    });
+  });
+
+  next();
 });
 
 app.use("/api/user", userRoutes);

@@ -79,6 +79,22 @@ export default function HeadTaskScreen({
   }, []);
 
   useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchTasks({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!targetTaskId || tasks.length === 0) {
       return;
     }
@@ -458,7 +474,7 @@ export default function HeadTaskScreen({
           onPress={() => setAddModalVisible(true)}
           buttonStyle={[
             styles.unifiedActionButton,
-            { marginLeft: 5, width: 120 },
+            { marginLeft: 5, width: 70 },
           ]}
           buttonTextStyle={styles.primaryBtnTxt}
         />
@@ -492,13 +508,6 @@ export default function HeadTaskScreen({
             ]}
           />
         ))}
-      </View>
-
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 12 }}>
-          {taskHeader}
-        </Text>
       </View>
 
       {/* Task List */}
