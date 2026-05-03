@@ -11,6 +11,12 @@ const RISK_RANK = {
   Critical: 4,
 };
 
+const ACTIVE_FLIGHT_SIGNAL_STATUSES = [
+  "pending_release",
+  "pending_acceptance",
+  "released",
+];
+
 const HYDRAULIC_KEYWORDS = [
   "hyd",
   "hydraulic",
@@ -207,10 +213,15 @@ const ABNORMAL_CONDITION_KEYWORDS = {
   ],
   vibrationAnomaly: [
     "abnormal vibration",
+    "abnormal vibrations",
     "vibration analysis",
     "vibration anomaly",
+    "vibrations detected",
+    "vibration detected",
     "excessive vibration",
+    "excessive vibrations",
     "high vibration",
+    "high vibrations",
   ],
   fuelControlFault: [
     "twist grip fault",
@@ -1428,28 +1439,40 @@ const buildFactsMap = async () => {
     aircraftEntry.sourceCounts.flightLogs = logs.length;
 
     const recentLogs = logs.slice(0, 5);
+    const latestRemarkLogId =
+      logs
+        .find((log) => String(log.remarks || "").trim())
+        ?._id?.toString?.() || "";
+
     recentLogs.forEach((log) => {
       const status = String(log.status || "");
       const remark = String(log.remarks || "").trim();
+      const logId = log._id?.toString?.() || "";
+      const isActiveFlightWorkflow =
+        ACTIVE_FLIGHT_SIGNAL_STATUSES.includes(status);
+      const isLatestAircraftRemark = Boolean(
+        latestRemarkLogId && logId === latestRemarkLogId,
+      );
       const flightNarrativeTexts = collectFlightNarrativeTexts(log);
       const hydraulicFlags = getHydraulicFlags(...flightNarrativeTexts);
-      const signalHits = collectSignalHits(
-        normalizeText(flightNarrativeTexts.join(" ")),
-      );
-      incrementSignalFacts(aircraftEntry.facts, signalHits);
-      addSignalEvidence(aircraftEntry, {
-        source: "flightLog",
-        text: flightNarrativeTexts.join(" | "),
-        recordId: log._id?.toString?.() || "",
-        signalKeys: getActiveSignalKeys(signalHits),
-      });
 
-      if (
-        ["pending_release", "pending_acceptance", "released"].includes(status)
-      ) {
+      if (isActiveFlightWorkflow || isLatestAircraftRemark) {
+        const signalHits = collectSignalHits(
+          normalizeText(flightNarrativeTexts.join(" ")),
+        );
+        incrementSignalFacts(aircraftEntry.facts, signalHits);
+        addSignalEvidence(aircraftEntry, {
+          source: "flightLog",
+          text: flightNarrativeTexts.join(" | "),
+          recordId: logId,
+          signalKeys: getActiveSignalKeys(signalHits),
+        });
+      }
+
+      if (isActiveFlightWorkflow) {
         aircraftEntry.facts["flight.pendingWorkflowCount"] += 1;
         aircraftEntry.evidence.pendingFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           status,
           date: log.date || "",
@@ -1459,17 +1482,20 @@ const buildFactsMap = async () => {
       if (remark) {
         aircraftEntry.facts["flight.recentRemarkCount"] += 1;
         aircraftEntry.evidence.recentRemarkFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           remark,
           date: log.date || "",
         });
       }
 
-      if (hydraulicFlags.hasHydraulicContext) {
+      if (
+        (isActiveFlightWorkflow || isLatestAircraftRemark) &&
+        hydraulicFlags.hasHydraulicContext
+      ) {
         aircraftEntry.facts["flight.hydraulicRemarkCount"] += 1;
         aircraftEntry.evidence.hydraulicFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           remark: remark || hydraulicFlags.text,
           date: log.date || "",
