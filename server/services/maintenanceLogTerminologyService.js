@@ -1,7 +1,4 @@
-const { getGeminiConfig } = require("./aiAssessment/llmExplainer");
-
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models";
+const { generateLlmText, getLlmConfig } = require("./aiAssessment/llmExplainer");
 
 const cleanText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 
@@ -67,7 +64,7 @@ const rewriteChecklistItemsWithAI = async ({ taskTitle, aircraft, checklistItems
     return null;
   }
 
-  const { apiKey, model } = getGeminiConfig();
+  const { apiKey } = getLlmConfig();
   if (!apiKey || typeof fetch !== "function") {
     return null;
   }
@@ -83,39 +80,19 @@ const rewriteChecklistItemsWithAI = async ({ taskTitle, aircraft, checklistItems
   }));
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: buildChecklistPrompt({
-                  taskTitle,
-                  aircraft,
-                  checklistItems: promptChecklist,
-                }),
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 600,
-          temperature: 0.2,
-        },
-      }),
+    const rawText = await generateLlmText(buildChecklistPrompt({
+      taskTitle,
+      aircraft,
+      checklistItems: promptChecklist,
+    }), {
+      maxOutputTokens: 600,
+      temperature: 0.2,
     });
 
-    if (!response.ok) {
+    if (!rawText) {
       return null;
     }
 
-    const result = await response.json().catch(() => null);
-    const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
     const jsonText = extractJsonBlock(rawText);
     const parsed = jsonText ? safeJsonParse(jsonText) : safeJsonParse(rawText);
     return normalizeWorkDetails(parsed?.workDetails, items.length);
