@@ -307,7 +307,7 @@ export default function PartsRequisition({ route, navigation }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "engineer";
+  const userRole = user?.jobTitle?.toLowerCase();
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
@@ -469,8 +469,8 @@ export default function PartsRequisition({ route, navigation }) {
 
   const tabCounts = useMemo(
     () => ({
-      "For Review": mappedRequisitions.filter(
-        (item) => ["Availability Checked", "Ordered"].includes(item.rawStatus),
+      "For Review": mappedRequisitions.filter((item) =>
+        ["Availability Checked", "Ordered"].includes(item.rawStatus),
       ).length,
       Pending: mappedRequisitions.filter(
         (item) =>
@@ -919,7 +919,6 @@ export default function PartsRequisition({ route, navigation }) {
             flexDirection: "row",
             gap: 3,
             marginBottom: 20,
-            justifyContent: "space-between",
           }}
         >
           {tabLabels.map(renderTabButton)}

@@ -23,13 +23,17 @@ const SECTIONS = [
   { key: "toDateData", title: "TO DATE" },
 ];
 
-export default function FlightLogModalComponentTimes({ componentData, updateComponent, isEditable = true, isLocked = false }) {
+export default function FlightLogModalComponentTimes({
+  componentData,
+  updateComponent,
+  isEditable = true,
+}) {
   return (
     <div className="fl-section">
       <div className="fl-section-title">COMPONENT TIMES</div>
 
       {SECTIONS.map(({ key, title }) => {
-        const sectionLocked = isLocked && key === "broughtForwardData";
+        const sectionLocked = key === "broughtForwardData";
         const isCalculatedSection = key === "toDateData";
         const canEdit = isEditable && !sectionLocked && !isCalculatedSection;
 

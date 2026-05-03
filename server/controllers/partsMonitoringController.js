@@ -22,7 +22,6 @@ const DEFAULT_PRIORITY_RULES = {
   highRemainingHours: 24,
   mediumDueDays: 14,
   longTurnaroundHours: 5,
-  safetyBoostEnabled: true,
 };
 const PRIORITY_RANKS = {
   Critical: 1,
@@ -106,13 +105,6 @@ const parsePriorityRules = (query = {}) => {
       return;
     }
 
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      parsedRules[key] =
-        String(query[key]).toLowerCase() === "true" ||
-        String(query[key]) === "1";
-      return;
-    }
-
     const parsedValue = parseNumber(query[key]);
     if (parsedValue !== null) {
       parsedRules[key] = parsedValue;
@@ -130,13 +122,6 @@ const mergePriorityRules = (baseRules = DEFAULT_PRIORITY_RULES, query = {}) => {
       return;
     }
 
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      parsedRules[key] =
-        String(query[key]).toLowerCase() === "true" ||
-        String(query[key]) === "1";
-      return;
-    }
-
     const parsedValue = parseNumber(query[key]);
     if (parsedValue !== null) {
       parsedRules[key] = parsedValue;
@@ -148,14 +133,6 @@ const mergePriorityRules = (baseRules = DEFAULT_PRIORITY_RULES, query = {}) => {
 
 const sanitizePriorityRules = (source = {}) =>
   Object.keys(DEFAULT_PRIORITY_RULES).reduce((accumulator, key) => {
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      accumulator[key] =
-        source[key] === undefined
-          ? DEFAULT_PRIORITY_RULES[key]
-          : Boolean(source[key]);
-      return accumulator;
-    }
-
     const parsedValue = parseNumber(source[key]);
     accumulator[key] =
       parsedValue === null ? DEFAULT_PRIORITY_RULES[key] : parsedValue;
@@ -422,14 +399,6 @@ const buildPriorityEvaluation = (
     );
   } else {
     reasons.push("No escalation threshold triggered");
-  }
-
-  if (
-    rules.safetyBoostEnabled &&
-    inspection.isOverdue &&
-    !reasons.includes("Inspection is already overdue")
-  ) {
-    reasons.push("Safety escalation applied");
   }
 
   return {

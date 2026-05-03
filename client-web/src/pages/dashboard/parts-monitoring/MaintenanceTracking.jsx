@@ -8,6 +8,8 @@ import {
   Row,
   Space,
   Statistic,
+  Table,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -92,6 +94,55 @@ const inferRectificationInspectionName = (item = {}) => {
 const getIndefiniteArticle = (value = "") =>
   /^[aeiou]/i.test(String(value || "").trim()) ? "an" : "a";
 
+const buildNoMaintenanceIssueInsight = (item = {}) => ({
+  ...item,
+  issueTitle: "No maintenance issue detected",
+  shortFinding: "No active maintenance flags found from the current records.",
+  managerSummary: "No active maintenance flags found from the current records.",
+  managerSummarySource: "rule-fallback",
+  recommendedAction: "",
+  recommendedActions: [],
+  manualReferences: [],
+  procedureReference: "",
+  procedureTitle: "",
+  procedureSummary: "",
+  procedureSteps: [],
+  matchedRules: [],
+  explanation: [],
+  defectDetails: null,
+  defectDetailsSource: "none",
+});
+
+const formatScheduleDate = (value) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getTaskScheduleState = (task = {}) => {
+  const status = String(task.status || "").toLowerCase();
+  const endDate = new Date(task.endDateTime || task.dueDate || "");
+
+  if (["completed", "approved", "closed", "turned in"].includes(status)) {
+    return { label: "Completed", color: "green" };
+  }
+
+  if (!Number.isNaN(endDate.getTime()) && endDate < new Date()) {
+    return { label: "Overdue", color: "red" };
+  }
+
+  return { label: "Scheduled", color: "blue" };
+};
+
 export default function MaintenanceTracking() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
@@ -102,7 +153,7 @@ export default function MaintenanceTracking() {
   const [llmHealth, setLlmHealth] = useState(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
-  const llmLimit = 1;
+  const llmLimit = 0;
 
   const refreshLlmHealth = async () => {
     const refreshedHealth = await fetch(`${API_BASE}/api/ai-insights/health`, {
@@ -200,19 +251,19 @@ export default function MaintenanceTracking() {
     fetchInsights();
   }, []);
 
-  const fetchGeminiSummaries = async () => {
+  const fetchLlmSummaries = async () => {
     const currentHealth = await refreshLlmHealth();
 
     if (currentHealth && currentHealth.configured === false) {
       message.warning(
-        currentHealth.message || "Gemini is not configured on the server.",
+        currentHealth.message || "OpenAI is not configured on the server.",
       );
       return;
     }
 
     if (currentHealth?.cooldown?.active) {
       message.warning(
-        `Gemini quota is cooling down. Try again in ${
+        `OpenAI quota is cooling down. Try again in ${
           cooldownRemaining || currentHealth.cooldown.retryAfterSeconds
         } seconds.`,
       );
@@ -228,36 +279,36 @@ export default function MaintenanceTracking() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to load Gemini summaries");
+        throw new Error(result.message || "Failed to load OpenAI summaries");
       }
 
       setInsights(Array.isArray(result.data) ? result.data : []);
       setMeta(result.meta || null);
       const refreshedHealth = await refreshLlmHealth();
-      const geminiCount = result.meta?.geminiSummaryCount || 0;
-      const geminiLastResult =
-        result.meta?.geminiLastResult || refreshedHealth?.lastResult || {};
+      const llmCount = result.meta?.llmSummaryCount || 0;
+      const llmLastResult =
+        result.meta?.llmLastResult || refreshedHealth?.lastResult || {};
 
-      if (geminiCount > 0) {
+      if (llmCount > 0) {
         message.success(
-          `Updated ${geminiCount} Gemini maintenance summar${geminiCount === 1 ? "y" : "ies"}.`,
+          `Updated ${llmCount} OpenAI maintenance summar${llmCount === 1 ? "y" : "ies"}.`,
         );
       } else if (refreshedHealth?.cooldown?.active) {
         message.warning(
-          `Gemini did not return summaries because quota is cooling down. Rule recommendations and references were refreshed. Try again in ${
+          `OpenAI did not return summaries because quota is cooling down. Rule recommendations and references were refreshed. Try again in ${
             cooldownRemaining || refreshedHealth.cooldown.retryAfterSeconds
           } seconds.`,
         );
       } else {
         message.info(
-          geminiLastResult.message
-            ? `Gemini did not return summaries: ${geminiLastResult.message}`
-            : "Gemini did not return new summaries. Rule recommendations and references were refreshed.",
+          llmLastResult.message
+            ? `OpenAI did not return summaries: ${llmLastResult.message}`
+            : "OpenAI did not return new summaries. Rule recommendations and references were refreshed.",
         );
       }
     } catch (error) {
-      console.error("Failed to load Gemini summaries:", error);
-      message.error(error.message || "Failed to load Gemini summaries");
+      console.error("Failed to load OpenAI summaries:", error);
+      message.error(error.message || "Failed to load OpenAI summaries");
     } finally {
       setSummaryLoading(false);
     }
@@ -309,12 +360,11 @@ export default function MaintenanceTracking() {
           setRectifyingKey(`${draft.aircraft}-${draft.issueTitle}`);
           await markFindingRectified(draft);
           setInsights((currentInsights) =>
-            currentInsights.filter(
-              (item) =>
-                !(
-                  item.aircraft === draft.aircraft &&
-                  item.issueTitle === draft.issueTitle
-                ),
+            currentInsights.map((item) =>
+              item.aircraft === draft.aircraft &&
+              item.issueTitle === draft.issueTitle
+                ? buildNoMaintenanceIssueInsight(item)
+                : item,
             ),
           );
           message.success("Maintenance finding marked rectified.");
@@ -331,7 +381,7 @@ export default function MaintenanceTracking() {
   const tableData = useMemo(
     () =>
       insights.map((item) => {
-        const isGeminiFinding = item.managerSummarySource === "gemini";
+        const isAiFinding = item.managerSummarySource === "openai";
 
         return {
           _id: item.aircraftId,
@@ -344,16 +394,16 @@ export default function MaintenanceTracking() {
               item.aircraft,
             ),
             defectDetails: item.defectDetails || null,
-            source: isGeminiFinding ? "Gemini AI" : "Rule-based",
+            source: isAiFinding ? "OpenAI" : "Rule-based",
           },
-          managerSummarySource: isGeminiFinding
-            ? "Gemini AI"
+          managerSummarySource: isAiFinding
+            ? "OpenAI"
             : "Rule Fallback",
-          recommendedAction: isGeminiFinding ? item.recommendedAction || "" : "",
+          recommendedAction: isAiFinding ? item.recommendedAction || "" : "",
           procedureSummary: {
-            reference: isGeminiFinding ? item.procedureReference || "" : "",
-            title: isGeminiFinding ? item.procedureTitle || "" : "",
-            summary: isGeminiFinding ? item.procedureSummary || "" : "",
+            reference: isAiFinding ? item.procedureReference || "" : "",
+            title: isAiFinding ? item.procedureTitle || "" : "",
+            summary: isAiFinding ? item.procedureSummary || "" : "",
           },
           manualReference:
             Array.isArray(item.manualReferences) &&
@@ -397,17 +447,121 @@ export default function MaintenanceTracking() {
     () =>
       insights.reduce(
         (accumulator, item) => {
-          if (item.managerSummarySource === "gemini") {
-            accumulator.gemini += 1;
+          if (item.managerSummarySource === "openai") {
+            accumulator.llm += 1;
           } else {
             accumulator.fallback += 1;
           }
           return accumulator;
         },
-        { gemini: 0, fallback: 0 },
+        { llm: 0, fallback: 0 },
       ),
     [insights],
   );
+
+  const scheduledTaskRows = useMemo(() => {
+    const rows = insights.flatMap((insight) =>
+      (insight.scheduledTasks || []).map((task) => ({
+        ...task,
+        key: `${insight.aircraftId || insight.aircraft}-${task.id}`,
+        aircraft: task.aircraft || insight.aircraft,
+      })),
+    );
+
+    return Array.from(
+      new Map(rows.map((task) => [task.id || task.key, task])).values(),
+    ).sort((left, right) => {
+      const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
+      const rightDate = new Date(
+        right.endDateTime || right.dueDate || 0,
+      ).getTime();
+
+      return leftDate - rightDate;
+    });
+  }, [insights]);
+
+  const scheduledTaskStats = useMemo(
+    () =>
+      scheduledTaskRows.reduce(
+        (totals, task) => {
+          const state = getTaskScheduleState(task).label;
+          totals.total += 1;
+          if (state === "Overdue") totals.overdue += 1;
+          else if (state === "Completed") totals.completed += 1;
+          else totals.scheduled += 1;
+          return totals;
+        },
+        { total: 0, scheduled: 0, overdue: 0, completed: 0 },
+      ),
+    [scheduledTaskRows],
+  );
+
+  const scheduledTaskColumns = [
+    {
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      width: 110,
+      render: (value) => <Text strong>{value || "N/A"}</Text>,
+    },
+    {
+      title: "Task",
+      dataIndex: "title",
+      key: "title",
+      width: 260,
+      render: (value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{value || "Untitled task"}</Text>
+          <Text type="secondary">
+            {record.maintenanceType || "Maintenance"} |{" "}
+            {record.checklistCount || 0} checklist item(s)
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Mechanic",
+      dataIndex: "assignedToName",
+      key: "assignedToName",
+      width: 170,
+      render: (value) => value || "Unassigned",
+    },
+    {
+      title: "Start",
+      dataIndex: "startDateTime",
+      key: "startDateTime",
+      width: 180,
+      render: formatScheduleDate,
+    },
+    {
+      title: "End / Due",
+      dataIndex: "endDateTime",
+      key: "endDateTime",
+      width: 180,
+      render: (_, record) => formatScheduleDate(record.endDateTime || record.dueDate),
+    },
+    {
+      title: "Priority",
+      dataIndex: "priority",
+      key: "priority",
+      width: 110,
+      render: (value) => (
+        <Tag color={String(value).toLowerCase() === "high" ? "orange" : "blue"}>
+          {value || "Normal"}
+        </Tag>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      width: 130,
+      render: (value, record) => {
+        const state = getTaskScheduleState(record);
+        return <Tag color={state.color}>{state.label}</Tag>;
+      },
+    },
+  ];
 
   return (
     <div
@@ -449,8 +603,8 @@ export default function MaintenanceTracking() {
         <Col xs={24} sm={12} md={4}>
           <Card variant="borderless" styles={{ body: { padding: 12 } }}>
             <Statistic
-              title="Gemini Summaries"
-              value={summarySourceCounts.gemini}
+              title="OpenAI Summaries"
+              value={summarySourceCounts.llm}
             />
           </Card>
         </Col>
@@ -469,28 +623,24 @@ export default function MaintenanceTracking() {
           <Title level={4} style={{ margin: 0 }}>
             AI Maintenance Tracking
           </Title>
-          <Text type="secondary">
-            AirMS now condenses maintenance, task, flight, and parts records
-            into one maintenance decision dashboard.
-          </Text>
           <Space wrap>
             {!isOfficerInCharge && (
               <Button
                 type="primary"
-                onClick={fetchGeminiSummaries}
+                onClick={fetchLlmSummaries}
                 loading={summaryLoading}
                 disabled={!llmHealth?.configured || llmHealth?.cooldown?.active}
               >
                 {llmHealth?.cooldown?.active
-                  ? `Gemini cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
-                  : "Regenerate Gemini Summaries"}
+                  ? `OpenAI cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
+                  : "Regenerate OpenAI Summaries"}
               </Button>
             )}
             <Text type="secondary">
-              Rule-engine results load first. Use Regenerate to request Gemini enrichment for detected issues.
-              When Gemini enriches a finding, AirMS selects the recommendation and reference from the matched rules.
+              Rule-engine results load first. Use Regenerate to request OpenAI enrichment for detected issues.
+              When OpenAI enriches a finding, AirMS selects the recommendation and reference from the matched rules.
               {!isOfficerInCharge &&
-                ` Use the button to retry or refresh up to ${llmLimit} detected maintenance issues.`}
+                " Use the button to retry or refresh all detected maintenance issues."}
             </Text>
           </Space>
         </Space>
@@ -501,7 +651,7 @@ export default function MaintenanceTracking() {
           type="info"
           showIcon
           title="AI implementation mode"
-          description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "Gemini summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current Gemini request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
+          description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "OpenAI summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current OpenAI request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
         />
       )}
 
@@ -515,10 +665,12 @@ export default function MaintenanceTracking() {
                 : "error"
           }
           showIcon
-          title="Gemini health"
+          title="OpenAI health"
           description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
         />
       )}
+
+      
 
       <Row gutter={24}>
         <Col span={24}>
@@ -533,6 +685,41 @@ export default function MaintenanceTracking() {
           />
         </Col>
       </Row>
+      <Card>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} md={12}>
+              <Space direction="vertical" size={2}>
+                <Title level={4} style={{ margin: 0 }}>
+                  Scheduled Tasks from Task Assignment
+                </Title>
+              </Space>
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Total" value={scheduledTaskStats.total} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Scheduled" value={scheduledTaskStats.scheduled} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Completed" value={scheduledTaskStats.completed} />
+            </Col>
+          </Row>
+          <Table
+            columns={scheduledTaskColumns}
+            dataSource={scheduledTaskRows}
+            loading={loading}
+            size="small"
+            rowKey={(record) => record.key || record.id}
+            pagination={{ pageSize: 5, showSizeChanger: true }}
+            scroll={{ x: 1100 }}
+            locale={{ emptyText: "No scheduled tasks found." }}
+          />
+        </Space>
+      </Card>
     </div>
   );
 }

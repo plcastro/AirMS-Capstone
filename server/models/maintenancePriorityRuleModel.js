@@ -38,10 +38,6 @@ const maintenancePriorityRuleSchema = new mongoose.Schema(
       default: 5,
       min: 0,
     },
-    safetyBoostEnabled: {
-      type: Boolean,
-      default: true,
-    },
     updatedBy: {
       type: String,
       default: "system",

@@ -1,10 +1,13 @@
+const crypto = require("crypto");
+const AiInsightCache = require("../../models/aiInsightCacheModel");
 const { buildFactsMap } = require("./factBuilder");
 const { runInference } = require("./inferenceEngine");
 const { getManualRules } = require("./ruleLoader");
 const { getManualProcedures } = require("./procedureLoader");
 const {
   enrichInsightWithLLM,
-  getGeminiCooldown,
+  getLlmConfig,
+  getLlmCooldown,
 } = require("./llmExplainer");
 
 const RISK_SORT = {
@@ -19,6 +22,9 @@ const collectRelatedRecordIds = (evidence = {}) => ({
   dueSoonParts: (evidence.dueSoonParts || []).map((item) => item.componentName),
   maintenanceLogs: (evidence.maintenanceLogs || []).map((item) => item.id).filter(Boolean),
   hydraulicMaintenanceLogs: (evidence.hydraulicMaintenanceLogs || [])
+    .map((item) => item.id)
+    .filter(Boolean),
+  scheduledTasks: (evidence.scheduledTasks || [])
     .map((item) => item.id)
     .filter(Boolean),
   overdueTasks: (evidence.overdueTasks || []).map((item) => item.id).filter(Boolean),
@@ -53,6 +59,133 @@ const toPublicInsight = (insight = {}) => {
   } = insight;
 
   return publicInsight;
+};
+
+const buildEvidenceSignature = (insight = {}) => {
+  const signatureSource = {
+    aircraftId: insight.aircraftId || "",
+    issueTitle: insight.issueTitle || "",
+    matchedRuleCodes: (insight.matchedRules || [])
+      .map((rule) => rule.ruleCode)
+      .filter(Boolean)
+      .sort(),
+    sourceRecords: (insight.sourceSnippets || [])
+      .map((item) => ({
+        source: item.source || "",
+        recordId: item.recordId || "",
+        signalKeys: item.signalKeys || [],
+        text: item.text || "",
+      }))
+      .sort((left, right) =>
+        `${left.source}:${left.recordId}:${left.text}`.localeCompare(
+          `${right.source}:${right.recordId}:${right.text}`,
+        ),
+      ),
+    recommendedAction: insight._ruleRecommendedAction || insight.recommendedAction || "",
+    manualReferences: insight._ruleManualReferences || insight.manualReferences || [],
+  };
+
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(signatureSource))
+    .digest("hex");
+};
+
+const buildInsightCacheKey = (insight = {}) =>
+  `${insight.aircraftId || insight.aircraft || "unknown"}:${buildEvidenceSignature(insight)}`;
+
+const applyCachedLlmInsights = async (rawInsights = []) => {
+  const eligibleInsights = rawInsights.filter(
+    (insight) => (insight.matchedRules || []).length > 0,
+  );
+
+  if (!eligibleInsights.length) {
+    return rawInsights;
+  }
+
+  const cacheKeys = eligibleInsights.map(buildInsightCacheKey);
+  const cachedRows = await AiInsightCache.find({
+    cacheKey: { $in: cacheKeys },
+  }).lean();
+  const cacheByKey = new Map(cachedRows.map((row) => [row.cacheKey, row]));
+
+  return rawInsights.map((insight) => {
+    const cached = cacheByKey.get(buildInsightCacheKey(insight));
+    if (!cached) {
+      return insight;
+    }
+
+    return {
+      ...insight,
+      managerSummary: cached.managerSummary || insight.managerSummary,
+      managerSummarySource: cached.managerSummary ? "openai" : insight.managerSummarySource,
+      recommendedAction: cached.recommendedAction || insight.recommendedAction,
+      recommendedActions: Array.isArray(cached.recommendedActions)
+        ? cached.recommendedActions
+        : insight.recommendedActions,
+      manualReferences: Array.isArray(cached.manualReferences)
+        ? cached.manualReferences
+        : insight.manualReferences,
+      procedureReference: cached.procedureReference || insight.procedureReference,
+      procedureTitle: cached.procedureTitle || insight.procedureTitle,
+      procedureSummary: cached.procedureSummary || insight.procedureSummary,
+      defectDetails: cached.defectDetails || insight.defectDetails,
+      defectDetailsSource: cached.defectDetailsSource || insight.defectDetailsSource,
+    };
+  });
+};
+
+const saveLlmInsightCaches = async (insights = [], llmSummaries = []) => {
+  if (!llmSummaries.length) {
+    return;
+  }
+
+  const rawInsightByAircraftId = new Map(
+    insights.map((insight) => [insight.aircraftId, insight]),
+  );
+  const model = getLlmConfig().model;
+  const operations = llmSummaries
+    .filter((summary) => summary.managerSummarySource === "openai")
+    .map((summary) => {
+      const insight = rawInsightByAircraftId.get(summary.aircraftId);
+      if (!insight) {
+        return null;
+      }
+
+      return {
+        updateOne: {
+          filter: { cacheKey: buildInsightCacheKey(insight) },
+          update: {
+            $set: {
+              cacheKey: buildInsightCacheKey(insight),
+              aircraftId: insight.aircraftId,
+              aircraft: insight.aircraft || "",
+              issueTitle: insight.issueTitle || "",
+              evidenceSignature: buildEvidenceSignature(insight),
+              matchedRuleCodes: (insight.matchedRules || [])
+                .map((rule) => rule.ruleCode)
+                .filter(Boolean),
+              managerSummary: summary.managerSummary || "",
+              recommendedAction: summary.recommendedAction || "",
+              recommendedActions: summary.recommendedActions || [],
+              manualReferences: summary.manualReferences || [],
+              procedureReference: insight.procedureReference || "",
+              procedureTitle: insight.procedureTitle || "",
+              procedureSummary: insight.procedureSummary || "",
+              defectDetails: summary.defectDetails || null,
+              defectDetailsSource: summary.defectDetailsSource || "none",
+              model,
+            },
+          },
+          upsert: true,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  if (operations.length) {
+    await AiInsightCache.bulkWrite(operations);
+  }
 };
 
 const buildMaintenanceInsights = async ({
@@ -102,6 +235,7 @@ const buildMaintenanceInsights = async ({
           dueSoonParts: entry.evidence.dueSoonParts.length,
           maintenanceLogs: entry.evidence.maintenanceLogs.length,
           hydraulicMaintenanceLogs: entry.evidence.hydraulicMaintenanceLogs.length,
+          scheduledTasks: entry.evidence.scheduledTasks.length,
           overdueTasks: entry.evidence.overdueTasks.length,
           pendingApprovalTasks: entry.evidence.pendingApprovalTasks.length,
           hydraulicTasks: entry.evidence.hydraulicTasks.length,
@@ -109,6 +243,7 @@ const buildMaintenanceInsights = async ({
           recentRemarkFlights: entry.evidence.recentRemarkFlights.length,
           hydraulicFlights: entry.evidence.hydraulicFlights.length,
         },
+      scheduledTasks: entry.evidence.scheduledTasks,
       relatedRecordIds: collectRelatedRecordIds(entry.evidence),
       generatedAt: new Date().toISOString(),
     };
@@ -123,7 +258,8 @@ const buildMaintenanceInsights = async ({
   });
 
   if (!includeLLMSummary) {
-    return rawInsights.map(toPublicInsight);
+    const cachedInsights = await applyCachedLlmInsights(rawInsights);
+    return cachedInsights.map(toPublicInsight);
   }
 
   const normalizedLlmLimit = Number.isFinite(Number(llmLimit))
@@ -140,7 +276,7 @@ const buildMaintenanceInsights = async ({
   const llmSummaries = [];
 
   for (const insight of limitedLlmEligibleInsights) {
-    if (getGeminiCooldown().active) {
+    if (getLlmCooldown().active) {
       break;
     }
 
@@ -158,14 +294,16 @@ const buildMaintenanceInsights = async ({
     llmSummaries.push({
       aircraftId: insight.aircraftId,
       managerSummary: llmSummary || insight.managerSummary,
-      managerSummarySource: llmUsed ? "gemini" : "rule-fallback",
+      managerSummarySource: llmUsed ? "openai" : "rule-fallback",
       recommendedAction: insight._ruleRecommendedAction,
       recommendedActions: insight._ruleRecommendedActions,
       manualReferences: insight._ruleManualReferences,
       defectDetails,
-      defectDetailsSource: defectDetails ? "gemini" : "none",
+      defectDetailsSource: defectDetails ? "openai" : "none",
     });
   }
+
+  await saveLlmInsightCaches(rawInsights, llmSummaries);
 
   const llmSummaryByAircraftId = new Map(
     llmSummaries.map((item) => [item.aircraftId, item]),

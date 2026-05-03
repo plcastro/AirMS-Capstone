@@ -11,14 +11,33 @@ const RISK_RANK = {
   Critical: 4,
 };
 
+const ACTIVE_FLIGHT_SIGNAL_STATUSES = [
+  "pending_release",
+  "pending_acceptance",
+  "released",
+];
+
 const HYDRAULIC_KEYWORDS = [
   "hyd",
   "hydraulic",
+  "hydraulics",
+  "hydraulic system",
+  "hydraulic power",
+  "hydraulic fluid",
+  "hydraulic oil",
+  "hyd system",
+  "hyd sys",
   "servo",
   "servocontrol",
+  "servo control",
+  "servo-control",
+  "servo controls",
+  "servo-controls",
   "accumulator",
+  "accumulators",
   "load compensator",
   "pump",
+  "hydraulic pump",
   "reservoir",
   "filter",
   "strainer",
@@ -30,7 +49,15 @@ const HYDRAULIC_KEYWORDS = [
   "dissymmetric load",
 ];
 
-const HYDRAULIC_LEAK_KEYWORDS = ["leak", "leaking", "rupture", "burst"];
+const HYDRAULIC_LEAK_KEYWORDS = [
+  "leak",
+  "leaks",
+  "leaking",
+  "leakage",
+  "rupture",
+  "ruptured",
+  "burst",
+];
 const HYDRAULIC_PRESSURE_KEYWORDS = [
   "pressure",
   "press",
@@ -45,11 +72,15 @@ const HYDRAULIC_PRESSURE_KEYWORDS = [
 ];
 const HYDRAULIC_FILTER_KEYWORDS = [
   "filter",
+  "filters",
   "filtering element",
   "strainer",
+  "strainers",
   "clog",
   "clogged",
+  "clogging",
   "contamination",
+  "contaminated",
   "pollution",
   "reservoir",
   "cm 208",
@@ -207,10 +238,15 @@ const ABNORMAL_CONDITION_KEYWORDS = {
   ],
   vibrationAnomaly: [
     "abnormal vibration",
+    "abnormal vibrations",
     "vibration analysis",
     "vibration anomaly",
+    "vibrations detected",
+    "vibration detected",
     "excessive vibration",
+    "excessive vibrations",
     "high vibration",
+    "high vibrations",
   ],
   fuelControlFault: [
     "twist grip fault",
@@ -242,15 +278,16 @@ const escapeRegExp = (value = "") =>
 
 const includesAnyKeyword = (text = "", keywords = []) =>
   keywords.some((keyword) => {
+    const normalizedText = normalizeText(text);
     const normalizedKeyword = normalizeText(keyword);
 
-    if (!normalizedKeyword) {
+    if (!normalizedText || !normalizedKeyword) {
       return false;
     }
 
     return new RegExp(
       `(^|\\s)${escapeRegExp(normalizedKeyword)}(?=\\s|$)`,
-    ).test(text);
+    ).test(normalizedText);
   });
 
 const SIGNAL_CONTEXT_KEYWORDS = {
@@ -711,6 +748,10 @@ const collectSignalHits = (text = "") => {
     tailRotorBladesPitchHornAssembly: false,
     tailRotorBladesEdgeTab: false,
     tailRotorBladesChinWeights: false,
+    hydraulicContext: false,
+    hydraulicLeak: false,
+    hydraulicPressure: false,
+    hydraulicFilter: false,
     arrielFadecCodes: [],
   };
 
@@ -720,6 +761,15 @@ const collectSignalHits = (text = "") => {
   Object.entries(ABNORMAL_CONDITION_KEYWORDS).forEach(([key, keywords]) => {
     hits[key] = includesAnyKeyword(text, keywords);
   });
+
+  hits.hydraulicContext = includesAnyKeyword(text, HYDRAULIC_KEYWORDS);
+  hits.hydraulicLeak =
+    hits.hydraulicContext && includesAnyKeyword(text, HYDRAULIC_LEAK_KEYWORDS);
+  hits.hydraulicPressure =
+    hits.hydraulicContext &&
+    includesAnyKeyword(text, HYDRAULIC_PRESSURE_KEYWORDS);
+  hits.hydraulicFilter =
+    hits.hydraulicContext && includesAnyKeyword(text, HYDRAULIC_FILTER_KEYWORDS);
 
   const hasTailDriveLineContext = hasSignalContext(text, "tailDriveLine");
   const hasTailGearBoxContext = hasSignalContext(text, "tailGearBox");
@@ -831,6 +881,18 @@ const incrementSignalFacts = (facts = {}, hits = {}) => {
   }
   if (hits.tailRotorBladesChinWeights) {
     facts["signals.tailRotorBladesChinWeightsCount"] += 1;
+  }
+  if (hits.hydraulicContext) {
+    facts["signals.hydraulicContextCount"] += 1;
+  }
+  if (hits.hydraulicLeak) {
+    facts["signals.hydraulicLeakCount"] += 1;
+  }
+  if (hits.hydraulicPressure) {
+    facts["signals.hydraulicPressureCount"] += 1;
+  }
+  if (hits.hydraulicFilter) {
+    facts["signals.hydraulicFilterCount"] += 1;
   }
 
   Object.keys(ABNORMAL_CONDITION_KEYWORDS).forEach((key) => {
@@ -992,6 +1054,7 @@ const buildFactsMap = async () => {
           "maintenance.hydraulicPressureCount": 0,
           "maintenance.hydraulicFilterCount": 0,
           "tasks.overdueOpenCount": 0,
+          "tasks.scheduledOpenCount": 0,
           "tasks.completedPendingApprovalCount": 0,
           "tasks.hydraulicOpenCount": 0,
           "tasks.hydraulicOverdueCount": 0,
@@ -1084,6 +1147,10 @@ const buildFactsMap = async () => {
           "signals.tailRotorBladesPitchHornAssemblyCount": 0,
           "signals.tailRotorBladesEdgeTabCount": 0,
           "signals.tailRotorBladesChinWeightsCount": 0,
+          "signals.hydraulicContextCount": 0,
+          "signals.hydraulicLeakCount": 0,
+          "signals.hydraulicPressureCount": 0,
+          "signals.hydraulicFilterCount": 0,
           "signals.condition.hardLandingCount": 0,
           "signals.condition.overtorqueCount": 0,
           "signals.condition.rotorOverspeedCount": 0,
@@ -1138,6 +1205,7 @@ const buildFactsMap = async () => {
           dueSoonParts: [],
           maintenanceLogs: [],
           hydraulicMaintenanceLogs: [],
+          scheduledTasks: [],
           overdueTasks: [],
           pendingApprovalTasks: [],
           hydraulicTasks: [],
@@ -1337,7 +1405,13 @@ const buildFactsMap = async () => {
     const isPendingApproval = ["completed", "reviewed"].includes(status) && !task.isApproved;
     const shouldUseTaskForSignals = !isClosed || isPendingApproval;
     const taskNarrativeTexts = collectTaskNarrativeTexts(task);
-    const hydraulicFlags = getHydraulicFlags(...taskNarrativeTexts);
+    const checklistNarrativeTexts = (task.checklistItems || []).flatMap(
+      collectChecklistItemNarrativeTexts,
+    );
+    const hydraulicFlags = getHydraulicFlags(
+      ...taskNarrativeTexts,
+      ...checklistNarrativeTexts,
+    );
 
     if (shouldUseTaskForSignals) {
       const signalHits = collectSignalHits(
@@ -1374,6 +1448,25 @@ const buildFactsMap = async () => {
         title: task.title || "",
         dueDate: task.dueDate || "",
         status: task.status || "",
+      });
+    }
+
+    if (!isClosed) {
+      aircraftEntry.facts["tasks.scheduledOpenCount"] += 1;
+      aircraftEntry.evidence.scheduledTasks.push({
+        id: task.id || task._id?.toString?.() || "",
+        title: task.title || "",
+        aircraft: task.aircraft || "",
+        assignedToName: task.assignedToName || "",
+        maintenanceType: task.maintenanceType || "",
+        priority: task.priority || "",
+        status: task.status || "",
+        startDateTime: task.startDateTime || "",
+        endDateTime: task.endDateTime || task.dueDate || "",
+        dueDate: task.dueDate || task.endDateTime || "",
+        checklistCount: Array.isArray(task.checklistItems)
+          ? task.checklistItems.length
+          : 0,
       });
     }
 
@@ -1428,28 +1521,40 @@ const buildFactsMap = async () => {
     aircraftEntry.sourceCounts.flightLogs = logs.length;
 
     const recentLogs = logs.slice(0, 5);
+    const latestRemarkLogId =
+      logs
+        .find((log) => String(log.remarks || "").trim())
+        ?._id?.toString?.() || "";
+
     recentLogs.forEach((log) => {
       const status = String(log.status || "");
       const remark = String(log.remarks || "").trim();
+      const logId = log._id?.toString?.() || "";
+      const isActiveFlightWorkflow =
+        ACTIVE_FLIGHT_SIGNAL_STATUSES.includes(status);
+      const isLatestAircraftRemark = Boolean(
+        latestRemarkLogId && logId === latestRemarkLogId,
+      );
       const flightNarrativeTexts = collectFlightNarrativeTexts(log);
       const hydraulicFlags = getHydraulicFlags(...flightNarrativeTexts);
-      const signalHits = collectSignalHits(
-        normalizeText(flightNarrativeTexts.join(" ")),
-      );
-      incrementSignalFacts(aircraftEntry.facts, signalHits);
-      addSignalEvidence(aircraftEntry, {
-        source: "flightLog",
-        text: flightNarrativeTexts.join(" | "),
-        recordId: log._id?.toString?.() || "",
-        signalKeys: getActiveSignalKeys(signalHits),
-      });
 
-      if (
-        ["pending_release", "pending_acceptance", "released"].includes(status)
-      ) {
+      if (isActiveFlightWorkflow || isLatestAircraftRemark) {
+        const signalHits = collectSignalHits(
+          normalizeText(flightNarrativeTexts.join(" ")),
+        );
+        incrementSignalFacts(aircraftEntry.facts, signalHits);
+        addSignalEvidence(aircraftEntry, {
+          source: "flightLog",
+          text: flightNarrativeTexts.join(" | "),
+          recordId: logId,
+          signalKeys: getActiveSignalKeys(signalHits),
+        });
+      }
+
+      if (isActiveFlightWorkflow) {
         aircraftEntry.facts["flight.pendingWorkflowCount"] += 1;
         aircraftEntry.evidence.pendingFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           status,
           date: log.date || "",
@@ -1459,17 +1564,20 @@ const buildFactsMap = async () => {
       if (remark) {
         aircraftEntry.facts["flight.recentRemarkCount"] += 1;
         aircraftEntry.evidence.recentRemarkFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           remark,
           date: log.date || "",
         });
       }
 
-      if (hydraulicFlags.hasHydraulicContext) {
+      if (
+        (isActiveFlightWorkflow || isLatestAircraftRemark) &&
+        hydraulicFlags.hasHydraulicContext
+      ) {
         aircraftEntry.facts["flight.hydraulicRemarkCount"] += 1;
         aircraftEntry.evidence.hydraulicFlights.push({
-          id: log._id?.toString?.() || "",
+          id: logId,
           controlNo: log.controlNo || "",
           remark: remark || hydraulicFlags.text,
           date: log.date || "",

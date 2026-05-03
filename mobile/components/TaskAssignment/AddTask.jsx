@@ -439,7 +439,7 @@ export default function AddTask({
       return;
     }
 
-    if (endDate < startDate) {
+    if (endDate <= startDate) {
       showToast("End date/time must be after the start date/time.");
       return;
     }
@@ -610,11 +610,16 @@ export default function AddTask({
 
       if (field === "start") {
         setStartDate(clampedDate);
-        if (endDate < clampedDate) {
-          setEndDate(clampedDate);
+        if (endDate <= clampedDate) {
+          setEndDate(addMinutesToDate(clampedDate, 1));
         }
       } else {
-        setEndDate(clampedDate);
+        if (clampedDate <= startDate) {
+          showToast("End date/time must be after the start date/time.");
+          setEndDate(addMinutesToDate(startDate, 1));
+        } else {
+          setEndDate(clampedDate);
+        }
       }
 
       setAndroidPickerMode("time");
@@ -637,11 +642,17 @@ export default function AddTask({
     if (field === "start") {
       const clampedDate = clampToNow(nextDate);
       setStartDate(clampedDate);
-      if (endDate < clampedDate) {
-        setEndDate(clampedDate);
+      if (endDate <= clampedDate) {
+        setEndDate(addMinutesToDate(clampedDate, 1));
       }
     } else {
-      setEndDate(clampToNow(nextDate));
+      const clampedDate = clampToNow(nextDate);
+      if (clampedDate <= startDate) {
+        showToast("End date/time must be after the start date/time.");
+        setEndDate(addMinutesToDate(startDate, 1));
+      } else {
+        setEndDate(clampedDate);
+      }
       setEndDateManuallyAdjusted(true);
     }
 
