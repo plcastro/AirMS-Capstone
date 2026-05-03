@@ -214,7 +214,7 @@ export default function MaintenanceLog() {
             const sample = entriesForAircraft[0];
 
             return (
-              <Col xs={24} md={12} key={reg}>
+              <Col xs={24} sm={12} md={6} key={reg}>
                 <Card
                   hoverable
                   onClick={() => navigateToAircraft(reg)}
