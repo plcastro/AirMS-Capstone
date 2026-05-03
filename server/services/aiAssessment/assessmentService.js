@@ -24,6 +24,9 @@ const collectRelatedRecordIds = (evidence = {}) => ({
   hydraulicMaintenanceLogs: (evidence.hydraulicMaintenanceLogs || [])
     .map((item) => item.id)
     .filter(Boolean),
+  scheduledTasks: (evidence.scheduledTasks || [])
+    .map((item) => item.id)
+    .filter(Boolean),
   overdueTasks: (evidence.overdueTasks || []).map((item) => item.id).filter(Boolean),
   pendingApprovalTasks: (evidence.pendingApprovalTasks || [])
     .map((item) => item.id)
@@ -232,6 +235,7 @@ const buildMaintenanceInsights = async ({
           dueSoonParts: entry.evidence.dueSoonParts.length,
           maintenanceLogs: entry.evidence.maintenanceLogs.length,
           hydraulicMaintenanceLogs: entry.evidence.hydraulicMaintenanceLogs.length,
+          scheduledTasks: entry.evidence.scheduledTasks.length,
           overdueTasks: entry.evidence.overdueTasks.length,
           pendingApprovalTasks: entry.evidence.pendingApprovalTasks.length,
           hydraulicTasks: entry.evidence.hydraulicTasks.length,
@@ -239,6 +243,7 @@ const buildMaintenanceInsights = async ({
           recentRemarkFlights: entry.evidence.recentRemarkFlights.length,
           hydraulicFlights: entry.evidence.hydraulicFlights.length,
         },
+      scheduledTasks: entry.evidence.scheduledTasks,
       relatedRecordIds: collectRelatedRecordIds(entry.evidence),
       generatedAt: new Date().toISOString(),
     };

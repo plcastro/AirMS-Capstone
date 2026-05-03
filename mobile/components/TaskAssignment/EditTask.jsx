@@ -25,6 +25,7 @@ const clampToNow = (date) => {
   const now = getNow();
   return date < now ? now : date;
 };
+const addOneMinute = (date) => new Date(date.getTime() + 60 * 1000);
 
 export default function EditTask({
   visible,
@@ -153,7 +154,7 @@ export default function EditTask({
       return null;
     }
 
-    if (endDate < startDate) {
+    if (endDate <= startDate) {
       showToast("End date/time must be after the start date/time.");
       return null;
     }
@@ -267,11 +268,16 @@ export default function EditTask({
 
       if (field === "start") {
         setStartDate(clampedDate);
-        if (endDate < clampedDate) {
-          setEndDate(clampedDate);
+        if (endDate <= clampedDate) {
+          setEndDate(addOneMinute(clampedDate));
         }
       } else {
-        setEndDate(clampedDate);
+        if (clampedDate <= startDate) {
+          showToast("End date/time must be after the start date/time.");
+          setEndDate(addOneMinute(startDate));
+        } else {
+          setEndDate(clampedDate);
+        }
       }
 
       setAndroidPickerMode("time");
@@ -294,11 +300,17 @@ export default function EditTask({
     if (field === "start") {
       const clampedDate = clampToNow(nextDate);
       setStartDate(clampedDate);
-      if (endDate < clampedDate) {
-        setEndDate(clampedDate);
+      if (endDate <= clampedDate) {
+        setEndDate(addOneMinute(clampedDate));
       }
     } else {
-      setEndDate(clampToNow(nextDate));
+      const clampedDate = clampToNow(nextDate);
+      if (clampedDate <= startDate) {
+        showToast("End date/time must be after the start date/time.");
+        setEndDate(addOneMinute(startDate));
+      } else {
+        setEndDate(clampedDate);
+      }
     }
 
     closePicker();

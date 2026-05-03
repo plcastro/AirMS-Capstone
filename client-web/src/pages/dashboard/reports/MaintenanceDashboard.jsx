@@ -30,7 +30,7 @@ import {
   exportToPDF,
 } from "../../../components/common/ExportFile";
 import { API_BASE } from "../../../utils/API_BASE";
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function MaintenanceDashboard() {
   const { getValidToken } = useContext(AuthContext);

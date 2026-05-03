@@ -27,6 +27,22 @@ const isReleasedFlightLogStatus = (status = "") =>
     String(status || "").trim().toLowerCase(),
   );
 
+const normalizeFlightLogStatusFilter = (status = "") => {
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  if (normalized === "pending_release") {
+    return ["pending_release", "ongoing", "draft"];
+  }
+  if (normalized === "pending_acceptance") {
+    return ["pending_acceptance", "released"];
+  }
+
+  return normalized ? [normalized] : [];
+};
+
 const hasDestinationInfo = (flightLog = {}) =>
   Array.isArray(flightLog.legs) &&
   flightLog.legs.some((leg) =>
@@ -219,8 +235,14 @@ const getFlightLogs = async (req, res) => {
     // Build filter object
     const filter = {};
 
-    if (typeof status === "string" && status.trim())
-      filter.status = status.trim();
+    if (typeof status === "string" && status.trim()) {
+      const statuses = normalizeFlightLogStatusFilter(status);
+      if (statuses.length === 1) {
+        filter.status = statuses[0];
+      } else if (statuses.length > 1) {
+        filter.status = { $in: statuses };
+      }
+    }
     if (typeof aircraftRPC === "string" && aircraftRPC.trim())
       filter.rpc = aircraftRPC.trim();
     if (typeof createdBy === "string" && createdBy.trim())

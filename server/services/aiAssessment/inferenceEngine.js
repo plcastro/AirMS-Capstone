@@ -116,6 +116,14 @@ const FACT_EVIDENCE_BUILDERS = {
   "signals.condition.engineHealthCheckCount": () => "engine-health or power-check record(s) detected",
   "signals.condition.hydraulicPreCloggingCount": () =>
     "hydraulic filter pre-clogging condition record(s) detected",
+  "signals.hydraulicContextCount": (value) =>
+    `${value} record(s) with hydraulic terminology detected`,
+  "signals.hydraulicLeakCount": (value) =>
+    `${value} record(s) with hydraulic leak terminology detected`,
+  "signals.hydraulicPressureCount": (value) =>
+    `${value} record(s) with hydraulic pressure terminology detected`,
+  "signals.hydraulicFilterCount": (value) =>
+    `${value} record(s) with hydraulic filter/strainer terminology detected`,
   "signals.condition.vibrationAnomalyCount": () => "vibration anomaly record(s) detected",
   "signals.condition.fuelControlFaultCount": () => "fuel-control fault record(s) detected",
   "signals.condition.engineOilIndicationFaultCount": () =>
@@ -212,13 +220,38 @@ const getPrimaryMatchedRule = (matchedRules = []) => {
     return null;
   }
 
+  const getSignalPriority = (rule = {}) => {
+    const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+    if (
+      conditions.some((condition) =>
+        String(condition.fact || "").startsWith("signals.hydraulic"),
+      )
+    ) {
+      return 3;
+    }
+    if (String(rule.category || "").toLowerCase().includes("hydraulic")) {
+      return 2;
+    }
+    if (
+      conditions.some((condition) =>
+        String(condition.fact || "").startsWith("signals.condition"),
+      )
+    ) {
+      return 1;
+    }
+    return 0;
+  };
+
   const highestRisk = deriveHighestRisk(matchedRules);
   return matchedRules
     .filter((rule) => rule.riskLevel === highestRisk)
     .sort((left, right) => {
       const leftSpecificity = Array.isArray(left.conditions) ? left.conditions.length : 0;
       const rightSpecificity = Array.isArray(right.conditions) ? right.conditions.length : 0;
-      return rightSpecificity - leftSpecificity;
+      if (rightSpecificity !== leftSpecificity) {
+        return rightSpecificity - leftSpecificity;
+      }
+      return getSignalPriority(right) - getSignalPriority(left);
     })[0];
 };
 
