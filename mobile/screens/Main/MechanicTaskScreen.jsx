@@ -39,6 +39,17 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   const isSameTask = (left, right) =>
     String(left?.id || left?._id || "") === String(right?.id || right?._id || "");
 
+  const ensureEndAfterStart = (task, startDate) => {
+    const nextStart = startDate instanceof Date ? startDate : new Date(startDate);
+    const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
+
+    if (currentEnd && currentEnd > nextStart) {
+      return task.endDateTime;
+    }
+
+    return new Date(nextStart.getTime() + 60 * 1000).toISOString();
+  };
+
   const fetchTasks = async ({ silent = false } = {}) => {
     if (!currentUserId) return;
 
@@ -172,6 +183,7 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
       ...task,
       status: "Ongoing",
       startDateTime: now.toISOString(),
+      endDateTime: ensureEndAfterStart(task, now),
     };
 
     try {
@@ -210,6 +222,10 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
       ...task,
       checklistState: checklistState,
       findings: findings,
+      endDateTime: ensureEndAfterStart(
+        task,
+        task.startDateTime || task.createdAt || new Date(),
+      ),
     };
 
     try {

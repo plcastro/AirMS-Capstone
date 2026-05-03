@@ -31,7 +31,11 @@ const normalizeFlightLogStatusFilter = (status = "") => {
   const normalized = String(status || "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, "_");
+    .replace(/[\s-]+/g, "_");
+
+  if (normalized === "all" || normalized === "all_status") {
+    return [];
+  }
 
   if (normalized === "pending_release") {
     return ["pending_release", "ongoing", "draft"];

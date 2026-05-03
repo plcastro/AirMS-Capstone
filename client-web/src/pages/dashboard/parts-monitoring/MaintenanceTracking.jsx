@@ -151,6 +151,8 @@ export default function MaintenanceTracking() {
   const [insights, setInsights] = useState([]);
   const [meta, setMeta] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
+  const [inspectionRemainingRows, setInspectionRemainingRows] = useState([]);
+  const [inspectionRemainingLoading, setInspectionRemainingLoading] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const llmLimit = 0;
@@ -214,17 +216,27 @@ export default function MaintenanceTracking() {
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        const [insightsResponse, healthResponse] = await Promise.all([
+        setInspectionRemainingLoading(true);
+        const [
+          insightsResponse,
+          healthResponse,
+          inspectionRemainingResponse,
+        ] = await Promise.all([
           fetch(
             `${API_BASE}/api/ai-insights/maintenance-tracking`,
             { cache: "no-store" },
           ),
           fetch(`${API_BASE}/api/ai-insights/health`, { cache: "no-store" }),
+          fetch(`${API_BASE}/api/parts-monitoring/inspection-remaining-hours`, {
+            cache: "no-store",
+          }),
         ]);
-        const [insightsResult, healthResult] = await Promise.all([
-          insightsResponse.json(),
-          healthResponse.json(),
-        ]);
+        const [insightsResult, healthResult, inspectionRemainingResult] =
+          await Promise.all([
+            insightsResponse.json(),
+            healthResponse.json(),
+            inspectionRemainingResponse.json(),
+          ]);
 
         if (!insightsResponse.ok || !insightsResult.success) {
           throw new Error(
@@ -237,6 +249,12 @@ export default function MaintenanceTracking() {
         );
         setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
+        setInspectionRemainingRows(
+          inspectionRemainingResponse.ok &&
+            Array.isArray(inspectionRemainingResult.data)
+            ? inspectionRemainingResult.data
+            : [],
+        );
         await refreshLlmHealth();
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
@@ -245,6 +263,7 @@ export default function MaintenanceTracking() {
         );
       } finally {
         setLoading(false);
+        setInspectionRemainingLoading(false);
       }
     };
 
@@ -496,6 +515,36 @@ export default function MaintenanceTracking() {
     [scheduledTaskRows],
   );
 
+  const maintenanceTrackingInsights = useMemo(() => {
+    const highestRisk =
+      insights.find((item) => ["Critical", "High"].includes(item.riskLevel)) ||
+      insights[0];
+    const overdueInspectionRows = inspectionRemainingRows.filter(
+      (row) =>
+        (Number.isFinite(Number(row.remainingHours)) &&
+          Number(row.remainingHours) <= 0) ||
+        (Number.isFinite(Number(row.remainingDays)) &&
+          Number(row.remainingDays) <= 0),
+    );
+    const nearestInspection = inspectionRemainingRows
+      .filter((row) => Number.isFinite(Number(row.remainingHours)))
+      .sort((left, right) => Number(left.remainingHours) - Number(right.remainingHours))[0];
+
+    return [
+      highestRisk
+        ? `${highestRisk.aircraft}: ${highestRisk.issueTitle} is the highest current maintenance finding (${highestRisk.riskLevel}).`
+        : "No active maintenance findings are currently detected.",
+      scheduledTaskStats.overdue > 0
+        ? `${scheduledTaskStats.overdue} scheduled task(s) are overdue and should be reviewed first.`
+        : `${scheduledTaskStats.scheduled} scheduled task(s) remain open with no overdue task detected.`,
+      overdueInspectionRows.length > 0
+        ? `${overdueInspectionRows.length} inspection interval(s) are at or past their remaining flight-hour/day limit.`
+        : nearestInspection
+          ? `${nearestInspection.aircraft} has the nearest inspection by flight hours: ${nearestInspection.inspectionName} at ${nearestInspection.remainingHours} FH remaining.`
+          : "No remaining flight-hour inspection data is available yet.",
+    ];
+  }, [inspectionRemainingRows, insights, scheduledTaskStats]);
+
   const scheduledTaskColumns = [
     {
       title: "Aircraft",
@@ -560,6 +609,84 @@ export default function MaintenanceTracking() {
         const state = getTaskScheduleState(record);
         return <Tag color={state.color}>{state.label}</Tag>;
       },
+    },
+  ];
+
+  const inspectionRemainingColumns = [
+    {
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      fixed: "left",
+      width: 110,
+      render: (value) => <Text strong>{value || "N/A"}</Text>,
+    },
+    {
+      title: "Inspection",
+      dataIndex: "inspectionName",
+      key: "inspectionName",
+      width: 220,
+      render: (value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{value || "N/A"}</Text>
+          <Text type="secondary">
+            {record.flightHourInterval
+              ? `${record.flightHourInterval} FH`
+              : "Calendar"}{" "}
+            {record.calendarMonthInterval
+              ? `/ ${record.calendarMonthInterval}M`
+              : ""}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Remaining FH",
+      dataIndex: "remainingHours",
+      key: "remainingHours",
+      width: 130,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} FH`,
+    },
+    {
+      title: "Remaining Days",
+      dataIndex: "remainingDays",
+      key: "remainingDays",
+      width: 140,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} day(s)`,
+    },
+    {
+      title: "Due Date",
+      dataIndex: "dueDate",
+      key: "dueDate",
+      width: 150,
+      render: (value) => {
+        if (!value) return "N/A";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+          ? "N/A"
+          : date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+      },
+    },
+    {
+      title: "Due At",
+      dataIndex: "dueAtHours",
+      key: "dueAtHours",
+      width: 110,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} FH`,
+    },
+    {
+      title: "Source Row",
+      dataIndex: "sourceRow",
+      key: "sourceRow",
+      width: 260,
+      render: (value) => value || "No matching lifespan row",
     },
   ];
 
@@ -670,7 +797,18 @@ export default function MaintenanceTracking() {
         />
       )}
 
-      
+      <Card>
+        <Space direction="vertical" size={6}>
+          <Title level={4} style={{ margin: 0 }}>
+            Maintenance Tracking Insights
+          </Title>
+          {maintenanceTrackingInsights.map((insight) => (
+            <Text key={insight} type="secondary">
+              {insight}
+            </Text>
+          ))}
+        </Space>
+      </Card>
 
       <Row gutter={24}>
         <Col span={24}>
@@ -717,6 +855,31 @@ export default function MaintenanceTracking() {
             pagination={{ pageSize: 5, showSizeChanger: true }}
             scroll={{ x: 1100 }}
             locale={{ emptyText: "No scheduled tasks found." }}
+          />
+        </Space>
+      </Card>
+
+      <Card>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Space direction="vertical" size={2}>
+            <Title level={4} style={{ margin: 0 }}>
+              Remaining Flight Hours by Inspection
+            </Title>
+            <Text type="secondary">
+              Each aircraft is matched against the configured inspection schedules and parts lifespan rows.
+            </Text>
+          </Space>
+          <Table
+            columns={inspectionRemainingColumns}
+            dataSource={inspectionRemainingRows}
+            loading={loading || inspectionRemainingLoading}
+            size="small"
+            rowKey={(record) =>
+              `${record.aircraft}-${record.inspectionKey || record.inspectionName}`
+            }
+            pagination={{ pageSize: 8, showSizeChanger: true }}
+            scroll={{ x: 1120 }}
+            locale={{ emptyText: "No inspection remaining-hours data found." }}
           />
         </Space>
       </Card>

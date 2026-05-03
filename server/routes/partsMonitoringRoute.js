@@ -5,6 +5,7 @@ const {
   getPartsMonitoring,
   getAllPartsMonitoring,
   getMaintenancePriority,
+  getInspectionRemainingHours,
   getMaintenancePriorityRules,
   savePartsMonitoring,
   saveMaintenancePriorityRules,
@@ -19,6 +20,7 @@ router.get("/", getAllPartsMonitoring); // Get all records with pagination
 router.get("/aircraft-list", getAircraftList); // Get all aircraft list
 router.get("/maintenance-priority/rules", getMaintenancePriorityRules);
 router.get("/maintenance-priority", getMaintenancePriority); // Get ranked aircraft maintenance priority
+router.get("/inspection-remaining-hours", getInspectionRemainingHours);
 router.get("/:aircraft", getPartsMonitoring); // Get data for specific aircraft
 
 router.post("/save", savePartsMonitoring); // Save or update data

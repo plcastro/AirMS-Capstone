@@ -37,6 +37,9 @@ const collectRelatedRecordIds = (evidence = {}) => ({
     .map((item) => item.id)
     .filter(Boolean),
   hydraulicFlights: (evidence.hydraulicFlights || []).map((item) => item.id).filter(Boolean),
+  postInspectionNotes: (evidence.postInspectionNotes || [])
+    .map((item) => item.id)
+    .filter(Boolean),
 });
 
 const collectSourceSnippets = (evidence = {}) =>
@@ -242,6 +245,7 @@ const buildMaintenanceInsights = async ({
           pendingFlights: entry.evidence.pendingFlights.length,
           recentRemarkFlights: entry.evidence.recentRemarkFlights.length,
           hydraulicFlights: entry.evidence.hydraulicFlights.length,
+          postInspectionNotes: entry.evidence.postInspectionNotes.length,
         },
       scheduledTasks: entry.evidence.scheduledTasks,
       relatedRecordIds: collectRelatedRecordIds(entry.evidence),
