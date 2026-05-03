@@ -4,7 +4,6 @@ const LinkingConfig = {
     "http://localhost:8081",
     "https://airms.online",
     "https://www.airms.online",
-    "https://api.airms.online",
   ],
   config: {
     screens: {
