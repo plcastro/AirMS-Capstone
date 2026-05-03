@@ -2,6 +2,7 @@ const PartsMonitoring = require("../../models/partsMonitoringModel");
 const MaintenanceLog = require("../../models/maintenanceLogModel");
 const Task = require("../../models/taskModel");
 const FlightLog = require("../../models/flightLogModel");
+const PostInspection = require("../../models/postInspectionModel");
 const AiRectification = require("../../models/aiRectificationModel");
 
 const RISK_RANK = {
@@ -1005,12 +1006,14 @@ const buildFactsMap = async () => {
     maintenanceLogs,
     tasks,
     flightLogs,
+    postInspections,
     activeRectifications,
   ] = await Promise.all([
     PartsMonitoring.find({}).sort({ aircraft: 1 }).lean(),
     MaintenanceLog.find({}).sort({ dateDefectDiscovered: -1 }).lean(),
     Task.find({}).sort({ createdAt: -1 }).lean(),
     FlightLog.find({}).sort({ createdAt: -1 }).lean(),
+    PostInspection.find({}).sort({ createdAt: -1 }).lean(),
     AiRectification.find({ status: "active" }).sort({ rectifiedAt: -1 }).lean(),
   ]);
 
@@ -1125,6 +1128,8 @@ const buildFactsMap = async () => {
           "flight.pendingWorkflowCount": 0,
           "flight.recentRemarkCount": 0,
           "flight.hydraulicRemarkCount": 0,
+          "postInspection.noteCount": 0,
+          "postInspection.hydraulicNoteCount": 0,
           "signals.rotorBrakeCount": 0,
           "signals.nrnfIndicatorCount": 0,
           "signals.loadCompensatorCount": 0,
@@ -1212,6 +1217,7 @@ const buildFactsMap = async () => {
           pendingFlights: [],
           recentRemarkFlights: [],
           hydraulicFlights: [],
+          postInspectionNotes: [],
           signalRecords: [],
         },
         sourceCounts: {
@@ -1219,6 +1225,7 @@ const buildFactsMap = async () => {
           maintenanceLogs: 0,
           tasks: 0,
           flightLogs: 0,
+          postInspections: 0,
         },
       });
     }
@@ -1583,6 +1590,44 @@ const buildFactsMap = async () => {
           date: log.date || "",
         });
       }
+    });
+  });
+
+  postInspections.forEach((inspection) => {
+    const note = String(inspection.notes || "").trim();
+    if (!note) {
+      return;
+    }
+
+    noteSourceTime(inspection.rpc, inspection.updatedAt, inspection.createdAt, inspection.date);
+    const aircraftEntry = ensureAircraft(inspection.rpc, {
+      aircraftModel: inspection.aircraftType || "",
+    });
+    if (!aircraftEntry) {
+      return;
+    }
+
+    aircraftEntry.sourceCounts.postInspections += 1;
+    aircraftEntry.facts["postInspection.noteCount"] += 1;
+
+    const signalHits = collectSignalHits(normalizeText(note));
+    incrementSignalFacts(aircraftEntry.facts, signalHits);
+    addSignalEvidence(aircraftEntry, {
+      source: "postInspection",
+      text: note,
+      recordId: inspection._id?.toString?.() || "",
+      signalKeys: getActiveSignalKeys(signalHits),
+    });
+
+    const hydraulicFlags = getHydraulicFlags(note);
+    if (hydraulicFlags.hasHydraulicContext) {
+      aircraftEntry.facts["postInspection.hydraulicNoteCount"] += 1;
+    }
+
+    aircraftEntry.evidence.postInspectionNotes.push({
+      id: inspection._id?.toString?.() || "",
+      note,
+      date: inspection.date || "",
     });
   });
 

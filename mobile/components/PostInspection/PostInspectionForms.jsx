@@ -11,6 +11,7 @@ export const getDefaultPostInspectionFormData = (userRole = "") => ({
   date: new Date().toLocaleDateString("en-US"),
   createdBy: userRole,
   status: "pending",
+  notes: "",
   releasedBy: getDefaultPostInspectionSignature(),
   acceptedBy: getDefaultPostInspectionSignature(),
   station1_transparentPanels_condition: false,
