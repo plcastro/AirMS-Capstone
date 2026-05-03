@@ -228,7 +228,9 @@ export default function MaintenanceDashboard() {
     {
       key: "flight-log",
       title: "Flight Log Report",
-      component: <FlightLogReport records={flightLogs} loading={loadingTasks} />,
+      component: (
+        <FlightLogReport records={flightLogs} loading={loadingTasks} />
+      ),
       keywords: ["flight", "log", "aircraft", "release"],
     },
     {

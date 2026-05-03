@@ -406,7 +406,7 @@ export default function UserManagement() {
         paddingBottom: 24,
       }}
     >
-      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 10 }}>
         <Col xs={12} sm={12} md={6}>
           <Card loading={loading} size="small">
             <Statistic title="Total Users" value={allUsers.length} />
@@ -516,7 +516,6 @@ export default function UserManagement() {
           </Card>
         </Col>
       </Row> */}
-      <Divider />
 
       <UserTable
         headers={headers}
