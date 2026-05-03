@@ -161,14 +161,14 @@ export default function MechanicList() {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
             {item.name.charAt(0)}
           </Text>
         </View>
 
         {/* Mechanic Info */}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 4}}>
+          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 4 }}>
             {item.name}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -245,8 +245,15 @@ export default function MechanicList() {
               onChangeText={setSearchQuery}
             />
           </View>
-          <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
-            <Text style={{ color: "#fff", fontWeight: "500", fontSize: 12 }}>
+          <View style={{ marginBottom: 15 }}>
+            <Text
+              style={{
+                color: "#5a5a5a",
+                fontWeight: "500",
+                textAlign: "right",
+                fontSize: 12,
+              }}
+            >
               Total Mechanics ({filteredMechanics.length})
             </Text>
           </View>
