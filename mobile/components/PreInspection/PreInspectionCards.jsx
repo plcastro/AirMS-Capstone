@@ -102,11 +102,11 @@ export default function PreInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                    RP/C: {inspection.rpc || "N/A"}
+                  <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+                    {inspection.rpc || "N/A"}
                   </Text>
 
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  <Text style={{ fontSize: 12, color: "#777" }}>
                     {inspection.date || inspection.createdAt}
                   </Text>
                 </View>
@@ -131,7 +131,7 @@ export default function PreInspectionCards({
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 10,
-                        fontWeight: "600",
+                        fontWeight: "bold",
                       }}
                     >
                       {statusStyle.label}
@@ -142,7 +142,7 @@ export default function PreInspectionCards({
                   <TouchableOpacity onPress={() => onExport?.(inspection)}>
                     <MaterialCommunityIcons
                       name="export-variant"
-                      size={18}
+                      size={21}
                       color="#444"
                     />
                   </TouchableOpacity>
@@ -156,14 +156,13 @@ export default function PreInspectionCards({
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
+                <Text style={{ fontSize: 12, color: "#444" }}>
                   <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
                 </Text>
-
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>RP/C:</Text>{" "}
-                  {inspection.rpc || "N/A"}
+                <Text style={{ fontSize: 12, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Fuel On Board:</Text>{" "}
+                  {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
                 </Text>
               </View>
 
@@ -182,7 +181,7 @@ export default function PreInspectionCards({
                       ? "eye-outline"
                       : "pencil"
                   }
-                  size={18}
+                  size={21}
                   color={
                     inspection.status === "released" || isOfficerInCharge
                       ? COLORS.primaryLight

@@ -255,6 +255,7 @@ const updateTask = async (req, res) => {
     if (!existingTask) {
       return res.status(404).json({ message: "Task not found" });
     }
+    const previousTaskSnapshot = existingTask.toObject();
 
     const nextTask = prepareTaskUpdate(existingTask, req.body);
     existingTask.set(buildWritableTaskUpdate(nextTask));
@@ -268,7 +269,10 @@ const updateTask = async (req, res) => {
     const refreshedTask = await TaskModel.findOne({ id: req.params.id });
     await syncMaintenanceLogFromTask(refreshedTask);
     try {
-      await createTaskNotifications({ previousTask: existingTask, task: refreshedTask });
+      await createTaskNotifications({
+        previousTask: previousTaskSnapshot,
+        task: refreshedTask,
+      });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }

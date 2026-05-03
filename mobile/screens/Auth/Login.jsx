@@ -175,7 +175,13 @@ export default function Login() {
     }
   };
 
-  const goToForgotPassword = () => nav.navigate("forgotPassword");
+  const goToForgotPassword = () => {
+    const email = formData.identifier.includes("@")
+      ? formData.identifier.trim()
+      : "";
+
+    nav.navigate("forgotPassword", { email });
+  };
 
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
@@ -199,19 +205,21 @@ export default function Login() {
               Please enter your username and password
             </Text>
             <Text style={[styles.label, { textAlign: "left" }]}>
-              Username/Email *
+              Username or Email <Text style={{ color: "red" }}>*</Text>
             </Text>
             <TextInput
               style={styles.formInput}
               maxLength={100}
-              placeholder="Username/Email"
+              placeholder="Username or Email"
               placeholderTextColor="gray"
               autoCapitalize="none"
               keyboardType="default"
               value={formData.identifier}
               onChangeText={(text) => changeHandler("identifier", text)}
             />
-            <Text style={styles.label}>Password *</Text>
+            <Text style={styles.label}>
+              Password <Text style={{ color: "red" }}>*</Text>
+            </Text>
             <TextInput
               style={styles.formInput}
               maxLength={100}

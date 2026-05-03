@@ -17,10 +17,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ngcp-aviation-dept.airms"
+      "bundleIdentifier": "com.airms"
     },
     "android": {
-      "package": "com.ngcp-aviation-dept.airms",
+      "permissions": ["android.permission.POST_NOTIFICATIONS"],
+      "package": "com.airms",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",

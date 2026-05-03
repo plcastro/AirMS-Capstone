@@ -6,6 +6,7 @@ import { styles } from "../../stylesheets/styles";
 import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
+import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskTabs({
   tasks,
@@ -167,28 +168,12 @@ export default function TaskTabs({
     }
   };
 
-  const taskHeader =
-    activeTab === "Upcoming"
-      ? "Upcoming Tasks"
-      : activeTab === "Past Due"
-        ? "Past Due"
-        : activeTab === "Completed"
-          ? "Completed"
-          : activeTab === "Tasks"
-            ? "Task Orders"
-            : activeTab === "Submitted"
-              ? "Submitted Tasks"
-              : "Tasks";
-
   return (
     <View style={{ flex: 1 }}>
-      {/* Tabs - Using Button component for styling */}
       <View
         style={{
           flexDirection: "row",
-          flexWrap: "wrap",
-          marginBottom: 25,
-          gap: 5,
+          justifyContent: "space-between",
         }}
       >
         {tabsToRender.map((tab) => (
@@ -198,11 +183,11 @@ export default function TaskTabs({
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { minWidth: 120, paddingHorizontal: 2 },
+              { minWidth: 100, paddingHorizontal: 2 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 12 },
+              { fontSize: 12, color: COLORS.grayMedium },
             ]}
           />
         ))}
