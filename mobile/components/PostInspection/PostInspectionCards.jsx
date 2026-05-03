@@ -9,7 +9,6 @@ export default function PostInspectionCards({
   onExport,
   userRole,
 }) {
-  console.log("Rendering PostInspectionCards with inspections:", inspections);
   const getDisplayStatus = (status) =>
     status === "completed"
       ? "completed"
@@ -78,26 +77,21 @@ export default function PostInspectionCards({
             style={{
               flexDirection: "row",
               backgroundColor: COLORS.white,
-              borderRadius: 10,
-              marginBottom: 14,
-              elevation: 3,
+              borderRadius: 8,
+              marginBottom: 12,
+              elevation: 2,
               overflow: "hidden",
             }}
           >
-            {/* LEFT ACCENT BAR */}
-            <View
-              style={{
-                width: 5,
-                backgroundColor: COLORS.primaryLight,
-              }}
-            />
+            {/* Accent bar */}
+            <View style={{ width: 4, backgroundColor: COLORS.primaryLight }} />
 
-            <View style={{ flex: 1 }}>
-              {/* HEADER (MATCHES YOUR REFERENCE STYLE) */}
+            <View style={{ flex: 1, position: "relative" }}>
+              {/* HEADER */}
               <View
                 style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
@@ -109,30 +103,26 @@ export default function PostInspectionCards({
                   </Text>
 
                   <Text style={{ fontSize: 10, color: "#777" }}>
-                    {inspection.date || inspection.createdAt}
+                    {inspection.date || inspection.createdAt || "N/A"}
                   </Text>
                 </View>
 
                 <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
-                  {/* STATUS */}
+                  {/* Status */}
                   <View
                     style={{
                       backgroundColor: statusStyle.backgroundColor,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
                       borderRadius: 12,
                     }}
                   >
                     <Text
                       style={{
                         color: statusStyle.textColor,
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: "600",
                       }}
                     >
@@ -140,7 +130,7 @@ export default function PostInspectionCards({
                     </Text>
                   </View>
 
-                  {/* EXPORT */}
+                  {/* Export */}
                   <TouchableOpacity onPress={() => onExport?.(inspection)}>
                     <MaterialCommunityIcons
                       name="export-variant"
@@ -151,30 +141,30 @@ export default function PostInspectionCards({
                 </View>
               </View>
 
-              {/* BODY (NO BOX — CONSISTENT WITH SYSTEM) */}
+              {/* BODY (compact inline style like logs) */}
               <View
                 style={{
-                  paddingHorizontal: 12,
+                  paddingHorizontal: 10,
                   paddingBottom: 10,
                 }}
               >
                 <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
+                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
                 </Text>
+
                 <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Fuel On Board:</Text>{" "}
-                  {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
+                  <Text style={{ color: "#777" }}>Released By:</Text>{" "}
+                  {inspection?.releasedBy?.name || "N/A"}
                 </Text>
               </View>
 
-              {/* ACTION ICON (RIGHT ALIGNED LIKE ALL MODULES) */}
+              {/* ICON (bottom-right like logs style) */}
               <View
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  paddingHorizontal: 12,
-                  paddingBottom: 10,
+                  position: "absolute",
+                  bottom: 6,
+                  right: 8,
                 }}
               >
                 <MaterialCommunityIcons
