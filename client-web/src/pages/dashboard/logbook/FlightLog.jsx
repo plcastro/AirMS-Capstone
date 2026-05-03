@@ -29,7 +29,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
-import { exportRecordToPDF } from "../../../components/common/ExportFile";
+import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
@@ -298,12 +298,7 @@ export default function FlightLog() {
   };
 
   const handleExport = async (record) => {
-    await exportRecordToPDF({
-      title: "Flight Log",
-      fileName: `FlightLog-${record?.rpc || record?._id || "record"}`,
-      subtitle: `RP/C: ${record?.rpc || "N/A"} | Date: ${record?.date || "N/A"}`,
-      record,
-    });
+    await exportFlightLogToPDF(record);
   };
 
   const getUserDisplayName = () => {
