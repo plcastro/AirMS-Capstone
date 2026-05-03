@@ -474,7 +474,7 @@ export default function HeadTaskScreen({
           onPress={() => setAddModalVisible(true)}
           buttonStyle={[
             styles.unifiedActionButton,
-            { marginLeft: 5, width: 70 },
+            { marginLeft: 5, width: 100 },
           ]}
           buttonTextStyle={styles.primaryBtnTxt}
         />

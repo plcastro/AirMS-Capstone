@@ -9,6 +9,7 @@ export default function PostInspectionCards({
   onExport,
   userRole,
 }) {
+  console.log("Rendering PostInspectionCards with inspections:", inspections);
   const getDisplayStatus = (status) =>
     status === "completed"
       ? "completed"
@@ -143,7 +144,7 @@ export default function PostInspectionCards({
                   <TouchableOpacity onPress={() => onExport?.(inspection)}>
                     <MaterialCommunityIcons
                       name="export-variant"
-                      size={18}
+                      size={21}
                       color="#444"
                     />
                   </TouchableOpacity>
@@ -178,7 +179,7 @@ export default function PostInspectionCards({
               >
                 <MaterialCommunityIcons
                   name={isOfficerInCharge ? "eye-outline" : "pencil"}
-                  size={18}
+                  size={21}
                   color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
                 />
               </View>
