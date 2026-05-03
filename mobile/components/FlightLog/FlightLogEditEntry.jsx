@@ -380,7 +380,6 @@ export default function FlightLogEditEntry({
         updatedBy: userRole,
       };
 
-      // ✅ Correct URL: add '/api' prefix
       const url = `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`;
 
       console.log("🔗 Complete PUT URL:", url);
