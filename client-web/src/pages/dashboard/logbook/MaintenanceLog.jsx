@@ -180,11 +180,8 @@ export default function MaintenanceLog() {
   if (viewLevel === "dashboard") {
     return (
       <div style={pageScrollStyle}>
-        <Card>
-          <Title level={4} style={{ marginBottom: 14 }}>
-            Maintenance Logbook
-          </Title>
-          <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 18 }}>
+        <Card style={{ marginBottom: 10 }}>
+          <Row gutter={[12, 12]} align="middle" style={{}}>
             <Col xs={24} md={10}>
               <Input
                 size="large"
@@ -197,11 +194,6 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </Card>
-        <Col span={24} style={{ textAlign: "right", margin: "16px 0" }}>
-          <Text type="secondary">
-            Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
-          </Text>
-        </Col>
 
         <Row gutter={[16, 16]}>
           {!loading && uniqueAircraft.length === 0 && (
@@ -230,7 +222,7 @@ export default function MaintenanceLog() {
                   style={{ borderRadius: 12, overflow: "hidden" }}
                 >
                   <div style={{ display: "flex", minHeight: 120 }}>
-                    <div style={{ width: 12, background: "#26866f" }} />
+                    <div style={{ width: 7, background: "#26866f" }} />
                     <div style={{ padding: 16, flex: 1 }}>
                       <Title level={5} style={{ margin: "0 0 8px" }}>
                         {reg}
@@ -249,6 +241,11 @@ export default function MaintenanceLog() {
             );
           })}
         </Row>
+        <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
+          <Text type="secondary">
+            Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
+          </Text>
+        </Col>
       </div>
     );
   }

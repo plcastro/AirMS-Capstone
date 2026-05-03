@@ -16,7 +16,7 @@ export default function PMonitoringTable({
   loading = false,
   editable = false,
   isCellEditable = () => false,
-  onCellEdit = () => { },
+  onCellEdit = () => {},
   rowKey = "_id",
 }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,9 +71,9 @@ export default function PMonitoringTable({
             const getPriority = (record) => {
               const days = parseFloat(record.daysRemaining);
               if (isNaN(days)) return 2; // No tag or invalid
-              if (days <= 0) return 0;    // DUE
-              if (days <= 30) return 1;   // Due Soon
-              return 2;                   // OK
+              if (days <= 0) return 0; // DUE
+              if (days <= 30) return 1; // Due Soon
+              return 2; // OK
             };
             return getPriority(a) - getPriority(b);
           },
@@ -86,7 +86,11 @@ export default function PMonitoringTable({
               );
             }
             const daysRemaining = parseFloat(record.daysRemaining);
-            if (!isNaN(daysRemaining) && daysRemaining > 0 && daysRemaining <= 30) {
+            if (
+              !isNaN(daysRemaining) &&
+              daysRemaining > 0 &&
+              daysRemaining <= 30
+            ) {
               return (
                 <Tag color="#f4ab00" style={{ fontWeight: "bold" }}>
                   Due Soon
@@ -210,7 +214,7 @@ export default function PMonitoringTable({
       pagination={{
         pageSize: pageSize,
         showSizeChanger: true,
-        pageSizeOptions: ["10", "20", "50"],
+        pageSizeOptions: ["10", "15", "30"],
         current: currentPage,
         onChange: (page, size) => {
           setCurrentPage(page);
@@ -220,10 +224,6 @@ export default function PMonitoringTable({
       }}
       size="small"
       bordered
-      style={{
-        backgroundColor: "#fff",
-        borderRadius: "4px",
-      }}
       rowClassName={(record, index) => {
         return index % 2 === 0 ? "table-row-light" : "table-row-dark";
       }}
