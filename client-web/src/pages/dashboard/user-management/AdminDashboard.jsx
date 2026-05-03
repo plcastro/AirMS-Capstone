@@ -1,4 +1,10 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Row,
   Col,
@@ -43,91 +49,122 @@ export default function AdminDashboard() {
   ]);
   const [selectedActionType, setSelectedActionType] = useState("all");
 
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const token = await getValidToken();
-      const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json?.message || "Failed to fetch users");
+  const fetchUsers = useCallback(
+    async (options = {}) => {
+      const { silent = false } = options;
+      if (!silent) {
+        setLoadingUsers(true);
       }
-
-      if (Array.isArray(json.data)) {
-        setUsers(json.data);
-      } else {
-        setUsers([]);
-        message.warning("Unexpected user payload in admin dashboard");
-      }
-    } catch (error) {
-      console.error("Failed to fetch admin users", error);
-      message.error(error.message || "Failed to fetch users");
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const fetchLogs = async (startDate = null, endDate = null) => {
-    setLoadingLogs(true);
-    try {
-      const token = await getValidToken();
-      let url = `${API_BASE}/api/logs/getAllUserLogs`;
-      if (startDate && endDate) {
-        const params = new URLSearchParams({
-          page: "1",
-          limit: "1000",
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+      try {
+        const token = await getValidToken();
+        const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        url += `?${params.toString()}`;
-      } else {
-        const params = new URLSearchParams({
-          page: "1",
-          limit: "1000",
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.message || "Failed to fetch users");
+        }
+
+        if (Array.isArray(json.data)) {
+          setUsers(json.data);
+        } else {
+          setUsers([]);
+          message.warning("Unexpected user payload in admin dashboard");
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin users", error);
+        message.error(error.message || "Failed to fetch users");
+      } finally {
+        if (!silent) {
+          setLoadingUsers(false);
+        }
+      }
+    },
+    [getValidToken],
+  );
+
+  const fetchLogs = useCallback(
+    async (startDate = null, endDate = null, options = {}) => {
+      const { silent = false } = options;
+      if (!silent) {
+        setLoadingLogs(true);
+      }
+      try {
+        const token = await getValidToken();
+        let url = `${API_BASE}/api/logs/getAllUserLogs`;
+        if (startDate && endDate) {
+          const params = new URLSearchParams({
+            page: "1",
+            limit: "1000",
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+          });
+          url += `?${params.toString()}`;
+        } else {
+          const params = new URLSearchParams({
+            page: "1",
+            limit: "1000",
+          });
+          url += `?${params.toString()}`;
+        }
+
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        url += `?${params.toString()}`;
-      }
+        const json = await res.json();
 
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.message || "Failed to fetch activity logs");
+        }
 
-      if (!res.ok) {
-        throw new Error(json?.message || "Failed to fetch activity logs");
+        if (Array.isArray(json.data)) {
+          const mapped = json.data.map((log, index) => ({
+            index: index + 1,
+            key: log._id || index,
+            dateTime: log.dateTime || null,
+            actionMade: log.actionMade || log.action || "N/A",
+            username: log.username || "Unknown",
+          }));
+          setLogs(mapped);
+        } else {
+          setLogs([]);
+          message.warning("Unexpected logs payload in admin dashboard");
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin activity logs", error);
+        message.error(error.message || "Failed to fetch activity logs");
+      } finally {
+        if (!silent) {
+          setLoadingLogs(false);
+        }
       }
-
-      if (Array.isArray(json.data)) {
-        const mapped = json.data.map((log, index) => ({
-          index: index + 1,
-          key: log._id || index,
-          dateTime: log.dateTime || null,
-          actionMade: log.actionMade || log.action || "N/A",
-          username: log.username || "Unknown",
-        }));
-        setLogs(mapped);
-      } else {
-        setLogs([]);
-        message.warning("Unexpected logs payload in admin dashboard");
-      }
-    } catch (error) {
-      console.error("Failed to fetch admin activity logs", error);
-      message.error(error.message || "Failed to fetch activity logs");
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
+    },
+    [getValidToken],
+  );
 
   useEffect(() => {
     fetchUsers();
     fetchLogs(dateRange[0], dateRange[1]);
-  }, [dateRange]);
+  }, [dateRange, fetchLogs, fetchUsers]);
+
+  useEffect(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchUsers({ silent: true });
+      await fetchLogs(dateRange[0], dateRange[1], { silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [dateRange, fetchLogs, fetchUsers]);
 
   const handleDateRangeChange = (dates) => {
     if (dates && dates[0] && dates[1]) {
@@ -305,10 +342,7 @@ export default function AdminDashboard() {
     <div
       style={{
         padding: 20,
-        paddingBottom: 100,
-        minHeight: "100vh",
-        overflowY: "auto",
-        height: "calc(100vh - 200px)",
+        paddingBottom: 24,
       }}
     >
       <Row style={{ marginBottom: 20 }}>
@@ -323,7 +357,7 @@ export default function AdminDashboard() {
         </Col>
       </Row>
 
-      <Row gutter={[12, 12]}>
+      {/* <Row gutter={[12, 12]}>
         <Col xs={24} sm={12} md={6}>
           <Card loading={loadingUsers} size="small">
             <Statistic title="Total Users" value={users.length} />
@@ -363,7 +397,7 @@ export default function AdminDashboard() {
             <SDMChart data={statusChartData} height={260} outerRadius={74} />
           </Card>
         </Col>
-      </Row>
+      </Row> */}
 
       <Divider />
 

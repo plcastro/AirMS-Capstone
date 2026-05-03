@@ -30,7 +30,7 @@ import {
   exportToPDF,
 } from "../../../components/common/ExportFile";
 import { API_BASE } from "../../../utils/API_BASE";
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function MaintenanceDashboard() {
   const { getValidToken } = useContext(AuthContext);
@@ -403,7 +403,6 @@ export default function MaintenanceDashboard() {
       }}
     >
       <Card style={{ marginBottom: 10 }}>
-        <Title level={3}>Reports and Analytics</Title>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={24} md={12} lg={10}>
             <Input

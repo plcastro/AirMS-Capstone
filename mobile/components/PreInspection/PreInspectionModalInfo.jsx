@@ -28,9 +28,9 @@ export default function PreInspectionModalInfo({
 
   const formatDate = (date) => {
     if (!date) return "";
-    
+
     let dateObj;
-    
+
     if (date instanceof Date) {
       dateObj = date;
     } else if (typeof date === "string") {
@@ -48,9 +48,9 @@ export default function PreInspectionModalInfo({
     } else {
       return "";
     }
-    
+
     if (isNaN(dateObj.getTime())) return "";
-    
+
     return dateObj.toLocaleDateString("en-US", {
       month: "2-digit",
       day: "2-digit",
@@ -90,7 +90,8 @@ export default function PreInspectionModalInfo({
 
   const getLatestFlightLogFuelOnBoard = (flightLogs = []) => {
     const sortedLogs = [...flightLogs].sort(
-      (left, right) => getFlightLogDateValue(right) - getFlightLogDateValue(left),
+      (left, right) =>
+        getFlightLogDateValue(right) - getFlightLogDateValue(left),
     );
 
     for (const flightLog of sortedLogs) {
@@ -182,46 +183,57 @@ export default function PreInspectionModalInfo({
         }}
         onPress={isEditable ? toggleRPCDropdown : null}
       >
-        <Text style={{ 
-          fontSize: 12, 
-          color: formData.rpc ? COLORS.black : COLORS.grayDark 
-        }}>
+        <Text
+          style={{
+            fontSize: 12,
+            color: formData.rpc ? COLORS.black : COLORS.grayDark,
+          }}
+        >
           {formData.rpc || "Select RP/C"}
         </Text>
         {isEditable && (
-          <MaterialCommunityIcons 
-            name={showRPCDropdown ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color={COLORS.grayDark} 
+          <MaterialCommunityIcons
+            name={showRPCDropdown ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={COLORS.grayDark}
           />
         )}
       </TouchableOpacity>
 
       {showRPCDropdown && isEditable && (
-        <View style={{
-          marginTop: 6,
-          backgroundColor: COLORS.white,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          zIndex: 3000,
-          elevation: 5,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          maxHeight: 240,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            zIndex: 3000,
+            elevation: 5,
+            shadowColor: COLORS.black,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            maxHeight: 240,
+          }}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {dynamicRpcOptions.map((rpc, index) => (
               <TouchableOpacity
                 key={index}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
-                  borderBottomWidth: index < dynamicRpcOptions.length - 1 ? 1 : 0,
+                  borderBottomWidth:
+                    index < dynamicRpcOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
-                  backgroundColor: formData.rpc === rpc ? COLORS.primaryLight + "10" : COLORS.white,
+                  backgroundColor:
+                    formData.rpc === rpc
+                      ? COLORS.primaryLight + "10"
+                      : COLORS.white,
                 }}
                 onPress={() => {
                   updateForm("rpc", rpc);
@@ -230,10 +242,13 @@ export default function PreInspectionModalInfo({
                   setShowRPCDropdown(false);
                 }}
               >
-                <Text style={{ 
-                  fontSize: 12,
-                  color: formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
-                }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color:
+                      formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
+                  }}
+                >
                   {rpc}
                 </Text>
               </TouchableOpacity>
@@ -246,60 +261,106 @@ export default function PreInspectionModalInfo({
 
   return (
     <View>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Basic Information
       </Text>
 
-      <View style={{
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: COLORS.grayMedium,
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        elevation: 2,
-        overflow: "visible",
-      }}>
-        <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          shadowColor: COLORS.black,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 6,
+          elevation: 2,
+          overflow: "visible",
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.primaryLight,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+          }}
+        >
+          <Text
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+          >
             Rotary Winged Aircraft - Single Engine
           </Text>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              RP-C: *
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
+              RP-C: <Text style={{ color: "red" }}>*</Text>
             </Text>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-              Aircraft Type: *
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
+              Aircraft Type: <Text style={{ color: "red" }}>*</Text>
             </Text>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               Date:
             </Text>
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: "#E8E8E8",
-              borderRadius: 6,
-              height: 42,
-              paddingHorizontal: 12,
-            }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "#E8E8E8",
+                borderRadius: 6,
+                height: 42,
+                paddingHorizontal: 12,
+              }}
+            >
               <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
               </Text>
-              <MaterialCommunityIcons name="calendar-blank" size={18} color={COLORS.grayDark} />
+              <MaterialCommunityIcons
+                name="calendar-blank"
+                size={18}
+                color={COLORS.grayDark}
+              />
             </View>
           </View>
         </View>

@@ -10,11 +10,19 @@ import React, {
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import * as Device from "expo-device";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
-
+import * as Notifications from "expo-notifications";
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 export const NotificationContext = createContext({
   notifications: [],
   unreadCount: 0,
@@ -175,7 +183,7 @@ export function NotificationProvider({ children }) {
   }, []);
 
   const registerPushTokenWithServer = useCallback(async () => {
-    if (Platform.OS === "web" || isExpoGo || !user?.id) {
+    if (Platform.OS === "web" || !user?.id) {
       return;
     }
 
@@ -186,16 +194,23 @@ export function NotificationProvider({ children }) {
         return;
       }
 
+      if (!Device.isDevice) {
+        console.warn("Push notifications require a physical device.");
+        return;
+      }
+
+      if (Platform.OS === "android") {
+        await Notifications.setNotificationChannelAsync("default", {
+          name: "default",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: "#26866F",
+        });
+      }
+
       const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ||
         Constants?.easConfig?.projectId;
-
-      if (!projectId) {
-        console.warn(
-          "Skipping push registration: no Expo projectId is configured for this build.",
-        );
-        return;
-      }
 
       const token = await getStoredToken();
 
@@ -207,7 +222,8 @@ export function NotificationProvider({ children }) {
       let finalStatus = permissions.status;
 
       if (finalStatus !== "granted") {
-        const requestPermissions = await Notifications.requestPermissionsAsync();
+        const requestPermissions =
+          await Notifications.requestPermissionsAsync();
         finalStatus = requestPermissions.status;
       }
 
@@ -215,9 +231,9 @@ export function NotificationProvider({ children }) {
         return;
       }
 
-      const expoPushToken = (
-        await Notifications.getExpoPushTokenAsync({ projectId })
-      ).data;
+      const expoPushToken = projectId
+        ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
+        : (await Notifications.getExpoPushTokenAsync()).data;
       const deviceId = await getDeviceInstallationId();
 
       await fetch(`${API_BASE}/api/user/register-mobile-push-device`, {
@@ -235,7 +251,7 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       console.error("Error registering push token:", error);
     }
-  }, [ensureNotificationsModule, getDeviceInstallationId, isExpoGo, user?.id]);
+  }, [ensureNotificationsModule, getDeviceInstallationId, user?.id]);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) {
@@ -282,37 +298,43 @@ export function NotificationProvider({ children }) {
     }
   }, [logoutUser, user?.id]);
 
-  const markAsRead = useCallback(async (notificationId) => {
-    const token = await getStoredToken();
+  const markAsRead = useCallback(
+    async (notificationId) => {
+      const token = await getStoredToken();
 
-    if (!token || !notificationId) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        await logoutUser?.();
+      if (!token || !notificationId) {
         return;
       }
 
-      setNotifications((currentNotifications) =>
-        currentNotifications.map((notification) =>
-          notification._id === notificationId
-            ? { ...notification, read: true }
-            : notification,
-        ),
-      );
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  }, [logoutUser]);
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/notifications/${notificationId}/read`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (response.status === 401 || response.status === 403) {
+          await logoutUser?.();
+          return;
+        }
+
+        setNotifications((currentNotifications) =>
+          currentNotifications.map((notification) =>
+            notification._id === notificationId
+              ? { ...notification, read: true }
+              : notification,
+          ),
+        );
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+      }
+    },
+    [logoutUser],
+  );
 
   const markAllAsRead = useCallback(async () => {
     const token = await getStoredToken();
@@ -322,12 +344,15 @@ export function NotificationProvider({ children }) {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${API_BASE}/api/notifications/mark-all-read`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (response.status === 401 || response.status === 403) {
         await logoutUser?.();
@@ -376,7 +401,7 @@ export function NotificationProvider({ children }) {
   }, [registerPushTokenWithServer]);
 
   useEffect(() => {
-    if (Platform.OS === "web" || isExpoGo) {
+    if (Platform.OS === "web") {
       return undefined;
     }
 
@@ -412,7 +437,11 @@ export function NotificationProvider({ children }) {
       notificationReceivedListener.current?.remove?.();
       notificationResponseListener.current?.remove?.();
     };
-  }, [ensureNotificationsModule, fetchNotifications, isExpoGo, openNotificationTarget]);
+  }, [
+    ensureNotificationsModule,
+    fetchNotifications,
+    openNotificationTarget,
+  ]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,

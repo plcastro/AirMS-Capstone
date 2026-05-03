@@ -281,7 +281,12 @@ export default function EditTask({
     const nextDate = new Date(currentValue);
 
     if (Platform.OS === "android") {
-      nextDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      nextDate.setHours(
+        selectedDate.getHours(),
+        selectedDate.getMinutes(),
+        0,
+        0,
+      );
     } else {
       nextDate.setTime(selectedDate.getTime());
     }
@@ -443,241 +448,256 @@ export default function EditTask({
               },
             ]}
           >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text
-              style={[
-                styles.alertTitle,
-                { textAlign: "left", marginBottom: 15 },
-              ]}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              Task
-            </Text>
-
-            <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
-              Task Name
-            </Text>
-            <TextInput
-              value={taskTitle}
-              onChangeText={setTaskTitle}
-              placeholder="Maintenance Task"
-              placeholderTextColor={COLORS.grayDark}
-              style={{
-                minHeight: 48,
-                backgroundColor: COLORS.grayLight,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: 8,
-                paddingHorizontal: 14,
-                color: COLORS.black,
-                marginBottom: 15,
-              }}
-            />
-
-            {renderDropdownField({
-              label: "Aircraft",
-              required: true,
-              value: selectedAircraftLabel,
-              placeholder: "Tail No.",
-              options: aircraftOptions.map((aircraft) => ({
-                label: aircraft.name,
-                value: aircraft.id,
-              })),
-              visible: showAircraftDropdown,
-              onToggle: setShowAircraftDropdown,
-              onSelect: setSelectedAircraft,
-              disabled: true,
-            })}
-
-            {renderDropdownField({
-              label: "Mechanic",
-              required: true,
-              value: selectedEmployeeLabel,
-              placeholder: "Pick Mechanic",
-              options: employees.map((emp) => ({
-                label: emp.name,
-                value: emp.id,
-              })),
-              visible: showMechanicDropdown,
-              onToggle: setShowMechanicDropdown,
-              onSelect: setSelectedEmployee,
-            })}
-
-            <Text
-              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Start Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: COLORS.grayLight,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 15,
-              }}
-              onPress={() => openDateTimePicker("start")}
-            >
-              <Text style={{ color: COLORS.grayDark }}>
-                {formatDateTime(startDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {showStartPicker && (
-              <DateTimePicker
-                value={startDate}
-                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                display="default"
-                onChange={onStartChange}
-                minimumDate={getNow()}
-              />
-            )}
-
-            <Text
-              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              End Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: COLORS.grayLight,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 20,
-              }}
-              onPress={() => openDateTimePicker("end")}
-            >
-              <Text style={{ color: COLORS.grayDark }}>
-                {formatDateTime(endDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {showEndPicker && (
-              <DateTimePicker
-                value={endDate}
-                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                display="default"
-                onChange={onEndChange}
-                minimumDate={getNow()}
-              />
-            )}
-
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
-              Checklist
-            </Text>
-
-            {checklistItems.map((item, index) => (
-              <View
-                key={item.taskId || index}
-                style={{ flexDirection: "row", marginBottom: 12 }}
+              <Text
+                style={[
+                  styles.alertTitle,
+                  { textAlign: "left", marginBottom: 15 },
+                ]}
               >
-                <View style={{ paddingTop: 2 }}>
-                  <Checkbox value={false} disabled={true} />
-                </View>
+                Task
+              </Text>
 
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
-                    {[item.taskId, item.inspectionTypeFull]
-                      .filter(Boolean)
-                      .join(" | ")}
-                  </Text>
-                  <TextInput
-                    value={item.taskName || ""}
-                    onChangeText={(value) =>
-                      updateChecklistItem(index, "taskName", value)
-                    }
-                    placeholder="Checklist item"
-                    placeholderTextColor={COLORS.grayDark}
-                    style={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: COLORS.border,
-                      paddingVertical: 6,
-                      fontSize: 12,
-                      color: COLORS.black,
-                    }}
-                  />
-                  <TextInput
-                    value={item.description || ""}
-                    onChangeText={(value) =>
-                      updateChecklistItem(index, "description", value)
-                    }
-                    placeholder="Description / notes"
-                    placeholderTextColor={COLORS.grayDark}
-                    multiline
-                    style={{
-                      minHeight: 42,
-                      marginTop: 6,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      borderRadius: 8,
-                      padding: 8,
-                      color: COLORS.black,
-                    }}
-                  />
-                  <TouchableOpacity
-                    onPress={() => removeChecklistItem(index)}
-                    style={{ alignSelf: "flex-start", marginTop: 8 }}
-                  >
-                    <Text style={{ color: COLORS.danger || "#d32f2f" }}>
-                      Remove
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: COLORS.grayDark,
+                  marginBottom: 5,
+                }}
+              >
+                Task Name
+              </Text>
+              <TextInput
+                value={taskTitle}
+                onChangeText={setTaskTitle}
+                placeholder="Maintenance Task"
+                placeholderTextColor={COLORS.grayDark}
+                style={{
+                  minHeight: 48,
+                  backgroundColor: COLORS.grayLight,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  color: COLORS.black,
+                  marginBottom: 15,
+                }}
+              />
+
+              {renderDropdownField({
+                label: "Aircraft",
+                required: true,
+                value: selectedAircraftLabel,
+                placeholder: "Tail No.",
+                options: aircraftOptions.map((aircraft) => ({
+                  label: aircraft.name,
+                  value: aircraft.id,
+                })),
+                visible: showAircraftDropdown,
+                onToggle: setShowAircraftDropdown,
+                onSelect: setSelectedAircraft,
+                disabled: true,
+              })}
+
+              {renderDropdownField({
+                label: "Mechanic",
+                required: true,
+                value: selectedEmployeeLabel,
+                placeholder: "Pick Mechanic",
+                options: employees.map((emp) => ({
+                  label: emp.name,
+                  value: emp.id,
+                })),
+                visible: showMechanicDropdown,
+                onToggle: setShowMechanicDropdown,
+                onSelect: setSelectedEmployee,
+              })}
+
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: COLORS.grayDark,
+                  marginBottom: 5,
+                }}
+              >
+                Start Date and Time
+                <Text style={{ color: COLORS.dangerBorder }}> *</Text>
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: COLORS.grayLight,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 15,
+                }}
+                onPress={() => openDateTimePicker("start")}
+              >
+                <Text style={{ color: COLORS.grayDark }}>
+                  {formatDateTime(startDate)}
+                </Text>
+              </TouchableOpacity>
+
+              {showStartPicker && (
+                <DateTimePicker
+                  value={startDate}
+                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                  display="default"
+                  onChange={onStartChange}
+                  minimumDate={getNow()}
+                />
+              )}
+
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: COLORS.grayDark,
+                  marginBottom: 5,
+                }}
+              >
+                End Date and Time
+                <Text style={{ color: COLORS.dangerBorder }}> *</Text>
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: COLORS.grayLight,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 20,
+                }}
+                onPress={() => openDateTimePicker("end")}
+              >
+                <Text style={{ color: COLORS.grayDark }}>
+                  {formatDateTime(endDate)}
+                </Text>
+              </TouchableOpacity>
+
+              {showEndPicker && (
+                <DateTimePicker
+                  value={endDate}
+                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                  display="default"
+                  onChange={onEndChange}
+                  minimumDate={getNow()}
+                />
+              )}
+
+              <Text
+                style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}
+              >
+                Checklist
+              </Text>
+
+              {checklistItems.map((item, index) => (
+                <View
+                  key={item.taskId || index}
+                  style={{ flexDirection: "row", marginBottom: 12 }}
+                >
+                  <View style={{ paddingTop: 2 }}>
+                    <Checkbox value={false} disabled={true} />
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      {[item.taskId, item.inspectionTypeFull]
+                        .filter(Boolean)
+                        .join(" | ")}
                     </Text>
-                  </TouchableOpacity>
+                    <TextInput
+                      value={item.taskName || ""}
+                      onChangeText={(value) =>
+                        updateChecklistItem(index, "taskName", value)
+                      }
+                      placeholder="Checklist item"
+                      placeholderTextColor={COLORS.grayDark}
+                      style={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: COLORS.border,
+                        paddingVertical: 6,
+                        fontSize: 12,
+                      }}
+                    />
+                    <TextInput
+                      value={item.description || ""}
+                      onChangeText={(value) =>
+                        updateChecklistItem(index, "description", value)
+                      }
+                      placeholder="Description / notes"
+                      placeholderTextColor={COLORS.grayDark}
+                      multiline
+                      style={{
+                        minHeight: 42,
+                        marginTop: 6,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                        borderRadius: 8,
+                        padding: 8,
+                        color: COLORS.black,
+                      }}
+                    />
+                    <TouchableOpacity
+                      onPress={() => removeChecklistItem(index)}
+                      style={{ alignSelf: "flex-start", marginTop: 8 }}
+                    >
+                      <Text style={{ color: COLORS.dangerBg || "#d32f2f" }}>
+                        Remove
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
 
-            <TouchableOpacity
-              onPress={addChecklistItem}
+              <TouchableOpacity
+                onPress={addChecklistItem}
+                style={{
+                  marginTop: 4,
+                  marginBottom: 14,
+                  borderWidth: 1,
+                  borderColor: COLORS.primaryLight,
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                  Add Checklist Item
+                </Text>
+              </TouchableOpacity>
+
+              {checklistItems.length === 0 && (
+                <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+                  No checklist items attached to this task.
+                </Text>
+              )}
+            </ScrollView>
+
+            <View
               style={{
-                marginTop: 4,
-                marginBottom: 14,
-                borderWidth: 1,
-                borderColor: COLORS.primaryLight,
-                borderRadius: 8,
-                paddingVertical: 10,
-                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 20,
+                gap: 10,
               }}
             >
-              <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
-                Add Checklist Item
-              </Text>
-            </TouchableOpacity>
-
-            {checklistItems.length === 0 && (
-              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
-                No checklist items attached to this task.
-              </Text>
-            )}
-          </ScrollView>
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 20,
-              gap: 10,
-            }}
-          >
-            <Button
-              label="Discard"
-              onPress={confirmDiscard}
-              buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.secondaryAlertBtnTxt}
-            />
-            <Button
-              label="Save Changes"
-              onPress={requestSave}
-              buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
-          </View>
+              <Button
+                label="Discard"
+                onPress={confirmDiscard}
+                buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.secondaryAlertBtnTxt}
+              />
+              <Button
+                label="Save Changes"
+                onPress={requestSave}
+                buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            </View>
           </View>
         </View>
       </Modal>

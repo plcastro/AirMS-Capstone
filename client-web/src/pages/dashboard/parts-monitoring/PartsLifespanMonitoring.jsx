@@ -230,6 +230,17 @@ export default function PartsMonitoring() {
     creepDamage: "",
     serialNumber: "",
   });
+  const formattedAircraftOptions = [
+    {
+      label: "Select aircraft",
+      value: "",
+      disabled: true,
+    },
+    ...aircraftOptions.map((aircraft) => ({
+      label: aircraft,
+      value: aircraft,
+    })),
+  ];
 
   // Fetch aircraft list from backend
   const fetchAircraftList = async () => {
@@ -413,54 +424,52 @@ export default function PartsMonitoring() {
 
   return (
     <div className="parts-monitoring-container">
-      <Row justify="space-between" align="middle" className="header-row">
-        <Col flex="auto">
-          <div className="header-left">
-            <Input
-              placeholder="Search..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="search-input"
-              allowClear
-            />
-            <Select
-              value={selectedAircraft}
-              onChange={(value) => setSelectedAircraft(value)}
-              style={{ width: 220 }}
-              loading={loadingAircraft}
-              placeholder="Select aircraft"
-              options={aircraftOptions.map((aircraft) => ({
-                label: aircraft,
-                value: aircraft,
-              }))}
-            />
-            {!isOfficerInCharge && (
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleSaveToDatabase}
-                loading={saving}
-                disabled={!selectedAircraft}
-                style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
-              >
-                Save to Database
-              </Button>
-            )}
-            {lastSaved && (
-              <Text
-                type="secondary"
-                style={{ fontSize: "12px", marginLeft: "8px" }}
-              >
-                Last saved: {lastSaved.toLocaleTimeString()}
-              </Text>
-            )}
-          </div>
-        </Col>
-        <Col></Col>
-      </Row>
+      {" "}
+      <Card style={{ marginBottom: 10 }}>
+        <Row justify="space-between" align="middle" className="header-row">
+          <Col flex="auto">
+            <div className="header-left">
+              <Input
+                placeholder="Search..."
+                prefix={<SearchOutlined />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="search-input"
+                allowClear
+              />
+              <Select
+                value={selectedAircraft}
+                onChange={(value) => setSelectedAircraft(value)}
+                style={{ width: 220 }}
+                loading={loadingAircraft}
+                placeholder="Select aircraft"
+                options={formattedAircraftOptions}
+              />
+              {!isOfficerInCharge && (
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleSaveToDatabase}
+                  loading={saving}
+                  disabled={!selectedAircraft}
+                  style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+                >
+                  Save to Database
+                </Button>
+              )}
+              {lastSaved && (
+                <Text
+                  type="secondary"
+                  style={{ fontSize: "12px", marginLeft: "8px" }}
+                >
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                </Text>
+              )}
+            </div>
+          </Col>
+        </Row>{" "}
+      </Card>
       <Divider />
-
       <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
         <Col sm={24} md={6}>
           <Card className="aircraft-card">
@@ -630,7 +639,30 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
-
+      <Card className="aircraft-card legend-card">
+        <div className="legend-container">
+          <Text className="note-title">NOTE:</Text>
+          <div className="legend-grid">
+            <div className="legend-item">
+              <Text strong>OC</Text> - ON CONDITION
+            </div>
+            <div className="legend-item">
+              <Text strong>H</Text> - HOURS
+            </div>
+            <div className="legend-item">
+              <Text strong>D</Text> - DAY
+            </div>
+            <div className="legend-item">
+              <span className="status-box status-removed" />
+              <Text>- REMOVED</Text>
+            </div>
+            <div className="legend-item">
+              <span className="status-box status-installed" />
+              <Text>- INSTALLED</Text>
+            </div>
+          </div>
+        </div>
+      </Card>
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}

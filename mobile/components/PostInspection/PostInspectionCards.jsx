@@ -70,8 +70,10 @@ export default function PostInspectionCards({
         const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
-          <View
+          <TouchableOpacity
             key={inspection._id}
+            activeOpacity={0.8}
+            onPress={() => onEdit?.(inspection)}
             style={{
               flexDirection: "row",
               backgroundColor: COLORS.white,
@@ -101,8 +103,8 @@ export default function PostInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                    RP/C: {inspection.rpc || "N/A"}
+                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                    {inspection.rpc || "N/A"}
                   </Text>
 
                   <Text style={{ fontSize: 10, color: "#777" }}>
@@ -159,10 +161,9 @@ export default function PostInspectionCards({
                   <Text style={{ color: "#777" }}>Aircraft Type:</Text>{" "}
                   {inspection.aircraftType || "N/A"}
                 </Text>
-
                 <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>RP/C:</Text>{" "}
-                  {inspection.rpc || "N/A"}
+                  <Text style={{ color: "#777" }}>Fuel On Board:</Text>{" "}
+                  {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
                 </Text>
               </View>
 
@@ -182,7 +183,7 @@ export default function PostInspectionCards({
                 />
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         );
       })}
     </>
