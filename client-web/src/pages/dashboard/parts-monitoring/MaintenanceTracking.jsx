@@ -8,6 +8,8 @@ import {
   Row,
   Space,
   Statistic,
+  Table,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -110,6 +112,36 @@ const buildNoMaintenanceIssueInsight = (item = {}) => ({
   defectDetails: null,
   defectDetailsSource: "none",
 });
+
+const formatScheduleDate = (value) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getTaskScheduleState = (task = {}) => {
+  const status = String(task.status || "").toLowerCase();
+  const endDate = new Date(task.endDateTime || task.dueDate || "");
+
+  if (["completed", "approved", "closed", "turned in"].includes(status)) {
+    return { label: "Completed", color: "green" };
+  }
+
+  if (!Number.isNaN(endDate.getTime()) && endDate < new Date()) {
+    return { label: "Overdue", color: "red" };
+  }
+
+  return { label: "Scheduled", color: "blue" };
+};
 
 export default function MaintenanceTracking() {
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -427,6 +459,110 @@ export default function MaintenanceTracking() {
     [insights],
   );
 
+  const scheduledTaskRows = useMemo(() => {
+    const rows = insights.flatMap((insight) =>
+      (insight.scheduledTasks || []).map((task) => ({
+        ...task,
+        key: `${insight.aircraftId || insight.aircraft}-${task.id}`,
+        aircraft: task.aircraft || insight.aircraft,
+      })),
+    );
+
+    return Array.from(
+      new Map(rows.map((task) => [task.id || task.key, task])).values(),
+    ).sort((left, right) => {
+      const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
+      const rightDate = new Date(
+        right.endDateTime || right.dueDate || 0,
+      ).getTime();
+
+      return leftDate - rightDate;
+    });
+  }, [insights]);
+
+  const scheduledTaskStats = useMemo(
+    () =>
+      scheduledTaskRows.reduce(
+        (totals, task) => {
+          const state = getTaskScheduleState(task).label;
+          totals.total += 1;
+          if (state === "Overdue") totals.overdue += 1;
+          else if (state === "Completed") totals.completed += 1;
+          else totals.scheduled += 1;
+          return totals;
+        },
+        { total: 0, scheduled: 0, overdue: 0, completed: 0 },
+      ),
+    [scheduledTaskRows],
+  );
+
+  const scheduledTaskColumns = [
+    {
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      width: 110,
+      render: (value) => <Text strong>{value || "N/A"}</Text>,
+    },
+    {
+      title: "Task",
+      dataIndex: "title",
+      key: "title",
+      width: 260,
+      render: (value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{value || "Untitled task"}</Text>
+          <Text type="secondary">
+            {record.maintenanceType || "Maintenance"} |{" "}
+            {record.checklistCount || 0} checklist item(s)
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Mechanic",
+      dataIndex: "assignedToName",
+      key: "assignedToName",
+      width: 170,
+      render: (value) => value || "Unassigned",
+    },
+    {
+      title: "Start",
+      dataIndex: "startDateTime",
+      key: "startDateTime",
+      width: 180,
+      render: formatScheduleDate,
+    },
+    {
+      title: "End / Due",
+      dataIndex: "endDateTime",
+      key: "endDateTime",
+      width: 180,
+      render: (_, record) => formatScheduleDate(record.endDateTime || record.dueDate),
+    },
+    {
+      title: "Priority",
+      dataIndex: "priority",
+      key: "priority",
+      width: 110,
+      render: (value) => (
+        <Tag color={String(value).toLowerCase() === "high" ? "orange" : "blue"}>
+          {value || "Normal"}
+        </Tag>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      width: 130,
+      render: (value, record) => {
+        const state = getTaskScheduleState(record);
+        return <Tag color={state.color}>{state.label}</Tag>;
+      },
+    },
+  ];
+
   return (
     <div
       style={{
@@ -487,10 +623,6 @@ export default function MaintenanceTracking() {
           <Title level={4} style={{ margin: 0 }}>
             AI Maintenance Tracking
           </Title>
-          <Text type="secondary">
-            AirMS now condenses maintenance, task, flight, and parts records
-            into one maintenance decision dashboard.
-          </Text>
           <Space wrap>
             {!isOfficerInCharge && (
               <Button
@@ -538,6 +670,8 @@ export default function MaintenanceTracking() {
         />
       )}
 
+      
+
       <Row gutter={24}>
         <Col span={24}>
           <h2>Condensed AI Findings for Maintenance Tracking</h2>
@@ -551,6 +685,41 @@ export default function MaintenanceTracking() {
           />
         </Col>
       </Row>
+      <Card>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} md={12}>
+              <Space direction="vertical" size={2}>
+                <Title level={4} style={{ margin: 0 }}>
+                  Scheduled Tasks from Task Assignment
+                </Title>
+              </Space>
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Total" value={scheduledTaskStats.total} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Scheduled" value={scheduledTaskStats.scheduled} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Completed" value={scheduledTaskStats.completed} />
+            </Col>
+          </Row>
+          <Table
+            columns={scheduledTaskColumns}
+            dataSource={scheduledTaskRows}
+            loading={loading}
+            size="small"
+            rowKey={(record) => record.key || record.id}
+            pagination={{ pageSize: 5, showSizeChanger: true }}
+            scroll={{ x: 1100 }}
+            locale={{ emptyText: "No scheduled tasks found." }}
+          />
+        </Space>
+      </Card>
     </div>
   );
 }

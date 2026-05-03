@@ -107,6 +107,17 @@ export default function FlightLog() {
       .toLowerCase()
       .replace(/\s+/g, "_");
 
+  const getComparableStatus = useCallback((statusValue = "") => {
+    const normalized = normalizeFlightLogStatus(statusValue);
+    if (["ongoing", "draft"].includes(normalized)) {
+      return "pending_release";
+    }
+    if (normalized === "released") {
+      return "pending_acceptance";
+    }
+    return normalized;
+  }, []);
+
   const hasDestinationInfo = (log = {}) =>
     Array.isArray(log.legs) &&
     log.legs.some(
@@ -129,7 +140,7 @@ export default function FlightLog() {
 
         const params = new URLSearchParams();
         params.append("page", "1");
-        params.append("limit", "100");
+        params.append("limit", "500");
 
         if (selectedAircraft && selectedAircraft !== "all") {
           params.append("aircraftRPC", selectedAircraft);
@@ -138,23 +149,43 @@ export default function FlightLog() {
           params.append("status", normalizeStatusFilterValue(selectedStatus));
         }
 
-        const response = await fetch(
-          `${API_BASE}/api/flightlogs?${params.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
+        const fetchPage = async (page) => {
+          params.set("page", String(page));
+          const response = await fetch(
+            `${API_BASE}/api/flightlogs?${params.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
             },
-          },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Failed to fetch flight logs");
+          }
+
+          return data;
+        };
+
+        const firstPage = await fetchPage(1);
+        const totalPages = Number(firstPage.pagination?.pages || 1);
+        const remainingPages =
+          totalPages > 1
+            ? await Promise.all(
+                Array.from({ length: totalPages - 1 }, (_, index) =>
+                  fetchPage(index + 2),
+                ),
+              )
+            : [];
+
+        setFlightLogs(
+          [firstPage, ...remainingPages].flatMap((page) =>
+            Array.isArray(page.data) ? page.data : [],
+          ),
         );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch flight logs");
-        }
-
-        setFlightLogs(data.data || []);
       } catch (error) {
         console.error("Fetch flight logs error:", error);
         message.error(error.message || "Failed to fetch flight logs");
@@ -202,7 +233,7 @@ export default function FlightLog() {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
         {
           method: "GET",
           headers: {
@@ -594,14 +625,15 @@ export default function FlightLog() {
       selectedAircraft === "all" ||
       log.rpc === selectedAircraft;
 
-    const normalizedStatus = normalizeFlightLogStatus(log.status);
+    const normalizedStatus = getComparableStatus(log.status);
     const matchesStatus =
       selectedStatus === "all" ||
       (selectedStatus === "for_completion"
         ? normalizedStatus === "accepted" && log.notifiedForCompletion
         : selectedStatus === "accepted"
           ? normalizedStatus === "accepted" && !log.notifiedForCompletion
-          : normalizedStatus === normalizeStatusFilterValue(selectedStatus));
+          : normalizedStatus ===
+            getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
