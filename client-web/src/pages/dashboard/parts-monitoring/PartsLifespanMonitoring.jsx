@@ -10,7 +10,9 @@ import {
   Divider,
   Form,
 } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 
 import {
@@ -93,6 +95,92 @@ const getFormulaProcessor = (aircraft) => {
 };
 
 const { Text } = Typography;
+
+const exportColumns = [
+  {
+    title:
+      "DUE Indicates Items Due Within 30 Hours, 30 Days, or 30 Cycles/Landings",
+    key: "componentName",
+    width: 48.5,
+  },
+  { title: "", key: "hourLimit1", width: 10.1, group: "HOUR/ CYC LIMIT" },
+  { title: "H/C/OC", key: "hourLimit2", width: 10.1, group: "HOUR/ CYC LIMIT" },
+  { title: "DAY LIMIT", key: "dayLimit", width: 9 },
+  { title: "D/OC", key: "dayType", width: 7 },
+  { title: "DATE C/W mm/dd/yr", key: "dateCW", width: 13.5 },
+  { title: "HRS C/W", key: "hoursCW", width: 10.5 },
+  { title: "DAYS REMAINING", key: "daysRemaining", width: 17.5 },
+  { title: "TIME/CYC REMAINING", key: "timeRemaining", width: 14 },
+  { title: "DATE DUE", key: "dateDue", width: 13 },
+  { title: "TT/CYC DUE", key: "ttCycleDue", width: 12 },
+  { title: "DUE", key: "due", width: 8 },
+  { title: "H/D", key: "hd", width: 8 },
+  { title: "TIME SINCE INSTALLATION", key: "timeSinceInstall", width: 22 },
+  { title: "TOTAL TIME SINCE NEW", key: "totalTimeSinceNew", width: 18 },
+];
+
+const formatDateForExport = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date;
+};
+
+const sanitizeSheetFileName = (value) =>
+  String(value || "Parts-Lifespan-Monitoring")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const blobToBase64 = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+const addNgcpLogo = async (workbook, worksheet) => {
+  const response = await fetch("/images/ngcp-logo.png");
+  if (!response.ok) {
+    throw new Error("Unable to load NGCP logo");
+  }
+
+  const logoBase64 = await blobToBase64(await response.blob());
+  const imageId = workbook.addImage({
+    base64: logoBase64,
+    extension: "png",
+  });
+
+  worksheet.addImage(imageId, {
+    tl: { col: 0.15, row: 0.15 },
+    ext: { width: 145, height: 56 },
+    editAs: "oneCell",
+  });
+};
+
+const applyCellBorder = (cell) => {
+  cell.border = {
+    top: { style: "thin" },
+    left: { style: "thin" },
+    bottom: { style: "thin" },
+    right: { style: "thin" },
+  };
+};
+
+const styleHeaderCell = (cell) => {
+  cell.font = { bold: true, size: 10 };
+  cell.alignment = {
+    horizontal: "center",
+    vertical: "middle",
+    wrapText: true,
+  };
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFD9EAD3" },
+  };
+  applyCellBorder(cell);
+};
 
 const isLegendOrNoteRow = (row = {}) => {
   const searchableText = [
@@ -422,6 +510,233 @@ export default function PartsMonitoring() {
     );
   };
 
+  const handleExportExcel = async () => {
+    if (!selectedAircraft) {
+      message.warning("Select an aircraft before exporting.");
+      return;
+    }
+
+    if (!computedData.length) {
+      message.warning("No parts monitoring rows available to export.");
+      return;
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "AirMS";
+      workbook.created = new Date();
+
+      const worksheet = workbook.addWorksheet("STATUS", {
+        views: [{ state: "frozen", ySplit: 5 }],
+      });
+
+      exportColumns.forEach((column, index) => {
+        worksheet.getColumn(index + 1).width = column.width;
+      });
+
+      worksheet.mergeCells("A1:B3");
+      const logoAreaCell = worksheet.getCell("A1");
+      logoAreaCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFFFFF" },
+      };
+      logoAreaCell.alignment = { horizontal: "center", vertical: "middle" };
+      applyCellBorder(logoAreaCell);
+
+      await addNgcpLogo(workbook, worksheet);
+
+      worksheet.mergeCells("C1:F2");
+      const titleCell = worksheet.getCell("C1");
+      titleCell.value = selectedAircraft;
+      titleCell.font = { bold: true, size: 22 };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+      titleCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE2F0D9" },
+      };
+      applyCellBorder(titleCell);
+
+      worksheet.mergeCells("C3:F3");
+      const aircraftInfoCell = worksheet.getCell("C3");
+      aircraftInfoCell.value = `ACFT. TYPE: ${aircraftDetails.aircraftType || ""}${
+        aircraftDetails.serialNumber ? `   SN: ${aircraftDetails.serialNumber}` : ""
+      }`;
+      aircraftInfoCell.font = { bold: true, size: 10 };
+      aircraftInfoCell.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true,
+      };
+      aircraftInfoCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE2F0D9" },
+      };
+      applyCellBorder(aircraftInfoCell);
+
+      worksheet.getCell("G1").value = "Date Manufactured:";
+      worksheet.getCell("H1").value = aircraftDetails.dateManufactured || "";
+      worksheet.getCell("I1").value = "LANDINGS:";
+      worksheet.getCell("J1").value = refs.landings || "";
+      worksheet.getCell("K1").value = "DATE:";
+      worksheet.getCell("L1").value = refs.today || "";
+      worksheet.getCell("G2").value = "ENGINE CYCLE:";
+      worksheet.getCell("H2").value = refs.engTT || "";
+      worksheet.getCell("I2").value = "ENG. TSO:";
+      worksheet.getCell("J2").value = refs.engTT || "";
+      worksheet.getCell("K2").value = "ENG. TT:";
+      worksheet.getCell("L2").value = refs.engTT || "";
+      worksheet.getCell("G3").value = "N1:";
+      worksheet.getCell("H3").value = refs.n1Cycles || "";
+      worksheet.getCell("I3").value = "N2:";
+      worksheet.getCell("J3").value = refs.n2Cycles || "";
+      worksheet.getCell("K3").value = "ACFT. TT:";
+      worksheet.getCell("L3").value = refs.acftTT || "";
+      worksheet.getCell("N3").value = aircraftDetails.creepDamage || "";
+
+      ["G1", "I1", "K1", "G2", "I2", "K2", "G3", "I3", "K3"].forEach(
+        (address) => {
+          worksheet.getCell(address).font = { bold: true, size: 10 };
+          worksheet.getCell(address).alignment = {
+            horizontal: "right",
+            vertical: "middle",
+          };
+        },
+      );
+
+      ["H1", "L1"].forEach((address) => {
+        const cell = worksheet.getCell(address);
+        if (cell.value) {
+          cell.value = formatDateForExport(cell.value);
+          cell.numFmt = "mm/dd/yy";
+        }
+      });
+
+      worksheet.getRow(4).height = 34;
+      worksheet.getRow(5).height = 24;
+      worksheet.mergeCells("A4:A5");
+      worksheet.mergeCells("B4:C4");
+      worksheet.mergeCells("D4:D5");
+      worksheet.mergeCells("E4:E5");
+      worksheet.mergeCells("F4:F5");
+      worksheet.mergeCells("G4:G5");
+      worksheet.mergeCells("H4:H5");
+      worksheet.mergeCells("I4:I5");
+      worksheet.mergeCells("J4:J5");
+      worksheet.mergeCells("K4:K5");
+      worksheet.mergeCells("L4:L5");
+      worksheet.mergeCells("M4:M5");
+      worksheet.mergeCells("N4:N5");
+      worksheet.mergeCells("O4:O5");
+
+      worksheet.getCell("A4").value = exportColumns[0].title;
+      worksheet.getCell("B4").value = "HOUR/ CYC LIMIT";
+      worksheet.getCell("B5").value = exportColumns[1].title;
+      worksheet.getCell("C5").value = exportColumns[2].title;
+      exportColumns.slice(3).forEach((column, index) => {
+        worksheet.getCell(4, index + 4).value = column.title;
+      });
+
+      for (let rowNumber = 4; rowNumber <= 5; rowNumber += 1) {
+        for (let columnNumber = 1; columnNumber <= exportColumns.length; columnNumber += 1) {
+          styleHeaderCell(worksheet.getCell(rowNumber, columnNumber));
+        }
+      }
+
+      const darkGrayColumns = new Set([
+        "hourLimit1",
+        "hourLimit2",
+        "dayType",
+        "hoursCW",
+        "timeRemaining",
+        "ttCycleDue",
+      ]);
+
+      computedData.forEach((part) => {
+        const row = worksheet.addRow(
+          exportColumns.map((column) => {
+            if (column.key === "dateCW" || column.key === "dateDue") {
+              return formatDateForExport(part[column.key]);
+            }
+            return part[column.key] ?? "";
+          }),
+        );
+
+        row.eachCell((cell, columnNumber) => {
+          const column = exportColumns[columnNumber - 1];
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: column.key === "componentName" ? "left" : "center",
+            wrapText: true,
+          };
+          cell.font = { size: 9, bold: part.rowType === "header" };
+          applyCellBorder(cell);
+
+          if (column.key === "dateCW" || column.key === "dateDue") {
+            cell.numFmt = "mm/dd/yy";
+          }
+
+          if (part.rowType === "header") {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFB6D7A8" },
+            };
+            return;
+          }
+
+          if (darkGrayColumns.has(column.key)) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF0F0F0" },
+            };
+          }
+
+          const daysRemaining = Number(part.daysRemaining);
+          if (
+            (column.key === "daysRemaining" || column.key === "due") &&
+            Number.isFinite(daysRemaining)
+          ) {
+            if (daysRemaining <= 0) {
+              cell.font = { ...cell.font, bold: true, color: { argb: "FFFF0000" } };
+            } else if (daysRemaining <= 30) {
+              cell.font = { ...cell.font, bold: true, color: { argb: "FFFF9900" } };
+            }
+          }
+        });
+      });
+
+      worksheet.autoFilter = {
+        from: { row: 5, column: 1 },
+        to: { row: 5, column: exportColumns.length },
+      };
+
+      worksheet.pageSetup = {
+        orientation: "landscape",
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+      };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      saveAs(
+        blob,
+        `${sanitizeSheetFileName(selectedAircraft)}-Parts-Lifespan-Monitoring.xlsx`,
+      );
+      message.success("Parts lifespan monitoring exported successfully.");
+    } catch (error) {
+      console.error("Parts lifespan export failed:", error);
+      message.error(`Export failed: ${error.message}`);
+    }
+  };
+
   return (
     <div className="parts-monitoring-container">
       {" "}
@@ -457,6 +772,13 @@ export default function PartsMonitoring() {
                   Save to Database
                 </Button>
               )}
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportExcel}
+                disabled={!selectedAircraft || loading || computedData.length === 0}
+              >
+                Export
+              </Button>
               {lastSaved && (
                 <Text
                   type="secondary"

@@ -272,7 +272,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Aircraft Type:
+              Aircraft Type: *
             </Text>
             {renderAircraftType()}
           </View>
@@ -286,7 +286,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Date:
+              Date: *
             </Text>
             <View
               style={{
@@ -319,7 +319,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Control No.:
+              Control No.: *
             </Text>
             <TextInput
               style={{

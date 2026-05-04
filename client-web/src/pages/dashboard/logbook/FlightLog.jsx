@@ -127,6 +127,38 @@ export default function FlightLog() {
       ).values(),
     );
 
+  const getFlightLogDateTime = (log = {}) => {
+    const dateCandidates = [
+      log.date,
+      log.flightDate,
+      log.createdAt,
+      log.updatedAt,
+    ].filter(Boolean);
+
+    for (const value of dateCandidates) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.getTime();
+      }
+    }
+
+    return 0;
+  };
+
+  const sortFlightLogsByDate = (logs = []) =>
+    [...logs].sort((left, right) => {
+      const dateDifference =
+        getFlightLogDateTime(right) - getFlightLogDateTime(left);
+
+      if (dateDifference !== 0) {
+        return dateDifference;
+      }
+
+      return String(right.createdAt || right._id || "").localeCompare(
+        String(left.createdAt || left._id || ""),
+      );
+    });
+
   const hasDestinationInfo = (log = {}) =>
     Array.isArray(log.legs) &&
     log.legs.some(
@@ -206,7 +238,11 @@ export default function FlightLog() {
             ? await fetchAllPages({ status: "pending_release" })
             : [];
 
-        setFlightLogs(mergeFlightLogPages([...allPages, ...pendingReleasePages]));
+        setFlightLogs(
+          sortFlightLogsByDate(
+            mergeFlightLogPages([...allPages, ...pendingReleasePages]),
+          ),
+        );
       } catch (error) {
         console.error("Fetch flight logs error:", error);
         message.error(error.message || "Failed to fetch flight logs");
@@ -269,7 +305,7 @@ export default function FlightLog() {
         throw new Error(data.message || "Failed to search flight logs");
       }
 
-      setFlightLogs(data.data || []);
+      setFlightLogs(sortFlightLogsByDate(data.data || []));
     } catch (error) {
       console.error("Search flight logs error:", error);
       message.error(error.message || "Failed to search flight logs");
@@ -634,30 +670,32 @@ export default function FlightLog() {
     { label: "Completed", value: "completed" },
   ];
 
-  const filteredLogs = flightLogs.filter((log) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(log.date || "").includes(searchQuery);
+  const filteredLogs = sortFlightLogsByDate(
+    flightLogs.filter((log) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(log.date || "").includes(searchQuery);
 
-    const matchesAircraft =
-      selectedAircraft === "" ||
-      selectedAircraft === "all" ||
-      log.rpc === selectedAircraft;
+      const matchesAircraft =
+        selectedAircraft === "" ||
+        selectedAircraft === "all" ||
+        log.rpc === selectedAircraft;
 
-    const normalizedStatus = getComparableStatus(log.status);
-    const matchesStatus =
-      selectedStatus === "all" ||
-      (selectedStatus === "for_completion"
-        ? normalizedStatus === "accepted" && log.notifiedForCompletion
-        : selectedStatus === "accepted"
-          ? normalizedStatus === "accepted" && !log.notifiedForCompletion
-          : normalizedStatus ===
-            getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
+      const normalizedStatus = getComparableStatus(log.status);
+      const matchesStatus =
+        selectedStatus === "all" ||
+        (selectedStatus === "for_completion"
+          ? normalizedStatus === "accepted" && log.notifiedForCompletion
+          : selectedStatus === "accepted"
+            ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+            : normalizedStatus ===
+              getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
 
-    return matchesSearch && matchesAircraft && matchesStatus;
-  });
+      return matchesSearch && matchesAircraft && matchesStatus;
+    }),
+  );
 
   useEffect(() => {
     const openTargetFlightLog = async () => {
@@ -739,6 +777,8 @@ export default function FlightLog() {
       key: "date",
       width: 120,
       render: (value) => formatDisplayDate(value),
+      sorter: (left, right) => getFlightLogDateTime(left) - getFlightLogDateTime(right),
+      defaultSortOrder: "descend",
     },
     {
       title: "Control",
