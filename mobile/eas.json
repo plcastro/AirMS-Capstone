@@ -4,11 +4,17 @@
   },
   "build": {
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.148:8000"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.148:8000"
+      },
       "android": {
         "buildType": "app-bundle"
       }

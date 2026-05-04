@@ -401,9 +401,20 @@ const collectChecklistItemNarrativeTexts = (item = {}) =>
 const collectMaintenanceLogNarrativeTexts = (log = {}) =>
   [log.defects, log.correctiveActionDone, log.status].filter(Boolean);
 
-const collectFlightNarrativeTexts = (log = {}) =>
+const hasFlightLogWorkDone = (log = {}) =>
+  (log.workItems || []).some((item) =>
+    [
+      item.workDone,
+      item.description,
+      item.name,
+      item.certificateNumber,
+      item.signature,
+    ].some((value) => String(value || "").trim()),
+  );
+
+const collectFlightNarrativeTexts = (log = {}, { includeRemarks = true } = {}) =>
   [
-    log.remarks,
+    includeRemarks ? log.remarks : "",
     ...(log.workItems || []).flatMap((item) => [
       item.description,
       item.performedBy,
@@ -1530,19 +1541,25 @@ const buildFactsMap = async () => {
     const recentLogs = logs.slice(0, 5);
     const latestRemarkLogId =
       logs
-        .find((log) => String(log.remarks || "").trim())
+        .find(
+          (log) =>
+            String(log.remarks || "").trim() && !hasFlightLogWorkDone(log),
+        )
         ?._id?.toString?.() || "";
 
     recentLogs.forEach((log) => {
       const status = String(log.status || "");
-      const remark = String(log.remarks || "").trim();
+      const hasWorkDone = hasFlightLogWorkDone(log);
+      const remark = hasWorkDone ? "" : String(log.remarks || "").trim();
       const logId = log._id?.toString?.() || "";
       const isActiveFlightWorkflow =
         ACTIVE_FLIGHT_SIGNAL_STATUSES.includes(status);
       const isLatestAircraftRemark = Boolean(
         latestRemarkLogId && logId === latestRemarkLogId,
       );
-      const flightNarrativeTexts = collectFlightNarrativeTexts(log);
+      const flightNarrativeTexts = collectFlightNarrativeTexts(log, {
+        includeRemarks: !hasWorkDone,
+      });
       const hydraulicFlags = getHydraulicFlags(...flightNarrativeTexts);
 
       if (isActiveFlightWorkflow || isLatestAircraftRemark) {

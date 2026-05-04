@@ -29,6 +29,7 @@
       ],
       "package": "com.airms",
       "softwareKeyboardLayoutMode": "resize",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"

@@ -1,5 +1,7 @@
-import React from "react";
-import { View, Text, TextInput, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TextInput, ScrollView, TouchableOpacity } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function FlightLogModalThisFlight({
@@ -7,6 +9,22 @@ export default function FlightLogModalThisFlight({
   onUpdateComponent,
   isEditable = true,
 }) {
+  const [activeDateField, setActiveDateField] = useState(null);
+
+  const formatDate = (date) =>
+    date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+
+  const parseDate = (value) => {
+    if (!value) return new Date();
+    if (value instanceof Date) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
   const renderField = (label, field) => {
     const isNextDueDateField =
       field === "airframeNextInsp" || field === "engineNextInsp";
@@ -16,20 +34,64 @@ export default function FlightLogModalThisFlight({
       <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </Text>
-      <TextInput
-        style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-          borderRadius: 4,
-          height: 38,
-          paddingHorizontal: 10,
-          fontSize: 12,
-          color: isEditable ? COLORS.black : COLORS.grayDark,
-        }}
-        value={componentData[field] || ""}
-        onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
-        editable={isEditable}
-        keyboardType={isNextDueDateField ? "default" : "numeric"}
-      />
+      {isNextDueDateField ? (
+        <>
+          <TouchableOpacity
+            onPress={() => isEditable && setActiveDateField(field)}
+            disabled={!isEditable}
+            style={{
+              backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+              borderRadius: 4,
+              height: 38,
+              paddingHorizontal: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                color: componentData[field] ? COLORS.black : COLORS.grayDark,
+              }}
+            >
+              {componentData[field] || "Select date"}
+            </Text>
+            <MaterialCommunityIcons
+              name="calendar-blank"
+              size={18}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
+          {activeDateField === field && (
+            <DateTimePicker
+              value={parseDate(componentData[field])}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setActiveDateField(null);
+                if (event.type === "dismissed" || !selectedDate) return;
+                onUpdateComponent(field, formatDate(selectedDate));
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <TextInput
+          style={{
+            backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+            borderRadius: 4,
+            height: 38,
+            paddingHorizontal: 10,
+            fontSize: 12,
+            color: isEditable ? COLORS.black : COLORS.grayDark,
+          }}
+          value={componentData[field] || ""}
+          onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
+          editable={isEditable}
+          keyboardType="numeric"
+        />
+      )}
     </View>
     );
   };
