@@ -130,7 +130,7 @@ export default function PreInspectionCards({
                   </View>
 
                   {/* EXPORT */}
-                  <TouchableOpacity onPress={() => onExport?.(inspection)}>
+                  <TouchableOpacity onPress={() => onExport?.(inspection) }>
                     <MaterialCommunityIcons
                       name="export-variant"
                       size={18}

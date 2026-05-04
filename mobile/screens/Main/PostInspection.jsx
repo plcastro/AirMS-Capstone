@@ -15,7 +15,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
-import { exportPostInspectionPdf } from "../../utilities/pdfExport";
+import {
+  exportPostInspectionTemplatePdf,
+  exportPostInspectionToWord,
+} from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 const getDisplayStatus = (status) =>
@@ -160,7 +163,17 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    await exportPostInspectionPdf(inspection);
+    Alert.alert("Export Post-Inspection", "Choose export format", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "PDF",
+        onPress: () => exportPostInspectionTemplatePdf(inspection),
+      },
+      {
+        text: "Word Template",
+        onPress: () => exportPostInspectionToWord(inspection),
+      },
+    ]);
   };
 
   const selectAircraft = (aircraft) => {

@@ -6,6 +6,7 @@ import {
   Col,
   Modal,
   Row,
+  Select,
   Space,
   Statistic,
   Table,
@@ -155,6 +156,7 @@ export default function MaintenanceTracking() {
   const [inspectionRemainingLoading, setInspectionRemainingLoading] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
+  const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
   const llmLimit = 0;
 
   const refreshLlmHealth = async () => {
@@ -333,16 +335,54 @@ export default function MaintenanceTracking() {
     }
   };
 
+  const aircraftFilterOptions = useMemo(() => {
+    const aircraftSet = new Set();
+
+    insights.forEach((item) => {
+      if (item.aircraft) aircraftSet.add(item.aircraft);
+    });
+    inspectionRemainingRows.forEach((row) => {
+      if (row.aircraft) aircraftSet.add(row.aircraft);
+    });
+
+    return Array.from(aircraftSet).sort((left, right) =>
+      String(left).localeCompare(String(right)),
+    );
+  }, [insights, inspectionRemainingRows]);
+
+  const filteredInsights = useMemo(
+    () =>
+      selectedAircraftFilter === "all"
+        ? insights
+        : insights.filter((item) => item.aircraft === selectedAircraftFilter),
+    [insights, selectedAircraftFilter],
+  );
+
+  const filteredInspectionRemainingRows = useMemo(
+    () =>
+      selectedAircraftFilter === "all"
+        ? inspectionRemainingRows
+        : inspectionRemainingRows.filter(
+            (row) => row.aircraft === selectedAircraftFilter,
+          ),
+    [inspectionRemainingRows, selectedAircraftFilter],
+  );
+
   const summary = useMemo(
     () =>
-      meta?.summary || {
-        totalAircraft: insights.length,
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-      },
-    [insights.length, meta],
+      filteredInsights.reduce(
+        (totals, item) => {
+          totals.totalAircraft += 1;
+          const risk = String(item.riskLevel || "").toLowerCase();
+          if (risk === "critical") totals.critical += 1;
+          else if (risk === "high") totals.high += 1;
+          else if (risk === "medium") totals.medium += 1;
+          else if (risk === "low") totals.low += 1;
+          return totals;
+        },
+        { totalAircraft: 0, critical: 0, high: 0, medium: 0, low: 0 },
+      ),
+    [filteredInsights],
   );
 
   const markFindingRectified = async (draft = {}) => {
@@ -399,7 +439,7 @@ export default function MaintenanceTracking() {
 
   const tableData = useMemo(
     () =>
-      insights.map((item) => {
+      filteredInsights.map((item) => {
         const isAiFinding = item.managerSummarySource === "openai";
 
         return {
@@ -459,12 +499,12 @@ export default function MaintenanceTracking() {
               : null,
         };
       }),
-    [insights, rectifyingKey],
+    [filteredInsights, rectifyingKey],
   );
 
   const summarySourceCounts = useMemo(
     () =>
-      insights.reduce(
+      filteredInsights.reduce(
         (accumulator, item) => {
           if (item.managerSummarySource === "openai") {
             accumulator.llm += 1;
@@ -475,11 +515,11 @@ export default function MaintenanceTracking() {
         },
         { llm: 0, fallback: 0 },
       ),
-    [insights],
+    [filteredInsights],
   );
 
   const scheduledTaskRows = useMemo(() => {
-    const rows = insights.flatMap((insight) =>
+    const rows = filteredInsights.flatMap((insight) =>
       (insight.scheduledTasks || []).map((task) => ({
         ...task,
         key: `${insight.aircraftId || insight.aircraft}-${task.id}`,
@@ -497,7 +537,7 @@ export default function MaintenanceTracking() {
 
       return leftDate - rightDate;
     });
-  }, [insights]);
+  }, [filteredInsights]);
 
   const scheduledTaskStats = useMemo(
     () =>
@@ -517,16 +557,16 @@ export default function MaintenanceTracking() {
 
   const maintenanceTrackingInsights = useMemo(() => {
     const highestRisk =
-      insights.find((item) => ["Critical", "High"].includes(item.riskLevel)) ||
-      insights[0];
-    const overdueInspectionRows = inspectionRemainingRows.filter(
+      filteredInsights.find((item) => ["Critical", "High"].includes(item.riskLevel)) ||
+      filteredInsights[0];
+    const overdueInspectionRows = filteredInspectionRemainingRows.filter(
       (row) =>
         (Number.isFinite(Number(row.remainingHours)) &&
           Number(row.remainingHours) <= 0) ||
         (Number.isFinite(Number(row.remainingDays)) &&
           Number(row.remainingDays) <= 0),
     );
-    const nearestInspection = inspectionRemainingRows
+    const nearestInspection = filteredInspectionRemainingRows
       .filter((row) => Number.isFinite(Number(row.remainingHours)))
       .sort((left, right) => Number(left.remainingHours) - Number(right.remainingHours))[0];
 
@@ -543,7 +583,7 @@ export default function MaintenanceTracking() {
           ? `${nearestInspection.aircraft} has the nearest inspection by flight hours: ${nearestInspection.inspectionName} at ${nearestInspection.remainingHours} FH remaining.`
           : "No remaining flight-hour inspection data is available yet.",
     ];
-  }, [inspectionRemainingRows, insights, scheduledTaskStats]);
+  }, [filteredInspectionRemainingRows, filteredInsights, scheduledTaskStats]);
 
   const scheduledTaskColumns = [
     {
@@ -746,31 +786,54 @@ export default function MaintenanceTracking() {
       </Row>
 
       <Card>
-        <Space orientation="vertical" size={4}>
-          <Title level={4} style={{ margin: 0 }}>
-            AI Maintenance Tracking
-          </Title>
-          <Space wrap>
-            {!isOfficerInCharge && (
-              <Button
-                type="primary"
-                onClick={fetchLlmSummaries}
-                loading={summaryLoading}
-                disabled={!llmHealth?.configured || llmHealth?.cooldown?.active}
-              >
-                {llmHealth?.cooldown?.active
-                  ? `OpenAI cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
-                  : "Regenerate OpenAI Summaries"}
-              </Button>
-            )}
-            <Text type="secondary">
-              Rule-engine results load first. Use Regenerate to request OpenAI enrichment for detected issues.
-              When OpenAI enriches a finding, AirMS selects the recommendation and reference from the matched rules.
-              {!isOfficerInCharge &&
-                " Use the button to retry or refresh all detected maintenance issues."}
-            </Text>
-          </Space>
-        </Space>
+        <Row gutter={[16, 16]} align="middle" justify="space-between">
+          <Col xs={24} lg={16}>
+            <Space orientation="vertical" size={4}>
+              <Title level={4} style={{ margin: 0 }}>
+                AI Maintenance Tracking
+              </Title>
+              <Space wrap>
+                {!isOfficerInCharge && (
+                  <Button
+                    type="primary"
+                    onClick={fetchLlmSummaries}
+                    loading={summaryLoading}
+                    disabled={!llmHealth?.configured || llmHealth?.cooldown?.active}
+                  >
+                    {llmHealth?.cooldown?.active
+                      ? `OpenAI cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
+                      : "Regenerate OpenAI Summaries"}
+                  </Button>
+                )}
+                <Text type="secondary">
+                  Rule-engine results load first. Use Regenerate to request OpenAI enrichment for detected issues.
+                  When OpenAI enriches a finding, AirMS selects the recommendation and reference from the matched rules.
+                  {!isOfficerInCharge &&
+                    " Use the button to retry or refresh all detected maintenance issues."}
+                </Text>
+              </Space>
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Space direction="vertical" size={4} style={{ width: "100%" }}>
+              <Text strong>Aircraft Filter</Text>
+              <Select
+                value={selectedAircraftFilter}
+                onChange={setSelectedAircraftFilter}
+                style={{ width: "100%" }}
+                showSearch
+                optionFilterProp="label"
+                options={[
+                  { label: "All Aircraft", value: "all" },
+                  ...aircraftFilterOptions.map((aircraft) => ({
+                    label: aircraft,
+                    value: aircraft,
+                  })),
+                ]}
+              />
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {meta && (
@@ -871,7 +934,7 @@ export default function MaintenanceTracking() {
           </Space>
           <Table
             columns={inspectionRemainingColumns}
-            dataSource={inspectionRemainingRows}
+            dataSource={filteredInspectionRemainingRows}
             loading={loading || inspectionRemainingLoading}
             size="small"
             rowKey={(record) =>
