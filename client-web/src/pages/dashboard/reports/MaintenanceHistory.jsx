@@ -194,7 +194,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       ? `${topSameDay.name} has the highest same-day repair share (${((topSameDay.value / totalSameDay) * 100).toFixed(1)}%). Click a slice to filter the table.`
       : "No same-day repair activity was recorded in the last 30 days.";
 
-  const rectificationHourValues = recentTasks
+  const rectificationHourValues = tasksWithMeta
     .map((entry) => entry.rectificationHours)
     .filter((value) => Number.isFinite(value));
   const averageCompletionHours =
@@ -204,8 +204,8 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       : null;
   const artInterpretation =
     averageCompletionHours !== null
-      ? `Average completion time is ${averageCompletionHours.toFixed(1)} hour(s) across ${rectificationHourValues.length} recent rectification(s). Click a slice to filter the table.`
-      : "No rectification duration data is available for the last 30 days.";
+      ? `Average rectification time is ${averageCompletionHours.toFixed(1)} hour(s) across ${rectificationHourValues.length} rectification record(s). Click a slice to filter the table.`
+      : "No rectification duration data is available.";
 
   const filterInterpretation =
     selectedAircraft || selectedRectificationBucket
@@ -276,6 +276,12 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
             </Title>
             <ARTChart
               data={artChartData}
+              centerValue={
+                averageCompletionHours !== null
+                  ? `${averageCompletionHours.toFixed(1)}h`
+                  : "N/A"
+              }
+              centerLabel="Avg. Rectification"
               onSliceClick={(slice) => {
                 const clickedName = slice?.name;
                 if (!clickedName) return;

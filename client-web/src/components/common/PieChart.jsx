@@ -38,17 +38,13 @@ export const SDMChart = ({
   );
 };
 
-export const ARTChart = ({ data = [], onSliceClick }) => {
+export const ARTChart = ({
+  data = [],
+  onSliceClick,
+  centerValue = "0.0h",
+  centerLabel = "Avg. Rectification",
+}) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
-
-  const validData = chartData.filter((item) => item.name !== "No data");
-  const totalValue = validData.reduce((sum, item) => sum + item.value, 0);
-  const fastestTask =
-    validData.find((item) => item.value > 0) ||
-    validData[0] || { name: "No data", value: 0, fill: "#d9d9d9" };
-  const fastestPercentage =
-    totalValue > 0 ? ((fastestTask.value / totalValue) * 100).toFixed(1) : "0.0";
-
 
   return (
     <div>
@@ -89,13 +85,13 @@ export const ARTChart = ({ data = [], onSliceClick }) => {
           style={{
             fontSize: "24px",
             fontWeight: "bold",
-            color: fastestTask.fill,
+            color: "#26866f",
           }}
         >
-          {fastestPercentage}%
+          {centerValue}
         </span>
         <br />
-        <span style={{ fontSize: "12px", color: "#8c8c8c" }}>Fastest Task</span>
+        <span style={{ fontSize: "12px", color: "#8c8c8c" }}>{centerLabel}</span>
       </div>
     </div>
   );
