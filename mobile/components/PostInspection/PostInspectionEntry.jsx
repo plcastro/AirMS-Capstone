@@ -16,6 +16,7 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import { getDefaultPostInspectionFormData } from "./PostInspectionForms";
 import { showToast } from "../../utilities/toast";
 
@@ -36,6 +37,7 @@ export default function PostInspectionEntry({
     "Engine",
     "Main Rotor",
     "Cabin Interior",
+    "Notes",
   ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -136,6 +138,14 @@ export default function PostInspectionEntry({
       case "Cabin Interior":
         return (
           <PostInspectionModalCabinInterior
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
+      case "Notes":
+        return (
+          <PostInspectionModalNotes
             formData={formData}
             updateForm={updateForm}
             isEditable={true}

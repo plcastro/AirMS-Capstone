@@ -1002,6 +1002,122 @@ exports.getMaintenancePriority = async (req, res) => {
   }
 };
 
+exports.getInspectionRemainingHours = async (req, res) => {
+  try {
+    const [partsMonitoringRecords, inspectionSchedules] = await Promise.all([
+      PartsMonitoring.find({}).sort({ aircraft: 1 }),
+      InspectionSchedule.find({}).sort({ inspectionName: 1, aircraftModel: 1 }),
+    ]);
+
+    const schedulesByModel = new Map();
+    inspectionSchedules.forEach((schedule) => {
+      if (!isRelevantInspectionSchedule(schedule)) {
+        return;
+      }
+
+      const aircraftModel = normalizeAircraftModel(schedule.aircraftModel);
+      const inspectionKey = deriveInspectionKeyForSchedule(schedule);
+
+      if (!inspectionKey) {
+        return;
+      }
+
+      if (!schedulesByModel.has(aircraftModel)) {
+        schedulesByModel.set(aircraftModel, new Map());
+      }
+
+      schedulesByModel.get(aircraftModel).set(inspectionKey, schedule);
+    });
+
+    const rows = partsMonitoringRecords.flatMap((record) => {
+      const refs = {
+        today: getToday(),
+        acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+        engTT:
+          parseNumber(record?.referenceData?.engTT) ??
+          parseNumber(record?.referenceData?.acftTT) ??
+          0,
+        n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
+        n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
+        landings: parseNumber(record?.referenceData?.landings) || 0,
+        referenceCells:
+          record?.referenceData?.referenceCells ||
+          DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
+          {},
+      };
+
+      const computedParts = processDataWithFormulas(record.parts || [], refs);
+      const aircraftModel = resolveAircraftModelForRecord(
+        record,
+        computedParts,
+        schedulesByModel,
+      );
+      const scheduleMap = schedulesByModel.get(aircraftModel);
+
+      if (!scheduleMap) {
+        return [];
+      }
+
+      const partsByInspectionKey = new Map();
+      computedParts
+        .filter((part) => part.rowType !== "header")
+        .forEach((part) => {
+          const inspectionKey = deriveInspectionKeyForPart(part);
+          if (!inspectionKey || !scheduleMap.has(inspectionKey)) {
+            return;
+          }
+
+          const urgency = computeUrgencyMetrics(part, refs.today);
+          const current = partsByInspectionKey.get(inspectionKey);
+          const candidate = { part, ...urgency };
+
+          if (!current || compareInspectionUrgency(candidate, current) < 0) {
+            partsByInspectionKey.set(inspectionKey, candidate);
+          }
+        });
+
+      return Array.from(scheduleMap.entries()).map(([inspectionKey, schedule]) => {
+        const match = partsByInspectionKey.get(inspectionKey);
+        return {
+          aircraft: record.aircraft,
+          aircraftModel,
+          inspectionName: schedule.inspectionName,
+          inspectionKey,
+          flightHourInterval: parseNumber(schedule?.interval?.flightHours),
+          calendarMonthInterval: parseNumber(schedule?.interval?.calendarMonths),
+          remainingHours: match ? roundNumber(match.remainingHours, 1) : null,
+          remainingDays: match ? roundNumber(match.remainingDays, 0) : null,
+          dueDate: match?.dueDate ? match.dueDate.toISOString() : null,
+          dueAtHours: match ? roundNumber(match.dueAtHours, 1) : null,
+          sourceRow: match?.part?.componentName || "",
+          reference: schedule.msmReference || "",
+        };
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows.sort((left, right) => {
+        const aircraftCompare = String(left.aircraft || "").localeCompare(
+          String(right.aircraft || ""),
+        );
+        if (aircraftCompare !== 0) return aircraftCompare;
+        return (
+          (left.flightHourInterval || Number.MAX_SAFE_INTEGER) -
+          (right.flightHourInterval || Number.MAX_SAFE_INTEGER)
+        );
+      }),
+    });
+  } catch (error) {
+    console.error("Error fetching inspection remaining hours:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching inspection remaining hours",
+      error: error.message,
+    });
+  }
+};
+
 exports.getMaintenancePriorityRules = async (req, res) => {
   try {
     const rules = await getStoredPriorityRules();
@@ -1130,6 +1246,7 @@ const getAircraftList = async (req, res) => {
 module.exports = {
   getMaintenancePriorityRules: exports.getMaintenancePriorityRules,
   getMaintenancePriority: exports.getMaintenancePriority,
+  getInspectionRemainingHours: exports.getInspectionRemainingHours,
   saveMaintenancePriorityRules: exports.saveMaintenancePriorityRules,
   updateAircraftTotals: exports.updateAircraftTotals,
   savePartsMonitoring: exports.savePartsMonitoring,

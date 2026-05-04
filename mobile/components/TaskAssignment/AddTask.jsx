@@ -26,6 +26,7 @@ const { width } = Dimensions.get("window");
 const CUSTOM_INSPECTION_ID = "custom-task";
 
 const getNow = () => new Date();
+const getDefaultStartDate = () => addMinutesToDate(getNow(), 5);
 
 const clampToNow = (date) => {
   const now = getNow();
@@ -59,7 +60,7 @@ export default function AddTask({
   visible,
   onClose,
   onAddTask,
-  employees,
+  employees = [],
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
@@ -68,9 +69,9 @@ export default function AddTask({
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
 
-  const [startDate, setStartDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [endDate, setEndDate] = useState(
-    new Date(new Date().getTime() + 60 * 60 * 1000),
+    addMinutesToDate(getDefaultStartDate(), 60),
   );
 
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -88,6 +89,7 @@ export default function AddTask({
   const [appliedDraftKey, setAppliedDraftKey] = useState("");
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
+  const availableEmployees = employees.filter((emp) => !emp.isBusy);
 
   const draftKey = initialDraft
     ? JSON.stringify({
@@ -280,13 +282,13 @@ export default function AddTask({
   };
 
   const resetForm = () => {
-    const now = new Date();
+    const nextStart = getDefaultStartDate();
     setSelectedAircraft("");
     setSelectedEmployee("");
     setInspectionType("");
     setSelectedInspection(null);
-    setStartDate(now);
-    setEndDate(new Date(now.getTime() + 60 * 60 * 1000));
+    setStartDate(nextStart);
+    setEndDate(addMinutesToDate(nextStart, 60));
     setChecklistItems([]);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -424,23 +426,10 @@ export default function AddTask({
   }, [visible]);
 
   const confirmAdd = () => {
-    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      showToast("Please select an aircraft, inspection, and mechanic.");
-      return;
-    }
+    const warning = getAddTaskWarning();
 
-    if (isCustomTask && !customTaskTitle.trim()) {
-      showToast("Please enter a custom task name.");
-      return;
-    }
-
-    if (startDate < getNow() || endDate < getNow()) {
-      showToast("Start and end date/time must be today or later.");
-      return;
-    }
-
-    if (endDate < startDate) {
-      showToast("End date/time must be after the start date/time.");
+    if (warning) {
+      showToast(warning);
       return;
     }
 
@@ -610,11 +599,16 @@ export default function AddTask({
 
       if (field === "start") {
         setStartDate(clampedDate);
-        if (endDate < clampedDate) {
-          setEndDate(clampedDate);
+        if (endDate <= clampedDate) {
+          setEndDate(addMinutesToDate(clampedDate, 1));
         }
       } else {
-        setEndDate(clampedDate);
+        if (clampedDate <= startDate) {
+          showToast("End date/time must be after the start date/time.");
+          setEndDate(addMinutesToDate(startDate, 1));
+        } else {
+          setEndDate(clampedDate);
+        }
       }
 
       setAndroidPickerMode("time");
@@ -637,11 +631,17 @@ export default function AddTask({
     if (field === "start") {
       const clampedDate = clampToNow(nextDate);
       setStartDate(clampedDate);
-      if (endDate < clampedDate) {
-        setEndDate(clampedDate);
+      if (endDate <= clampedDate) {
+        setEndDate(addMinutesToDate(clampedDate, 1));
       }
     } else {
-      setEndDate(clampToNow(nextDate));
+      const clampedDate = clampToNow(nextDate);
+      if (clampedDate <= startDate) {
+        showToast("End date/time must be after the start date/time.");
+        setEndDate(addMinutesToDate(startDate, 1));
+      } else {
+        setEndDate(clampedDate);
+      }
       setEndDateManuallyAdjusted(true);
     }
 
@@ -680,6 +680,38 @@ export default function AddTask({
     setShowAircraftDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
+  };
+
+  const getAddTaskWarning = () => {
+    const selectedAvailableEmployee = availableEmployees.find(
+      (emp) => emp.id === selectedEmployee,
+    );
+
+    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
+      return "Select an aircraft, inspection, and available mechanic first.";
+    }
+
+    if (!selectedAvailableEmployee) {
+      return "Select a mechanic who is currently available.";
+    }
+
+    if (isCustomTask && !customTaskTitle.trim()) {
+      return "Enter a custom task name first.";
+    }
+
+    if (isCustomTask && checklistItems.every((item) => !item.taskName?.trim())) {
+      return "Add at least one checklist item first.";
+    }
+
+    if (startDate < getNow() || endDate < getNow()) {
+      return "Start and end date/time must be today or later.";
+    }
+
+    if (endDate <= startDate) {
+      return "End date/time must be after the start date/time.";
+    }
+
+    return "";
   };
 
   const renderDropdownField = ({
@@ -770,14 +802,27 @@ export default function AddTask({
                       : COLORS.white,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: COLORS.black,
-                  }}
-                >
-                  {item.label}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  {item.statusColor ? (
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: item.statusColor,
+                        marginRight: 8,
+                      }}
+                    />
+                  ) : null}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: COLORS.black,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -795,7 +840,8 @@ export default function AddTask({
       : inspectionOptions.find((inspection) => inspection.id === inspectionType)
           ?.name || "";
   const selectedEmployeeLabel =
-    employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+    availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const addTaskWarning = getAddTaskWarning();
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
@@ -923,9 +969,10 @@ export default function AddTask({
               required: true,
               value: selectedEmployeeLabel,
               placeholder: "Pick Mechanic",
-              options: employees.map((emp) => ({
+              options: availableEmployees.map((emp) => ({
                 label: emp.name,
                 value: emp.id,
+                statusColor: emp.isOnline ? COLORS.success || "#22c55e" : COLORS.grayDark,
               })),
               visible: showMechanicDropdown,
               onToggle: setShowMechanicDropdown,
@@ -1108,6 +1155,18 @@ export default function AddTask({
                 No checklist items were found for this inspection.
               </Text>
             )}
+
+            {addTaskWarning ? (
+              <Text
+                style={{
+                  color: COLORS.danger || COLORS.dangerBorder || "#d32f2f",
+                  marginBottom: 8,
+                  fontSize: 12,
+                }}
+              >
+                {addTaskWarning}
+              </Text>
+            ) : null}
           </ScrollView>
 
           <View
@@ -1127,6 +1186,7 @@ export default function AddTask({
             <Button
               label="Add Task"
               onPress={confirmAdd}
+              disabled={Boolean(addTaskWarning)}
               buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.primaryBtnTxt}
             />

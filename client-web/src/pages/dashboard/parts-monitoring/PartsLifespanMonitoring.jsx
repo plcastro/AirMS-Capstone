@@ -639,30 +639,6 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
-      <Card className="aircraft-card legend-card">
-        <div className="legend-container">
-          <Text className="note-title">NOTE:</Text>
-          <div className="legend-grid">
-            <div className="legend-item">
-              <Text strong>OC</Text> - ON CONDITION
-            </div>
-            <div className="legend-item">
-              <Text strong>H</Text> - HOURS
-            </div>
-            <div className="legend-item">
-              <Text strong>D</Text> - DAY
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-removed" />
-              <Text>- REMOVED</Text>
-            </div>
-            <div className="legend-item">
-              <span className="status-box status-installed" />
-              <Text>- INSTALLED</Text>
-            </div>
-          </div>
-        </div>
-      </Card>
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}

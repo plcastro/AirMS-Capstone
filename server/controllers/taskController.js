@@ -204,9 +204,29 @@ const buildWritableTaskUpdate = (taskData) => {
   return writableTask;
 };
 
+const validateTaskSchedule = (taskData = {}) => {
+  const startDate = toValidDate(taskData.startDateTime);
+  const endDate = toValidDate(taskData.endDateTime);
+
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  if (endDate.getTime() <= startDate.getTime()) {
+    return "End date/time must be after the start date/time.";
+  }
+
+  return null;
+};
+
 const createTask = async (req, res) => {
   try {
     const taskData = prepareTaskUpdate(null, req.body);
+    const scheduleError = validateTaskSchedule(taskData);
+    if (scheduleError) {
+      return res.status(400).json({ message: scheduleError });
+    }
+
     const task = new TaskModel(taskData);
     await task.save();
     await syncMaintenanceLogFromTask(task);
@@ -258,6 +278,11 @@ const updateTask = async (req, res) => {
     const previousTaskSnapshot = existingTask.toObject();
 
     const nextTask = prepareTaskUpdate(existingTask, req.body);
+    const scheduleError = validateTaskSchedule(nextTask);
+    if (scheduleError) {
+      return res.status(400).json({ message: scheduleError });
+    }
+
     existingTask.set(buildWritableTaskUpdate(nextTask));
     await existingTask.save();
 

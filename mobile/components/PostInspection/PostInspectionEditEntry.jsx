@@ -17,6 +17,7 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
 import AlertComp from "../AlertComp";
 import {
@@ -55,6 +56,7 @@ export default function PostInspectionEditEntry({
     "Engine",
     "Main Rotor",
     "Cabin Interior",
+    "Notes",
   ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -196,6 +198,14 @@ export default function PostInspectionEditEntry({
       case "Cabin Interior":
         return (
           <PostInspectionModalCabinInterior
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={isFormEditable}
+          />
+        );
+      case "Notes":
+        return (
+          <PostInspectionModalNotes
             formData={formData}
             updateForm={updateForm}
             isEditable={isFormEditable}
