@@ -404,13 +404,16 @@ export default function FlightLogEntry({
   const isRPCEditable = !editMode || !isReleasedFlightLogStatus(formData.status);
   const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
   const canEditComponent = !readOnly && isMechanic;
+  const canEditNextInspectionDates = !readOnly && isMechanic;
   const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditDiscrepancy = !readOnly;
   const canSave = !readOnly && !isCompletedLog;
+  const canSaveCurrentTab =
+    canSave || (activeTab === "component" && canEditNextInspectionDates);
 
   const handleSave = async () => {
-    if (isCompletedLog) {
+    if (isCompletedLog && !(activeTab === "component" && canEditNextInspectionDates)) {
       message.info("Completed flight logs are view-only.");
       return;
     }
@@ -462,6 +465,7 @@ export default function FlightLogEntry({
             componentData={componentData}
             updateComponent={updateComponent}
             isEditable={canSave && canEditComponent}
+            canEditNextInspection={canEditNextInspectionDates}
           />
         );
       case "fuel":
@@ -548,7 +552,7 @@ export default function FlightLogEntry({
             >
               Next
             </Button>
-          ) : canSave ? (
+          ) : canSaveCurrentTab ? (
             <Button
               type="primary"
               className="fl-nav-btn"
