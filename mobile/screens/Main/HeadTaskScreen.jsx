@@ -22,6 +22,7 @@ import { showToast } from "../../utilities/toast";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
+const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
 
 export default function HeadTaskScreen({
   targetTaskId,
@@ -41,6 +42,22 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+
+  const isEmployeeBusy = (employeeId) =>
+    tasks.some((task) => {
+      const status = String(task?.status || "").trim().toLowerCase();
+      return (
+        String(task?.assignedTo || "") === String(employeeId) &&
+        OPEN_TASK_STATUSES.has(status)
+      );
+    });
+
+  const mechanicOptions = employees
+    .map((employee) => ({
+      ...employee,
+      isBusy: isEmployeeBusy(employee.id),
+    }))
+    .filter((employee) => !employee.isBusy);
 
   useEffect(() => {
     if (addTaskDraft) {
@@ -133,6 +150,8 @@ export default function HeadTaskScreen({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
             jobTitle: user.jobTitle,
+            isOnline: Boolean(user.isOnline ?? user.online),
+            platform: user.platform || "",
           }));
           setEmployees(mappedEmployees);
         } else {
@@ -545,7 +564,7 @@ export default function HeadTaskScreen({
         visible={addModalVisible}
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
-        employees={employees}
+        employees={mechanicOptions}
         initialDraft={addTaskDraft}
       />
 

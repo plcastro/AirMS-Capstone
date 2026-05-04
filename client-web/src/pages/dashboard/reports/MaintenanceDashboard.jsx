@@ -405,6 +405,7 @@ export default function MaintenanceDashboard() {
       }}
     >
       <Card style={{ marginBottom: 10 }}>
+        <Title level={3}>Reports and Analytics</Title>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={24} md={12} lg={10}>
             <Input

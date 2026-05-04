@@ -10,7 +10,9 @@ import {
   Legend,
 } from "recharts";
 
-const AreaChartComponent = ({ data }) => {
+const DEFAULT_SERIES = [{ key: "value", color: "#26866f", name: "Value" }];
+
+const AreaChartComponent = ({ data, series = DEFAULT_SERIES, xKey = "month" }) => {
   if (!data || data.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: 40 }}>No data available</div>
@@ -27,16 +29,20 @@ const AreaChartComponent = ({ data }) => {
           vertical={false}
           stroke="#f0f0f0"
         />
-        <XAxis dataKey="month" axisLine={false} tickLine={false} />
+        <XAxis dataKey={xKey} axisLine={false} tickLine={false} />
         <YAxis axisLine={false} tickLine={false} />
         <Tooltip />
-        <Area
-          type="monotone"
-          dataKey="value"
-          stroke="#8884d8"
-          fill="#8884d8"
-          fillOpacity={0.3}
-        />
+        {series.map((item) => (
+          <Area
+            key={item.key}
+            type="monotone"
+            dataKey={item.key}
+            name={item.name}
+            stroke={item.color}
+            fill={item.color}
+            fillOpacity={0.22}
+          />
+        ))}
         <Legend />
       </AreaChart>
     </ResponsiveContainer>

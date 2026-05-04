@@ -56,6 +56,19 @@ const getRectificationBucket = (discoveredAt, rectifiedAt) => {
   return "More than 12 hours";
 };
 
+const getRectificationHours = (discoveredAt, rectifiedAt) => {
+  if (!discoveredAt || !rectifiedAt) return null;
+
+  const discovered = new Date(discoveredAt);
+  const rectified = new Date(rectifiedAt);
+  if (isNaN(discovered.getTime()) || isNaN(rectified.getTime())) return null;
+
+  return Math.max(
+    0,
+    (rectified.getTime() - discovered.getTime()) / (1000 * 60 * 60),
+  );
+};
+
 export default function MaintenanceHistory({ tasks = [], loading = false }) {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedRectificationBucket, setSelectedRectificationBucket] =
@@ -83,6 +96,10 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       discoveredAtRaw,
       rectifiedAtRaw,
     );
+    const rectificationHours = getRectificationHours(
+      discoveredAtRaw,
+      rectifiedAtRaw,
+    );
 
     return {
       task,
@@ -103,6 +120,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       isRecent,
       isSameDay,
       rectificationBucket,
+      rectificationHours,
     };
   });
 
@@ -176,11 +194,17 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       ? `${topSameDay.name} has the highest same-day repair share (${((topSameDay.value / totalSameDay) * 100).toFixed(1)}%). Click a slice to filter the table.`
       : "No same-day repair activity was recorded in the last 30 days.";
 
-  const fastestBucket = artChartData.find((item) => item.value > 0);
-  const totalART = artChartData.reduce((sum, item) => sum + item.value, 0);
+  const rectificationHourValues = recentTasks
+    .map((entry) => entry.rectificationHours)
+    .filter((value) => Number.isFinite(value));
+  const averageCompletionHours =
+    rectificationHourValues.length > 0
+      ? rectificationHourValues.reduce((sum, value) => sum + value, 0) /
+        rectificationHourValues.length
+      : null;
   const artInterpretation =
-    fastestBucket && totalART > 0
-      ? `${((fastestBucket.value / totalART) * 100).toFixed(1)}% of recent rectifications are completed within ${fastestBucket.name}. Click a slice to filter the table.`
+    averageCompletionHours !== null
+      ? `Average completion time is ${averageCompletionHours.toFixed(1)} hour(s) across ${rectificationHourValues.length} recent rectification(s). Click a slice to filter the table.`
       : "No rectification duration data is available for the last 30 days.";
 
   const filterInterpretation =

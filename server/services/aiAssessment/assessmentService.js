@@ -24,6 +24,9 @@ const collectRelatedRecordIds = (evidence = {}) => ({
   hydraulicMaintenanceLogs: (evidence.hydraulicMaintenanceLogs || [])
     .map((item) => item.id)
     .filter(Boolean),
+  scheduledTasks: (evidence.scheduledTasks || [])
+    .map((item) => item.id)
+    .filter(Boolean),
   overdueTasks: (evidence.overdueTasks || []).map((item) => item.id).filter(Boolean),
   pendingApprovalTasks: (evidence.pendingApprovalTasks || [])
     .map((item) => item.id)
@@ -34,6 +37,9 @@ const collectRelatedRecordIds = (evidence = {}) => ({
     .map((item) => item.id)
     .filter(Boolean),
   hydraulicFlights: (evidence.hydraulicFlights || []).map((item) => item.id).filter(Boolean),
+  postInspectionNotes: (evidence.postInspectionNotes || [])
+    .map((item) => item.id)
+    .filter(Boolean),
 });
 
 const collectSourceSnippets = (evidence = {}) =>
@@ -232,13 +238,16 @@ const buildMaintenanceInsights = async ({
           dueSoonParts: entry.evidence.dueSoonParts.length,
           maintenanceLogs: entry.evidence.maintenanceLogs.length,
           hydraulicMaintenanceLogs: entry.evidence.hydraulicMaintenanceLogs.length,
+          scheduledTasks: entry.evidence.scheduledTasks.length,
           overdueTasks: entry.evidence.overdueTasks.length,
           pendingApprovalTasks: entry.evidence.pendingApprovalTasks.length,
           hydraulicTasks: entry.evidence.hydraulicTasks.length,
           pendingFlights: entry.evidence.pendingFlights.length,
           recentRemarkFlights: entry.evidence.recentRemarkFlights.length,
           hydraulicFlights: entry.evidence.hydraulicFlights.length,
+          postInspectionNotes: entry.evidence.postInspectionNotes.length,
         },
+      scheduledTasks: entry.evidence.scheduledTasks,
       relatedRecordIds: collectRelatedRecordIds(entry.evidence),
       generatedAt: new Date().toISOString(),
     };

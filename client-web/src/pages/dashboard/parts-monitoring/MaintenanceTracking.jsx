@@ -8,6 +8,8 @@ import {
   Row,
   Space,
   Statistic,
+  Table,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -111,6 +113,36 @@ const buildNoMaintenanceIssueInsight = (item = {}) => ({
   defectDetailsSource: "none",
 });
 
+const formatScheduleDate = (value) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getTaskScheduleState = (task = {}) => {
+  const status = String(task.status || "").toLowerCase();
+  const endDate = new Date(task.endDateTime || task.dueDate || "");
+
+  if (["completed", "approved", "closed", "turned in"].includes(status)) {
+    return { label: "Completed", color: "green" };
+  }
+
+  if (!Number.isNaN(endDate.getTime()) && endDate < new Date()) {
+    return { label: "Overdue", color: "red" };
+  }
+
+  return { label: "Scheduled", color: "blue" };
+};
+
 export default function MaintenanceTracking() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
@@ -119,6 +151,8 @@ export default function MaintenanceTracking() {
   const [insights, setInsights] = useState([]);
   const [meta, setMeta] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
+  const [inspectionRemainingRows, setInspectionRemainingRows] = useState([]);
+  const [inspectionRemainingLoading, setInspectionRemainingLoading] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const llmLimit = 0;
@@ -182,17 +216,27 @@ export default function MaintenanceTracking() {
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        const [insightsResponse, healthResponse] = await Promise.all([
+        setInspectionRemainingLoading(true);
+        const [
+          insightsResponse,
+          healthResponse,
+          inspectionRemainingResponse,
+        ] = await Promise.all([
           fetch(
             `${API_BASE}/api/ai-insights/maintenance-tracking`,
             { cache: "no-store" },
           ),
           fetch(`${API_BASE}/api/ai-insights/health`, { cache: "no-store" }),
+          fetch(`${API_BASE}/api/parts-monitoring/inspection-remaining-hours`, {
+            cache: "no-store",
+          }),
         ]);
-        const [insightsResult, healthResult] = await Promise.all([
-          insightsResponse.json(),
-          healthResponse.json(),
-        ]);
+        const [insightsResult, healthResult, inspectionRemainingResult] =
+          await Promise.all([
+            insightsResponse.json(),
+            healthResponse.json(),
+            inspectionRemainingResponse.json(),
+          ]);
 
         if (!insightsResponse.ok || !insightsResult.success) {
           throw new Error(
@@ -205,6 +249,12 @@ export default function MaintenanceTracking() {
         );
         setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
+        setInspectionRemainingRows(
+          inspectionRemainingResponse.ok &&
+            Array.isArray(inspectionRemainingResult.data)
+            ? inspectionRemainingResult.data
+            : [],
+        );
         await refreshLlmHealth();
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
@@ -213,6 +263,7 @@ export default function MaintenanceTracking() {
         );
       } finally {
         setLoading(false);
+        setInspectionRemainingLoading(false);
       }
     };
 
@@ -427,6 +478,218 @@ export default function MaintenanceTracking() {
     [insights],
   );
 
+  const scheduledTaskRows = useMemo(() => {
+    const rows = insights.flatMap((insight) =>
+      (insight.scheduledTasks || []).map((task) => ({
+        ...task,
+        key: `${insight.aircraftId || insight.aircraft}-${task.id}`,
+        aircraft: task.aircraft || insight.aircraft,
+      })),
+    );
+
+    return Array.from(
+      new Map(rows.map((task) => [task.id || task.key, task])).values(),
+    ).sort((left, right) => {
+      const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
+      const rightDate = new Date(
+        right.endDateTime || right.dueDate || 0,
+      ).getTime();
+
+      return leftDate - rightDate;
+    });
+  }, [insights]);
+
+  const scheduledTaskStats = useMemo(
+    () =>
+      scheduledTaskRows.reduce(
+        (totals, task) => {
+          const state = getTaskScheduleState(task).label;
+          totals.total += 1;
+          if (state === "Overdue") totals.overdue += 1;
+          else if (state === "Completed") totals.completed += 1;
+          else totals.scheduled += 1;
+          return totals;
+        },
+        { total: 0, scheduled: 0, overdue: 0, completed: 0 },
+      ),
+    [scheduledTaskRows],
+  );
+
+  const maintenanceTrackingInsights = useMemo(() => {
+    const highestRisk =
+      insights.find((item) => ["Critical", "High"].includes(item.riskLevel)) ||
+      insights[0];
+    const overdueInspectionRows = inspectionRemainingRows.filter(
+      (row) =>
+        (Number.isFinite(Number(row.remainingHours)) &&
+          Number(row.remainingHours) <= 0) ||
+        (Number.isFinite(Number(row.remainingDays)) &&
+          Number(row.remainingDays) <= 0),
+    );
+    const nearestInspection = inspectionRemainingRows
+      .filter((row) => Number.isFinite(Number(row.remainingHours)))
+      .sort((left, right) => Number(left.remainingHours) - Number(right.remainingHours))[0];
+
+    return [
+      highestRisk
+        ? `${highestRisk.aircraft}: ${highestRisk.issueTitle} is the highest current maintenance finding (${highestRisk.riskLevel}).`
+        : "No active maintenance findings are currently detected.",
+      scheduledTaskStats.overdue > 0
+        ? `${scheduledTaskStats.overdue} scheduled task(s) are overdue and should be reviewed first.`
+        : `${scheduledTaskStats.scheduled} scheduled task(s) remain open with no overdue task detected.`,
+      overdueInspectionRows.length > 0
+        ? `${overdueInspectionRows.length} inspection interval(s) are at or past their remaining flight-hour/day limit.`
+        : nearestInspection
+          ? `${nearestInspection.aircraft} has the nearest inspection by flight hours: ${nearestInspection.inspectionName} at ${nearestInspection.remainingHours} FH remaining.`
+          : "No remaining flight-hour inspection data is available yet.",
+    ];
+  }, [inspectionRemainingRows, insights, scheduledTaskStats]);
+
+  const scheduledTaskColumns = [
+    {
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      width: 110,
+      render: (value) => <Text strong>{value || "N/A"}</Text>,
+    },
+    {
+      title: "Task",
+      dataIndex: "title",
+      key: "title",
+      width: 260,
+      render: (value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{value || "Untitled task"}</Text>
+          <Text type="secondary">
+            {record.maintenanceType || "Maintenance"} |{" "}
+            {record.checklistCount || 0} checklist item(s)
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Mechanic",
+      dataIndex: "assignedToName",
+      key: "assignedToName",
+      width: 170,
+      render: (value) => value || "Unassigned",
+    },
+    {
+      title: "Start",
+      dataIndex: "startDateTime",
+      key: "startDateTime",
+      width: 180,
+      render: formatScheduleDate,
+    },
+    {
+      title: "End / Due",
+      dataIndex: "endDateTime",
+      key: "endDateTime",
+      width: 180,
+      render: (_, record) => formatScheduleDate(record.endDateTime || record.dueDate),
+    },
+    {
+      title: "Priority",
+      dataIndex: "priority",
+      key: "priority",
+      width: 110,
+      render: (value) => (
+        <Tag color={String(value).toLowerCase() === "high" ? "orange" : "blue"}>
+          {value || "Normal"}
+        </Tag>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      width: 130,
+      render: (value, record) => {
+        const state = getTaskScheduleState(record);
+        return <Tag color={state.color}>{state.label}</Tag>;
+      },
+    },
+  ];
+
+  const inspectionRemainingColumns = [
+    {
+      title: "Aircraft",
+      dataIndex: "aircraft",
+      key: "aircraft",
+      fixed: "left",
+      width: 110,
+      render: (value) => <Text strong>{value || "N/A"}</Text>,
+    },
+    {
+      title: "Inspection",
+      dataIndex: "inspectionName",
+      key: "inspectionName",
+      width: 220,
+      render: (value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{value || "N/A"}</Text>
+          <Text type="secondary">
+            {record.flightHourInterval
+              ? `${record.flightHourInterval} FH`
+              : "Calendar"}{" "}
+            {record.calendarMonthInterval
+              ? `/ ${record.calendarMonthInterval}M`
+              : ""}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Remaining FH",
+      dataIndex: "remainingHours",
+      key: "remainingHours",
+      width: 130,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} FH`,
+    },
+    {
+      title: "Remaining Days",
+      dataIndex: "remainingDays",
+      key: "remainingDays",
+      width: 140,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} day(s)`,
+    },
+    {
+      title: "Due Date",
+      dataIndex: "dueDate",
+      key: "dueDate",
+      width: 150,
+      render: (value) => {
+        if (!value) return "N/A";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+          ? "N/A"
+          : date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+      },
+    },
+    {
+      title: "Due At",
+      dataIndex: "dueAtHours",
+      key: "dueAtHours",
+      width: 110,
+      render: (value) =>
+        value === null || value === undefined ? "N/A" : `${value} FH`,
+    },
+    {
+      title: "Source Row",
+      dataIndex: "sourceRow",
+      key: "sourceRow",
+      width: 260,
+      render: (value) => value || "No matching lifespan row",
+    },
+  ];
+
   return (
     <div
       style={{
@@ -487,10 +750,6 @@ export default function MaintenanceTracking() {
           <Title level={4} style={{ margin: 0 }}>
             AI Maintenance Tracking
           </Title>
-          <Text type="secondary">
-            AirMS now condenses maintenance, task, flight, and parts records
-            into one maintenance decision dashboard.
-          </Text>
           <Space wrap>
             {!isOfficerInCharge && (
               <Button
@@ -538,6 +797,19 @@ export default function MaintenanceTracking() {
         />
       )}
 
+      <Card>
+        <Space direction="vertical" size={6}>
+          <Title level={4} style={{ margin: 0 }}>
+            Maintenance Tracking Insights
+          </Title>
+          {maintenanceTrackingInsights.map((insight) => (
+            <Text key={insight} type="secondary">
+              {insight}
+            </Text>
+          ))}
+        </Space>
+      </Card>
+
       <Row gutter={24}>
         <Col span={24}>
           <h2>Condensed AI Findings for Maintenance Tracking</h2>
@@ -551,6 +823,66 @@ export default function MaintenanceTracking() {
           />
         </Col>
       </Row>
+      <Card>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} md={12}>
+              <Space direction="vertical" size={2}>
+                <Title level={4} style={{ margin: 0 }}>
+                  Scheduled Tasks from Task Assignment
+                </Title>
+              </Space>
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Total" value={scheduledTaskStats.total} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Scheduled" value={scheduledTaskStats.scheduled} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Statistic title="Completed" value={scheduledTaskStats.completed} />
+            </Col>
+          </Row>
+          <Table
+            columns={scheduledTaskColumns}
+            dataSource={scheduledTaskRows}
+            loading={loading}
+            size="small"
+            rowKey={(record) => record.key || record.id}
+            pagination={{ pageSize: 5, showSizeChanger: true }}
+            scroll={{ x: 1100 }}
+            locale={{ emptyText: "No scheduled tasks found." }}
+          />
+        </Space>
+      </Card>
+
+      <Card>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Space direction="vertical" size={2}>
+            <Title level={4} style={{ margin: 0 }}>
+              Remaining Flight Hours by Inspection
+            </Title>
+            <Text type="secondary">
+              Each aircraft is matched against the configured inspection schedules and parts lifespan rows.
+            </Text>
+          </Space>
+          <Table
+            columns={inspectionRemainingColumns}
+            dataSource={inspectionRemainingRows}
+            loading={loading || inspectionRemainingLoading}
+            size="small"
+            rowKey={(record) =>
+              `${record.aircraft}-${record.inspectionKey || record.inspectionName}`
+            }
+            pagination={{ pageSize: 8, showSizeChanger: true }}
+            scroll={{ x: 1120 }}
+            locale={{ emptyText: "No inspection remaining-hours data found." }}
+          />
+        </Space>
+      </Card>
     </div>
   );
 }

@@ -27,6 +27,7 @@ const postInspectionSchema = new mongoose.Schema(
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    notes: { type: String, default: "" },
     status: {
       type: String,
       enum: ["pending", "released", "completed"],
