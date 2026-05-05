@@ -119,7 +119,7 @@ export default function MTrackingTable({
               ].some(Boolean);
 
             return (
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <Space size={6} wrap>
                   <Text strong>{finding?.title || "No issue detected"}</Text>
                   <Tag color={sourceColor}>{source}</Tag>
@@ -128,7 +128,7 @@ export default function MTrackingTable({
                   {finding?.summary || "No active maintenance finding."}
                 </Text>
                 {hasDefectDetails && (
-                  <Space direction="vertical" size={2}>
+                  <Space orientation="vertical" size={2}>
                     {defectDetails.defectType && (
                       <Text>
                         <Text strong>Defect:</Text> {defectDetails.defectType}
@@ -188,7 +188,7 @@ export default function MTrackingTable({
             }
 
             return (
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 {procedure?.reference && (
                   <Text strong>{procedure.reference}</Text>
                 )}

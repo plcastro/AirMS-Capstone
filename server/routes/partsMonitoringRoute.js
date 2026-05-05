@@ -1,6 +1,8 @@
-// routes/partsMonitoringRoutes.js
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/authMiddleware");
+const { touchSessionActivity } = require("../middleware/sessionActivity");
+const { requireActionConfirmation } = require("../middleware/actionConfirmation");
 const {
   getPartsMonitoring,
   getAllPartsMonitoring,
@@ -15,20 +17,49 @@ const {
   updateAircraftTotals,
 } = require("../controllers/partsMonitoringController");
 
-// Routes
-router.get("/", getAllPartsMonitoring); // Get all records with pagination
-router.get("/aircraft-list", getAircraftList); // Get all aircraft list
+router.get("/", getAllPartsMonitoring);
+router.get("/aircraft-list", getAircraftList);
 router.get("/maintenance-priority/rules", getMaintenancePriorityRules);
-router.get("/maintenance-priority", getMaintenancePriority); // Get ranked aircraft maintenance priority
+router.get("/maintenance-priority", getMaintenancePriority);
 router.get("/inspection-remaining-hours", getInspectionRemainingHours);
-router.get("/:aircraft", getPartsMonitoring); // Get data for specific aircraft
+router.get("/:aircraft", getPartsMonitoring);
 
-router.post("/save", savePartsMonitoring); // Save or update data
-router.put("/maintenance-priority/rules", saveMaintenancePriorityRules);
+router.post(
+  "/save",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  savePartsMonitoring,
+);
+router.put(
+  "/maintenance-priority/rules",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  saveMaintenancePriorityRules,
+);
 
-router.delete("/:id", deletePartsMonitoring); // Delete by ID
-router.delete("/aircraft/:aircraft", deleteAircraftData); // Delete all data for aircraft
+router.delete(
+  "/:id",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  deletePartsMonitoring,
+);
+router.delete(
+  "/aircraft/:aircraft",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  deleteAircraftData,
+);
 
-router.put("/:aircraft/update-totals", updateAircraftTotals);
+router.put(
+  "/:aircraft/update-totals",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  updateAircraftTotals,
+);
 
 module.exports = router;

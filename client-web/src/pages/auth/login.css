@@ -35,13 +35,15 @@ body {
 }
 
 .login-container {
-  position: relative;
-  overflow: hidden;
   width: 100%;
-  max-width: 550px;
+  max-width: 750px;
+  height: 500px;
   background-color: var(--color-white);
   border-radius: 10px;
   box-shadow: 0 5px 10px var(--color-gray-light);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .login-loading-overlay {
@@ -54,7 +56,11 @@ body {
   padding: 24px;
   background:
     radial-gradient(circle at 10% 20%, rgba(36, 77, 59, 0.18), transparent 45%),
-    radial-gradient(circle at 90% 80%, rgba(38, 134, 111, 0.2), transparent 50%),
+    radial-gradient(
+      circle at 90% 80%,
+      rgba(38, 134, 111, 0.2),
+      transparent 50%
+    ),
     rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(4px);
 }

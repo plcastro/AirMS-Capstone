@@ -133,14 +133,21 @@ const MonthlyBar = ({ data, dataKey = "value", name = "Records" }) => {
         <YAxis allowDecimals={false} />
         <Tooltip />
         <Legend />
-        <Bar dataKey={dataKey} name={name} fill="#26866f" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey={dataKey}
+          name={name}
+          fill="#26866f"
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
 };
 
 const buildMonthlyData = (records) => {
-  const counts = countBy(records, (record) => monthLabel(getRecordDate(record)));
+  const counts = countBy(records, (record) =>
+    monthLabel(getRecordDate(record)),
+  );
   const order = [
     "Jan",
     "Feb",
@@ -168,8 +175,8 @@ const buildAircraftData = (records, getAircraft) =>
     .slice(0, 8);
 
 const ReportSection = ({ title, subtitle, children }) => (
-  <Space direction="vertical" size={12} style={{ width: "100%" }}>
-    <Space direction="vertical" size={0}>
+  <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+    <Space orientation="vertical" size={0}>
       <Title level={4} style={{ margin: 0 }}>
         {title}
       </Title>
@@ -181,7 +188,8 @@ const ReportSection = ({ title, subtitle, children }) => (
 
 export function FlightLogReport({ records = [], loading = false }) {
   const statusData = useMemo(
-    () => toChartData(countBy(records, (record) => normalizeStatus(record.status))),
+    () =>
+      toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
   const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
@@ -220,7 +228,13 @@ export function FlightLogReport({ records = [], loading = false }) {
         </Col>
         <Col xs={24}>
           <Card title="Aircraft Activity">
-            <MonthlyBar data={aircraftData.map((item) => ({ month: item.name, value: item.value }))} name="Logs" />
+            <MonthlyBar
+              data={aircraftData.map((item) => ({
+                month: item.name,
+                value: item.value,
+              }))}
+              name="Logs"
+            />
           </Card>
         </Col>
         <Col xs={24}>
@@ -247,12 +261,17 @@ export function InspectionReport({
   aircraftLabel = "rpc",
 }) {
   const statusData = useMemo(
-    () => toChartData(countBy(records, (record) => normalizeStatus(record.status))),
+    () =>
+      toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
   const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
   const aircraftData = useMemo(
-    () => buildAircraftData(records, (record) => record[aircraftLabel] || "Unknown"),
+    () =>
+      buildAircraftData(
+        records,
+        (record) => record[aircraftLabel] || "Unknown",
+      ),
     [records, aircraftLabel],
   );
 
@@ -294,7 +313,13 @@ export function InspectionReport({
         </Col>
         <Col xs={24}>
           <Card title="Inspections by Aircraft">
-            <MonthlyBar data={aircraftData.map((item) => ({ month: item.name, value: item.value }))} name="Inspections" />
+            <MonthlyBar
+              data={aircraftData.map((item) => ({
+                month: item.name,
+                value: item.value,
+              }))}
+              name="Inspections"
+            />
           </Card>
         </Col>
         <Col xs={24}>
@@ -316,13 +341,16 @@ export function InspectionReport({
 
 export function PartsRequisitionReport({ records = [], loading = false }) {
   const statusData = useMemo(
-    () => toChartData(countBy(records, (record) => normalizeStatus(record.status))),
+    () =>
+      toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
   const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
   const itemStatusData = useMemo(() => {
     const items = records.flatMap((record) => record.items || []);
-    return toChartData(countBy(items, (item) => normalizeStatus(item.stockStatus)));
+    return toChartData(
+      countBy(items, (item) => normalizeStatus(item.stockStatus)),
+    );
   }, [records]);
 
   const totalItems = records.reduce(
