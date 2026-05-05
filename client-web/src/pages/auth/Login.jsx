@@ -33,13 +33,12 @@ const Login = () => {
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
-    const savedPassword = localStorage.getItem("rememberedPassword");
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
-        password: savedPassword || "",
+        password: "",
       });
       setRememberMe(true);
     }
@@ -58,9 +57,9 @@ const Login = () => {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false"); // triggers other tabs
+      localStorage.setItem("rememberMe", "false"); 
       localStorage.removeItem("rememberedIdentifier");
-      localStorage.removeItem("rememberedPassword");
+
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -82,7 +81,12 @@ const Login = () => {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password, client: "web" }),
+        body: JSON.stringify({
+          identifier,
+          password,
+          client: "web",
+          rememberMe,
+        }),
         credentials: "include",
       });
 
@@ -103,18 +107,17 @@ const Login = () => {
           );
           return;
         }
-        await loginUser(data.user, data.token);
+        await loginUser(data.user, data.token, { rememberMe });
 
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
-          localStorage.setItem("rememberedPassword", formData.password.trim());
+         
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("rememberedIdentifier");
-          localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
         message.success("Logged in successfully!");
@@ -232,6 +235,7 @@ const Login = () => {
           type="primary"
           className="login-btn"
           disabled={loading}
+          size="large"
         >
           {loading ? "PLEASE WAIT..." : "LOGIN"}
         </Button>

@@ -1,47 +1,80 @@
 const { EventEmitter } = require("events");
+const WebSocket = require("ws");
 
-const realtimeBus = new EventEmitter();
-const clients = new Set();
+const bus = new EventEmitter();
 
-const sseHeaders = {
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache, no-transform",
-  Connection: "keep-alive",
-  "X-Accel-Buffering": "no",
-};
+// SSE clients
+const sseClients = new Set();
 
-const pushToClient = (res, event, payload) => {
-  res.write(`event: ${event}\n`);
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
-};
+// WebSocket server (will be initialized later)
+let wss = null;
 
-const subscribeToEvents = (req, res) => {
-  res.writeHead(200, sseHeaders);
-  res.write(": connected\n\n");
+/* =========================
+   SSE (Server-Sent Events)
+========================= */
+const subscribeSSE = (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
 
-  clients.add(res);
+  res.write("event: connected\ndata: {}\n\n");
 
-  const heartbeat = setInterval(() => {
-    res.write(": heartbeat\n\n");
+  sseClients.add(res);
+
+  const interval = setInterval(() => {
+    res.write(": ping\n\n"); // keep alive
   }, 25000);
 
   req.on("close", () => {
-    clearInterval(heartbeat);
-    clients.delete(res);
+    clearInterval(interval);
+    sseClients.delete(res);
   });
 };
 
-const publishEvent = (event, payload) => {
-  realtimeBus.emit(event, payload);
+/* =========================
+   WebSocket
+========================= */
+const initWebSocket = (server) => {
+  wss = new WebSocket.Server({ server });
+
+  wss.on("connection", (ws) => {
+    console.log("WS connected");
+
+    ws.on("close", () => {
+      console.log("WS disconnected");
+    });
+  });
 };
 
-realtimeBus.on("airms:data-changed", (payload) => {
-  for (const client of clients) {
-    pushToClient(client, "data-changed", payload);
+const broadcast = (event, data) => {
+  const payload = JSON.stringify({ event, data });
+
+  for (const client of sseClients) {
+    client.write(`event: ${event}\n`);
+    client.write(`data: ${JSON.stringify(data)}\n\n`);
   }
+
+  if (wss) {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    });
+  }
+};
+
+const publishEvent = (event, data) => {
+  bus.emit(event, data);
+};
+
+bus.on("airms:data-changed", (data) => {
+  broadcast("data-changed", data);
 });
 
 module.exports = {
-  subscribeToEvents,
+  subscribeSSE,
   publishEvent,
+  initWebSocket,
 };

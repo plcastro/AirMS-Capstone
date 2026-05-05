@@ -86,7 +86,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <Card className="forgot-password-container">
+    <Card className="login-container">
       <Row justify="center" style={{ marginBottom: 20 }}>
         <Col span={24} style={{ textAlign: "center" }}>
           <Title level={2}>Forgot Password</Title>

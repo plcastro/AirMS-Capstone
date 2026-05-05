@@ -20,7 +20,8 @@ import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
 
-const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const removeRedundantAircraftPrefix = (summary, aircraft) => {
   const text = String(summary || "").trim();
@@ -31,7 +32,10 @@ const removeRedundantAircraftPrefix = (summary, aircraft) => {
 
   const aircraftPattern = escapeRegExp(aircraft);
   return text
-    .replace(new RegExp(`^for\\s+aircraft\\s+${aircraftPattern}\\s*[,;-]?\\s*`, "i"), "")
+    .replace(
+      new RegExp(`^for\\s+aircraft\\s+${aircraftPattern}\\s*[,;-]?\\s*`, "i"),
+      "",
+    )
     .replace(new RegExp(`^for\\s+${aircraftPattern}\\s*[,;-]?\\s*`, "i"), "")
     .trim();
 };
@@ -146,14 +150,16 @@ const getTaskScheduleState = (task = {}) => {
 
 export default function MaintenanceTracking() {
   const { user, getAuthHeader } = useContext(AuthContext);
-  const isOfficerInCharge = user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const isOfficerInCharge =
+    user?.jobTitle?.toLowerCase() === "officer-in-charge";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
   const [meta, setMeta] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
   const [inspectionRemainingRows, setInspectionRemainingRows] = useState([]);
-  const [inspectionRemainingLoading, setInspectionRemainingLoading] = useState(false);
+  const [inspectionRemainingLoading, setInspectionRemainingLoading] =
+    useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
@@ -219,20 +225,19 @@ export default function MaintenanceTracking() {
       try {
         setLoading(true);
         setInspectionRemainingLoading(true);
-        const [
-          insightsResponse,
-          healthResponse,
-          inspectionRemainingResponse,
-        ] = await Promise.all([
-          fetch(
-            `${API_BASE}/api/ai-insights/maintenance-tracking`,
-            { cache: "no-store" },
-          ),
-          fetch(`${API_BASE}/api/ai-insights/health`, { cache: "no-store" }),
-          fetch(`${API_BASE}/api/parts-monitoring/inspection-remaining-hours`, {
-            cache: "no-store",
-          }),
-        ]);
+        const [insightsResponse, healthResponse, inspectionRemainingResponse] =
+          await Promise.all([
+            fetch(`${API_BASE}/api/ai-insights/maintenance-tracking`, {
+              cache: "no-store",
+            }),
+            fetch(`${API_BASE}/api/ai-insights/health`, { cache: "no-store" }),
+            fetch(
+              `${API_BASE}/api/parts-monitoring/inspection-remaining-hours`,
+              {
+                cache: "no-store",
+              },
+            ),
+          ]);
         const [insightsResult, healthResult, inspectionRemainingResult] =
           await Promise.all([
             insightsResponse.json(),
@@ -387,14 +392,17 @@ export default function MaintenanceTracking() {
 
   const markFindingRectified = async (draft = {}) => {
     const authHeader = await getAuthHeader();
-    const response = await fetch(`${API_BASE}/api/ai-insights/rectification-task`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
+    const response = await fetch(
+      `${API_BASE}/api/ai-insights/rectification-task`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify(draft),
       },
-      body: JSON.stringify(draft),
-    });
+    );
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || !result.success) {
@@ -455,9 +463,7 @@ export default function MaintenanceTracking() {
             defectDetails: item.defectDetails || null,
             source: isAiFinding ? "OpenAI" : "Rule-based",
           },
-          managerSummarySource: isAiFinding
-            ? "OpenAI"
-            : "Rule Fallback",
+          managerSummarySource: isAiFinding ? "OpenAI" : "Rule Fallback",
           recommendedAction: isAiFinding ? item.recommendedAction || "" : "",
           procedureSummary: {
             reference: isAiFinding ? item.procedureReference || "" : "",
@@ -530,7 +536,9 @@ export default function MaintenanceTracking() {
     return Array.from(
       new Map(rows.map((task) => [task.id || task.key, task])).values(),
     ).sort((left, right) => {
-      const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
+      const leftDate = new Date(
+        left.endDateTime || left.dueDate || 0,
+      ).getTime();
       const rightDate = new Date(
         right.endDateTime || right.dueDate || 0,
       ).getTime();
@@ -557,8 +565,9 @@ export default function MaintenanceTracking() {
 
   const maintenanceTrackingInsights = useMemo(() => {
     const highestRisk =
-      filteredInsights.find((item) => ["Critical", "High"].includes(item.riskLevel)) ||
-      filteredInsights[0];
+      filteredInsights.find((item) =>
+        ["Critical", "High"].includes(item.riskLevel),
+      ) || filteredInsights[0];
     const overdueInspectionRows = filteredInspectionRemainingRows.filter(
       (row) =>
         (Number.isFinite(Number(row.remainingHours)) &&
@@ -568,7 +577,10 @@ export default function MaintenanceTracking() {
     );
     const nearestInspection = filteredInspectionRemainingRows
       .filter((row) => Number.isFinite(Number(row.remainingHours)))
-      .sort((left, right) => Number(left.remainingHours) - Number(right.remainingHours))[0];
+      .sort(
+        (left, right) =>
+          Number(left.remainingHours) - Number(right.remainingHours),
+      )[0];
 
     return [
       highestRisk
@@ -599,7 +611,7 @@ export default function MaintenanceTracking() {
       key: "title",
       width: 260,
       render: (value, record) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Text>{value || "Untitled task"}</Text>
           <Text type="secondary">
             {record.maintenanceType || "Maintenance"} |{" "}
@@ -627,7 +639,8 @@ export default function MaintenanceTracking() {
       dataIndex: "endDateTime",
       key: "endDateTime",
       width: 180,
-      render: (_, record) => formatScheduleDate(record.endDateTime || record.dueDate),
+      render: (_, record) =>
+        formatScheduleDate(record.endDateTime || record.dueDate),
     },
     {
       title: "Priority",
@@ -667,7 +680,7 @@ export default function MaintenanceTracking() {
       key: "inspectionName",
       width: 220,
       render: (value, record) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Text>{value || "N/A"}</Text>
           <Text type="secondary">
             {record.flightHourInterval
@@ -798,7 +811,9 @@ export default function MaintenanceTracking() {
                     type="primary"
                     onClick={fetchLlmSummaries}
                     loading={summaryLoading}
-                    disabled={!llmHealth?.configured || llmHealth?.cooldown?.active}
+                    disabled={
+                      !llmHealth?.configured || llmHealth?.cooldown?.active
+                    }
                   >
                     {llmHealth?.cooldown?.active
                       ? `OpenAI cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
@@ -806,8 +821,10 @@ export default function MaintenanceTracking() {
                   </Button>
                 )}
                 <Text type="secondary">
-                  Rule-engine results load first. Use Regenerate to request OpenAI enrichment for detected issues.
-                  When OpenAI enriches a finding, AirMS selects the recommendation and reference from the matched rules.
+                  Rule-engine results load first. Use Regenerate to request
+                  OpenAI enrichment for detected issues. When OpenAI enriches a
+                  finding, AirMS selects the recommendation and reference from
+                  the matched rules.
                   {!isOfficerInCharge &&
                     " Use the button to retry or refresh all detected maintenance issues."}
                 </Text>
@@ -815,7 +832,7 @@ export default function MaintenanceTracking() {
             </Space>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Space direction="vertical" size={4} style={{ width: "100%" }}>
+            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
               <Text strong>Aircraft Filter</Text>
               <Select
                 value={selectedAircraftFilter}
@@ -861,7 +878,7 @@ export default function MaintenanceTracking() {
       )}
 
       <Card>
-        <Space direction="vertical" size={6}>
+        <Space orientation="vertical" size={6}>
           <Title level={4} style={{ margin: 0 }}>
             Maintenance Tracking Insights
           </Title>
@@ -887,10 +904,10 @@ export default function MaintenanceTracking() {
         </Col>
       </Row>
       <Card>
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} md={12}>
-              <Space direction="vertical" size={2}>
+              <Space orientation="vertical" size={2}>
                 <Title level={4} style={{ margin: 0 }}>
                   Scheduled Tasks from Task Assignment
                 </Title>
@@ -900,13 +917,19 @@ export default function MaintenanceTracking() {
               <Statistic title="Total" value={scheduledTaskStats.total} />
             </Col>
             <Col xs={12} sm={6} md={3}>
-              <Statistic title="Scheduled" value={scheduledTaskStats.scheduled} />
+              <Statistic
+                title="Scheduled"
+                value={scheduledTaskStats.scheduled}
+              />
             </Col>
             <Col xs={12} sm={6} md={3}>
               <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
             </Col>
             <Col xs={12} sm={6} md={3}>
-              <Statistic title="Completed" value={scheduledTaskStats.completed} />
+              <Statistic
+                title="Completed"
+                value={scheduledTaskStats.completed}
+              />
             </Col>
           </Row>
           <Table
@@ -923,13 +946,14 @@ export default function MaintenanceTracking() {
       </Card>
 
       <Card>
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
-          <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={2}>
             <Title level={4} style={{ margin: 0 }}>
               Remaining Flight Hours by Inspection
             </Title>
             <Text type="secondary">
-              Each aircraft is matched against the configured inspection schedules and parts lifespan rows.
+              Each aircraft is matched against the configured inspection
+              schedules and parts lifespan rows.
             </Text>
           </Space>
           <Table
