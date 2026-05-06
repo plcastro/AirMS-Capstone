@@ -22,7 +22,7 @@ export default function LoginLayout({
             <img src={AirMS_web} alt="logo" style={{ width: isMobile ? 170 : 200 }} />
           </Col>
           <Col span={24} style={{ display: "flex", justifyContent: "center", textAlign: "center" }}>
-            <Text style={{ fontWeight: 200 }}>
+            <Text style={{ fontWeight: 500 }}>
               AIRCRAFT MAINTENANCE MANAGEMENT SYSTEM
             </Text>
           </Col>
@@ -39,7 +39,7 @@ export default function LoginLayout({
           </Title>
         </Col>
         <Col span={24}>
-          <Text style={{ fontWeight: "lighter" }}>{subtitle}</Text>
+          <Text style={{ fontWeight: 500 }}>{subtitle}</Text>
         </Col>
       </Row>
 
