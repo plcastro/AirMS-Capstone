@@ -31,6 +31,9 @@ export const AuthProvider = ({ children }) => {
   const getStorageByMode = (mode) =>
     mode === "local" ? localStorage : sessionStorage;
 
+  const getStoredToken = () =>
+    localStorage.getItem("token") || sessionStorage.getItem("token");
+
   const getStoredPersistenceMode = () => {
     const mode = localStorage.getItem(AUTH_PERSISTENCE_KEY);
     return mode === "local" ? "local" : "session";
@@ -200,7 +203,9 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token");
+      const error = new Error("Failed to refresh token");
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json();
@@ -229,8 +234,14 @@ export const AuthProvider = ({ children }) => {
           fallbackStorage.getItem("currentUser");
         const token =
           primaryStorage.getItem("token") || fallbackStorage.getItem("token");
+        const hasKnownAuthState = Boolean(storedUser || token);
 
         if (!storedUser) {
+          if (!hasKnownAuthState) {
+            setUser(null);
+            return;
+          }
+
           try {
             const refreshedToken = await refreshAccessToken();
             const payload = getTokenPayload(refreshedToken);
@@ -337,7 +348,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getValidToken = async () => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
 
     if (token && isTokenValid(token)) {
       scheduleTokenExpiryLogout(token, () => logoutUser());
@@ -393,7 +404,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  if (loading) return null;
   return (
     <AuthContext.Provider
       value={{

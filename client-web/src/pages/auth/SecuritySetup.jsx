@@ -12,6 +12,7 @@ import {
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import "./login.css";
+import LoginLayout from "../../components/layout/LoginLayout";
 
 const { Title, Text } = Typography;
 
@@ -30,6 +31,7 @@ const SecuritySetup = () => {
   });
   const [, setSetupSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
@@ -79,6 +81,7 @@ const SecuritySetup = () => {
 
     // Submit
     try {
+      setSubmitting(true);
       const res = await fetch(`${API_BASE}/api/user/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +104,8 @@ const SecuritySetup = () => {
     } catch (err) {
       console.error(err);
       antMessage.error(err.message || "Activation failed. Try again later.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -140,16 +145,10 @@ const SecuritySetup = () => {
   });
 
   return (
-    <Card style={{ margin: "20px 0" }}>
-      <Row align={"middle"} justify={"center"}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2}>Security Setup</Title>
-        </Col>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Text>Set your new password and PIN to proceed</Text>
-        </Col>
-      </Row>
-
+    <LoginLayout
+      title="Security Setup"
+      subtitle="Set your new password and PIN to proceed"
+    >
       <Form layout="vertical" onFinish={validateAndSubmit}>
         <Form.Item label="New Password" required>
           <Input.Password
@@ -211,9 +210,11 @@ const SecuritySetup = () => {
             htmlType="submit"
             size="large"
             disabled={!isFormValid}
+            loading={submitting}
             block
+            className="login-btn"
           >
-            SET PASSWORD & PIN
+            {submitting ? "SETTING UP..." : "SET PASSWORD & PIN"}
           </Button>
         </Form.Item>
 
@@ -230,10 +231,13 @@ const SecuritySetup = () => {
         </Form.Item>
 
         <div style={{ marginTop: "20px" }}>
-          Already activated? <Link to="/login">Go to Login</Link>
+          Already activated?{" "}
+          <Link to="/login" className="link">
+            Go to Login
+          </Link>
         </div>
       </Form>
-    </Card>
+    </LoginLayout>
   );
 };
 
