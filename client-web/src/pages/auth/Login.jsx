@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import "./login.css";
 import {
   App,
-  Card,
   Input,
   Checkbox,
   Button,
@@ -15,9 +14,11 @@ import {
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
-import AirMSLogo from "../../assets/AirMS_logo.png";
+import LoginLayout from "../../components/layout/LoginLayout";
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import AirMSLogo from "../../assets/AirMS_web.png";
+const { Text } = Typography;
 
-const { Title, Text } = Typography;
 const Login = () => {
   const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
@@ -29,7 +30,6 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
@@ -57,9 +57,8 @@ const Login = () => {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false"); 
+      localStorage.setItem("rememberMe", "false");
       localStorage.removeItem("rememberedIdentifier");
-
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -90,15 +89,11 @@ const Login = () => {
         credentials: "include",
       });
 
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("Non-JSON response from server:", text);
-        setError("Server error. Please try again later.");
-        return;
-      }
+      const contentType = response.headers.get("content-type") || "";
+      const isJsonResponse = contentType.includes("application/json");
+      const data = isJsonResponse
+        ? await response.json()
+        : { message: (await response.text()) || "Login failed" };
 
       if (response.ok) {
         if (data.requireSetup) {
@@ -114,7 +109,7 @@ const Login = () => {
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
-         
+
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("rememberedIdentifier");
@@ -123,7 +118,14 @@ const Login = () => {
         message.success("Logged in successfully!");
         handleNavigate(data.user);
       } else {
-        setError(data.message || "Login failed");
+        if (response.status === 429) {
+          setError(
+            data.message ||
+              "Too many login attempts. Please wait a few minutes and try again.",
+          );
+        } else {
+          setError(data.message || "Login failed");
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -158,89 +160,7 @@ const Login = () => {
     }
   };
   return (
-    <Card className="login-container">
-      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2} className="title">
-            Login
-          </Title>
-          <Text>Please enter your AirMS account details to log in</Text>
-        </Col>
-      </Row>
-
-      <Form layout="vertical" onFinish={handleSubmit}>
-        <Form.Item label="Username or Email" required>
-          <Input
-            type="text"
-            id="identifier"
-            size="large"
-            placeholder="Enter username or email"
-            value={formData.identifier}
-            onChange={handleInputChange}
-            autoComplete="username"
-            required
-            allowClear
-          />
-        </Form.Item>
-
-        <Form.Item label="Password" required>
-          <Input.Password
-            id="password"
-            placeholder="Enter password"
-            size="large"
-            value={formData.password}
-            onChange={handleInputChange}
-            autoComplete="current-password"
-            required
-            allowClear
-          />
-          <Row>{error && <Text type="danger">{error}</Text>}</Row>
-        </Form.Item>
-
-        <Row
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            marginBottom: 10,
-          }}
-        >
-          <Col lg={12}>
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onChange={handleRememberMeChange}
-            >
-              Remember Me
-            </Checkbox>
-          </Col>
-          <Col lg={12} style={{ textAlign: "right" }}>
-            <Link
-              to="/forgot"
-              className="forgot-password"
-              state={{
-                email: formData.identifier.includes("@")
-                  ? formData.identifier.trim()
-                  : "",
-              }}
-            >
-              Forgot password?
-            </Link>
-          </Col>
-        </Row>
-
-        <Button
-          htmlType="submit"
-          type="primary"
-          className="login-btn"
-          disabled={loading}
-          size="large"
-        >
-          {loading ? "PLEASE WAIT..." : "LOGIN"}
-        </Button>
-      </Form>
-
+    <>
       {loading && (
         <div
           className="login-loading-overlay"
@@ -257,7 +177,72 @@ const Login = () => {
           </div>
         </div>
       )}
-    </Card>
+
+      <LoginLayout>
+        <Form
+          layout="vertical"
+          onFinish={handleSubmit}
+          className="login-form-modern"
+        >
+          <Form.Item label="Username or Email" required>
+            <Input
+              type="text"
+              id="identifier"
+              size="large"
+              placeholder="Enter username or email"
+              value={formData.identifier}
+              onChange={handleInputChange}
+              autoComplete="username"
+              required
+              allowClear
+              prefix={<UserOutlined />}
+            />
+          </Form.Item>
+
+          <Form.Item label="Password" required>
+            <Input.Password
+              id="password"
+              placeholder="Enter password"
+              size="large"
+              value={formData.password}
+              onChange={handleInputChange}
+              autoComplete="current-password"
+              required
+              allowClear
+              prefix={<LockOutlined />}
+            />
+            {error && <Text type="danger">{error}</Text>}
+          </Form.Item>
+
+          <Row className="login-form-meta">
+            <Col xs={24} sm={12}>
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onChange={handleRememberMeChange}
+              >
+                Remember Me
+              </Checkbox>
+            </Col>
+            <Col xs={24} sm={12} className="login-forgot-col">
+              <Link to="/forgot" className="link">
+                Forgot password?
+              </Link>
+            </Col>
+          </Row>
+
+          <Button
+            htmlType="submit"
+            type="primary"
+            className="login-btn"
+            disabled={loading}
+            size="large"
+          >
+            {loading ? "PLEASE WAIT..." : "LOGIN"}
+          </Button>
+        </Form>
+      </LoginLayout>
+    </>
   );
 };
 

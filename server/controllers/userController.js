@@ -116,7 +116,7 @@ const revokeRefreshTokenByHash = async (
       revokedReason: reason,
       replacedByTokenHash,
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
 const revokeAllUserRefreshTokens = async (userId, reason) => {
@@ -681,7 +681,7 @@ const registerMobilePushDevice = async (req, res) => {
           },
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     res.status(200).json({ success: true });
@@ -984,7 +984,7 @@ const updateUser = async (req, res) => {
     };
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 
@@ -1167,7 +1167,7 @@ const updateUserImage = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { $set: { image: newImagePath } },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedUser) {
