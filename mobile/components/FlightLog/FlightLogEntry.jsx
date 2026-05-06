@@ -20,6 +20,7 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
@@ -27,6 +28,12 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    closeOnFinish: false,
+  });
   const scrollViewRef = useRef(null);
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
@@ -165,7 +172,9 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         sortBy: "createdAt",
         sortOrder: "desc",
       });
-      const response = await fetch(`${API_BASE}/api/flightlogs?${params.toString()}`);
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -189,21 +198,26 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     const tf = componentData.thisFlightData || {};
     const calculated = {
       airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      gearBoxMain:
+        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
       engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
       cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
       cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      landingCycle:
+        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
       usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
     };
     setToDateData(calculated);
     // Also sync to componentData.toDateData for saving
-    setComponentData(prev => ({ ...prev, toDateData: calculated }));
+    setComponentData((prev) => ({ ...prev, toDateData: calculated }));
   }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
   // Populate Brought Forward from previous To Date, falling back to aircraft reference totals.
@@ -229,7 +243,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         broughtForwardData: {
           ...prev.broughtForwardData,
           ...nextBroughtForward,
-          usage: prev.broughtForwardData?.usage || nextBroughtForward.usage || "",
+          usage:
+            prev.broughtForwardData?.usage || nextBroughtForward.usage || "",
         },
       }));
     };
@@ -269,7 +284,8 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const isBasicInfoEditable = true;
   const isDestinationsEditable = isPilot;
   const isMechanicSectionEditable = isMechanic;
-  const isWorkDoneEditable = isMechanic && formData.status === "pending_release";
+  const isWorkDoneEditable =
+    isMechanic && formData.status === "pending_release";
   const isDiscrepancyEditable = true;
 
   useEffect(() => {
@@ -464,20 +480,24 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   };
 
   const buildFlightLogPayload = (nextFormData) => {
-
     // Ensure toDateData is up‑to‑date before saving
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
     const finalToDateData = {
       airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
-      gearBoxMain: (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
-      gearBoxTail: (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
-      rotorMain: (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
-      rotorTail: (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
+      gearBoxMain:
+        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+      gearBoxTail:
+        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+      rotorMain:
+        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+      rotorTail:
+        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
       engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
       cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
       cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
-      landingCycle: (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
+      landingCycle:
+        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
       usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
@@ -499,7 +519,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     };
   };
 
-  const handleRelease = (signature) => {
+  const handleRelease = async (signature) => {
     if (!formData.rpc || formData.rpc.trim() === "") {
       showToast("Aircraft RPC is required");
       return;
@@ -517,8 +537,16 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
     setFormData(updatedFormData);
     setShowReleaseModal(false);
-    onSave(buildFlightLogPayload(updatedFormData));
-    showToast("Flight log has been released");
+    await onSave(buildFlightLogPayload(updatedFormData), {
+      closeOnSave: false,
+      showToast: false,
+    });
+    setFeedbackAlert({
+      visible: true,
+      title: "Success",
+      message: "Flight log has been released",
+      closeOnFinish: true,
+    });
   };
 
   const handleSave = () => {
@@ -578,11 +606,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
         );
 
       case "To Date":
-        return (
-          <FlightLogModalToDate
-            componentData={toDateData}
-          />
-        );
+        return <FlightLogModalToDate componentData={toDateData} />;
 
       case "Fuel Servicing":
         return (
@@ -631,12 +655,42 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
+        <View style={{ backgroundColor: "#F9F9F9", paddingTop: 16 }}>
+          {/* HEADER ROW */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 16,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600" }}>
+              Select Section
+            </Text>
 
-        <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* TABS */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              gap: 12,
+              paddingBottom: 12,
+            }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
@@ -657,7 +711,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -669,25 +723,13 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             ))}
           </ScrollView>
 
+          {/* DIVIDER */}
           <View
             style={{
               height: 1,
               backgroundColor: COLORS.grayMedium,
-              marginTop: 12,
             }}
           />
-
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -714,7 +756,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
                   style={{
                     color: COLORS.white,
                     fontWeight: "600",
-                    fontSize: 16,
+                    fontSize: 12,
                   }}
                 >
                   Release
@@ -747,7 +789,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>
@@ -784,6 +826,28 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <FlightLogSignatureModal
+          visible={showReleaseModal}
+          title="Release Signature"
+          onClose={() => setShowReleaseModal(false)}
+          onSave={handleRelease}
+          aircraftRPC={formData.rpc}
+        />
+
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
+        />
       </SafeAreaView>
     </Modal>
   );

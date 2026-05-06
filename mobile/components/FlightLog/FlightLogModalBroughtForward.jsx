@@ -15,7 +15,7 @@ export default function FlightLogModalBroughtForward({
 
     return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </Text>
       <TextInput
@@ -24,7 +24,7 @@ export default function FlightLogModalBroughtForward({
           borderRadius: 4,
           height: 38,
           paddingHorizontal: 10,
-          fontSize: 14,
+          fontSize: 12,
           color: editable ? COLORS.black : COLORS.grayDark,
         }}
         value={componentData[field]?.toString() || ""}
@@ -60,7 +60,7 @@ export default function FlightLogModalBroughtForward({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Brought Forward
           </Text>
         </View>
@@ -76,8 +76,8 @@ export default function FlightLogModalBroughtForward({
           {renderField("Cycle N2", "cycleN2")}
           {renderField("Usage", "usage")}
           {renderField("Landing Cycle", "landingCycle")}
-          {renderField("Airframe Next Insp", "airframeNextInsp")}
-          {renderField("Engine Next Insp", "engineNextInsp")}
+          {renderField("Aircraft Insp. Next Due At", "airframeNextInsp")}
+          {renderField("Engine Insp. Next Due At", "engineNextInsp")}
         </View>
       </View>
     </ScrollView>

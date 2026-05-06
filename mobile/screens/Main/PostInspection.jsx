@@ -15,7 +15,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
-import { exportPostInspectionPdf } from "../../utilities/pdfExport";
+import {
+  exportPostInspectionTemplatePdf,
+  exportPostInspectionToWord,
+} from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 const getDisplayStatus = (status) =>
@@ -160,7 +163,17 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    await exportPostInspectionPdf(inspection);
+    Alert.alert("Export Post-Inspection", "Choose export format", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "PDF",
+        onPress: () => exportPostInspectionTemplatePdf(inspection),
+      },
+      {
+        text: "Word Template",
+        onPress: () => exportPostInspectionToWord(inspection),
+      },
+    ]);
   };
 
   const selectAircraft = (aircraft) => {
@@ -318,7 +331,7 @@ export default function PostInspection({ route }) {
               <Text
                 style={{
                   marginTop: 10,
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   textAlign: "center",
                 }}
@@ -346,7 +359,7 @@ export default function PostInspection({ route }) {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
-        onSave={async (updatedInspection) => {
+        onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
@@ -371,9 +384,13 @@ export default function PostInspection({ route }) {
                 inspection._id === data.data._id ? data.data : inspection,
               ),
             );
-            setShowEditModal(false);
-            setSelectedInspection(null);
-            showToast("Post-inspection updated successfully");
+            if (options.closeOnSave) {
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              showToast("Post-inspection updated successfully");
+            } else {
+              setSelectedInspection(data.data);
+            }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
             showToast("Failed to update post-inspection");

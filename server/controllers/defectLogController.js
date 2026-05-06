@@ -20,7 +20,7 @@ const createDefectLog = async (req, res) => {
 
     await auditLog(
       `Defect log created by ${reportedBy} for ${aircraft_model}`,
-      null,
+      req.user?.id || null,
     );
 
     res.status(201).json({ message: "Defect log created", data: newLog });
@@ -68,7 +68,7 @@ const updateDefectLog = async (req, res) => {
     if (!updatedLog)
       return res.status(404).json({ message: "Defect log not found" });
 
-    await auditLog(`Defect log updated: ${req.params.id}`, null);
+    await auditLog(`Defect log updated: ${req.params.id}`, req.user?.id || null);
 
     res
       .status(200)
@@ -86,7 +86,7 @@ const deleteDefectLog = async (req, res) => {
     if (!deletedLog)
       return res.status(404).json({ message: "Defect log not found" });
 
-    await auditLog(`Defect log deleted: ${req.params.id}`, null);
+    await auditLog(`Defect log deleted: ${req.params.id}`, req.user?.id || null);
 
     res
       .status(200)

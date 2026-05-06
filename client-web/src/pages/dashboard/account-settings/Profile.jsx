@@ -183,7 +183,7 @@ export default function Profile() {
               {isEditing ? (
                 <Row gutter={[16, 16]}>
                   <Col xs={24} md={12}>
-                    <Form.Item label="First Name">
+                    <Form.Item label="First Name" required>
                       <Input
                         value={formData.firstName}
                         size="large"
@@ -194,7 +194,7 @@ export default function Profile() {
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
-                    <Form.Item label="Last Name">
+                    <Form.Item label="Last Name" required>
                       <Input
                         value={formData.lastName}
                         size="large"
@@ -284,7 +284,7 @@ export default function Profile() {
             >
               <Space orientation="vertical" size={4}>
                 <Title level={3} style={{ margin: 0 }}>
-                  Account Settings
+                  Profile Settings
                 </Title>
                 <Text type="secondary">
                   Manage your profile details, picture, and security

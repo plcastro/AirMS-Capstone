@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   Input,
   Button,
@@ -15,8 +16,8 @@ import { API_BASE } from "../../utils/API_BASE";
 const { Title, Text } = Typography;
 export default function ForgotPassword() {
   const nav = useNavigate();
-
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const [email, setEmail] = useState(location.state?.email || "");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -85,7 +86,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <Card className="forgot-password-container">
+    <Card className="login-container">
       <Row justify="center" style={{ marginBottom: 20 }}>
         <Col span={24} style={{ textAlign: "center" }}>
           <Title level={2}>Forgot Password</Title>

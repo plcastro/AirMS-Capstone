@@ -45,13 +45,13 @@ export default function FlightLogModalComponentTimes({
     { label: "Gear Box (TAIL)", key: "gearBoxTail" },
     { label: "Rotor (MAIN)", key: "rotorMain" },
     { label: "Rotor (TAIL)", key: "rotorTail" },  
-    { label: "Airframe Next Insp. Due At", key: "airframeNextInsp" },
+    { label: "Aircraft Insp. Next Due At", key: "airframeNextInsp" },
     { label: "Engine", key: "engine" },
     { label: "Cycle (N1)", key: "cycleN1" },
     { label: "Cycle (N2)", key: "cycleN2" },
     { label: "Usage", key: "usage" },
     { label: "Landing Cycle", key: "landingCycle" },
-    { label: "Engine Next Insp. Due At", key: "engineNextInsp" },
+    { label: "Engine Insp. Next Due At", key: "engineNextInsp" },
   ];
 
   const renderField = (label, fieldKey) => {
@@ -64,7 +64,7 @@ export default function FlightLogModalComponentTimes({
       <View style={{ marginBottom: 16 }}>
         <Text
           style={{
-            fontSize: 13,
+            fontSize: 12,
             color: COLORS.black,
             marginBottom: 6,
             fontWeight: "500",
@@ -78,16 +78,20 @@ export default function FlightLogModalComponentTimes({
             borderRadius: 6,
             height: 42,
             paddingHorizontal: 12,
-            fontSize: 14,
+            fontSize: 12,
             color: isFieldEditable ? COLORS.black : COLORS.grayDark,
           }}
           value={value}
           onChangeText={(text) => onUpdateComponent(fieldKey, text)}
-          keyboardType="numeric"
+          keyboardType={
+            fieldKey === "airframeNextInsp" || fieldKey === "engineNextInsp"
+              ? "default"
+              : "numeric"
+          }
           editable={isFieldEditable}
         />
         {isLocked && (
-          <Text style={{ fontSize: 10, color: COLORS.grayDark, marginTop: 4 }}>
+          <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}>
             This section is locked and cannot be edited
           </Text>
         )}
@@ -105,7 +109,7 @@ export default function FlightLogModalComponentTimes({
     <ScrollView showsVerticalScrollIndicator={false}>
       <Text
         style={{
-          fontSize: 20,
+          fontSize: 12,
           fontWeight: "700",
           color: COLORS.grayDark,
           marginBottom: 16,
@@ -136,7 +140,7 @@ export default function FlightLogModalComponentTimes({
           }}
         >
           <Text
-            style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}
           >
             {getPageTitle()}
             {isLocked && currentComponentPage === 0 && (

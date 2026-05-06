@@ -3,13 +3,16 @@
     "name": "AirMS",
     "slug": "AirMS",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-
     "splash": {
       "image": "./assets/AirMS_web.png",
       "resizeMode": "contain",
@@ -17,10 +20,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ngcp-aviation-dept.airms"
+      "bundleIdentifier": "com.airms"
     },
     "android": {
-      "package": "com.ngcp-aviation-dept.airms",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.airms",
+      "softwareKeyboardLayoutMode": "resize",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
@@ -47,6 +56,11 @@
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "da1fb019-e4e9-4be0-b593-d58faac70084"
+      }
+    }
   }
 }

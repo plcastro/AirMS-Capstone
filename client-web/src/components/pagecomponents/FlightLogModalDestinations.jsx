@@ -36,7 +36,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
             </div>
             <div className="fl-card-body">
               <div className="fl-field-row">
-                <span className="fl-label">Station:</span>
+                <span className="fl-label">Station: *</span>
                 <div style={{ flex: 1 }}>
                   {leg.stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">

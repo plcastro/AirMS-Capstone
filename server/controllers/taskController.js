@@ -204,9 +204,29 @@ const buildWritableTaskUpdate = (taskData) => {
   return writableTask;
 };
 
+const validateTaskSchedule = (taskData = {}) => {
+  const startDate = toValidDate(taskData.startDateTime);
+  const endDate = toValidDate(taskData.endDateTime);
+
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  if (endDate.getTime() <= startDate.getTime()) {
+    return "End date/time must be after the start date/time.";
+  }
+
+  return null;
+};
+
 const createTask = async (req, res) => {
   try {
     const taskData = prepareTaskUpdate(null, req.body);
+    const scheduleError = validateTaskSchedule(taskData);
+    if (scheduleError) {
+      return res.status(400).json({ message: scheduleError });
+    }
+
     const task = new TaskModel(taskData);
     await task.save();
     await syncMaintenanceLogFromTask(task);
@@ -255,8 +275,14 @@ const updateTask = async (req, res) => {
     if (!existingTask) {
       return res.status(404).json({ message: "Task not found" });
     }
+    const previousTaskSnapshot = existingTask.toObject();
 
     const nextTask = prepareTaskUpdate(existingTask, req.body);
+    const scheduleError = validateTaskSchedule(nextTask);
+    if (scheduleError) {
+      return res.status(400).json({ message: scheduleError });
+    }
+
     existingTask.set(buildWritableTaskUpdate(nextTask));
     await existingTask.save();
 
@@ -268,7 +294,10 @@ const updateTask = async (req, res) => {
     const refreshedTask = await TaskModel.findOne({ id: req.params.id });
     await syncMaintenanceLogFromTask(refreshedTask);
     try {
-      await createTaskNotifications({ previousTask: existingTask, task: refreshedTask });
+      await createTaskNotifications({
+        previousTask: previousTaskSnapshot,
+        task: refreshedTask,
+      });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }

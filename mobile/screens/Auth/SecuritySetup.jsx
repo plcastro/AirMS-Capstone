@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Button from "../../components/Button";
@@ -134,17 +135,27 @@ export default function SecuritySetup() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.formCard, { minHeight: "80%" }]}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled
     >
-      <View style={styles.formContainer}>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingVertical: 20,
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formContainer}>
         <Text style={styles.headerText}>Security Setup</Text>
         <Text style={[styles.subHeaderText, { marginBottom: 30 }]}>
           Set your new password and PIN to proceed
         </Text>
         <View style={{ alignItems: "flex-start", width: "100%" }}>
-          <Text style={styles.label}>New Password</Text>
+          <Text style={styles.label}>New Password *</Text>
           <TextInput
             style={styles.formInput}
             secureTextEntry
@@ -155,7 +166,7 @@ export default function SecuritySetup() {
             onChangeText={(e) => changeHandler("newPassword", e)}
           />
 
-          <Text style={styles.label}>Confirm Password</Text>
+          <Text style={styles.label}>Confirm Password *</Text>
           <TextInput
             style={styles.formInput}
             secureTextEntry
@@ -200,7 +211,7 @@ export default function SecuritySetup() {
             </View>
           </View>
 
-          <Text style={styles.label}>Set 6-digit PIN</Text>
+          <Text style={styles.label}>Set 6-digit PIN *</Text>
           <CodeInputField
             code={formData.pin}
             setCode={(value) => changeHandler("pin", value)}
@@ -210,7 +221,7 @@ export default function SecuritySetup() {
             inputContainerStyle={{ width: "100%" }}
           />
 
-          <Text style={styles.label}>Confirm PIN</Text>
+          <Text style={styles.label}>Confirm PIN *</Text>
           <CodeInputField
             code={formData.confirmPin}
             setCode={(value) => changeHandler("confirmPin", value)}
@@ -253,6 +264,8 @@ export default function SecuritySetup() {
             )}
           </View>
         </View>
+          </View>
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );

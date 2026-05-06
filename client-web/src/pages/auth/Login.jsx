@@ -33,13 +33,12 @@ const Login = () => {
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
-    const savedPassword = localStorage.getItem("rememberedPassword");
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
-        password: savedPassword || "",
+        password: "",
       });
       setRememberMe(true);
     }
@@ -58,9 +57,9 @@ const Login = () => {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false"); // triggers other tabs
+      localStorage.setItem("rememberMe", "false"); 
       localStorage.removeItem("rememberedIdentifier");
-      localStorage.removeItem("rememberedPassword");
+
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -82,7 +81,12 @@ const Login = () => {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password, client: "web" }),
+        body: JSON.stringify({
+          identifier,
+          password,
+          client: "web",
+          rememberMe,
+        }),
         credentials: "include",
       });
 
@@ -103,18 +107,17 @@ const Login = () => {
           );
           return;
         }
-        await loginUser(data.user, data.token);
+        await loginUser(data.user, data.token, { rememberMe });
 
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
-          localStorage.setItem("rememberedPassword", formData.password.trim());
+         
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("rememberedIdentifier");
-          localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
         message.success("Logged in successfully!");
@@ -135,7 +138,7 @@ const Login = () => {
 
     switch (pos) {
       case "admin":
-        navigate("/dashboard/user-management/admin-dashboard");
+        navigate("/dashboard/user-management/view-users");
         break;
       case "mechanic":
         navigate("/dashboard/maintenance-log");
@@ -166,12 +169,12 @@ const Login = () => {
       </Row>
 
       <Form layout="vertical" onFinish={handleSubmit}>
-        <Form.Item label="Username/Email" required>
+        <Form.Item label="Username or Email" required>
           <Input
             type="text"
             id="identifier"
             size="large"
-            placeholder="Enter username/email"
+            placeholder="Enter username or email"
             value={formData.identifier}
             onChange={handleInputChange}
             autoComplete="username"
@@ -213,7 +216,15 @@ const Login = () => {
             </Checkbox>
           </Col>
           <Col lg={12} style={{ textAlign: "right" }}>
-            <Link to="/forgot" className="forgot-password">
+            <Link
+              to="/forgot"
+              className="forgot-password"
+              state={{
+                email: formData.identifier.includes("@")
+                  ? formData.identifier.trim()
+                  : "",
+              }}
+            >
               Forgot password?
             </Link>
           </Col>
@@ -224,13 +235,18 @@ const Login = () => {
           type="primary"
           className="login-btn"
           disabled={loading}
+          size="large"
         >
           {loading ? "PLEASE WAIT..." : "LOGIN"}
         </Button>
       </Form>
 
       {loading && (
-        <div className="login-loading-overlay" aria-live="polite" aria-busy="true">
+        <div
+          className="login-loading-overlay"
+          aria-live="polite"
+          aria-busy="true"
+        >
           <div className="login-loading-card">
             <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
             <div className="login-loading-spinner" />

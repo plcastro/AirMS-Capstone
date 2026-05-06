@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -105,7 +106,6 @@ export default function Login() {
           "pilot",
           "officer-in-charge",
           "mechanic",
-          "engineer",
         ];
 
         // Deactivated account
@@ -175,7 +175,13 @@ export default function Login() {
     }
   };
 
-  const goToForgotPassword = () => nav.navigate("forgotPassword");
+  const goToForgotPassword = () => {
+    const email = formData.identifier.includes("@")
+      ? formData.identifier.trim()
+      : "";
+
+    nav.navigate("forgotPassword", { email });
+  };
 
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
@@ -183,61 +189,75 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Login</Text>
-        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-          Please enter your username and password
-        </Text>
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Username/Email"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          keyboardType="default"
-          value={formData.identifier}
-          onChangeText={(text) => changeHandler("identifier", text)}
-        />
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Password"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          secureTextEntry
-          keyboardType="default"
-          value={formData.password}
-          onChangeText={(text) => changeHandler("password", text)}
-        />
-        {getMessage && !loginSuccess && (
-          <Text style={styles.error}>{getMessage}</Text>
-        )}
-        <View style={styles.loginHelper}>
-          <CheckBox
-            title="Remember me"
-            checkboxStyle={styles.checkBox}
-            value={rememberMe}
-            onValueChange={setRememberMe}
-          />
-          <View style={styles.forgotPassLink}>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text style={styles.headerText}>Login</Text>
+            <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
+              Please enter your username and password
+            </Text>
+            <Text style={[styles.label, { textAlign: "left" }]}>
+              Username or Email <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.formInput}
+              maxLength={100}
+              placeholder="Username or Email"
+              placeholderTextColor="gray"
+              autoCapitalize="none"
+              keyboardType="default"
+              value={formData.identifier}
+              onChangeText={(text) => changeHandler("identifier", text)}
+            />
+            <Text style={styles.label}>
+              Password <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.formInput}
+              maxLength={100}
+              placeholder="Password"
+              placeholderTextColor="gray"
+              autoCapitalize="none"
+              secureTextEntry
+              keyboardType="default"
+              value={formData.password}
+              onChangeText={(text) => changeHandler("password", text)}
+            />
+            {getMessage && !loginSuccess && (
+              <Text style={styles.error}>{getMessage}</Text>
+            )}
+            <View style={styles.loginHelper}>
+              <CheckBox
+                title="Remember me"
+                checkboxStyle={styles.checkBox}
+                value={rememberMe}
+                onValueChange={setRememberMe}
+              />
+              <View style={styles.forgotPassLink}>
+                <Button
+                  onPress={goToForgotPassword}
+                  label="Forgot Password?"
+                  buttonTextStyle={{ color: "#555555" }}
+                />
+              </View>
+            </View>
             <Button
-              onPress={goToForgotPassword}
-              label="Forgot Password?"
-              buttonTextStyle={{ color: "#555555" }}
+              onPress={validate}
+              label="LOGIN"
+              disabled={loading}
+              buttonStyle={[styles.primaryBtn]}
+              buttonTextStyle={styles.primaryBtnTxt}
             />
           </View>
-        </View>
-        <Button
-          onPress={validate}
-          label="LOGIN"
-          disabled={loading}
-          buttonStyle={[styles.primaryBtn]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );

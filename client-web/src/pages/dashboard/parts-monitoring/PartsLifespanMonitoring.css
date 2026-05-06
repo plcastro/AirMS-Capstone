@@ -16,11 +16,13 @@
 .header-left {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
 .search-input {
-  width: 320px;
+  width: min(380px, 100%);
+  min-width: 220px;
   border-radius: 10px !important;
   padding: 8px 12px !important;
 }
@@ -39,19 +41,9 @@
   gap: 8px;
 }
 
-.info-label {
-  color: #434343;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 .info-value {
   font-weight: 700;
   color: #000;
-}
-
-.info-item {
-  margin-bottom: 4px;
 }
 
 .input-row {
@@ -77,16 +69,15 @@
   color: #434343;
   font-size: 13px;
   white-space: nowrap;
-  width: 100px;
+  width: 95px;
 }
 
 .card-input-field {
   background-color: #f5f5f5 !important;
-  border: none !important;
+  border: 1px solid #e8e8e8 !important;
   border-radius: 6px !important;
-  height: 30px !important;
-  width: 100% !important;
-  max-width: 300px;
+  height: 34px !important;
+
   margin-left: 8px;
 }
 
@@ -143,6 +134,30 @@
   border-radius: 15px;
   width: 100%;
   padding-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .parts-monitoring-container {
+    height: auto;
+    padding: 12px;
+  }
+
+  .header-left {
+    gap: 10px;
+  }
+
+  .search-input {
+    min-width: 100%;
+  }
+
+  .legend-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .legend-grid {
+    gap: 14px;
+  }
 }
 
 .table-container .ant-table-body {

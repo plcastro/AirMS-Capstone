@@ -22,10 +22,12 @@ import { showToast } from "../../utilities/toast";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
+const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
 
 export default function HeadTaskScreen({
   targetTaskId,
   targetNotificationStatus,
+  addTaskDraft,
 }) {
   const { user } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
@@ -40,6 +42,29 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+
+  const isEmployeeBusy = (employeeId) =>
+    tasks.some((task) => {
+      const status = String(task?.status || "").trim().toLowerCase();
+      return (
+        String(task?.assignedTo || "") === String(employeeId) &&
+        OPEN_TASK_STATUSES.has(status)
+      );
+    });
+
+  const mechanicOptions = employees
+    .map((employee) => ({
+      ...employee,
+      isBusy: isEmployeeBusy(employee.id),
+    }))
+    .filter((employee) => !employee.isBusy);
+
+  useEffect(() => {
+    if (addTaskDraft) {
+      setAddModalVisible(true);
+      setActiveTab("Assigned");
+    }
+  }, [addTaskDraft]);
 
   const fetchTasks = async ({ silent = false } = {}) => {
     try {
@@ -68,6 +93,22 @@ export default function HeadTaskScreen({
   // Fetch tasks on mount
   useEffect(() => {
     fetchTasks();
+  }, []);
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchTasks({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
   }, []);
 
   useEffect(() => {
@@ -109,6 +150,8 @@ export default function HeadTaskScreen({
             id: user._id,
             name: `${user.firstName} ${user.lastName}`,
             jobTitle: user.jobTitle,
+            isOnline: Boolean(user.isOnline ?? user.online),
+            platform: user.platform || "",
           }));
           setEmployees(mappedEmployees);
         } else {
@@ -150,6 +193,27 @@ export default function HeadTaskScreen({
         return false;
     }
   });
+
+  const getTabCount = (tab) =>
+    tasks.filter((task) => {
+      switch (tab) {
+        case "Assigned":
+          return (
+            task.status === "Pending" ||
+            task.status === "Ongoing" ||
+            task.status === "Returned"
+          );
+        case "For Review":
+          return (
+            task.status === "Turned in" ||
+            (task.status === "Completed" && !task.isApproved)
+          );
+        case "Reviewed":
+          return task.isApproved === true || task.status === "Approved";
+        default:
+          return false;
+      }
+    }).length;
 
   const taskHeader =
     activeTab === "Assigned"
@@ -311,6 +375,18 @@ export default function HeadTaskScreen({
 
   const handleReturnTask = async (task, returnData) => {
     const now = new Date().toISOString();
+    const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
+      ? returnData.itemsToUncheck
+      : [];
+    const nextChecklistState = Array.isArray(task.checklistState)
+      ? [...task.checklistState]
+      : (task.checklistItems || []).map(() => false);
+
+    itemsToUncheck.forEach((index) => {
+      if (index >= 0 && index < nextChecklistState.length) {
+        nextChecklistState[index] = false;
+      }
+    });
 
     const updatedTask = {
       ...task,
@@ -320,6 +396,7 @@ export default function HeadTaskScreen({
       reviewedAt: now,
       returnedAt: now,
       isApproved: false,
+      checklistState: nextChecklistState,
     };
 
     try {
@@ -416,7 +493,7 @@ export default function HeadTaskScreen({
           onPress={() => setAddModalVisible(true)}
           buttonStyle={[
             styles.unifiedActionButton,
-            { marginLeft: 5, width: 120 },
+            { marginLeft: 5, width: 100 },
           ]}
           buttonTextStyle={styles.primaryBtnTxt}
         />
@@ -436,25 +513,20 @@ export default function HeadTaskScreen({
         {tabs.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={`${tab} (${getTabCount(tab)})`}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              width < 425 ? { width: "30%" } : { width: 120 },
+              width < 425
+                ? { minWidth: "30%", paddingHorizontal: 6 }
+                : { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 14 },
+              { fontSize: 12 },
             ]}
           />
         ))}
-      </View>
-
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          {taskHeader}
-        </Text>
       </View>
 
       {/* Task List */}
@@ -492,7 +564,8 @@ export default function HeadTaskScreen({
         visible={addModalVisible}
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
-        employees={employees}
+        employees={mechanicOptions}
+        initialDraft={addTaskDraft}
       />
 
       <EditTask

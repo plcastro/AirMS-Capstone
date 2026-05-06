@@ -1,11 +1,24 @@
-import React, { useState, useEffect, useContext } from "react";
-import { Input, Button, Divider, TreeSelect, message, Grid } from "antd";
+import React, { useState, useEffect, useContext, useMemo } from "react";
+import {
+  Input,
+  Button,
+  Divider,
+  TreeSelect,
+  message,
+  Grid,
+  Card,
+  Statistic,
+  Row,
+  Col,
+  Typography,
+} from "antd";
+import { SDMChart } from "../../../components/common/PieChart";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
-
+const { Title } = Typography;
 const { useBreakpoint } = Grid;
 
 const accessLevelData = [
@@ -56,6 +69,59 @@ export default function UserManagement() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const statusCounts = useMemo(() => {
+    const counts = { active: 0, inactive: 0, deactivated: 0, unknown: 0 };
+
+    allUsers.forEach((user) => {
+      const status = (user.status || "unknown").toLowerCase();
+      if (counts[status] !== undefined) counts[status]++;
+      else counts.unknown++;
+    });
+
+    return counts;
+  }, [allUsers]);
+
+  const roleCounts = useMemo(() => {
+    const counts = {};
+
+    allUsers.forEach((user) => {
+      const role = user.jobTitle || "Unknown";
+      counts[role] = (counts[role] || 0) + 1;
+    });
+
+    return counts;
+  }, [allUsers]);
+
+  const roleColors = [
+    "#1890ff",
+    "#52c41a",
+    "#faad14",
+    "#13c2c2",
+    "#f5222d",
+    "#722ed1",
+    "#eb2f96",
+  ];
+
+  const statusColorMap = {
+    active: "#52c41a",
+    inactive: "#faad14",
+    deactivated: "#f5222d",
+    unknown: "#d9d9d9",
+  };
+
+  const roleChartData = Object.entries(roleCounts).map(
+    ([name, value], index) => ({
+      name,
+      value,
+      fill: roleColors[index % roleColors.length],
+    }),
+  );
+
+  const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value,
+    fill: statusColorMap[name] || "#d9d9d9",
+  }));
   const maskEmail = (email) => {
     if (!email) return "";
 
@@ -157,6 +223,9 @@ export default function UserManagement() {
 
     if (treeValue) {
       filtered = filtered.filter((u) => {
+        if (treeValue === "Admin_job") return u.jobTitle === "Admin";
+        if (treeValue === "Admin_access") return u.access === "Admin";
+
         return (
           u.jobTitle === treeValue ||
           u.access === treeValue ||
@@ -333,82 +402,120 @@ export default function UserManagement() {
     <div
       style={{
         padding: isMobile ? 12 : 20,
-        minHeight: "100vh",
-        overflowY: "auto",
-        height: "calc(100vh - 200px)",
+        maxWidth: "100%",
+        paddingBottom: 24,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          gap: 15,
-          marginBottom: 20,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <Input
-          placeholder="Search name, email, etc..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: isMobile ? "100%" : 350,
-            minWidth: isMobile ? "100%" : 240,
-            height: 40,
-          }}
-          allowClear
-        />
+      <Row gutter={[12, 12]} style={{ marginBottom: 10 }}>
+        <Col xs={12} sm={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Total Users" value={allUsers.length} />
+          </Card>
+        </Col>
 
-        <TreeSelect
-          style={{
-            width: isMobile ? "100%" : 250,
-            minWidth: isMobile ? "100%" : 180,
-          }}
-          value={treeValue}
-          styles={{
-            popup: {
-              root: { maxHeight: 400, overflow: "auto" },
-            },
-          }}
-          treeData={accessLevelData}
-          placeholder="Filter"
-          treeDefaultExpandAll
-          onChange={setTreeValue}
-          allowClear
-          icon={<FilterOutlined />}
-        />
-        <Button
-          onClick={() => {
-            setSearchQuery("");
-            setTreeValue(undefined);
-          }}
-          type="link"
-        >
-          Reset Filters
-        </Button>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: isMobile ? "stretch" : "flex-end",
-            width: "100%",
-          }}
-        >
+        <Col xs={12} sm={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Active" value={statusCounts.active} />
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Inactive" value={statusCounts.inactive} />
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Deactivated" value={statusCounts.deactivated} />
+          </Card>
+        </Col>
+      </Row>
+      <Row
+        gutter={[12, 12]}
+        align="middle"
+        justify="space-between"
+        style={{ marginBottom: 20 }}
+      >
+        {/* LEFT SIDE: search + filter */}
+        <Col xs={24} md={18}>
+          <Row gutter={[12, 12]}>
+            <Col xs={16} md={12}>
+              <Input
+                placeholder="Search user"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                allowClear
+                size="large"
+              />
+            </Col>
+
+            <Col xs={8} md={6}>
+              <TreeSelect
+                value={treeValue}
+                style={{ width: "100%" }}
+                styles={{
+                  popup: {
+                    root: { maxHeight: 400, overflow: "auto", width: 240 },
+                  },
+                }}
+                treeData={accessLevelData}
+                placeholder="Filter"
+                treeDefaultExpandAll
+                onChange={setTreeValue}
+                allowClear
+                icon={<FilterOutlined />}
+                size="large"
+              />
+            </Col>
+          </Row>
+        </Col>
+
+        {/* RIGHT SIDE: button */}
+        <Col xs={24} md={6} style={{ textAlign: isMobile ? "left" : "right" }}>
           <Button
             type="primary"
             onClick={handleAddUser}
             style={{
               width: isMobile ? "100%" : 120,
               height: 40,
-              marginBottom: 10,
             }}
             icon={<UserAddOutlined />}
           >
             Add User
           </Button>
-        </div>
-      </div>
-      <Divider />
+        </Col>
+      </Row>
+
+      {/* <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+        <Col xs={24} lg={12}>
+          <Card title="Role Distribution" size="small">
+            <SDMChart
+              data={roleChartData}
+              height={260}
+              outerRadius={74}
+              onClick={(data) => {
+                if (!data?.name) return;
+                setTreeValue(data.name);
+              }}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12}>
+          <Card title="Account Status Distribution" size="small">
+            <SDMChart
+              data={statusChartData}
+              height={260}
+              outerRadius={74}
+              onClick={(data) => {
+                if (!data?.name) return;
+                setTreeValue(data.name.toLowerCase());
+              }}
+            />
+          </Card>
+        </Col>
+      </Row> */}
 
       <UserTable
         headers={headers}

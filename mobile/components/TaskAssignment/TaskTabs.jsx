@@ -6,6 +6,7 @@ import { styles } from "../../stylesheets/styles";
 import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
+import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskTabs({
   tasks,
@@ -83,6 +84,40 @@ export default function TaskTabs({
     }
   };
 
+  const getMechanicTabCount = (tab) =>
+    tasks.filter((task) => {
+      const deadline = task.endDateTime || task.dueDate;
+      if (!deadline) return false;
+
+      const dueDate = new Date(deadline);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const isPastDue = dueDate < today;
+
+      switch (tab) {
+        case "Upcoming":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            !isPastDue
+          );
+        case "Past Due":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            isPastDue
+          );
+        case "Completed":
+          return task.status === "Completed" || task.status === "Turned in";
+        default:
+          return false;
+      }
+    }).length;
+
+  const getTabLabel = (tab) =>
+    isHead ? tab : `${tab} (${getMechanicTabCount(tab)})`;
+
   const getGroupedTasks = () => {
     if (isHead) return [];
 
@@ -133,42 +168,26 @@ export default function TaskTabs({
     }
   };
 
-  const taskHeader =
-    activeTab === "Upcoming"
-      ? "Upcoming Tasks"
-      : activeTab === "Past Due"
-        ? "Past Due"
-        : activeTab === "Completed"
-          ? "Completed"
-          : activeTab === "Tasks"
-            ? "Task Orders"
-            : activeTab === "Submitted"
-              ? "Submitted Tasks"
-              : "Tasks";
-
   return (
     <View style={{ flex: 1 }}>
-      {/* Tabs - Using Button component for styling */}
       <View
         style={{
           flexDirection: "row",
-          flexWrap: "wrap",
-          marginBottom: 25,
-          gap: 5,
+          justifyContent: "space-between",
         }}
       >
         {tabsToRender.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={getTabLabel(tab)}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { width: 120 },
+              { minWidth: 100, paddingHorizontal: 2 },
             ]}
             buttonTextStyle={[
               activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 14 },
+              { fontSize: 12, color: COLORS.grayMedium },
             ]}
           />
         ))}
@@ -182,13 +201,6 @@ export default function TaskTabs({
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
-      </View>
-
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          {taskHeader}
-        </Text>
       </View>
 
       {/* Task List */}
@@ -216,7 +228,7 @@ export default function TaskTabs({
                     <Text
                       style={{
                         fontWeight: "700",
-                        fontSize: 17,
+                        fontSize: 12,
                       }}
                     >
                       {section.title}

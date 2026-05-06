@@ -55,7 +55,6 @@ const getStatusStyle = (status) => {
       };
   }
 };
-
 export default function PartsRequisitionCards({
   requisitions,
   onViewDetails,
@@ -65,6 +64,19 @@ export default function PartsRequisitionCards({
   actionsDisabled = false,
   loading = false,
 }) {
+  const formatLogbookDate = (value) => {
+    if (!value) return "N/A";
+
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return "N/A";
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   if (loading) {
     return (
       <View
@@ -75,10 +87,6 @@ export default function PartsRequisitionCards({
           alignItems: "center",
           marginTop: 20,
           elevation: 8,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
         }}
       >
         <MaterialCommunityIcons
@@ -86,14 +94,7 @@ export default function PartsRequisitionCards({
           size={56}
           color={COLORS.grayMedium}
         />
-        <Text
-          style={{
-            color: COLORS.grayDark,
-            fontSize: 16,
-            marginTop: 12,
-            textAlign: "center",
-          }}
-        >
+        <Text style={{ fontSize: 12, marginTop: 12 }}>
           Loading parts requisitions...
         </Text>
       </View>
@@ -110,10 +111,6 @@ export default function PartsRequisitionCards({
           alignItems: "center",
           marginTop: 20,
           elevation: 8,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
         }}
       >
         <MaterialCommunityIcons
@@ -121,14 +118,7 @@ export default function PartsRequisitionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text
-          style={{
-            color: COLORS.grayDark,
-            fontSize: 16,
-            marginTop: 12,
-            textAlign: "center",
-          }}
-        >
+        <Text style={{ fontSize: 12, marginTop: 12 }}>
           No parts requisitions found
         </Text>
       </View>
@@ -139,139 +129,137 @@ export default function PartsRequisitionCards({
     <>
       {requisitions.map((item) => {
         const statusStyle = getStatusStyle(item.status);
+        const isAvailabilityChecked =
+          String(item.status || "").toLowerCase() === "availability checked";
+        const editDisabled = actionsDisabled || isAvailabilityChecked;
+        const deleteDisabled = actionsDisabled;
 
         return (
           <TouchableOpacity
             key={item.id}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
             onPress={() => onViewDetails?.(item)}
             style={{
+              flexDirection: "row",
               backgroundColor: COLORS.white,
-              borderRadius: 7,
-              marginBottom: 20,
+              borderRadius: 10,
+              marginBottom: 14,
               elevation: 3,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
               overflow: "hidden",
             }}
           >
+            {/* ✅ LEFT ACCENT BAR */}
             <View
               style={{
+                width: 5,
                 backgroundColor: COLORS.primaryLight,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
               }}
-            >
-              <Text
-                style={{
-                  color: COLORS.white,
-                  fontSize: 18,
-                  fontWeight: "600",
-                }}
-              >
-                Warehouse Slips
-              </Text>
+            />
+
+            <View style={{ flex: 1 }}>
+              {/* ✅ HEADER (compact like flight log) */}
               <View
                 style={{
-                  backgroundColor: statusStyle.backgroundColor,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                <Text
-                  style={{
-                    color: statusStyle.textColor,
-                    fontSize: 11,
-                    fontWeight: "600",
-                  }}
-                >
-                  {statusStyle.label}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                paddingHorizontal: 20,
-                paddingTop: 16,
-                paddingBottom: 8,
-              }}
-            >
-              <Text style={{ color: "#777", fontSize: 14, fontWeight: "500" }}>
-                {item.dateRequested}
-              </Text>
-            </View>
-
-            <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
-              <View
-                style={{
-                  backgroundColor: "#F5F5F5",
-                  borderWidth: 1,
-                  borderColor: "#E0E0E0",
-                  borderRadius: 5,
-                  padding: 15,
-                }}
-              >
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Slip No: {item.slipNo}
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Warehouse Slip
                   </Text>
-                </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Particular and Quantity: {item.itemSummary}
-                  </Text>
-                </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Purpose: {item.purpose}
+                  <Text style={{ fontSize: 10, color: "#777" }}>
+                    {item.dateRequested}
                   </Text>
                 </View>
 
                 <View
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    marginTop: 10,
+                    backgroundColor: statusStyle.backgroundColor,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 12,
                   }}
                 >
-                  {showActions && (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <TouchableOpacity
-                        activeOpacity={actionsDisabled ? 1 : 0.7}
-                        onPress={() => onEdit?.(item)}
-                        disabled={actionsDisabled}
-                        style={{ padding: 4, marginRight: 2 }}
-                      >
-                        <MaterialCommunityIcons
-                          name="pencil"
-                          size={20}
-                          color={actionsDisabled ? "#C8C8C8" : "#777"}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={actionsDisabled ? 1 : 0.7}
-                        onPress={() => onDelete?.(item)}
-                        disabled={actionsDisabled}
-                        style={{ padding: 4 }}
-                      >
-                        <MaterialCommunityIcons
-                          name="delete"
-                          size={20}
-                          color={actionsDisabled ? "#F1B6B6" : "#F45B5B"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  <Text
+                    style={{
+                      color: statusStyle.textColor,
+                      fontSize: 10,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {statusStyle.label}
+                  </Text>
                 </View>
               </View>
+
+              {/* ✅ BODY (compact info, no gray box) */}
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Slip No:</Text>{" "}
+                  {item.slipNo || "N/A"}
+                </Text>
+
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Items:</Text>{" "}
+                  {item.itemSummary || "N/A"}
+                </Text>
+
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Purpose:</Text>{" "}
+                  {item.purpose || "N/A"}
+                </Text>
+              </View>
+
+              {/* ✅ ACTIONS (aligned right like you asked earlier) */}
+              {showActions && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    paddingHorizontal: 10,
+                    paddingBottom: 10,
+                    gap: 8,
+                  }}
+                >
+                  <TouchableOpacity
+                    activeOpacity={editDisabled ? 1 : 0.7}
+                    onPress={() => onEdit?.(item)}
+                    disabled={editDisabled}
+                  >
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={18}
+                      color={editDisabled ? "#C8C8C8" : "#777"}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={deleteDisabled ? 1 : 0.7}
+                    onPress={() => onDelete?.(item)}
+                    disabled={deleteDisabled}
+                  >
+                    <MaterialCommunityIcons
+                      name="delete"
+                      size={18}
+                      color={deleteDisabled ? "#F1B6B6" : "#F45B5B"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         );

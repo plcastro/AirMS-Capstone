@@ -74,7 +74,7 @@ export default function PartsRequisitionEntry({
     <View style={{ marginBottom: 16 }}>
       <Text
         style={{
-          fontSize: 15,
+          fontSize: 12,
           color: "#3E3E3E",
           fontWeight: "500",
           marginBottom: 8,
@@ -93,7 +93,7 @@ export default function PartsRequisitionEntry({
             borderRadius: 6,
             height: 40,
             paddingHorizontal: 12,
-            fontSize: 15,
+            fontSize: 12,
             color: COLORS.black,
           },
           extraInputStyle,
@@ -149,7 +149,7 @@ export default function PartsRequisitionEntry({
           >
             <Text
               style={{
-                fontSize: 22,
+                fontSize: 12,
                 fontWeight: "600",
                 color: COLORS.black,
               }}
@@ -197,13 +197,13 @@ export default function PartsRequisitionEntry({
             >
               <Text
                 style={{
-                  fontSize: 17,
+                  fontSize: 12,
                   fontWeight: "700",
                   color: "#3C3C3C",
                   marginBottom: 14,
                 }}
               >
-                Choose Aircraft
+                Choose Aircraft *
               </Text>
 
               <View
@@ -269,7 +269,7 @@ export default function PartsRequisitionEntry({
                 >
                   <Text
                     style={{
-                      fontSize: 17,
+                      fontSize: 12,
                       fontWeight: "700",
                       color: "#3C3C3C",
                     }}
@@ -292,20 +292,20 @@ export default function PartsRequisitionEntry({
                 </View>
 
 
-                {renderInput("Particular:", item.particular, (value) =>
+                {renderInput("Particular: *", item.particular, (value) =>
                   updateItem(item.id, "particular", value),
                 )}
 
                 <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
-                      fontSize: 15,
+                      fontSize: 12,
                       color: "#3E3E3E",
                       fontWeight: "500",
                       marginBottom: 8,
                     }}
                   >
-                    Quantity:
+                    Quantity: *
                   </Text>
                   <View
                     style={{
@@ -328,7 +328,7 @@ export default function PartsRequisitionEntry({
                         flex: 1,
                         height: 44,
                         paddingHorizontal: 12,
-                        fontSize: 15,
+                        fontSize: 12,
                         color: COLORS.black,
                       }}
                       keyboardType="number-pad"
@@ -390,7 +390,7 @@ export default function PartsRequisitionEntry({
                     <Text
                       style={{
                         color: COLORS.white,
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: "500",
                         marginLeft: 6,
                       }}
@@ -416,7 +416,7 @@ export default function PartsRequisitionEntry({
                 <Text
                   style={{
                     color: COLORS.white,
-                    fontSize: 15,
+                    fontSize: 12,
                     fontWeight: "600",
                   }}
                 >

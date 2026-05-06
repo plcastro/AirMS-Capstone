@@ -22,17 +22,18 @@ import {
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
-  EyeOutlined, EditOutlined
+  EyeOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
-import { exportRecordToPDF } from "../../../components/common/ExportFile";
+import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
-const { Text } = Typography;
+const { Title, Text } = Typography;
 
 export default function FlightLog() {
   const formatDisplayDate = (value) => {
@@ -104,47 +105,155 @@ export default function FlightLog() {
     String(statusValue || "")
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, "_");
+      .replace(/[\s-]+/g, "_");
 
-  const fetchFlightLogs = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "100");
-
-      if (selectedAircraft && selectedAircraft !== "all") {
-        params.append("aircraftRPC", selectedAircraft);
-      }
-      if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", normalizeStatusFilterValue(selectedStatus));
-      }
-
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch flight logs");
-      }
-
-      setFlightLogs(data.data || []);
-    } catch (error) {
-      console.error("Fetch flight logs error:", error);
-      message.error(error.message || "Failed to fetch flight logs");
-    } finally {
-      setLoading(false);
+  const getComparableStatus = useCallback((statusValue = "") => {
+    const normalized = normalizeFlightLogStatus(statusValue);
+    if (["ongoing", "draft"].includes(normalized)) {
+      return "pending_release";
     }
-  }, [normalizeStatusFilterValue, selectedAircraft, selectedStatus]);
+    if (normalized === "released") {
+      return "pending_acceptance";
+    }
+    return normalized;
+  }, []);
+
+  const mergeFlightLogPages = (pages = []) =>
+    Array.from(
+      new Map(
+        pages
+          .flatMap((page) => (Array.isArray(page?.data) ? page.data : []))
+          .map((log) => [log._id || log.id, log]),
+      ).values(),
+    );
+
+  const getFlightLogDateTime = (log = {}) => {
+    const dateCandidates = [
+      log.date,
+      log.flightDate,
+      log.createdAt,
+      log.updatedAt,
+    ].filter(Boolean);
+
+    for (const value of dateCandidates) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.getTime();
+      }
+    }
+
+    return 0;
+  };
+
+  const sortFlightLogsByDate = (logs = []) =>
+    [...logs].sort((left, right) => {
+      const dateDifference =
+        getFlightLogDateTime(right) - getFlightLogDateTime(left);
+
+      if (dateDifference !== 0) {
+        return dateDifference;
+      }
+
+      return String(right.createdAt || right._id || "").localeCompare(
+        String(left.createdAt || left._id || ""),
+      );
+    });
+
+  const hasDestinationInfo = (log = {}) =>
+    Array.isArray(log.legs) &&
+    log.legs.some(
+      (leg) =>
+        Array.isArray(leg?.stations) &&
+        leg.stations.some(
+          (station) =>
+            String(station?.from || "").trim() &&
+            String(station?.to || "").trim(),
+        ),
+    );
+
+  const fetchFlightLogs = useCallback(
+    async (options = {}) => {
+      const { silent = false } = options;
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
+
+        const params = new URLSearchParams();
+        params.append("page", "1");
+        params.append("limit", "500");
+
+        if (selectedAircraft && selectedAircraft !== "all") {
+          params.append("aircraftRPC", selectedAircraft);
+        }
+        if (selectedStatus && selectedStatus !== "all") {
+          params.append("status", normalizeStatusFilterValue(selectedStatus));
+        }
+
+        const fetchPage = async (page, extraParams = {}) => {
+          const pageParams = new URLSearchParams(params);
+          pageParams.set("page", String(page));
+          Object.entries(extraParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              pageParams.set(key, value);
+            }
+          });
+          const response = await fetch(
+            `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Failed to fetch flight logs");
+          }
+
+          return data;
+        };
+
+        const fetchAllPages = async (extraParams = {}) => {
+          const firstPage = await fetchPage(1, extraParams);
+          const totalPages = Number(firstPage.pagination?.pages || 1);
+          const remainingPages =
+            totalPages > 1
+              ? await Promise.all(
+                  Array.from({ length: totalPages - 1 }, (_, index) =>
+                    fetchPage(index + 2, extraParams),
+                  ),
+                )
+              : [];
+
+          return [firstPage, ...remainingPages];
+        };
+
+        const allPages = await fetchAllPages();
+        const pendingReleasePages =
+          selectedStatus === "all"
+            ? await fetchAllPages({ status: "pending_release" })
+            : [];
+
+        setFlightLogs(
+          sortFlightLogsByDate(
+            mergeFlightLogPages([...allPages, ...pendingReleasePages]),
+          ),
+        );
+      } catch (error) {
+        console.error("Fetch flight logs error:", error);
+        message.error(error.message || "Failed to fetch flight logs");
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [normalizeStatusFilterValue, selectedAircraft, selectedStatus],
+  );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
@@ -181,7 +290,7 @@ export default function FlightLog() {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
         {
           method: "GET",
           headers: {
@@ -196,7 +305,7 @@ export default function FlightLog() {
         throw new Error(data.message || "Failed to search flight logs");
       }
 
-      setFlightLogs(data.data || []);
+      setFlightLogs(sortFlightLogsByDate(data.data || []));
     } catch (error) {
       console.error("Search flight logs error:", error);
       message.error(error.message || "Failed to search flight logs");
@@ -285,12 +394,7 @@ export default function FlightLog() {
   };
 
   const handleExport = async (record) => {
-    await exportRecordToPDF({
-      title: "Flight Log",
-      fileName: `FlightLog-${record?.rpc || record?._id || "record"}`,
-      subtitle: `RP/C: ${record?.rpc || "N/A"} | Date: ${record?.date || "N/A"}`,
-      record,
-    });
+    await exportFlightLogToPDF(record);
   };
 
   const getUserDisplayName = () => {
@@ -422,6 +526,12 @@ export default function FlightLog() {
       setSaving(true);
 
       if (action === "notify") {
+        if (!hasDestinationInfo(log)) {
+          throw new Error(
+            "Add at least one complete From-To station in Destination/s before notifying for completion.",
+          );
+        }
+
         const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
           method: "PUT",
           headers: {
@@ -508,6 +618,20 @@ export default function FlightLog() {
   }, [fetchFlightLogs]);
 
   useEffect(() => {
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchFlightLogs({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [fetchFlightLogs]);
+
+  useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {
         searchFlightLogs(searchQuery);
@@ -538,7 +662,7 @@ export default function FlightLog() {
   );
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
@@ -546,29 +670,32 @@ export default function FlightLog() {
     { label: "Completed", value: "completed" },
   ];
 
-  const filteredLogs = flightLogs.filter((log) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(log.date || "").includes(searchQuery);
+  const filteredLogs = sortFlightLogsByDate(
+    flightLogs.filter((log) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(log.date || "").includes(searchQuery);
 
-    const matchesAircraft =
-      selectedAircraft === "" ||
-      selectedAircraft === "all" ||
-      log.rpc === selectedAircraft;
+      const matchesAircraft =
+        selectedAircraft === "" ||
+        selectedAircraft === "all" ||
+        log.rpc === selectedAircraft;
 
-    const normalizedStatus = normalizeFlightLogStatus(log.status);
-    const matchesStatus =
-      selectedStatus === "all" ||
-      (selectedStatus === "for_completion"
-        ? normalizedStatus === "accepted" && log.notifiedForCompletion
-        : selectedStatus === "accepted"
-          ? normalizedStatus === "accepted" && !log.notifiedForCompletion
-          : normalizedStatus === normalizeStatusFilterValue(selectedStatus));
+      const normalizedStatus = getComparableStatus(log.status);
+      const matchesStatus =
+        selectedStatus === "all" ||
+        (selectedStatus === "for_completion"
+          ? normalizedStatus === "accepted" && log.notifiedForCompletion
+          : selectedStatus === "accepted"
+            ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+            : normalizedStatus ===
+              getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
 
-    return matchesSearch && matchesAircraft && matchesStatus;
-  });
+      return matchesSearch && matchesAircraft && matchesStatus;
+    }),
+  );
 
   useEffect(() => {
     const openTargetFlightLog = async () => {
@@ -637,19 +764,21 @@ export default function FlightLog() {
   };
 
   const columns = [
+    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Aircraft Type",
       dataIndex: "aircraftType",
       key: "aircraftType",
       width: 140,
     },
-    { title: "RP/C", dataIndex: "rpc", key: "rpc", width: 120 },
     {
       title: "Date",
       dataIndex: "date",
       key: "date",
       width: 120,
       render: (value) => formatDisplayDate(value),
+      sorter: (left, right) => getFlightLogDateTime(left) - getFlightLogDateTime(right),
+      defaultSortOrder: "descend",
     },
     {
       title: "Control",
@@ -667,25 +796,28 @@ export default function FlightLog() {
     {
       title: "Action",
       key: "action",
-      width: 280,
+      width: 320,
+
       render: (_, record) => (
-        <Space size={4}>
+        <Space size={4} wrap>
           <Button
             type={isOfficerInCharge ? "default" : "primary"}
             size="small"
             onClick={() => handleEdit(record)}
-            icon={isOfficerInCharge ? <EyeOutlined />: <EditOutlined />}
+            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
           >
             {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
-            <Button
-              size="small"
-              onClick={() => openWorkflowModal("release", record)}
-            >
-              Release
-            </Button>
-          )}
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "pending_release" && (
+              <Button
+                size="small"
+                onClick={() => openWorkflowModal("release", record)}
+              >
+                Release
+              </Button>
+            )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
             <Button
               size="small"
@@ -728,77 +860,79 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
-      <Row gutter={[12, 12]} align="middle">
-        <Col xs={24} md={8}>
-          <Input
-            size="large"
-            className="fl-search"
-            placeholder="Search by RP/C, type, or date"
-            prefix={<SearchOutlined />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            allowClear
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select
-            size="large"
-            style={{ width: "100%" }}
-            value={selectedAircraft || "all"}
-            onChange={(value) =>
-              setSelectedAircraft(value === "all" ? "" : value)
-            }
-            options={aircraftOptions.map((aircraft) => ({
-              value: aircraft,
-              label: aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
-            }))}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select
-            size="large"
-            style={{ width: "100%" }}
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-            options={statusOptions}
-          />
-        </Col>
-        {!isOfficerInCharge && (
-          <Col xs={24} md={4} style={{ textAlign: "right" }}>
-            <Button
-              type="primary"
+      <Card style={{ marginBottom: 10 }}>
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} md={8}>
+            <Input
               size="large"
-              icon={<PlusOutlined />}
-              onClick={() => setEntryModalVisible(true)}
-            >
-              New Entry
-            </Button>
+              className="fl-search"
+              placeholder="Search by RP/C, type, or date"
+              prefix={<SearchOutlined />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              allowClear
+            />
           </Col>
-        )}
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
-          </Text>
-        </Col>
-      </Row>
-
-      <Card className="fl-table-wrapper" styles={{ body: { padding: 0 } }}>
-        <Table
-          className="fl-table"
-          columns={columns}
-          dataSource={filteredLogs}
-          loading={loading}
-          rowKey={(record) => record._id || record.id}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          locale={{
-            emptyText:
-              searchQuery || selectedAircraft || selectedStatus !== "all"
-                ? "No flight logs found"
-                : "No flight logs yet",
-          }}
-          size="small"
-        />
+          <Col xs={24} sm={12} md={4}>
+            <Select
+              size="large"
+              style={{ width: "100%" }}
+              value={selectedAircraft || "all"}
+              onChange={(value) =>
+                setSelectedAircraft(value === "all" ? "" : value)
+              }
+              options={aircraftOptions.map((aircraft) => ({
+                value: aircraft,
+                label:
+                  aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
+              }))}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={5}>
+            <Select
+              size="large"
+              style={{ width: "100%" }}
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              options={statusOptions}
+            />
+          </Col>
+          {!isOfficerInCharge && (
+            <Col xs={24} md={4} style={{ textAlign: "right" }}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<PlusOutlined />}
+                onClick={() => setEntryModalVisible(true)}
+              >
+                New Entry
+              </Button>
+            </Col>
+          )}
+        </Row>
       </Card>
+
+      <Table
+        className="fl-table"
+        columns={columns}
+        dataSource={filteredLogs}
+        loading={loading}
+        rowKey={(record) => record._id || record.id}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+        scroll={{ x: 1100 }}
+        locale={{
+          emptyText:
+            searchQuery || selectedAircraft || selectedStatus !== "all"
+              ? "No flight logs found"
+              : "No flight logs yet",
+        }}
+        size="small"
+      />
+      <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
+        <Text type="secondary">
+          Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+        </Text>
+      </Col>
 
       <FlightLogEntry
         visible={entryModalVisible}

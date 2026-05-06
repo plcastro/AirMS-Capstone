@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
@@ -112,80 +113,102 @@ export default function ResetPassword() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Reset Password</Text>
-        <Text style={styles.subHeaderText}>Enter your new password</Text>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formContainer}>
+            <Text style={styles.headerText}>Reset Password</Text>
+            <Text style={styles.subHeaderText}>Enter your new password</Text>
 
-        <TextInput
-          style={styles.formInput}
-          placeholder="New Password"
-          secureTextEntry
-          placeholderTextColor="gray"
-          value={formData.newPassword}
-          onChangeText={(text) => handleChange("newPassword", text)}
-        />
-
-        <TextInput
-          style={styles.formInput}
-          placeholder="Confirm Password"
-          secureTextEntry
-          placeholderTextColor="gray"
-          value={formData.confirmPassword}
-          onChangeText={(text) => handleChange("confirmPassword", text)}
-        />
-
-        {/* Password requirements */}
-        <View style={{ marginVertical: 10 }}>
-          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-            Password Requirements:
-          </Text>
-          <View style={{ flexDirection: "row" }}>
-            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-              ✓{" "}
+            <Text style={styles.label}>
+              New Password <Text style={{ color: "red" }}>*</Text>
             </Text>
-            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-              At least 8 characters
+            <TextInput
+              style={styles.formInput}
+              placeholder="New Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.newPassword}
+              onChangeText={(text) => handleChange("newPassword", text)}
+            />
+
+            <Text style={styles.label}>
+              Confirm Password <Text style={{ color: "red" }}>*</Text>
             </Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Confirm Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.confirmPassword}
+              onChangeText={(text) => handleChange("confirmPassword", text)}
+            />
+
+            {/* Password requirements */}
+            <View style={{ marginVertical: 10 }}>
+              <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+                Password Requirements:
+              </Text>
+              <View style={{ flexDirection: "row" }}>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.minLength)}
+                >
+                  ✓{" "}
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.minLength)}
+                >
+                  At least 8 characters
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row" }}>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasUppercase)}
+                >
+                  ✓{" "}
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasUppercase)}
+                >
+                  One uppercase letter
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row" }}>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasNumber)}
+                >
+                  ✓{" "}
+                </Text>
+                <Text
+                  style={getRequirementStyle(passwordRequirements.hasNumber)}
+                >
+                  One number
+                </Text>
+              </View>
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {successMessage ? (
+              <Text style={{ color: "green", marginTop: 10 }}>
+                {successMessage}
+              </Text>
+            ) : null}
+
+            <Button
+              label={loading ? "RESETTING..." : "RESET PASSWORD"}
+              onPress={handleSubmit}
+              buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+              buttonTextStyle={styles.primaryBtnTxt}
+              disabled={loading || !isFormValid}
+            />
           </View>
-          <View style={{ flexDirection: "row" }}>
-            <Text
-              style={getRequirementStyle(passwordRequirements.hasUppercase)}
-            >
-              ✓{" "}
-            </Text>
-            <Text
-              style={getRequirementStyle(passwordRequirements.hasUppercase)}
-            >
-              One uppercase letter
-            </Text>
-          </View>
-          <View style={{ flexDirection: "row" }}>
-            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-              ✓{" "}
-            </Text>
-            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-              One number
-            </Text>
-          </View>
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {successMessage ? (
-          <Text style={{ color: "green", marginTop: 10 }}>
-            {successMessage}
-          </Text>
-        ) : null}
-
-        <Button
-          label={loading ? "RESETTING..." : "RESET PASSWORD"}
-          onPress={handleSubmit}
-          buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-          buttonTextStyle={styles.primaryBtnTxt}
-          disabled={loading || !isFormValid}
-        />
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );

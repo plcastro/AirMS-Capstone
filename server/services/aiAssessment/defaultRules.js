@@ -1,3 +1,5 @@
+const FAULT_CONDITION_RULES = require("./faultConditionRules");
+
 const buildTitleRule = ({
   ruleCode,
   title,
@@ -1258,7 +1260,7 @@ const DEFAULT_MANUAL_RULES = [
     title: "Tail gear box control-lever findings should route to the exact control-lever criteria",
     category: "inspection-criteria",
     riskLevel: "High",
-    possibleIssue: "TGB control lever issue may require exact control-lever inspection criteria.",
+    possibleIssue: "TGB control lever fault found; inspect using AMM 65-21-00 control-lever criteria.",
     component: "Tail Gear Box / Control Lever",
     description:
       "Executable rule for explicit control-lever findings within the tail gear box family.",
@@ -1267,8 +1269,8 @@ const DEFAULT_MANUAL_RULES = [
       { fact: "signals.tailGearBoxControlLeverCount", operator: ">", value: 0 },
     ],
     recommendedActions: [
-      "Confirm the finding concerns the TGB control lever, with-removal, without-removal, or associated bushes / yoke-lug context.",
-      "Route the item to the exact AMM 65-21-00 control-lever family rather than the general TGB family.",
+      "Inspect the TGB control lever using AMM 65-21-00 control-lever criteria.",
+      "Identify whether the finding concerns control lever with removal, without removal, or associated bushes / yoke-lug context.",
       "Separate lever findings from housing, shaft, or bearing findings before follow-up.",
     ],
     manualReference:
@@ -2802,7 +2804,7 @@ const DEFAULT_MANUAL_RULES = [
     title: "Structured ATA 65-21 control-lever tasks should trigger the exact control-lever path",
     category: "inspection-criteria",
     riskLevel: "High",
-    possibleIssue: "TGB control lever task may require exact control-lever criteria.",
+    possibleIssue: "TGB control lever task found; inspect using AMM 65-21-00 control-lever criteria.",
     component: "Tail Gear Box / Control Lever",
     description:
       "Executable rule that uses structured ATA 65-21 checklist metadata to route control-lever cases.",
@@ -2811,8 +2813,8 @@ const DEFAULT_MANUAL_RULES = [
       { fact: "tasks.component.tailGearBoxControlLeverCount", operator: ">", value: 0 },
     ],
     recommendedActions: [
-      "Route the task to the AMM 65-21-00 control-lever criteria.",
-      "Review whether the checklist item concerns with-removal, without-removal, or bushes / yoke-lug control-lever work.",
+      "Inspect the TGB control lever using AMM 65-21-00 control-lever criteria.",
+      "Identify whether the checklist item concerns with-removal, without-removal, or bushes / yoke-lug control-lever work.",
       "Keep control-lever routing separate from housing, shaft, rod, and bearing cases.",
     ],
     manualReference:
@@ -2868,4 +2870,4 @@ const DEFAULT_MANUAL_RULES = [
   }),
 ];
 
-module.exports = DEFAULT_MANUAL_RULES;
+module.exports = [...DEFAULT_MANUAL_RULES, ...FAULT_CONDITION_RULES];

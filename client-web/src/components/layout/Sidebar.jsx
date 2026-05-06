@@ -34,12 +34,12 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
   const menuItems = [
-    {
-      key: "1",
-      label: "Admin Dashboard",
-      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin"],
-    },
+    // {
+    //   key: "1",
+    //   label: "Admin Dashboard",
+    //   icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+    //   roles: ["admin"],
+    // },
 
     {
       key: "2",
@@ -150,7 +150,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   const routeToKey = useMemo(
     () => ({
-      "/dashboard/user-management/admin-dashboard": "1",
+      // "/dashboard/user-management/admin-dashboard": "1",
       "/dashboard/user-management/view-users": "2",
       "/dashboard/user-management/activity-logs": "3",
       "/dashboard/flight-log": "4",
@@ -179,27 +179,9 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   useEffect(() => {
     const key =
-      routeToKey[location.pathname] || (jobTitle === "admin" ? "1" : "10");
+      routeToKey[location.pathname] || (jobTitle === "admin" ? "2" : "10");
     setCurrent(key);
   }, [location.pathname, routeToKey, jobTitle]);
-
-  useEffect(() => {
-    const parent = current ? parentByChildKey[current] : null;
-
-    setOpenKeys((prev) => {
-      let next = prev;
-
-      if (collapsed) {
-        next = [];
-      } else if (isMobile) {
-        next = parent ? [parent] : [];
-      } else if (parent) {
-        next = prev.includes(parent) ? prev : [...prev, parent];
-      }
-
-      return isSameKeys(prev, next) ? prev : next;
-    });
-  }, [collapsed, current, isMobile, parentByChildKey]);
 
   const onClickMenu = (e) => {
     setCurrent(e.key);
@@ -209,7 +191,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     navigate(
       routes[e.key] ||
         (jobTitle === "admin"
-          ? "/dashboard/user-management/admin-dashboard"
+          ? "/dashboard/user-management/view-users"
           : "/dashboard/profile"),
     );
     if (isMobile) {
@@ -217,18 +199,18 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     }
   };
 
-  const onOpenChange = (nextOpenKeys) => {
-    if (!isMobile) {
-      setOpenKeys((prev) =>
-        isSameKeys(prev, nextOpenKeys) ? prev : nextOpenKeys,
-      );
-      return;
+  const onOpenChange = (keys) => {
+    if (isMobile) {
+      const latest = keys.find((k) => !openKeys.includes(k));
+      setOpenKeys(latest ? [latest] : []);
+    } else {
+      setOpenKeys(keys);
     }
-
-    const latestOpenedKey = nextOpenKeys.find((k) => !openKeys.includes(k));
-    const next = latestOpenedKey ? [latestOpenedKey] : [];
-    setOpenKeys((prev) => (isSameKeys(prev, next) ? prev : next));
   };
+
+  useEffect(() => {
+    if (collapsed) setOpenKeys([]);
+  }, [collapsed]);
 
   const showModal = () => setOpen(true);
 

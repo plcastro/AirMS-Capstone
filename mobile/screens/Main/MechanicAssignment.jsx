@@ -115,7 +115,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           <Text
             style={{
               fontWeight: "bold",
-              fontSize: 16,
+              fontSize: 12,
               color: "#000",
               flex: 1,
               marginRight: 10,
@@ -159,15 +159,15 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           )}
         </View>
 
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Aircraft: {item.aircraft}
         </Text>
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Due: {formatDateTime(deadlineValue)}
         </Text>
 
         {wasLate && (
-          <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
+          <Text style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4 }}>
             {overdueText} | Due at {dueTime}
           </Text>
         )}
@@ -196,7 +196,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           onPress={onBack}
           style={{ marginRight: 15, padding: 5 }}
         >
-          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>
+          <Text style={{ fontSize: 12, color: COLORS.primaryLight }}>
             {"<"}
           </Text>
         </TouchableOpacity>
@@ -212,7 +212,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 24, fontWeight: "bold" }}>
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
             {mechanic.name.charAt(0)}
           </Text>
         </View>
@@ -220,7 +220,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
         <View>
           <Text
             style={{
-              fontSize: 20,
+              fontSize: 12,
               fontWeight: "bold",
               marginBottom: 4,
               color: COLORS.black,
@@ -228,7 +228,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           >
             {mechanic.name}
           </Text>
-          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
             {mechanic.jobTitle || "Mechanic"}
           </Text>
           <View
@@ -247,7 +247,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 backgroundColor: isOnline ? "#22c55e" : "#9ca3af",
               }}
             />
-            <Text style={{ color: COLORS.grayDark, fontSize: 13 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               {isOnline ? "Online" : "Offline"} • {activePlatform}
             </Text>
           </View>
@@ -294,7 +294,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               No {activeTab.toLowerCase()} tasks assigned to this mechanic
             </Text>
           </View>

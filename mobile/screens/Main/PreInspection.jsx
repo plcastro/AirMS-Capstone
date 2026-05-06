@@ -16,7 +16,10 @@ import PreInspectionCards from "../../components/PreInspection/PreInspectionCard
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
-import { exportPreInspectionPdf } from "../../utilities/pdfExport";
+import {
+  exportPreInspectionTemplatePdf,
+  exportPreInspectionToWord,
+} from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 
@@ -167,7 +170,17 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    await exportPreInspectionPdf(inspection);
+    Alert.alert("Export Pre-Inspection", "Choose export format", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "PDF",
+        onPress: () => exportPreInspectionTemplatePdf(inspection),
+      },
+      {
+        text: "Word Template",
+        onPress: () => exportPreInspectionToWord(inspection),
+      },
+    ]);
   };
 
   const selectAircraft = (aircraft) => {
@@ -213,9 +226,7 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>
-                New Entry
-              </Text>
+              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -342,7 +353,7 @@ export default function PreInspection({ route }) {
               <Text
                 style={{
                   marginTop: 10,
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   textAlign: "center",
                 }}

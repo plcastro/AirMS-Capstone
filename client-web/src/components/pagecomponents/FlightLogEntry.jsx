@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button, Input, message, Modal, Space, Spin } from "antd";
 import {
   InfoCircleOutlined,
@@ -24,6 +24,11 @@ const resolveRole = (role = "") => {
   if (r === "engineer" || r === "maintenance manager" || r === "officer-in-charge") return "mechanic";
   return "pilot";
 };
+
+const isReleasedFlightLogStatus = (status = "") =>
+  ["pending_acceptance", "released", "accepted", "completed"].includes(
+    String(status || "").trim().toLowerCase(),
+  );
 
 const emptyComponentSection = () => ({
   airframe: "",
@@ -75,17 +80,6 @@ const emptyLeg = () => ({
   date: "",
   passengers: "",
 });
-const emptyWorkItem = () => ({
-  id: `${Date.now()}-${Math.random()}`,
-  selectedWorkTypes: [],
-  date: "",
-  aircraft: "",
-  workDone: "",
-  name: "",
-  certificateNumber: "",
-  signature: "",
-});
-
 const syncServicingToLegs = (fd) => {
   const n = fd.legs?.length || 1;
   return {
@@ -407,17 +401,19 @@ export default function FlightLogEntry({
   // EDIT PERMISSIONS (who can edit what)
   const canEditBasicInfo = !readOnly && (!editMode || formData.createdBy === userRole);
   const isCompletedLog = editMode && formData.status === "completed";
+  const isRPCEditable = !editMode || !isReleasedFlightLogStatus(formData.status);
   const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
-  const canEditComponent = !editMode
-    ? !readOnly && isMechanic
-    : !readOnly && isMechanic && editMode && !formData.broughtForwardLocked;
+  const canEditComponent = !readOnly && isMechanic;
+  const canEditNextInspectionDates = !readOnly && isMechanic;
   const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
   const canEditDiscrepancy = !readOnly;
   const canSave = !readOnly && !isCompletedLog;
+  const canSaveCurrentTab =
+    canSave || (activeTab === "component" && canEditNextInspectionDates);
 
   const handleSave = async () => {
-    if (isCompletedLog) {
+    if (isCompletedLog && !(activeTab === "component" && canEditNextInspectionDates)) {
       message.info("Completed flight logs are view-only.");
       return;
     }
@@ -451,7 +447,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={canSave && canEditBasicInfo}
-            isRPCEditable={!editMode}
+            isRPCEditable={isRPCEditable}
             onAircraftDataLoaded={setLoadedAircraftData}
           />
         );
@@ -469,7 +465,7 @@ export default function FlightLogEntry({
             componentData={componentData}
             updateComponent={updateComponent}
             isEditable={canSave && canEditComponent}
-            isLocked={formData.broughtForwardLocked}
+            canEditNextInspection={canEditNextInspectionDates}
           />
         );
       case "fuel":
@@ -556,7 +552,7 @@ export default function FlightLogEntry({
             >
               Next
             </Button>
-          ) : canSave ? (
+          ) : canSaveCurrentTab ? (
             <Button
               type="primary"
               className="fl-nav-btn"

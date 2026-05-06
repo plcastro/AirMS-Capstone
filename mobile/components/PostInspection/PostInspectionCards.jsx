@@ -39,37 +39,6 @@ export default function PostInspectionCards({
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "Date not set";
-
-    let date;
-
-    if (dateString instanceof Date) {
-      date = dateString;
-    } else if (typeof dateString === "string") {
-      const parts = dateString.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        date = new Date(year, month, day);
-      } else {
-        date = new Date(dateString);
-      }
-    } else if (typeof dateString === "number") {
-      date = new Date(dateString);
-    } else {
-      return "Invalid date";
-    }
-
-    if (isNaN(date.getTime())) return "Invalid date";
-
-    return date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-    });
-  };
-
   if (!inspections || inspections.length === 0) {
     return (
       <View
@@ -80,10 +49,6 @@ export default function PostInspectionCards({
           alignItems: "center",
           marginTop: 20,
           elevation: 8,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
         }}
       >
         <MaterialCommunityIcons
@@ -91,14 +56,7 @@ export default function PostInspectionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text
-          style={{
-            color: COLORS.grayDark,
-            fontSize: 16,
-            marginTop: 12,
-            textAlign: "center",
-          }}
-        >
+        <Text style={{ fontSize: 12, marginTop: 12 }}>
           No post-inspections found
         </Text>
       </View>
@@ -112,114 +70,111 @@ export default function PostInspectionCards({
         const isOfficerInCharge = userRole === "officer-in-charge";
 
         return (
-          <View
+          <TouchableOpacity
             key={inspection._id}
+            activeOpacity={0.8}
+            onPress={() => onEdit?.(inspection)}
             style={{
+              flexDirection: "row",
               backgroundColor: COLORS.white,
-              borderRadius: 7,
-              marginBottom: 20,
-              elevation: 3,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
+              borderRadius: 8,
+              marginBottom: 12,
+              elevation: 2,
               overflow: "hidden",
             }}
           >
-            {/* Green Header with RP/C, Status, and Export Button */}
-            <View
-              style={{
-                backgroundColor: COLORS.primaryLight,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Text
+            {/* Accent bar */}
+            <View style={{ width: 4, backgroundColor: COLORS.primaryLight }} />
+
+            <View style={{ flex: 1, position: "relative" }}>
+              {/* HEADER */}
+              <View
                 style={{
-                  color: COLORS.white,
-                  fontSize: 18,
-                  fontWeight: "600",
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                RP/C: {inspection.rpc || "N/A"}
-              </Text>
-              <View
-                style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
-              >
+                <View>
+                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                    {inspection.rpc || "N/A"}
+                  </Text>
+
+                  <Text style={{ fontSize: 10, color: "#777" }}>
+                    {inspection.date || inspection.createdAt || "N/A"}
+                  </Text>
+                </View>
+
                 <View
-                  style={{
-                    backgroundColor: statusStyle.backgroundColor,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 20,
-                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
-                  <Text
+                  {/* Status */}
+                  <View
                     style={{
-                      color: statusStyle.textColor,
-                      fontSize: 12,
-                      fontWeight: "600",
+                      backgroundColor: statusStyle.backgroundColor,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 12,
                     }}
                   >
-                    {statusStyle.label}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => onExport?.(inspection)}>
-                  <MaterialCommunityIcons
-                    name="export-variant"
-                    size={22}
-                    color={COLORS.white}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+                    <Text
+                      style={{
+                        color: statusStyle.textColor,
+                        fontSize: 9,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {statusStyle.label}
+                    </Text>
+                  </View>
 
-            {/* Card Content */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => onEdit(inspection)}
-              style={{ paddingHorizontal: 20, paddingBottom: 20 }}
-            >
+                  {/* Export */}
+                  <TouchableOpacity onPress={() => onExport?.(inspection)}>
+                    <MaterialCommunityIcons
+                      name="export-variant"
+                      size={21}
+                      color="#444"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* BODY (compact inline style like logs) */}
               <View
                 style={{
-                  backgroundColor: "#F5F5F5",
-                  borderWidth: 1,
-                  borderColor: "#E0E0E0",
-                  borderRadius: 5,
-                  padding: 15,
-                  position: "relative",
+                  paddingHorizontal: 10,
+                  paddingBottom: 10,
                 }}
               >
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    Aircraft Type : {inspection.aircraftType || "N/A"}
-                  </Text>
-                </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ color: "#555", fontSize: 14 }}>
-                    RP/C: {inspection.rpc || "N/A"}
-                  </Text>
-                </View>
-                {/* Edit Icon */}
-                <View
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={isOfficerInCharge ? "eye-outline" : "pencil"}
-                    size={20}
-                    color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
-                  />
-                </View>
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                  {inspection.aircraftType || "N/A"}
+                </Text>
+
+                <Text style={{ fontSize: 11, color: "#444" }}>
+                  <Text style={{ color: "#777" }}>Released By:</Text>{" "}
+                  {inspection?.releasedBy?.name || "N/A"}
+                </Text>
               </View>
-            </TouchableOpacity>
-          </View>
+
+              {/* ICON (bottom-right like logs style) */}
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 6,
+                  right: 8,
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={isOfficerInCharge ? "eye-outline" : "pencil"}
+                  size={21}
+                  color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
         );
       })}
     </>

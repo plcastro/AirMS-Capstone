@@ -22,6 +22,42 @@ const toComparableFlightLog = (flightLog) => {
     : flightLog;
 };
 
+const isReleasedFlightLogStatus = (status = "") =>
+  ["pending_acceptance", "released", "accepted", "completed"].includes(
+    String(status || "").trim().toLowerCase(),
+  );
+
+const normalizeFlightLogStatusFilter = (status = "") => {
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  if (normalized === "all" || normalized === "all_status") {
+    return [];
+  }
+
+  if (normalized === "pending_release") {
+    return ["pending_release", "ongoing", "draft"];
+  }
+  if (normalized === "pending_acceptance") {
+    return ["pending_acceptance", "released"];
+  }
+
+  return normalized ? [normalized] : [];
+};
+
+const hasDestinationInfo = (flightLog = {}) =>
+  Array.isArray(flightLog.legs) &&
+  flightLog.legs.some((leg) =>
+    Array.isArray(leg?.stations) &&
+    leg.stations.some(
+      (station) =>
+        String(station?.from || "").trim() &&
+        String(station?.to || "").trim(),
+    ),
+  );
+
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
 // @access  Private (pilot or mechanic)
@@ -203,8 +239,14 @@ const getFlightLogs = async (req, res) => {
     // Build filter object
     const filter = {};
 
-    if (typeof status === "string" && status.trim())
-      filter.status = status.trim();
+    if (typeof status === "string" && status.trim()) {
+      const statuses = normalizeFlightLogStatusFilter(status);
+      if (statuses.length === 1) {
+        filter.status = statuses[0];
+      } else if (statuses.length > 1) {
+        filter.status = { $in: statuses };
+      }
+    }
     if (typeof aircraftRPC === "string" && aircraftRPC.trim())
       filter.rpc = aircraftRPC.trim();
     if (typeof createdBy === "string" && createdBy.trim())
@@ -354,6 +396,28 @@ const updateFlightLog = async (req, res) => {
     delete updates.id;
     delete updates.createdAt;
     delete updates.__v;
+
+    if (isReleasedFlightLogStatus(existingFlightLog.status)) {
+      delete updates.rpc;
+    }
+
+    if (
+      updates.notifiedForCompletion === true &&
+      existingFlightLog.notifiedForCompletion !== true
+    ) {
+      const nextFlightLog = {
+        ...toComparableFlightLog(existingFlightLog),
+        ...updates,
+      };
+
+      if (!hasDestinationInfo(nextFlightLog)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Add at least one complete From-To station in Destination/s before notifying for completion.",
+        });
+      }
+    }
 
     // Update the flight log
     const flightLog = await FlightLog.findByIdAndUpdate(

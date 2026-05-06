@@ -33,21 +33,33 @@ const DEFAULT_RULES = {
   highRemainingHours: 24,
   mediumDueDays: 14,
   longTurnaroundHours: 5,
-  safetyBoostEnabled: true,
 };
 
 const formatDueSummary = (record) => {
   const segments = [];
 
   if (record.dueByHours !== null && record.dueByHours !== undefined) {
-    segments.push(`${record.dueByHours} FH`);
+    segments.push(`FH: ${record.dueByHours}`);
   }
 
   if (record.dueByDays !== null && record.dueByDays !== undefined) {
-    segments.push(`${record.dueByDays} day(s)`);
+    segments.push(`Days: ${record.dueByDays}`);
   }
 
   return segments.length > 0 ? segments.join(" | ") : "N/A";
+};
+
+const formatDueBasis = (basis) => {
+  switch (basis) {
+    case "hours-and-calendar":
+      return "Hours + calendar";
+    case "hours":
+      return "Flight hours";
+    case "calendar":
+      return "Calendar";
+    default:
+      return "N/A";
+  }
 };
 
 const formatDate = (value) => {
@@ -84,7 +96,6 @@ export default function MaintenancePriority() {
         highRemainingHours: String(activeRules.highRemainingHours),
         mediumDueDays: String(activeRules.mediumDueDays),
         longTurnaroundHours: String(activeRules.longTurnaroundHours),
-        safetyBoostEnabled: activeRules.safetyBoostEnabled ? "1" : "0",
       });
 
       const response = await fetch(
@@ -257,38 +268,54 @@ export default function MaintenancePriority() {
       title: "Rank",
       dataIndex: "rank",
       key: "rank",
-      width: 70,
+      width: 50,
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
-      width: 140,
+      width: 100,
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
-      width: 130,
+      width: 100,
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
-      width: 220,
+      width: 120,
     },
     {
-      title: "Due Soonest",
+      title: "Remaining",
       key: "dueSoonest",
-      width: 170,
+      width: 120,
       render: (_, record) => formatDueSummary(record),
     },
     {
-      title: "Due Date",
+      title: "Calendar Due",
       dataIndex: "dueDate",
       key: "dueDate",
       width: 120,
-      render: (value) => formatDate(value),
+      render: (value, record) => (
+        <span>
+          {formatDate(value)}
+          {record.dueBasis === "hours" && (
+            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+              not calendar overdue
+            </Text>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "Due Basis",
+      dataIndex: "dueBasis",
+      key: "dueBasis",
+      width: 140,
+      render: (value) => formatDueBasis(value),
     },
     {
       title: "Turnaround",
@@ -512,27 +539,25 @@ export default function MaintenancePriority() {
         />
       )}
 
-      <Card>
-        <Table
-          rowKey={(record) =>
-            [
-              record.inspectionKey,
-              record.sourceRow,
-              record.aircraft,
-              record.nextInspection,
-              record.rank,
-            ]
-              .filter(Boolean)
-              .join("-")
-          }
-          loading={loading}
-          columns={columns}
-          dataSource={filteredData}
-          pagination={false}
-          scroll={{ x: 1600 }}
-          bordered
-        />
-      </Card>
+      <Table
+        rowKey={(record) =>
+          [
+            record.inspectionKey,
+            record.sourceRow,
+            record.aircraft,
+            record.nextInspection,
+            record.rank,
+          ]
+            .filter(Boolean)
+            .join("-")
+        }
+        loading={loading}
+        columns={columns}
+        dataSource={filteredData}
+        pagination={false}
+        scroll={{ x: 1600 }}
+        bordered
+      />
     </div>
   );
 }

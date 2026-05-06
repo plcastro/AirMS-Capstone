@@ -1,20 +1,23 @@
 //Mobile
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
+import { useRoute } from "@react-navigation/native";
 
 export default function ForgotPassword() {
   const nav = useNavigation();
-  const [email, setEmail] = useState("");
+  const route = useRoute();
+  const [email, setEmail] = useState(route.params?.email || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,64 +84,75 @@ export default function ForgotPassword() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.formCard}
+      style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Forgot Password</Text>
-        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-          Please provide your email to proceed
-        </Text>
+      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text style={styles.headerText}>Forgot Password</Text>
+            <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
+              Please provide your email to proceed
+            </Text>
 
-        <TextInput
-          style={[styles.formInput, { marginBottom: 0 }]}
-          maxLength={254}
-          placeholder="Enter email address"
-          placeholderTextColor="gray"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            setError("");
-            setMessage("");
-          }}
-        />
+            <Text style={styles.label}>
+              Email <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.formInput, { marginBottom: 0 }]}
+              maxLength={254}
+              placeholder="Enter email address"
+              placeholderTextColor="gray"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setError("");
+                setMessage("");
+              }}
+            />
 
-        <Button
-          label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
-          onPress={sendResetLink}
-          disabled={!isFormValid || loading}
-          buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
+            <Button
+              label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
+              onPress={sendResetLink}
+              disabled={!isFormValid || loading}
+              buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+              buttonTextStyle={styles.primaryBtnTxt}
+            />
 
-        {error ? (
-          <Text
-            style={{
-              color: "red",
-              textAlign: "left",
-              alignSelf: "flex-start",
-              marginTop: 10,
-            }}
-          >
-            {error}
-          </Text>
-        ) : null}
+            {error ? (
+              <Text
+                style={{
+                  color: "red",
+                  textAlign: "left",
+                  alignSelf: "flex-start",
+                  marginTop: 10,
+                }}
+              >
+                {error}
+              </Text>
+            ) : null}
 
-        {message ? (
-          <Text
-            style={{
-              color: "green",
-              textAlign: "left",
-              alignSelf: "flex-start",
-              marginTop: 10,
-            }}
-          >
-            {message}
-          </Text>
-        ) : null}
+            {message ? (
+              <Text
+                style={{
+                  color: "green",
+                  textAlign: "left",
+                  alignSelf: "flex-start",
+                  marginTop: 10,
+                }}
+              >
+                {message}
+              </Text>
+            ) : null}
+          </View>
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );

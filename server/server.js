@@ -9,13 +9,14 @@ const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
-const defectLogRoutes = require("./routes/defectLogRoute");
+
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
-const technicalLogRoutes = require("./routes/technicalLogRoute");
+
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
 const taskRoutes = require("./routes/taskRoute");
 const inspectionRoutes = require("./routes/inspectionRoute");
+const inspectionExportRoutes = require("./routes/inspectionExportRoutes");
 const partsRequisitionRoutes = require("./routes/partsRequisitionRoute");
 const partsMonitoringRoutes = require("./routes/partsMonitoringRoute");
 const flightLogRoutes = require("./routes/flightLogRoute");
@@ -26,10 +27,16 @@ const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
 const sendEmail = require("./utils/sendEmail");
+const http = require("http");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
-
+const {
+  subscribeSSE,
+  publishEvent,
+  initWebSocket,
+} = require("./utils/realtimeEvents");
+const { requestContextMiddleware } = require("./middleware/requestContext");
 const app = express();
 
 const allowedOrigins = [
@@ -37,8 +44,7 @@ const allowedOrigins = [
   "http://localhost:8081",
   "http://localhost:8000",
   "https://airms.online",
-  "https://www.airms.online",
-  "http://localhost:8081", // Expo / Metro bundler origin
+  "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
 
@@ -53,13 +59,25 @@ app.use(
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-platform",
+      "x-base",
+      "x-session-id",
+      "x-action-confirmed",
+      "x-confirm-action",
+    ],
     credentials: true,
   }),
 );
+
+app.get("/api/events/stream", subscribeSSE);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+app.use(requestContextMiddleware);
 
 app.use(
   helmet({
@@ -100,19 +118,45 @@ app.use(async (req, res, next) => {
   }
 });
 
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const method = String(req.method || "").toUpperCase();
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      return;
+    }
+
+    if (res.statusCode >= 400) {
+      return;
+    }
+
+    if (!String(req.originalUrl || "").startsWith("/api/")) {
+      return;
+    }
+
+    publishEvent("airms:data-changed", {
+      url: req.originalUrl,
+      method,
+      statusCode: res.statusCode,
+      at: new Date().toISOString(),
+    });
+  });
+
+  next();
+});
+
 app.use("/api/user", userRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/admin-activity", adminActivityRoutes);
 app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
-app.use("/api/defect-logs", defectLogRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
-app.use("/api/technical-logs", technicalLogRoutes);
+
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
+app.use("/api/inspections", inspectionExportRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -148,12 +192,14 @@ app.use((err, req, res, next) => {
   }
 });
 
+const server = http.createServer(app);
+initWebSocket(server);
+
 if (process.env.VERCEL !== "1") {
   const PORT = process.env.PORT || 8000;
-  app.listen(PORT, () => {
+
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
   });
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Input, Select } from "antd";
+import { DatePicker, Input, Select } from "antd";
+import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
 
 export default function FlightLogModalInfo({
@@ -28,16 +29,16 @@ export default function FlightLogModalInfo({
     fetchAircraftOptions();
   }, []);
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    if (date instanceof Date) {
-      return date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      });
+  const parseDatePickerValue = (value) => {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      const parsedFromDate = dayjs(value);
+      return parsedFromDate.isValid() ? parsedFromDate : null;
     }
-    return date;
+
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed : null;
   };
 
   const aircraftTypeLabel = useMemo(
@@ -74,7 +75,7 @@ export default function FlightLogModalInfo({
         <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
         <div className="fl-card-body">
           <div className="fl-field-row">
-            <span className="fl-label">RP-C:</span>
+            <span className="fl-label">RP-C: *</span>
             <div className="fl-dropdown-container">
               <Select
                 className="fl-rpc-select"
@@ -101,7 +102,19 @@ export default function FlightLogModalInfo({
 
           <div className="fl-field-row">
             <span className="fl-label">Date:</span>
-            <Input className="fl-input" value={formatDate(formData.date)} disabled />
+            <DatePicker
+              className="fl-input"
+              style={{ width: "100%" }}
+              format="MM/DD/YYYY"
+              value={parseDatePickerValue(formData.date)}
+              onChange={(date) =>
+                updateForm(
+                  "date",
+                  date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                )
+              }
+              disabled={!isEditable}
+            />
           </div>
 
           <div className="fl-field-row">

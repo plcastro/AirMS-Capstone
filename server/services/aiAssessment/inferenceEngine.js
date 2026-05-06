@@ -1,4 +1,8 @@
 const { RISK_RANK } = require("./factBuilder");
+const {
+  buildProcedureSummary,
+  getProcedureForManualReference,
+} = require("./procedureCatalog");
 
 const evaluateCondition = (condition = {}, facts = {}) => {
   const actual = facts[condition.fact];
@@ -94,6 +98,37 @@ const FACT_EVIDENCE_BUILDERS = {
   "signals.tailRotorBladesEdgeTabCount": () => "edge-tab-related record(s) detected",
   "signals.tailRotorBladesChinWeightsCount": () =>
     "chin-weight-blanking-hardware-related record(s) detected",
+  "signals.condition.hardLandingCount": () => "hard-landing condition record(s) detected",
+  "signals.condition.overtorqueCount": () => "overtorque condition record(s) detected",
+  "signals.condition.rotorOverspeedCount": () => "rotor-overspeed condition record(s) detected",
+  "signals.condition.bladeImpactCount": () => "rotor blade impact or unbalance record(s) detected",
+  "signals.condition.lightningStrikeCount": () => "lightning-strike condition record(s) detected",
+  "signals.condition.immersionCount": () => "immersion or water-ingress condition record(s) detected",
+  "signals.condition.strongTurbulenceCount": () => "strong-turbulence condition record(s) detected",
+  "signals.condition.abnormalGroundRotorCount": () =>
+    "abnormal ground rotor-behavior condition record(s) detected",
+  "signals.condition.fuelContaminationCount": () => "fuel-contamination condition record(s) detected",
+  "signals.condition.oilContaminationCount": () => "oil-contamination condition record(s) detected",
+  "signals.condition.gearboxOilLeakCount": () => "gearbox oil-leak condition record(s) detected",
+  "signals.condition.chipDetectionCount": () => "chip-detection condition record(s) detected",
+  "signals.condition.freewheelJerkCount": () => "freewheel-jerk condition record(s) detected",
+  "signals.condition.negativeTorqueCount": () => "negative-torque condition record(s) detected",
+  "signals.condition.engineHealthCheckCount": () => "engine-health or power-check record(s) detected",
+  "signals.condition.hydraulicPreCloggingCount": () =>
+    "hydraulic filter pre-clogging condition record(s) detected",
+  "signals.hydraulicContextCount": (value) =>
+    `${value} record(s) with hydraulic terminology detected`,
+  "signals.hydraulicLeakCount": (value) =>
+    `${value} record(s) with hydraulic leak terminology detected`,
+  "signals.hydraulicPressureCount": (value) =>
+    `${value} record(s) with hydraulic pressure terminology detected`,
+  "signals.hydraulicFilterCount": (value) =>
+    `${value} record(s) with hydraulic filter/strainer terminology detected`,
+  "signals.condition.vibrationAnomalyCount": () => "vibration anomaly record(s) detected",
+  "signals.condition.fuelControlFaultCount": () => "fuel-control fault record(s) detected",
+  "signals.condition.engineOilIndicationFaultCount": () =>
+    "engine oil indication fault record(s) detected",
+  "signals.condition.loadCompensatorFaultCount": () => "load-compensator fault record(s) detected",
   "tasks.component.rotorActuatorsDualHydraulicCount": () =>
     "dual-hydraulic rotor-actuator task context detected",
   "tasks.component.engineMgbDriveLineGimbalCount": () =>
@@ -185,17 +220,46 @@ const getPrimaryMatchedRule = (matchedRules = []) => {
     return null;
   }
 
+  const getSignalPriority = (rule = {}) => {
+    const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+    if (
+      conditions.some((condition) =>
+        String(condition.fact || "").startsWith("signals.hydraulic"),
+      )
+    ) {
+      return 3;
+    }
+    if (String(rule.category || "").toLowerCase().includes("hydraulic")) {
+      return 2;
+    }
+    if (
+      conditions.some((condition) =>
+        String(condition.fact || "").startsWith("signals.condition"),
+      )
+    ) {
+      return 1;
+    }
+    return 0;
+  };
+
   const highestRisk = deriveHighestRisk(matchedRules);
   return matchedRules
     .filter((rule) => rule.riskLevel === highestRisk)
     .sort((left, right) => {
       const leftSpecificity = Array.isArray(left.conditions) ? left.conditions.length : 0;
       const rightSpecificity = Array.isArray(right.conditions) ? right.conditions.length : 0;
-      return rightSpecificity - leftSpecificity;
+      if (rightSpecificity !== leftSpecificity) {
+        return rightSpecificity - leftSpecificity;
+      }
+      return getSignalPriority(right) - getSignalPriority(left);
     })[0];
 };
 
 const summarizeEvidenceForRule = (rule = {}, aircraftFacts = {}) => {
+  if (!rule) {
+    return [];
+  }
+
   const { facts = {} } = aircraftFacts;
   const seen = new Set();
 
@@ -214,14 +278,138 @@ const summarizeEvidenceForRule = (rule = {}, aircraftFacts = {}) => {
 
 const buildIssueTitle = (matchedRules = []) => {
   if (!matchedRules.length) {
-    return "No AI maintenance issue detected";
+    return "No maintenance issue detected";
   }
 
   const highestRule = getPrimaryMatchedRule(matchedRules);
   return highestRule?.possibleIssue || highestRule?.title || "Maintenance attention required";
 };
 
-const runInference = (rules = [], aircraftFacts = {}) => {
+const uniqueItems = (items = []) =>
+  Array.from(new Set(items.filter(Boolean)));
+
+const getPrimaryManualReference = (manualReference = "") =>
+  String(manualReference || "")
+    .split("|")
+    .map((reference) => reference.trim())
+    .find(Boolean) || "";
+
+const getMaintenanceDirective = (rule = {}) => {
+  const category = String(rule.category || "").toLowerCase();
+
+  if (category.includes("fault")) {
+    return {
+      findingType: "fault",
+      actionVerb: "perform fault isolation",
+    };
+  }
+
+  if (category.includes("event")) {
+    return {
+      findingType: "event",
+      actionVerb: "perform the required follow-up inspection",
+    };
+  }
+
+  if (category.includes("hydraulic")) {
+    return {
+      findingType: "hydraulic condition",
+      actionVerb: "inspect and troubleshoot",
+    };
+  }
+
+  if (category.includes("contamination")) {
+    return {
+      findingType: "contamination condition",
+      actionVerb: "perform the contamination response",
+    };
+  }
+
+  if (category.includes("inspection")) {
+    return {
+      findingType: "condition",
+      actionVerb: "inspect",
+    };
+  }
+
+  return {
+    findingType: "maintenance finding",
+    actionVerb: "review and action",
+  };
+};
+
+const buildMaintenanceIssueTitle = (rule = {}) => {
+  if (!rule) {
+    return "No maintenance issue detected";
+  }
+
+  const component = rule.component || rule.title || "Maintenance item";
+  const { findingType } = getMaintenanceDirective(rule);
+
+  return `${component} ${findingType} detected`;
+};
+
+const buildMaintenanceRecommendedAction = (rule = {}, procedures = []) => {
+  if (!rule) {
+    return "Continue monitoring current maintenance data.";
+  }
+
+  const component = rule.component || rule.title || "the maintenance item";
+  const reference = getPrimaryManualReference(rule.manualReference);
+  const procedure = getProcedureForManualReference(reference, procedures);
+  const { actionVerb } = getMaintenanceDirective(rule);
+  const capitalizedAction =
+    actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1);
+
+  if (procedure) {
+    if (actionVerb.startsWith("inspect")) {
+      return `${capitalizedAction} ${component} using ${procedure.reference}: ${procedure.title}.`;
+    }
+    return `${capitalizedAction} for ${component} using ${procedure.reference}: ${procedure.title}.`;
+  }
+
+  if (!reference) {
+    if (actionVerb.startsWith("inspect")) {
+      return `${capitalizedAction} ${component} using the applicable maintenance data.`;
+    }
+    return `${capitalizedAction} for ${component} using the applicable maintenance data.`;
+  }
+
+  if (actionVerb.startsWith("inspect")) {
+    return `${capitalizedAction} ${component} using ${reference}.`;
+  }
+
+  return `${capitalizedAction} for ${component} using ${reference}.`;
+};
+
+const buildEvidenceFinding = (evidenceSummary = []) => {
+  if (!evidenceSummary.length) {
+    return "Rule matched from the current aircraft maintenance records.";
+  }
+
+  return `Evidence found: ${evidenceSummary.join(", ")}.`;
+};
+
+const buildRuleManagerSummary = ({
+  primaryRule = null,
+  riskLevel = "Low",
+  manualReferences = [],
+} = {}) => {
+  if (!primaryRule) {
+    return "No active maintenance action is recommended from the current records.";
+  }
+
+  const component = primaryRule.component || primaryRule.title || "Maintenance item";
+  const reference = getPrimaryManualReference(manualReferences[0]);
+  const { findingType, actionVerb } = getMaintenanceDirective(primaryRule);
+  const referenceText = reference
+    ? ` Use ${reference} as the primary AMM reference.`
+    : " Use the applicable maintenance data as the primary reference.";
+
+  return `${riskLevel} priority ${component} ${findingType}; ${actionVerb} before closure or release.${referenceText}`;
+};
+
+const runInference = (rules = [], aircraftFacts = {}, procedures = []) => {
   const matchedRules = rules
     .filter((rule) =>
       Array.isArray(rule.conditions) &&
@@ -248,31 +436,60 @@ const runInference = (rules = [], aircraftFacts = {}) => {
     }));
 
   const riskLevel = deriveHighestRisk(matchedRules);
-  const recommendedActions = Array.from(
-    new Set(matchedRules.flatMap((rule) => rule.recommendedActions || [])),
-  );
-  const manualReferences = Array.from(
-    new Set(
-      matchedRules
-        .map((rule) => rule.manualReference)
-        .filter(Boolean),
-    ),
-  ).slice(0, 2);
-
   const primaryRule = getPrimaryMatchedRule(matchedRules);
+  const secondaryRules = matchedRules.filter(
+    (rule) => rule.ruleCode !== primaryRule?.ruleCode,
+  );
+  const orderedRules = primaryRule
+    ? [primaryRule, ...secondaryRules]
+    : matchedRules;
+  const primaryRecommendedAction = buildMaintenanceRecommendedAction(
+    primaryRule,
+    procedures,
+  );
+  const primaryProcedure = getProcedureForManualReference(
+    primaryRule?.manualReference,
+    procedures,
+  );
+  const procedureSummary = buildProcedureSummary(primaryProcedure);
+  const recommendedActions = uniqueItems([
+    primaryRecommendedAction,
+    procedureSummary,
+    ...orderedRules.flatMap((rule) => rule.recommendedActions || []),
+  ]);
+  const manualReferences = primaryRule?.manualReference
+    ? [primaryRule.manualReference]
+    : uniqueItems(orderedRules.map((rule) => rule.manualReference)).slice(0, 3);
   const evidenceSummary = summarizeEvidenceForRule(primaryRule, aircraftFacts);
+  const issueTitle = primaryRule
+    ? buildMaintenanceIssueTitle(primaryRule)
+    : buildIssueTitle(matchedRules);
   const shortFinding = matchedRules.length
-    ? `${buildIssueTitle(matchedRules)} ${evidenceSummary.length ? `Basis: ${evidenceSummary.join(", ")}.` : ""}`.trim()
-    : "No active AI-triggered maintenance flags found from the current records.";
+    ? buildEvidenceFinding(evidenceSummary)
+    : "No active maintenance flags found from the current records.";
+  const recommendedAction =
+    recommendedActions[0] || "Continue monitoring current maintenance data.";
+  const managerSummary = matchedRules.length
+    ? buildRuleManagerSummary({
+        primaryRule,
+        riskLevel,
+        manualReferences,
+      })
+    : "No active maintenance action is recommended from the current records.";
 
   return {
     riskLevel,
-    issueTitle: buildIssueTitle(matchedRules),
+    issueTitle,
     shortFinding,
-    recommendedAction:
-      recommendedActions[0] || "Continue monitoring current maintenance data.",
+    managerSummary,
+    recommendedAction,
     recommendedActions,
     manualReferences,
+    procedureReference: primaryProcedure?.reference || "",
+    procedureTitle: primaryProcedure?.title || "",
+    procedureSummary,
+    procedureSteps: [],
+    primaryRule,
     matchedRules,
     explanation: matchedRules.map((rule) => rule.explanation),
   };

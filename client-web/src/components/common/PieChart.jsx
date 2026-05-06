@@ -3,7 +3,12 @@ import { ResponsiveContainer, PieChart, Pie, Tooltip, Legend } from "recharts";
 
 const EMPTY_DATA = [{ name: "No data", value: 1, fill: "#d9d9d9" }];
 
-export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
+export const SDMChart = ({
+  data = [],
+  height = 350,
+  outerRadius = 100,
+  onSliceClick,
+}) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
 
   return (
@@ -17,6 +22,8 @@ export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
           paddingAngle={0}
           dataKey="value"
           stroke="none"
+          onClick={onSliceClick}
+          cursor={onSliceClick ? "pointer" : "default"}
         />
         <Tooltip
           contentStyle={{
@@ -31,15 +38,13 @@ export const SDMChart = ({ data = [], height = 350, outerRadius = 100 }) => {
   );
 };
 
-export const ARTChart = ({ data = [] }) => {
+export const ARTChart = ({
+  data = [],
+  onSliceClick,
+  centerValue = "0.0h",
+  centerLabel = "Avg. Rectification",
+}) => {
   const chartData = data.length > 0 ? data : EMPTY_DATA;
-
-  const fastestTask = chartData.reduce((prev, curr) =>
-    prev.value < curr.value ? prev : curr,
-  );
-
-  const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
-  const fastestPercentage = ((fastestTask.value / totalValue) * 100).toFixed(1);
 
   return (
     <div>
@@ -54,6 +59,8 @@ export const ARTChart = ({ data = [] }) => {
             paddingAngle={0}
             dataKey="value"
             stroke="none"
+            onClick={onSliceClick}
+            cursor={onSliceClick ? "pointer" : "default"}
           />
           <Tooltip
             contentStyle={{
@@ -78,13 +85,13 @@ export const ARTChart = ({ data = [] }) => {
           style={{
             fontSize: "24px",
             fontWeight: "bold",
-            color: fastestTask.fill,
+            color: "#26866f",
           }}
         >
-          {fastestPercentage}%
+          {centerValue}
         </span>
         <br />
-        <span style={{ fontSize: "12px", color: "#8c8c8c" }}>Fastest Task</span>
+        <span style={{ fontSize: "12px", color: "#8c8c8c" }}>{centerLabel}</span>
       </div>
     </div>
   );

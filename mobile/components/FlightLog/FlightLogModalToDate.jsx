@@ -7,7 +7,7 @@ export default function FlightLogModalToDate({
 }) {
   const renderReadOnlyField = (label, value) => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </Text>
       <View
@@ -19,7 +19,7 @@ export default function FlightLogModalToDate({
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 14, color: COLORS.grayDark }}>{value || ""}</Text>
+        <Text style={{ fontSize: 12, color: COLORS.grayDark }}>{value || ""}</Text>
       </View>
     </View>
   );
@@ -48,7 +48,7 @@ export default function FlightLogModalToDate({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             To Date
           </Text>
         </View>
@@ -64,8 +64,8 @@ export default function FlightLogModalToDate({
           {renderReadOnlyField("Cycle N2", componentData.cycleN2)}
           {renderReadOnlyField("Usage", componentData.usage)}
           {renderReadOnlyField("Landing Cycle", componentData.landingCycle)}
-          {renderReadOnlyField("Airframe Next Insp", componentData.airframeNextInsp)}
-          {renderReadOnlyField("Engine Next Insp", componentData.engineNextInsp)}
+          {renderReadOnlyField("Aircraft Insp. Next Due At", componentData.airframeNextInsp)}
+          {renderReadOnlyField("Engine Insp. Next Due At", componentData.engineNextInsp)}
         </View>
       </View>
     </ScrollView>

@@ -72,7 +72,6 @@ export default function Profile() {
 
   // --- IMAGE PICKER HANDLER ---
   const handleImagePick = async () => {
-    console.log("this is working");
     // 1. Ask for permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -86,18 +85,23 @@ export default function Profile() {
 
     // 2. Launch the library
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      // Expo ImagePicker v17+ expects string array values like "images".
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets?.length) {
       const selectedFile = result.assets[0];
+      const fileName =
+        selectedFile.fileName || `profile_${user.id || user._id}.jpg`;
+      const fileType = selectedFile.mimeType || "image/jpeg";
+
       setFile({
         uri: selectedFile.uri,
-        type: "image/jpeg",
-        name: `profile_${user.id}.jpg`,
+        type: fileType,
+        name: fileName,
       });
 
       setPreviewUri(selectedFile.uri);
@@ -141,7 +145,7 @@ export default function Profile() {
       uri:
         Platform.OS === "android" ? file.uri : file.uri.replace("file://", ""),
       type: file.type || "image/jpeg",
-      name: file.fileName || `profile_${user.id}.jpg`,
+      name: file.name || file.fileName || `profile_${user.id || user._id}.jpg`,
     });
 
     try {
@@ -273,7 +277,7 @@ export default function Profile() {
             buttons={[
               {
                 value: "info",
-                label: "User Information",
+                label: "Information",
                 icon: "account-details-outline",
               },
               {
@@ -291,7 +295,7 @@ export default function Profile() {
         <Card style={styles.formCard}>
           <Card.Content>
             <TextInput
-              label="First Name"
+              label="First Name *"
               mode="outlined"
               value={formData.firstName}
               onChangeText={(t) => setFormData({ ...formData, firstName: t })}
@@ -304,7 +308,7 @@ export default function Profile() {
             )}
 
             <TextInput
-              label="Last Name"
+              label="Last Name *"
               mode="outlined"
               value={formData.lastName}
               onChangeText={(t) => setFormData({ ...formData, lastName: t })}
@@ -403,8 +407,8 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#eee",
   },
-  userName: { marginTop: 12, fontSize: 20, fontWeight: "700" },
-  userRole: { fontSize: 14, color: "#666", marginTop: 4 },
+  userName: { marginTop: 12, fontSize: 14, fontWeight: "600"},
+  userRole: { fontSize: 12, color: "#666", marginTop: 4 },
   segmented: { marginTop: 10 },
   input: { marginBottom: 16, backgroundColor: "#fff" },
   buttonRow: {
@@ -426,5 +430,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  editBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600"},
 });

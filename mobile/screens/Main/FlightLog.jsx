@@ -22,6 +22,35 @@ import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 
+const normalizeFlightLogStatus = (statusValue = "") =>
+  String(statusValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+const getComparableStatus = (statusValue = "") => {
+  const normalized = normalizeFlightLogStatus(statusValue);
+
+  if (normalized === "ongoing" || normalized === "draft") {
+    return "pending_release";
+  }
+  if (normalized === "released") {
+    return "pending_acceptance";
+  }
+
+  return normalized;
+};
+
+const sortNewestFlightLogs = (logs = []) =>
+  [...logs].sort((a, b) => {
+    const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
+    const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
+    return (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate);
+  });
+
+const mergeFlightLogs = (logs = []) =>
+  Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
+
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -41,14 +70,18 @@ export default function FlightLog({ route, navigation }) {
   const isOfficerInCharge = userRole === "officer-in-charge";
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
-  const fetchFlightLogs = useCallback(async () => {
+  const fetchFlightLogs = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       // Build query parameters
       const params = new URLSearchParams();
       params.append("page", "1");
-      params.append("limit", "100");
+      params.append("limit", "500");
+      params.append("sortBy", "date");
+      params.append("sortOrder", "desc");
 
       if (selectedAircraft && selectedAircraft !== "all") {
         params.append("aircraftRPC", selectedAircraft);
@@ -65,31 +98,65 @@ export default function FlightLog({ route, navigation }) {
       //   `${API_BASE}/api/flightlogs?${params.toString()}`,
       // );
 
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
+      const fetchPage = async (page, extraParams = {}) => {
+        const pageParams = new URLSearchParams(params);
+        pageParams.set("page", String(page));
+        Object.entries(extraParams).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            pageParams.set(key, value);
+          }
+        });
+
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
           },
-        },
-      );
+        );
 
-      // Read response ONLY ONCE - use json() directly
-      const data = await response.json();
-      // console.log("Raw Server Response:", JSON.stringify(data));
+        const data = await response.json();
 
-      if (response.ok) {
-        setFlightLogs(data.data || []);
-      } else {
-        console.error("Error fetching logs:", data.message);
-        showToast(data.message || "Failed to fetch flight logs");
-      }
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch flight logs");
+        }
+
+        return data;
+      };
+
+      const fetchAllPages = async (extraParams = {}) => {
+        const firstPage = await fetchPage(1, extraParams);
+        const totalPages = Number(firstPage.pagination?.pages || 1);
+        const remainingPages =
+          totalPages > 1
+            ? await Promise.all(
+                Array.from({ length: totalPages - 1 }, (_, index) =>
+                  fetchPage(index + 2, extraParams),
+                ),
+              )
+            : [];
+
+        return [firstPage, ...remainingPages].flatMap((page) =>
+          Array.isArray(page.data) ? page.data : [],
+        );
+      };
+
+      const logs = await fetchAllPages();
+      const pendingReleaseLogs =
+        selectedStatus === "all"
+          ? await fetchAllPages({ status: "pending_release" })
+          : [];
+
+      setFlightLogs(sortNewestFlightLogs(mergeFlightLogs([...logs, ...pendingReleaseLogs])));
     } catch (error) {
       console.error("Fetch error:", error);
-      showToast("Failed to connect to server. Please check your network.");
+      showToast(error.message || "Failed to connect to server. Please check your network.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
       setRefreshing(false);
     }
   }, [selectedAircraft, selectedStatus]);
@@ -130,7 +197,7 @@ export default function FlightLog({ route, navigation }) {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
         {
           method: "GET",
           headers: {
@@ -143,7 +210,7 @@ export default function FlightLog({ route, navigation }) {
       const data = await response.json();
 
       if (response.ok) {
-        setFlightLogs(data.data || []);
+        setFlightLogs(sortNewestFlightLogs(data.data || []));
       } else {
         console.error("Search error:", data.message);
       }
@@ -155,7 +222,10 @@ export default function FlightLog({ route, navigation }) {
   };
 
   // CREATE NEW FLIGHT LOG
-  const handleSaveNewEntry = async (newEntry) => {
+  const handleSaveNewEntry = async (
+    newEntry,
+    options = { closeOnSave: true, showToast: true },
+  ) => {
     try {
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
@@ -177,7 +247,12 @@ export default function FlightLog({ route, navigation }) {
       if (response.ok) {
         fetchFlightLogs();
         fetchNotifications();
-        setShowNewEntryModal(false);
+        if (options.closeOnSave !== false) {
+          setShowNewEntryModal(false);
+        }
+        if (options.showToast) {
+          showToast("Flight log added successfully");
+        }
       } else {
         showToast(data.message || "Failed to add flight log");
       }
@@ -190,7 +265,7 @@ export default function FlightLog({ route, navigation }) {
   // UPDATE FLIGHT LOG (NO AUTH)
   const handleSaveEdit = async (
     updatedLog,
-    options = { closeOnSave: true },
+    options = { closeOnSave: true, showToast: true },
   ) => {
     try {
       const response = await fetch(
@@ -215,7 +290,9 @@ export default function FlightLog({ route, navigation }) {
         } else {
           setSelectedLog(updatedLog);
         }
-        showToast("Flight log updated successfully");
+        if (options.showToast !== false) {
+          showToast("Flight log updated successfully");
+        }
       } else {
         showToast(data.message || "Failed to update flight log");
       }
@@ -249,6 +326,23 @@ export default function FlightLog({ route, navigation }) {
       fetchNotifications();
     }, [fetchFlightLogs, fetchNotifications]),
   );
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [fetchFlightLogs, fetchNotifications]);
 
   useEffect(() => {
     if (!route?.params?.refreshAt) {
@@ -294,7 +388,8 @@ export default function FlightLog({ route, navigation }) {
       log.rpc === selectedAircraft;
 
     const matchesStatus =
-      selectedStatus === "all" || log.status === selectedStatus;
+      selectedStatus === "all" ||
+      getComparableStatus(log.status) === getComparableStatus(selectedStatus);
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
@@ -551,7 +646,7 @@ export default function FlightLog({ route, navigation }) {
                 <Text
                   style={{
                     marginTop: 10,
-                    fontSize: 16,
+                    fontSize: 12,
                     color: COLORS.grayDark,
                     textAlign: "center",
                   }}

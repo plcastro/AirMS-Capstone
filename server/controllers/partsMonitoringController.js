@@ -22,13 +22,18 @@ const DEFAULT_PRIORITY_RULES = {
   highRemainingHours: 24,
   mediumDueDays: 14,
   longTurnaroundHours: 5,
-  safetyBoostEnabled: true,
 };
 const PRIORITY_RANKS = {
   Critical: 1,
   High: 2,
   Medium: 3,
   Low: 4,
+};
+const DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT = {
+  "RP-C7226": {
+    J2: 498.8,
+    N3: 1130.8,
+  },
 };
 
 const normalizeAircraftModel = (value = "") => {
@@ -73,18 +78,30 @@ const parseNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const calculateRemainingDays = (dueDate, referenceDate = getToday()) => {
+  if (!dueDate) {
+    return null;
+  }
+
+  const due = dueDate instanceof Date ? dueDate : parseDate(dueDate);
+  const reference =
+    referenceDate instanceof Date ? referenceDate : parseDate(referenceDate);
+
+  if (!due || !reference) {
+    return null;
+  }
+
+  due.setHours(0, 0, 0, 0);
+  reference.setHours(0, 0, 0, 0);
+
+  return Math.round((due - reference) / (24 * 60 * 60 * 1000));
+};
+
 const parsePriorityRules = (query = {}) => {
   const parsedRules = { ...DEFAULT_PRIORITY_RULES };
 
   Object.keys(DEFAULT_PRIORITY_RULES).forEach((key) => {
     if (query[key] === undefined) {
-      return;
-    }
-
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      parsedRules[key] =
-        String(query[key]).toLowerCase() === "true" ||
-        String(query[key]) === "1";
       return;
     }
 
@@ -105,13 +122,6 @@ const mergePriorityRules = (baseRules = DEFAULT_PRIORITY_RULES, query = {}) => {
       return;
     }
 
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      parsedRules[key] =
-        String(query[key]).toLowerCase() === "true" ||
-        String(query[key]) === "1";
-      return;
-    }
-
     const parsedValue = parseNumber(query[key]);
     if (parsedValue !== null) {
       parsedRules[key] = parsedValue;
@@ -123,14 +133,6 @@ const mergePriorityRules = (baseRules = DEFAULT_PRIORITY_RULES, query = {}) => {
 
 const sanitizePriorityRules = (source = {}) =>
   Object.keys(DEFAULT_PRIORITY_RULES).reduce((accumulator, key) => {
-    if (typeof DEFAULT_PRIORITY_RULES[key] === "boolean") {
-      accumulator[key] =
-        source[key] === undefined
-          ? DEFAULT_PRIORITY_RULES[key]
-          : Boolean(source[key]);
-      return accumulator;
-    }
-
     const parsedValue = parseNumber(source[key]);
     accumulator[key] =
       parsedValue === null ? DEFAULT_PRIORITY_RULES[key] : parsedValue;
@@ -260,9 +262,18 @@ const deriveInspectionKeyForPart = (part = {}) => {
   return "";
 };
 
-const computeUrgencyMetrics = (part = {}) => {
+const computeUrgencyMetrics = (part = {}, referenceDate = getToday()) => {
   const remainingHours = parseNumber(part.timeRemaining);
-  const remainingDays = parseNumber(part.daysRemaining);
+  const dueDate = parseDate(part.dateDue);
+  const calculatedRemainingDays = calculateRemainingDays(
+    dueDate,
+    referenceDate,
+  );
+  const importedRemainingDays = parseNumber(part.daysRemaining);
+  const remainingDays =
+    calculatedRemainingDays !== null
+      ? calculatedRemainingDays
+      : importedRemainingDays;
   const intervalHours = parseNumber(part.hourLimit1);
   const intervalDays = parseNumber(part.dayLimit);
 
@@ -281,7 +292,7 @@ const computeUrgencyMetrics = (part = {}) => {
     remainingHours,
     remainingDays,
     dueAtHours: parseNumber(part.ttCycleDue),
-    dueDate: parseDate(part.dateDue),
+    dueDate,
     hourRatio,
     dayRatio,
     urgencyRatio: ratios.length > 0 ? Math.min(...ratios) : Number.POSITIVE_INFINITY,
@@ -390,14 +401,6 @@ const buildPriorityEvaluation = (
     reasons.push("No escalation threshold triggered");
   }
 
-  if (
-    rules.safetyBoostEnabled &&
-    inspection.isOverdue &&
-    !reasons.includes("Inspection is already overdue")
-  ) {
-    reasons.push("Safety escalation applied");
-  }
-
   return {
     priorityLevel,
     priorityRank: PRIORITY_RANKS[priorityLevel],
@@ -436,6 +439,44 @@ const buildPriorityReason = (inspection = {}, estimatedTurnaroundHours = null, u
     .join(" | ");
 };
 
+const getDueBasis = (inspection = {}) => {
+  const overdueByHours =
+    inspection.remainingHours !== null && inspection.remainingHours <= 0;
+  const overdueByDays =
+    inspection.remainingDays !== null && inspection.remainingDays <= 0;
+
+  if (overdueByHours && overdueByDays) {
+    return "hours-and-calendar";
+  }
+
+  if (overdueByHours) {
+    return "hours";
+  }
+
+  if (overdueByDays) {
+    return "calendar";
+  }
+
+  if (
+    inspection.remainingHours !== null &&
+    inspection.remainingDays !== null
+  ) {
+    return inspection.remainingHours <= inspection.remainingDays
+      ? "hours"
+      : "calendar";
+  }
+
+  if (inspection.remainingHours !== null) {
+    return "hours";
+  }
+
+  if (inspection.remainingDays !== null) {
+    return "calendar";
+  }
+
+  return "unknown";
+};
+
 const resolveAircraftModelForRecord = (record = {}, computedParts = [], schedulesByModel = new Map()) => {
   const preferredModel = normalizeAircraftModel(record.aircraftType);
   const partKeys = new Set(
@@ -472,7 +513,7 @@ const resolveAircraftModelForRecord = (record = {}, computedParts = [], schedule
 exports.updateAircraftTotals = async (req, res) => {
   try {
     const { aircraft } = req.params;
-    const { acftTT, n1Cycles, n2Cycles, landings } = req.body;
+    const { acftTT, engTT, n1Cycles, n2Cycles, landings } = req.body;
 
     if (!aircraft) {
       return res.status(400).json({
@@ -516,6 +557,7 @@ exports.updateAircraftTotals = async (req, res) => {
 
     // Update the reference totals
     partsData.referenceData.acftTT = acftTT;
+    partsData.referenceData.engTT = engTT ?? partsData.referenceData.engTT ?? acftTT;
     partsData.referenceData.n1Cycles = n1Cycles;
     partsData.referenceData.n2Cycles = n2Cycles;
     partsData.referenceData.landings = landings;
@@ -722,9 +764,17 @@ exports.getMaintenancePriority = async (req, res) => {
         const refs = {
           today: getToday(),
           acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+          engTT:
+            parseNumber(record?.referenceData?.engTT) ??
+            parseNumber(record?.referenceData?.acftTT) ??
+            0,
           n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
           n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
           landings: parseNumber(record?.referenceData?.landings) || 0,
+          referenceCells:
+            record?.referenceData?.referenceCells ||
+            DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
+            {},
         };
 
         const computedParts = processDataWithFormulas(record.parts || [], refs);
@@ -765,7 +815,7 @@ exports.getMaintenancePriority = async (req, res) => {
             }
 
             const schedule = scheduleMap.get(inspectionKey);
-            const urgency = computeUrgencyMetrics(part);
+            const urgency = computeUrgencyMetrics(part, refs.today);
 
             return {
               inspectionKey,
@@ -857,6 +907,7 @@ exports.getMaintenancePriority = async (req, res) => {
           dueByHours: roundNumber(nextInspection.remainingHours, 1),
           dueByDays: roundNumber(nextInspection.remainingDays, 0),
           dueDate: nextInspection.dueDate ? nextInspection.dueDate.toISOString() : null,
+          dueBasis: getDueBasis(nextInspection),
           dueAtHours: roundNumber(nextInspection.dueAtHours, 1),
           estimatedTurnaroundHours,
           checklistItemCount: inspectionTaskGroup.length,
@@ -946,6 +997,122 @@ exports.getMaintenancePriority = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error generating maintenance priority",
+      error: error.message,
+    });
+  }
+};
+
+exports.getInspectionRemainingHours = async (req, res) => {
+  try {
+    const [partsMonitoringRecords, inspectionSchedules] = await Promise.all([
+      PartsMonitoring.find({}).sort({ aircraft: 1 }),
+      InspectionSchedule.find({}).sort({ inspectionName: 1, aircraftModel: 1 }),
+    ]);
+
+    const schedulesByModel = new Map();
+    inspectionSchedules.forEach((schedule) => {
+      if (!isRelevantInspectionSchedule(schedule)) {
+        return;
+      }
+
+      const aircraftModel = normalizeAircraftModel(schedule.aircraftModel);
+      const inspectionKey = deriveInspectionKeyForSchedule(schedule);
+
+      if (!inspectionKey) {
+        return;
+      }
+
+      if (!schedulesByModel.has(aircraftModel)) {
+        schedulesByModel.set(aircraftModel, new Map());
+      }
+
+      schedulesByModel.get(aircraftModel).set(inspectionKey, schedule);
+    });
+
+    const rows = partsMonitoringRecords.flatMap((record) => {
+      const refs = {
+        today: getToday(),
+        acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+        engTT:
+          parseNumber(record?.referenceData?.engTT) ??
+          parseNumber(record?.referenceData?.acftTT) ??
+          0,
+        n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
+        n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
+        landings: parseNumber(record?.referenceData?.landings) || 0,
+        referenceCells:
+          record?.referenceData?.referenceCells ||
+          DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
+          {},
+      };
+
+      const computedParts = processDataWithFormulas(record.parts || [], refs);
+      const aircraftModel = resolveAircraftModelForRecord(
+        record,
+        computedParts,
+        schedulesByModel,
+      );
+      const scheduleMap = schedulesByModel.get(aircraftModel);
+
+      if (!scheduleMap) {
+        return [];
+      }
+
+      const partsByInspectionKey = new Map();
+      computedParts
+        .filter((part) => part.rowType !== "header")
+        .forEach((part) => {
+          const inspectionKey = deriveInspectionKeyForPart(part);
+          if (!inspectionKey || !scheduleMap.has(inspectionKey)) {
+            return;
+          }
+
+          const urgency = computeUrgencyMetrics(part, refs.today);
+          const current = partsByInspectionKey.get(inspectionKey);
+          const candidate = { part, ...urgency };
+
+          if (!current || compareInspectionUrgency(candidate, current) < 0) {
+            partsByInspectionKey.set(inspectionKey, candidate);
+          }
+        });
+
+      return Array.from(scheduleMap.entries()).map(([inspectionKey, schedule]) => {
+        const match = partsByInspectionKey.get(inspectionKey);
+        return {
+          aircraft: record.aircraft,
+          aircraftModel,
+          inspectionName: schedule.inspectionName,
+          inspectionKey,
+          flightHourInterval: parseNumber(schedule?.interval?.flightHours),
+          calendarMonthInterval: parseNumber(schedule?.interval?.calendarMonths),
+          remainingHours: match ? roundNumber(match.remainingHours, 1) : null,
+          remainingDays: match ? roundNumber(match.remainingDays, 0) : null,
+          dueDate: match?.dueDate ? match.dueDate.toISOString() : null,
+          dueAtHours: match ? roundNumber(match.dueAtHours, 1) : null,
+          sourceRow: match?.part?.componentName || "",
+          reference: schedule.msmReference || "",
+        };
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows.sort((left, right) => {
+        const aircraftCompare = String(left.aircraft || "").localeCompare(
+          String(right.aircraft || ""),
+        );
+        if (aircraftCompare !== 0) return aircraftCompare;
+        return (
+          (left.flightHourInterval || Number.MAX_SAFE_INTEGER) -
+          (right.flightHourInterval || Number.MAX_SAFE_INTEGER)
+        );
+      }),
+    });
+  } catch (error) {
+    console.error("Error fetching inspection remaining hours:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching inspection remaining hours",
       error: error.message,
     });
   }
@@ -1079,6 +1246,7 @@ const getAircraftList = async (req, res) => {
 module.exports = {
   getMaintenancePriorityRules: exports.getMaintenancePriorityRules,
   getMaintenancePriority: exports.getMaintenancePriority,
+  getInspectionRemainingHours: exports.getInspectionRemainingHours,
   saveMaintenancePriorityRules: exports.saveMaintenancePriorityRules,
   updateAircraftTotals: exports.updateAircraftTotals,
   savePartsMonitoring: exports.savePartsMonitoring,

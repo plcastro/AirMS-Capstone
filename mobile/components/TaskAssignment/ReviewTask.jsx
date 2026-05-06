@@ -6,7 +6,10 @@ import {
   Text,
   Modal,
   TextInput,
+  TouchableOpacity,
+  ScrollView,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SignatureCanvas from "react-native-signature-canvas";
 import Button from "../Button";
@@ -22,11 +25,14 @@ export default function ReviewTask({
   onClose,
   onConfirm,
   mode = "return",
+  checklistItems = [],
+  checklistState = [],
 }) {
   const { user } = useContext(AuthContext);
   const [note, setNote] = useState("");
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
+  const [itemsToUncheck, setItemsToUncheck] = useState([]);
   const [step, setStep] = useState("signature");
   const [submitting, setSubmitting] = useState(false);
   const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
@@ -36,6 +42,7 @@ export default function ReviewTask({
     setNote("");
     setSignature("");
     setPin("");
+    setItemsToUncheck([]);
     setStep("signature");
     setAdvanceAfterSignature(false);
   };
@@ -86,7 +93,7 @@ export default function ReviewTask({
 
       try {
         setSubmitting(true);
-        await onConfirm({ note, signature });
+        await onConfirm({ note, signature, itemsToUncheck });
         resetForm();
         onClose();
       } catch (error) {
@@ -130,6 +137,18 @@ export default function ReviewTask({
     onClose();
   };
 
+  const toggleItemToUncheck = (index) => {
+    setItemsToUncheck((prev) =>
+      prev.includes(index)
+        ? prev.filter((itemIndex) => itemIndex !== index)
+        : [...prev, index],
+    );
+  };
+
+  const checkedChecklistItems = checklistItems
+    .map((item, index) => ({ item, index }))
+    .filter(({ index }) => checklistState[index] === true);
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.alertOverlay}>
@@ -137,7 +156,7 @@ export default function ReviewTask({
           <Text
             style={[
               styles.alertTitle,
-              { fontSize: 24, marginBottom: 20, textAlign: "center" },
+              { fontSize: 12, marginBottom: 20, textAlign: "center" },
             ]}
           >
             {mode === "return" ? "RETURN TASK" : "APPROVE TASK"}
@@ -145,7 +164,7 @@ export default function ReviewTask({
 
           <Text
             style={{
-              fontSize: 16,
+              fontSize: 12,
               color: "#666",
               marginBottom: 20,
               textAlign: "center",
@@ -160,9 +179,93 @@ export default function ReviewTask({
 
           {mode === "return" && (
             <>
+              {checkedChecklistItems.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: COLORS.grayDark,
+                      marginBottom: 10,
+                    }}
+                  >
+                    Uncheck checklist items that need rework:
+                  </Text>
+
+                  <View style={{ maxHeight: 170 }}>
+                    <ScrollView nestedScrollEnabled>
+                      {checkedChecklistItems.map(({ item, index }) => {
+                        const selected = itemsToUncheck.includes(index);
+                        const meta = [item.taskId, item.inspectionTypeFull]
+                          .filter(Boolean)
+                          .join(" | ");
+
+                        return (
+                          <TouchableOpacity
+                            key={`${item.taskId || item.taskName}-${index}`}
+                            activeOpacity={0.75}
+                            onPress={() => toggleItemToUncheck(index)}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "flex-start",
+                              marginBottom: 10,
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: 4,
+                                borderWidth: 2,
+                                borderColor: COLORS.primaryLight,
+                                backgroundColor: selected
+                                  ? "transparent"
+                                  : COLORS.primaryLight,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 10,
+                                marginTop: 1,
+                              }}
+                            >
+                              {!selected && (
+                                <MaterialCommunityIcons
+                                  name="check"
+                                  size={14}
+                                  color={COLORS.white}
+                                />
+                              )}
+                            </View>
+
+                            <View style={{ flex: 1 }}>
+                              {!!meta && (
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    color: COLORS.grayDark,
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  {meta}
+                                </Text>
+                              )}
+                              <Text
+                                style={{
+                                  fontSize: 12,
+                                  color: COLORS.black,
+                                }}
+                              >
+                                {item.taskName || "Checklist item"}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+              )}
               <Text
                 style={{
-                  fontSize: 14,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   marginBottom: 8,
                 }}
@@ -192,7 +295,7 @@ export default function ReviewTask({
           {mode === "approve" && step === "signature" && (
             <>
               <Text
-                style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 8 }}
+                style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Approval signature
               </Text>
@@ -247,7 +350,7 @@ export default function ReviewTask({
           {mode === "approve" && step === "pin" && (
             <>
               <Text
-                style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 8 }}
+                style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Confirm PIN
               </Text>
