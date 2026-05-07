@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   ScrollView,
   Text,
   TextInput,
@@ -55,6 +56,20 @@ const withSentStatus = (message) => ({
   ...message,
   deliveryStatus: message.deliveryStatus || "sent",
 });
+
+const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
+  const fetched = fetchedMessages.map(withSentStatus);
+  const fetchedIds = new Set(fetched.map((item) => String(item._id)));
+  const localOnly = currentMessages.filter(
+    (item) =>
+      !fetchedIds.has(String(item._id)) &&
+      (String(item._id).startsWith("temp-") || item.deliveryStatus === "failed"),
+  );
+
+  return [...fetched, ...localOnly].sort(
+    (first, second) => new Date(first.createdAt) - new Date(second.createdAt),
+  );
+};
 
 const buildWsUrl = (token) => {
   const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
@@ -141,11 +156,22 @@ export default function Messaging() {
       }
 
       const data = await authFetch(`${API_BASE}/api/messages/${otherUserId}`);
-      setMessages(Array.isArray(data.data) ? data.data : []);
+      const nextMessages = Array.isArray(data.data) ? data.data : [];
+      setMessages((current) => mergeFetchedMessages(current, nextMessages));
       fetchConversations();
     },
     [authFetch, fetchConversations],
   );
+
+  const syncMessaging = useCallback(async () => {
+    const activeUserId = selectedUserIdRef.current;
+    if (activeUserId) {
+      await fetchThread(activeUserId);
+      return;
+    }
+
+    await fetchConversations();
+  }, [fetchConversations, fetchThread]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -173,6 +199,31 @@ export default function Messaging() {
   useEffect(() => {
     selectedUserIdRef.current = selectedUserId;
   }, [selectedUserId]);
+
+  useEffect(() => {
+    let currentAppState = AppState.currentState;
+
+    const syncIfActive = () => {
+      if (currentAppState !== "active") return;
+      syncMessaging().catch((error) => {
+        console.error("Message live sync failed:", error);
+      });
+    };
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      currentAppState = nextAppState;
+      if (nextAppState === "active") {
+        syncIfActive();
+      }
+    });
+
+    const intervalId = setInterval(syncIfActive, 2500);
+
+    return () => {
+      clearInterval(intervalId);
+      subscription.remove();
+    };
+  }, [syncMessaging]);
 
   useEffect(() => {
     let closedByEffect = false;
