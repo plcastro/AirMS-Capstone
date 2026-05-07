@@ -219,6 +219,43 @@ const loadImageDataUrl = (src) =>
     image.src = src;
   });
 
+const getImageFormatFromDataUrl = (dataUrl = "") => {
+  const match = String(dataUrl).match(/^data:image\/(png|jpe?g|webp);/i);
+  if (!match) return "PNG";
+  return match[1].toLowerCase().startsWith("jp") ? "JPEG" : "PNG";
+};
+
+const isDrawableSignature = (value) =>
+  typeof value === "string" && /^data:image\/(png|jpe?g|webp);base64,/i.test(value);
+
+const drawSignatureInCell = (doc, cell, signature, options = {}) => {
+  if (!isDrawableSignature(signature)) return;
+
+  const {
+    topOffset = 3,
+    horizontalPadding = 6,
+    height = 14,
+    maxWidth = cell.width - horizontalPadding * 2,
+  } = options;
+
+  const imageWidth = Math.max(16, Math.min(maxWidth, cell.width - horizontalPadding * 2));
+  const imageX = cell.x + (cell.width - imageWidth) / 2;
+  const imageY = cell.y + topOffset;
+
+  try {
+    doc.addImage(
+      signature,
+      getImageFormatFromDataUrl(signature),
+      imageX,
+      imageY,
+      imageWidth,
+      height,
+    );
+  } catch (error) {
+    console.warn("Unable to draw signature in flight log export", error);
+  }
+};
+
 export const exportFlightLogToWordTemplate = async (record = {}) => {
   try {
     const response = await fetch(FLIGHT_LOG_WORD_TEMPLATE_PATH);
@@ -600,11 +637,22 @@ export const exportFlightLogToPDF = async (record = {}) => {
         flightValue(fuel.mainTotal),
         fuel.fuelType === "drum" ? "/" : "",
         fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : "",
-        flightValue(fuel.refuelerName),
+        {
+          content: `${fuel.signature ? "\n" : ""}${flightValue(fuel.refuelerName)}`,
+          signatureData: fuel.signature,
+        },
       ]),
       columnStyles: {
         0: { cellWidth: 42, fontStyle: "bold" },
         8: { cellWidth: 92 },
+      },
+      didDrawCell: ({ cell, column, row, section }) => {
+        if (section === "body" && column.index === 8) {
+          drawSignatureInCell(doc, cell, fuelRows[row.index]?.signature, {
+            height: 12,
+            topOffset: 2,
+          });
+        }
       },
     });
 
@@ -652,12 +700,21 @@ export const exportFlightLogToPDF = async (record = {}) => {
         flightValue(oil.trGboxAdd),
         flightValue(oil.trGboxTot),
         flightValue(oil.remarks),
-        oil.signature ? "Signed" : "",
+        { content: "", signatureData: oil.signature },
       ]),
       columnStyles: {
         0: { cellWidth: 34, fontStyle: "bold" },
         11: { cellWidth: 88 },
         12: { cellWidth: 44 },
+      },
+      didDrawCell: ({ cell, column, row, section }) => {
+        if (section === "body" && column.index === 12) {
+          drawSignatureInCell(doc, cell, oilRows[row.index]?.signature, {
+            height: 12,
+            topOffset: 2,
+            horizontalPadding: 3,
+          });
+        }
       },
     });
 
@@ -667,10 +724,12 @@ export const exportFlightLogToPDF = async (record = {}) => {
       body: [
         [
           {
-            content: `RELEASED BY:\n${flightValue(record.releasedBy?.name)}\nENGINEER / CERTIFICATE`,
+            content: `RELEASED BY:\n\n${flightValue(record.releasedBy?.name)}\nENGINEER / CERTIFICATE`,
+            signatureData: record.releasedBy?.signature,
           },
           {
-            content: `ACCEPTED BY:\n${flightValue(record.acceptedBy?.name)}\nPILOT-IN-COMMAND / CERTIFICATE`,
+            content: `ACCEPTED BY:\n\n${flightValue(record.acceptedBy?.name)}\nPILOT-IN-COMMAND / CERTIFICATE`,
+            signatureData: record.acceptedBy?.signature,
           },
         ],
       ],
@@ -682,6 +741,18 @@ export const exportFlightLogToPDF = async (record = {}) => {
       columnStyles: {
         0: { cellWidth: 273 },
         1: { cellWidth: 273 },
+      },
+      didDrawCell: ({ cell, column, section }) => {
+        if (section !== "body") return;
+        const signature =
+          column.index === 0
+            ? record.releasedBy?.signature
+            : record.acceptedBy?.signature;
+        drawSignatureInCell(doc, cell, signature, {
+          height: 16,
+          topOffset: 11,
+          horizontalPadding: 28,
+        });
       },
     });
 

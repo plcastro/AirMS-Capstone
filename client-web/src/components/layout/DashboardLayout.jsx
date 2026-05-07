@@ -29,12 +29,17 @@ const DashboardLayout = () => {
       "/dashboard/user-management/view-users": "User Management",
       "/dashboard/user-management/activity-logs": "Activity Logs",
       "/dashboard/flight-log": "Flight Logs",
+      "/dashboard/pre-inspection": "Pre-Inspection",
+      "/dashboard/post-inspection": "Post-Inspection",
       "/dashboard/maintenance-log": "Maintenance Logs",
+      "/dashboard/tasks": "Tasks",
+      "/dashboard/mechanics": "Mechanics",
       "/dashboard/parts-lifespan-monitoring": "Parts Lifespan Monitoring",
       "/dashboard/maintenance-tracking": "Maintenance Tracking",
       "/dashboard/maintenance-priority": "Maintenance Priority Sorting",
       "/dashboard/parts-requisition": "Parts Requisition Monitoring",
       "/dashboard/maintenance-dashboard": "Reports and Analytics",
+      "/dashboard/messages": "Messages",
       "/dashboard/profile": "Profile",
     };
 

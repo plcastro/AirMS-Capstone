@@ -17,6 +17,7 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
 import AlertComp from "../AlertComp";
 import {
@@ -55,6 +56,7 @@ export default function PostInspectionEditEntry({
     "Engine",
     "Main Rotor",
     "Cabin Interior",
+    "Notes",
   ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -201,6 +203,14 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
+      case "Notes":
+        return (
+          <PostInspectionModalNotes
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={isFormEditable}
+          />
+        );
       default:
         return null;
     }
@@ -226,10 +236,39 @@ export default function PostInspectionEditEntry({
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 16,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600" }}>
+              Select Section
+            </Text>
+
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              gap: 12,
+              paddingBottom: 12,
+            }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
@@ -270,17 +309,6 @@ export default function PostInspectionEditEntry({
             }}
           />
 
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
         </View>
 
         <ScrollView

@@ -1,4 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Row,
   Col,
@@ -25,12 +29,43 @@ import {
   PartsRequisitionReport,
 } from "./ModuleReports";
 import { AuthContext } from "../../../context/AuthContext";
-import {
-  exportToExcel,
-  exportToPDF,
-} from "../../../components/common/ExportFile";
 import { API_BASE } from "../../../utils/API_BASE";
 const { Title, Text } = Typography;
+
+const normalizeReportStatus = (value) =>
+  String(value || "Unknown")
+    .replace(/_/g, " ")
+    .trim();
+
+const countBy = (records, getKey) =>
+  records.reduce((acc, record) => {
+    const key = getKey(record) || "Unknown";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+const toRows = (counts) =>
+  Object.entries(counts)
+    .map(([label, value]) => ({ label, value }))
+    .sort((left, right) => right.value - left.value);
+
+const monthLabel = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No date";
+  return date.toLocaleString("en-US", { month: "short", year: "numeric" });
+};
+
+const getRecordDate = (record = {}) =>
+  record.date ||
+  record.dateRequested ||
+  record.dateAdded ||
+  record.createdAt ||
+  record.updatedAt;
+
+const buildSafeFileName = (value) =>
+  String(value || "reports-analytics")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
 export default function MaintenanceDashboard() {
   const { getValidToken } = useContext(AuthContext);
@@ -395,12 +430,282 @@ export default function MaintenanceDashboard() {
     },
   ];
 
+  const buildReportExportSections = () => {
+    const completedTasks = tasks.filter((task) => isCompletedTask(task)).length;
+    const totalRequisitionItems = partsRequisitions.reduce(
+      (sum, record) => sum + (record.items?.length || 0),
+      0,
+    );
+    const componentRows = partsRecords.flatMap((record) =>
+      (record.parts || [])
+        .filter((part) => part.rowType !== "header" && part.componentName)
+        .map((part) => ({
+          aircraft: record.aircraft || "Unknown",
+          component: part.componentName,
+          daysRemaining: part.daysRemaining || "",
+          timeRemaining: part.timeRemaining || "",
+          due: part.due || "",
+        })),
+    );
+    const dueComponents = componentRows.filter((part) => {
+      const days = Number(part.daysRemaining);
+      const hours = Number(part.timeRemaining);
+      return (
+        String(part.due || "")
+          .toLowerCase()
+          .includes("due") ||
+        (Number.isFinite(days) && days <= 30) ||
+        (Number.isFinite(hours) && hours <= 50)
+      );
+    });
+
+    return [
+      {
+        title: "Overview Statistics",
+        columns: ["Metric", "Value"],
+        rows: [
+          ["Total Tasks", tasks.length],
+          ["Completed Tasks", completedTasks],
+          ["Due Soon Tasks", stats.dueSoon],
+          ["Overdue Tasks", stats.overdue],
+          ["Parts Monitoring Aircraft", partsRecords.length],
+          ["Tracked Components", componentRows.length],
+          ["Due / Due Soon Components", dueComponents.length],
+          ["Flight Logs", flightLogs.length],
+          ["Pre-Inspections", preInspections.length],
+          ["Post-Inspections", postInspections.length],
+          ["Parts Requisitions", partsRequisitions.length],
+          ["Requested Line Items", totalRequisitionItems],
+        ],
+      },
+      {
+        title: "Task Status Counts",
+        columns: ["Status", "Count"],
+        rows: toRows(
+          countBy(tasks, (task) => normalizeReportStatus(task.status)),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Task Priority Counts",
+        columns: ["Priority", "Count"],
+        rows: toRows(countBy(tasks, (task) => task.priority || "Normal")).map(
+          (row) => [row.label, row.value],
+        ),
+      },
+      {
+        title: "Tasks by Aircraft",
+        columns: ["Aircraft", "Count"],
+        rows: toRows(countBy(tasks, (task) => task.aircraft || "Unknown")).map(
+          (row) => [row.label, row.value],
+        ),
+      },
+      {
+        title: "Task Details",
+        columns: [
+          "Aircraft",
+          "Task",
+          "Assigned Mechanic",
+          "Type",
+          "Due Date",
+          "Completed Date",
+          "Priority",
+          "Status",
+        ],
+        rows: taskDetailRows.map((row) => [
+          row.aircraft,
+          row.task,
+          row.mechanic,
+          row.maintenanceType,
+          formatDate(row.dueDate),
+          formatDate(row.completedDate),
+          row.priority,
+          row.status,
+        ]),
+      },
+      {
+        title: "Flight Log Status Counts",
+        columns: ["Status", "Count"],
+        rows: toRows(
+          countBy(flightLogs, (record) => normalizeReportStatus(record.status)),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Flight Logs by Month",
+        columns: ["Month", "Count"],
+        rows: toRows(
+          countBy(flightLogs, (record) => monthLabel(getRecordDate(record))),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Flight Logs by Aircraft",
+        columns: ["Aircraft", "Count"],
+        rows: toRows(
+          countBy(flightLogs, (record) => record.rpc || "Unknown"),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Pre-Inspection Status Counts",
+        columns: ["Status", "Count"],
+        rows: toRows(
+          countBy(preInspections, (record) =>
+            normalizeReportStatus(record.status),
+          ),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Post-Inspection Status Counts",
+        columns: ["Status", "Count"],
+        rows: toRows(
+          countBy(postInspections, (record) =>
+            normalizeReportStatus(record.status),
+          ),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Parts Requisition Status Counts",
+        columns: ["Status", "Count"],
+        rows: toRows(
+          countBy(partsRequisitions, (record) =>
+            normalizeReportStatus(record.status),
+          ),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Parts Requisition Item Stock Counts",
+        columns: ["Stock Status", "Count"],
+        rows: toRows(
+          countBy(
+            partsRequisitions.flatMap((record) => record.items || []),
+            (item) => normalizeReportStatus(item.stockStatus),
+          ),
+        ).map((row) => [row.label, row.value]),
+      },
+      {
+        title: "Component Due Statistics",
+        columns: ["Aircraft", "Due / Due Soon Components"],
+        rows: toRows(countBy(dueComponents, (part) => part.aircraft)).map(
+          (row) => [row.label, row.value],
+        ),
+      },
+    ];
+  };
+
+  const exportReportsToExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "AirMS";
+      workbook.created = new Date();
+
+      buildReportExportSections().forEach((section) => {
+        const worksheet = workbook.addWorksheet(section.title.slice(0, 31));
+        worksheet.addRow(section.columns);
+        worksheet.addRows(section.rows);
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(1).fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFD9EAD3" },
+        };
+        worksheet.columns = section.columns.map((column, index) => ({
+          header: column,
+          key: String(index),
+          width: index === 0 ? 34 : 22,
+        }));
+        worksheet.eachRow((row) => {
+          row.eachCell((cell) => {
+            cell.alignment = { vertical: "top", wrapText: true };
+            cell.border = {
+              top: { style: "thin" },
+              left: { style: "thin" },
+              bottom: { style: "thin" },
+              right: { style: "thin" },
+            };
+          });
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(
+        blob,
+        `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`,
+      );
+      message.success("Reports and analytics Excel exported successfully.");
+    } catch (error) {
+      console.error("Reports Excel export failed:", error);
+      message.error(`Excel export failed: ${error.message}`);
+    }
+  };
+
+  const exportReportsToPdf = async () => {
+    try {
+      const doc = new jsPDF("p", "pt", "a4");
+      const sections = buildReportExportSections();
+      let y = 42;
+
+      doc.setFontSize(18);
+      doc.text("Reports and Analytics - Statistics", 40, y);
+      y += 18;
+      doc.setFontSize(10);
+      doc.setTextColor(90);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 40, y);
+      doc.setTextColor(0);
+      y += 18;
+
+      sections.forEach((section, index) => {
+        if (index > 0 && y > 650) {
+          doc.addPage();
+          y = 42;
+        }
+
+        doc.setFontSize(13);
+        doc.text(section.title, 40, y);
+        y += 8;
+
+        autoTable(doc, {
+          head: [section.columns],
+          body: section.rows.length ? section.rows : [["No data", ""]],
+          startY: y,
+          theme: "grid",
+          styles: {
+            fontSize: 8,
+            cellPadding: 4,
+            overflow: "linebreak",
+            valign: "top",
+          },
+          headStyles: {
+            fillColor: [4, 138, 37],
+          },
+          margin: { left: 40, right: 40 },
+        });
+
+        y = doc.lastAutoTable.finalY + 22;
+      });
+
+      doc.save(`${buildSafeFileName("Reports and Analytics")} Numbers.pdf`);
+      message.success("Reports and analytics PDF exported successfully.");
+    } catch (error) {
+      console.error("Reports PDF export failed:", error);
+      message.error(`PDF export failed: ${error.message}`);
+    }
+  };
+
+  const handleExportReports = () => {
+    if (selectedFileType === "PDF") {
+      exportReportsToPdf();
+    } else {
+      exportReportsToExcel();
+    }
+  };
+
   return (
     <div
       style={{
         padding: 20,
         minHeight: "100vh",
-        overflowY: "scroll",
+
         height: "100%",
       }}
     >
@@ -436,10 +741,7 @@ export default function MaintenanceDashboard() {
               type="primary"
               icon={<ExportOutlined />}
               block
-              onClick={() => {
-                if (selectedFileType === "PDF") exportToPDF();
-                else exportToExcel();
-              }}
+              onClick={handleExportReports}
             >
               Export
             </Button>

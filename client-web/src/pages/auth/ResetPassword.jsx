@@ -3,6 +3,8 @@ import "./login.css";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
 import { Button, Input, Card, Typography, Row, Col, Form, message } from "antd";
+import LoginLayout from "../../components/layout/LoginLayout";
+
 const { Title, Text } = Typography;
 
 const ResetPassword = () => {
@@ -89,16 +91,7 @@ const ResetPassword = () => {
   }
 
   return (
-    <Card className="reset-password-container">
-      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2}>Reset Password</Title>
-        </Col>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Text>Enter your new password</Text>
-        </Col>
-      </Row>
-
+    <LoginLayout title="Reset Password" subtitle="Enter your new password">
       <Form
         layout="vertical"
         className="reset-password-form"
@@ -157,7 +150,7 @@ const ResetPassword = () => {
           </Col>
         </Row>
       </Form>
-    </Card>
+    </LoginLayout>
   );
 };
 

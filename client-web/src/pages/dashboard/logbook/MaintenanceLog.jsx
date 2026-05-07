@@ -5,12 +5,187 @@ import {
   ArrowLeftOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
-import { exportRecordToPDF } from "../../../components/common/ExportFile";
 
 const { Title, Text } = Typography;
+const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+
+const formatPdfValue = (value, fallback = "") =>
+  value === null || value === undefined || value === "" ? fallback : String(value);
+
+const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const loadImageDataUrl = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error(`Unable to load image: ${src}`));
+    image.src = src;
+  });
+
+const drawTextInBox = (doc, text, x, y, width, height, options = {}) => {
+  const {
+    bold = false,
+    fontSize = 8,
+    align = "left",
+    valign = "middle",
+    padding = 3,
+  } = options;
+  doc.setFont("helvetica", bold ? "bold" : "normal");
+  doc.setFontSize(fontSize);
+
+  const lines = doc.splitTextToSize(formatPdfValue(text), width - padding * 2);
+  const lineHeight = fontSize + 1.5;
+  const totalHeight = lines.length * lineHeight;
+  let textY = y + padding + fontSize;
+
+  if (valign === "middle") {
+    textY = y + (height - totalHeight) / 2 + fontSize;
+  }
+
+  const textX =
+    align === "center"
+      ? x + width / 2
+      : align === "right"
+        ? x + width - padding
+        : x + padding;
+
+  doc.text(lines, textX, textY, { align });
+};
+
+const drawLabeledRow = (doc, label, value, x, y, labelWidth, valueWidth, rowHeight) => {
+  doc.rect(x, y, labelWidth, rowHeight);
+  doc.rect(x + labelWidth, y, valueWidth, rowHeight);
+  drawTextInBox(doc, label, x, y, labelWidth, rowHeight, {
+    bold: true,
+    fontSize: 8,
+    padding: 2,
+  });
+  drawTextInBox(doc, value, x + labelWidth, y, valueWidth, rowHeight, {
+    fontSize: 8,
+    padding: 3,
+  });
+};
+
+const drawMaintenanceReportHeader = (doc, record, aircraftData, logoDataUrl) => {
+  const marginX = 28;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - marginX * 2;
+  const topY = 26;
+  const metadataY = 42;
+  const rowHeight = 15;
+  const leftWidth = 156;
+  const rightWidth = 142;
+  const centerWidth = contentWidth - leftWidth - rightWidth;
+  const centerX = marginX + leftWidth;
+  const rightX = centerX + centerWidth;
+  const labelWidth = 61;
+  const rightLabelWidth = 76;
+  const serialNumber =
+    aircraftData?.serialNumber ||
+    String(record?.aircraft || "").replace(/[^\d]/g, "") ||
+    "";
+  const ref = aircraftData?.referenceData || {};
+
+  doc.setDrawColor(25, 25, 25);
+  doc.setLineWidth(0.9);
+  doc.rect(marginX, topY, contentWidth, 150);
+  doc.rect(marginX, topY, contentWidth, 16);
+
+  const leftRows = [
+    ["ACFT TYPE:", aircraftData?.aircraftType || "AS350 B3"],
+    ["ACFT REG:", record?.aircraft || ""],
+    ["ACFT S/N:", serialNumber],
+    ["W.O. #:", record?.sourceTaskId || record?.id || record?._id || ""],
+  ];
+
+  const rightRows = [
+    ["AIRCRAFT TT:", ref.acftTT ?? ""],
+    ["LANDING CYC:", ref.landings ?? ""],
+    ["ENGINE: TT:", ref.engTT ?? ref.acftTT ?? ""],
+    ["ENGINE CYC:", ref.n2Cycles ? `N2: ${ref.n2Cycles}` : ""],
+  ];
+
+  leftRows.forEach(([label, value], index) => {
+    drawLabeledRow(
+      doc,
+      label,
+      value,
+      marginX,
+      metadataY + index * rowHeight,
+      labelWidth,
+      leftWidth - labelWidth,
+      rowHeight,
+    );
+  });
+
+  doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", centerX + 10, metadataY + 4, centerWidth - 20, 38);
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(32);
+    doc.setTextColor(4, 100, 64);
+    doc.text("NGCP", centerX + centerWidth / 2, metadataY + 34, { align: "center" });
+    doc.setTextColor(0);
+  }
+
+  rightRows.forEach(([label, value], index) => {
+    drawLabeledRow(
+      doc,
+      label,
+      value,
+      rightX,
+      metadataY + index * rowHeight,
+      rightLabelWidth,
+      rightWidth - rightLabelWidth,
+      rowHeight,
+    );
+  });
+
+  const reportTitleY = metadataY + rowHeight * 4 + 18;
+  doc.rect(marginX, reportTitleY, contentWidth, 32);
+  drawTextInBox(
+    doc,
+    "WORK DONE REPORT /\nCERTIFICATE OF RETURN TO SERVICE",
+    marginX,
+    reportTitleY,
+    contentWidth,
+    32,
+    { bold: true, fontSize: 10, align: "center" },
+  );
+
+  const descriptionY = reportTitleY + 32;
+  doc.rect(marginX, descriptionY, contentWidth, 16);
+  drawTextInBox(doc, "DESCRIPTION OF WORK:", marginX, descriptionY, contentWidth, 16, {
+    bold: true,
+    fontSize: 9,
+    padding: 2,
+  });
+
+  return {
+    startY: descriptionY + 16,
+    marginX,
+    contentWidth,
+    numberColumnWidth: 50,
+  };
+};
 
 export default function MaintenanceLog() {
   const { getAuthHeader } = useContext(AuthContext);
@@ -20,6 +195,7 @@ export default function MaintenanceLog() {
   const [viewLevel, setViewLevel] = useState("dashboard");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const pageScrollStyle = {
     padding: 20,
     height: "calc(100vh - 64px)",
@@ -168,13 +344,90 @@ export default function MaintenanceLog() {
     </Space.Compact>
   );
 
+  const fetchAircraftExportData = async (aircraft) => {
+    if (!aircraft) return null;
+
+    try {
+      const authHeader = await getAuthHeader();
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}`,
+        { headers: authHeader },
+      );
+      const payload = await response.json();
+      return response.ok ? payload?.data || null : null;
+    } catch (error) {
+      console.warn("Unable to load aircraft export details:", error);
+      return null;
+    }
+  };
+
   const handleExport = async () => {
-    await exportRecordToPDF({
-      title: "Maintenance Log",
-      fileName: `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?._id || "record"}`,
-      subtitle: `Aircraft: ${selectedWO?.aircraft || "N/A"} | Task: ${selectedWO?.sourceTaskId || selectedWO?.id || "N/A"}`,
-      record: selectedWO,
-    });
+    if (!selectedWO) return;
+
+    try {
+      setExporting(true);
+      const [aircraftData, logoDataUrl] = await Promise.all([
+        fetchAircraftExportData(selectedWO.aircraft),
+        loadImageDataUrl(NGCP_LOGO_PATH).catch((error) => {
+          console.warn(error);
+          return null;
+        }),
+      ]);
+
+      const doc = new jsPDF("p", "pt", "a4");
+      const fileName = buildSafeFileName(
+        `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
+      );
+      const bodyRows = (
+        Array.isArray(selectedWO.workDetails) && selectedWO.workDetails.length > 0
+          ? selectedWO.workDetails
+          : [{ description: selectedWO.correctiveActionDone || selectedWO.defects || "" }]
+      )
+        .map((item) => formatPdfValue(item?.description || item, "").trim())
+        .filter(Boolean)
+        .map((description, index) => ["", `${index + 1}. ${description}`]);
+
+      const drawPageHeader = () =>
+        drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
+
+      const header = drawPageHeader();
+
+      autoTable(doc, {
+        startY: header.startY,
+        body: bodyRows.length ? bodyRows : [["", ""]],
+        theme: "grid",
+        margin: { left: header.marginX, right: header.marginX, top: header.startY },
+        tableWidth: header.contentWidth,
+        showHead: "never",
+        styles: {
+          font: "helvetica",
+          fontSize: 7.5,
+          cellPadding: 3,
+          lineColor: [25, 25, 25],
+          lineWidth: 0.75,
+          textColor: [20, 20, 20],
+          overflow: "linebreak",
+          valign: "middle",
+          minCellHeight: 16,
+        },
+        columnStyles: {
+          0: { cellWidth: header.numberColumnWidth },
+          1: { cellWidth: header.contentWidth - header.numberColumnWidth },
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const pageHeader = drawPageHeader();
+            data.settings.margin.top = pageHeader.startY;
+          }
+        },
+      });
+
+      doc.save(`${fileName}.pdf`);
+    } catch (error) {
+      console.error("Failed to export maintenance log:", error);
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (viewLevel === "dashboard") {
@@ -444,6 +697,7 @@ export default function MaintenanceLog() {
               type="primary"
               style={{ backgroundColor: "#26866f", border: "none" }}
               onClick={handleExport}
+              loading={exporting}
             >
               Export
             </Button>

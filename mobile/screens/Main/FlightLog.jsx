@@ -22,6 +22,35 @@ import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 
+const normalizeFlightLogStatus = (statusValue = "") =>
+  String(statusValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+const getComparableStatus = (statusValue = "") => {
+  const normalized = normalizeFlightLogStatus(statusValue);
+
+  if (normalized === "ongoing" || normalized === "draft") {
+    return "pending_release";
+  }
+  if (normalized === "released") {
+    return "pending_acceptance";
+  }
+
+  return normalized;
+};
+
+const sortNewestFlightLogs = (logs = []) =>
+  [...logs].sort((a, b) => {
+    const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
+    const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
+    return (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate);
+  });
+
+const mergeFlightLogs = (logs = []) =>
+  Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
+
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -50,7 +79,9 @@ export default function FlightLog({ route, navigation }) {
       // Build query parameters
       const params = new URLSearchParams();
       params.append("page", "1");
-      params.append("limit", "100");
+      params.append("limit", "500");
+      params.append("sortBy", "date");
+      params.append("sortOrder", "desc");
 
       if (selectedAircraft && selectedAircraft !== "all") {
         params.append("aircraftRPC", selectedAircraft);
@@ -67,29 +98,61 @@ export default function FlightLog({ route, navigation }) {
       //   `${API_BASE}/api/flightlogs?${params.toString()}`,
       // );
 
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
+      const fetchPage = async (page, extraParams = {}) => {
+        const pageParams = new URLSearchParams(params);
+        pageParams.set("page", String(page));
+        Object.entries(extraParams).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            pageParams.set(key, value);
+          }
+        });
+
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
           },
-        },
-      );
+        );
 
-      // Read response ONLY ONCE - use json() directly
-      const data = await response.json();
-      // console.log("Raw Server Response:", JSON.stringify(data));
+        const data = await response.json();
 
-      if (response.ok) {
-        setFlightLogs(data.data || []);
-      } else {
-        console.error("Error fetching logs:", data.message);
-        showToast(data.message || "Failed to fetch flight logs");
-      }
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch flight logs");
+        }
+
+        return data;
+      };
+
+      const fetchAllPages = async (extraParams = {}) => {
+        const firstPage = await fetchPage(1, extraParams);
+        const totalPages = Number(firstPage.pagination?.pages || 1);
+        const remainingPages =
+          totalPages > 1
+            ? await Promise.all(
+                Array.from({ length: totalPages - 1 }, (_, index) =>
+                  fetchPage(index + 2, extraParams),
+                ),
+              )
+            : [];
+
+        return [firstPage, ...remainingPages].flatMap((page) =>
+          Array.isArray(page.data) ? page.data : [],
+        );
+      };
+
+      const logs = await fetchAllPages();
+      const pendingReleaseLogs =
+        selectedStatus === "all"
+          ? await fetchAllPages({ status: "pending_release" })
+          : [];
+
+      setFlightLogs(sortNewestFlightLogs(mergeFlightLogs([...logs, ...pendingReleaseLogs])));
     } catch (error) {
       console.error("Fetch error:", error);
-      showToast("Failed to connect to server. Please check your network.");
+      showToast(error.message || "Failed to connect to server. Please check your network.");
     } finally {
       if (!silent) {
         setLoading(false);
@@ -134,7 +197,7 @@ export default function FlightLog({ route, navigation }) {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
         {
           method: "GET",
           headers: {
@@ -147,7 +210,7 @@ export default function FlightLog({ route, navigation }) {
       const data = await response.json();
 
       if (response.ok) {
-        setFlightLogs(data.data || []);
+        setFlightLogs(sortNewestFlightLogs(data.data || []));
       } else {
         console.error("Search error:", data.message);
       }
@@ -325,7 +388,8 @@ export default function FlightLog({ route, navigation }) {
       log.rpc === selectedAircraft;
 
     const matchesStatus =
-      selectedStatus === "all" || log.status === selectedStatus;
+      selectedStatus === "all" ||
+      getComparableStatus(log.status) === getComparableStatus(selectedStatus);
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
