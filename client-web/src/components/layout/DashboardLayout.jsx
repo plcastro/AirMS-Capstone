@@ -39,6 +39,7 @@ const DashboardLayout = () => {
       "/dashboard/maintenance-priority": "Maintenance Priority Sorting",
       "/dashboard/parts-requisition": "Parts Requisition Monitoring",
       "/dashboard/maintenance-dashboard": "Reports and Analytics",
+      "/dashboard/messages": "Messages",
       "/dashboard/profile": "Profile",
     };
 

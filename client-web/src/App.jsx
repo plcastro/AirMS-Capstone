@@ -66,6 +66,7 @@ const MaintenanceTracking = lazy(
 const MaintenancePriority = lazy(
   () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
 );
+const Messaging = lazy(() => import("./pages/dashboard/messages/Messaging"));
 const Profile = lazy(
   () => import("./pages/dashboard/account-settings/Profile"),
 );
@@ -282,6 +283,22 @@ const AppRouter = () => {
                   ]}
                 >
                   <PartsRequisition />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="messages"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "warehouse department",
+                    "mechanic",
+                  ]}
+                >
+                  <Messaging />
                 </ProtectedRoute>
               }
             />

@@ -23,6 +23,7 @@ const flightLogRoutes = require("./routes/flightLogRoute");
 const preInspectionRoutes = require("./routes/preInspectionRoute");
 const postInspectionRoutes = require("./routes/postInspectionRoute");
 const notificationRoutes = require("./routes/notificationRoute");
+const messageRoutes = require("./routes/messageRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
@@ -160,6 +161,7 @@ app.use("/api/inspections", inspectionExportRoutes);
 app.use("/api/pre-inspections", preInspectionRoutes);
 app.use("/api/post-inspections", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
