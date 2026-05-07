@@ -38,6 +38,18 @@ const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
 );
+const PreInspection = lazy(
+  () => import("./pages/dashboard/logbook/PreInspection"),
+);
+const PostInspection = lazy(
+  () => import("./pages/dashboard/logbook/PostInspection"),
+);
+const TaskAssignment = lazy(
+  () => import("./pages/dashboard/logbook/TaskAssignment"),
+);
+const MechanicList = lazy(
+  () => import("./pages/dashboard/logbook/MechanicList"),
+);
 const MaintenanceDashboard = lazy(
   () => import("./pages/dashboard/reports/MaintenanceDashboard"),
 );
@@ -147,9 +159,61 @@ const AppRouter = () => {
               path="flight-log"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
                 >
                   <FlightLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="pre-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
+                >
+                  <PreInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="post-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                  ]}
+                >
+                  <PostInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="tasks"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "mechanic"]}
+                >
+                  <TaskAssignment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mechanics"
+              element={
+                <ProtectedRoute allowedRoles={["maintenance manager"]}>
+                  <MechanicList />
                 </ProtectedRoute>
               }
             />
@@ -209,7 +273,14 @@ const AppRouter = () => {
             <Route
               path="parts-requisition"
               element={
-                <ProtectedRoute allowedRoles={["warehouse department"]}>
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                    "warehouse department",
+                  ]}
+                >
                   <PartsRequisition />
                 </ProtectedRoute>
               }
