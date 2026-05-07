@@ -28,6 +28,7 @@ import TaskAssignment from "./screens/Main/TaskAssignment";
 import PreInspection from "./screens/Main/PreInspection";
 import PostInspection from "./screens/Main/PostInspection";
 import PartsRequisition from "./screens/Main/PartsRequisition";
+import Messaging from "./screens/Main/Messaging";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -173,6 +174,18 @@ function DrawerNav({ navigation }) {
           name="Parts Requisition"
           component={wrapWithDashboard(PartsRequisition)}
           options={navLabel}
+        />
+      )}
+      {[
+        "maintenance manager",
+        "mechanic",
+        "officer-in-charge",
+        "pilot",
+      ].includes(user.jobTitle?.toLowerCase()) && (
+        <Drawer.Screen
+          name="Messages"
+          component={wrapWithDashboard(Messaging)}
+          options={{ ...navLabel, headerShown: false }}
         />
       )}
       {[

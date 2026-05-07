@@ -12,6 +12,7 @@ import {
   ToolOutlined,
   DashboardOutlined,
   InboxOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
@@ -34,6 +35,24 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
   const menuItems = [
+    {
+      key: "13",
+      label: "Reports and Analytics",
+      icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
+      roles: ["maintenance manager", "officer-in-charge"],
+    },
+    {
+      key: "15",
+      label: "Messages",
+      icon: <MessageOutlined style={{ fontSize: 24 }} />,
+      roles: [
+        "admin",
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse department",
+        "mechanic",
+      ],
+    },
     // {
     //   key: "1",
     //   label: "Admin Dashboard",
@@ -161,12 +180,6 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       ],
     },
     {
-      key: "13",
-      label: "Reports and Analytics",
-      icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
       key: "14",
       label: "Profile",
       icon: <UserOutlined style={{ fontSize: 24 }} />,
@@ -212,6 +225,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       "/dashboard/maintenance-priority": "11",
       "/dashboard/maintenance-dashboard": "13",
       "/dashboard/profile": "14",
+      "/dashboard/messages": "15",
     }),
     [],
   );
