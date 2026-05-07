@@ -185,7 +185,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Messages"
           component={wrapWithDashboard(Messaging)}
-          options={navLabel}
+          options={{ ...navLabel, headerShown: false }}
         />
       )}
       {[
