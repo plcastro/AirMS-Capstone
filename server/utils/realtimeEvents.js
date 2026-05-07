@@ -64,6 +64,9 @@ const authenticateWebSocket = (req) => {
   }
 };
 
+const getDecodedUserId = (decoded = {}) =>
+  decoded.id || decoded._id || decoded.userId || decoded.sub || null;
+
 /* =========================
    SSE (Server-Sent Events)
 ========================= */
@@ -96,26 +99,30 @@ const initWebSocket = (server) => {
 
   wss.on("connection", (ws, req) => {
     const decoded = authenticateWebSocket(req);
-    const userId = decoded?.id ? String(decoded.id) : null;
+    const decodedUserId = getDecodedUserId(decoded);
+    const userId = decodedUserId ? String(decodedUserId) : null;
 
-    if (userId) {
-      ws.userId = userId;
-      addUserClient(userId, ws);
-      ws.send(
-        JSON.stringify({
-          event: "connected",
-          data: { userId },
-        }),
-      );
+    if (!userId) {
+      ws.close(1008, "Unauthorized");
+      return;
     }
 
-    console.log(userId ? `WS connected: ${userId}` : "WS connected");
+    ws.userId = userId;
+    addUserClient(userId, ws);
+    ws.send(
+      JSON.stringify({
+        event: "connected",
+        data: { userId },
+      }),
+    );
+
+    console.log(`WS connected: ${userId}`);
 
     ws.on("close", () => {
       if (ws.userId) {
         removeUserClient(ws.userId, ws);
       }
-      console.log(ws.userId ? `WS disconnected: ${ws.userId}` : "WS disconnected");
+      console.log(`WS disconnected: ${ws.userId}`);
     });
   });
 };
