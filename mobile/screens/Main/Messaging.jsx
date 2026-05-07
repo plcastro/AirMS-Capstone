@@ -76,6 +76,8 @@ export default function Messaging() {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
   const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const selectedUserIdRef = useRef(null);
 
   const selectedUser = useMemo(
     () => users.find((candidate) => String(candidate._id) === String(selectedUserId)),
@@ -169,9 +171,15 @@ export default function Messaging() {
   }, [fetchThread, selectedUserId]);
 
   useEffect(() => {
+    selectedUserIdRef.current = selectedUserId;
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    let closedByEffect = false;
+
     const connect = async () => {
       const token = await getToken();
-      if (!token || !user?.id) return;
+      if (!token || !currentUserId) return;
 
       const ws = new WebSocket(buildWsUrl(token));
       wsRef.current = ws;
@@ -194,23 +202,42 @@ export default function Messaging() {
             return;
           }
 
+          if (
+            payload.event === "data-changed" &&
+            String(payload.data?.url || "").startsWith("/api/messages")
+          ) {
+            fetchConversations();
+            if (selectedUserIdRef.current) {
+              fetchThread(selectedUserIdRef.current).catch((error) => {
+                console.error("Failed to refresh realtime messages:", error);
+              });
+            }
+            return;
+          }
+
           if (payload.event !== "chat:message") return;
 
-          const nextMessage = payload.data;
+          const nextMessage = withSentStatus(payload.data);
           const otherUserId =
             String(getEntityId(nextMessage.sender)) === String(currentUserId)
               ? String(getEntityId(nextMessage.recipient))
               : String(getEntityId(nextMessage.sender));
 
-          if (String(otherUserId) === String(selectedUserId)) {
+          if (String(otherUserId) === String(selectedUserIdRef.current)) {
             setMessages((current) => {
               if (current.some((item) => item._id === nextMessage._id)) {
                 return current.map((item) =>
                   item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
                 );
               }
-              return [...current, withSentStatus(nextMessage)];
+              return [...current, nextMessage];
             });
+
+            if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+              fetchThread(otherUserId).catch((error) => {
+                console.error("Failed to refresh realtime thread:", error);
+              });
+            }
           }
 
           fetchConversations();
@@ -218,14 +245,28 @@ export default function Messaging() {
           console.error("Message websocket parse error:", error);
         }
       };
+
+      ws.onclose = () => {
+        if (!closedByEffect) {
+          reconnectTimeoutRef.current = setTimeout(connect, 1500);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
     };
 
     connect();
 
     return () => {
+      closedByEffect = true;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       wsRef.current?.close?.();
     };
-  }, [currentUserId, fetchConversations, getToken, selectedUserId]);
+  }, [currentUserId, fetchConversations, fetchThread, getToken]);
 
   const conversationUsers = useMemo(() => {
     const fromConversations = conversations.map((conversation) => conversation.user);
