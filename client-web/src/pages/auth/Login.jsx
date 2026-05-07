@@ -146,10 +146,10 @@ const Login = () => {
         navigate("/dashboard/maintenance-log");
         break;
       case "maintenance manager":
-        navigate("/dashboard/maintenance-log");
+        navigate("/dashboard/maintenance-dashboard");
         break;
       case "officer-in-charge":
-        navigate("/dashboard/flight-log");
+        navigate("/dashboard/maintenance-dashboard");
         break;
       case "warehouse department":
         navigate("/dashboard/parts-requisition");
