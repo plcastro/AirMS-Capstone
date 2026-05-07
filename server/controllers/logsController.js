@@ -1,5 +1,6 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
+const { getRequestContext } = require("../middleware/requestContext");
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9,18 +10,18 @@ const sanitizeActionText = (rawAction, username) => {
 
   let action = rawAction.trim();
 
-  // Remove appended actor id metadata from action text.
   action = action.replace(/\s*\(actorId:\s*[^)]+\)/gi, "");
 
   if (username && username !== "System" && username !== "Unknown") {
     const safeUsername = escapeRegex(username);
 
-    // Remove direct username mentions from common action templates.
     action = action.replace(new RegExp(`(:\\s*)${safeUsername}\\b`, "gi"), "");
-    action = action.replace(new RegExp(`(for\\s+)${safeUsername}\\b`, "gi"), "$1user");
+    action = action.replace(
+      new RegExp(`(for\\s+)${safeUsername}\\b`, "gi"),
+      "$1user",
+    );
   }
 
-  // Normalize spaces and punctuation after substitutions.
   action = action
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.;:])/g, "$1")
@@ -29,7 +30,12 @@ const sanitizeActionText = (rawAction, username) => {
   return action;
 };
 
-const auditLog = async (action, userId = null, usernameSnapshot = null) => {
+const auditLog = async (
+  action,
+  userId = null,
+  usernameSnapshot = null,
+  requestMeta = {},
+) => {
   try {
     let username = usernameSnapshot || "System";
     if (userId) {
@@ -45,15 +51,18 @@ const auditLog = async (action, userId = null, usernameSnapshot = null) => {
 
     const sanitizedAction = sanitizeActionText(action, username);
 
+    const context = { ...getRequestContext(), ...requestMeta };
+
     const newLog = await UserLog.create({
       action: sanitizedAction,
       performedBy: userId,
       username,
+      sessionId: context.sessionId || null,
+      platform: context.platform || "UNKNOWN",
+      base: context.base || "UNKNOWN",
+      ipAddress: context.ipAddress || "",
+      userAgent: context.userAgent || "",
     });
-
-    console.log(
-      `Audit Log - User: ${username}, Action: ${sanitizedAction}, Timestamp: ${new Date()}`,
-    );
 
     return newLog;
   } catch (err) {
@@ -70,7 +79,13 @@ const createAuditLogFromRequest = async (req, res) => {
     }
 
     const actorId = userId || req.user?.id || null;
-    const log = await auditLog(action.trim(), actorId, username || null);
+    const log = await auditLog(action.trim(), actorId, username || null, {
+      sessionId: req.headers["x-session-id"] || null,
+      platform: req.headers["x-platform"] || "UNKNOWN",
+      base: req.headers["x-base"] || "UNKNOWN",
+      ipAddress: req.ip || req.socket?.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || "",
+    });
 
     return res.status(201).json({
       status: "Ok",
@@ -85,13 +100,7 @@ const createAuditLogFromRequest = async (req, res) => {
 
 const getAllUserLogs = async (req, res) => {
   try {
-    const {
-      startDate,
-      endDate,
-      search = "",
-      page = 1,
-      limit = 20,
-    } = req.query;
+    const { startDate, endDate, search = "", page = 1, limit = 20 } = req.query;
 
     const safePage = Math.max(parseInt(page, 10) || 1, 1);
     const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
@@ -133,6 +142,11 @@ const getAllUserLogs = async (req, res) => {
       dateTime: log.dateTime,
       actionMade: log.action,
       username: log.username || "Unknown",
+      platform: log.platform || "UNKNOWN",
+      base: log.base || "UNKNOWN",
+      sessionId: log.sessionId || null,
+      ipAddress: log.ipAddress || "",
+      userAgent: log.userAgent || "",
     }));
 
     res.status(200).json({

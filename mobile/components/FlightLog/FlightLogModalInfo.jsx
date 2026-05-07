@@ -20,7 +20,9 @@ export default function FlightLogModalInfo({
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
   const canEditRPC = isEditable && isRPCEditable;
+  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
 
   const fetchAircraftOptions = async () => {
     try {
@@ -41,6 +43,48 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     fetchAircraftOptions();
   }, []);
+
+  useEffect(() => {
+    const fetchOngoingAircraftRpcs = async () => {
+      try {
+        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const responses = await Promise.all(
+          statuses.map((status) =>
+            fetch(
+              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+            ),
+          ),
+        );
+        const payloads = await Promise.all(
+          responses.map((response) => response.json()),
+        );
+
+        const nextOngoingAircraft = payloads.flatMap((payload, index) =>
+          responses[index].ok && Array.isArray(payload.data)
+            ? payload.data
+                .map((log) => normalizeRpc(log.rpc))
+                .filter(Boolean)
+            : [],
+        );
+
+        setOngoingAircraftRpcs([...new Set(nextOngoingAircraft)]);
+      } catch (error) {
+        console.error("Error fetching ongoing aircraft options:", error);
+      }
+    };
+
+    fetchOngoingAircraftRpcs();
+  }, []);
+
+  const availableAircraftOptions = aircraftOptions.filter((rpc) => {
+    const normalizedRpc = normalizeRpc(rpc);
+    const currentRpc = normalizeRpc(formData.rpc);
+
+    return (
+      !ongoingAircraftRpcs.includes(normalizedRpc) ||
+      normalizedRpc === currentRpc
+    );
+  });
 
   const formatDate = (date) => {
     if (!date) return "";
@@ -153,13 +197,21 @@ export default function FlightLogModalInfo({
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
           >
-            {aircraftOptions.map((rpc, index) => (
+            {availableAircraftOptions.length === 0 && (
+              <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
+                <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                  No available aircraft
+                </Text>
+              </View>
+            )}
+            {availableAircraftOptions.map((rpc, index) => (
               <TouchableOpacity
                 key={index}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
-                  borderBottomWidth: index < aircraftOptions.length - 1 ? 1 : 0,
+                  borderBottomWidth:
+                    index < availableAircraftOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
                   backgroundColor:
                     formData.rpc === rpc
@@ -272,7 +324,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Aircraft Type:
+              Aircraft Type: *
             </Text>
             {renderAircraftType()}
           </View>
@@ -286,7 +338,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Date:
+              Date: *
             </Text>
             <View
               style={{
@@ -319,7 +371,7 @@ export default function FlightLogModalInfo({
                 fontWeight: "500",
               }}
             >
-              Control No.:
+              Control No.: *
             </Text>
             <TextInput
               style={{

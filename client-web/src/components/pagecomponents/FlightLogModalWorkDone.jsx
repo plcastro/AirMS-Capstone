@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Input, Button } from "antd";
+import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import dayjs from "dayjs";
 
 const { TextArea } = Input;
 
@@ -132,11 +133,18 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
 
             <div className="fl-field-row">
               <span className="fl-label">Date:</span>
-              <Input
+              <DatePicker
                 className="fl-input"
-                value={item.date || ""}
-                onChange={(e) => updateWorkItem(item.id, "date", e.target.value)}
-                placeholder="MM/DD/YYYY"
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                value={item.date ? dayjs(item.date) : null}
+                onChange={(date) =>
+                  updateWorkItem(
+                    item.id,
+                    "date",
+                    date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                  )
+                }
                 disabled={!isEditable}
               />
             </div>

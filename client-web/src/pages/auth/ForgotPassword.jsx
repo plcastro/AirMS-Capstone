@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import {
   Input,
   Button,
-  Card,
+  App,
   message as Antmessage,
   Form,
   Typography,
@@ -14,6 +14,8 @@ import {
 import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
 const { Title, Text } = Typography;
+import LoginLayout from "../../components/layout/LoginLayout";
+
 export default function ForgotPassword() {
   const nav = useNavigate();
   const location = useLocation();
@@ -86,14 +88,10 @@ export default function ForgotPassword() {
   };
 
   return (
-    <Card className="forgot-password-container">
-      <Row justify="center" style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2}>Forgot Password</Title>
-          <Text>Please provide your email to proceed</Text>
-        </Col>
-      </Row>
-
+    <LoginLayout
+      title="Forgot Password"
+      subtitle="Please provide your email to proceed"
+    >
       <Form
         layout="vertical"
         className="forgot-password-form"
@@ -103,7 +101,7 @@ export default function ForgotPassword() {
           <Input
             type="email"
             id="email"
-            placeholder="Enter email"
+            placeholder="abcd@example.com"
             inputMode="email"
             onBlur={handleEmailBlur}
             value={email}
@@ -111,7 +109,6 @@ export default function ForgotPassword() {
             maxLength={254}
             size="large"
             allowClear
-            required
           />
           <Row style={{ marginBottom: 10 }}>
             {message && <Text type="danger">{message}</Text>}
@@ -123,14 +120,17 @@ export default function ForgotPassword() {
             className="login-btn"
             disabled={loading}
           >
-            {loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
+            {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
           </Button>
 
-          <div className="signup-link" style={{ marginTop: "20px" }}>
-            Remembered your password? <Link to="/login">Log in</Link>
+          <div style={{ marginTop: "20px" }}>
+            Remembered your password?{" "}
+            <Link to="/login" className="link">
+              Log in
+            </Link>
           </div>
         </Form.Item>
       </Form>
-    </Card>
+    </LoginLayout>
   );
 }

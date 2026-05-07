@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Input, Select } from "antd";
+import { DatePicker, Input, Select } from "antd";
+import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
 
 export default function FlightLogModalInfo({
@@ -10,6 +11,9 @@ export default function FlightLogModalInfo({
   onAircraftDataLoaded,
 }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+
+  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
 
   useEffect(() => {
     const fetchAircraftOptions = async () => {
@@ -28,22 +32,64 @@ export default function FlightLogModalInfo({
     fetchAircraftOptions();
   }, []);
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    if (date instanceof Date) {
-      return date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      });
+  useEffect(() => {
+    const fetchOngoingAircraftRpcs = async () => {
+      try {
+        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const responses = await Promise.all(
+          statuses.map((status) =>
+            fetch(
+              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+            ),
+          ),
+        );
+        const payloads = await Promise.all(
+          responses.map((response) => response.json()),
+        );
+
+        const nextOngoingAircraft = payloads.flatMap((payload, index) =>
+          responses[index].ok && Array.isArray(payload.data)
+            ? payload.data
+                .map((log) => normalizeRpc(log.rpc))
+                .filter(Boolean)
+            : [],
+        );
+
+        setOngoingAircraftRpcs([...new Set(nextOngoingAircraft)]);
+      } catch (error) {
+        console.error("Error fetching ongoing aircraft options:", error);
+      }
+    };
+
+    fetchOngoingAircraftRpcs();
+  }, []);
+
+  const parseDatePickerValue = (value) => {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      const parsedFromDate = dayjs(value);
+      return parsedFromDate.isValid() ? parsedFromDate : null;
     }
-    return date;
+
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed : null;
   };
 
   const aircraftTypeLabel = useMemo(
     () => formData.aircraftType || "Aircraft type will load automatically",
     [formData.aircraftType],
   );
+
+  const availableAircraftOptions = useMemo(() => {
+    const ongoingSet = new Set(ongoingAircraftRpcs);
+    const currentRpc = normalizeRpc(formData.rpc);
+
+    return aircraftOptions.filter((rpc) => {
+      const normalizedRpc = normalizeRpc(rpc);
+      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+    });
+  }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
   const handleRPCSelect = async (rpc) => {
     updateForm("rpc", rpc);
@@ -86,7 +132,7 @@ export default function FlightLogModalInfo({
                 optionFilterProp="label"
                 popupMatchSelectWidth
                 getPopupContainer={() => document.body}
-                options={aircraftOptions.map((rpc) => ({
+                options={availableAircraftOptions.map((rpc) => ({
                   value: rpc,
                   label: rpc,
                 }))}
@@ -101,7 +147,19 @@ export default function FlightLogModalInfo({
 
           <div className="fl-field-row">
             <span className="fl-label">Date:</span>
-            <Input className="fl-input" value={formatDate(formData.date)} disabled />
+            <DatePicker
+              className="fl-input"
+              style={{ width: "100%" }}
+              format="MM/DD/YYYY"
+              value={parseDatePickerValue(formData.date)}
+              onChange={(date) =>
+                updateForm(
+                  "date",
+                  date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                )
+              }
+              disabled={!isEditable}
+            />
           </div>
 
           <div className="fl-field-row">

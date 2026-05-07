@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,7 +16,10 @@ import PreInspectionCards from "../../components/PreInspection/PreInspectionCard
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
-import { exportPreInspectionPdf } from "../../utilities/pdfExport";
+import {
+  exportPreInspectionTemplatePdf,
+  exportPreInspectionToWord,
+} from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 
@@ -166,7 +170,17 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    await exportPreInspectionPdf(inspection);
+    Alert.alert("Export Pre-Inspection", "Choose export format", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "PDF",
+        onPress: () => exportPreInspectionTemplatePdf(inspection),
+      },
+      {
+        text: "Word Template",
+        onPress: () => exportPreInspectionToWord(inspection),
+      },
+    ]);
   };
 
   const selectAircraft = (aircraft) => {

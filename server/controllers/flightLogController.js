@@ -27,11 +27,48 @@ const isReleasedFlightLogStatus = (status = "") =>
     String(status || "").trim().toLowerCase(),
   );
 
+const ONGOING_FLIGHT_LOG_STATUSES = [
+  "pending_release",
+  "pending_acceptance",
+  "released",
+  "accepted",
+  "ongoing",
+  "draft",
+];
+
+const escapeRegex = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeAircraftRpc = (value = "") => String(value || "").trim();
+
+const findOngoingFlightLogForAircraft = async (rpc, excludedId = null) => {
+  const normalizedRpc = normalizeAircraftRpc(rpc);
+
+  if (!normalizedRpc) {
+    return null;
+  }
+
+  const query = {
+    rpc: { $regex: `^${escapeRegex(normalizedRpc)}$`, $options: "i" },
+    status: { $in: ONGOING_FLIGHT_LOG_STATUSES },
+  };
+
+  if (excludedId) {
+    query._id = { $ne: excludedId };
+  }
+
+  return FlightLog.findOne(query).select("_id rpc status controlNo date").lean();
+};
+
 const normalizeFlightLogStatusFilter = (status = "") => {
   const normalized = String(status || "")
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, "_");
+    .replace(/[\s-]+/g, "_");
+
+  if (normalized === "all" || normalized === "all_status") {
+    return [];
+  }
 
   if (normalized === "pending_release") {
     return ["pending_release", "ongoing", "draft"];
@@ -70,11 +107,25 @@ const createFlightLog = async (req, res) => {
     delete flightLogData.id;
 
     // Validate required fields
-    if (!flightLogData.rpc || flightLogData.rpc.trim() === "") {
+    flightLogData.rpc = normalizeAircraftRpc(flightLogData.rpc);
+
+    if (!flightLogData.rpc) {
       console.log("Validation failed: Missing or empty rpc");
       return res.status(400).json({
         success: false,
         message: "Aircraft RPC is required",
+      });
+    }
+
+    const existingOngoingFlightLog = await findOngoingFlightLogForAircraft(
+      flightLogData.rpc,
+    );
+
+    if (existingOngoingFlightLog) {
+      return res.status(409).json({
+        success: false,
+        message: `Aircraft ${flightLogData.rpc} already has an ongoing flight log. Complete the existing flight log before creating a new entry.`,
+        existingFlightLog: existingOngoingFlightLog,
       });
     }
 
@@ -395,6 +446,26 @@ const updateFlightLog = async (req, res) => {
 
     if (isReleasedFlightLogStatus(existingFlightLog.status)) {
       delete updates.rpc;
+    }
+
+    if (
+      updates.rpc &&
+      normalizeAircraftRpc(updates.rpc).toLowerCase() !==
+        normalizeAircraftRpc(existingFlightLog.rpc).toLowerCase()
+    ) {
+      updates.rpc = normalizeAircraftRpc(updates.rpc);
+      const existingOngoingFlightLog = await findOngoingFlightLogForAircraft(
+        updates.rpc,
+        id,
+      );
+
+      if (existingOngoingFlightLog) {
+        return res.status(409).json({
+          success: false,
+          message: `Aircraft ${updates.rpc} already has an ongoing flight log. Complete the existing flight log before using this aircraft.`,
+          existingFlightLog: existingOngoingFlightLog,
+        });
+      }
     }
 
     if (
