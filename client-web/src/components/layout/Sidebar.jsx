@@ -42,25 +42,25 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // },
 
     {
-      key: "2",
+      key: "1",
       label: "Manage Users",
       icon: <TeamOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
-      key: "3",
+      key: "2",
       label: "Activity Logs",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["admin"],
     },
     {
-      key: "4-5",
+      key: "3-4",
       label: "Aircraft Health Logbook",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge", "mechanic"],
+      roles: ["maintenance manager", "officer-in-charge", "mechanic", "pilot"],
       children: [
         {
-          key: "4",
+          key: "3",
           label: "Flight Logs",
           icon: (
             <span
@@ -70,37 +70,79 @@ const Sidebar = ({ collapsed, onNavigate }) => {
               helicopter
             </span>
           ),
-          roles: ["maintenance manager", "officer-in-charge"],
+          roles: [
+            "maintenance manager",
+            "officer-in-charge",
+            "pilot",
+            "mechanic",
+          ],
         },
         {
-          key: "5",
+          key: "4",
           label: "Maintenance Logs",
           icon: <ToolOutlined style={{ fontSize: 24 }} />,
           roles: ["maintenance manager", "officer-in-charge", "mechanic"],
+        },
+        {
+          key: "5",
+          label: "Pre-Inspection",
+          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          roles: [
+            "maintenance manager",
+            "officer-in-charge",
+            "pilot",
+            "mechanic",
+          ],
+        },
+        {
+          key: "6",
+          label: "Post-Inspection",
+          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge", "mechanic"],
+        },
+      ],
+    },
+    {
+      key: "7-8",
+      label: "Task Assignment and Monitoring",
+      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      roles: ["maintenance manager", "mechanic"],
+      children: [
+        {
+          key: "7",
+          label: "Tasks",
+          icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "mechanic"],
+        },
+        {
+          key: "8",
+          label: "Mechanics",
+          icon: <TeamOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager"],
         },
       ],
     },
 
     {
-      key: "6-7-9",
+      key: "9-10-11",
       label: "Parts Lifespan Monitoring and Maintenance tracking",
       icon: <DashboardOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
       children: [
         {
-          key: "6",
+          key: "9",
           label: "Parts Lifespan Monitoring",
           icon: <DashboardOutlined style={{ fontSize: 24 }} />,
           roles: ["maintenance manager", "officer-in-charge"],
         },
         {
-          key: "7",
+          key: "10",
           label: "Maintenance Tracking",
           icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
           roles: ["maintenance manager", "officer-in-charge"],
         },
         {
-          key: "9",
+          key: "11",
           label: "Maintenance Priority Sorting",
           icon: <FlagOutlined style={{ fontSize: 24 }} />,
           roles: ["maintenance manager"],
@@ -108,19 +150,24 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       ],
     },
     {
-      key: "8",
+      key: "12",
       label: "Parts Requisition Monitoring",
       icon: <InboxOutlined style={{ fontSize: 24 }} />,
-      roles: ["warehouse department"],
+      roles: [
+        "warehouse department",
+        "maintenance manager",
+        "officer-in-charge",
+        "mechanic",
+      ],
     },
     {
-      key: "10",
+      key: "13",
       label: "Reports and Analytics",
       icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge"],
     },
     {
-      key: "11",
+      key: "14",
       label: "Profile",
       icon: <UserOutlined style={{ fontSize: 24 }} />,
       roles: [
@@ -151,16 +198,20 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const routeToKey = useMemo(
     () => ({
       // "/dashboard/user-management/admin-dashboard": "1",
-      "/dashboard/user-management/view-users": "2",
-      "/dashboard/user-management/activity-logs": "3",
-      "/dashboard/flight-log": "4",
-      "/dashboard/maintenance-log": "5",
-      "/dashboard/parts-lifespan-monitoring": "6",
-      "/dashboard/maintenance-tracking": "7",
-      "/dashboard/parts-requisition": "8",
-      "/dashboard/maintenance-priority": "9",
-      "/dashboard/maintenance-dashboard": "10",
-      "/dashboard/profile": "11",
+      "/dashboard/user-management/view-users": "1",
+      "/dashboard/user-management/activity-logs": "2",
+      "/dashboard/flight-log": "3",
+      "/dashboard/pre-inspection": "4",
+      "/dashboard/post-inspection": "5",
+      "/dashboard/maintenance-log": "6",
+      "/dashboard/tasks": "7",
+      "/dashboard/mechanics": "8",
+      "/dashboard/parts-lifespan-monitoring": "9",
+      "/dashboard/maintenance-tracking": "10",
+      "/dashboard/parts-requisition": "12",
+      "/dashboard/maintenance-priority": "11",
+      "/dashboard/maintenance-dashboard": "13",
+      "/dashboard/profile": "14",
     }),
     [],
   );
@@ -179,7 +230,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   useEffect(() => {
     const key =
-      routeToKey[location.pathname] || (jobTitle === "admin" ? "2" : "10");
+      routeToKey[location.pathname] || (jobTitle === "admin" ? "2" : "11");
     setCurrent(key);
   }, [location.pathname, routeToKey, jobTitle]);
 

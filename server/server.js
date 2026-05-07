@@ -9,9 +9,9 @@ const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
-const defectLogRoutes = require("./routes/defectLogRoute");
+
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
-const technicalLogRoutes = require("./routes/technicalLogRoute");
+
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
 const taskRoutes = require("./routes/taskRoute");
@@ -27,11 +27,16 @@ const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
 const sendEmail = require("./utils/sendEmail");
+const http = require("http");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
-const { subscribeToEvents, publishEvent } = require("./utils/realtimeEvents");
-
+const {
+  subscribeSSE,
+  publishEvent,
+  initWebSocket,
+} = require("./utils/realtimeEvents");
+const { requestContextMiddleware } = require("./middleware/requestContext");
 const app = express();
 
 const allowedOrigins = [
@@ -54,16 +59,25 @@ app.use(
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-platform",
+      "x-base",
+      "x-session-id",
+      "x-action-confirmed",
+      "x-confirm-action",
+    ],
     credentials: true,
   }),
 );
 
-app.get("/api/events/stream", subscribeToEvents);
+app.get("/api/events/stream", subscribeSSE);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+app.use(requestContextMiddleware);
 
 app.use(
   helmet({
@@ -136,9 +150,8 @@ app.use("/api/admin-activity", adminActivityRoutes);
 app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
-app.use("/api/defect-logs", defectLogRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
-app.use("/api/technical-logs", technicalLogRoutes);
+
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);
 app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
@@ -179,12 +192,14 @@ app.use((err, req, res, next) => {
   }
 });
 
+const server = http.createServer(app);
+initWebSocket(server);
+
 if (process.env.VERCEL !== "1") {
   const PORT = process.env.PORT || 8000;
-  app.listen(PORT, () => {
+
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log("EMAIL_HOST:", process.env.EMAIL_HOST);
-    console.log("EMAIL_PORT:", process.env.EMAIL_PORT);
   });
 }
 

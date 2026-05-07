@@ -1,5 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/authMiddleware");
+const { touchSessionActivity } = require("../middleware/sessionActivity");
+const { requireActionConfirmation } = require("../middleware/actionConfirmation");
 const {
   createMaintenanceLog,
   getAllMaintenanceLogs,
@@ -8,19 +11,34 @@ const {
   deleteMaintenanceLog,
 } = require("../controllers/maintenanceLogController");
 
-// Create a maintenance log
-router.post("/createMaintenanceLog", createMaintenanceLog);
-
 // Get all maintenance logs
 router.get("/getAllMaintenanceLog", getAllMaintenanceLogs);
 
 // Get a single maintenance log
 router.get("/getMaintenanceLogById/:id", getMaintenanceLogById);
 
-// Update a maintenance log
-router.put("/updateMaintenanceLogById/:id", updateMaintenanceLog);
+router.post(
+  "/createMaintenanceLog",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  createMaintenanceLog,
+);
 
-// Delete a maintenance log
-router.delete("/deleteMaintenanceLogById/:id", deleteMaintenanceLog);
+router.put(
+  "/updateMaintenanceLogById/:id",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  updateMaintenanceLog,
+);
+
+router.delete(
+  "/deleteMaintenanceLogById/:id",
+  verifyToken,
+  touchSessionActivity,
+  requireActionConfirmation,
+  deleteMaintenanceLog,
+);
 
 module.exports = router;

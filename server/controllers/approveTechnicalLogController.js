@@ -15,7 +15,7 @@ const createApproval = async (req, res) => {
 
     await auditLog(
       `Approval created for station: ${data.station}`,
-      data.approvedBy || null,
+      req.user?.id || data.approvedBy || null,
     );
 
     res.status(201).json({ message: "Approval created", data: approval });
@@ -63,7 +63,7 @@ const updateApproval = async (req, res) => {
 
     await auditLog(
       `Approval updated: ${updated.station}`,
-      req.body.approvedBy || null,
+      req.user?.id || req.body.approvedBy || null,
     );
 
     res.status(200).json({ message: "Approval updated", data: updated });
@@ -82,7 +82,7 @@ const deleteApproval = async (req, res) => {
 
     await auditLog(
       `Approval deleted: ${deleted.station}`,
-      deleted.approvedBy || null,
+      req.user?.id || deleted.approvedBy || null,
     );
 
     res.status(200).json({ message: "Approval deleted", data: deleted });

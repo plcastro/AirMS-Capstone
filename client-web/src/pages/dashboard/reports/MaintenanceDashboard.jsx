@@ -451,7 +451,9 @@ export default function MaintenanceDashboard() {
       const days = Number(part.daysRemaining);
       const hours = Number(part.timeRemaining);
       return (
-        String(part.due || "").toLowerCase().includes("due") ||
+        String(part.due || "")
+          .toLowerCase()
+          .includes("due") ||
         (Number.isFinite(days) && days <= 30) ||
         (Number.isFinite(hours) && hours <= 50)
       );
@@ -479,9 +481,9 @@ export default function MaintenanceDashboard() {
       {
         title: "Task Status Counts",
         columns: ["Status", "Count"],
-        rows: toRows(countBy(tasks, (task) => normalizeReportStatus(task.status))).map(
-          (row) => [row.label, row.value],
-        ),
+        rows: toRows(
+          countBy(tasks, (task) => normalizeReportStatus(task.status)),
+        ).map((row) => [row.label, row.value]),
       },
       {
         title: "Task Priority Counts",
@@ -530,29 +532,33 @@ export default function MaintenanceDashboard() {
       {
         title: "Flight Logs by Month",
         columns: ["Month", "Count"],
-        rows: toRows(countBy(flightLogs, (record) => monthLabel(getRecordDate(record)))).map(
-          (row) => [row.label, row.value],
-        ),
+        rows: toRows(
+          countBy(flightLogs, (record) => monthLabel(getRecordDate(record))),
+        ).map((row) => [row.label, row.value]),
       },
       {
         title: "Flight Logs by Aircraft",
         columns: ["Aircraft", "Count"],
-        rows: toRows(countBy(flightLogs, (record) => record.rpc || "Unknown")).map(
-          (row) => [row.label, row.value],
-        ),
+        rows: toRows(
+          countBy(flightLogs, (record) => record.rpc || "Unknown"),
+        ).map((row) => [row.label, row.value]),
       },
       {
         title: "Pre-Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
-          countBy(preInspections, (record) => normalizeReportStatus(record.status)),
+          countBy(preInspections, (record) =>
+            normalizeReportStatus(record.status),
+          ),
         ).map((row) => [row.label, row.value]),
       },
       {
         title: "Post-Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
-          countBy(postInspections, (record) => normalizeReportStatus(record.status)),
+          countBy(postInspections, (record) =>
+            normalizeReportStatus(record.status),
+          ),
         ).map((row) => [row.label, row.value]),
       },
       {
@@ -577,10 +583,9 @@ export default function MaintenanceDashboard() {
       {
         title: "Component Due Statistics",
         columns: ["Aircraft", "Due / Due Soon Components"],
-        rows: toRows(countBy(dueComponents, (part) => part.aircraft)).map((row) => [
-          row.label,
-          row.value,
-        ]),
+        rows: toRows(countBy(dueComponents, (part) => part.aircraft)).map(
+          (row) => [row.label, row.value],
+        ),
       },
     ];
   };
@@ -623,7 +628,10 @@ export default function MaintenanceDashboard() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(blob, `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`);
+      saveAs(
+        blob,
+        `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`,
+      );
       message.success("Reports and analytics Excel exported successfully.");
     } catch (error) {
       console.error("Reports Excel export failed:", error);
@@ -697,7 +705,7 @@ export default function MaintenanceDashboard() {
       style={{
         padding: 20,
         minHeight: "100vh",
-        overflowY: "scroll",
+
         height: "100%",
       }}
     >
