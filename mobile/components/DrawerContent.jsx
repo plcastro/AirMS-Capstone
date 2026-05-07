@@ -68,6 +68,12 @@ const DrawerList = [
     jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
   },
   {
+    icon: "message-text-outline",
+    label: "Messages",
+    navigateTo: "Messages",
+    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
+  },
+  {
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",

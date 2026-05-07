@@ -1,0 +1,89 @@
+.messages-user-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #26866f #edf4f2;
+}
+
+.messages-user-list .ant-spin-nested-loading,
+.messages-user-list .ant-spin-container {
+  min-height: 100%;
+}
+
+.messages-user-list .ant-list-item-meta-title {
+  margin-bottom: 0;
+  line-height: 1;
+}
+
+.messages-user-list .ant-list-item-meta-description {
+  margin-top: -4px;
+}
+
+.message-card-name {
+  display: block;
+  line-height: 1;
+}
+
+.message-card-role {
+  display: block;
+  line-height: 1;
+}
+
+.message-card-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  min-width: 0;
+}
+
+.message-card-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.message-card-preview-time {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.message-meta {
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: #6f7774;
+  font-size: 11px;
+  line-height: 1.25;
+  transition: opacity 120ms ease, max-height 120ms ease, margin-top 120ms ease;
+}
+
+.message-row:hover .message-meta,
+.message-row-latest .message-meta {
+  max-height: 18px;
+  margin-top: 3px;
+  opacity: 1;
+}
+
+.messages-user-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-user-list::-webkit-scrollbar-track {
+  background: #edf4f2;
+  border-radius: 999px;
+}
+
+.messages-user-list::-webkit-scrollbar-thumb {
+  background: #26866f;
+  border: 2px solid #edf4f2;
+  border-radius: 999px;
+}
+
+.messages-user-list::-webkit-scrollbar-thumb:hover {
+  background: #1c6d59;
+}

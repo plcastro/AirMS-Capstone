@@ -11,6 +11,9 @@ export default function FlightLogModalInfo({
   onAircraftDataLoaded,
 }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+
+  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
 
   useEffect(() => {
     const fetchAircraftOptions = async () => {
@@ -29,6 +32,38 @@ export default function FlightLogModalInfo({
     fetchAircraftOptions();
   }, []);
 
+  useEffect(() => {
+    const fetchOngoingAircraftRpcs = async () => {
+      try {
+        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const responses = await Promise.all(
+          statuses.map((status) =>
+            fetch(
+              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+            ),
+          ),
+        );
+        const payloads = await Promise.all(
+          responses.map((response) => response.json()),
+        );
+
+        const nextOngoingAircraft = payloads.flatMap((payload, index) =>
+          responses[index].ok && Array.isArray(payload.data)
+            ? payload.data
+                .map((log) => normalizeRpc(log.rpc))
+                .filter(Boolean)
+            : [],
+        );
+
+        setOngoingAircraftRpcs([...new Set(nextOngoingAircraft)]);
+      } catch (error) {
+        console.error("Error fetching ongoing aircraft options:", error);
+      }
+    };
+
+    fetchOngoingAircraftRpcs();
+  }, []);
+
   const parseDatePickerValue = (value) => {
     if (!value) return null;
 
@@ -45,6 +80,16 @@ export default function FlightLogModalInfo({
     () => formData.aircraftType || "Aircraft type will load automatically",
     [formData.aircraftType],
   );
+
+  const availableAircraftOptions = useMemo(() => {
+    const ongoingSet = new Set(ongoingAircraftRpcs);
+    const currentRpc = normalizeRpc(formData.rpc);
+
+    return aircraftOptions.filter((rpc) => {
+      const normalizedRpc = normalizeRpc(rpc);
+      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+    });
+  }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
   const handleRPCSelect = async (rpc) => {
     updateForm("rpc", rpc);
@@ -87,7 +132,7 @@ export default function FlightLogModalInfo({
                 optionFilterProp="label"
                 popupMatchSelectWidth
                 getPopupContainer={() => document.body}
-                options={aircraftOptions.map((rpc) => ({
+                options={availableAircraftOptions.map((rpc) => ({
                   value: rpc,
                   label: rpc,
                 }))}
