@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Input, Button, Typography } from "antd";
+import { Input, Button, Typography, DatePicker } from "antd";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 
@@ -102,11 +103,18 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
             <div className="fl-card-body">
               <div className="fl-field-row">
                 <span className="fl-label">Date:</span>
-                <Input
+                <DatePicker
                   className="fl-input"
-                  value={oil.date || ""}
-                  onChange={(e) => updateOil(legIdx, "date", e.target.value)}
-                  placeholder="MM/DD/YYYY"
+                  style={{ width: "100%" }}
+                  format="MM/DD/YYYY"
+                  value={oil.date ? dayjs(oil.date) : null}
+                  onChange={(date) =>
+                    updateOil(
+                      legIdx,
+                      "date",
+                      date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                    )
+                  }
                   disabled={!isEditable}
                 />
               </div>

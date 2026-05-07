@@ -4,6 +4,7 @@ import { API_BASE } from "../utils/API_BASE";
 export const AuthContext = createContext();
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 60 * 1000;
+const AUTH_PERSISTENCE_KEY = "authPersistence";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -18,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const inactivityLogoutTimeoutRef = useRef(null);
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
+  const persistenceModeRef = useRef("session");
 
   const normalizeUser = (userData) => ({
     ...userData,
@@ -26,10 +28,33 @@ export const AuthProvider = ({ children }) => {
     access: userData.access ? userData.access.trim().toLowerCase() : null,
   });
 
-  useEffect(() => {
-    if (!user) return;
-    localStorage.setItem("currentUser", JSON.stringify(user));
-  }, [user]);
+  const getStorageByMode = (mode) =>
+    mode === "local" ? localStorage : sessionStorage;
+
+  const getStoredToken = () =>
+    localStorage.getItem("token") || sessionStorage.getItem("token");
+
+  const getStoredPersistenceMode = () => {
+    const mode = localStorage.getItem(AUTH_PERSISTENCE_KEY);
+    return mode === "local" ? "local" : "session";
+  };
+
+  const setPersistenceMode = (mode) => {
+    const safeMode = mode === "local" ? "local" : "session";
+    persistenceModeRef.current = safeMode;
+    localStorage.setItem(AUTH_PERSISTENCE_KEY, safeMode);
+  };
+
+  const persistAuthState = (normalizedUser, token) => {
+    const mode = persistenceModeRef.current;
+    const activeStorage = getStorageByMode(mode);
+    const inactiveStorage = getStorageByMode(mode === "local" ? "session" : "local");
+
+    activeStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    activeStorage.setItem("token", token);
+    inactiveStorage.removeItem("currentUser");
+    inactiveStorage.removeItem("token");
+  };
 
   const isTokenValid = (token) => {
     try {
@@ -37,6 +62,14 @@ export const AuthProvider = ({ children }) => {
       return payload.exp * 1000 > Date.now();
     } catch {
       return false;
+    }
+  };
+
+  const getTokenPayload = (token) => {
+    try {
+      return JSON.parse(atob(token.split(".")[1]));
+    } catch {
+      return null;
     }
   };
 
@@ -74,6 +107,9 @@ export const AuthProvider = ({ children }) => {
   const clearAuthStorage = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
+    sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("token");
+    localStorage.removeItem(AUTH_PERSISTENCE_KEY);
   };
 
   const scheduleTokenExpiryLogout = (token, onExpire) => {
@@ -167,7 +203,9 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token");
+      const error = new Error("Failed to refresh token");
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json();
@@ -175,7 +213,8 @@ export const AuthProvider = ({ children }) => {
       throw new Error("No refreshed token received");
     }
 
-    localStorage.setItem("token", data.token);
+    const activeStorage = getStorageByMode(persistenceModeRef.current);
+    activeStorage.setItem("token", data.token);
     scheduleTokenExpiryLogout(data.token, () => logoutUser());
     return data.token;
   };
@@ -183,12 +222,47 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const storedUser = localStorage.getItem("currentUser");
-        const token = localStorage.getItem("token");
+        const persistedMode = getStoredPersistenceMode();
+        setPersistenceMode(persistedMode);
+        const primaryStorage = getStorageByMode(persistedMode);
+        const fallbackStorage = getStorageByMode(
+          persistedMode === "local" ? "session" : "local",
+        );
+
+        const storedUser =
+          primaryStorage.getItem("currentUser") ||
+          fallbackStorage.getItem("currentUser");
+        const token =
+          primaryStorage.getItem("token") || fallbackStorage.getItem("token");
+        const hasKnownAuthState = Boolean(storedUser || token);
 
         if (!storedUser) {
-          setUser(null);
-          return;
+          if (!hasKnownAuthState) {
+            setUser(null);
+            return;
+          }
+
+          try {
+            const refreshedToken = await refreshAccessToken();
+            const payload = getTokenPayload(refreshedToken);
+            if (!payload?.id) {
+              throw new Error("Invalid refreshed token payload");
+            }
+            const normalizedFromToken = normalizeUser({
+              id: payload.id,
+              username: payload.username,
+              email: payload.email,
+              jobTitle: payload.jobTitle,
+              access: payload.access,
+            });
+            setUser(normalizedFromToken);
+            persistAuthState(normalizedFromToken, refreshedToken);
+            scheduleTokenExpiryLogout(refreshedToken, () => logoutUser());
+            return;
+          } catch {
+            setUser(null);
+            return;
+          }
         }
 
         const parsed = JSON.parse(storedUser);
@@ -220,7 +294,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Login
-  const loginUser = async (userData, token) => {
+  const loginUser = async (userData, token, options = {}) => {
     try {
       setLoading(true);
 
@@ -235,10 +309,9 @@ export const AuthProvider = ({ children }) => {
         platform: "web",
       });
 
+      setPersistenceMode(options.rememberMe ? "local" : "session");
       setUser(normalizedUser);
-
-      localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
-      localStorage.setItem("token", token);
+      persistAuthState(normalizedUser, token);
       scheduleTokenExpiryLogout(token, () => logoutUser());
     } catch (err) {
       console.error("Failed to store user:", err);
@@ -254,7 +327,8 @@ export const AuthProvider = ({ children }) => {
       setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
 
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {
@@ -274,7 +348,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getValidToken = async () => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
 
     if (token && isTokenValid(token)) {
       scheduleTokenExpiryLogout(token, () => logoutUser());
@@ -330,7 +404,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  if (loading) return null;
   return (
     <AuthContext.Provider
       value={{

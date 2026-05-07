@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React, { Suspense, lazy, useEffect, useContext } from "react";
+import React, { Suspense, lazy, useContext } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
@@ -37,6 +37,18 @@ const AdminDashboard = lazy(
 const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
+);
+const PreInspection = lazy(
+  () => import("./pages/dashboard/logbook/PreInspection"),
+);
+const PostInspection = lazy(
+  () => import("./pages/dashboard/logbook/PostInspection"),
+);
+const TaskAssignment = lazy(
+  () => import("./pages/dashboard/logbook/TaskAssignment"),
+);
+const MechanicList = lazy(
+  () => import("./pages/dashboard/logbook/MechanicList"),
 );
 const MaintenanceDashboard = lazy(
   () => import("./pages/dashboard/reports/MaintenanceDashboard"),
@@ -147,9 +159,61 @@ const AppRouter = () => {
               path="flight-log"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
                 >
                   <FlightLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="pre-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
+                >
+                  <PreInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="post-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                  ]}
+                >
+                  <PostInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="tasks"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["maintenance manager", "mechanic"]}
+                >
+                  <TaskAssignment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mechanics"
+              element={
+                <ProtectedRoute allowedRoles={["maintenance manager"]}>
+                  <MechanicList />
                 </ProtectedRoute>
               }
             />
@@ -209,7 +273,14 @@ const AppRouter = () => {
             <Route
               path="parts-requisition"
               element={
-                <ProtectedRoute allowedRoles={["warehouse department"]}>
+                <ProtectedRoute
+                  allowedRoles={[
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                    "warehouse department",
+                  ]}
+                >
                   <PartsRequisition />
                 </ProtectedRoute>
               }
@@ -240,39 +311,32 @@ const AppRouter = () => {
   );
 };
 export default function App() {
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === "rememberMe" && event.newValue === "false") {
-        localStorage.removeItem("currentUser");
-        window.location.href = "/login";
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
   return (
     <ConfigProvider
       theme={{
         components: {
-          Table: {
-            headerBg: "#26866f",
-            headerColor: "#fff",
-            headerSortHoverBg: "#1f6654",
-            headerSortActiveBg: "#1f6654",
-            headerFilterHoverBg: "#1f6654",
-            headerBorderRadius: 10,
-            headerBorderColor: "#002019",
-          },
+          // Table: {
+          //   headerBg: "#000000",
+          //   headerColor: "#fff",
+          //   headerSortHoverBg: "#1f6654",
+          //   headerSortActiveBg: "#1f6654",
+          //   headerFilterHoverBg: "#1f6654",
+          //   headerBorderRadius: 10,
+          //   headerBorderColor: "#002019",
+          // },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
             itemBg: "#f5f5f5",
-            itemHoverBg: "#006340",
-            itemHoverColor: "#fff",
-            itemSelectedBg: "#26866f",
             itemColor: "#002019",
-            itemSelectedColor: "#fff",
+
+            itemHoverBg: "#006340",
+            itemHoverColor: "#ffffff",
+
+            itemSelectedBg: "#26866f",
+            itemSelectedColor: "#ffffff",
+
             itemActiveBg: "#26866f",
+
             subMenuItemSelectedColor: "#002019",
           },
           Tabs: {

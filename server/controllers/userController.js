@@ -4,12 +4,20 @@ const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
+const UserSession = require("../models/userSessionModel");
+const RefreshToken = require("../models/refreshTokenModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utils/generateUniqueUsername");
+const {
+  normalizePlatform,
+  normalizeBase,
+} = require("../middleware/requestContext");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
+
 const getAuditActorId = (req, fallbackId = null) =>
   req.user?.id || req.userRecord?._id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
@@ -44,6 +52,103 @@ const canUseWebClient = (user) => {
 };
 
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const hashRefreshToken = (token = "") =>
+  crypto.createHash("sha256").update(String(token)).digest("hex");
+
+const issueRefreshToken = (userId) => {
+  const jti = crypto.randomUUID();
+  const token = jwt.sign(
+    { id: userId, type: "refresh" },
+    process.env.REFRESH_SECRET,
+    {
+      expiresIn: "7d",
+      jwtid: jti,
+    },
+  );
+
+  return { token, jti };
+};
+
+const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
+  const refreshCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+  };
+
+  if (isPersistent) {
+    refreshCookieOptions.maxAge = REFRESH_TOKEN_TTL_MS;
+  }
+
+  res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+};
+
+const storeRefreshToken = async ({
+  userId,
+  refreshToken,
+  jti,
+  isPersistent,
+  req,
+}) => {
+  const tokenHash = hashRefreshToken(refreshToken);
+  return RefreshToken.create({
+    userId,
+    tokenHash,
+    jti,
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    isPersistent: Boolean(isPersistent),
+    ipAddress: req.ip || req.socket?.remoteAddress || "",
+    userAgent: req.headers["user-agent"] || "",
+  });
+};
+
+const revokeRefreshTokenByHash = async (
+  tokenHash,
+  reason,
+  replacedByTokenHash = null,
+) =>
+  RefreshToken.findOneAndUpdate(
+    { tokenHash, revokedAt: null },
+    {
+      revokedAt: new Date(),
+      revokedReason: reason,
+      replacedByTokenHash,
+    },
+    { returnDocument: "after" },
+  );
+
+const revokeAllUserRefreshTokens = async (userId, reason) => {
+  if (!userId) return;
+  await RefreshToken.updateMany(
+    { userId, revokedAt: null },
+    { revokedAt: new Date(), revokedReason: reason },
+  );
+};
+
+const createUserSession = async (req, userId, platform) => {
+  const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
+  const normalizedPlatform =
+    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
+  const normalizedBase = normalizeBase(req.headers["x-base"]);
+
+  await UserSession.create({
+    userId,
+    sessionId,
+    platform: normalizedPlatform,
+    base: normalizedBase,
+    ipAddress: req.ip || req.socket?.remoteAddress || "",
+    userAgent: req.headers["user-agent"] || "",
+    isActive: true,
+  });
+
+  return {
+    sessionId,
+    platform: normalizedPlatform,
+    base: normalizedBase,
+  };
+};
 
 const getPortalUrlByJobTitle = (jobTitle) =>
   jobTitle === "Maintenance Manager" ||
@@ -144,7 +249,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    let { identifier, password, client } = req.body;
+    let { identifier, password, client, rememberMe } = req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
       return res.status(400).json({
@@ -157,9 +262,11 @@ const loginUser = async (req, res) => {
     const normalizedClient =
       typeof client === "string" ? client.trim().toLowerCase() : "";
     const loginPlatform =
-      normalizedClient === "web" || normalizedClient === "mobile"
-        ? normalizedClient
-        : "unknown";
+      normalizedClient === "web"
+        ? "WEB"
+        : normalizedClient === "mobile"
+          ? "MOBILE"
+          : "UNKNOWN";
 
     if (!identifier || !password) {
       return res
@@ -289,9 +396,11 @@ const loginUser = async (req, res) => {
     user.lockUntil = undefined;
     user.lastLogin = new Date();
     user.isOnline = true;
-    user.platform = loginPlatform;
+    user.platform = loginPlatform.toLowerCase();
     user.lastSeenAt = new Date();
     await user.save();
+
+    const session = await createUserSession(req, user._id, loginPlatform);
 
     // Generate JWT
     const token = jwt.sign(
@@ -306,25 +415,29 @@ const loginUser = async (req, res) => {
       { expiresIn: "30m" },
     );
 
-    // Generate Refresh Token
-    const refreshToken = jwt.sign(
-      { id: user._id },
-      process.env.REFRESH_SECRET,
-      { expiresIn: "7d" },
-    );
-
-    // Send refresh token as HttpOnly cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    // Generate and persist refresh token (rotation-ready)
+    const usePersistentRefreshCookie = Boolean(rememberMe);
+    const { token: refreshToken, jti } = issueRefreshToken(user._id.toString());
+    await storeRefreshToken({
+      userId: user._id,
+      refreshToken,
+      jti,
+      isPersistent: usePersistentRefreshCookie,
+      req,
     });
+    setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
 
     auditLog(
       `User log in: ${user.username} (actorId: ${user._id})`,
       user._id,
       user.username,
+      {
+        sessionId: session.sessionId,
+        platform: session.platform,
+        base: session.base,
+        ipAddress: req.ip || req.socket?.remoteAddress || "",
+        userAgent: req.headers["user-agent"] || "",
+      },
     ).catch((logError) => {
       console.error("Login audit log failed:", logError);
     });
@@ -350,6 +463,7 @@ const loginUser = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
+      sessionId: session.sessionId,
       user: responseUser,
     });
   } catch (err) {
@@ -373,11 +487,39 @@ const unlockUser = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "No token" });
+  const incomingRefreshToken = req.cookies?.refreshToken;
+  if (!incomingRefreshToken) {
+    return res.status(401).json({ message: "No token" });
+  }
 
   try {
-    const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const payload = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_SECRET,
+    );
+    const incomingTokenHash = hashRefreshToken(incomingRefreshToken);
+    const tokenRecord = await RefreshToken.findOne({
+      tokenHash: incomingTokenHash,
+      userId: payload.id,
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.revokedAt ||
+      tokenRecord.expiresAt <= new Date()
+    ) {
+      await revokeAllUserRefreshTokens(
+        payload.id,
+        "Refresh token replay/reuse detected during rotation",
+      );
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+      });
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
     const user = await UserModel.findById(payload.id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -399,16 +541,56 @@ const refreshToken = async (req, res) => {
       { expiresIn: "15m" },
     );
 
+    const { token: newRefreshToken, jti } = issueRefreshToken(
+      user._id.toString(),
+    );
+    const newTokenHash = hashRefreshToken(newRefreshToken);
+
+    await revokeRefreshTokenByHash(
+      incomingTokenHash,
+      "Rotated by refresh endpoint",
+      newTokenHash,
+    );
+
+    await storeRefreshToken({
+      userId: user._id,
+      refreshToken: newRefreshToken,
+      jti,
+      isPersistent: tokenRecord.isPersistent,
+      req,
+    });
+
+    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
     res.json({ token: newAccessToken });
   } catch {
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
     res.status(403).json({ message: "Invalid refresh token" });
   }
 };
 
 const logoutUser = async (req, res) => {
   try {
+    const incomingRefreshToken = req.cookies?.refreshToken;
+    if (incomingRefreshToken) {
+      await revokeRefreshTokenByHash(
+        hashRefreshToken(incomingRefreshToken),
+        "User logout",
+      );
+    }
+
     const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token provided" });
+    if (!token) {
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+      });
+      return res.status(200).json({ message: "Logged out successfully" });
+    }
 
     let decoded;
     try {
@@ -421,6 +603,20 @@ const logoutUser = async (req, res) => {
       isOnline: false,
       lastSeenAt: new Date(),
     });
+
+    const incomingSessionId = req.headers["x-session-id"];
+    if (incomingSessionId) {
+      await UserSession.findOneAndUpdate(
+        { userId: decoded.id, sessionId: incomingSessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+    } else {
+      await UserSession.findOneAndUpdate(
+        { userId: decoded.id, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+        { sort: { loginAt: -1 } },
+      );
+    }
 
     await auditLog(
       `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
@@ -485,7 +681,7 @@ const registerMobilePushDevice = async (req, res) => {
           },
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     res.status(200).json({ success: true });
@@ -788,7 +984,7 @@ const updateUser = async (req, res) => {
     };
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 
@@ -808,13 +1004,11 @@ const updateUser = async (req, res) => {
       await auditLog(audit.action, audit.actorId);
     }
 
-    res
-      .status(200)
-      .json({
-        message: "User updated successfully",
-        user: updatedUser,
-        data: updatedUser,
-      });
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+      data: updatedUser,
+    });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
@@ -973,7 +1167,7 @@ const updateUserImage = async (req, res) => {
     const updatedUser = await UserModel.findByIdAndUpdate(
       id,
       { $set: { image: newImagePath } },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedUser) {

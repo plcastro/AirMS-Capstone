@@ -268,37 +268,37 @@ export default function MaintenancePriority() {
       title: "Rank",
       dataIndex: "rank",
       key: "rank",
-      width: 70,
+      width: 50,
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
-      width: 140,
+      width: 100,
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
-      width: 130,
+      width: 100,
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
-      width: 220,
+      width: 120,
     },
     {
       title: "Remaining",
       key: "dueSoonest",
-      width: 170,
+      width: 120,
       render: (_, record) => formatDueSummary(record),
     },
     {
       title: "Calendar Due",
       dataIndex: "dueDate",
       key: "dueDate",
-      width: 150,
+      width: 120,
       render: (value, record) => (
         <span>
           {formatDate(value)}

@@ -433,7 +433,15 @@ const createMaintenanceLog = async (req, res) => {
 
     await auditLog(
       `Maintenance log created for aircraft: ${aircraft} by ${reportedBy}`,
+      req.user?.id || null,
       null,
+      {
+        sessionId: req.headers["x-session-id"] || null,
+        platform: req.headers["x-platform"] || "UNKNOWN",
+        base: req.headers["x-base"] || "UNKNOWN",
+        ipAddress: req.ip || req.socket?.remoteAddress || "",
+        userAgent: req.headers["user-agent"] || "",
+      },
     );
 
     res.status(201).json({ message: "Maintenance log created", data: newLog });
@@ -526,7 +534,15 @@ const updateMaintenanceLog = async (req, res) => {
 
     await auditLog(
       `Maintenance log updated: ${req.params.id} for aircraft ${aircraft}`,
+      req.user?.id || null,
       null,
+      {
+        sessionId: req.headers["x-session-id"] || null,
+        platform: req.headers["x-platform"] || "UNKNOWN",
+        base: req.headers["x-base"] || "UNKNOWN",
+        ipAddress: req.ip || req.socket?.remoteAddress || "",
+        userAgent: req.headers["user-agent"] || "",
+      },
     );
 
     res
@@ -550,7 +566,15 @@ const deleteMaintenanceLog = async (req, res) => {
 
     await auditLog(
       `Maintenance log deleted: ${req.params.id} for aircraft ${deletedLog.aircraft}`,
+      req.user?.id || null,
       null,
+      {
+        sessionId: req.headers["x-session-id"] || null,
+        platform: req.headers["x-platform"] || "UNKNOWN",
+        base: req.headers["x-base"] || "UNKNOWN",
+        ipAddress: req.ip || req.socket?.remoteAddress || "",
+        userAgent: req.headers["user-agent"] || "",
+      },
     );
 
     res

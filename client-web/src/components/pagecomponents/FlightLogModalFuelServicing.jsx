@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Input, Button } from "antd";
+import { Input, Button, DatePicker } from "antd";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import dayjs from "dayjs";
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -94,11 +95,18 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
             <div className="fl-card-body">
               <div className="fl-field-row">
                 <span className="fl-label">Date:</span>
-                <Input
+                <DatePicker
                   className="fl-input"
-                  value={fuel.date || ""}
-                  onChange={(e) => updateFuel(legIdx, "date", e.target.value)}
-                  placeholder="MM/DD/YYYY"
+                  style={{ width: "100%" }}
+                  format="MM/DD/YYYY"
+                  value={fuel.date ? dayjs(fuel.date) : null}
+                  onChange={(date) =>
+                    updateFuel(
+                      legIdx,
+                      "date",
+                      date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                    )
+                  }
                   disabled={!isEditable}
                 />
               </div>

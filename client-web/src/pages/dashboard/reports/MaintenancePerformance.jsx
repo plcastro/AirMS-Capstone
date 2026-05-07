@@ -16,7 +16,9 @@ export default function MaintenancePerformance({ tasks = [] }) {
   useEffect(() => {
     try {
       const isCompletedTask = (task = {}) => {
-        const status = String(task.status || "").trim().toLowerCase();
+        const status = String(task.status || "")
+          .trim()
+          .toLowerCase();
         return status === "approved" || task.isApproved === true;
       };
 
@@ -53,7 +55,9 @@ export default function MaintenancePerformance({ tasks = [] }) {
       };
 
       const periodMap = tasks.reduce((acc, task) => {
-        const status = String(task.status || "").trim().toLowerCase();
+        const status = String(task.status || "")
+          .trim()
+          .toLowerCase();
         const dueDate = getTaskDueDate(task);
         const approved = isCompletedTask(task);
         const now = new Date();
@@ -63,10 +67,9 @@ export default function MaintenancePerformance({ tasks = [] }) {
           (!dueDate || dueDate >= now);
         const overdue = !approved && dueDate && dueDate < now;
 
-        const bucketSource =
-          approved
-            ? task.approvedAt || task.completedAt || task.updatedAt || dueDate
-            : dueDate || task.updatedAt || task.createdAt;
+        const bucketSource = approved
+          ? task.approvedAt || task.completedAt || task.updatedAt || dueDate
+          : dueDate || task.updatedAt || task.createdAt;
         if (!bucketSource) return acc;
 
         const date = new Date(bucketSource);
@@ -102,9 +105,9 @@ export default function MaintenancePerformance({ tasks = [] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Space direction="vertical" size={8} style={{ width: "100%" }}>
+      <Space orientation="vertical" size={8} style={{ width: "100%" }}>
         <Space style={{ justifyContent: "space-between", width: "100%" }}>
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Title level={3} style={{ margin: 0 }}>
               Maintenance Performance
             </Title>
@@ -123,7 +126,11 @@ export default function MaintenancePerformance({ tasks = [] }) {
           data={chartData}
           xKey="period"
           series={[
-            { key: "completed", name: "Completed (Approved)", color: "#26866f" },
+            {
+              key: "completed",
+              name: "Completed (Approved)",
+              color: "#26866f",
+            },
             { key: "pending", name: "Pending", color: "#faad14" },
             { key: "overdue", name: "Overdue", color: "#cf1322" },
           ]}
