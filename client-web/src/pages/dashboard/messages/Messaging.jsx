@@ -61,6 +61,20 @@ const withSentStatus = (message) => ({
   deliveryStatus: message.deliveryStatus || "sent",
 });
 
+const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
+  const fetched = fetchedMessages.map(withSentStatus);
+  const fetchedIds = new Set(fetched.map((item) => String(item._id)));
+  const localOnly = currentMessages.filter(
+    (item) =>
+      !fetchedIds.has(String(item._id)) &&
+      (String(item._id).startsWith("temp-") || item.deliveryStatus === "failed"),
+  );
+
+  return [...fetched, ...localOnly].sort(
+    (first, second) => new Date(first.createdAt) - new Date(second.createdAt),
+  );
+};
+
 const buildWsUrl = (token) => {
   const baseUrl = API_BASE || window.location.origin;
   const url = new URL(baseUrl, window.location.origin);
@@ -138,11 +152,22 @@ export default function Messaging() {
       }
 
       const data = await authFetch(`${API_BASE}/api/messages/${otherUserId}`);
-      setMessages(Array.isArray(data.data) ? data.data : []);
+      const nextMessages = Array.isArray(data.data) ? data.data : [];
+      setMessages((current) => mergeFetchedMessages(current, nextMessages));
       fetchConversations();
     },
     [authFetch, fetchConversations],
   );
+
+  const syncMessaging = useCallback(async () => {
+    const activeUserId = selectedUserIdRef.current;
+    if (activeUserId) {
+      await fetchThread(activeUserId);
+      return;
+    }
+
+    await fetchConversations();
+  }, [fetchConversations, fetchThread]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -174,6 +199,31 @@ export default function Messaging() {
   useEffect(() => {
     selectedUserIdRef.current = selectedUserId;
   }, [selectedUserId]);
+
+  useEffect(() => {
+    const syncIfVisible = () => {
+      if (document.visibilityState === "hidden") return;
+      syncMessaging().catch((error) => {
+        console.error("Message live sync failed:", error);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncIfVisible();
+      }
+    };
+
+    const intervalId = window.setInterval(syncIfVisible, 2500);
+    window.addEventListener("focus", syncIfVisible);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", syncIfVisible);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [syncMessaging]);
 
   useEffect(() => {
     const token = getStoredToken();
