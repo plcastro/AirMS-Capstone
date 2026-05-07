@@ -80,6 +80,8 @@ export default function Messaging() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const selectedUserIdRef = useRef(null);
   const threadBottomRef = useRef(null);
 
   const selectedUser = useMemo(
@@ -170,59 +172,102 @@ export default function Messaging() {
   }, [messages]);
 
   useEffect(() => {
+    selectedUserIdRef.current = selectedUserId;
+  }, [selectedUserId]);
+
+  useEffect(() => {
     const token = getStoredToken();
-    if (!token || !user?.id) return undefined;
+    if (!token || !currentUserId) return undefined;
 
-    const ws = new WebSocket(buildWsUrl(token));
-    wsRef.current = ws;
+    let closedByEffect = false;
 
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.event === "chat:read") {
-          const readReceipt = payload.data || {};
-          const messageIds = new Set((readReceipt.messageIds || []).map(String));
+    const connect = () => {
+      const ws = new WebSocket(buildWsUrl(token));
+      wsRef.current = ws;
 
-          setMessages((current) =>
-            current.map((item) =>
-              messageIds.has(String(item._id))
-                ? { ...item, readAt: readReceipt.readAt, deliveryStatus: "sent" }
-                : item,
-            ),
-          );
-          fetchConversations();
-          return;
-        }
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.event === "chat:read") {
+            const readReceipt = payload.data || {};
+            const messageIds = new Set((readReceipt.messageIds || []).map(String));
 
-        if (payload.event !== "chat:message") return;
+            setMessages((current) =>
+              current.map((item) =>
+                messageIds.has(String(item._id))
+                  ? { ...item, readAt: readReceipt.readAt, deliveryStatus: "sent" }
+                  : item,
+              ),
+            );
+            fetchConversations();
+            return;
+          }
 
-        const nextMessage = payload.data;
-        const otherUserId =
-          String(getEntityId(nextMessage.sender)) === String(currentUserId)
-            ? String(getEntityId(nextMessage.recipient))
-            : String(getEntityId(nextMessage.sender));
-
-        if (String(otherUserId) === String(selectedUserId)) {
-          setMessages((current) => {
-            if (current.some((item) => item._id === nextMessage._id)) {
-              return current.map((item) =>
-                item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
-              );
+          if (
+            payload.event === "data-changed" &&
+            String(payload.data?.url || "").startsWith("/api/messages")
+          ) {
+            fetchConversations();
+            if (selectedUserIdRef.current) {
+              fetchThread(selectedUserIdRef.current).catch((error) => {
+                console.error("Failed to refresh realtime messages:", error);
+              });
             }
-            return [...current, withSentStatus(nextMessage)];
-          });
-        }
+            return;
+          }
 
-        fetchConversations();
-      } catch (error) {
-        console.error("Message websocket parse error:", error);
-      }
+          if (payload.event !== "chat:message") return;
+
+          const nextMessage = withSentStatus(payload.data);
+          const otherUserId =
+            String(getEntityId(nextMessage.sender)) === String(currentUserId)
+              ? String(getEntityId(nextMessage.recipient))
+              : String(getEntityId(nextMessage.sender));
+
+          if (String(otherUserId) === String(selectedUserIdRef.current)) {
+            setMessages((current) => {
+              if (current.some((item) => item._id === nextMessage._id)) {
+                return current.map((item) =>
+                  item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
+                );
+              }
+              return [...current, nextMessage];
+            });
+
+            if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+              fetchThread(otherUserId).catch((error) => {
+                console.error("Failed to refresh realtime thread:", error);
+              });
+            }
+          }
+
+          fetchConversations();
+        } catch (error) {
+          console.error("Message websocket parse error:", error);
+        }
+      };
+
+      ws.onclose = () => {
+        if (!closedByEffect) {
+          reconnectTimeoutRef.current = window.setTimeout(connect, 1500);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
     };
+
+    connect();
 
     return () => {
-      ws.close();
+      closedByEffect = true;
+      if (reconnectTimeoutRef.current) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+      }
+      wsRef.current?.close();
     };
-  }, [currentUserId, fetchConversations, selectedUserId]);
+  }, [currentUserId, fetchConversations, fetchThread]);
 
   const handleSend = async () => {
     const body = draft.trim();
