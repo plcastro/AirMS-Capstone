@@ -192,44 +192,39 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        let storedUser;
+        let storedToken;
+
         if (Platform.OS === "web") {
-          const storedUser = localStorage.getItem("currentUser");
-          const storedToken = localStorage.getItem("currentUserToken");
-
-          if (storedUser && storedToken && isTokenValid(storedToken)) {
-            const parsed = JSON.parse(storedUser);
-
-            const normalizedUser = normalizeUser({
-              ...parsed,
-              jobTitle: parsed.jobTitle
-                ? parsed.jobTitle.trim().toLowerCase()
-                : null,
-              access: parsed.access ? parsed.access.trim().toLowerCase() : null,
-            });
-
-            setUser(normalizedUser);
-            scheduleTokenExpiryLogout(storedToken);
-          } else if (storedUser || storedToken) {
-            await clearStoredAuth();
-          }
+          storedUser = localStorage.getItem("currentUser");
+          storedToken = localStorage.getItem("currentUserToken");
         } else {
-          const [storedUser, storedToken] = await AsyncStorage.multiGet([
+          const result = await AsyncStorage.multiGet([
             "currentUser",
             "currentUserToken",
           ]);
-          const parsedUser = storedUser?.[1];
-          const parsedToken = storedToken?.[1];
-
-          if (parsedUser && parsedToken && isTokenValid(parsedToken)) {
-            setUser(normalizeUser(JSON.parse(parsedUser)));
-            scheduleTokenExpiryLogout(parsedToken);
-          } else {
-            await clearStoredAuth();
-            setUser(null);
-          }
+          storedUser = result[0][1];
+          storedToken = result[1][1];
         }
+
+        if (!storedUser || !storedToken) {
+          setUser(null);
+          return;
+        }
+
+        if (!isTokenValid(storedToken)) {
+          await clearStoredAuth();
+          setUser(null);
+          return;
+        }
+
+        const parsedUser = JSON.parse(storedUser);
+        setUser(normalizeUser(parsedUser));
+
+        scheduleTokenExpiryLogout(storedToken);
       } catch (err) {
-        console.error("Failed to load user:", err);
+        console.error("Session restore failed:", err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -237,23 +232,6 @@ export const AuthProvider = ({ children }) => {
 
     loadUser();
   }, []);
-
-  useEffect(() => {
-    const syncUserStorage = async () => {
-      if (!user) return;
-
-      const serializedUser = JSON.stringify(user);
-      if (Platform.OS === "web") {
-        localStorage.setItem("currentUser", serializedUser);
-      } else {
-        await AsyncStorage.setItem("currentUser", serializedUser);
-      }
-    };
-
-    syncUserStorage().catch((err) => {
-      console.error("Failed to sync user storage:", err);
-    });
-  }, [user]);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -339,7 +317,6 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.multiSet([
         ["currentUser", JSON.stringify(normalizedUser)],
         ["currentUserToken", token],
-        ["lastLoggedInUserId", String(normalizedUser.id || "")],
       ]).catch(console.error);
     }
 

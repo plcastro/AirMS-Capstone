@@ -1,27 +1,23 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  AppState,
-  Image,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { ActivityIndicator, AppState, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
+import ConversationListView from "../../components/Messaging/ConversationListView";
+import ChatView from "../../components/Messaging/ChatView";
 
 const LIVE_SYNC_INTERVAL_MS = 1000;
 const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
-const DEVICE_HEADER_TOP_PADDING = StatusBar.currentHeight || 0;
 
 const ignoreBackgroundMessagingError = () => {};
 
@@ -73,12 +69,17 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   const localOnly = currentMessages.filter(
     (item) =>
       !fetchedIds.has(String(item._id)) &&
-      (String(item._id).startsWith("temp-") || item.deliveryStatus === "failed"),
+      (String(item._id).startsWith("temp-") ||
+        item.deliveryStatus === "failed"),
   );
 
   return [...fetched, ...localOnly].sort((first, second) => {
-    const firstTime = first.createdAt ? new Date(first.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const secondTime = second.createdAt ? new Date(second.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
+    const firstTime = first.createdAt
+      ? new Date(first.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const secondTime = second.createdAt
+      ? new Date(second.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
     return firstTime - secondTime;
   });
 };
@@ -121,7 +122,10 @@ export default function Messaging({ navigation }) {
     return byId;
   }, [users]);
 
-  const getToken = useCallback(() => AsyncStorage.getItem("currentUserToken"), []);
+  const getToken = useCallback(
+    () => AsyncStorage.getItem("currentUserToken"),
+    [],
+  );
 
   const authFetch = useCallback(
     async (url, options = {}) => {
@@ -140,7 +144,9 @@ export default function Messaging({ navigation }) {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const error = new Error(data.message || `Request failed (${response.status})`);
+        const error = new Error(
+          data.message || `Request failed (${response.status})`,
+        );
         error.status = response.status;
         throw error;
       }
@@ -192,7 +198,9 @@ export default function Messaging({ navigation }) {
         return;
       }
 
-      const data = await authFetch(`${API_BASE}/api/messages/${conversationId}`);
+      const data = await authFetch(
+        `${API_BASE}/api/messages/${conversationId}`,
+      );
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
       fetchConversations();
@@ -245,7 +253,8 @@ export default function Messaging({ navigation }) {
       if (Date.now() < liveSyncPausedUntilRef.current) return;
 
       syncMessaging().catch((error) => {
-        liveSyncPausedUntilRef.current = Date.now() + LIVE_SYNC_FAILURE_BACKOFF_MS;
+        liveSyncPausedUntilRef.current =
+          Date.now() + LIVE_SYNC_FAILURE_BACKOFF_MS;
         ignoreBackgroundMessagingError(error);
       });
     };
@@ -286,12 +295,18 @@ export default function Messaging({ navigation }) {
 
           if (payload.event === "chat:read") {
             const readReceipt = payload.data || {};
-            const messageIds = new Set((readReceipt.messageIds || []).map(String));
+            const messageIds = new Set(
+              (readReceipt.messageIds || []).map(String),
+            );
 
             setMessages((current) =>
               current.map((item) =>
                 messageIds.has(String(item._id))
-                  ? { ...item, readAt: readReceipt.readAt, deliveryStatus: "sent" }
+                  ? {
+                      ...item,
+                      readAt: readReceipt.readAt,
+                      deliveryStatus: "sent",
+                    }
                   : item,
               ),
             );
@@ -321,17 +336,24 @@ export default function Messaging({ navigation }) {
               ? String(getEntityId(nextMessage.recipient))
               : String(getEntityId(nextMessage.sender));
 
-          if (String(conversationId) === String(selectedConversationRef.current?.id)) {
+          if (
+            String(conversationId) ===
+            String(selectedConversationRef.current?.id)
+          ) {
             setMessages((current) => {
               if (current.some((item) => item._id === nextMessage._id)) {
                 return current.map((item) =>
-                  item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
+                  item._id === nextMessage._id
+                    ? withSentStatus({ ...item, ...nextMessage })
+                    : item,
                 );
               }
               return [...current, nextMessage];
             });
 
-            if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+            if (
+              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
+            ) {
               fetchThread(conversationId).catch((error) => {
                 ignoreBackgroundMessagingError(error);
               });
@@ -368,7 +390,9 @@ export default function Messaging({ navigation }) {
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
-      .filter((conversation) => conversation.type !== "group" && conversation.user)
+      .filter(
+        (conversation) => conversation.type !== "group" && conversation.user,
+      )
       .map((conversation) => ({
         ...conversation,
         id: String(getEntityId(conversation.user)),
@@ -376,14 +400,18 @@ export default function Messaging({ navigation }) {
         subtitle: conversation.user.jobTitle || "User",
       }));
     const groupFromConversations = conversations
-      .filter((conversation) => conversation.type === "group" && conversation.group)
+      .filter(
+        (conversation) => conversation.type === "group" && conversation.group,
+      )
       .map((conversation) => ({
         ...conversation,
         id: String(getEntityId(conversation.group)),
         title: conversation.group.name || "Group chat",
         subtitle: `${conversation.group.members?.length || 0} members`,
       }));
-    const knownDirectIds = new Set(directFromConversations.map((conversation) => String(conversation.id)));
+    const knownDirectIds = new Set(
+      directFromConversations.map((conversation) => String(conversation.id)),
+    );
     const remainingUsers = users
       .filter((item) => !knownDirectIds.has(String(item._id)))
       .map((item) => ({
@@ -395,7 +423,11 @@ export default function Messaging({ navigation }) {
         lastMessage: null,
         unreadCount: 0,
       }));
-    const merged = [...groupFromConversations, ...directFromConversations, ...remainingUsers].filter(Boolean);
+    const merged = [
+      ...groupFromConversations,
+      ...directFromConversations,
+      ...remainingUsers,
+    ].filter(Boolean);
     const query = searchText.trim().toLowerCase();
 
     if (!query) return merged;
@@ -411,7 +443,9 @@ export default function Messaging({ navigation }) {
     if (!selectedConversation) return null;
 
     const currentItem = conversationItems.find(
-      (item) => item.type === selectedConversation.type && String(item.id) === String(selectedConversation.id),
+      (item) =>
+        item.type === selectedConversation.type &&
+        String(item.id) === String(selectedConversation.id),
     );
 
     if (currentItem) return currentItem;
@@ -435,13 +469,19 @@ export default function Messaging({ navigation }) {
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;
     if (!lastMessage?.body) return null;
-    const mine = String(getEntityId(lastMessage.sender)) === String(currentUserId);
-    const groupSender = item.group?.members?.find((member) =>
-      String(getEntityId(member)) === String(getEntityId(lastMessage.sender)),
+    const mine =
+      String(getEntityId(lastMessage.sender)) === String(currentUserId);
+    const groupSender = item.group?.members?.find(
+      (member) =>
+        String(getEntityId(member)) === String(getEntityId(lastMessage.sender)),
     );
     const senderName =
       item.type === "group" && !mine
-        ? getDisplayName(groupSender || usersById.get(String(getEntityId(lastMessage.sender))) || {})
+        ? getDisplayName(
+            groupSender ||
+              usersById.get(String(getEntityId(lastMessage.sender))) ||
+              {},
+          )
         : item.title;
 
     return {
@@ -496,9 +536,14 @@ export default function Messaging({ navigation }) {
           ? current
               .filter((item) => item._id !== tempId)
               .map((item) =>
-                item._id === data.data._id ? withSentStatus({ ...item, ...data.data }) : item,
+                item._id === data.data._id
+                  ? withSentStatus({ ...item, ...data.data })
+                  : item,
               )
-          : [...current.filter((item) => item._id !== tempId), withSentStatus(data.data)],
+          : [
+              ...current.filter((item) => item._id !== tempId),
+              withSentStatus(data.data),
+            ],
       );
       fetchConversations();
     } catch (error) {
@@ -530,7 +575,11 @@ export default function Messaging({ navigation }) {
 
       const group = data.data?.group;
       if (group?._id) {
-        setSelectedConversation({ type: "group", id: String(group._id), title: group.name });
+        setSelectedConversation({
+          type: "group",
+          id: String(group._id),
+          title: group.name,
+        });
       }
       setGroupModalOpen(false);
       setGroupName("");
@@ -551,31 +600,9 @@ export default function Messaging({ navigation }) {
     );
   };
 
-  const renderAvatar = (item, size = 42) => {
-    if (item?.type === "group") {
-      return (
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#E9F4F1",
-          }}
-        >
-          <MaterialCommunityIcons name="account-group" size={Math.round(size * 0.58)} color={COLORS.primaryLight} />
-        </View>
-      );
-    }
-
-    const imageUrl = getImageUrl(item?.user?.image || item?.image);
-    if (imageUrl) {
-      return <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-    }
-
-    return <MaterialCommunityIcons name="account-circle" size={size} color={COLORS.primaryLight} />;
-  };
+  const renderAvatar = (item, size = 42) => (
+    <MessagingAvatar item={item} size={size} getImageUrl={getImageUrl} />
+  );
 
   const selectedGroupMembers =
     selectedConversationDetails?.type === "group"
@@ -592,441 +619,49 @@ export default function Messaging({ navigation }) {
 
   if (!selectedConversationId) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white, paddingTop: DEVICE_HEADER_TOP_PADDING }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: 6,
-            backgroundColor: COLORS.white,
-          }}
-        >
-          <TouchableOpacity
-            onPress={() => navigation?.openDrawer?.()}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
-              backgroundColor: "#F1F3F5",
-            }}
-          >
-            <MaterialCommunityIcons name="menu" size={22} color={COLORS.black} />
-          </TouchableOpacity>
-          <Text style={{ flex: 1, fontSize: 16, fontWeight: "800", color: COLORS.black }}>
-            Chats
-          </Text>
-          <TouchableOpacity
-            onPress={() => setGroupModalOpen(true)}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#F1F3F5",
-            }}
-          >
-            <MaterialCommunityIcons name="pencil" size={19} color={COLORS.black} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: COLORS.white }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              height: 42,
-              borderRadius: 21,
-              paddingHorizontal: 14,
-              backgroundColor: "#F1F3F5",
-            }}
-          >
-            <MaterialCommunityIcons name="magnify" size={20} color={COLORS.grayDark} />
-            <TextInput
-              value={searchText}
-              onChangeText={setSearchText}
-              placeholder="Search"
-              placeholderTextColor={COLORS.grayDark}
-              style={{
-                flex: 1,
-                marginLeft: 8,
-                fontSize: 13,
-                color: COLORS.black,
-              }}
-            />
-            {searchText ? (
-              <TouchableOpacity onPress={() => setSearchText("")}>
-                <MaterialCommunityIcons name="close-circle" size={18} color={COLORS.grayDark} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 4, paddingBottom: 18 }}>
-          {conversationItems.length === 0 ? (
-            <View style={{ alignItems: "center", marginTop: 56, paddingHorizontal: 32 }}>
-              <MaterialCommunityIcons name="message-text-outline" size={42} color="#B7C6C2" />
-              <Text style={{ marginTop: 10, fontSize: 14, color: COLORS.grayDark, textAlign: "center" }}>
-                No conversations found
-              </Text>
-            </View>
-          ) : (
-            conversationItems.map((item) => {
-              const unreadCount = item.unreadCount || 0;
-              const preview = getConversationPreview(item);
-
-              return (
-                <TouchableOpacity
-                  key={`${item.type}-${item.id}`}
-                  onPress={() => handleSelectConversation(item)}
-                  activeOpacity={0.75}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingHorizontal: 16,
-                    paddingVertical: 9,
-                    backgroundColor: COLORS.white,
-                  }}
-                >
-                  <View>
-                    {renderAvatar(item, 58)}
-                    {unreadCount > 0 ? (
-                      <View
-                        style={{
-                          position: "absolute",
-                          right: -2,
-                          top: -2,
-                          minWidth: 18,
-                          height: 18,
-                          borderRadius: 9,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: COLORS.primaryLight,
-                          borderWidth: 2,
-                          borderColor: COLORS.white,
-                        }}
-                      >
-                        <Text style={{ color: COLORS.white, fontSize: 9, fontWeight: "700" }}>
-                          {unreadCount}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12, minWidth: 0 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: "800", color: COLORS.black }}>
-                        {item.title}
-                      </Text>
-                      {preview?.time ? (
-                        <Text style={{ marginLeft: 8, fontSize: 11, color: COLORS.grayDark }}>
-                          {preview.time}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text numberOfLines={1} style={{ marginTop: 0, fontSize: 12, color: COLORS.grayDark }}>
-                      {item.subtitle}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        marginTop: 5,
-                        fontSize: 13,
-                        color: unreadCount > 0 ? COLORS.black : COLORS.grayDark,
-                        fontWeight: unreadCount > 0 ? "700" : "400",
-                      }}
-                    >
-                      {preview?.text || "Tap to start a conversation"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
-
-        <Modal visible={groupModalOpen} transparent animationType="fade" onRequestClose={() => setGroupModalOpen(false)}>
-          <View style={{ flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.35)" }}>
-            <View style={{ maxHeight: "82%", borderRadius: 8, padding: 16, backgroundColor: COLORS.white }}>
-              <Text style={{ fontSize: 17, fontWeight: "800", color: COLORS.black }}>New group chat</Text>
-              <TextInput
-                value={groupName}
-                onChangeText={setGroupName}
-                placeholder="Group name"
-                placeholderTextColor={COLORS.grayDark}
-                maxLength={80}
-                style={{
-                  height: 42,
-                  marginTop: 14,
-                  borderWidth: 1,
-                  borderColor: "#D8DEDC",
-                  borderRadius: 6,
-                  paddingHorizontal: 10,
-                  color: COLORS.black,
-                }}
-              />
-              <Text style={{ marginTop: 14, marginBottom: 8, fontSize: 12, color: COLORS.grayDark }}>Members</Text>
-              <ScrollView style={{ maxHeight: 260 }}>
-                {users.map((item) => {
-                  const memberId = String(item._id);
-                  const selected = groupMemberIds.includes(memberId);
-                  return (
-                    <TouchableOpacity
-                      key={memberId}
-                      onPress={() => toggleGroupMember(memberId)}
-                      style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
-                    >
-                      {renderAvatar({ type: "direct", user: item }, 34)}
-                      <View style={{ flex: 1, marginLeft: 9 }}>
-                        <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "700", color: COLORS.black }}>
-                          {getDisplayName(item)}
-                        </Text>
-                        <Text numberOfLines={1} style={{ fontSize: 11, color: COLORS.grayDark }}>
-                          {item.jobTitle || "User"}
-                        </Text>
-                      </View>
-                      <MaterialCommunityIcons
-                        name={selected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
-                        size={22}
-                        color={selected ? COLORS.primaryLight : COLORS.grayDark}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
-                <TouchableOpacity
-                  onPress={() => setGroupModalOpen(false)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 6 }}
-                >
-                  <Text style={{ color: COLORS.grayDark, fontWeight: "700" }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleCreateGroup}
-                  disabled={creatingGroup}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 9,
-                    borderRadius: 6,
-                    backgroundColor: COLORS.primaryLight,
-                  }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "800" }}>
-                    {creatingGroup ? "Creating..." : "Create"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </SafeAreaView>
+      <ConversationListView
+        navigation={navigation}
+        searchText={searchText}
+        setSearchText={setSearchText}
+        conversationItems={conversationItems}
+        getConversationPreview={getConversationPreview}
+        handleSelectConversation={handleSelectConversation}
+        renderAvatar={renderAvatar}
+        groupModalOpen={groupModalOpen}
+        setGroupModalOpen={setGroupModalOpen}
+        groupName={groupName}
+        setGroupName={setGroupName}
+        users={users}
+        groupMemberIds={groupMemberIds}
+        toggleGroupMember={toggleGroupMember}
+        creatingGroup={creatingGroup}
+        handleCreateGroup={handleCreateGroup}
+        getDisplayName={getDisplayName}
+      />
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F9F8", paddingTop: DEVICE_HEADER_TOP_PADDING }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          backgroundColor: COLORS.white,
-          borderBottomWidth: 1,
-          borderBottomColor: "#ECEFEE",
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => {
-            setSelectedConversation(null);
-            setMessages([]);
-          }}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        {renderAvatar(selectedConversationDetails, 38)}
-        <TouchableOpacity
-          activeOpacity={selectedConversationDetails?.type === "group" ? 0.7 : 1}
-          onPress={() => {
-            if (selectedConversationDetails?.type === "group") {
-              setMembersModalOpen(true);
-            }
-          }}
-          style={{ flex: 1, marginLeft: 10, minWidth: 0 }}
-        >
-          <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "800", color: COLORS.black }}>
-            {selectedConversationDetails?.title || "Conversation"}
-          </Text>
-          <Text numberOfLines={1} style={{ fontSize: 11, color: COLORS.grayDark }}>
-            {selectedConversationDetails?.subtitle || "Conversation"}
-          </Text>
-        </TouchableOpacity>
-        {selectedConversationDetails?.type === "group" ? (
-          <TouchableOpacity
-            onPress={() => setMembersModalOpen(true)}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialCommunityIcons name="information-outline" size={22} color={COLORS.black} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <ScrollView
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 14 }}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd?.({ animated: true })}
-      >
-        {messages.map((item, index) => {
-          const mine = String(getEntityId(item.sender)) === String(currentUserId);
-          const isLatestMessage = index === messages.length - 1;
-
-          return (
-            <View
-              key={item._id}
-              style={{
-                alignItems: mine ? "flex-end" : "flex-start",
-                marginBottom: 8,
-              }}
-            >
-              <View
-                style={{
-                  maxWidth: "78%",
-                  backgroundColor: mine ? COLORS.primaryLight : "#E9ECEF",
-                  borderRadius: 18,
-                  borderBottomRightRadius: mine ? 5 : 18,
-                  borderBottomLeftRadius: mine ? 18 : 5,
-                  paddingVertical: 9,
-                  paddingHorizontal: 13,
-                }}
-              >
-                <Text style={{ color: mine ? COLORS.white : COLORS.black, fontSize: 14, lineHeight: 19 }}>
-                  {item.body}
-                </Text>
-              </View>
-              {isLatestMessage ? (
-                <Text
-                  style={{
-                    marginTop: 3,
-                    paddingRight: mine ? 4 : 0,
-                    paddingLeft: mine ? 0 : 4,
-                    color: COLORS.grayDark,
-                    fontSize: 10,
-                  }}
-                >
-                  {[
-                    item.createdAt ? formatConversationTime(item.createdAt) : null,
-                    mine ? getMessageStatus(item, selectedConversation?.type) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                </Text>
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "flex-end",
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          backgroundColor: COLORS.white,
-          borderTopWidth: 1,
-          borderTopColor: "#ECEFEE",
-        }}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Message"
-          placeholderTextColor={COLORS.grayDark}
-          multiline
-          maxLength={1000}
-          style={{
-            flex: 1,
-            maxHeight: 96,
-            minHeight: 40,
-            borderRadius: 20,
-            paddingHorizontal: 14,
-            paddingVertical: 9,
-            fontSize: 14,
-            color: COLORS.black,
-            backgroundColor: "#F1F3F5",
-          }}
-        />
-        <TouchableOpacity
-          onPress={handleSend}
-          disabled={!draft.trim() || sending}
-          style={{
-            width: 40,
-            height: 40,
-            marginLeft: 8,
-            borderRadius: 20,
-            backgroundColor: draft.trim() ? COLORS.primaryLight : "#B7C6C2",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {sending ? (
-            <ActivityIndicator color={COLORS.white} size="small" />
-          ) : (
-            <MaterialCommunityIcons name="send" size={20} color={COLORS.white} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <Modal visible={membersModalOpen} transparent animationType="fade" onRequestClose={() => setMembersModalOpen(false)}>
-        <View style={{ flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.35)" }}>
-          <View style={{ maxHeight: "78%", borderRadius: 14, padding: 16, backgroundColor: COLORS.white }}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-              <Text style={{ flex: 1, fontSize: 18, fontWeight: "900", color: COLORS.black }}>Members</Text>
-              <TouchableOpacity
-                onPress={() => setMembersModalOpen(false)}
-                style={{ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F3F5" }}
-              >
-                <MaterialCommunityIcons name="close" size={20} color={COLORS.black} />
-              </TouchableOpacity>
-            </View>
-            <Text numberOfLines={1} style={{ marginBottom: 8, fontSize: 12, color: COLORS.grayDark }}>
-              {selectedConversationDetails?.title || "Group chat"} · {selectedGroupMembers.length} members
-            </Text>
-            <ScrollView style={{ maxHeight: 320 }}>
-              {selectedGroupMembers.map((member) => (
-                <View key={String(member._id || member.id)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}>
-                  {renderAvatar({ type: "direct", user: member }, 38)}
-                  <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "800", color: COLORS.black }}>
-                      {getDisplayName(member)}
-                    </Text>
-                    <Text numberOfLines={1} style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {member.jobTitle || "User"}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+    <ChatView
+      selectedConversationDetails={selectedConversationDetails}
+      setSelectedConversation={setSelectedConversation}
+      setMessages={setMessages}
+      setMembersModalOpen={setMembersModalOpen}
+      messages={messages}
+      currentUserId={currentUserId}
+      getEntityId={getEntityId}
+      formatConversationTime={formatConversationTime}
+      getMessageStatus={getMessageStatus}
+      selectedConversation={selectedConversation}
+      scrollRef={scrollRef}
+      draft={draft}
+      setDraft={setDraft}
+      handleSend={handleSend}
+      sending={sending}
+      membersModalOpen={membersModalOpen}
+      selectedGroupMembers={selectedGroupMembers}
+      renderAvatar={renderAvatar}
+      getDisplayName={getDisplayName}
+    />
   );
 }

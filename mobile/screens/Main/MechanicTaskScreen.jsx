@@ -8,7 +8,10 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
-export default function MechanicTaskScreen({ targetTaskId, targetNotificationStatus }) {
+export default function MechanicTaskScreen({
+  targetTaskId,
+  targetNotificationStatus,
+}) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
@@ -37,10 +40,12 @@ export default function MechanicTaskScreen({ targetTaskId, targetNotificationSta
   };
 
   const isSameTask = (left, right) =>
-    String(left?.id || left?._id || "") === String(right?.id || right?._id || "");
+    String(left?.id || left?._id || "") ===
+    String(right?.id || right?._id || "");
 
   const ensureEndAfterStart = (task, startDate) => {
-    const nextStart = startDate instanceof Date ? startDate : new Date(startDate);
+    const nextStart =
+      startDate instanceof Date ? startDate : new Date(startDate);
     const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
 
     if (currentEnd && currentEnd > nextStart) {

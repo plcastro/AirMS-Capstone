@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
-  View,
   Text,
   KeyboardAvoidingView,
   Platform,
@@ -12,12 +11,12 @@ import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
+import LoginLayout from "../../Layout/LoginLayout";
 
 export default function OTP() {
   const route = useRoute();
   const navigation = useNavigation();
   const [token, setToken] = useState(route.params?.token);
-  const email = route.params?.email;
 
   const [code, setCode] = useState("");
   const [pinReady, setPinReady] = useState(false);
@@ -25,7 +24,6 @@ export default function OTP() {
   const [message, setMessage] = useState("");
   const MAX_CODE_LENGTH = 6;
 
-  // Countdown timer for resend button
   useEffect(() => {
     let timer;
     if (resendTimer > 0) {
@@ -92,8 +90,7 @@ export default function OTP() {
       }
     } catch (err) {
       console.error("Resend OTP error:", err);
-      setError(data.message || "Failed to send reset link. Try again later.");
-      setMessage("");
+      setMessage("Failed to send reset link. Try again later.");
     }
   };
 
@@ -103,55 +100,46 @@ export default function OTP() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled
     >
-      <View style={styles.formCard}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Account Verification"
+          cardsubTitle="Enter OTP Code"
         >
-          <View>
-            <Text style={styles.headerText}>Account Verification</Text>
-            <Text style={styles.subHeaderText}>Enter OTP Code</Text>
-            <Text style={{ textAlign: "center", marginVertical: 20 }}>
-              Please enter the 6-digit code sent to{" "}
-              {route.params?.email || "your email"}
-            </Text>
+          <Text style={{ textAlign: "center", marginVertical: 20 }}>
+            Please enter the 6-digit code sent to {route.params?.email || "your email"}
+          </Text>
 
-            <CodeInputField
-              code={code}
-              setCode={setCode}
-              setPinReady={setPinReady}
-              maxLength={MAX_CODE_LENGTH}
-            />
+          <CodeInputField
+            code={code}
+            setCode={setCode}
+            setPinReady={setPinReady}
+            maxLength={MAX_CODE_LENGTH}
+          />
 
-            <Button
-              label="Verify"
-              onPress={handleVerify}
-              disabled={!pinReady}
-              buttonStyle={[
-                styles.primaryBtn,
-                { minWidth: "100%", marginBottom: 10 },
-              ]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
+          <Button
+            label="Verify"
+            onPress={handleVerify}
+            disabled={!pinReady}
+            buttonStyle={[styles.primaryBtn, { minWidth: "100%", marginBottom: 10 }]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
 
-            <Button
-              label={
-                resendTimer > 0
-                  ? `Resend code (${resendTimer}s)`
-                  : "Resend code"
-              }
-              onPress={handleResend}
-              disabled={resendTimer > 0}
-              buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
-              buttonTextStyle={styles.secondaryBtnTxt}
-            />
-            <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
-              {pinReady ? message : ""}
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
+          <Button
+            label={resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
+            onPress={handleResend}
+            disabled={resendTimer > 0}
+            buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
+            buttonTextStyle={styles.secondaryBtnTxt}
+          />
+          <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+            {pinReady ? message : ""}
+          </Text>
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
