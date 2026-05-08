@@ -69,7 +69,7 @@ const DrawerList = [
   },
   {
     icon: "message-text-outline",
-    label: "Messages",
+    label: "Chats",
     navigateTo: "Messages",
     jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
   },

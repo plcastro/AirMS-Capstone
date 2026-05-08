@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState } from "react";
 import {
-  View,
   Text,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
+import LoginLayout from "../../Layout/LoginLayout";
 
 export default function ResetPassword() {
   const navigation = useNavigation();
@@ -25,7 +26,6 @@ export default function ResetPassword() {
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Password requirements
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
     hasUppercase: /[A-Z]/.test(formData.newPassword),
@@ -79,7 +79,7 @@ export default function ResetPassword() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token: token,
+          token,
           newPassword: formData.newPassword,
         }),
       });
@@ -100,14 +100,10 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <View style={styles.formCard}>
-        <View style={styles.formContainer}>
-          <Text style={styles.headerText}>Invalid Reset Link</Text>
-          <Text style={styles.subHeaderText}>
-            This password reset link is invalid or has expired.
-          </Text>
-        </View>
-      </View>
+      <LoginLayout
+        cardTitle="Invalid Reset Link"
+        cardsubTitle="This password reset link is invalid or has expired."
+      />
     );
   }
 
@@ -116,100 +112,76 @@ export default function ResetPassword() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.formCard}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Reset Password"
+          cardsubTitle="Enter your new password"
         >
-          <View style={styles.formContainer}>
-            <Text style={styles.headerText}>Reset Password</Text>
-            <Text style={styles.subHeaderText}>Enter your new password</Text>
+          <Text style={styles.label}>
+            New Password <Text style={{ color: "red" }}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="New Password"
+            secureTextEntry
+            placeholderTextColor="gray"
+            value={formData.newPassword}
+            onChangeText={(text) => handleChange("newPassword", text)}
+          />
 
-            <Text style={styles.label}>
-              New Password <Text style={{ color: "red" }}>*</Text>
+          <Text style={styles.label}>
+            Confirm Password <Text style={{ color: "red" }}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="Confirm Password"
+            secureTextEntry
+            placeholderTextColor="gray"
+            value={formData.confirmPassword}
+            onChangeText={(text) => handleChange("confirmPassword", text)}
+          />
+
+          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+            Password Requirements:
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+            {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
+            characters
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.hasUppercase)}>
+            {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
+            letter
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
+          </Text>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {successMessage ? (
+            <Text style={{ color: "green", marginTop: 10 }}>
+              {successMessage}
             </Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="New Password"
-              secureTextEntry
-              placeholderTextColor="gray"
-              value={formData.newPassword}
-              onChangeText={(text) => handleChange("newPassword", text)}
-            />
+          ) : null}
 
-            <Text style={styles.label}>
-              Confirm Password <Text style={{ color: "red" }}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="Confirm Password"
-              secureTextEntry
-              placeholderTextColor="gray"
-              value={formData.confirmPassword}
-              onChangeText={(text) => handleChange("confirmPassword", text)}
-            />
-
-            {/* Password requirements */}
-            <View style={{ marginVertical: 10 }}>
-              <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-                Password Requirements:
-              </Text>
-              <View style={{ flexDirection: "row" }}>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.minLength)}
-                >
-                  ✓{" "}
-                </Text>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.minLength)}
-                >
-                  At least 8 characters
-                </Text>
-              </View>
-              <View style={{ flexDirection: "row" }}>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.hasUppercase)}
-                >
-                  ✓{" "}
-                </Text>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.hasUppercase)}
-                >
-                  One uppercase letter
-                </Text>
-              </View>
-              <View style={{ flexDirection: "row" }}>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.hasNumber)}
-                >
-                  ✓{" "}
-                </Text>
-                <Text
-                  style={getRequirementStyle(passwordRequirements.hasNumber)}
-                >
-                  One number
-                </Text>
-              </View>
-            </View>
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {successMessage ? (
-              <Text style={{ color: "green", marginTop: 10 }}>
-                {successMessage}
-              </Text>
-            ) : null}
-
-            <Button
-              label={loading ? "RESETTING..." : "RESET PASSWORD"}
-              onPress={handleSubmit}
-              buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-              disabled={loading || !isFormValid}
-            />
-          </View>
-        </ScrollView>
-      </View>
+          <Button
+            label={loading ? "RESETTING..." : "RESET PASSWORD"}
+            onPress={handleSubmit}
+            buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+            buttonTextStyle={styles.primaryBtnTxt}
+            disabled={loading || !isFormValid}
+          />
+          <Text style={{ marginTop: 20 }}>
+            Remember your password?
+            <TouchableOpacity onPress={() => nav.replace("login")}>
+              <Text style={{ color: "#059670" }}> Sign In</Text>
+            </TouchableOpacity>
+          </Text>
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

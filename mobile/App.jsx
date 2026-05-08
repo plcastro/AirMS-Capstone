@@ -39,6 +39,7 @@ import LoadingScreen from "./screens/LoadingScreen";
 import MechanicList from "./screens/Main/MechanicList";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
+import { ImageBackground } from "react-native-web";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -185,7 +186,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Messages"
           component={wrapWithDashboard(Messaging)}
-          options={{ ...navLabel, headerShown: false }}
+          options={{ navLabel }}
         />
       )}
       {[
@@ -238,50 +239,27 @@ function LoginWrapper({ navigation, ...props }) {
 
 // --- Stack navigator ---
 function StackNavWrapper() {
-  const optionsMain = {
-    headerShown: true,
-    title: "",
-    headerTitleAlign: "center",
-    headerTitle: () => (
-      <Image
-        source={require("./assets/AirMS_web.png")}
-        style={{ width: 150, height: 50 }}
-      />
-    ),
-  };
-
   const { loading } = useContext(AuthContext);
 
   if (loading) return null;
 
   return (
-    <Stack.Navigator initialRouteName="login">
-      <Stack.Screen
-        name="login"
-        component={LoginWrapper}
-        options={optionsMain}
-      />
-      <Stack.Screen name="otpScreen" component={OTP} options={optionsMain} />
-      <Stack.Screen
-        name="securitySetup"
-        component={SecuritySetup}
-        options={optionsMain}
-      />
+    <Stack.Navigator
+      initialRouteName="login"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="login" component={LoginWrapper} />
+      <Stack.Screen name="otpScreen" component={OTP} />
+      <Stack.Screen name="securitySetup" component={SecuritySetup} />
       <Stack.Screen
         name="dashboard"
         component={DrawerNav}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="forgotPassword"
-        component={ForgotPassword}
-        options={optionsMain}
-      />
-      <Stack.Screen
-        name="resetPassword"
-        component={ResetPassword}
-        options={optionsMain}
-      />
+      <Stack.Screen name="forgotPassword" component={ForgotPassword} />
+      <Stack.Screen name="resetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
 }

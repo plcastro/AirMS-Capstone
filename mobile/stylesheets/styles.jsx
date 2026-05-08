@@ -98,6 +98,8 @@ export const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 20,
+    marginBottom: 10,
   },
   checkBox: {
     flexDirection: "row",
@@ -115,7 +117,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     height: 50,
     maxHeight: 40,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 10,
   },
   primaryBtnTxt: {
