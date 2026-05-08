@@ -1,4 +1,11 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Avatar,
   Badge,
@@ -15,7 +22,12 @@ import {
   Typography,
   message as antdMessage,
 } from "antd";
-import { SearchOutlined, SendOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  SearchOutlined,
+  SendOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import "./Messaging.css";
@@ -76,12 +88,17 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   const localOnly = currentMessages.filter(
     (item) =>
       !fetchedIds.has(String(item._id)) &&
-      (String(item._id).startsWith("temp-") || item.deliveryStatus === "failed"),
+      (String(item._id).startsWith("temp-") ||
+        item.deliveryStatus === "failed"),
   );
 
   return [...fetched, ...localOnly].sort((first, second) => {
-    const firstTime = first.createdAt ? new Date(first.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const secondTime = second.createdAt ? new Date(second.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
+    const firstTime = first.createdAt
+      ? new Date(first.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const secondTime = second.createdAt
+      ? new Date(second.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
     return firstTime - secondTime;
   });
 };
@@ -159,7 +176,9 @@ export default function Messaging() {
         return;
       }
 
-      const data = await authFetch(`${API_BASE}/api/messages/${conversationId}`);
+      const data = await authFetch(
+        `${API_BASE}/api/messages/${conversationId}`,
+      );
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
       fetchConversations();
@@ -254,12 +273,18 @@ export default function Messaging() {
 
           if (payload.event === "chat:read") {
             const readReceipt = payload.data || {};
-            const messageIds = new Set((readReceipt.messageIds || []).map(String));
+            const messageIds = new Set(
+              (readReceipt.messageIds || []).map(String),
+            );
 
             setMessages((current) =>
               current.map((item) =>
                 messageIds.has(String(item._id))
-                  ? { ...item, readAt: readReceipt.readAt, deliveryStatus: "sent" }
+                  ? {
+                      ...item,
+                      readAt: readReceipt.readAt,
+                      deliveryStatus: "sent",
+                    }
                   : item,
               ),
             );
@@ -289,17 +314,24 @@ export default function Messaging() {
               ? String(getEntityId(nextMessage.recipient))
               : String(getEntityId(nextMessage.sender));
 
-          if (String(conversationId) === String(selectedConversationRef.current?.id)) {
+          if (
+            String(conversationId) ===
+            String(selectedConversationRef.current?.id)
+          ) {
             setMessages((current) => {
               if (current.some((item) => item._id === nextMessage._id)) {
                 return current.map((item) =>
-                  item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
+                  item._id === nextMessage._id
+                    ? withSentStatus({ ...item, ...nextMessage })
+                    : item,
                 );
               }
               return [...current, nextMessage];
             });
 
-            if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+            if (
+              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
+            ) {
               fetchThread(conversationId).catch((error) => {
                 console.error("Failed to refresh realtime thread:", error);
               });
@@ -336,7 +368,9 @@ export default function Messaging() {
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
-      .filter((conversation) => conversation.type !== "group" && conversation.user)
+      .filter(
+        (conversation) => conversation.type !== "group" && conversation.user,
+      )
       .map((conversation) => ({
         ...conversation,
         id: String(getEntityId(conversation.user)),
@@ -344,14 +378,18 @@ export default function Messaging() {
         subtitle: conversation.user.jobTitle || "User",
       }));
     const groupFromConversations = conversations
-      .filter((conversation) => conversation.type === "group" && conversation.group)
+      .filter(
+        (conversation) => conversation.type === "group" && conversation.group,
+      )
       .map((conversation) => ({
         ...conversation,
         id: String(getEntityId(conversation.group)),
         title: conversation.group.name || "Group chat",
         subtitle: `${conversation.group.members?.length || 0} members`,
       }));
-    const knownDirectIds = new Set(directFromConversations.map((conversation) => String(conversation.id)));
+    const knownDirectIds = new Set(
+      directFromConversations.map((conversation) => String(conversation.id)),
+    );
     const remainingUsers = users
       .filter((item) => !knownDirectIds.has(String(item._id)))
       .map((item) => ({
@@ -363,7 +401,11 @@ export default function Messaging() {
         lastMessage: null,
         unreadCount: 0,
       }));
-    const merged = [...groupFromConversations, ...directFromConversations, ...remainingUsers].filter(Boolean);
+    const merged = [
+      ...groupFromConversations,
+      ...directFromConversations,
+      ...remainingUsers,
+    ].filter(Boolean);
     const query = searchText.trim().toLowerCase();
 
     if (!query) return merged;
@@ -379,7 +421,9 @@ export default function Messaging() {
     if (!selectedConversation) return null;
 
     const currentItem = conversationItems.find(
-      (item) => item.type === selectedConversation.type && String(item.id) === String(selectedConversation.id),
+      (item) =>
+        item.type === selectedConversation.type &&
+        String(item.id) === String(selectedConversation.id),
     );
 
     if (currentItem) return currentItem;
@@ -408,13 +452,19 @@ export default function Messaging() {
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;
     if (!lastMessage?.body) return null;
-    const mine = String(getEntityId(lastMessage.sender)) === String(currentUserId);
-    const groupSender = item.group?.members?.find((member) =>
-      String(getEntityId(member)) === String(getEntityId(lastMessage.sender)),
+    const mine =
+      String(getEntityId(lastMessage.sender)) === String(currentUserId);
+    const groupSender = item.group?.members?.find(
+      (member) =>
+        String(getEntityId(member)) === String(getEntityId(lastMessage.sender)),
     );
     const senderName =
       item.type === "group" && !mine
-        ? getDisplayName(groupSender || usersById.get(String(getEntityId(lastMessage.sender))) || {})
+        ? getDisplayName(
+            groupSender ||
+              usersById.get(String(getEntityId(lastMessage.sender))) ||
+              {},
+          )
         : getConversationTitle(item);
 
     return {
@@ -469,9 +519,14 @@ export default function Messaging() {
           ? current
               .filter((item) => item._id !== tempId)
               .map((item) =>
-                item._id === data.data._id ? withSentStatus({ ...item, ...data.data }) : item,
+                item._id === data.data._id
+                  ? withSentStatus({ ...item, ...data.data })
+                  : item,
               )
-          : [...current.filter((item) => item._id !== tempId), withSentStatus(data.data)],
+          : [
+              ...current.filter((item) => item._id !== tempId),
+              withSentStatus(data.data),
+            ],
       );
       fetchConversations();
     } catch (error) {
@@ -503,7 +558,11 @@ export default function Messaging() {
 
       const group = data.data?.group;
       if (group?._id) {
-        setSelectedConversation({ type: "group", id: String(group._id), title: group.name });
+        setSelectedConversation({
+          type: "group",
+          id: String(group._id),
+          title: group.name,
+        });
       }
       setGroupModalOpen(false);
       setGroupName("");
@@ -524,7 +583,11 @@ export default function Messaging() {
             title="Messages"
             size="small"
             extra={
-              <Button size="small" icon={<TeamOutlined />} onClick={() => setGroupModalOpen(true)}>
+              <Button
+                size="small"
+                icon={<TeamOutlined />}
+                onClick={() => setGroupModalOpen(true)}
+              >
                 New group
               </Button>
             }
@@ -572,23 +635,53 @@ export default function Messaging() {
                       avatar={
                         <Badge count={item.unreadCount || 0} size="small">
                           <Avatar
-                            src={item.type === "direct" ? getImageUrl(item.user?.image) : null}
-                            icon={item.type === "group" ? <TeamOutlined /> : <UserOutlined />}
+                            src={
+                              item.type === "direct"
+                                ? getImageUrl(item.user?.image)
+                                : null
+                            }
+                            icon={
+                              item.type === "group" ? (
+                                <TeamOutlined />
+                              ) : (
+                                <UserOutlined />
+                              )
+                            }
                           />
                         </Badge>
                       }
-                      title={<Text className="message-card-name" strong>{item.title}</Text>}
+                      title={
+                        <Text className="message-card-name" strong>
+                          {item.title}
+                        </Text>
+                      }
                       description={
-                        <Space className="message-card-details" direction="vertical" size={0} style={{ width: "100%" }}>
-                          <Text className="message-card-role" type="secondary" ellipsis>
+                        <Space
+                          className="message-card-details"
+                          orientation="vertical"
+                          size={0}
+                          style={{ width: "100%" }}
+                        >
+                          <Text
+                            className="message-card-role"
+                            type="secondary"
+                            ellipsis
+                          >
                             {item.subtitle}
                           </Text>
                           {preview ? (
                             <div className="message-card-preview-row">
-                              <Text className="message-card-preview" type="secondary" ellipsis>
+                              <Text
+                                className="message-card-preview"
+                                type="secondary"
+                                ellipsis
+                              >
                                 {preview.text}
                               </Text>
-                              <Text className="message-card-preview-time" type="secondary">
+                              <Text
+                                className="message-card-preview-time"
+                                type="secondary"
+                              >
                                 ({preview.time})
                               </Text>
                             </div>
@@ -613,7 +706,13 @@ export default function Messaging() {
                         ? getImageUrl(selectedConversationDetails.user?.image)
                         : null
                     }
-                    icon={selectedConversationDetails.type === "group" ? <TeamOutlined /> : <UserOutlined />}
+                    icon={
+                      selectedConversationDetails.type === "group" ? (
+                        <TeamOutlined />
+                      ) : (
+                        <UserOutlined />
+                      )
+                    }
                   />
                   <span>
                     <Text strong>{selectedConversationDetails.title}</Text>
@@ -629,7 +728,11 @@ export default function Messaging() {
             }
             extra={
               selectedConversationDetails?.type === "group" ? (
-                <Button size="small" icon={<TeamOutlined />} onClick={() => setMembersModalOpen(true)}>
+                <Button
+                  size="small"
+                  icon={<TeamOutlined />}
+                  onClick={() => setMembersModalOpen(true)}
+                >
                   Members
                 </Button>
               ) : null
@@ -646,7 +749,10 @@ export default function Messaging() {
             }}
           >
             {!selectedConversationId ? (
-              <Empty description="Choose a conversation to start messaging" style={{ margin: "auto" }} />
+              <Empty
+                description="Choose a conversation to start messaging"
+                style={{ margin: "auto" }}
+              />
             ) : (
               <>
                 <div
@@ -658,7 +764,9 @@ export default function Messaging() {
                   }}
                 >
                   {messages.map((item, index) => {
-                    const mine = String(getEntityId(item.sender)) === String(currentUserId);
+                    const mine =
+                      String(getEntityId(item.sender)) ===
+                      String(currentUserId);
                     const isLatestMessage = index === messages.length - 1;
                     return (
                       <div
@@ -682,7 +790,9 @@ export default function Messaging() {
                             overflowWrap: "anywhere",
                           }}
                         >
-                          <div style={{ whiteSpace: "pre-wrap" }}>{item.body}</div>
+                          <div style={{ whiteSpace: "pre-wrap" }}>
+                            {item.body}
+                          </div>
                         </div>
                         <div
                           className="message-meta"
@@ -693,8 +803,15 @@ export default function Messaging() {
                           }}
                         >
                           {[
-                            item.createdAt ? formatConversationTime(item.createdAt) : null,
-                            mine ? getMessageStatus(item, selectedConversation?.type) : null,
+                            item.createdAt
+                              ? formatConversationTime(item.createdAt)
+                              : null,
+                            mine
+                              ? getMessageStatus(
+                                  item,
+                                  selectedConversation?.type,
+                                )
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(" ")}
@@ -741,7 +858,7 @@ export default function Messaging() {
         okText="Create"
         confirmLoading={creatingGroup}
       >
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
             value={groupName}
             onChange={(event) => setGroupName(event.target.value)}
@@ -753,7 +870,12 @@ export default function Messaging() {
             value={groupMemberIds}
             onChange={setGroupMemberIds}
             placeholder="Add members"
-            optionFilterProp="label"
+            showSearch={{
+              filterOption: (input, option) =>
+                String(option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase()),
+            }}
             style={{ width: "100%" }}
             options={users.map((item) => ({
               value: String(item._id),
@@ -775,7 +897,12 @@ export default function Messaging() {
           renderItem={(member) => (
             <List.Item>
               <List.Item.Meta
-                avatar={<Avatar src={getImageUrl(member.image)} icon={<UserOutlined />} />}
+                avatar={
+                  <Avatar
+                    src={getImageUrl(member.image)}
+                    icon={<UserOutlined />}
+                  />
+                }
                 title={<Text strong>{getDisplayName(member)}</Text>}
                 description={member.jobTitle || "User"}
               />
