@@ -1,10 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import {
-  Text,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { Text, KeyboardAvoidingView, ScrollView } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 
 import { styles } from "../../stylesheets/styles";
@@ -12,6 +7,7 @@ import Button from "../../components/Button";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
 import LoginLayout from "../../Layout/LoginLayout";
+import { showToast } from "../../utilities/toast";
 
 export default function OTP() {
   const route = useRoute();
@@ -83,7 +79,7 @@ export default function OTP() {
         if (data.token) {
           setToken(data.token);
         }
-        setMessage("OTP resent to your email.");
+        showToast("OTP resent to your email.");
         setResendTimer(60);
       } else {
         setMessage(data.message || "Failed to resend OTP.");
@@ -91,28 +87,26 @@ export default function OTP() {
     } catch (err) {
       console.error("Resend OTP error:", err);
       setMessage("Failed to send reset link. Try again later.");
+      showToast("Failed to resend OTP.");
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      enabled
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <LoginLayout
           cardTitle="Account Verification"
-          cardsubTitle="Enter OTP Code"
+          cardsubTitle={
+            "Please enter the 6-digit code sent to " +
+            (route.params?.email || "your email")
+          }
         >
-          <Text style={{ textAlign: "center", marginVertical: 20 }}>
-            Please enter the 6-digit code sent to {route.params?.email || "your email"}
-          </Text>
-
           <CodeInputField
             code={code}
             setCode={setCode}
@@ -124,12 +118,17 @@ export default function OTP() {
             label="Verify"
             onPress={handleVerify}
             disabled={!pinReady}
-            buttonStyle={[styles.primaryBtn, { minWidth: "100%", marginBottom: 10 }]}
+            buttonStyle={[
+              styles.primaryBtn,
+              { minWidth: "100%", marginBottom: 10 },
+            ]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
 
           <Button
-            label={resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
+            label={
+              resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"
+            }
             onPress={handleResend}
             disabled={resendTimer > 0}
             buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}

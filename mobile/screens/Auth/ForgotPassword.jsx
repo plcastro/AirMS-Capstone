@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   TouchableOpacity,
 } from "react-native";
@@ -14,7 +13,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { useRoute } from "@react-navigation/native";
 import LoginLayout from "../../Layout/LoginLayout";
-
+import { showToast } from "../../utilities/toast";
 export default function ForgotPassword() {
   const nav = useNavigation();
   const route = useRoute();
@@ -60,7 +59,7 @@ export default function ForgotPassword() {
       setLoading(false);
 
       if (response.ok) {
-        setMessage("Password reset email sent. Redirecting to OTP screen...");
+        showToast("Password reset email sent. Redirecting to OTP screen...");
         setError("");
 
         setTimeout(
@@ -84,14 +83,12 @@ export default function ForgotPassword() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <LoginLayout

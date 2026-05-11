@@ -38,7 +38,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: "#fff",
   },
   cardHeader: {
@@ -82,7 +82,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   card: {
-    flex: 1,
     paddingTop: 40,
     padding: 20,
     marginTop: -30,
@@ -92,14 +91,13 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: "bold",
-    marginBottom: 5,
   },
 
   cardSubTitle: {
     fontSize: 14,
-    color: "#666",
-    marginBottom: 20,
+    color: "#565656",
+    marginBottom: 7,
   },
 });
