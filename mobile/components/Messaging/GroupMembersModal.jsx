@@ -24,24 +24,35 @@ export default function GroupMembersModal({
               <MaterialCommunityIcons name="close" size={20} color={COLORS.black} />
             </TouchableOpacity>
           </View>
+
           <Text numberOfLines={1} style={{ marginBottom: 8, fontSize: 12, color: COLORS.grayDark }}>
-            {selectedConversationDetails?.title || "Group chat"} · {selectedGroupMembers.length} members
+            {(selectedConversationDetails?.title || "Group chat") + " - " + selectedGroupMembers.length + " members"}
           </Text>
-          <ScrollView style={{ maxHeight: 320 }}>
-            {selectedGroupMembers.map((member) => (
-              <View key={String(member._id || member.id)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}>
-                {renderAvatar({ type: "direct", user: member }, 38)}
-                <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
-                  <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "800", color: COLORS.black }}>
-                    {getDisplayName(member)}
-                  </Text>
-                  <Text numberOfLines={1} style={{ fontSize: 12, color: COLORS.grayDark }}>
-                    {member.jobTitle || "User"}
-                  </Text>
+
+          {selectedGroupMembers.length === 0 ? (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 24 }}>
+              <Text style={{ fontSize: 13, color: COLORS.grayDark }}>No members</Text>
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 320 }}>
+              {selectedGroupMembers.map((member) => (
+                <View
+                  key={String(member._id || member.id)}
+                  style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
+                >
+                  {renderAvatar({ type: "direct", user: member }, 38)}
+                  <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "800", color: COLORS.black }}>
+                      {getDisplayName(member)}
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      {member.jobTitle || "User"}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </View>
     </Modal>

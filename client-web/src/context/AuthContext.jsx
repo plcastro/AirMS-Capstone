@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
     id: userData.id || userData._id || null,
     jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
     access: userData.access ? userData.access.trim().toLowerCase() : null,
+    sessions: Array.isArray(userData.sessions) ? userData.sessions : [],
   });
 
   const getStorageByMode = (mode) =>
@@ -254,6 +255,7 @@ export const AuthProvider = ({ children }) => {
               email: payload.email,
               jobTitle: payload.jobTitle,
               access: payload.access,
+              sessions: [],
             });
             setUser(normalizedFromToken);
             persistAuthState(normalizedFromToken, refreshedToken);

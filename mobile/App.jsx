@@ -29,6 +29,8 @@ import PreInspection from "./screens/Main/PreInspection";
 import PostInspection from "./screens/Main/PostInspection";
 import PartsRequisition from "./screens/Main/PartsRequisition";
 import Messaging from "./screens/Main/Messaging";
+import UserManagement from "./screens/Main/UserManagement";
+import ActivityLogs from "./screens/Main/ActivityLogs";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -46,6 +48,41 @@ const Drawer = createDrawerNavigator();
 
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
+  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const canAccessLogbook = [
+    "maintenance manager",
+    "pilot",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
+    normalizedRole,
+  );
+  const canAccessPartsRequisition = [
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessMessages = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "pilot",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessProfile = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "pilot",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessUserManagement = normalizedRole === "admin";
+  const canAccessActivityLogs = normalizedRole === "admin";
   const profileImage =
     user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
@@ -123,12 +160,7 @@ function DrawerNav({ navigation }) {
         ),
       })}
     >
-      {[
-        "maintenance manager",
-        "pilot",
-        "officer-in-charge",
-        "mechanic",
-      ].includes(user.jobTitle?.toLowerCase()) && (
+      {canAccessLogbook && (
         <>
           <Drawer.Screen
             name="Flight Logbook"
@@ -148,7 +180,7 @@ function DrawerNav({ navigation }) {
         </>
       )}
 
-      {user.jobTitle?.toLowerCase() === "maintenance manager" && (
+      {canAccessMechanics && (
         <Drawer.Screen
           name="Mechanics"
           component={wrapWithDashboard(MechanicList)}
@@ -156,9 +188,7 @@ function DrawerNav({ navigation }) {
         />
       )}
 
-      {["maintenance manager", "mechanic"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessTasks && (
         <>
           <Drawer.Screen
             name="Tasks"
@@ -168,33 +198,37 @@ function DrawerNav({ navigation }) {
         </>
       )}
 
-      {["maintenance manager", "mechanic", "officer-in-charge"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessUserManagement && (
+        <Drawer.Screen
+          name="User Management"
+          component={wrapWithDashboard(UserManagement)}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessActivityLogs && (
+        <Drawer.Screen
+          name="Activity Logs"
+          component={wrapWithDashboard(ActivityLogs)}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessPartsRequisition && (
         <Drawer.Screen
           name="Parts Requisition"
           component={wrapWithDashboard(PartsRequisition)}
           options={navLabel}
         />
       )}
-      {[
-        "maintenance manager",
-        "mechanic",
-        "officer-in-charge",
-        "pilot",
-      ].includes(user.jobTitle?.toLowerCase()) && (
+      {canAccessMessages && (
         <Drawer.Screen
           name="Messages"
           component={wrapWithDashboard(Messaging)}
-          options={{ navLabel }}
+          options={navLabel}
         />
       )}
-      {[
-        "maintenance manager",
-        "mechanic",
-        "officer-in-charge",
-        "pilot",
-      ].includes(user.jobTitle?.toLowerCase()) && (
+      {canAccessProfile && (
         <Drawer.Screen
           name="Profile"
           component={wrapWithDashboard(Profile)}

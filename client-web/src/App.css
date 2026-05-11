@@ -32,3 +32,10 @@
   background-color: var(--color-primary-light);
   color: var(--color-white);
 }
+
+.sidebar-menu .ant-menu-submenu-title:hover,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-title-content,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-item-icon,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-submenu-arrow {
+  color: #ffffff !important;
+}

@@ -73,7 +73,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       roles: ["admin"],
     },
     {
-      key: "3-4",
+      key: "3-6",
       label: "Aircraft Health Logbook",
       icon: <AuditOutlined style={{ fontSize: 24 }} />,
       roles: ["maintenance manager", "officer-in-charge", "mechanic", "pilot"],
@@ -214,9 +214,9 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       "/dashboard/user-management/view-users": "1",
       "/dashboard/user-management/activity-logs": "2",
       "/dashboard/flight-log": "3",
-      "/dashboard/pre-inspection": "4",
-      "/dashboard/post-inspection": "5",
-      "/dashboard/maintenance-log": "6",
+      "/dashboard/maintenance-log": "4",
+      "/dashboard/pre-inspection": "5",
+      "/dashboard/post-inspection": "6",
       "/dashboard/tasks": "7",
       "/dashboard/mechanics": "8",
       "/dashboard/parts-lifespan-monitoring": "9",
@@ -314,6 +314,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       </div>
 
       <Menu
+        className="sidebar-menu"
         theme="light"
         mode="inline"
         selectedKeys={[current]}
@@ -346,6 +347,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         title="Confirm Logout"
         open={open}
         centered
+        zIndex={2100}
         onOk={handleOk}
         confirmLoading={confirmLoading}
         onCancel={handleCancel}

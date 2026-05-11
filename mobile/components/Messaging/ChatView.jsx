@@ -118,10 +118,9 @@ export default function ChatView({
           scrollRef.current?.scrollToEnd?.({ animated: true })
         }
       >
-        {messages.map((item, index) => {
+        {messages.map((item) => {
           const mine =
             String(getEntityId(item.sender)) === String(currentUserId);
-          const isLatestMessage = index === messages.length - 1;
 
           return (
             <View
@@ -152,28 +151,22 @@ export default function ChatView({
                   {item.body}
                 </Text>
               </View>
-              {isLatestMessage ? (
-                <Text
-                  style={{
-                    marginTop: 3,
-                    paddingRight: mine ? 4 : 0,
-                    paddingLeft: mine ? 0 : 4,
-                    color: COLORS.grayDark,
-                    fontSize: 10,
-                  }}
-                >
-                  {[
-                    item.createdAt
-                      ? formatConversationTime(item.createdAt)
-                      : null,
-                    mine
-                      ? getMessageStatus(item, selectedConversation?.type)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                </Text>
-              ) : null}
+              <Text
+                style={{
+                  marginTop: 3,
+                  paddingRight: mine ? 4 : 0,
+                  paddingLeft: mine ? 0 : 4,
+                  color: COLORS.grayDark,
+                  fontSize: 10,
+                }}
+              >
+                {[
+                  item.createdAt ? formatConversationTime(item.createdAt) : null,
+                  mine ? getMessageStatus(item, selectedConversation?.type) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              </Text>
             </View>
           );
         })}
