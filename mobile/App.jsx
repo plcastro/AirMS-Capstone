@@ -112,6 +112,7 @@ function DrawerNav({ navigation }) {
 
   return (
     <Drawer.Navigator
+      backBehavior="history"
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,

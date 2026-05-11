@@ -6,8 +6,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, AppState, View } from "react-native";
+import { ActivityIndicator, AppState, BackHandler, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
@@ -244,6 +245,32 @@ export default function Messaging({ navigation }) {
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onHardwareBackPress = () => {
+        if (selectedConversationRef.current?.id) {
+          setSelectedConversation(null);
+          setMessages([]);
+          return true;
+        }
+
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+          return true;
+        }
+
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onHardwareBackPress,
+      );
+
+      return () => subscription.remove();
+    }, [navigation]),
+  );
 
   useEffect(() => {
     let currentAppState = AppState.currentState;
