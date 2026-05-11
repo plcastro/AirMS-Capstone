@@ -17,6 +17,12 @@ import {
 } from "recharts";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../../utils/auditActions";
 import { Input, DatePicker, Space, Grid, message, Select, Card } from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
@@ -109,36 +115,6 @@ export default function UserLogs() {
       message.info("Date range cleared. Showing all available logs.");
     }
   };
-  const getActionCategory = (actionText = "") => {
-    const text = actionText.toLowerCase();
-
-    if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
-      return "create";
-    if (
-      ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
-    )
-      return "update";
-    if (
-      ["deleted", "removed", "destroyed", "erased"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "delete";
-    if (
-      ["log in", "logged in", "login", "signed in"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "login";
-    if (
-      ["log out", "logged out", "logout", "signed out"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "logout";
-
-    return "other";
-  };
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
 
@@ -154,7 +130,7 @@ export default function UserLogs() {
 
     if (selectedActionType !== "all") {
       filtered = filtered.filter(
-        (log) => getActionCategory(log.actionMade) === selectedActionType,
+        (log) => getAuditActionCategory(log.actionMade) === selectedActionType,
       );
     }
 
@@ -182,14 +158,7 @@ export default function UserLogs() {
       stream.close();
     };
   }, [dateRange, fetchUserLogs]);
-  const actionTypeOptions = [
-    { label: "All Actions", value: "all" },
-    { label: "Create", value: "create" },
-    { label: "Update", value: "update" },
-    { label: "Delete", value: "delete" },
-    { label: "Log In", value: "login" },
-    { label: "Log Out", value: "logout" },
-  ];
+  const actionTypeOptions = getAuditActionCategoryOptions();
 
   const actionTrendData = useMemo(() => {
     const dailyStats = {};
@@ -204,19 +173,12 @@ export default function UserLogs() {
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = {
           date: dateKey,
-          create: 0,
-          update: 0,
-          delete: 0,
-          login: 0,
-          logout: 0,
+          ...buildEmptyAuditCategoryCounts(),
         };
       }
 
-      const category = getActionCategory(log.actionMade);
-
-      if (category !== "other") {
-        dailyStats[dateKey][category]++;
-      }
+      const category = getAuditActionCategory(log.actionMade);
+      dailyStats[dateKey][category]++;
     });
 
     const sortedDates = Object.keys(dailyStats).sort((a, b) =>
@@ -249,11 +211,7 @@ export default function UserLogs() {
       filledData.push(
         dailyStats[dateKey] || {
           date: dateKey,
-          create: 0,
-          update: 0,
-          delete: 0,
-          login: 0,
-          logout: 0,
+          ...buildEmptyAuditCategoryCounts(),
         },
       );
       cursor = cursor.add(1, "day");
@@ -318,46 +276,21 @@ export default function UserLogs() {
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
 
-              <Line
-                type="monotone"
-                dataKey="create"
-                stroke="#52c41a"
-                name="Create"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="update"
-                stroke="#1890ff"
-                name="Update"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="delete"
-                stroke="#f5222d"
-                name="Delete"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="login"
-                stroke="#722ed1"
-                name="Log In"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="logout"
-                stroke="#fa8c16"
-                name="Log Out"
-                strokeWidth={1.5}
-                dot={false}
-              />
+              {AUDIT_ACTION_CHART_CATEGORIES.filter(
+                (category) =>
+                  selectedActionType === "all" ||
+                  selectedActionType === category.value,
+              ).map((category) => (
+                <Line
+                  key={category.value}
+                  type="monotone"
+                  dataKey={category.value}
+                  stroke={category.color}
+                  name={category.label}
+                  strokeWidth={1.5}
+                  dot={false}
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </Card>

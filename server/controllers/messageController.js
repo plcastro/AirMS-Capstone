@@ -4,6 +4,7 @@ const Message = require("../models/messageModel");
 const User = require("../models/userModel");
 const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
+const { sendPushNotificationToUsers } = require("../utils/mobilePushService");
 
 const getUserId = (req) => req.user?.id;
 
@@ -29,6 +30,7 @@ const mapMessage = (message) => ({
   recipient: getEntityId(message.recipient),
   conversation: getEntityId(message.conversation),
   body: message.body,
+  attachments: message.attachments || [],
   readAt: message.readAt,
   readBy: message.readBy || [],
   createdAt: message.createdAt,
@@ -48,6 +50,55 @@ const mapGroup = (conversation = {}) => ({
 
 const getGroupReadAt = (message, userId) =>
   (message.readBy || []).find((receipt) => isSameId(getEntityId(receipt.user), userId))?.readAt || null;
+
+const getUnreadMessageSenderCount = async (userId) => {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+
+  const directSenders = await Message.distinct("sender", {
+    conversation: { $exists: false },
+    recipient: userObjectId,
+    readAt: null,
+  });
+
+  const groupConversations = await Conversation.find({ members: userObjectId })
+    .select("_id")
+    .lean();
+  const groupConversationIds = groupConversations.map((conversation) => conversation._id);
+
+  const groupSenders =
+    groupConversationIds.length > 0
+      ? await Message.distinct("sender", {
+          conversation: { $in: groupConversationIds },
+          sender: { $ne: userObjectId },
+          "readBy.user": { $ne: userObjectId },
+        })
+      : [];
+
+  return new Set([...directSenders, ...groupSenders].map(String)).size;
+};
+
+const notifyUnreadMessageSummary = async (recipientIds = []) => {
+  const uniqueRecipientIds = [...new Set(recipientIds.map(String).filter(Boolean))];
+
+  await Promise.all(
+    uniqueRecipientIds.map(async (recipientId) => {
+      const unreadSenderCount = await getUnreadMessageSenderCount(recipientId);
+      if (unreadSenderCount === 0) return;
+
+      await sendPushNotificationToUsers({
+        title: "You have unread messages",
+        body: `Unread messages from ${unreadSenderCount} ${
+          unreadSenderCount === 1 ? "person" : "people"
+        }.`,
+        recipientUsers: [recipientId],
+        data: {
+          module: "messages",
+          unreadSenderCount,
+        },
+      });
+    }),
+  );
+};
 
 const getMessageUsers = async (req, res) => {
   try {
@@ -89,13 +140,13 @@ const getConversations = async (req, res) => {
 
       const key = `direct:${otherUser._id}`;
       const existing = conversations.get(key);
-      const unreadIncrement = !isSentByMe && !message.readAt ? 1 : 0;
+      const hasUnread = Boolean(existing?.unreadCount) || (!isSentByMe && !message.readAt);
 
       conversations.set(key, {
         type: "direct",
         user: mapUser(otherUser),
         lastMessage: existing?.lastMessage || mapMessage(message),
-        unreadCount: (existing?.unreadCount || 0) + unreadIncrement,
+        unreadCount: hasUnread ? 1 : 0,
       });
     });
 
@@ -119,11 +170,11 @@ const getConversations = async (req, res) => {
       const key = String(message.conversation);
       const existing = groupMessageState.get(key) || { lastMessage: null, unreadCount: 0 };
       const readAt = getGroupReadAt(message, userId);
-      const unreadIncrement = !isSameId(message.sender?._id, userId) && !readAt ? 1 : 0;
+      const hasUnread = Boolean(existing.unreadCount) || (!isSameId(message.sender?._id, userId) && !readAt);
 
       groupMessageState.set(key, {
         lastMessage: existing.lastMessage || mapMessage(message),
-        unreadCount: existing.unreadCount + unreadIncrement,
+        unreadCount: hasUnread ? 1 : 0,
       });
     });
 
@@ -270,10 +321,6 @@ const getThread = async (req, res) => {
 const validateBody = (body) => {
   const trimmedBody = String(body || "").trim();
 
-  if (!trimmedBody) {
-    return { error: "Message cannot be empty" };
-  }
-
   if (trimmedBody.length > 1000) {
     return { error: "Message is too long" };
   }
@@ -285,10 +332,15 @@ const sendMessage = async (req, res) => {
   try {
     const senderId = getUserId(req);
     const { recipientId, conversationId, body } = req.body || {};
+    const attachments = req.savedMessageAttachments || [];
     const bodyState = validateBody(body);
 
     if (bodyState.error) {
       return res.status(400).json({ message: bodyState.error });
+    }
+
+    if (!bodyState.value && attachments.length === 0) {
+      return res.status(400).json({ message: "Message cannot be empty" });
     }
 
     if (conversationId) {
@@ -311,11 +363,17 @@ const sendMessage = async (req, res) => {
         sender: senderId,
         conversation: conversationId,
         body: bodyState.value,
+        attachments,
         readBy: [{ user: senderId, readAt: new Date() }],
       });
 
       const payload = mapMessage(message.toObject());
       sendToUsers(conversation.members, "chat:message", payload);
+      notifyUnreadMessageSummary(
+        conversation.members.filter((memberId) => !isSameId(memberId, senderId)),
+      ).catch((error) => {
+        console.error("Message push notification failed:", error);
+      });
 
       auditLog(`Message sent to group: ${conversation.name}`, senderId).catch((error) => {
         console.error("Message audit failed:", error);
@@ -345,10 +403,14 @@ const sendMessage = async (req, res) => {
       sender: senderId,
       recipient: recipientId,
       body: bodyState.value,
+      attachments,
     });
 
     const payload = mapMessage(message.toObject());
     sendToUsers([senderId, recipientId], "chat:message", payload);
+    notifyUnreadMessageSummary([recipientId]).catch((error) => {
+      console.error("Message push notification failed:", error);
+    });
 
     auditLog(`Message sent to user: ${recipientId}`, senderId).catch((error) => {
       console.error("Message audit failed:", error);

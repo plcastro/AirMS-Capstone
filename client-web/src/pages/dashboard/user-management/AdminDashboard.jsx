@@ -34,6 +34,12 @@ import {
 } from "recharts";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../../utils/auditActions";
 
 const { Title, Text } = Typography;
 
@@ -259,14 +265,6 @@ export default function AdminDashboard() {
   }, [topActiveUsers, roleColors]);
 
   const actionTrendData = useMemo(() => {
-    const actionCategories = {
-      create: ["created", "added", "inserted", "new"],
-      update: ["updated", "modified", "changed", "edited"],
-      delete: ["deleted", "removed", "destroyed", "erased"],
-      login: ["log in", "logged in", "login", "signed in"],
-      logout: ["log out", "logged out", "logout", "signed out"],
-    };
-
     const dailyStats = {};
 
     logs.forEach((log) => {
@@ -279,27 +277,12 @@ export default function AdminDashboard() {
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = {
           date: dateKey,
-          create: 0,
-          update: 0,
-          delete: 0,
-          login: 0,
-          logout: 0,
+          ...buildEmptyAuditCategoryCounts(),
         };
       }
 
-      const actionText = (log.actionMade || "").toLowerCase();
-      let category = "other";
-
-      for (const [cat, keywords] of Object.entries(actionCategories)) {
-        if (keywords.some((keyword) => actionText.includes(keyword))) {
-          category = cat;
-          break;
-        }
-      }
-
-      if (category !== "other") {
-        dailyStats[dateKey][category]++;
-      }
+      const category = getAuditActionCategory(log.actionMade);
+      dailyStats[dateKey][category]++;
     });
 
     return Object.values(dailyStats)
@@ -320,14 +303,7 @@ export default function AdminDashboard() {
     return [first, middle, last];
   }, [actionTrendData]);
 
-  const actionTypeOptions = [
-    { label: "All Actions", value: "all" },
-    { label: "Create", value: "create" },
-    { label: "Update", value: "update" },
-    { label: "Delete", value: "delete" },
-    { label: "Log In", value: "login" },
-    { label: "Log Out", value: "logout" },
-  ];
+  const actionTypeOptions = getAuditActionCategoryOptions();
 
   const columns = [
     { title: "User", dataIndex: "username", key: "username" },
@@ -522,56 +498,20 @@ export default function AdminDashboard() {
                   ]}
                 />
                 <Legend />
-                {(selectedActionType === "all" ||
-                  selectedActionType === "create") && (
+                {AUDIT_ACTION_CHART_CATEGORIES.filter(
+                  (category) =>
+                    selectedActionType === "all" ||
+                    selectedActionType === category.value,
+                ).map((category) => (
                   <Line
+                    key={category.value}
                     type="monotone"
-                    dataKey="create"
-                    stroke="#52c41a"
+                    dataKey={category.value}
+                    stroke={category.color}
                     strokeWidth={2}
-                    name="Create"
+                    name={category.label}
                   />
-                )}
-                {(selectedActionType === "all" ||
-                  selectedActionType === "update") && (
-                  <Line
-                    type="monotone"
-                    dataKey="update"
-                    stroke="#1890ff"
-                    strokeWidth={2}
-                    name="Update"
-                  />
-                )}
-                {(selectedActionType === "all" ||
-                  selectedActionType === "delete") && (
-                  <Line
-                    type="monotone"
-                    dataKey="delete"
-                    stroke="#f5222d"
-                    strokeWidth={2}
-                    name="Delete"
-                  />
-                )}
-                {(selectedActionType === "all" ||
-                  selectedActionType === "login") && (
-                  <Line
-                    type="monotone"
-                    dataKey="login"
-                    stroke="#722ed1"
-                    strokeWidth={2}
-                    name="Log In"
-                  />
-                )}
-                {(selectedActionType === "all" ||
-                  selectedActionType === "logout") && (
-                  <Line
-                    type="monotone"
-                    dataKey="logout"
-                    stroke="#fa8c16"
-                    strokeWidth={2}
-                    name="Log Out"
-                  />
-                )}
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </Card>

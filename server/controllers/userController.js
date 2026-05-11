@@ -30,27 +30,6 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
-const MOBILE_ALLOWED_JOB_TITLES = new Set([
-  "maintenance manager",
-  "pilot",
-  "officer-in-charge",
-  "mechanic",
-  "engineer",
-]);
-
-const canUseMobileClient = (user) => {
-  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
-
-  return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
-};
-
-const canUseWebClient = (user) => {
-  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
-
-  // Pilot accounts are restricted to the mobile client.
-  return normalizedJobTitle !== "pilot";
-};
-
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -331,17 +310,6 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
-      if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
-        return res.status(403).json({
-          message: "This account is only allowed to log in on the web portal.",
-        });
-      }
-      if (normalizedClient === "web" && !canUseWebClient(user)) {
-        return res.status(403).json({
-          message:
-            "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
-        });
-      }
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -375,19 +343,6 @@ const loginUser = async (req, res) => {
       return res
         .status(401)
         .json({ message: "Invalid username/email or password" });
-    }
-
-    // Enforce platform access on the server so web-only / non-mobile roles cannot sign in on mobile.
-    if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
-      return res.status(403).json({
-        message: "This account is only allowed to log in on the web portal.",
-      });
-    }
-    if (normalizedClient === "web" && !canUseWebClient(user)) {
-      return res.status(403).json({
-        message:
-          "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
-      });
     }
 
     // Reset failed login attempts

@@ -1,6 +1,9 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
-const { getRequestContext } = require("../middleware/requestContext");
+const {
+  getRequestContext,
+  markAuditLogged,
+} = require("../middleware/requestContext");
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +40,8 @@ const auditLog = async (
   requestMeta = {},
 ) => {
   try {
+    markAuditLogged();
+
     let username = usernameSnapshot || "System";
     if (userId) {
       if (!usernameSnapshot) {

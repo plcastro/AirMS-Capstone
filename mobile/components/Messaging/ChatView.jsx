@@ -1,6 +1,8 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Image,
+  Linking,
   ScrollView,
   Text,
   TextInput,
@@ -26,6 +28,11 @@ export default function ChatView({
   scrollRef,
   draft,
   setDraft,
+  attachments,
+  removeAttachment,
+  handlePickImage,
+  handlePickFile,
+  getAttachmentUrl,
   handleSend,
   sending,
   membersModalOpen,
@@ -142,15 +149,83 @@ export default function ChatView({
                   paddingHorizontal: 13,
                 }}
               >
-                <Text
-                  style={{
-                    color: mine ? COLORS.white : COLORS.black,
-                    fontSize: 14,
-                    lineHeight: 19,
-                  }}
-                >
-                  {item.body}
-                </Text>
+                {item.body ? (
+                  <Text
+                    style={{
+                      color: mine ? COLORS.white : COLORS.black,
+                      fontSize: 14,
+                      lineHeight: 19,
+                    }}
+                  >
+                    {item.body}
+                  </Text>
+                ) : null}
+                {(item.attachments || []).map((attachment) => {
+                  const url = getAttachmentUrl(attachment.url);
+                  const isImage =
+                    attachment.kind === "image" ||
+                    attachment.mimeType?.startsWith("image/");
+
+                  return (
+                    <TouchableOpacity
+                      key={`${item._id}-${attachment.url}-${attachment.name}`}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (url) Linking.openURL(url);
+                      }}
+                      style={{
+                        marginTop: item.body ? 8 : 0,
+                        borderRadius: 12,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {isImage && url ? (
+                        <Image
+                          source={{ uri: url }}
+                          style={{
+                            width: 210,
+                            height: 150,
+                            borderRadius: 12,
+                            backgroundColor: "#DDE5E2",
+                          }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            maxWidth: 220,
+                            paddingVertical: 8,
+                            paddingHorizontal: 10,
+                            borderRadius: 12,
+                            backgroundColor: mine
+                              ? "rgba(255,255,255,0.18)"
+                              : "#FFFFFF",
+                          }}
+                        >
+                          <MaterialCommunityIcons
+                            name="file-outline"
+                            size={20}
+                            color={mine ? COLORS.white : COLORS.black}
+                          />
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              marginLeft: 8,
+                              flex: 1,
+                              color: mine ? COLORS.white : COLORS.black,
+                              fontSize: 13,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {attachment.name || "Attachment"}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               {isLatestMessage ? (
                 <Text
@@ -190,6 +265,114 @@ export default function ChatView({
           borderTopColor: "#ECEFEE",
         }}
       >
+        {attachments?.length ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 10,
+              right: 10,
+              bottom: 58,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 6,
+              padding: 8,
+              borderRadius: 12,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: "#ECEFEE",
+            }}
+          >
+            {attachments.map((file, index) => (
+              <View
+                key={`${file.name}-${file.uri}-${index}`}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  maxWidth: "100%",
+                  paddingVertical: 5,
+                  paddingLeft: 8,
+                  paddingRight: 4,
+                  borderRadius: 14,
+                  backgroundColor: "#F1F3F5",
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={
+                    file.type?.startsWith("image/")
+                      ? "image-outline"
+                      : "file-outline"
+                  }
+                  size={17}
+                  color={COLORS.black}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    maxWidth: 190,
+                    marginLeft: 5,
+                    fontSize: 12,
+                    color: COLORS.black,
+                  }}
+                >
+                  {file.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => removeAttachment(index)}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={16}
+                    color={COLORS.grayDark}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <TouchableOpacity
+          onPress={handlePickFile}
+          disabled={sending}
+          style={{
+            width: 40,
+            height: 40,
+            marginRight: 6,
+            borderRadius: 20,
+            backgroundColor: "#F1F3F5",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <MaterialCommunityIcons
+            name="paperclip"
+            size={21}
+            color={COLORS.black}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handlePickImage}
+          disabled={sending}
+          style={{
+            width: 40,
+            height: 40,
+            marginRight: 6,
+            borderRadius: 20,
+            backgroundColor: "#F1F3F5",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <MaterialCommunityIcons
+            name="image-outline"
+            size={21}
+            color={COLORS.black}
+          />
+        </TouchableOpacity>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -211,13 +394,16 @@ export default function ChatView({
         />
         <TouchableOpacity
           onPress={handleSend}
-          disabled={!draft.trim() || sending}
+          disabled={(!draft.trim() && !attachments?.length) || sending}
           style={{
             width: 40,
             height: 40,
             marginLeft: 8,
             borderRadius: 20,
-            backgroundColor: draft.trim() ? COLORS.primaryLight : "#B7C6C2",
+            backgroundColor:
+              draft.trim() || attachments?.length
+                ? COLORS.primaryLight
+                : "#B7C6C2",
             alignItems: "center",
             justifyContent: "center",
           }}

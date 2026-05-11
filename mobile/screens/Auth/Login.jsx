@@ -100,26 +100,11 @@ export default function Login() {
 
       if (response.ok) {
         const { user, token } = data;
-        const normalizedJobTitle = (user?.jobTitle || "").trim().toLowerCase();
-        const allowedMobileJobTitles = [
-          "maintenance manager",
-          "pilot",
-          "officer-in-charge",
-          "mechanic",
-        ];
 
         // Deactivated account
         if (user.status === "deactivated") {
           setMessage(
             "This account is deactivated. Please contact AirMS Support",
-          );
-          return;
-        }
-
-        // Block users with no mobile modules.
-        if (!allowedMobileJobTitles.includes(normalizedJobTitle)) {
-          setMessage(
-            "This account is only allowed to log in on the web portal.",
           );
           return;
         }
