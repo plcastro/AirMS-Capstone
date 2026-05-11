@@ -20,12 +20,14 @@ import {
   Table,
   Tag,
   Typography,
+  DatePicker,
   message,
 } from "antd";
 import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
@@ -50,6 +52,7 @@ export default function PreInspection() {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ rpc: "", aircraftType: "", date: "" });
+  const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
 
   const role = user?.jobTitle?.toLowerCase() || "";
@@ -57,6 +60,11 @@ export default function PreInspection() {
   const canCreate = role !== "pilot" && !readOnly;
   const canRelease = role === "mechanic";
   const canAccept = role === "pilot";
+  const formatDate = (value) =>
+    value ? dayjs(value).format("MM/DD/YYYY") : "";
+  const isValidDate = (value) =>
+    /^\d{2}\/\d{2}\/\d{4}$/.test(String(value || "")) &&
+    dayjs(value, "MM/DD/YYYY").isValid();
 
   const load = useCallback(async () => {
     try {
@@ -80,10 +88,50 @@ export default function PreInspection() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const loadRpcOptions = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
+        );
+        const data = await response.json();
+        if (response.ok && Array.isArray(data.data)) {
+          setRpcOptions(data.data.filter(Boolean));
+        }
+      } catch {
+        setRpcOptions([]);
+      }
+    };
+    loadRpcOptions();
+  }, []);
+
   const aircraftOptions = useMemo(
     () => ["all", ...new Set(records.map((item) => item.rpc).filter(Boolean))],
     [records],
   );
+  const rpcDropdownOptions = useMemo(
+    () => [
+      ...new Set([
+        ...(rpcOptions || []),
+        ...records.map((item) => item.rpc).filter(Boolean),
+      ]),
+    ],
+    [records, rpcOptions],
+  );
+
+  const resolveAircraftTypeByRpc = async (rpc) => {
+    if (!rpc) return "";
+    try {
+      const response = await fetch(`${API_BASE}/api/parts-monitoring/${rpc}`);
+      const data = await response.json();
+      if (response.ok && data?.data) {
+        return data.data.aircraftType || "";
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
 
   const filtered = useMemo(
     () =>
@@ -114,8 +162,12 @@ export default function PreInspection() {
   );
 
   const saveCreate = async () => {
-    if (!draft.rpc || !draft.aircraftType || !draft.date) {
-      message.warning("RPC, aircraft type, and date are required");
+    if (!draft.rpc?.trim() || !draft.aircraftType?.trim() || !draft.date) {
+      message.warning("RP/C, aircraft type, and date are required");
+      return;
+    }
+    if (!isValidDate(draft.date)) {
+      message.warning("Please select a valid date");
       return;
     }
 
@@ -153,6 +205,14 @@ export default function PreInspection() {
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
+    if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
+      message.warning("RP/C and aircraft type are required");
+      return;
+    }
+    if (!nextPayload.date || !isValidDate(nextPayload.date)) {
+      message.warning("Please select a valid date");
+      return;
+    }
     try {
       const response = await fetch(
         `${API_BASE}/api/pre-inspections/updatePreInspectionById/${nextPayload._id}`,
@@ -280,29 +340,63 @@ export default function PreInspection() {
         onOk={saveCreate}
         title="Create Pre-Inspection"
         okText="Create"
+        width={760}
       >
-        <Space orientation="vertical" style={{ width: "100%" }}>
-          <Input
-            value={draft.rpc}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, rpc: e.target.value }))
-            }
-            placeholder="RP/C"
-          />
-          <Input
-            value={draft.aircraftType}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, aircraftType: e.target.value }))
-            }
-            placeholder="Aircraft Type"
-          />
-          <Input
-            value={draft.date}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, date: e.target.value }))
-            }
-            placeholder="Date (MM/DD/YYYY)"
-          />
+        <Space orientation="vertical" style={{ width: "100%" }} size={12}>
+          <Row gutter={[12, 12]}>
+            <Col xs={24}>
+              <Select
+                size="large"
+                value={draft.rpc}
+                onChange={async (value) => {
+                  const aircraftType = await resolveAircraftTypeByRpc(value);
+                  setDraft((prev) => ({
+                    ...prev,
+                    rpc: value,
+                    aircraftType: aircraftType || prev.aircraftType,
+                  }));
+                }}
+                placeholder="Select RP/C"
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                options={rpcDropdownOptions.map((rpc) => ({
+                  value: rpc,
+                  label: rpc,
+                }))}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Input
+                size="large"
+                value={draft.aircraftType}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    aircraftType: e.target.value,
+                  }))
+                }
+                placeholder="Aircraft Type"
+              />
+            </Col>
+            <Col xs={24}>
+              <DatePicker
+                size="large"
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                value={draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null}
+                onChange={(date) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    date: date ? formatDate(date) : "",
+                  }))
+                }
+              />
+            </Col>
+          </Row>
         </Space>
       </Modal>
 
@@ -313,22 +407,35 @@ export default function PreInspection() {
         okButtonProps={{ disabled: readOnly }}
         title={readOnly ? "View Pre-Inspection" : "Edit Pre-Inspection"}
         okText="Save"
-        width={980}
+        width={1140}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
             <Row gutter={[10, 10]}>
               <Col span={8}>
-                <Input
+                <Select
+                  size="large"
                   value={editing.rpc}
-                  onChange={(e) =>
-                    setEditing((prev) => ({ ...prev, rpc: e.target.value }))
-                  }
+                  onChange={async (value) => {
+                    const aircraftType = await resolveAircraftTypeByRpc(value);
+                    setEditing((prev) => ({
+                      ...prev,
+                      rpc: value,
+                      aircraftType: aircraftType || prev.aircraftType,
+                    }));
+                  }}
+                  showSearch
+                  optionFilterProp="label"
+                  options={rpcDropdownOptions.map((rpc) => ({
+                    value: rpc,
+                    label: rpc,
+                  }))}
                   disabled={readOnly}
                 />
               </Col>
               <Col span={8}>
                 <Input
+                  size="large"
                   value={editing.aircraftType}
                   onChange={(e) =>
                     setEditing((prev) => ({
@@ -340,10 +447,18 @@ export default function PreInspection() {
                 />
               </Col>
               <Col span={8}>
-                <Input
-                  value={editing.date}
-                  onChange={(e) =>
-                    setEditing((prev) => ({ ...prev, date: e.target.value }))
+                <DatePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  format="MM/DD/YYYY"
+                  value={
+                    editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
+                  }
+                  onChange={(date) =>
+                    setEditing((prev) => ({
+                      ...prev,
+                      date: date ? formatDate(date) : "",
+                    }))
                   }
                   disabled={readOnly}
                 />
