@@ -85,6 +85,7 @@ export const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     padding: 10,
+    color: "#000",
   },
   headerText: {
     fontSize: HEADER_FONT_SIZE,

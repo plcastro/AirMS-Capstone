@@ -3,14 +3,12 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import {
   Button,
   SegmentedButtons,
-  HelperText,
   TextInput,
   Card,
   Text,
@@ -421,9 +419,14 @@ export default function UpdateSecurity() {
                     {renderCodeField("New PIN", newPin, setNewPin, {
                       secure: !showPin,
                     })}
-                    {renderCodeField("Confirm New PIN", confirmPin, setConfirmPin, {
-                      secure: !showPin,
-                    })}
+                    {renderCodeField(
+                      "Confirm New PIN",
+                      confirmPin,
+                      setConfirmPin,
+                      {
+                        secure: !showPin,
+                      },
+                    )}
                     <Button
                       mode="text"
                       onPress={() => setShowPin((current) => !current)}
@@ -454,17 +457,17 @@ export default function UpdateSecurity() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, flexGrow: 1, backgroundColor: "#fff" },
-  card: { borderRadius: 12, margin: 16, elevation: 2 },
+  container: { flexGrow: 1 },
+  card: { borderRadius: 12, margin: 16, elevation: 2, backgroundColor: "#fff" },
   tabs: { marginBottom: 20 },
   section: { marginBottom: 16 },
   input: { marginBottom: 12, backgroundColor: "#fff" },
   mainBtn: { marginTop: 15 },
   secondaryBtn: { marginTop: 10 },
   linkButton: { alignSelf: "flex-start", marginBottom: 10 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8},
+  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
   pinInputGroup: { marginBottom: 12 },
-  pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8},
+  pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
   pinCodeSection: { flex: 0, alignItems: "stretch", marginVertical: 0 },
   pinCodeContainer: { width: "100%" },
   validationText: { color: "#ff4d4f", textAlign: "center", marginTop: 10 },
