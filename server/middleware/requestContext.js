@@ -33,9 +33,23 @@ const requestContextMiddleware = (req, _res, next) => {
 
 const getRequestContext = () => requestContext.getStore() || {};
 
+const markAuditLogged = () => {
+  const store = requestContext.getStore();
+  if (store) {
+    store.auditLogged = true;
+  }
+};
+
+const hasAuditLogged = () => {
+  const store = requestContext.getStore();
+  return Boolean(store?.auditLogged);
+};
+
 module.exports = {
   requestContextMiddleware,
   getRequestContext,
+  markAuditLogged,
+  hasAuditLogged,
   normalizePlatform,
   normalizeBase,
 };

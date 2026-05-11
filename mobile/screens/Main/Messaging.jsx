@@ -8,6 +8,8 @@ import React, {
 } from "react";
 import { ActivityIndicator, AppState, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
@@ -32,6 +34,22 @@ const getImageUrl = (image) => {
 };
 
 const getEntityId = (value) => value?._id || value?.id || value;
+
+const getAttachmentUrl = (url) => {
+  if (!url) return "";
+  return String(url).startsWith("http") || String(url).startsWith("file:")
+    ? url
+    : `${API_BASE}${url}`;
+};
+
+const getAttachmentLabel = (attachments = []) => {
+  const attachment = attachments[0];
+  if (!attachment) return "";
+  const prefix = attachment.kind === "image" ? "Photo" : "File";
+  return attachments.length > 1
+    ? `${prefix}: ${attachment.name} +${attachments.length - 1}`
+    : `${prefix}: ${attachment.name}`;
+};
 
 const formatConversationTime = (value) => {
   if (!value) return "";
@@ -99,6 +117,7 @@ export default function Messaging({ navigation }) {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -468,7 +487,7 @@ export default function Messaging({ navigation }) {
 
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;
-    if (!lastMessage?.body) return null;
+    if (!lastMessage?.body && !lastMessage?.attachments?.length) return null;
     const mine =
       String(getEntityId(lastMessage.sender)) === String(currentUserId);
     const groupSender = item.group?.members?.find(
@@ -485,7 +504,9 @@ export default function Messaging({ navigation }) {
         : item.title;
 
     return {
-      text: `${mine ? "You" : senderName}: ${lastMessage.body}`,
+      text: `${mine ? "You" : senderName}: ${
+        lastMessage.body || getAttachmentLabel(lastMessage.attachments)
+      }`,
       time: formatConversationTime(lastMessage.createdAt),
     };
   };
@@ -501,32 +522,49 @@ export default function Messaging({ navigation }) {
 
   const handleSend = async () => {
     const body = draft.trim();
-    if (!selectedConversation?.id || !body) return;
+    if (!selectedConversation?.id || (!body && attachments.length === 0)) {
+      return;
+    }
 
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
+    const pendingAttachments = attachments.map((file) => ({
+      url: file.uri,
+      name: file.name,
+      mimeType: file.type,
+      size: file.size,
+      kind: file.type?.startsWith("image/") ? "image" : "file",
+    }));
     const pendingMessage = {
       _id: tempId,
       sender: currentUserId,
       recipient: isGroup ? undefined : selectedConversation.id,
       conversation: isGroup ? selectedConversation.id : undefined,
       body,
+      attachments: pendingAttachments,
       deliveryStatus: "sending",
     };
 
     setDraft("");
+    setAttachments([]);
     setMessages((current) => [...current, pendingMessage]);
 
     try {
       setSending(true);
+      const formData = new FormData();
+      formData.append(isGroup ? "conversationId" : "recipientId", selectedConversation.id);
+      formData.append("body", body);
+      attachments.forEach((file) => {
+        formData.append("attachments", {
+          uri: file.uri,
+          name: file.name,
+          type: file.type || "application/octet-stream",
+        });
+      });
+
       const data = await authFetch(`${API_BASE}/api/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          isGroup
-            ? { conversationId: selectedConversation.id, body }
-            : { recipientId: selectedConversation.id, body },
-        ),
+        body: formData,
       });
 
       setMessages((current) =>
@@ -556,6 +594,64 @@ export default function Messaging({ navigation }) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      showToast("Enable photo permission to send images.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsMultipleSelection: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const selected = result.assets.map((asset, index) => ({
+      uri: asset.uri,
+      name: asset.fileName || `image-${Date.now()}-${index}.jpg`,
+      type: asset.mimeType || "image/jpeg",
+      size: asset.fileSize || 0,
+    }));
+
+    setAttachments((current) => [...current, ...selected].slice(0, 5));
+  };
+
+  const handlePickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      multiple: true,
+      copyToCacheDirectory: true,
+      type: [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "image/*",
+        "text/*",
+      ],
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const selected = result.assets.map((asset) => ({
+      uri: asset.uri,
+      name: asset.name || `attachment-${Date.now()}`,
+      type: asset.mimeType || "application/octet-stream",
+      size: asset.size || 0,
+    }));
+
+    setAttachments((current) => [...current, ...selected].slice(0, 5));
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments((current) =>
+      current.filter((item, itemIndex) => itemIndex !== index),
+    );
   };
 
   const handleCreateGroup = async () => {
@@ -656,6 +752,11 @@ export default function Messaging({ navigation }) {
       scrollRef={scrollRef}
       draft={draft}
       setDraft={setDraft}
+      attachments={attachments}
+      removeAttachment={removeAttachment}
+      handlePickImage={handlePickImage}
+      handlePickFile={handlePickFile}
+      getAttachmentUrl={getAttachmentUrl}
       handleSend={handleSend}
       sending={sending}
       membersModalOpen={membersModalOpen}
