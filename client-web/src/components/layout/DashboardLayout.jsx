@@ -62,7 +62,7 @@ const DashboardLayout = () => {
         style={{
           position: screens.xs ? "fixed" : "relative", // fixed for mobile
           height: "100vh",
-          zIndex: screens.xs ? 1200 : "auto",
+          zIndex: screens.xs ? 1100 : "auto",
           overflow: "auto",
           fontSize: 16,
         }}
@@ -82,6 +82,8 @@ const DashboardLayout = () => {
             alignItems: "center",
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
             padding: 12,
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div
@@ -128,7 +130,11 @@ const DashboardLayout = () => {
             >
               {user?.image ? (
                 <img
-                  src={user.image.startsWith("http") ? user.image : `${API_BASE}${user.image}`}
+                  src={
+                    user.image.startsWith("http")
+                      ? user.image
+                      : `${API_BASE}${user.image}`
+                  }
                   alt="User"
                   style={{
                     width: 40,

@@ -58,7 +58,7 @@ export default function ConversationListView({
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Search"
+            placeholder="Search users or groups"
             placeholderTextColor={COLORS.grayDark}
             style={{
               flex: 1,
@@ -96,16 +96,16 @@ export default function ConversationListView({
               size={42}
               color="#B7C6C2"
             />
-            <Text
-              style={{
-                marginTop: 10,
-                fontSize: 14,
-                color: COLORS.grayDark,
-                textAlign: "center",
-              }}
-            >
-              No conversations found
-            </Text>
+              <Text
+                style={{
+                  marginTop: 10,
+                  fontSize: 14,
+                  color: COLORS.grayDark,
+                  textAlign: "center",
+                }}
+              >
+                No conversations
+              </Text>
           </View>
         ) : (
           conversationItems.map((item) => {

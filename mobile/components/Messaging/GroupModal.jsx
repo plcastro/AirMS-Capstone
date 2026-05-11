@@ -23,6 +23,12 @@ export default function GroupModal({
   renderAvatar,
   getDisplayName,
 }) {
+  const [memberSearch, setMemberSearch] = React.useState("");
+  const filteredUsers = users.filter((item) => {
+    const haystack = `${getDisplayName(item)} ${item.username || ""} ${item.email || ""}`.toLowerCase();
+    return haystack.includes(memberSearch.trim().toLowerCase());
+  });
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.35)" }}>
@@ -37,8 +43,15 @@ export default function GroupModal({
             style={{ height: 42, marginTop: 14, borderWidth: 1, borderColor: "#D8DEDC", borderRadius: 6, paddingHorizontal: 10, color: COLORS.black }}
           />
           <Text style={{ marginTop: 14, marginBottom: 8, fontSize: 12, color: COLORS.grayDark }}>Members</Text>
+          <TextInput
+            value={memberSearch}
+            onChangeText={setMemberSearch}
+            placeholder="Search members"
+            placeholderTextColor={COLORS.grayDark}
+            style={{ height: 40, marginBottom: 10, borderWidth: 1, borderColor: "#D8DEDC", borderRadius: 6, paddingHorizontal: 10, color: COLORS.black }}
+          />
           <ScrollView style={{ maxHeight: 260 }}>
-            {users.map((item) => {
+            {filteredUsers.map((item) => {
               const memberId = String(item._id);
               const selected = groupMemberIds.includes(memberId);
               return (

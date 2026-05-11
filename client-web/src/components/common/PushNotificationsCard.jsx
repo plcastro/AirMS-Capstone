@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Modal,
-  List,
   Avatar,
   Typography,
   Button,
@@ -183,11 +182,10 @@ export default function PushNotificationsCard({ open, onClose }) {
     }
 
     return (
-      <List
-        itemLayout="horizontal"
-        dataSource={sortedNotifications}
-        renderItem={(item) => (
-          <List.Item
+      <div>
+        {sortedNotifications.map((item) => (
+          <div
+            key={item._id}
             onClick={() => handleNotificationClick(item)}
             style={{
               padding: "12px 16px",
@@ -198,34 +196,29 @@ export default function PushNotificationsCard({ open, onClose }) {
               transition: "0.2s",
             }}
           >
-            <List.Item.Meta
-              avatar={
-                <Avatar
-                  icon={<BellOutlined />}
-                  style={{
-                    backgroundColor: item.read ? "#d9d9d9" : "#52c41a",
-                  }}
-                />
-              }
-              title={
+            <Space align="start" size={12} style={{ width: "100%" }}>
+              <Avatar
+                icon={<BellOutlined />}
+                style={{
+                  backgroundColor: item.read ? "#d9d9d9" : "#52c41a",
+                }}
+              />
+              <div style={{ flex: 1 }}>
                 <Space>
                   <Text strong={!item.read}>{item.title}</Text>
                   {!item.read && <Tag color="green">New</Tag>}
                 </Space>
-              }
-              description={
-                <>
+                <div>
                   <Text type="secondary">{item.description}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {formatTimeAgo(item.createdAt)}
-                  </Text>
-                </>
-              }
-            />
-          </List.Item>
-        )}
-      />
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {formatTimeAgo(item.createdAt)}
+                </Text>
+              </div>
+            </Space>
+          </div>
+        ))}
+      </div>
     );
   };
 

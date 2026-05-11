@@ -354,7 +354,10 @@ export default function App() {
 
             itemActiveBg: "#26866f",
 
-            subMenuItemSelectedColor: "#002019",
+            subMenuItemSelectedColor: "#ffffff",
+
+            subMenuItemBg: "#f5f5f5",
+            popupBg: "#f5f5f5",
           },
           Tabs: {
             inkBarColor: "#006340",

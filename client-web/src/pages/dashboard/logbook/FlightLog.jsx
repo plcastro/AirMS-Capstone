@@ -777,7 +777,8 @@ export default function FlightLog() {
       key: "date",
       width: 120,
       render: (value) => formatDisplayDate(value),
-      sorter: (left, right) => getFlightLogDateTime(left) - getFlightLogDateTime(right),
+      sorter: (left, right) =>
+        getFlightLogDateTime(left) - getFlightLogDateTime(right),
       defaultSortOrder: "descend",
     },
     {
@@ -913,7 +914,6 @@ export default function FlightLog() {
       </Card>
 
       <Table
-        className="fl-table"
         columns={columns}
         dataSource={filteredLogs}
         loading={loading}

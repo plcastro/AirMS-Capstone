@@ -155,6 +155,12 @@ export default function WRSModal({
   onUpdated,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const userRole = user?.jobTitle?.toLowerCase() || "";
+  const isWarehouseDepartment = userRole === "warehouse department";
+  const isMaintenanceReviewer = [
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(userRole);
   const [availQtyMap, setAvailQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -260,6 +266,15 @@ export default function WRSModal({
         }),
     [persistedQtyMap, selectedRecord],
   );
+  const hasItemsStillOutOfStock = useMemo(
+    () =>
+      (selectedRecord?.items || []).some((item) => {
+        const requestedQty = Number(item.quantity || 0);
+        const availableQty = Number(item.availableQty || 0);
+        return availableQty < requestedQty;
+      }),
+    [selectedRecord],
+  );
 
   const nextAction = useMemo(() => {
     if (!selectedRecord) {
@@ -272,6 +287,16 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Approved") {
+      if (!isWarehouseDepartment) {
+        return {
+          title: "Awaiting Delivery",
+          description:
+            "Approved requisition is waiting for warehouse to mark delivery.",
+          buttonText: "Waiting",
+          disabled: true,
+        };
+      }
+
       return {
         title: "Delivery",
         description: "Warehouse can now mark this approved requisition as delivered.",
@@ -290,6 +315,21 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Availability Checked") {
+      if (isMaintenanceReviewer) {
+        return {
+          title: hasItemsStillOutOfStock
+            ? "Order Decision"
+            : "Approval Decision",
+          description: hasItemsStillOutOfStock
+            ? "Some items are not enough in stock. Send this requisition to ordering."
+            : "All requested quantities are available. You can approve this requisition.",
+          buttonText: hasItemsStillOutOfStock
+            ? "Mark To Be Ordered"
+            : "Approve Requisition",
+          disabled: false,
+        };
+      }
+
       return {
         title: "Awaiting Maintenance Review",
         description:
@@ -300,6 +340,16 @@ export default function WRSModal({
     }
 
     if (currentStatus === "To Be Ordered") {
+      if (!isWarehouseDepartment) {
+        return {
+          title: "Awaiting Warehouse Restock",
+          description:
+            "Warehouse is updating and confirming restocked quantities.",
+          buttonText: "Waiting",
+          disabled: true,
+        };
+      }
+
       return {
         title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
         description:
@@ -314,6 +364,16 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Ordered") {
+      if (isMaintenanceReviewer) {
+        return {
+          title: "Final Approval",
+          description:
+            "Warehouse confirmed restock. You can now approve this requisition.",
+          buttonText: "Approve Requisition",
+          disabled: false,
+        };
+      }
+
       return {
         title: "Awaiting Approval",
         description:
@@ -324,18 +384,23 @@ export default function WRSModal({
     }
 
     return {
-      title: "Stock Review",
+      title: isWarehouseDepartment ? "Stock Review" : "Awaiting Warehouse Review",
       description:
-        "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results.",
-      buttonText: "Submit Stock Review",
-      disabled: !allQuantitiesFilled,
+        isWarehouseDepartment
+          ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
+          : "Warehouse is currently reviewing stock availability for this requisition.",
+      buttonText: isWarehouseDepartment ? "Submit Stock Review" : "Waiting",
+      disabled: isWarehouseDepartment ? !allQuantitiesFilled : true,
     };
   }, [
     allQuantitiesFilled,
     allRestockItemsReady,
     availQtyMap,
     currentStatus,
+    hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
+    isMaintenanceReviewer,
+    isWarehouseDepartment,
     persistedQtyMap,
     selectedRecord,
   ]);
@@ -386,8 +451,47 @@ export default function WRSModal({
     const warehouseName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       "Warehouse Department";
+    const reviewerName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Maintenance Manager";
+
+    if (isMaintenanceReviewer && currentStatus === "Availability Checked") {
+      const nextReviewerStatus = hasItemsStillOutOfStock
+        ? "To Be Ordered"
+        : "Approved";
+      await updateRequisition(
+        {
+          status: nextReviewerStatus,
+          approvedBy: nextReviewerStatus === "Approved" ? reviewerName : undefined,
+          approvedAt:
+            nextReviewerStatus === "Approved"
+              ? new Date().toISOString()
+              : undefined,
+        },
+        nextReviewerStatus === "Approved"
+          ? "Requisition approved."
+          : "Requisition marked to be ordered.",
+      );
+      return;
+    }
+
+    if (isMaintenanceReviewer && currentStatus === "Ordered") {
+      await updateRequisition(
+        {
+          status: "Approved",
+          approvedBy: reviewerName,
+          approvedAt: new Date().toISOString(),
+        },
+        "Requisition approved.",
+      );
+      return;
+    }
 
     if (currentStatus === "Approved") {
+      if (!isWarehouseDepartment) {
+        return;
+      }
+
       await updateRequisition(
         {
           status: "Delivered",
@@ -417,6 +521,10 @@ export default function WRSModal({
     });
 
     if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
+      if (!isWarehouseDepartment) {
+        return;
+      }
+
       const savedItems = (selectedRecord.items || []).map((item) => ({
         ...item,
         availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
@@ -577,8 +685,9 @@ export default function WRSModal({
             persistedQtyMap={persistedQtyMap}
             setAvailQtyMap={setAvailQtyMap}
             disabled={
-              currentStatus !== "Parts Requested" &&
-              currentStatus !== "To Be Ordered"
+              !isWarehouseDepartment ||
+              (currentStatus !== "Parts Requested" &&
+                currentStatus !== "To Be Ordered")
             }
           />
         </Col>
