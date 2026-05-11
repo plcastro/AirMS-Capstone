@@ -4,9 +4,9 @@ import {
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
@@ -185,14 +185,12 @@ export default function Login() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      enabled
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <LoginLayout
@@ -204,7 +202,7 @@ export default function Login() {
           </Text>
           <TextInput
             style={styles.formInput}
-            maxLength={100}
+            maxLength={256}
             placeholder="Username or Email"
             placeholderTextColor="gray"
             autoCapitalize="none"
@@ -215,7 +213,7 @@ export default function Login() {
           <Text style={styles.label}>Password</Text>
           <TextInput
             style={styles.formInput}
-            maxLength={100}
+            maxLength={256}
             placeholder="Password"
             placeholderTextColor="gray"
             autoCapitalize="none"

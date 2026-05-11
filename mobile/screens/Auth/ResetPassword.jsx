@@ -3,9 +3,9 @@ import {
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
@@ -108,78 +108,109 @@ export default function ResetPassword() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: 30,
+        }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <LoginLayout
           cardTitle="Reset Password"
           cardsubTitle="Enter your new password"
         >
-          <Text style={styles.label}>
-            New Password <Text style={{ color: "red" }}>*</Text>
-          </Text>
-          <TextInput
-            style={styles.formInput}
-            placeholder="New Password"
-            secureTextEntry
-            placeholderTextColor="gray"
-            value={formData.newPassword}
-            onChangeText={(text) => handleChange("newPassword", text)}
-          />
-
-          <Text style={styles.label}>
-            Confirm Password <Text style={{ color: "red" }}>*</Text>
-          </Text>
-          <TextInput
-            style={styles.formInput}
-            placeholder="Confirm Password"
-            secureTextEntry
-            placeholderTextColor="gray"
-            value={formData.confirmPassword}
-            onChangeText={(text) => handleChange("confirmPassword", text)}
-          />
-
-          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-            Password Requirements:
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-            {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
-            characters
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.hasUppercase)}>
-            {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
-            letter
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-            {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
-          </Text>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {successMessage ? (
-            <Text style={{ color: "green", marginTop: 10 }}>
-              {successMessage}
+          {/* PASSWORD FIELDS */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={styles.label}>
+              New Password <Text style={{ color: "red" }}>*</Text>
             </Text>
-          ) : null}
+            <TextInput
+              style={styles.formInput}
+              placeholder="New Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.newPassword}
+              onChangeText={(text) => handleChange("newPassword", text)}
+            />
+          </View>
 
-          <Button
-            label={loading ? "RESETTING..." : "RESET PASSWORD"}
-            onPress={handleSubmit}
-            buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-            buttonTextStyle={styles.primaryBtnTxt}
-            disabled={loading || !isFormValid}
-          />
-          <Text style={{ marginTop: 20 }}>
-            Remember your password?
-            <TouchableOpacity onPress={() => nav.replace("login")}>
-              <Text style={{ color: "#059670" }}> Sign In</Text>
-            </TouchableOpacity>
-          </Text>
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>
+              Confirm Password <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Confirm Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.confirmPassword}
+              onChangeText={(text) => handleChange("confirmPassword", text)}
+            />
+          </View>
+
+          {/* REQUIREMENTS BOX */}
+          <View style={{ marginTop: 10, marginBottom: 15 }}>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+              Password Requirements:
+            </Text>
+
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
+              characters
+            </Text>
+
+            <Text
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
+              letter
+            </Text>
+
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
+            </Text>
+          </View>
+
+          {/* ERROR / SUCCESS */}
+          <View style={{ marginBottom: 10 }}>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            {successMessage ? (
+              <Text style={{ color: "green", marginTop: 5 }}>
+                {successMessage}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* BUTTON */}
+          <View style={{ marginTop: 10 }}>
+            <Button
+              label={loading ? "RESETTING..." : "RESET PASSWORD"}
+              onPress={handleSubmit}
+              buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
+              buttonTextStyle={styles.primaryBtnTxt}
+              disabled={loading || !isFormValid}
+            />
+          </View>
+
+          {/* FOOTER LINK */}
+          <TouchableOpacity
+            onPress={() => nav.replace("login")}
+            activeOpacity={0.8}
+            style={{ marginTop: 25, alignItems: "center" }}
+          >
+            <Text style={{ color: "#374151", textAlign: "center" }}>
+              Remember your password?
+              <Text style={{ color: "#059670", fontWeight: "bold" }}>
+                {" "}
+                Sign In
+              </Text>
+            </Text>
+          </TouchableOpacity>
         </LoginLayout>
       </ScrollView>
     </KeyboardAvoidingView>

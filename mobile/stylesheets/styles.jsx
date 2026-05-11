@@ -29,7 +29,8 @@ export const styles = StyleSheet.create({
     padding: 12,
   },
   codeInputText: {
-    fontSize: BODY_FONT_SIZE,
+    fontSize: SUBHEADER_FONT_SIZE,
+    fontWeight: "bold",
     textAlign: "center",
     color: COLORS.black,
     fontFamily: "Arial",
