@@ -1,11 +1,11 @@
-const roles = require("../config/roles");
+const jobTitles = require("./jobTitles");
 
 const attachPermissions = (req, res, next) => {
   if (!req.user) return next();
 
-  const rolePermissions = roles[req.user.jobTitle] || [];
+  const jobTitlePermissions = jobTitles[req.user.jobTitle] || [];
 
-  req.permissions = rolePermissions;
+  req.permissions = jobTitlePermissions;
 
   next();
 };

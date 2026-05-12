@@ -1,26 +1,28 @@
 const express = require("express");
 const router = express.Router();
+
 const { verifyToken } = require("../middleware/authMiddleware");
-const rbacMiddleware = require("../middleware/rbacMiddleware");
+
+const permissions = require("../config/permissions");
+
+const { requirePermission } = require("../middleware/permissions");
 
 const {
   createAuditLogFromRequest,
   getAllUserLogs,
 } = require("../controllers/logsController");
 
-// Audit logs are admin-only
 router.post(
   "/auditLog",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   createAuditLogFromRequest,
 );
+
 router.get(
   "/getAllUserLogs",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   getAllUserLogs,
 );
 
