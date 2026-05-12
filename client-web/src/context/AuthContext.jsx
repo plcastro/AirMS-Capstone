@@ -2,9 +2,9 @@ import React, { createContext, useState, useEffect, useRef } from "react";
 import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
+
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 60 * 1000;
-const AUTH_PERSISTENCE_KEY = "authPersistence";
 const SESSION_META_KEY = "authSessionMeta";
 
 export const AuthProvider = ({ children }) => {
@@ -20,41 +20,20 @@ export const AuthProvider = ({ children }) => {
   const inactivityLogoutTimeoutRef = useRef(null);
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
-  const persistenceModeRef = useRef("session");
+
+  const getStoredToken = () => sessionStorage.getItem("token");
 
   const normalizeUser = (userData) => ({
     ...userData,
     id: userData.id || userData._id || null,
     jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
     access: userData.access ? userData.access.trim().toLowerCase() : null,
+    sessions: Array.isArray(userData.sessions) ? userData.sessions : [],
   });
 
-  const getStorageByMode = (mode) =>
-    mode === "local" ? localStorage : sessionStorage;
-
-  const getStoredToken = () =>
-    localStorage.getItem("token") || sessionStorage.getItem("token");
-
-  const getStoredPersistenceMode = () => {
-    const mode = localStorage.getItem(AUTH_PERSISTENCE_KEY);
-    return mode === "local" ? "local" : "session";
-  };
-
-  const setPersistenceMode = (mode) => {
-    const safeMode = mode === "local" ? "local" : "session";
-    persistenceModeRef.current = safeMode;
-    localStorage.setItem(AUTH_PERSISTENCE_KEY, safeMode);
-  };
-
   const persistAuthState = (normalizedUser, token) => {
-    const mode = persistenceModeRef.current;
-    const activeStorage = getStorageByMode(mode);
-    const inactiveStorage = getStorageByMode(mode === "local" ? "session" : "local");
-
-    activeStorage.setItem("currentUser", JSON.stringify(normalizedUser));
-    activeStorage.setItem("token", token);
-    inactiveStorage.removeItem("currentUser");
-    inactiveStorage.removeItem("token");
+    sessionStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    sessionStorage.setItem("token", token);
   };
 
   const persistSessionMeta = (meta = {}) => {
@@ -73,6 +52,12 @@ export const AuthProvider = ({ children }) => {
     } catch {
       return {};
     }
+  };
+
+  const clearAuthStorage = () => {
+    sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("token");
+    localStorage.removeItem(SESSION_META_KEY);
   };
 
   const isTokenValid = (token) => {
@@ -102,216 +87,151 @@ export const AuthProvider = ({ children }) => {
   };
 
   const clearInactivityTimers = () => {
-    if (inactivityWarningTimeoutRef.current) {
-      clearTimeout(inactivityWarningTimeoutRef.current);
-      inactivityWarningTimeoutRef.current = null;
-    }
-    if (inactivityLogoutTimeoutRef.current) {
-      clearTimeout(inactivityLogoutTimeoutRef.current);
-      inactivityLogoutTimeoutRef.current = null;
-    }
-    if (warningCountdownIntervalRef.current) {
-      clearInterval(warningCountdownIntervalRef.current);
-      warningCountdownIntervalRef.current = null;
-    }
+    clearTimeout(inactivityWarningTimeoutRef.current);
+    clearTimeout(inactivityLogoutTimeoutRef.current);
+    clearInterval(warningCountdownIntervalRef.current);
+
+    inactivityWarningTimeoutRef.current = null;
+    inactivityLogoutTimeoutRef.current = null;
+    warningCountdownIntervalRef.current = null;
   };
 
   const clearTokenExpiryTimer = () => {
-    if (tokenExpiryTimeoutRef.current) {
-      clearTimeout(tokenExpiryTimeoutRef.current);
-      tokenExpiryTimeoutRef.current = null;
-    }
-  };
-
-  const clearAuthStorage = () => {
-    localStorage.removeItem("currentUser");
-    localStorage.removeItem("token");
-    sessionStorage.removeItem("currentUser");
-    sessionStorage.removeItem("token");
-    localStorage.removeItem(AUTH_PERSISTENCE_KEY);
-    localStorage.removeItem(SESSION_META_KEY);
+    clearTimeout(tokenExpiryTimeoutRef.current);
+    tokenExpiryTimeoutRef.current = null;
   };
 
   const scheduleTokenExpiryLogout = (token, onExpire) => {
     clearTokenExpiryTimer();
 
     const expiryAt = getTokenExpiryTime(token);
-    if (!expiryAt) {
-      onExpire();
-      return;
-    }
+    if (!expiryAt) return onExpire();
 
     const msRemaining = expiryAt - Date.now();
-    if (msRemaining <= 0) {
-      onExpire();
-      return;
-    }
+    if (msRemaining <= 0) return onExpire();
 
-    tokenExpiryTimeoutRef.current = setTimeout(() => {
-      onExpire();
-    }, msRemaining);
+    tokenExpiryTimeoutRef.current = setTimeout(onExpire, msRemaining);
   };
 
   const startWarningCountdown = (seconds) => {
-    const safeSeconds = Math.max(0, seconds);
-    setWarningSecondsRemaining(safeSeconds);
+    setWarningSecondsRemaining(seconds);
     setShowSessionTimeoutWarning(true);
 
-    if (warningCountdownIntervalRef.current) {
-      clearInterval(warningCountdownIntervalRef.current);
-    }
+    clearInterval(warningCountdownIntervalRef.current);
 
     warningCountdownIntervalRef.current = setInterval(() => {
-      setWarningSecondsRemaining((previousSeconds) => {
-        if (previousSeconds <= 1) {
+      setWarningSecondsRemaining((prev) => {
+        if (prev <= 1) {
           clearInterval(warningCountdownIntervalRef.current);
-          warningCountdownIntervalRef.current = null;
           return 0;
         }
-        return previousSeconds - 1;
+        return prev - 1;
       });
     }, 1000);
   };
 
-  const scheduleInactivityTimers = (elapsedInMs = 0) => {
+  const scheduleInactivityTimers = (elapsed = 0) => {
     clearInactivityTimers();
 
-    if (!user) {
-      setShowSessionTimeoutWarning(false);
-      return;
-    }
+    if (!user) return;
 
-    const timeLeftBeforeLogout = INACTIVITY_LIMIT_MS - elapsedInMs;
-    if (timeLeftBeforeLogout <= 0) {
-      logoutUser();
-      return;
-    }
+    const timeLeft = INACTIVITY_LIMIT_MS - elapsed;
+    if (timeLeft <= 0) return logoutUser();
 
-    const warningDelay = Math.max(
-      timeLeftBeforeLogout - WARNING_DURATION_MS,
-      0,
-    );
+    const warningDelay = Math.max(timeLeft - WARNING_DURATION_MS, 0);
 
     inactivityWarningTimeoutRef.current = setTimeout(() => {
       startWarningCountdown(
-        Math.ceil(Math.min(WARNING_DURATION_MS, timeLeftBeforeLogout) / 1000),
+        Math.ceil(Math.min(WARNING_DURATION_MS, timeLeft) / 1000),
       );
     }, warningDelay);
 
     inactivityLogoutTimeoutRef.current = setTimeout(() => {
       logoutUser();
-    }, timeLeftBeforeLogout);
+    }, timeLeft);
   };
 
   const recordActivity = () => {
-    if (!user) {
-      return;
-    }
-
+    if (!user) return;
     setShowSessionTimeoutWarning(false);
     scheduleInactivityTimers(0);
   };
 
-  const continueSession = () => {
-    recordActivity();
+  const buildSessionHeaders = () => {
+    const sessionMeta = getSessionMeta();
+    return {
+      "x-platform": sessionMeta.platform || "WEB",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+    };
   };
 
   const refreshAccessToken = async () => {
     const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
       method: "POST",
       credentials: "include",
-      headers: getSessionMeta()?.base
-        ? {
-            "x-base": getSessionMeta().base,
-            "x-platform": getSessionMeta().platform || "WEB",
-            ...(getSessionMeta().sessionId
-              ? { "x-session-id": getSessionMeta().sessionId }
-              : {}),
-          }
-        : undefined,
+      headers: buildSessionHeaders(),
     });
 
-    if (!response.ok) {
-      const error = new Error("Failed to refresh token");
-      error.status = response.status;
-      throw error;
-    }
+    if (!response.ok) throw new Error("Failed to refresh token");
 
     const data = await response.json();
-    if (!data.token) {
-      throw new Error("No refreshed token received");
-    }
+    if (!data.token) throw new Error("No token received");
 
-    const activeStorage = getStorageByMode(persistenceModeRef.current);
-    activeStorage.setItem("token", data.token);
-    scheduleTokenExpiryLogout(data.token, () => logoutUser());
+    sessionStorage.setItem("token", data.token);
+    scheduleTokenExpiryLogout(data.token, logoutUser);
+
     return data.token;
   };
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const persistedMode = getStoredPersistenceMode();
-        setPersistenceMode(persistedMode);
-        const primaryStorage = getStorageByMode(persistedMode);
-        const fallbackStorage = getStorageByMode(
-          persistedMode === "local" ? "session" : "local",
-        );
+        const storedUser = sessionStorage.getItem("currentUser");
+        let token = sessionStorage.getItem("token");
 
-        const storedUser =
-          primaryStorage.getItem("currentUser") ||
-          fallbackStorage.getItem("currentUser");
-        const token =
-          primaryStorage.getItem("token") || fallbackStorage.getItem("token");
-        const hasKnownAuthState = Boolean(storedUser || token);
-
-        if (!storedUser) {
-          if (!hasKnownAuthState) {
-            setUser(null);
-            return;
-          }
-
-          try {
-            const refreshedToken = await refreshAccessToken();
-            const payload = getTokenPayload(refreshedToken);
-            if (!payload?.id) {
-              throw new Error("Invalid refreshed token payload");
-            }
-            const normalizedFromToken = normalizeUser({
-              id: payload.id,
-              username: payload.username,
-              email: payload.email,
-              jobTitle: payload.jobTitle,
-              access: payload.access,
-            });
-            setUser(normalizedFromToken);
-            persistAuthState(normalizedFromToken, refreshedToken);
-            scheduleTokenExpiryLogout(refreshedToken, () => logoutUser());
-            return;
-          } catch {
-            setUser(null);
-            return;
-          }
-        }
-
-        const parsed = JSON.parse(storedUser);
-
-        if (token && isTokenValid(token)) {
-          setUser(normalizeUser(parsed));
-          scheduleTokenExpiryLogout(token, () => logoutUser());
+        if (!storedUser && !token) {
+          setUser(null);
           return;
         }
 
-        try {
-          const refreshedToken = await refreshAccessToken();
-          scheduleTokenExpiryLogout(refreshedToken, () => logoutUser());
-          setUser(normalizeUser(parsed));
-        } catch {
-          clearAuthStorage();
-          setUser(null);
+        if (!storedUser && token) {
+          token = await refreshAccessToken();
         }
+
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+
+        if (token && isTokenValid(token) && parsedUser) {
+          setUser(normalizeUser(parsedUser));
+          scheduleTokenExpiryLogout(token, logoutUser);
+          return;
+        }
+
+        token = await refreshAccessToken();
+        const payload = getTokenPayload(token);
+        const normalizedFromToken =
+          parsedUser ||
+          (payload?.id
+            ? {
+                id: payload.id,
+                username: payload.username,
+                email: payload.email,
+                jobTitle: payload.jobTitle,
+                access: payload.access,
+                base: payload.base,
+                sessionId: payload.sessionId,
+              }
+            : null);
+
+        setUser(normalizedFromToken ? normalizeUser(normalizedFromToken) : null);
+        if (normalizedFromToken) {
+          persistAuthState(normalizeUser(normalizedFromToken), token);
+        }
+        scheduleTokenExpiryLogout(token, logoutUser);
       } catch (err) {
-        console.error("Failed to load user:", err);
+        console.error("Auth load error:", err);
         clearAuthStorage();
         setUser(null);
       } finally {
@@ -322,61 +242,44 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // Login
   const loginUser = async (userData, token, options = {}) => {
-    try {
-      setLoading(true);
+    if (!token) return;
 
-      if (!token) {
-        console.error("No token provided");
-        return;
-      }
-      const normalizedUser = normalizeUser({
-        ...userData,
-        isOnline: true,
-        online: true,
-        platform: "web",
-        base: options.base || userData.base,
-        sessionId: options.sessionId || userData.sessionId,
-      });
+    const normalized = normalizeUser({
+      ...userData,
+      isOnline: true,
+      online: true,
+      platform: "web",
+      base: options.base || userData.base,
+      sessionId: options.sessionId || userData.sessionId,
+    });
 
-      setPersistenceMode(options.rememberMe ? "local" : "session");
-      setUser(normalizedUser);
-      persistSessionMeta({
-        base: normalizedUser.base,
-        sessionId: normalizedUser.sessionId,
-        platform: "WEB",
-      });
-      persistAuthState(normalizedUser, token);
-      scheduleTokenExpiryLogout(token, () => logoutUser());
-    } catch (err) {
-      console.error("Failed to store user:", err);
-    } finally {
-      setLoading(false);
-    }
+    setUser(normalized);
+    persistSessionMeta({
+      base: normalized.base,
+      sessionId: normalized.sessionId,
+      platform: "WEB",
+    });
+    persistAuthState(normalized, token);
+    scheduleTokenExpiryLogout(token, logoutUser);
   };
 
-  // Logout
   const logoutUser = async () => {
     try {
       setLoading(true);
       setShowSessionTimeoutWarning(false);
+
       clearInactivityTimers();
       clearTokenExpiryTimer();
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+
+      const token = sessionStorage.getItem("token");
 
       if (token) {
-        const sessionMeta = getSessionMeta();
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
-            "x-platform": "WEB",
-            ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-            ...(sessionMeta.sessionId
-              ? { "x-session-id": sessionMeta.sessionId }
-              : {}),
+            ...buildSessionHeaders(),
           },
           credentials: "include",
         });
@@ -384,8 +287,6 @@ export const AuthProvider = ({ children }) => {
 
       setUser(null);
       clearAuthStorage();
-    } catch (err) {
-      console.error("Failed to remove user:", err);
     } finally {
       setLoading(false);
     }
@@ -395,29 +296,19 @@ export const AuthProvider = ({ children }) => {
     const token = getStoredToken();
 
     if (token && isTokenValid(token)) {
-      scheduleTokenExpiryLogout(token, () => logoutUser());
+      scheduleTokenExpiryLogout(token, logoutUser);
       return token;
     }
 
-    try {
-      return await refreshAccessToken();
-    } catch (error) {
-      await logoutUser();
-      throw error;
-    }
+    return await refreshAccessToken();
   };
 
   const getAuthHeader = async () => {
     const token = await getValidToken();
-    const sessionMeta = getSessionMeta();
     return token
       ? {
           Authorization: `Bearer ${token}`,
-          "x-platform": "WEB",
-          ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-          ...(sessionMeta.sessionId
-            ? { "x-session-id": sessionMeta.sessionId }
-            : {}),
+          ...buildSessionHeaders(),
         }
       : {};
   };
@@ -439,6 +330,7 @@ export const AuthProvider = ({ children }) => {
       "touchstart",
       "click",
     ];
+
     events.forEach((eventName) => {
       window.addEventListener(eventName, recordActivity);
     });
@@ -450,13 +342,6 @@ export const AuthProvider = ({ children }) => {
       clearInactivityTimers();
     };
   }, [user]);
-
-  useEffect(() => {
-    return () => {
-      clearInactivityTimers();
-      clearTokenExpiryTimer();
-    };
-  }, []);
 
   return (
     <AuthContext.Provider
@@ -471,7 +356,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         showSessionTimeoutWarning,
         warningSecondsRemaining,
-        continueSession,
+        continueSession: recordActivity,
       }}
     >
       {children}

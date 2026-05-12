@@ -10,13 +10,61 @@ import { AuthContext } from "../Context/AuthContext";
 
 const DrawerList = [
   {
-    label: "Aircraft Health Logbook",
+    label: "GENERAL",
+    jobTitle: [
+      "admin",
+      "maintenance manager",
+      "officer-in-charge",
+      "warehouse department",
+      "mechanic",
+    ],
+    children: [
+      {
+        icon: "chart-areaspline",
+        label: "Reports and Analytics",
+        navigateTo: "Reports and Analytics",
+        jobTitle: ["maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "message-text-outline",
+        label: "Messages",
+        navigateTo: "Messages",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "mechanic",
+          "officer-in-charge",
+          "warehouse department",
+        ],
+      },
+    ],
+  },
+  {
+    label: "USER MANAGEMENT",
+    jobTitle: ["admin"],
+    children: [
+      {
+        icon: "account-multiple-outline",
+        label: "Manage Users",
+        navigateTo: "Manage Users",
+        jobTitle: ["admin"],
+      },
+      {
+        icon: "history",
+        label: "Activity Logs",
+        navigateTo: "Activity Logs",
+        jobTitle: ["admin"],
+      },
+    ],
+  },
+  {
+    label: "AIRCRAFT HEALTH LOGBOOK",
     jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
     children: [
       {
-        icon: "book-open-page-variant",
-        label: "Flight Logbook",
-        navigateTo: "Flight Logbook",
+        icon: "helicopter",
+        label: "Flight Logs",
+        navigateTo: "Flight Logs",
         jobTitle: [
           "pilot",
           "maintenance manager",
@@ -25,7 +73,13 @@ const DrawerList = [
         ],
       },
       {
-        icon: "book-open-page-variant",
+        icon: "tools",
+        label: "Maintenance Logs",
+        navigateTo: "Maintenance Logs",
+        jobTitle: ["maintenance manager", "officer-in-charge", "mechanic"],
+      },
+      {
+        icon: "clipboard-check-outline",
         label: "Pre-Inspection",
         navigateTo: "Pre-Inspection",
         jobTitle: [
@@ -36,7 +90,7 @@ const DrawerList = [
         ],
       },
       {
-        icon: "book-open-page-variant",
+        icon: "clipboard-check-outline",
         label: "Post-Inspection",
         navigateTo: "Post-Inspection",
         jobTitle: ["maintenance manager", "officer-in-charge", "mechanic"],
@@ -44,40 +98,92 @@ const DrawerList = [
     ],
   },
   {
-    label: "Task Assignment and Monitoring",
+    label: "TASK ASSIGNMENT & MONITORING",
     jobTitle: ["maintenance manager", "mechanic"],
     children: [
       {
-        icon: "clipboard-text",
+        icon: "calendar-clock",
         label: "Tasks",
         navigateTo: "Tasks",
         jobTitle: ["maintenance manager", "mechanic"],
       },
       {
         icon: "account-group",
-        label: "Mechanic List",
+        label: "Mechanics",
         navigateTo: "Mechanics",
         jobTitle: ["maintenance manager"],
       },
     ],
   },
   {
-    icon: "file-document-outline",
-    label: "Parts Requisition",
-    navigateTo: "Parts Requisition",
-    jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
+    label: "PARTS LIFESPAN & MAINTENANCE TRACKING",
+    jobTitle: ["maintenance manager", "officer-in-charge"],
+    children: [
+      {
+        icon: "view-dashboard-outline",
+        label: "Parts Lifespan Monitoring",
+        navigateTo: "Parts Lifespan Monitoring",
+        jobTitle: ["maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "radar",
+        label: "Maintenance Tracking",
+        navigateTo: "Maintenance Tracking",
+        jobTitle: ["maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "flag-outline",
+        label: "Maintenance Priority Sorting",
+        navigateTo: "Maintenance Priority Sorting",
+        jobTitle: ["maintenance manager"],
+      },
+    ],
   },
   {
-    icon: "message-text-outline",
-    label: "Chats",
-    navigateTo: "Messages",
-    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
+    label: "PARTS REQUISITION",
+    jobTitle: [
+      "warehouse department",
+      "maintenance manager",
+      "officer-in-charge",
+      "mechanic",
+    ],
+    children: [
+      {
+        icon: "inbox-outline",
+        label: "Parts Requisition Monitoring",
+        navigateTo: "Parts Requisition Monitoring",
+        jobTitle: [
+          "warehouse department",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+    ],
   },
   {
-    icon: "account-circle",
-    label: "My Profile",
-    navigateTo: "Profile",
-    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
+    label: "SETTINGS",
+    jobTitle: [
+      "admin",
+      "maintenance manager",
+      "mechanic",
+      "officer-in-charge",
+      "warehouse department",
+    ],
+    children: [
+      {
+        icon: "account-circle",
+        label: "Profile",
+        navigateTo: "Profile",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "mechanic",
+          "officer-in-charge",
+          "warehouse department",
+        ],
+      },
+    ],
   },
 ];
 
@@ -128,9 +234,72 @@ function DrawerContent({ navigation }) {
               (item.children &&
                 item.children.some((c) => c.navigateTo === activeRoute));
 
+            if (item.children) {
+              return (
+                <View key={item.label} style={{ marginTop: 8 }}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "700",
+                      letterSpacing: 1,
+                      color: "#777",
+                      marginLeft: 18,
+                      marginBottom: 2,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                  {getChildren(item).map((child) => {
+                    const childActive = activeRoute === child.navigateTo;
+
+                    return (
+                      <DrawerItem
+                        key={child.navigateTo}
+                        focused={childActive}
+                        style={{
+                          backgroundColor: childActive
+                            ? "#E6F4F1"
+                            : "transparent",
+                          borderRadius: 10,
+                          borderLeftWidth: childActive ? 4 : 0,
+                          borderLeftColor: "#26866F",
+                        }}
+                        label={() => (
+                          <Text
+                            style={{
+                              color: childActive ? "#26866F" : "#777",
+                              fontSize: 12,
+                              fontWeight: childActive ? "600" : "400",
+                            }}
+                            numberOfLines={2}
+                          >
+                            {child.label}
+                          </Text>
+                        )}
+                        icon={({ size }) => (
+                          <MaterialCommunityIcons
+                            name={child.icon}
+                            size={size}
+                            color={childActive ? "#26866F" : "#777"}
+                          />
+                        )}
+                        onPress={() =>
+                          navigation.dispatch(
+                            CommonActions.navigate({
+                              name: child.navigateTo,
+                            }),
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              );
+            }
+
             return (
               <View key={item.label}>
-                {/* PARENT ITEM */}
                 <DrawerItem
                   focused={isActive}
                   style={{
@@ -166,54 +335,6 @@ function DrawerContent({ navigation }) {
                     }
                   }}
                 />
-
-                {/* CHILD ITEMS */}
-                {item.children &&
-                  getChildren(item).map((child) => {
-                    const childActive = activeRoute === child.navigateTo;
-
-                    return (
-                      <DrawerItem
-                        key={child.navigateTo}
-                        focused={childActive}
-                        style={{
-                          backgroundColor: childActive
-                            ? "#E6F4F1"
-                            : "transparent",
-                          borderRadius: 10,
-                          marginLeft: 10,
-                          borderLeftWidth: childActive ? 4 : 0,
-                          borderLeftColor: "#26866F",
-                        }}
-                        label={() => (
-                          <Text
-                            style={{
-                              color: childActive ? "#26866F" : "#777",
-                              fontSize: 12,
-                              fontWeight: childActive ? "600" : "400",
-                            }}
-                            numberOfLines={2}
-                          >
-                            {child.label}
-                          </Text>
-                        )}
-                        icon={({ size }) => (
-                          <MaterialCommunityIcons
-                            name={child.icon}
-                            size={size}
-                            color={childActive ? "#26866F" : "#777"}
-                          />
-                        )}
-                        onPress={() =>
-                          navigation.dispatch(
-                            CommonActions.navigate({
-                              name: child.navigateTo,
-                            }),
-                          )
-                        }
-                      />
-                    );
-                  })}
               </View>
             );
           })}

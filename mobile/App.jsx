@@ -21,14 +21,6 @@ import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
 
 import Dashboard from "./Layout/Dashboard";
-import Profile from "./screens/Settings/Profile";
-
-import FlightLog from "./screens/Main/FlightLog";
-import TaskAssignment from "./screens/Main/TaskAssignment";
-import PreInspection from "./screens/Main/PreInspection";
-import PostInspection from "./screens/Main/PostInspection";
-import PartsRequisition from "./screens/Main/PartsRequisition";
-import Messaging from "./screens/Main/Messaging";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
@@ -36,16 +28,117 @@ import LinkingConfig from "./utilities/LinkingConfig";
 import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
-import MechanicList from "./screens/Main/MechanicList";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
-import { ImageBackground } from "react-native-web";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
+const withDashboard = (loadScreen) => {
+  function DashboardScreen(props) {
+    const Screen = loadScreen();
+    return (
+      <Dashboard>
+        <Screen {...props} />
+      </Dashboard>
+    );
+  }
+
+  return DashboardScreen;
+};
+
+const Screens = {
+  ReportsAndAnalytics: withDashboard(
+    () => require("./screens/Main/MaintenanceDashboard").default,
+  ),
+  Messages: withDashboard(() => require("./screens/Main/Messaging").default),
+  ManageUsers: withDashboard(
+    () => require("./screens/Main/UserManagement").default,
+  ),
+  ActivityLogs: withDashboard(
+    () => require("./screens/Main/ActivityLogs").default,
+  ),
+  FlightLogs: withDashboard(() => require("./screens/Main/FlightLog").default),
+  MaintenanceLogs: withDashboard(
+    () => require("./screens/Main/MaintenanceLog").default,
+  ),
+  PreInspection: withDashboard(
+    () => require("./screens/Main/PreInspection").default,
+  ),
+  PostInspection: withDashboard(
+    () => require("./screens/Main/PostInspection").default,
+  ),
+  Tasks: withDashboard(() => require("./screens/Main/TaskAssignment").default),
+  Mechanics: withDashboard(() => require("./screens/Main/MechanicList").default),
+  PartsLifespanMonitoring: withDashboard(
+    () => require("./screens/Main/PartsLifespanMonitoring").default,
+  ),
+  MaintenanceTracking: withDashboard(
+    () => require("./screens/Main/MaintenanceTracking").default,
+  ),
+  MaintenancePrioritySorting: withDashboard(
+    () => require("./screens/Main/MaintenancePriority").default,
+  ),
+  PartsRequisitionMonitoring: withDashboard(
+    () => require("./screens/Main/PartsRequisition").default,
+  ),
+  Profile: withDashboard(() => require("./screens/Settings/Profile").default),
+};
+
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
+  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const canAccessFlightAndPreInspection = [
+    "maintenance manager",
+    "pilot",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessPostInspection = [
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
+    normalizedRole,
+  );
+  const canAccessPartsRequisition = [
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessPartsMonitoring = [
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(normalizedRole);
+  const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
+  const canAccessReports = [
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(normalizedRole);
+  const canAccessMaintenanceLog = [
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessMessages = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessProfile = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessUserManagement = normalizedRole === "admin";
+  const canAccessActivityLogs = normalizedRole === "admin";
   const profileImage =
     user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
@@ -61,11 +154,6 @@ function DrawerNav({ navigation }) {
 
   if (!user) return null;
 
-  const wrapWithDashboard = (ScreenComponent) => (props) => (
-    <Dashboard>
-      <ScreenComponent {...props} />
-    </Dashboard>
-  );
   const navLabel = {
     headerTitleStyle: {
       fontSize: 14,
@@ -75,9 +163,13 @@ function DrawerNav({ navigation }) {
 
   return (
     <Drawer.Navigator
+      backBehavior="history"
+      detachInactiveScreens
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,
+        lazy: true,
+        freezeOnBlur: true,
         drawerType: "slide",
         drawerStyle: { width: "85%" },
         overlayColor: "transparent",
@@ -123,81 +215,125 @@ function DrawerNav({ navigation }) {
         ),
       })}
     >
-      {[
-        "maintenance manager",
-        "pilot",
-        "officer-in-charge",
-        "mechanic",
-      ].includes(user.jobTitle?.toLowerCase()) && (
-        <>
-          <Drawer.Screen
-            name="Flight Logbook"
-            component={wrapWithDashboard(FlightLog)}
-            options={navLabel}
-          />
-          <Drawer.Screen
-            name="Pre-Inspection"
-            component={wrapWithDashboard(PreInspection)}
-            options={navLabel}
-          />
-          <Drawer.Screen
-            name="Post-Inspection"
-            component={wrapWithDashboard(PostInspection)}
-            options={navLabel}
-          />
-        </>
-      )}
-
-      {user.jobTitle?.toLowerCase() === "maintenance manager" && (
+      {canAccessReports && (
         <Drawer.Screen
-          name="Mechanics"
-          component={wrapWithDashboard(MechanicList)}
+          name="Reports and Analytics"
+          component={Screens.ReportsAndAnalytics}
           options={navLabel}
         />
       )}
 
-      {["maintenance manager", "mechanic"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessMessages && (
+        <Drawer.Screen
+          name="Messages"
+          component={Screens.Messages}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessUserManagement && (
+        <Drawer.Screen
+          name="Manage Users"
+          component={Screens.ManageUsers}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessActivityLogs && (
+        <Drawer.Screen
+          name="Activity Logs"
+          component={Screens.ActivityLogs}
+          options={navLabel}
+        />
+      )}
+
+      {(canAccessFlightAndPreInspection ||
+        canAccessMaintenanceLog ||
+        canAccessPostInspection) && (
+        <>
+          {canAccessFlightAndPreInspection && (
+            <Drawer.Screen
+              name="Flight Logs"
+              component={Screens.FlightLogs}
+              options={navLabel}
+            />
+          )}
+          {canAccessMaintenanceLog && (
+            <Drawer.Screen
+              name="Maintenance Logs"
+              component={Screens.MaintenanceLogs}
+              options={navLabel}
+            />
+          )}
+          {canAccessFlightAndPreInspection && (
+            <Drawer.Screen
+              name="Pre-Inspection"
+              component={Screens.PreInspection}
+              options={navLabel}
+            />
+          )}
+          {canAccessPostInspection && (
+            <Drawer.Screen
+              name="Post-Inspection"
+              component={Screens.PostInspection}
+              options={navLabel}
+            />
+          )}
+        </>
+      )}
+
+      {canAccessTasks && (
         <>
           <Drawer.Screen
             name="Tasks"
-            component={wrapWithDashboard(TaskAssignment)}
+            component={Screens.Tasks}
             options={navLabel}
           />
         </>
       )}
 
-      {["maintenance manager", "mechanic", "officer-in-charge"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessMechanics && (
         <Drawer.Screen
-          name="Parts Requisition"
-          component={wrapWithDashboard(PartsRequisition)}
+          name="Mechanics"
+          component={Screens.Mechanics}
           options={navLabel}
         />
       )}
-      {[
-        "maintenance manager",
-        "mechanic",
-        "officer-in-charge",
-        "pilot",
-      ].includes(user.jobTitle?.toLowerCase()) && (
+
+      {canAccessPartsMonitoring && (
+        <>
+          <Drawer.Screen
+            name="Parts Lifespan Monitoring"
+            component={Screens.PartsLifespanMonitoring}
+            options={navLabel}
+          />
+          <Drawer.Screen
+            name="Maintenance Tracking"
+            component={Screens.MaintenanceTracking}
+            options={navLabel}
+          />
+        </>
+      )}
+      {canAccessMaintenancePriority && (
         <Drawer.Screen
-          name="Messages"
-          component={wrapWithDashboard(Messaging)}
-          options={{ navLabel }}
+          name="Maintenance Priority Sorting"
+          component={Screens.MaintenancePrioritySorting}
+          options={navLabel}
         />
       )}
-      {[
-        "maintenance manager",
-        "mechanic",
-        "officer-in-charge",
-        "pilot",
-      ].includes(user.jobTitle?.toLowerCase()) && (
+
+      {canAccessPartsRequisition && (
+        <Drawer.Screen
+          name="Parts Requisition Monitoring"
+          component={Screens.PartsRequisitionMonitoring}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessProfile && (
         <Drawer.Screen
           name="Profile"
-          component={wrapWithDashboard(Profile)}
+          component={Screens.Profile}
           options={navLabel}
         />
       )}

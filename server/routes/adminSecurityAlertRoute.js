@@ -1,7 +1,11 @@
 const express = require("express");
 const router = express.Router();
+
 const { verifyToken } = require("../middleware/authMiddleware");
-const rbacMiddleware = require("../middleware/rbacMiddleware");
+
+const permissions = require("../config/permissions");
+
+const { requirePermission } = require("../middleware/permissions");
 
 const {
   getSecurityAlerts,
@@ -11,12 +15,15 @@ const {
   getUnacknowledgedCount,
 } = require("../controllers/adminSecurityAlertController");
 
+/* =========================================
+   SECURITY ALERTS
+========================================= */
+
 // Get all security alerts
 router.get(
   "/",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ADMIN_PANEL),
   getSecurityAlerts,
 );
 
@@ -24,8 +31,7 @@ router.get(
 router.get(
   "/stats",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ADMIN_PANEL),
   getAlertStats,
 );
 
@@ -33,7 +39,7 @@ router.get(
 router.get(
   "/unacknowledged-count",
   verifyToken,
-  rbacMiddleware.requireAdmin,
+  requirePermission(permissions.ADMIN_PANEL),
   getUnacknowledgedCount,
 );
 
@@ -41,8 +47,7 @@ router.get(
 router.put(
   "/:alertId/acknowledge",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ADMIN_PANEL),
   acknowledgeAlert,
 );
 
@@ -50,8 +55,7 @@ router.put(
 router.put(
   "/:alertId/resolve",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ADMIN_PANEL),
   resolveAlert,
 );
 

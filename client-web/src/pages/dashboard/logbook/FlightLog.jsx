@@ -467,6 +467,21 @@ export default function FlightLog() {
     setSignatureWorkflow({ open: false, action: null, log: null });
   };
 
+  const runSignedWorkflowForLog = async (action, log) => {
+    if (!log?._id) return;
+    setSignatureWorkflow({ open: true, action, log });
+  };
+
+  const runNotifyWorkflowForLog = async (log) => {
+    if (!log?._id) return;
+    setWorkflowModal({ open: true, action: "notify", log });
+  };
+
+  const runCompleteWorkflowForLog = async (log) => {
+    if (!log?._id) return;
+    setWorkflowModal({ open: true, action: "complete", log });
+  };
+
   const handleSignedWorkflowAction = async (signature) => {
     const { action, log } = signatureWorkflow;
     if (!action || !log?._id) return;
@@ -797,7 +812,8 @@ export default function FlightLog() {
       key: "date",
       width: 120,
       render: (value) => formatDisplayDate(value),
-      sorter: (left, right) => getFlightLogDateTime(left) - getFlightLogDateTime(right),
+      sorter: (left, right) =>
+        getFlightLogDateTime(left) - getFlightLogDateTime(right),
       defaultSortOrder: "descend",
     },
     {
@@ -933,7 +949,6 @@ export default function FlightLog() {
       </Card>
 
       <Table
-        className="fl-table"
         columns={columns}
         dataSource={filteredLogs}
         loading={loading}
@@ -975,6 +990,11 @@ export default function FlightLog() {
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
           readOnly={isOfficerInCharge}
+          onRelease={(log) => runSignedWorkflowForLog("release", log)}
+          onAccept={(log) => runSignedWorkflowForLog("accept", log)}
+          onNotify={runNotifyWorkflowForLog}
+          onComplete={runCompleteWorkflowForLog}
+          workflowLoading={saving}
         />
       )}
 
@@ -982,8 +1002,8 @@ export default function FlightLog() {
         open={signatureWorkflow.open}
         title={
           signatureWorkflow.action === "release"
-            ? "Release Flight Log"
-            : "Accept Flight Log"
+            ? "Flight Log - Release"
+            : "Flight Log - Accept"
         }
         description={
           signatureWorkflow.action === "release"
@@ -1008,8 +1028,8 @@ export default function FlightLog() {
         cancelText="Cancel"
         title={
           workflowModal.action === "notify"
-            ? "Notify Mechanic"
-            : "Complete Flight Log"
+            ? "Flight Log - Notify Mechanic"
+            : "Flight Log - Complete"
         }
       >
         {workflowModal.action === "notify" && (

@@ -196,11 +196,7 @@ const Login = () => {
       )}
 
       <LoginLayout>
-        <Form
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="login-form-modern"
-        >
+        <Form layout="vertical" onFinish={handleSubmit}>
           <Form.Item label="Username or Email" required>
             <Input
               type="text"
@@ -249,8 +245,8 @@ const Login = () => {
             />
           </Form.Item>
 
-          <Row className="login-form-meta">
-            <Col xs={24} sm={12}>
+          <Row style={{ marginBottom: 20 }}>
+            <Col xs={12} sm={12}>
               <Checkbox
                 id="remember"
                 checked={rememberMe}
@@ -259,8 +255,16 @@ const Login = () => {
                 Remember Me
               </Checkbox>
             </Col>
-            <Col xs={24} sm={12} className="login-forgot-col">
-              <Link to="/forgot" className="link">
+            <Col
+              xs={12}
+              sm={12}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <Link
+                to="/forgot"
+                className="link"
+                style={{ textAlign: "right" }}
+              >
                 Forgot password?
               </Link>
             </Col>

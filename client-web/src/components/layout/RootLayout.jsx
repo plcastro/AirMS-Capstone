@@ -57,10 +57,16 @@ const RootLayout = () => {
           >
             <h1 style={{ fontSize: "3em", color: "white" }}>
               Aircraft Maintenance Made{" "}
-              <span style={{ color: "#07a264" }}>Smarter</span>
+              <span style={{ color: "#0ab973" }}>Smarter</span>
             </h1>
 
-            <Text style={{ opacity: 0.9, maxWidth: "360px", color: "white" }}>
+            <Text
+              style={{
+                opacity: 0.9,
+                color: "white",
+                fontSize: "1.25em",
+              }}
+            >
               Manage inspections, logs, and compliance in one unified platform.
             </Text>
           </div>
@@ -88,7 +94,7 @@ const RootLayout = () => {
               boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
               backdropFilter: "blur(10px)",
             }}
-            styles={{ body: { padding: isMobile ? "18px 14px" : "28px 26px" } }}
+            styles={{ body: { padding: "18px 14px" } }}
           >
             <Content style={{ width: "100%" }}>
               <Outlet />

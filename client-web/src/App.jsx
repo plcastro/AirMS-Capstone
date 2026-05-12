@@ -343,18 +343,20 @@ export default function App() {
           // },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
-            itemBg: "#f5f5f5",
-            itemColor: "#002019",
+            colorBgContainer: "#ffffff",
+            itemBg: "#ffffff",
+            subMenuItemBg: "#ffffff",
+            popupBg: "#ffffff",
 
-            itemHoverBg: "#006340",
-            itemHoverColor: "#ffffff",
-
-            itemSelectedBg: "#26866f",
+            itemColor: "#575757",
+            itemHoverColor: "#006340",
             itemSelectedColor: "#ffffff",
 
-            itemActiveBg: "#26866f",
+            itemHoverBg: "#ffffff",
+            itemSelectedBg: "#006340",
+            itemActiveBg: "#ffffff",
 
-            subMenuItemSelectedColor: "#002019",
+            subMenuItemSelectedColor: "#006340",
           },
           Tabs: {
             inkBarColor: "#006340",

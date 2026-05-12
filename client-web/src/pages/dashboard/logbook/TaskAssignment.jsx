@@ -20,9 +20,11 @@ import {
   Tabs,
   Tag,
   Typography,
+  DatePicker,
   message,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -231,9 +233,9 @@ export default function TaskAssignment() {
           assignedTo: values.assignedTo,
           assignedToName:
             `${selectedMechanic?.firstName || ""} ${selectedMechanic?.lastName || ""}`.trim(),
-          startDateTime: values.startDateTime,
-          endDateTime: values.endDateTime,
-          dueDate: values.endDateTime,
+          startDateTime: dayjs(values.startDateTime).format("YYYY-MM-DD HH:mm"),
+          endDateTime: dayjs(values.endDateTime).format("YYYY-MM-DD HH:mm"),
+          dueDate: dayjs(values.endDateTime).format("YYYY-MM-DD HH:mm"),
           status: "Pending",
           priority: values.priority,
           maintenanceType: values.maintenanceType,
@@ -405,70 +407,144 @@ export default function TaskAssignment() {
         onOk={handleCreate}
         title="Create Task"
         okText="Create"
+        width={960}
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="Title" name="title" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Aircraft"
-            name="aircraft"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Assign Mechanic"
-            name="assignedTo"
-            rules={[{ required: true }]}
-          >
-            <Select
-              options={mechanics.map((item) => ({
-                value: item._id,
-                label: `${item.firstName} ${item.lastName}`,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Start Date/Time"
-            name="startDateTime"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="YYYY-MM-DD HH:mm" />
-          </Form.Item>
-          <Form.Item
-            label="End Date/Time"
-            name="endDateTime"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="YYYY-MM-DD HH:mm" />
-          </Form.Item>
-          <Form.Item label="Priority" name="priority" initialValue="Normal">
-            <Select
-              options={["Low", "Normal", "High"].map((value) => ({
-                value,
-                label: value,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Maintenance Type"
-            name="maintenanceType"
-            initialValue="Corrective Maintenance"
-          >
-            <Select
-              options={["Corrective Maintenance", "Preventive Maintenance"].map(
-                (value) => ({ value, label: value }),
-              )}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Checklist Items (one per line)"
-            name="checklistItems"
-            rules={[{ required: true }]}
-          >
-            <Input.TextArea rows={5} />
-          </Form.Item>
+          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            <Row gutter={[12, 4]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Title"
+                  name="title"
+                  rules={[
+                    { required: true, message: "Task title is required" },
+                    { min: 3, message: "Title must be at least 3 characters" },
+                  ]}
+                >
+                  <Input size="large" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Aircraft"
+                  name="aircraft"
+                  rules={[{ required: true, message: "Aircraft is required" }]}
+                >
+                  <Input size="large" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Assign Mechanic"
+                  name="assignedTo"
+                  rules={[{ required: true, message: "Assignee is required" }]}
+                >
+                  <Select
+                    size="large"
+                    options={mechanics.map((item) => ({
+                      value: item._id,
+                      label: `${item.firstName} ${item.lastName}`,
+                    }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item label="Priority" name="priority" initialValue="Normal">
+                  <Select
+                    size="large"
+                    options={["Low", "Normal", "High"].map((value) => ({
+                      value,
+                      label: value,
+                    }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Start Date/Time"
+                  name="startDateTime"
+                  rules={[
+                    { required: true, message: "Start date/time is required" },
+                  ]}
+                >
+                  <DatePicker
+                    size="large"
+                    style={{ width: "100%" }}
+                    format="YYYY-MM-DD HH:mm"
+                    showTime={{ format: "HH:mm" }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="End Date/Time"
+                  name="endDateTime"
+                  dependencies={["startDateTime"]}
+                  rules={[
+                    { required: true, message: "End date/time is required" },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        const start = getFieldValue("startDateTime");
+                        if (!start || !value) return Promise.resolve();
+                        if (dayjs(value).isAfter(dayjs(start)))
+                          return Promise.resolve();
+                        return Promise.reject(
+                          new Error(
+                            "End date/time must be later than start date/time",
+                          ),
+                        );
+                      },
+                    }),
+                  ]}
+                >
+                  <DatePicker
+                    size="large"
+                    style={{ width: "100%" }}
+                    format="YYYY-MM-DD HH:mm"
+                    showTime={{ format: "HH:mm" }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24}>
+                <Form.Item
+                  label="Maintenance Type"
+                  name="maintenanceType"
+                  initialValue="Corrective Maintenance"
+                >
+                  <Select
+                    size="large"
+                    options={[
+                      "Corrective Maintenance",
+                      "Preventive Maintenance",
+                    ].map((value) => ({ value, label: value }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24}>
+                <Form.Item
+                  label="Checklist Items (one per line)"
+                  name="checklistItems"
+                  rules={[
+                    { required: true, message: "Checklist items are required" },
+                    {
+                      validator(_, value) {
+                        const itemCount = String(value || "")
+                          .split("\n")
+                          .map((line) => line.trim())
+                          .filter(Boolean).length;
+                        if (itemCount > 0) return Promise.resolve();
+                        return Promise.reject(
+                          new Error("Enter at least one checklist item"),
+                        );
+                      },
+                    },
+                  ]}
+                >
+                  <Input.TextArea rows={5} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Space>
         </Form>
       </Modal>
 
@@ -600,28 +676,34 @@ export default function TaskAssignment() {
         okText="Return"
         onOk={submitReturn}
         onCancel={() => setReviewOpen(false)}
+        width={720}
       >
-        <Space orientation="vertical" style={{ width: "100%" }}>
+        <Space direction="vertical" style={{ width: "100%" }} size={10}>
           <Text>Uncheck items that need rework:</Text>
-          {(selectedTask?.checklistItems || [])
-            .map((item, index) => ({ item, index }))
-            .filter(({ index }) => (selectedTask?.checklistState || [])[index])
-            .map(({ item, index }) => (
-              <Checkbox
-                key={`${item.taskId || item.taskName}-${index}`}
-                checked={!itemsToUncheck.includes(index)}
-                onChange={(e) => {
-                  setItemsToUncheck((prev) => {
-                    if (!e.target.checked)
-                      return prev.filter((v) => v !== index);
-                    if (prev.includes(index)) return prev;
-                    return [...prev, index];
-                  });
-                }}
-              >
-                {item.taskName}
-              </Checkbox>
-            ))}
+          <Row gutter={[8, 8]}>
+            {(selectedTask?.checklistItems || [])
+              .map((item, index) => ({ item, index }))
+              .filter(
+                ({ index }) => (selectedTask?.checklistState || [])[index],
+              )
+              .map(({ item, index }) => (
+                <Col xs={24} md={12} key={`${item.taskId || item.taskName}-${index}`}>
+                  <Checkbox
+                    checked={!itemsToUncheck.includes(index)}
+                    onChange={(e) => {
+                      setItemsToUncheck((prev) => {
+                        if (!e.target.checked)
+                          return prev.filter((v) => v !== index);
+                        if (prev.includes(index)) return prev;
+                        return [...prev, index];
+                      });
+                    }}
+                  >
+                    {item.taskName}
+                  </Checkbox>
+                </Col>
+              ))}
+          </Row>
           <Input.TextArea
             rows={4}
             value={reviewNote}

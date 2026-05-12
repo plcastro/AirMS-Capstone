@@ -47,7 +47,7 @@ export default function MechanicList() {
       const token = await AsyncStorage.getItem("currentUserToken");
 
       const [usersResponse, tasksResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/user/get-all-users`, {
+        fetch(`${API_BASE}/api/user/assignable-users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

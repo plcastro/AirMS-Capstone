@@ -1,7 +1,11 @@
 const express = require("express");
 const router = express.Router();
+
 const { verifyToken } = require("../middleware/authMiddleware");
-const rbacMiddleware = require("../middleware/rbacMiddleware");
+
+const permissions = require("../config/permissions");
+
+const { requirePermission } = require("../middleware/permissions");
 
 const {
   getAdminActivityLogs,
@@ -10,36 +14,35 @@ const {
   exportAdminActivityLogs,
 } = require("../controllers/adminActivityController");
 
-// All admin activity endpoints require admin access
+/* =========================================
+   ADMIN ACTIVITY LOGS
+========================================= */
+
 router.get(
   "/logs",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   getAdminActivityLogs,
 );
 
 router.get(
   "/summary",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   getAdminActivitySummary,
 );
 
 router.get(
   "/details/:activityId",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   getAdminActivityDetails,
 );
 
 router.get(
   "/export",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
   exportAdminActivityLogs,
 );
 
