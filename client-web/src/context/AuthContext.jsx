@@ -5,6 +5,7 @@ export const AuthContext = createContext();
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 60 * 1000;
 const AUTH_PERSISTENCE_KEY = "authPersistence";
+const SESSION_META_KEY = "authSessionMeta";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -54,6 +55,24 @@ export const AuthProvider = ({ children }) => {
     activeStorage.setItem("token", token);
     inactiveStorage.removeItem("currentUser");
     inactiveStorage.removeItem("token");
+  };
+
+  const persistSessionMeta = (meta = {}) => {
+    const sessionMeta = {
+      base: meta.base || "UNKNOWN",
+      sessionId: meta.sessionId || null,
+      platform: meta.platform || "WEB",
+    };
+    localStorage.setItem(SESSION_META_KEY, JSON.stringify(sessionMeta));
+    return sessionMeta;
+  };
+
+  const getSessionMeta = () => {
+    try {
+      return JSON.parse(localStorage.getItem(SESSION_META_KEY) || "{}");
+    } catch {
+      return {};
+    }
   };
 
   const isTokenValid = (token) => {
@@ -110,6 +129,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("token");
     localStorage.removeItem(AUTH_PERSISTENCE_KEY);
+    localStorage.removeItem(SESSION_META_KEY);
   };
 
   const scheduleTokenExpiryLogout = (token, onExpire) => {
@@ -200,6 +220,15 @@ export const AuthProvider = ({ children }) => {
     const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
       method: "POST",
       credentials: "include",
+      headers: getSessionMeta()?.base
+        ? {
+            "x-base": getSessionMeta().base,
+            "x-platform": getSessionMeta().platform || "WEB",
+            ...(getSessionMeta().sessionId
+              ? { "x-session-id": getSessionMeta().sessionId }
+              : {}),
+          }
+        : undefined,
     });
 
     if (!response.ok) {
@@ -307,10 +336,17 @@ export const AuthProvider = ({ children }) => {
         isOnline: true,
         online: true,
         platform: "web",
+        base: options.base || userData.base,
+        sessionId: options.sessionId || userData.sessionId,
       });
 
       setPersistenceMode(options.rememberMe ? "local" : "session");
       setUser(normalizedUser);
+      persistSessionMeta({
+        base: normalizedUser.base,
+        sessionId: normalizedUser.sessionId,
+        platform: "WEB",
+      });
       persistAuthState(normalizedUser, token);
       scheduleTokenExpiryLogout(token, () => logoutUser());
     } catch (err) {
@@ -331,9 +367,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.getItem("token") || sessionStorage.getItem("token");
 
       if (token) {
+        const sessionMeta = getSessionMeta();
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "x-platform": "WEB",
+            ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+            ...(sessionMeta.sessionId
+              ? { "x-session-id": sessionMeta.sessionId }
+              : {}),
+          },
           credentials: "include",
         });
       }
@@ -365,7 +409,17 @@ export const AuthProvider = ({ children }) => {
 
   const getAuthHeader = async () => {
     const token = await getValidToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    const sessionMeta = getSessionMeta();
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          "x-platform": "WEB",
+          ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+          ...(sessionMeta.sessionId
+            ? { "x-session-id": sessionMeta.sessionId }
+            : {}),
+        }
+      : {};
   };
 
   useEffect(() => {

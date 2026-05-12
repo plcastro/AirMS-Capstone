@@ -13,8 +13,8 @@ import {
   Card,
   Col,
   Empty,
+  Grid,
   Input,
-  List,
   Modal,
   Row,
   Select,
@@ -30,6 +30,7 @@ import {
   SendOutlined,
   TeamOutlined,
   UserOutlined,
+  ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -42,11 +43,13 @@ const LIVE_SYNC_INTERVAL_MS = 1000;
 const getStoredToken = () =>
   localStorage.getItem("token") || sessionStorage.getItem("token");
 
-const getDisplayName = (user = {}) =>
+const getDisplayFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
   user.username ||
   "User";
 
+const getDisplayFirstName = (user = {}) =>
+  `${user.firstName || ""}`.trim() || user.username || "User";
 const getImageUrl = (image) => {
   if (!image) return null;
   return String(image).startsWith("http") ? image : `${API_BASE}${image}`;
@@ -73,7 +76,7 @@ const getAttachmentLabel = (attachments = []) => {
 const getConversationTitle = (conversation) =>
   conversation.type === "group"
     ? conversation.group?.name || "Group chat"
-    : getDisplayName(conversation.user);
+    : getDisplayFullName(conversation.user);
 
 const formatConversationTime = (value) => {
   if (!value) return "";
@@ -132,6 +135,9 @@ const buildWsUrl = (token) => {
 
 export default function Messaging() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [users, setUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -146,6 +152,7 @@ export default function Messaging() {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [mobileView, setMobileView] = useState("list");
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
@@ -395,7 +402,7 @@ export default function Messaging() {
       .map((conversation) => ({
         ...conversation,
         id: String(getEntityId(conversation.user)),
-        title: getDisplayName(conversation.user),
+        title: getDisplayFullName(conversation.user),
         subtitle: conversation.user.jobTitle || "User",
       }));
     const groupFromConversations = conversations
@@ -417,7 +424,7 @@ export default function Messaging() {
         type: "direct",
         id: String(item._id),
         user: item,
-        title: getDisplayName(item),
+        title: getDisplayFullName(item),
         subtitle: item.jobTitle || "User",
         lastMessage: null,
         unreadCount: 0,
@@ -456,7 +463,7 @@ export default function Messaging() {
             type: "direct",
             id: String(selectedUser._id),
             user: selectedUser,
-            title: getDisplayName(selectedUser),
+            title: getDisplayFullName(selectedUser),
             subtitle: selectedUser.jobTitle || "User",
           }
         : selectedConversation;
@@ -481,12 +488,12 @@ export default function Messaging() {
     );
     const senderName =
       item.type === "group" && !mine
-        ? getDisplayName(
+        ? getDisplayFirstName(
             groupSender ||
               usersById.get(String(getEntityId(lastMessage.sender))) ||
               {},
           )
-        : getConversationTitle(item);
+        : getDisplayFirstName(item.user || {});
 
     return {
       text: `${mine ? "You" : senderName}: ${
@@ -503,6 +510,9 @@ export default function Messaging() {
       title: item.title,
     });
     setMessages([]);
+    if (isMobile) {
+      setMobileView("chat");
+    }
   };
 
   const handleSend = async () => {
@@ -659,6 +669,9 @@ export default function Messaging() {
           id: String(group._id),
           title: group.name,
         });
+        if (isMobile) {
+          setMobileView("chat");
+        }
       }
       setGroupModalOpen(false);
       setGroupName("");
@@ -671,319 +684,356 @@ export default function Messaging() {
     }
   };
 
-  return (
-    <div style={{ padding: 16, height: "100%" }}>
-      <Row gutter={[12, 12]} style={{ height: "100%" }}>
-        <Col xs={24} md={8} lg={7} style={{ height: "100%" }}>
-          <Card
-            title="Messages"
-            size="small"
-            extra={
-              <Button
-                size="small"
-                icon={<TeamOutlined />}
-                onClick={() => setGroupModalOpen(true)}
-              >
-                New group
-              </Button>
-            }
-            styles={{
-              body: {
-                flex: 1,
-                minHeight: 0,
-                padding: 0,
-                display: "flex",
-                flexDirection: "column",
-              },
-            }}
-            style={{ height: "100%", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ padding: 12 }}>
-              <Input
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder="Search users or groups"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-              />
-            </div>
-            <List
-              className="messages-user-list"
-              loading={loading}
-              dataSource={conversationItems}
-              locale={{ emptyText: <Empty description="No conversations" /> }}
-              renderItem={(item) => {
-                const preview = getConversationPreview(item);
-                const isSelected =
-                  selectedConversation?.type === item.type &&
-                  String(selectedConversation?.id) === String(item.id);
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileView("list");
+      return;
+    }
+    if (!selectedConversationId) {
+      setMobileView("list");
+    }
+  }, [isMobile, selectedConversationId]);
 
-                return (
-                  <List.Item
-                    onClick={() => handleSelectConversation(item)}
-                    style={{
-                      cursor: "pointer",
-                      padding: "10px 14px",
-                      background: isSelected ? "#e9f4f1" : "transparent",
-                    }}
-                  >
-                    <List.Item.Meta
-                      avatar={
-                        <Badge count={item.unreadCount || 0} size="small">
-                          <Avatar
-                            src={
-                              item.type === "direct"
-                                ? getImageUrl(item.user?.image)
-                                : null
-                            }
-                            icon={
-                              item.type === "group" ? (
-                                <TeamOutlined />
-                              ) : (
-                                <UserOutlined />
-                              )
-                            }
-                          />
-                        </Badge>
-                      }
-                      title={
-                        <Text className="message-card-name" strong>
-                          {item.title}
-                        </Text>
-                      }
-                      description={
-                        <Space
-                          className="message-card-details"
-                          orientation="vertical"
-                          size={0}
-                          style={{ width: "100%" }}
-                        >
-                          <Text
-                            className="message-card-role"
-                            type="secondary"
-                            ellipsis
-                          >
-                            {item.subtitle}
-                          </Text>
-                          {preview ? (
-                            <div className="message-card-preview-row">
-                              <Text
-                                className="message-card-preview"
-                                type="secondary"
-                                ellipsis
-                              >
-                                {preview.text}
-                              </Text>
-                              <Text
-                                className="message-card-preview-time"
-                                type="secondary"
-                              >
-                                ({preview.time})
-                              </Text>
-                            </div>
-                          ) : null}
-                        </Space>
-                      }
-                    />
-                  </List.Item>
-                );
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} md={16} lg={17} style={{ height: "100%" }}>
-          <Card
-            title={
-              selectedConversationDetails ? (
-                <Space>
-                  <Avatar
-                    src={
-                      selectedConversationDetails.type === "direct"
-                        ? getImageUrl(selectedConversationDetails.user?.image)
-                        : null
-                    }
-                    icon={
-                      selectedConversationDetails.type === "group" ? (
-                        <TeamOutlined />
-                      ) : (
-                        <UserOutlined />
-                      )
-                    }
-                  />
-                  <span>
-                    <Text strong>{selectedConversationDetails.title}</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {selectedConversationDetails.subtitle || "Conversation"}
-                    </Text>
-                  </span>
-                </Space>
-              ) : (
-                "Select a conversation"
-              )
-            }
-            extra={
-              selectedConversationDetails?.type === "group" ? (
+  return (
+    <div style={{ padding: isMobile ? 8 : 16, height: "100%" }}>
+      <Row gutter={[12, 12]} style={{ height: "100%" }}>
+        {(!isMobile || mobileView === "list") && (
+          <Col xs={24} md={8} lg={7} style={{ height: "100%" }}>
+            <Card
+              title="Messages"
+              size="small"
+              extra={
                 <Button
                   size="small"
                   icon={<TeamOutlined />}
-                  onClick={() => setMembersModalOpen(true)}
+                  onClick={() => setGroupModalOpen(true)}
                 >
-                  Members
+                  New group
                 </Button>
-              ) : null
-            }
-            size="small"
-            style={{ height: "100%" }}
-            styles={{
-              body: {
-                height: "calc(100% - 56px)",
+              }
+              styles={{
+                body: {
+                  flex: 1,
+                  minHeight: 0,
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                },
+              }}
+              style={{
+                height: "100%",
                 display: "flex",
                 flexDirection: "column",
-                padding: 0,
-              },
-            }}
-          >
-            {!selectedConversationId ? (
-              <Empty
-                description="Choose a conversation to start messaging"
-                style={{ margin: "auto" }}
-              />
-            ) : (
-              <>
-                <div
-                  style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    padding: 16,
-                    background: "#f7f9f8",
-                  }}
-                >
-                  {messages.map((item, index) => {
-                    const mine =
-                      String(getEntityId(item.sender)) ===
-                      String(currentUserId);
-                    const isLatestMessage = index === messages.length - 1;
+              }}
+            >
+              <div style={{ padding: 12 }}>
+                <Input
+                  allowClear
+                  prefix={<SearchOutlined />}
+                  placeholder="Search users or groups"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                />
+              </div>
+              <div
+                className="messages-user-list"
+                style={{ flex: 1, overflowY: "auto" }}
+              >
+                {loading ? (
+                  <div style={{ padding: 16, textAlign: "center" }}>
+                    <Text type="secondary">Loading conversations...</Text>
+                  </div>
+                ) : conversationItems.length === 0 ? (
+                  <Empty description="No conversations" />
+                ) : (
+                  conversationItems.map((item) => {
+                    const preview = getConversationPreview(item);
+                    const isSelected =
+                      selectedConversation?.type === item.type &&
+                      String(selectedConversation?.id) === String(item.id);
+
                     return (
                       <div
-                        key={item._id}
-                        className={`message-row ${isLatestMessage ? "message-row-latest" : ""}`}
+                        key={`${item.type}-${item.id}`}
+                        onClick={() => handleSelectConversation(item)}
                         style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: mine ? "flex-end" : "flex-start",
-                          marginBottom: 8,
+                          cursor: "pointer",
+                          padding: "10px 14px",
+                          background: isSelected ? "#e9f4f1" : "transparent",
                         }}
                       >
-                        <div
-                          style={{
-                            maxWidth: "72%",
-                            padding: "9px 12px 7px",
-                            borderRadius: 8,
-                            background: mine ? "#26866f" : "#ffffff",
-                            color: mine ? "#fff" : "#111",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                            overflowWrap: "anywhere",
-                          }}
+                        <Space
+                          align="start"
+                          size={10}
+                          style={{ width: "100%" }}
                         >
-                          {item.body ? (
-                            <div style={{ whiteSpace: "pre-wrap" }}>
-                              {item.body}
-                            </div>
-                          ) : null}
-                          {item.attachments?.length ? (
-                            <div className="message-attachments">
-                              {renderAttachments(item)}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div
-                          className="message-meta"
-                          style={{
-                            paddingRight: mine ? 2 : 0,
-                            paddingLeft: mine ? 0 : 2,
-                            textAlign: mine ? "right" : "left",
-                          }}
-                        >
-                          {[
-                            item.createdAt
-                              ? formatConversationTime(item.createdAt)
-                              : null,
-                            mine
-                              ? getMessageStatus(
-                                  item,
-                                  selectedConversation?.type,
+                          <Badge count={item.unreadCount || 0} size="small">
+                            <Avatar
+                              src={
+                                item.type === "direct"
+                                  ? getImageUrl(item.user?.image)
+                                  : null
+                              }
+                              icon={
+                                item.type === "group" ? (
+                                  <TeamOutlined />
+                                ) : (
+                                  <UserOutlined />
                                 )
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </div>
+                              }
+                            />
+                          </Badge>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <Text className="message-card-name" strong>
+                              {item.title}
+                            </Text>
+                            <Space
+                              className="message-card-details"
+                              direction="vertical"
+                              size={0}
+                              style={{ width: "100%" }}
+                            >
+                              <Text
+                                className="message-card-role"
+                                type="secondary"
+                                ellipsis
+                              >
+                                {item.subtitle}
+                              </Text>
+                              {preview ? (
+                                <div className="message-card-preview-row">
+                                  <Text
+                                    className="message-card-preview"
+                                    type="secondary"
+                                    ellipsis
+                                  >
+                                    {preview.text}
+                                  </Text>
+                                  <Text
+                                    className="message-card-preview-time"
+                                    type="secondary"
+                                  >
+                                    ({preview.time})
+                                  </Text>
+                                </div>
+                              ) : null}
+                            </Space>
+                          </div>
+                        </Space>
                       </div>
                     );
-                  })}
-                  <div ref={threadBottomRef} />
-                </div>
-                <div style={{ padding: 12, borderTop: "1px solid #eee" }}>
-                  {attachments.length > 0 ? (
-                    <div className="message-composer-attachments">
-                      {attachments.map((file, index) => (
-                        <div key={`${file.name}-${file.size}-${index}`} className="message-composer-attachment">
-                          {file.type?.startsWith("image/") ? (
-                            <img src={file.previewUrl} alt="" />
-                          ) : (
-                            <FileOutlined />
-                          )}
-                          <span>{file.name}</span>
-                          <Button
-                            size="small"
-                            type="text"
-                            icon={<CloseOutlined />}
-                            onClick={() => removeAttachment(index)}
-                          />
+                  })
+                )}
+              </div>
+            </Card>
+          </Col>
+        )}
+        {(!isMobile || mobileView === "chat") && (
+          <Col xs={24} md={16} lg={17} style={{ height: "100%" }}>
+            <Card
+              title={
+                selectedConversationDetails ? (
+                  <Space>
+                    {isMobile && (
+                      <Button
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => setMobileView("list")}
+                        style={{ marginRight: 2 }}
+                      />
+                    )}
+                    <Avatar
+                      src={
+                        selectedConversationDetails.type === "direct"
+                          ? getImageUrl(selectedConversationDetails.user?.image)
+                          : null
+                      }
+                      icon={
+                        selectedConversationDetails.type === "group" ? (
+                          <TeamOutlined />
+                        ) : (
+                          <UserOutlined />
+                        )
+                      }
+                    />
+                    <span>
+                      <Text strong>{selectedConversationDetails.title}</Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {selectedConversationDetails.subtitle || "Conversation"}
+                      </Text>
+                    </span>
+                  </Space>
+                ) : (
+                  "Select a conversation"
+                )
+              }
+              extra={
+                selectedConversationDetails?.type === "group" ? (
+                  <Button
+                    size="small"
+                    icon={<TeamOutlined />}
+                    onClick={() => setMembersModalOpen(true)}
+                  >
+                    Members
+                  </Button>
+                ) : null
+              }
+              size="large"
+              style={{ height: "100%" }}
+              styles={{
+                body: {
+                  height: "calc(100% - 56px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: 0,
+                },
+              }}
+            >
+              {!selectedConversationId ? (
+                <Empty
+                  description="Choose a conversation to start messaging"
+                  style={{ margin: "auto" }}
+                />
+              ) : (
+                <>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                      padding: 16,
+                      background: "#f7f9f8",
+                    }}
+                  >
+                    {messages.map((item, index) => {
+                      const mine =
+                        String(getEntityId(item.sender)) ===
+                        String(currentUserId);
+                      const isLatestMessage = index === messages.length - 1;
+                      return (
+                        <div
+                          key={item._id}
+                          className={`message-row ${isLatestMessage ? "message-row-latest" : ""}`}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: mine ? "flex-end" : "flex-start",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              maxWidth: "72%",
+                              padding: "9px 12px 7px",
+                              borderRadius: 8,
+                              background: mine ? "#26866f" : "#ffffff",
+                              color: mine ? "#fff" : "#111",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {item.body ? (
+                              <div style={{ whiteSpace: "pre-wrap" }}>
+                                {item.body}
+                              </div>
+                            ) : null}
+                            {item.attachments?.length ? (
+                              <div className="message-attachments">
+                                {renderAttachments(item)}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div
+                            className="message-meta"
+                            style={{
+                              paddingRight: mine ? 2 : 0,
+                              paddingLeft: mine ? 0 : 2,
+                              textAlign: mine ? "right" : "left",
+                            }}
+                          >
+                            {[
+                              item.createdAt
+                                ? formatConversationTime(item.createdAt)
+                                : null,
+                              mine
+                                ? getMessageStatus(
+                                    item,
+                                    selectedConversation?.type,
+                                  )
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <Space.Compact style={{ width: "100%" }}>
-                    <Button
-                      icon={<PaperClipOutlined />}
-                      onClick={() => fileInputRef.current?.click()}
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                      onChange={handleAttachmentChange}
-                      style={{ display: "none" }}
-                    />
-                    <TextArea
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onPressEnter={(event) => {
-                        if (!event.shiftKey) {
-                          event.preventDefault();
-                          handleSend();
-                        }
-                      }}
-                      autoSize={{ minRows: 1, maxRows: 4 }}
-                      placeholder="Write a message"
-                      maxLength={1000}
-                    />
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      loading={sending}
-                      onClick={handleSend}
-                      disabled={!draft.trim() && attachments.length === 0}
-                    />
-                  </Space.Compact>
-                </div>
-              </>
-            )}
-          </Card>
-        </Col>
+                      );
+                    })}
+                    <div ref={threadBottomRef} />
+                  </div>
+                  <div style={{ padding: 12, borderTop: "1px solid #eee" }}>
+                    {attachments.length > 0 ? (
+                      <div className="message-composer-attachments">
+                        {attachments.map((file, index) => (
+                          <div
+                            key={`${file.name}-${file.size}-${index}`}
+                            className="message-composer-attachment"
+                          >
+                            {file.type?.startsWith("image/") ? (
+                              <img src={file.previewUrl} alt="" />
+                            ) : (
+                              <FileOutlined />
+                            )}
+                            <span>{file.name}</span>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<CloseOutlined />}
+                              onClick={() => removeAttachment(index)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <Space.Compact style={{ width: "100%", height: "100%" }}>
+                      <Button
+                        icon={<PaperClipOutlined />}
+                        onClick={() => fileInputRef.current?.click()}
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                        onChange={handleAttachmentChange}
+                        style={{ display: "none" }}
+                      />
+                      <TextArea
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onPressEnter={(event) => {
+                          if (!event.shiftKey) {
+                            event.preventDefault();
+                            handleSend();
+                          }
+                        }}
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        placeholder="Write a message"
+                        maxLength={1000}
+                      />
+                      <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        loading={sending}
+                        onClick={handleSend}
+                        disabled={!draft.trim() && attachments.length === 0}
+                      />
+                    </Space.Compact>
+                  </div>
+                </>
+              )}
+            </Card>
+          </Col>
+        )}
       </Row>
 
       <Modal
@@ -993,8 +1043,9 @@ export default function Messaging() {
         onCancel={() => setGroupModalOpen(false)}
         okText="Create"
         confirmLoading={creatingGroup}
+        width={isMobile ? "96vw" : 520}
       >
-        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
           <Input
             value={groupName}
             onChange={(event) => setGroupName(event.target.value)}
@@ -1015,7 +1066,7 @@ export default function Messaging() {
             style={{ width: "100%" }}
             options={users.map((item) => ({
               value: String(item._id),
-              label: getDisplayName(item),
+              label: getDisplayFullName(item),
             }))}
           />
         </Space>
@@ -1026,25 +1077,36 @@ export default function Messaging() {
         open={membersModalOpen}
         onCancel={() => setMembersModalOpen(false)}
         footer={null}
+        width={isMobile ? "96vw" : 520}
       >
-        <List
-          dataSource={selectedGroupMembers}
-          locale={{ emptyText: <Empty description="No members" /> }}
-          renderItem={(member) => (
-            <List.Item>
-              <List.Item.Meta
-                avatar={
-                  <Avatar
-                    src={getImageUrl(member.image)}
-                    icon={<UserOutlined />}
-                  />
-                }
-                title={<Text strong>{getDisplayName(member)}</Text>}
-                description={member.jobTitle || "User"}
-              />
-            </List.Item>
-          )}
-        />
+        {selectedGroupMembers.length === 0 ? (
+          <Empty description="No members" />
+        ) : (
+          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            {selectedGroupMembers.map((member) => (
+              <div
+                key={String(getEntityId(member))}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 0",
+                }}
+              >
+                <Avatar
+                  src={getImageUrl(member.image)}
+                  icon={<UserOutlined />}
+                />
+                <div>
+                  <Text strong>{getDisplayFullName(member)}</Text>
+                  <div>
+                    <Text type="secondary">{member.jobTitle || "User"}</Text>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Space>
+        )}
       </Modal>
     </div>
   );
