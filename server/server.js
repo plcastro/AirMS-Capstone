@@ -36,6 +36,9 @@ const {
   initWebSocket,
 } = require("./utils/realtimeEvents");
 const { requestContextMiddleware } = require("./middleware/requestContext");
+const {
+  auditMutatingRequest,
+} = require("./middleware/auditRequestMiddleware");
 const app = express();
 
 const allowedOrigins = [
@@ -57,7 +60,7 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -77,6 +80,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 app.use(requestContextMiddleware);
+app.use(auditMutatingRequest);
 
 app.use(
   helmet({

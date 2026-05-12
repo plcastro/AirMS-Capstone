@@ -3,7 +3,7 @@ const UserSession = require("../models/userSessionModel");
 const touchSessionActivity = async (req, _res, next) => {
   try {
     const userId = req.user?.id;
-    const sessionId = req.headers["x-session-id"];
+    const sessionId = req.headers["x-session-id"] || req.user?.sessionId;
 
     if (userId && sessionId) {
       await UserSession.findOneAndUpdate(

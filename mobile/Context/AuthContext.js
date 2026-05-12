@@ -48,10 +48,27 @@ export const AuthProvider = ({ children }) => {
     if (Platform.OS === "web") {
       localStorage.removeItem("currentUser");
       localStorage.removeItem("currentUserToken");
+      localStorage.removeItem("authSessionMeta");
       return;
     }
 
-    await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
+    await AsyncStorage.multiRemove([
+      "currentUser",
+      "currentUserToken",
+      "authSessionMeta",
+    ]);
+  };
+
+  const getSessionMeta = async () => {
+    try {
+      const raw =
+        Platform.OS === "web"
+          ? localStorage.getItem("authSessionMeta")
+          : await AsyncStorage.getItem("authSessionMeta");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
   };
 
   const clearInactivityTimeout = () => {
@@ -144,6 +161,7 @@ export const AuthProvider = ({ children }) => {
 
       if (notifyServer && Platform.OS !== "web") {
         const token = await AsyncStorage.getItem("currentUserToken");
+        const sessionMeta = await getSessionMeta();
 
         if (token) {
           await fetch(`${API_BASE}/api/user/logout`, {
@@ -151,6 +169,11 @@ export const AuthProvider = ({ children }) => {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
+              "x-platform": "MOBILE",
+              ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+              ...(sessionMeta.sessionId
+                ? { "x-session-id": sessionMeta.sessionId }
+                : {}),
             },
           }).catch((error) => {
             console.error("Server logout failed:", error);
@@ -313,10 +336,26 @@ export const AuthProvider = ({ children }) => {
     if (Platform.OS === "web") {
       localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
       localStorage.setItem("currentUserToken", token);
+      localStorage.setItem(
+        "authSessionMeta",
+        JSON.stringify({
+          base: normalizedUser.base || "UNKNOWN",
+          sessionId: normalizedUser.sessionId || null,
+          platform: "MOBILE",
+        }),
+      );
     } else {
       await AsyncStorage.multiSet([
         ["currentUser", JSON.stringify(normalizedUser)],
         ["currentUserToken", token],
+        [
+          "authSessionMeta",
+          JSON.stringify({
+            base: normalizedUser.base || "UNKNOWN",
+            sessionId: normalizedUser.sessionId || null,
+            platform: "MOBILE",
+          }),
+        ],
       ]).catch(console.error);
     }
 

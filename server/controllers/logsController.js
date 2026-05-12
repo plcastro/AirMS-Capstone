@@ -1,6 +1,51 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
-const { getRequestContext } = require("../middleware/requestContext");
+const UserSession = require("../models/userSessionModel");
+const {
+  getRequestContext,
+  markAuditLogged,
+} = require("../middleware/requestContext");
+
+const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
+const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
+
+const resolveAuditContext = async (context = {}, userId = null) => {
+  const resolved = { ...context };
+
+  if (
+    isKnownPlatform(resolved.platform) &&
+    isKnownBase(resolved.base) &&
+    resolved.sessionId
+  ) {
+    return resolved;
+  }
+
+  if (!userId && !resolved.sessionId) {
+    return resolved;
+  }
+
+  const sessionFilter = resolved.sessionId
+    ? { sessionId: resolved.sessionId }
+    : { userId };
+
+  const session = await UserSession.findOne(sessionFilter)
+    .sort({ isActive: -1, lastActivityAt: -1, loginAt: -1, createdAt: -1 })
+    .lean();
+
+  if (!session) {
+    return resolved;
+  }
+
+  resolved.sessionId = resolved.sessionId || session.sessionId || null;
+  resolved.platform = isKnownPlatform(resolved.platform)
+    ? resolved.platform
+    : session.platform || "UNKNOWN";
+  resolved.base = isKnownBase(resolved.base)
+    ? resolved.base
+    : session.base || "UNKNOWN";
+
+  return resolved;
+};
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +82,8 @@ const auditLog = async (
   requestMeta = {},
 ) => {
   try {
+    markAuditLogged();
+
     let username = usernameSnapshot || "System";
     if (userId) {
       if (!usernameSnapshot) {
@@ -51,7 +98,10 @@ const auditLog = async (
 
     const sanitizedAction = sanitizeActionText(action, username);
 
-    const context = { ...getRequestContext(), ...requestMeta };
+    const context = await resolveAuditContext(
+      { ...getRequestContext(), ...requestMeta },
+      userId,
+    );
 
     const newLog = await UserLog.create({
       action: sanitizedAction,
@@ -133,21 +183,58 @@ const getAllUserLogs = async (req, res) => {
     }
 
     const [logs, total] = await Promise.all([
-      UserLog.find(filter).sort({ dateTime: -1 }).skip(skip).limit(safeLimit),
+      UserLog.find(filter)
+        .sort({ dateTime: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean(),
       UserLog.countDocuments(filter),
     ]);
 
-    const data = logs.map((log) => ({
-      _id: log._id,
-      dateTime: log.dateTime,
-      actionMade: log.action,
-      username: log.username || "Unknown",
-      platform: log.platform || "UNKNOWN",
-      base: log.base || "UNKNOWN",
-      sessionId: log.sessionId || null,
-      ipAddress: log.ipAddress || "",
-      userAgent: log.userAgent || "",
-    }));
+    const sessionIds = [
+      ...new Set(
+        logs
+          .filter(
+            (log) =>
+              log.sessionId &&
+              (!isKnownPlatform(log.platform) || !isKnownBase(log.base)),
+          )
+          .map((log) => log.sessionId),
+      ),
+    ];
+
+    const sessionMap =
+      sessionIds.length > 0
+        ? new Map(
+            (
+              await UserSession.find({ sessionId: { $in: sessionIds } })
+                .select("sessionId platform base")
+                .lean()
+            ).map((session) => [session.sessionId, session]),
+          )
+        : new Map();
+
+    const data = logs.map((log) => {
+      const session = sessionMap.get(log.sessionId);
+      const platform = isKnownPlatform(log.platform)
+        ? log.platform
+        : session?.platform || "UNKNOWN";
+      const base = isKnownBase(log.base)
+        ? log.base
+        : session?.base || "UNKNOWN";
+
+      return {
+        _id: log._id,
+        dateTime: log.dateTime,
+        actionMade: log.action,
+        username: log.username || "Unknown",
+        platform,
+        base,
+        sessionId: log.sessionId || null,
+        ipAddress: log.ipAddress || "",
+        userAgent: log.userAgent || "",
+      };
+    });
 
     res.status(200).json({
       status: "Ok",

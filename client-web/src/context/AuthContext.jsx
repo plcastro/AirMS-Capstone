@@ -5,6 +5,7 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 60 * 1000;
+const SESSION_META_KEY = "authSessionMeta";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -20,27 +21,8 @@ export const AuthProvider = ({ children }) => {
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
 
-  // =========================
-  // STORAGE (SESSION ONLY)
-  // =========================
-  const getStorage = () => sessionStorage;
-
   const getStoredToken = () => sessionStorage.getItem("token");
 
-  const persistAuthState = (normalizedUser, token) => {
-    const storage = sessionStorage;
-    storage.setItem("currentUser", JSON.stringify(normalizedUser));
-    storage.setItem("token", token);
-  };
-
-  const clearAuthStorage = () => {
-    sessionStorage.removeItem("currentUser");
-    sessionStorage.removeItem("token");
-  };
-
-  // =========================
-  // USER NORMALIZATION
-  // =========================
   const normalizeUser = (userData) => ({
     ...userData,
     id: userData.id || userData._id || null,
@@ -49,9 +31,35 @@ export const AuthProvider = ({ children }) => {
     sessions: Array.isArray(userData.sessions) ? userData.sessions : [],
   });
 
-  // =========================
-  // TOKEN HELPERS
-  // =========================
+  const persistAuthState = (normalizedUser, token) => {
+    sessionStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    sessionStorage.setItem("token", token);
+  };
+
+  const persistSessionMeta = (meta = {}) => {
+    const sessionMeta = {
+      base: meta.base || "UNKNOWN",
+      sessionId: meta.sessionId || null,
+      platform: meta.platform || "WEB",
+    };
+    localStorage.setItem(SESSION_META_KEY, JSON.stringify(sessionMeta));
+    return sessionMeta;
+  };
+
+  const getSessionMeta = () => {
+    try {
+      return JSON.parse(localStorage.getItem(SESSION_META_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  };
+
+  const clearAuthStorage = () => {
+    sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("token");
+    localStorage.removeItem(SESSION_META_KEY);
+  };
+
   const isTokenValid = (token) => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
@@ -149,13 +157,22 @@ export const AuthProvider = ({ children }) => {
     scheduleInactivityTimers(0);
   };
 
-  // =========================
-  // TOKEN REFRESH
-  // =========================
+  const buildSessionHeaders = () => {
+    const sessionMeta = getSessionMeta();
+    return {
+      "x-platform": sessionMeta.platform || "WEB",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+    };
+  };
+
   const refreshAccessToken = async () => {
     const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
       method: "POST",
       credentials: "include",
+      headers: buildSessionHeaders(),
     });
 
     if (!response.ok) throw new Error("Failed to refresh token");
@@ -169,9 +186,6 @@ export const AuthProvider = ({ children }) => {
     return data.token;
   };
 
-  // =========================
-  // LOAD USER ON START
-  // =========================
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -196,7 +210,25 @@ export const AuthProvider = ({ children }) => {
         }
 
         token = await refreshAccessToken();
-        setUser(parsedUser ? normalizeUser(parsedUser) : null);
+        const payload = getTokenPayload(token);
+        const normalizedFromToken =
+          parsedUser ||
+          (payload?.id
+            ? {
+                id: payload.id,
+                username: payload.username,
+                email: payload.email,
+                jobTitle: payload.jobTitle,
+                access: payload.access,
+                base: payload.base,
+                sessionId: payload.sessionId,
+              }
+            : null);
+
+        setUser(normalizedFromToken ? normalizeUser(normalizedFromToken) : null);
+        if (normalizedFromToken) {
+          persistAuthState(normalizeUser(normalizedFromToken), token);
+        }
         scheduleTokenExpiryLogout(token, logoutUser);
       } catch (err) {
         console.error("Auth load error:", err);
@@ -210,10 +242,7 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // =========================
-  // LOGIN
-  // =========================
-  const loginUser = async (userData, token) => {
+  const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
 
     const normalized = normalizeUser({
@@ -221,16 +250,20 @@ export const AuthProvider = ({ children }) => {
       isOnline: true,
       online: true,
       platform: "web",
+      base: options.base || userData.base,
+      sessionId: options.sessionId || userData.sessionId,
     });
 
     setUser(normalized);
+    persistSessionMeta({
+      base: normalized.base,
+      sessionId: normalized.sessionId,
+      platform: "WEB",
+    });
     persistAuthState(normalized, token);
     scheduleTokenExpiryLogout(token, logoutUser);
   };
 
-  // =========================
-  // LOGOUT
-  // =========================
   const logoutUser = async () => {
     try {
       setLoading(true);
@@ -244,7 +277,10 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...buildSessionHeaders(),
+          },
           credentials: "include",
         });
       }
@@ -256,9 +292,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // =========================
-  // AUTH HELPERS
-  // =========================
   const getValidToken = async () => {
     const token = getStoredToken();
 
@@ -272,17 +305,19 @@ export const AuthProvider = ({ children }) => {
 
   const getAuthHeader = async () => {
     const token = await getValidToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          ...buildSessionHeaders(),
+        }
+      : {};
   };
 
-  // =========================
-  // ACTIVITY LISTENERS
-  // =========================
   useEffect(() => {
     if (!user) {
       clearInactivityTimers();
       setShowSessionTimeoutWarning(false);
-      return;
+      return undefined;
     }
 
     scheduleInactivityTimers(0);
@@ -296,10 +331,14 @@ export const AuthProvider = ({ children }) => {
       "click",
     ];
 
-    events.forEach((e) => window.addEventListener(e, recordActivity));
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, recordActivity);
+    });
 
     return () => {
-      events.forEach((e) => window.removeEventListener(e, recordActivity));
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, recordActivity);
+      });
       clearInactivityTimers();
     };
   }, [user]);
