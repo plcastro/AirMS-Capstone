@@ -78,9 +78,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // =========================
-  // TIMERS
-  // =========================
   const clearInactivityTimers = () => {
     clearTimeout(inactivityWarningTimeoutRef.current);
     clearTimeout(inactivityLogoutTimeoutRef.current);
