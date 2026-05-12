@@ -2,16 +2,7 @@ import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import {
-  App,
-  Input,
-  Checkbox,
-  Button,
-  Typography,
-  Row,
-  Col,
-  Form,
-} from "antd";
+import { App, Input, Checkbox, Button, Typography, Row, Col, Form } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
@@ -179,11 +170,7 @@ const Login = () => {
       )}
 
       <LoginLayout>
-        <Form
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="login-form-modern"
-        >
+        <Form layout="vertical" onFinish={handleSubmit}>
           <Form.Item label="Username or Email" required>
             <Input
               type="text"
@@ -214,8 +201,8 @@ const Login = () => {
             {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
-          <Row className="login-form-meta">
-            <Col xs={24} sm={12}>
+          <Row style={{ marginBottom: 20 }}>
+            <Col xs={12} sm={12}>
               <Checkbox
                 id="remember"
                 checked={rememberMe}
@@ -224,8 +211,16 @@ const Login = () => {
                 Remember Me
               </Checkbox>
             </Col>
-            <Col xs={24} sm={12} className="login-forgot-col">
-              <Link to="/forgot" className="link">
+            <Col
+              xs={12}
+              sm={12}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <Link
+                to="/forgot"
+                className="link"
+                style={{ textAlign: "right" }}
+              >
                 Forgot password?
               </Link>
             </Col>

@@ -1,4 +1,11 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Avatar,
   Badge,
@@ -6,35 +13,51 @@ import {
   Card,
   Col,
   Empty,
+  Grid,
   Input,
-  List,
+  Modal,
   Row,
+  Select,
   Space,
   Typography,
   message as antdMessage,
 } from "antd";
-import { SearchOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  SearchOutlined,
+  SendOutlined,
+  TeamOutlined,
+  UserOutlined,
+  ArrowLeftOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import "./Messaging.css";
 
 const { Text } = Typography;
 const { TextArea } = Input;
+const LIVE_SYNC_INTERVAL_MS = 1000;
 
 const getStoredToken = () =>
   localStorage.getItem("token") || sessionStorage.getItem("token");
 
-const getDisplayName = (user = {}) =>
+const getDisplayFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
   user.username ||
   "User";
 
+const getDisplayFirstName = (user = {}) =>
+  `${user.firstName || ""}`.trim() || user.username || "User";
 const getImageUrl = (image) => {
   if (!image) return null;
   return String(image).startsWith("http") ? image : `${API_BASE}${image}`;
 };
 
 const getEntityId = (value) => value?._id || value?.id || value;
+
+const getConversationTitle = (conversation) =>
+  conversation.type === "group"
+    ? conversation.group?.name || "Group chat"
+    : getDisplayFullName(conversation.user);
 
 const formatConversationTime = (value) => {
   if (!value) return "";
@@ -49,9 +72,10 @@ const formatConversationTime = (value) => {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
-const getMessageStatus = (message) => {
+const getMessageStatus = (message, conversationType) => {
   if (message.deliveryStatus === "sending") return "Sending...";
   if (message.deliveryStatus === "failed") return "Failed";
+  if (conversationType === "group") return "Sent";
   if (message.readAt) return "Seen";
   return "Sent";
 };
@@ -67,12 +91,19 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   const localOnly = currentMessages.filter(
     (item) =>
       !fetchedIds.has(String(item._id)) &&
-      (String(item._id).startsWith("temp-") || item.deliveryStatus === "failed"),
+      (String(item._id).startsWith("temp-") ||
+        item.deliveryStatus === "failed"),
   );
 
-  return [...fetched, ...localOnly].sort(
-    (first, second) => new Date(first.createdAt) - new Date(second.createdAt),
-  );
+  return [...fetched, ...localOnly].sort((first, second) => {
+    const firstTime = first.createdAt
+      ? new Date(first.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const secondTime = second.createdAt
+      ? new Date(second.createdAt).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    return firstTime - secondTime;
+  });
 };
 
 const buildWsUrl = (token) => {
@@ -85,35 +116,36 @@ const buildWsUrl = (token) => {
 
 export default function Messaging() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [users, setUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupMemberIds, setGroupMemberIds] = useState([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [mobileView, setMobileView] = useState("list");
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
-  const selectedUserIdRef = useRef(null);
+  const selectedConversationRef = useRef(null);
   const threadBottomRef = useRef(null);
 
-  const selectedUser = useMemo(
-    () => users.find((candidate) => String(candidate._id) === String(selectedUserId)),
-    [selectedUserId, users],
-  );
-
   const currentUserId = user?.id || user?._id;
+  const selectedConversationId = selectedConversation?.id || null;
 
-  const conversationsByUserId = useMemo(() => {
-    const byUserId = new Map();
-    conversations.forEach((conversation) => {
-      if (conversation.user?._id) {
-        byUserId.set(String(conversation.user._id), conversation);
-      }
-    });
-    return byUserId;
-  }, [conversations]);
+  const usersById = useMemo(() => {
+    const byId = new Map();
+    users.forEach((item) => byId.set(String(item._id), item));
+    return byId;
+  }, [users]);
 
   const authFetch = useCallback(
     async (url, options = {}) => {
@@ -145,13 +177,15 @@ export default function Messaging() {
   }, [authFetch]);
 
   const fetchThread = useCallback(
-    async (otherUserId) => {
-      if (!otherUserId) {
+    async (conversationId) => {
+      if (!conversationId) {
         setMessages([]);
         return;
       }
 
-      const data = await authFetch(`${API_BASE}/api/messages/${otherUserId}`);
+      const data = await authFetch(
+        `${API_BASE}/api/messages/${conversationId}`,
+      );
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
       fetchConversations();
@@ -160,9 +194,9 @@ export default function Messaging() {
   );
 
   const syncMessaging = useCallback(async () => {
-    const activeUserId = selectedUserIdRef.current;
-    if (activeUserId) {
-      await fetchThread(activeUserId);
+    const activeConversation = selectedConversationRef.current;
+    if (activeConversation?.id) {
+      await fetchThread(activeConversation.id);
       return;
     }
 
@@ -185,20 +219,20 @@ export default function Messaging() {
   }, [fetchConversations, fetchUsers]);
 
   useEffect(() => {
-    if (selectedUserId) {
-      fetchThread(selectedUserId).catch((error) => {
+    if (selectedConversationId) {
+      fetchThread(selectedConversationId).catch((error) => {
         antdMessage.error(error.message || "Failed to load thread");
       });
     }
-  }, [fetchThread, selectedUserId]);
+  }, [fetchThread, selectedConversationId]);
 
   useEffect(() => {
     threadBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    selectedUserIdRef.current = selectedUserId;
-  }, [selectedUserId]);
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
 
   useEffect(() => {
     const syncIfVisible = () => {
@@ -214,7 +248,7 @@ export default function Messaging() {
       }
     };
 
-    const intervalId = window.setInterval(syncIfVisible, 2500);
+    const intervalId = window.setInterval(syncIfVisible, LIVE_SYNC_INTERVAL_MS);
     window.addEventListener("focus", syncIfVisible);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -238,14 +272,26 @@ export default function Messaging() {
       ws.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
+
+          if (payload.event === "chat:conversation") {
+            fetchConversations();
+            return;
+          }
+
           if (payload.event === "chat:read") {
             const readReceipt = payload.data || {};
-            const messageIds = new Set((readReceipt.messageIds || []).map(String));
+            const messageIds = new Set(
+              (readReceipt.messageIds || []).map(String),
+            );
 
             setMessages((current) =>
               current.map((item) =>
                 messageIds.has(String(item._id))
-                  ? { ...item, readAt: readReceipt.readAt, deliveryStatus: "sent" }
+                  ? {
+                      ...item,
+                      readAt: readReceipt.readAt,
+                      deliveryStatus: "sent",
+                    }
                   : item,
               ),
             );
@@ -258,8 +304,8 @@ export default function Messaging() {
             String(payload.data?.url || "").startsWith("/api/messages")
           ) {
             fetchConversations();
-            if (selectedUserIdRef.current) {
-              fetchThread(selectedUserIdRef.current).catch((error) => {
+            if (selectedConversationRef.current?.id) {
+              fetchThread(selectedConversationRef.current.id).catch((error) => {
                 console.error("Failed to refresh realtime messages:", error);
               });
             }
@@ -269,23 +315,31 @@ export default function Messaging() {
           if (payload.event !== "chat:message") return;
 
           const nextMessage = withSentStatus(payload.data);
-          const otherUserId =
-            String(getEntityId(nextMessage.sender)) === String(currentUserId)
+          const conversationId = nextMessage.conversation
+            ? String(getEntityId(nextMessage.conversation))
+            : String(getEntityId(nextMessage.sender)) === String(currentUserId)
               ? String(getEntityId(nextMessage.recipient))
               : String(getEntityId(nextMessage.sender));
 
-          if (String(otherUserId) === String(selectedUserIdRef.current)) {
+          if (
+            String(conversationId) ===
+            String(selectedConversationRef.current?.id)
+          ) {
             setMessages((current) => {
               if (current.some((item) => item._id === nextMessage._id)) {
                 return current.map((item) =>
-                  item._id === nextMessage._id ? withSentStatus({ ...item, ...nextMessage }) : item,
+                  item._id === nextMessage._id
+                    ? withSentStatus({ ...item, ...nextMessage })
+                    : item,
                 );
               }
               return [...current, nextMessage];
             });
 
-            if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
-              fetchThread(otherUserId).catch((error) => {
+            if (
+              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
+            ) {
+              fetchThread(conversationId).catch((error) => {
                 console.error("Failed to refresh realtime thread:", error);
               });
             }
@@ -319,17 +373,137 @@ export default function Messaging() {
     };
   }, [currentUserId, fetchConversations, fetchThread]);
 
+  const conversationItems = useMemo(() => {
+    const directFromConversations = conversations
+      .filter(
+        (conversation) => conversation.type !== "group" && conversation.user,
+      )
+      .map((conversation) => ({
+        ...conversation,
+        id: String(getEntityId(conversation.user)),
+        title: getDisplayFullName(conversation.user),
+        subtitle: conversation.user.jobTitle || "User",
+      }));
+    const groupFromConversations = conversations
+      .filter(
+        (conversation) => conversation.type === "group" && conversation.group,
+      )
+      .map((conversation) => ({
+        ...conversation,
+        id: String(getEntityId(conversation.group)),
+        title: conversation.group.name || "Group chat",
+        subtitle: `${conversation.group.members?.length || 0} members`,
+      }));
+    const knownDirectIds = new Set(
+      directFromConversations.map((conversation) => String(conversation.id)),
+    );
+    const remainingUsers = users
+      .filter((item) => !knownDirectIds.has(String(item._id)))
+      .map((item) => ({
+        type: "direct",
+        id: String(item._id),
+        user: item,
+        title: getDisplayFullName(item),
+        subtitle: item.jobTitle || "User",
+        lastMessage: null,
+        unreadCount: 0,
+      }));
+    const merged = [
+      ...groupFromConversations,
+      ...directFromConversations,
+      ...remainingUsers,
+    ].filter(Boolean);
+    const query = searchText.trim().toLowerCase();
+
+    if (!query) return merged;
+
+    return merged.filter((item) =>
+      [item.title, item.subtitle, item.user?.username, item.user?.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [conversations, searchText, users]);
+
+  const selectedConversationDetails = useMemo(() => {
+    if (!selectedConversation) return null;
+
+    const currentItem = conversationItems.find(
+      (item) =>
+        item.type === selectedConversation.type &&
+        String(item.id) === String(selectedConversation.id),
+    );
+
+    if (currentItem) return currentItem;
+
+    if (selectedConversation.type === "direct") {
+      const selectedUser = usersById.get(String(selectedConversation.id));
+      return selectedUser
+        ? {
+            type: "direct",
+            id: String(selectedUser._id),
+            user: selectedUser,
+            title: getDisplayFullName(selectedUser),
+            subtitle: selectedUser.jobTitle || "User",
+          }
+        : selectedConversation;
+    }
+
+    return selectedConversation;
+  }, [conversationItems, selectedConversation, usersById]);
+
+  const selectedGroupMembers =
+    selectedConversationDetails?.type === "group"
+      ? selectedConversationDetails.group?.members || []
+      : [];
+
+  const getConversationPreview = (item) => {
+    const lastMessage = item?.lastMessage;
+    if (!lastMessage?.body) return null;
+    const mine =
+      String(getEntityId(lastMessage.sender)) === String(currentUserId);
+    const groupSender = item.group?.members?.find(
+      (member) =>
+        String(getEntityId(member)) === String(getEntityId(lastMessage.sender)),
+    );
+    const senderName =
+      item.type === "group" && !mine
+        ? getDisplayFirstName(
+            groupSender ||
+              usersById.get(String(getEntityId(lastMessage.sender))) ||
+              {},
+          )
+        : getDisplayFirstName(item.user || {});
+
+    return {
+      text: `${mine ? "You" : senderName}: ${lastMessage.body}`,
+      time: formatConversationTime(lastMessage.createdAt),
+    };
+  };
+
+  const handleSelectConversation = (item) => {
+    setSelectedConversation({
+      type: item.type === "group" ? "group" : "direct",
+      id: String(item.id),
+      title: item.title,
+    });
+    setMessages([]);
+    if (isMobile) {
+      setMobileView("chat");
+    }
+  };
+
   const handleSend = async () => {
     const body = draft.trim();
-    if (!selectedUserId || !body) return;
+    if (!selectedConversation?.id || !body) return;
 
+    const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
     const pendingMessage = {
       _id: tempId,
       sender: currentUserId,
-      recipient: selectedUserId,
+      recipient: isGroup ? undefined : selectedConversation.id,
+      conversation: isGroup ? selectedConversation.id : undefined,
       body,
-      createdAt: new Date().toISOString(),
       deliveryStatus: "sending",
     };
 
@@ -341,7 +515,11 @@ export default function Messaging() {
       const data = await authFetch(`${API_BASE}/api/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientId: selectedUserId, body }),
+        body: JSON.stringify(
+          isGroup
+            ? { conversationId: selectedConversation.id, body }
+            : { recipientId: selectedConversation.id, body },
+        ),
       });
 
       setMessages((current) =>
@@ -351,9 +529,14 @@ export default function Messaging() {
           ? current
               .filter((item) => item._id !== tempId)
               .map((item) =>
-                item._id === data.data._id ? withSentStatus({ ...item, ...data.data }) : item,
+                item._id === data.data._id
+                  ? withSentStatus({ ...item, ...data.data })
+                  : item,
               )
-          : [...current.filter((item) => item._id !== tempId), withSentStatus(data.data)],
+          : [
+              ...current.filter((item) => item._id !== tempId),
+              withSentStatus(data.data),
+            ],
       );
       fetchConversations();
     } catch (error) {
@@ -368,238 +551,424 @@ export default function Messaging() {
     }
   };
 
-  const conversationUsers = useMemo(() => {
-    const fromConversations = conversations.map((conversation) => conversation.user);
-    const knownIds = new Set(fromConversations.map((conversationUser) => String(conversationUser?._id)));
-    const remainingUsers = users.filter((item) => !knownIds.has(String(item._id)));
-    const mergedUsers = [...fromConversations, ...remainingUsers].filter(Boolean);
-    const query = searchText.trim().toLowerCase();
+  const handleCreateGroup = async () => {
+    const name = groupName.trim();
+    if (!name || groupMemberIds.length === 0) {
+      antdMessage.warning("Add a group name and at least one member");
+      return;
+    }
 
-    if (!query) return mergedUsers;
+    try {
+      setCreatingGroup(true);
+      const data = await authFetch(`${API_BASE}/api/messages/groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, memberIds: groupMemberIds }),
+      });
 
-    return mergedUsers.filter((item) =>
-      [
-        getDisplayName(item),
-        item.username,
-        item.email,
-        item.jobTitle,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
-  }, [conversations, searchText, users]);
-
-  const getUnreadCount = (userId) =>
-    conversations.find(
-      (conversation) => String(conversation.user?._id) === String(userId),
-    )?.unreadCount || 0;
-
-  const getConversationPreview = (item) => {
-    const conversation = conversationsByUserId.get(String(item._id));
-    const lastMessage = conversation?.lastMessage;
-    if (!lastMessage?.body) return null;
-    const mine = String(getEntityId(lastMessage.sender)) === String(currentUserId);
-    return {
-      text: `${mine ? "You" : getDisplayName(item)}: ${lastMessage.body}`,
-      time: formatConversationTime(lastMessage.createdAt),
-    };
+      const group = data.data?.group;
+      if (group?._id) {
+        setSelectedConversation({
+          type: "group",
+          id: String(group._id),
+          title: group.name,
+        });
+        if (isMobile) {
+          setMobileView("chat");
+        }
+      }
+      setGroupModalOpen(false);
+      setGroupName("");
+      setGroupMemberIds([]);
+      await fetchConversations();
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to create group chat");
+    } finally {
+      setCreatingGroup(false);
+    }
   };
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileView("list");
+      return;
+    }
+    if (!selectedConversationId) {
+      setMobileView("list");
+    }
+  }, [isMobile, selectedConversationId]);
+
   return (
-    <div style={{ padding: 16, height: "100%" }}>
+    <div style={{ padding: isMobile ? 8 : 16, height: "100%" }}>
       <Row gutter={[12, 12]} style={{ height: "100%" }}>
-        <Col xs={24} md={8} lg={7} style={{ height: "100%" }}>
-          <Card
-            title="Messages"
-            size="small"
-            styles={{
-              body: {
-                flex: 1,
-                minHeight: 0,
-                padding: 0,
+        {(!isMobile || mobileView === "list") && (
+          <Col xs={24} md={9} lg={7} style={{ height: "100%" }}>
+            <Card
+              title="Messages"
+              size="small"
+              extra={
+                <Button
+                  size="small"
+                  icon={<TeamOutlined />}
+                  onClick={() => setGroupModalOpen(true)}
+                >
+                  New group
+                </Button>
+              }
+              styles={{
+                body: {
+                  flex: 1,
+                  minHeight: 0,
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                },
+              }}
+              style={{
+                height: "100%",
                 display: "flex",
                 flexDirection: "column",
-              },
-            }}
-            style={{ height: "100%", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ padding: 12 }}>
-              <Input
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder="Search users"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-              />
-            </div>
-            <List
-              className="messages-user-list"
-              loading={loading}
-              dataSource={conversationUsers}
-              locale={{ emptyText: <Empty description="No conversations" /> }}
-              renderItem={(item) => {
-                const preview = getConversationPreview(item);
-
-                return (
-                  <List.Item
-                    onClick={() => setSelectedUserId(item._id)}
-                    style={{
-                      cursor: "pointer",
-                      padding: "10px 14px",
-                      background:
-                        String(selectedUserId) === String(item._id)
-                          ? "#e9f4f1"
-                          : "transparent",
-                    }}
-                  >
-                    <List.Item.Meta
-                      avatar={
-                        <Badge count={getUnreadCount(item._id)} size="small">
-                          <Avatar src={getImageUrl(item.image)} icon={<UserOutlined />} />
-                        </Badge>
-                      }
-                      title={<Text className="message-card-name" strong>{getDisplayName(item)}</Text>}
-                      description={
-                        <Space className="message-card-details" direction="vertical" size={0} style={{ width: "100%" }}>
-                          <Text className="message-card-role" type="secondary" ellipsis>
-                            {item.jobTitle || "User"}
-                          </Text>
-                          {preview ? (
-                            <div className="message-card-preview-row">
-                              <Text className="message-card-preview" type="secondary" ellipsis>
-                                {preview.text}
-                              </Text>
-                              <Text className="message-card-preview-time" type="secondary">
-                                ({preview.time})
-                              </Text>
-                            </div>
-                          ) : null}
-                        </Space>
-                      }
-                    />
-                  </List.Item>
-                );
               }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} md={16} lg={17} style={{ height: "100%" }}>
-          <Card
-            title={
-              selectedUser ? (
-                <Space direction="vertical" size={0}>
+            >
+              <div style={{ padding: 12 }}>
+                <Input
+                  allowClear
+                  prefix={<SearchOutlined />}
+                  placeholder="Search users or groups"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                />
+              </div>
+              <div
+                className="messages-user-list"
+                style={{ flex: 1, overflowY: "auto" }}
+              >
+                {loading ? (
+                  <div style={{ padding: 16, textAlign: "center" }}>
+                    <Text type="secondary">Loading conversations...</Text>
+                  </div>
+                ) : conversationItems.length === 0 ? (
+                  <Empty description="No conversations" />
+                ) : (
+                  conversationItems.map((item) => {
+                    const preview = getConversationPreview(item);
+                    const isSelected =
+                      selectedConversation?.type === item.type &&
+                      String(selectedConversation?.id) === String(item.id);
+
+                    return (
+                      <div
+                        key={`${item.type}-${item.id}`}
+                        onClick={() => handleSelectConversation(item)}
+                        style={{
+                          cursor: "pointer",
+                          padding: "10px 14px",
+                          background: isSelected ? "#e9f4f1" : "transparent",
+                        }}
+                      >
+                        <Space
+                          align="start"
+                          size={10}
+                          style={{ width: "100%" }}
+                        >
+                          <Badge count={item.unreadCount || 0} size="small">
+                            <Avatar
+                              src={
+                                item.type === "direct"
+                                  ? getImageUrl(item.user?.image)
+                                  : null
+                              }
+                              icon={
+                                item.type === "group" ? (
+                                  <TeamOutlined />
+                                ) : (
+                                  <UserOutlined />
+                                )
+                              }
+                            />
+                          </Badge>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <Text className="message-card-name" strong>
+                              {item.title}
+                            </Text>
+                            <Space
+                              className="message-card-details"
+                              direction="vertical"
+                              size={0}
+                              style={{ width: "100%" }}
+                            >
+                              <Text
+                                className="message-card-role"
+                                type="secondary"
+                                ellipsis
+                              >
+                                {item.subtitle}
+                              </Text>
+                              {preview ? (
+                                <div className="message-card-preview-row">
+                                  <Text
+                                    className="message-card-preview"
+                                    type="secondary"
+                                    ellipsis
+                                  >
+                                    {preview.text}
+                                  </Text>
+                                  <Text
+                                    className="message-card-preview-time"
+                                    type="secondary"
+                                  >
+                                    ({preview.time})
+                                  </Text>
+                                </div>
+                              ) : null}
+                            </Space>
+                          </div>
+                        </Space>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </Card>
+          </Col>
+        )}
+        {(!isMobile || mobileView === "chat") && (
+          <Col xs={24} md={15} lg={17} style={{ height: "100%" }}>
+            <Card
+              title={
+                selectedConversationDetails ? (
                   <Space>
+                    {isMobile && (
+                      <Button
+                        type="text"
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => setMobileView("list")}
+                        style={{ marginRight: 2 }}
+                      />
+                    )}
                     <Avatar
-                      src={getImageUrl(selectedUser.image)}
-                      icon={<UserOutlined />}
+                      src={
+                        selectedConversationDetails.type === "direct"
+                          ? getImageUrl(selectedConversationDetails.user?.image)
+                          : null
+                      }
+                      icon={
+                        selectedConversationDetails.type === "group" ? (
+                          <TeamOutlined />
+                        ) : (
+                          <UserOutlined />
+                        )
+                      }
                     />
                     <span>
-                      <Text strong>{getDisplayName(selectedUser)}</Text>
+                      <Text strong>{selectedConversationDetails.title}</Text>
                       <br />
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        {selectedUser.jobTitle || "User"}
+                        {selectedConversationDetails.subtitle || "Conversation"}
                       </Text>
                     </span>
                   </Space>
-                </Space>
+                ) : (
+                  "Select a conversation"
+                )
+              }
+              extra={
+                selectedConversationDetails?.type === "group" ? (
+                  <Button
+                    size="small"
+                    icon={<TeamOutlined />}
+                    onClick={() => setMembersModalOpen(true)}
+                  >
+                    Members
+                  </Button>
+                ) : null
+              }
+              size="large"
+              style={{ height: "100%" }}
+              styles={{
+                body: {
+                  height: "calc(100% - 56px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: 0,
+                },
+              }}
+            >
+              {!selectedConversationId ? (
+                <Empty
+                  description="Choose a conversation to start messaging"
+                  style={{ margin: "auto" }}
+                />
               ) : (
-                "Select a conversation"
-              )
-            }
-            size="small"
-            style={{ height: "100%" }}
-            styles={{
-              body: {
-                height: "calc(100% - 56px)",
-                display: "flex",
-                flexDirection: "column",
-                padding: 0,
-              },
-            }}
-          >
-            {!selectedUserId ? (
-              <Empty description="Choose a user to start messaging" style={{ margin: "auto" }} />
-            ) : (
-              <>
-                <div
-                  style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    padding: 16,
-                    background: "#f7f9f8",
-                  }}
-                >
-                  {messages.map((item, index) => {
-                    const mine = String(getEntityId(item.sender)) === String(currentUserId);
-                    const isLatestMessage = index === messages.length - 1;
-                    return (
-                      <div
-                        key={item._id}
-                        className={`message-row ${isLatestMessage ? "message-row-latest" : ""}`}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: mine ? "flex-end" : "flex-start",
-                          marginBottom: 8,
+                <>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                      padding: 16,
+                      background: "#f7f9f8",
+                    }}
+                  >
+                    {messages.map((item, index) => {
+                      const mine =
+                        String(getEntityId(item.sender)) ===
+                        String(currentUserId);
+                      const isLatestMessage = index === messages.length - 1;
+                      return (
+                        <div
+                          key={item._id}
+                          className={`message-row ${isLatestMessage ? "message-row-latest" : ""}`}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: mine ? "flex-end" : "flex-start",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              maxWidth: "72%",
+                              padding: "9px 12px 7px",
+                              borderRadius: 8,
+                              background: mine ? "#26866f" : "#ffffff",
+                              color: mine ? "#fff" : "#111",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            <div style={{ whiteSpace: "pre-wrap" }}>
+                              {item.body}
+                            </div>
+                          </div>
+                          <div
+                            className="message-meta"
+                            style={{
+                              paddingRight: mine ? 2 : 0,
+                              paddingLeft: mine ? 0 : 2,
+                              textAlign: mine ? "right" : "left",
+                            }}
+                          >
+                            {[
+                              item.createdAt
+                                ? formatConversationTime(item.createdAt)
+                                : null,
+                              mine
+                                ? getMessageStatus(
+                                    item,
+                                    selectedConversation?.type,
+                                  )
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={threadBottomRef} />
+                  </div>
+                  <div style={{ padding: 12, borderTop: "1px solid #eee" }}>
+                    <Space.Compact style={{ width: "100%", height: "100%" }}>
+                      <TextArea
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onPressEnter={(event) => {
+                          if (!event.shiftKey) {
+                            event.preventDefault();
+                            handleSend();
+                          }
                         }}
-                      >
-                        <div
-                          style={{
-                            maxWidth: "72%",
-                            padding: "9px 12px 7px",
-                            borderRadius: 8,
-                            background: mine ? "#26866f" : "#ffffff",
-                            color: mine ? "#fff" : "#111",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          <div style={{ whiteSpace: "pre-wrap" }}>{item.body}</div>
-                        </div>
-                        <div
-                          className="message-meta"
-                          style={{
-                            paddingRight: mine ? 2 : 0,
-                            paddingLeft: mine ? 0 : 2,
-                            textAlign: mine ? "right" : "left",
-                          }}
-                        >
-                          {formatConversationTime(item.createdAt)}
-                          {mine ? ` ${getMessageStatus(item)}` : ""}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={threadBottomRef} />
-                </div>
-                <div style={{ padding: 12, borderTop: "1px solid #eee" }}>
-                  <Space.Compact style={{ width: "100%" }}>
-                    <TextArea
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onPressEnter={(event) => {
-                        if (!event.shiftKey) {
-                          event.preventDefault();
-                          handleSend();
-                        }
-                      }}
-                      autoSize={{ minRows: 1, maxRows: 4 }}
-                      placeholder="Write a message"
-                      maxLength={1000}
-                    />
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      loading={sending}
-                      onClick={handleSend}
-                    />
-                  </Space.Compact>
-                </div>
-              </>
-            )}
-          </Card>
-        </Col>
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        placeholder="Write a message"
+                        maxLength={1000}
+                      />
+                      <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        loading={sending}
+                        onClick={handleSend}
+                      />
+                    </Space.Compact>
+                  </div>
+                </>
+              )}
+            </Card>
+          </Col>
+        )}
       </Row>
+
+      <Modal
+        title="New group chat"
+        open={groupModalOpen}
+        onOk={handleCreateGroup}
+        onCancel={() => setGroupModalOpen(false)}
+        okText="Create"
+        confirmLoading={creatingGroup}
+        width={isMobile ? "96vw" : 520}
+      >
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+          <Input
+            value={groupName}
+            onChange={(event) => setGroupName(event.target.value)}
+            placeholder="Group name"
+            maxLength={80}
+          />
+          <Select
+            mode="multiple"
+            value={groupMemberIds}
+            onChange={setGroupMemberIds}
+            placeholder="Add members"
+            showSearch={{
+              filterOption: (input, option) =>
+                String(option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase()),
+            }}
+            style={{ width: "100%" }}
+            options={users.map((item) => ({
+              value: String(item._id),
+              label: getDisplayFullName(item),
+            }))}
+          />
+        </Space>
+      </Modal>
+
+      <Modal
+        title={`${selectedConversationDetails?.title || "Group chat"} members`}
+        open={membersModalOpen}
+        onCancel={() => setMembersModalOpen(false)}
+        footer={null}
+        width={isMobile ? "96vw" : 520}
+      >
+        {selectedGroupMembers.length === 0 ? (
+          <Empty description="No members" />
+        ) : (
+          <Space orientation="vertical" size={10} style={{ width: "100%" }}>
+            {selectedGroupMembers.map((member) => (
+              <div
+                key={String(getEntityId(member))}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 0",
+                }}
+              >
+                <Avatar
+                  src={getImageUrl(member.image)}
+                  icon={<UserOutlined />}
+                />
+                <div>
+                  <Text strong>{getDisplayFullName(member)}</Text>
+                  <div>
+                    <Text type="secondary">{member.jobTitle || "User"}</Text>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Space>
+        )}
+      </Modal>
     </div>
   );
 }

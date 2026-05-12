@@ -1,19 +1,19 @@
 //Mobile
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
-  View,
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { useRoute } from "@react-navigation/native";
-
+import LoginLayout from "../../Layout/LoginLayout";
+import { showToast } from "../../utilities/toast";
 export default function ForgotPassword() {
   const nav = useNavigation();
   const route = useRoute();
@@ -59,7 +59,7 @@ export default function ForgotPassword() {
       setLoading(false);
 
       if (response.ok) {
-        setMessage("Password reset email sent. Redirecting to OTP screen...");
+        showToast("Password reset email sent. Redirecting to OTP screen...");
         setError("");
 
         setTimeout(
@@ -83,77 +83,91 @@ export default function ForgotPassword() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
-    >
-      <View style={styles.formCard}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Forgot Password"
+          cardsubTitle="Please provide your email to proceed"
         >
-          <View>
-            <Text style={styles.headerText}>Forgot Password</Text>
-            <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-              Please provide your email to proceed
-            </Text>
-
-            <Text style={styles.label}>
-              Email <Text style={{ color: "red" }}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.formInput, { marginBottom: 0 }]}
-              maxLength={254}
-              placeholder="Enter email address"
-              placeholderTextColor="gray"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                setError("");
-                setMessage("");
+          <Text style={styles.label}>
+            Email <Text style={{ color: "red" }}>*</Text>
+          </Text>
+          <TextInput
+            style={[styles.formInput, { marginBottom: 0 }]}
+            maxLength={254}
+            placeholder="Enter email address"
+            placeholderTextColor="gray"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              setError("");
+              setMessage("");
+            }}
+          />
+          {error ? (
+            <Text
+              style={{
+                color: "red",
+                textAlign: "left",
+                alignSelf: "flex-start",
+                marginTop: 10,
               }}
-            />
-
-            <Button
-              label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
-              onPress={sendResetLink}
-              disabled={!isFormValid || loading}
-              buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
-
-            {error ? (
+            >
+              {error}
+            </Text>
+          ) : null}
+          <Button
+            label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
+            onPress={sendResetLink}
+            disabled={!isFormValid || loading}
+            buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+          <TouchableOpacity
+            onPress={() => nav.replace("login")}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={{
+                marginTop: 20,
+                color: "#374151",
+              }}
+            >
+              Remember your password?
               <Text
                 style={{
-                  color: "red",
-                  textAlign: "left",
-                  alignSelf: "flex-start",
-                  marginTop: 10,
+                  color: "#059670",
+                  fontWeight: "bold",
                 }}
               >
-                {error}
+                {" "}
+                Sign In
               </Text>
-            ) : null}
+            </Text>
+          </TouchableOpacity>
 
-            {message ? (
-              <Text
-                style={{
-                  color: "green",
-                  textAlign: "left",
-                  alignSelf: "flex-start",
-                  marginTop: 10,
-                }}
-              >
-                {message}
-              </Text>
-            ) : null}
-          </View>
-        </ScrollView>
-      </View>
+          {message ? (
+            <Text
+              style={{
+                color: "green",
+                textAlign: "left",
+                alignSelf: "flex-start",
+                marginTop: 10,
+              }}
+            >
+              {message}
+            </Text>
+          ) : null}
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

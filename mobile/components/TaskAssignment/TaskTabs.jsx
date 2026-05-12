@@ -173,7 +173,8 @@ export default function TaskTabs({
       <View
         style={{
           flexDirection: "row",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
+          gap: 3,
         }}
       >
         {tabsToRender.map((tab) => (
@@ -183,11 +184,13 @@ export default function TaskTabs({
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { minWidth: 100, paddingHorizontal: 2 },
+              { minWidth: 100, paddingHorizontal: 7 },
             ]}
             buttonTextStyle={[
-              activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 12, color: COLORS.grayMedium },
+              activeTab === tab
+                ? styles.primaryBtnTxt
+                : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
+              { fontSize: 12 },
             ]}
           />
         ))}

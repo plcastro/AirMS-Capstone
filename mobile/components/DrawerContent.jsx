@@ -62,22 +62,53 @@ const DrawerList = [
     ],
   },
   {
+    icon: "account-multiple-outline",
+    label: "User Management",
+    navigateTo: "User Management",
+    jobTitle: ["admin"],
+  },
+  {
+    icon: "history",
+    label: "Activity Logs",
+    navigateTo: "Activity Logs",
+    jobTitle: ["admin"],
+  },
+  {
     icon: "file-document-outline",
     label: "Parts Requisition",
     navigateTo: "Parts Requisition",
-    jobTitle: ["maintenance manager", "mechanic", "officer-in-charge"],
+    jobTitle: [
+      "maintenance manager",
+      "mechanic",
+      "officer-in-charge",
+      "warehouse department",
+    ],
   },
   {
     icon: "message-text-outline",
-    label: "Messages",
+    label: "Chats",
     navigateTo: "Messages",
-    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
+    jobTitle: [
+      "pilot",
+      "admin",
+      "maintenance manager",
+      "mechanic",
+      "officer-in-charge",
+      "warehouse department",
+    ],
   },
   {
     icon: "account-circle",
     label: "My Profile",
     navigateTo: "Profile",
-    jobTitle: ["pilot", "maintenance manager", "mechanic", "officer-in-charge"],
+    jobTitle: [
+      "pilot",
+      "admin",
+      "maintenance manager",
+      "mechanic",
+      "officer-in-charge",
+      "warehouse department",
+    ],
   },
 ];
 

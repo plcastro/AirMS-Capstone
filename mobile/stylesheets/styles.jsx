@@ -29,7 +29,8 @@ export const styles = StyleSheet.create({
     padding: 12,
   },
   codeInputText: {
-    fontSize: BODY_FONT_SIZE,
+    fontSize: SUBHEADER_FONT_SIZE,
+    fontWeight: "bold",
     textAlign: "center",
     color: COLORS.black,
     fontFamily: "Arial",
@@ -84,6 +85,7 @@ export const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     padding: 10,
+    color: "#000",
   },
   headerText: {
     fontSize: HEADER_FONT_SIZE,
@@ -98,6 +100,8 @@ export const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 20,
+    marginBottom: 10,
   },
   checkBox: {
     flexDirection: "row",
@@ -115,7 +119,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     height: 50,
     maxHeight: 40,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 10,
   },
   primaryBtnTxt: {

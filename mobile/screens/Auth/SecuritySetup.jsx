@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState } from "react";
 import {
-  View,
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CodeInputField from "../../components/CodeInputField";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
+import LoginLayout from "../../Layout/LoginLayout";
 
 export default function SecuritySetup() {
   const nav = useNavigation();
@@ -20,11 +20,9 @@ export default function SecuritySetup() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
 
-  const email = route.params?.email || "";
   const token = route.params?.setupToken || "";
   const [message, setMessage] = useState("");
   const [setupSuccess, setSetupSuccess] = useState(false);
-  console.log(token);
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -36,7 +34,7 @@ export default function SecuritySetup() {
     hasUppercase: false,
     hasNumber: false,
   });
-  // inside SecuritySetup component
+
   const isFormValid =
     passwordRequirements.minLength &&
     passwordRequirements.hasUppercase &&
@@ -134,33 +132,24 @@ export default function SecuritySetup() {
   });
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      enabled
-    >
-      <View style={styles.formCard}>
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            paddingVertical: 20,
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Security Setup"
+          cardsubTitle="Set your new password and PIN to proceed"
         >
-          <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Security Setup</Text>
-        <Text style={[styles.subHeaderText, { marginBottom: 30 }]}>
-          Set your new password and PIN to proceed
-        </Text>
-        <View style={{ alignItems: "flex-start", width: "100%" }}>
           <Text style={styles.label}>New Password *</Text>
           <TextInput
             style={styles.formInput}
             secureTextEntry
             placeholder="Enter new password"
-            placeholderTextColor={"gray"}
+            placeholderTextColor="gray"
             autoCapitalize="none"
             value={formData.newPassword}
             onChangeText={(e) => changeHandler("newPassword", e)}
@@ -171,53 +160,38 @@ export default function SecuritySetup() {
             style={styles.formInput}
             secureTextEntry
             placeholder="Confirm new password"
-            placeholderTextColor={"gray"}
+            placeholderTextColor="gray"
             autoCapitalize="none"
             value={formData.confirmPassword}
             onChangeText={(e) => changeHandler("confirmPassword", e)}
           />
 
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-              Password Requirements:
-            </Text>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-                ✓{" "}
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-                At least 8 characters
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row" }}>
-              <Text
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                ✓{" "}
-              </Text>
-              <Text
-                style={getRequirementStyle(passwordRequirements.hasUppercase)}
-              >
-                One uppercase letter
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                ✓{" "}
-              </Text>
-              <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-                One number
-              </Text>
-            </View>
-          </View>
+          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+            Password Requirements:
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+            {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8 characters
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.hasUppercase)}>
+            {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase letter
+          </Text>
+          <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
+          </Text>
 
-          <Text style={styles.label}>Set 6-digit PIN *</Text>
+          <Text style={[styles.label, { marginTop: 14 }]}>Set 6-digit PIN *</Text>
           <CodeInputField
             code={formData.pin}
             setCode={(value) => changeHandler("pin", value)}
             maxLength={6}
             secure
-            containerStyle={{ flex: 0, alignItems: "stretch", marginVertical: 0, marginBottom: 16, width: "100%" }}
+            containerStyle={{
+              flex: 0,
+              alignItems: "stretch",
+              marginVertical: 0,
+              marginBottom: 16,
+              width: "100%",
+            }}
             inputContainerStyle={{ width: "100%" }}
           />
 
@@ -227,13 +201,17 @@ export default function SecuritySetup() {
             setCode={(value) => changeHandler("confirmPin", value)}
             maxLength={6}
             secure
-            containerStyle={{ flex: 0, alignItems: "stretch", marginVertical: 0, marginBottom: 16, width: "100%" }}
+            containerStyle={{
+              flex: 0,
+              alignItems: "stretch",
+              marginVertical: 0,
+              marginBottom: 16,
+              width: "100%",
+            }}
             inputContainerStyle={{ width: "100%" }}
           />
 
-          {message && !setupSuccess && (
-            <Text style={styles.error}>{message}</Text>
-          )}
+          {message && !setupSuccess && <Text style={styles.error}>{message}</Text>}
 
           <Button
             onPress={validate}
@@ -263,10 +241,8 @@ export default function SecuritySetup() {
               </Text>
             )}
           </View>
-        </View>
-          </View>
-        </ScrollView>
-      </View>
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

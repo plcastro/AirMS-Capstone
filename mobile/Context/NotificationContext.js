@@ -412,7 +412,7 @@ export function NotificationProvider({ children }) {
         return;
       }
 
-      Notifications.getLastNotificationResponseAsync().then((response) => {
+      Notifications.getLastNotificationResponse().then((response) => {
         const payload = response?.notification?.request?.content?.data || null;
 
         if (payload) {
@@ -437,11 +437,7 @@ export function NotificationProvider({ children }) {
       notificationReceivedListener.current?.remove?.();
       notificationResponseListener.current?.remove?.();
     };
-  }, [
-    ensureNotificationsModule,
-    fetchNotifications,
-    openNotificationTarget,
-  ]);
+  }, [ensureNotificationsModule, fetchNotifications, openNotificationTarget]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
