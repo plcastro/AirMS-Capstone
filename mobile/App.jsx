@@ -69,7 +69,9 @@ const Screens = {
     () => require("./screens/Main/PostInspection").default,
   ),
   Tasks: withDashboard(() => require("./screens/Main/TaskAssignment").default),
-  Mechanics: withDashboard(() => require("./screens/Main/MechanicList").default),
+  Mechanics: withDashboard(
+    () => require("./screens/Main/MechanicList").default,
+  ),
   PartsLifespanMonitoring: withDashboard(
     () => require("./screens/Main/PartsLifespanMonitoring").default,
   ),
@@ -156,7 +158,7 @@ function DrawerNav({ navigation }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: 200,
     },
   };
@@ -400,112 +402,20 @@ function StackNavWrapper() {
   );
 }
 
-function AppShell({ linking }) {
-  const {
-    recordActivity,
-    showSessionTimeoutWarning,
-    warningSecondsRemaining,
-    continueSession,
-    logoutUser,
-  } = useContext(AuthContext);
-
-  return (
-    <View
-      style={{ flex: 1 }}
-      onStartShouldSetResponderCapture={() => {
-        recordActivity?.();
-        return false;
-      }}
-    >
-      <NavigationContainer
-        linking={linking}
-        ref={navigationRef}
-        onStateChange={() => recordActivity?.()}
-      >
-        <StackNavWrapper />
-      </NavigationContainer>
-      <Modal
-        transparent
-        animationType="fade"
-        visible={showSessionTimeoutWarning}
-        onRequestClose={() => continueSession?.()}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.35)",
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              backgroundColor: "#fff",
-              borderRadius: 10,
-              padding: 18,
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
-              Session Timeout Warning
-            </Text>
-            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
-              You&apos;ve been inactive for a while. For your security,
-              you&apos;ll be signed out in 2 minutes unless you continue.
-            </Text>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
-              Auto sign-out in {warningSecondsRemaining} seconds.
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-              }}
-            >
-              <Pressable
-                onPress={() => logoutUser?.()}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#d9d9d9",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text style={{ color: "#333" }}>Sign out now</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => continueSession?.()}
-                style={{
-                  backgroundColor: "#26866F",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  marginLeft: 8,
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "600" }}>
-                  Continue session
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-}
 export default function App() {
   const linking = LinkingConfig;
+
   const theme = {
     ...DefaultTheme,
-    colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
+    colors: {
+      ...DefaultTheme.colors,
+      text: "#000000",
+      primary: "#26866F",
+    },
     icons: {
       ...DefaultTheme.icons,
       icon: (props) => {
-        if (!props.name) return null; // skip rendering if no name
+        if (!props.name) return null;
         return <MaterialCommunityIcons {...props} />;
       },
     },
@@ -515,7 +425,9 @@ export default function App() {
     <AuthProvider>
       <NotificationProvider>
         <PaperProvider theme={theme}>
-          <AppShell linking={linking} />
+          <NavigationContainer linking={linking} ref={navigationRef}>
+            <StackNavWrapper />
+          </NavigationContainer>
         </PaperProvider>
       </NotificationProvider>
     </AuthProvider>
