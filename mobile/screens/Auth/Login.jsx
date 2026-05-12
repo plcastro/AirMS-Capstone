@@ -6,21 +6,20 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
-import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
+import LoadingScreen from "../LoadingScreen";
+
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
-import LoadingScreen from "../LoadingScreen";
 
 export default function Login() {
   const nav = useNavigation();
@@ -55,13 +54,17 @@ export default function Login() {
         console.error(err);
       }
     };
-    loadSavedCredentials();
+
+    load();
   }, []);
 
   const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  // =========================
+  // VALIDATION
+  // =========================
   const validate = () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
@@ -76,12 +79,15 @@ export default function Login() {
     login();
   };
 
+  // =========================
+  // LOGIN REQUEST
+  // =========================
   const login = async () => {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/user/login`, {
+      const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-base": selectedBase },
         body: JSON.stringify({
@@ -92,16 +98,10 @@ export default function Login() {
         }),
       });
 
-      const responseText = await response.text();
-      let data = null;
+      const data = await res.json();
 
-      try {
-        data = responseText ? JSON.parse(responseText) : {};
-      } catch (error) {
-        console.error("Login returned non-JSON response:", responseText);
-        setMessage(
-          responseText || "Login failed. Server returned an invalid response.",
-        );
+      if (!res.ok) {
+        setMessage(data.message || "Login failed");
         return;
       }
 
@@ -158,9 +158,82 @@ export default function Login() {
         console.log("Login error message:", data.message);
         setMessage(data.message || "Login failed");
       }
+
+      const role = (user.jobTitle || "").toLowerCase();
+
+      const allowed = [
+        "maintenance manager",
+        "pilot",
+        "officer-in-charge",
+        "mechanic",
+      ];
+
+      // =========================
+      // ACCOUNT CHECKS
+      // =========================
+      if (user.status === "deactivated") {
+        setMessage("Account deactivated");
+        return;
+      }
+
+      if (!allowed.includes(role)) {
+        setMessage("Web portal only account");
+        return;
+      }
+
+      // =========================
+      // REMEMBER ME
+      // =========================
+      if (rememberMe) {
+        await AsyncStorage.setItem("rememberMe", "true");
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          formData.identifier.trim(),
+        );
+      } else {
+        await AsyncStorage.setItem("rememberMe", "false");
+        await AsyncStorage.removeItem("rememberedIdentifier");
+      }
+
+      // =========================
+      // SECURITY SETUP
+      // =========================
+      if (user.status === "inactive" || user.setupToken) {
+        nav.replace("securitySetup", {
+          email: user.email,
+          setupToken: user.setupToken,
+        });
+        return;
+      }
+
+      // =========================
+      // AUTH STORE
+      // =========================
+      await loginUser({
+        user,
+        accessToken,
+        refreshToken: data.refreshToken || null,
+      });
+
+      // =========================
+      // REDIRECT HANDLING
+      // =========================
+      const redirect = await readPendingRedirect();
+
+      if (redirect?.screen) {
+        await clearPendingRedirect();
+
+        nav.replace("dashboard", {
+          screen: redirect.screen,
+          params: redirect.params || {},
+        });
+        return;
+      }
+
+      nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Too many login attempts. Please try again later");
+      setMessage("Login error. Try again later.");
     } finally {
       setLoading(false);
     }
@@ -175,46 +248,31 @@ export default function Login() {
   };
 
   if (loading) {
-    return <LoadingScreen message="Signing you in..." showLogo />;
+    return <LoadingScreen message="Signing you in..." />;
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
-        <LoginLayout
-          cardTitle="Login"
-          cardsubTitle="Sign in to access your AirMS account"
-        >
-          <Text style={[styles.label, { textAlign: "left" }]}>
-            Username or Email
-          </Text>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <LoginLayout cardTitle="Login" cardsubTitle="Sign in to AirMS">
+          <Text style={styles.label}>Username or Email</Text>
+
           <TextInput
             style={styles.formInput}
-            maxLength={256}
             placeholder="Username or Email"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            keyboardType="default"
             value={formData.identifier}
-            onChangeText={(text) => changeHandler("identifier", text)}
+            onChangeText={(t) => changeHandler("identifier", t)}
+            autoCapitalize="none"
           />
+
           <Text style={styles.label}>Password</Text>
+
           <TextInput
             style={styles.formInput}
-            maxLength={256}
             placeholder="Password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
             secureTextEntry
-            keyboardType="default"
             value={formData.password}
-            onChangeText={(text) => changeHandler("password", text)}
+            onChangeText={(t) => changeHandler("password", t)}
           />
           <Text style={styles.label}>Logging in from</Text>
           <View style={styles.loginPickerContainer}>
@@ -235,7 +293,6 @@ export default function Login() {
           <View style={styles.loginHelper}>
             <CheckBox
               title="Remember me"
-              checkboxStyle={styles.checkBox}
               value={rememberMe}
               onValueChange={setRememberMe}
             />
