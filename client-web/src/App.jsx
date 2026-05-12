@@ -348,12 +348,12 @@ export default function App() {
             subMenuItemBg: "#ffffff",
             popupBg: "#ffffff",
 
-            itemColor: "#006340",
+            itemColor: "#575757",
             itemHoverColor: "#006340",
-            itemSelectedColor: "#006340",
+            itemSelectedColor: "#ffffff",
 
             itemHoverBg: "#ffffff",
-            itemSelectedBg: "#ffffff",
+            itemSelectedBg: "#006340",
             itemActiveBg: "#ffffff",
 
             subMenuItemSelectedColor: "#006340",
