@@ -1,65 +1,312 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
-  PrinterOutlined,
+  ExportOutlined,
 } from "@ant-design/icons";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
+import { API_BASE } from "../../../utils/API_BASE";
+import { AuthContext } from "../../../context/AuthContext";
 
 const { Title, Text } = Typography;
+const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 
-export default function MaintenanceLog() {
-  const [allEntries, setAllEntries] = useState([]);
-  const [viewLevel, setViewLevel] = useState("dashboard"); // dashboard, aircraft, or report
-  const [selectedAircraft, setSelectedAircraft] = useState(null);
-  const [selectedWO, setSelectedWO] = useState(null);
+const formatPdfValue = (value, fallback = "") =>
+  value === null || value === undefined || value === "" ? fallback : String(value);
 
-  // Mock data matching your aviation theme
-  const mockData = [
-    {
-      id: "7247_02_19",
-      aircraft: "RP-C7247",
-      type: "AS350 B3",
-      sn: "7247",
-      dateDefectRectified: "03/18/2026",
-      workDetails: [
-        {
-          description:
-            "Carried out 48 Month Airframe Inspection in accordance with MSM RP-C7247.",
-        },
-        {
-          description:
-            "Carried out 1200 FH/24 Months Airframe Inspection in accordance with MSM RP-C7247.",
-        },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-        { description: "" },
-      ],
-    },
-    {
-      id: "7507_05_21",
-      aircraft: "RP-C7507",
-      type: "AS340 B3",
-      sn: "7057",
-      dateDefectRectified: "03/18/2026",
-      workDetails: [
-        { description: "General Engine Check" },
-        { description: "" },
-      ],
-    },
+const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const loadImageDataUrl = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error(`Unable to load image: ${src}`));
+    image.src = src;
+  });
+
+const drawTextInBox = (doc, text, x, y, width, height, options = {}) => {
+  const {
+    bold = false,
+    fontSize = 8,
+    align = "left",
+    valign = "middle",
+    padding = 3,
+  } = options;
+  doc.setFont("helvetica", bold ? "bold" : "normal");
+  doc.setFontSize(fontSize);
+
+  const lines = doc.splitTextToSize(formatPdfValue(text), width - padding * 2);
+  const lineHeight = fontSize + 1.5;
+  const totalHeight = lines.length * lineHeight;
+  let textY = y + padding + fontSize;
+
+  if (valign === "middle") {
+    textY = y + (height - totalHeight) / 2 + fontSize;
+  }
+
+  const textX =
+    align === "center"
+      ? x + width / 2
+      : align === "right"
+        ? x + width - padding
+        : x + padding;
+
+  doc.text(lines, textX, textY, { align });
+};
+
+const drawLabeledRow = (doc, label, value, x, y, labelWidth, valueWidth, rowHeight) => {
+  doc.rect(x, y, labelWidth, rowHeight);
+  doc.rect(x + labelWidth, y, valueWidth, rowHeight);
+  drawTextInBox(doc, label, x, y, labelWidth, rowHeight, {
+    bold: true,
+    fontSize: 8,
+    padding: 2,
+  });
+  drawTextInBox(doc, value, x + labelWidth, y, valueWidth, rowHeight, {
+    fontSize: 8,
+    padding: 3,
+  });
+};
+
+const drawMaintenanceReportHeader = (doc, record, aircraftData, logoDataUrl) => {
+  const marginX = 28;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - marginX * 2;
+  const topY = 26;
+  const metadataY = 42;
+  const rowHeight = 15;
+  const leftWidth = 156;
+  const rightWidth = 142;
+  const centerWidth = contentWidth - leftWidth - rightWidth;
+  const centerX = marginX + leftWidth;
+  const rightX = centerX + centerWidth;
+  const labelWidth = 61;
+  const rightLabelWidth = 76;
+  const serialNumber =
+    aircraftData?.serialNumber ||
+    String(record?.aircraft || "").replace(/[^\d]/g, "") ||
+    "";
+  const ref = aircraftData?.referenceData || {};
+
+  doc.setDrawColor(25, 25, 25);
+  doc.setLineWidth(0.9);
+  doc.rect(marginX, topY, contentWidth, 150);
+  doc.rect(marginX, topY, contentWidth, 16);
+
+  const leftRows = [
+    ["ACFT TYPE:", aircraftData?.aircraftType || "AS350 B3"],
+    ["ACFT REG:", record?.aircraft || ""],
+    ["ACFT S/N:", serialNumber],
+    ["W.O. #:", record?.sourceTaskId || record?.id || record?._id || ""],
   ];
 
-  useEffect(() => {
-    setAllEntries(mockData);
-  }, []);
+  const rightRows = [
+    ["AIRCRAFT TT:", ref.acftTT ?? ""],
+    ["LANDING CYC:", ref.landings ?? ""],
+    ["ENGINE: TT:", ref.engTT ?? ref.acftTT ?? ""],
+    ["ENGINE CYC:", ref.n2Cycles ? `N2: ${ref.n2Cycles}` : ""],
+  ];
 
-  const navigateToAircraft = (reg) => {
-    const aircraftData = allEntries.find((e) => e.aircraft === reg);
-    const relatedEntries = allEntries.filter((e) => e.aircraft === reg);
-    setSelectedAircraft({ ...aircraftData, entries: relatedEntries });
+  leftRows.forEach(([label, value], index) => {
+    drawLabeledRow(
+      doc,
+      label,
+      value,
+      marginX,
+      metadataY + index * rowHeight,
+      labelWidth,
+      leftWidth - labelWidth,
+      rowHeight,
+    );
+  });
+
+  doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", centerX + 10, metadataY + 4, centerWidth - 20, 38);
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(32);
+    doc.setTextColor(4, 100, 64);
+    doc.text("NGCP", centerX + centerWidth / 2, metadataY + 34, { align: "center" });
+    doc.setTextColor(0);
+  }
+
+  rightRows.forEach(([label, value], index) => {
+    drawLabeledRow(
+      doc,
+      label,
+      value,
+      rightX,
+      metadataY + index * rowHeight,
+      rightLabelWidth,
+      rightWidth - rightLabelWidth,
+      rowHeight,
+    );
+  });
+
+  const reportTitleY = metadataY + rowHeight * 4 + 18;
+  doc.rect(marginX, reportTitleY, contentWidth, 32);
+  drawTextInBox(
+    doc,
+    "WORK DONE REPORT /\nCERTIFICATE OF RETURN TO SERVICE",
+    marginX,
+    reportTitleY,
+    contentWidth,
+    32,
+    { bold: true, fontSize: 10, align: "center" },
+  );
+
+  const descriptionY = reportTitleY + 32;
+  doc.rect(marginX, descriptionY, contentWidth, 16);
+  drawTextInBox(doc, "DESCRIPTION OF WORK:", marginX, descriptionY, contentWidth, 16, {
+    bold: true,
+    fontSize: 9,
+    padding: 2,
+  });
+
+  return {
+    startY: descriptionY + 16,
+    marginX,
+    contentWidth,
+    numberColumnWidth: 50,
+  };
+};
+
+export default function MaintenanceLog() {
+  const { getAuthHeader } = useContext(AuthContext);
+  const [allEntries, setAllEntries] = useState([]);
+  const [searchValue, setSearchValue] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [viewLevel, setViewLevel] = useState("dashboard");
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
+  const [selectedWO, setSelectedWO] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const pageScrollStyle = {
+    padding: 20,
+    height: "calc(100vh - 64px)",
+    overflowY: "auto",
+    overflowX: "hidden",
+  };
+
+  useEffect(() => {
+    const fetchMaintenanceLogs = async () => {
+      try {
+        setLoading(true);
+        const authHeader = await getAuthHeader();
+        const response = await fetch(
+          `${API_BASE}/api/maintenance-logs/getAllMaintenanceLog`,
+          {
+            headers: authHeader,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch maintenance logs (${response.status})`,
+          );
+        }
+
+        const payload = await response.json();
+        const normalized = (payload?.data || []).map((entry) => {
+          const workDetails =
+            Array.isArray(entry.workDetails) && entry.workDetails.length > 0
+              ? entry.workDetails
+              : [
+                  entry.correctiveActionDone
+                    ? { description: entry.correctiveActionDone }
+                    : null,
+                  entry.defects ? { description: entry.defects } : null,
+                  entry.taskTitle
+                    ? { description: `Reference task: ${entry.taskTitle}` }
+                    : null,
+                ].filter(Boolean);
+
+          return {
+            ...entry,
+            id: entry.sourceTaskId || entry._id,
+            type: "Task Assignment",
+            sn: String(entry.aircraft || "").replace(/[^\d]/g, "") || "N/A",
+            dateDefectRectified: entry.dateDefectRectified,
+            workDetails,
+          };
+        });
+
+        setAllEntries(normalized);
+      } catch (error) {
+        console.error("Failed to fetch maintenance logs:", error);
+        setAllEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMaintenanceLogs();
+  }, [getAuthHeader]);
+
+  const formatDisplayDate = (value) => {
+    if (!value) return "N/A";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "N/A";
+    return parsed.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const filteredEntries = useMemo(() => {
+    const needle = searchValue.trim().toLowerCase();
+    if (!needle) {
+      return allEntries;
+    }
+
+    return allEntries.filter((entry) =>
+      [
+        entry.aircraft,
+        entry.taskTitle,
+        entry.defects,
+        entry.correctiveActionDone,
+        entry.reportedBy,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle)),
+    );
+  }, [allEntries, searchValue]);
+
+  const uniqueAircraft = useMemo(
+    () => [
+      ...new Set(
+        filteredEntries.map((entry) => entry.aircraft).filter(Boolean),
+      ),
+    ],
+    [filteredEntries],
+  );
+
+  const navigateToAircraft = (aircraftReg) => {
+    const entries = filteredEntries.filter(
+      (entry) => entry.aircraft === aircraftReg,
+    );
+    if (entries.length === 0) return;
+
+    setSelectedAircraft({
+      ...entries[0],
+      entries,
+    });
     setViewLevel("aircraft");
   };
 
@@ -73,190 +320,444 @@ export default function MaintenanceLog() {
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
   };
 
-  // --- VIEW 1: DASHBOARD (2 Cards Per Row) ---
+  const renderReadOnlyField = (label, value) => (
+    <Space.Compact style={{ width: "100%" }}>
+      <span
+        style={{
+          minWidth: 120,
+          padding: "0 11px",
+          border: "1px solid #d9d9d9",
+          borderRight: 0,
+          borderRadius: "6px 0 0 6px",
+          background: "#fafafa",
+          lineHeight: "30px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+      <Input
+        value={value || ""}
+        readOnly
+        style={{ borderRadius: "0 6px 6px 0" }}
+      />
+    </Space.Compact>
+  );
+
+  const fetchAircraftExportData = async (aircraft) => {
+    if (!aircraft) return null;
+
+    try {
+      const authHeader = await getAuthHeader();
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}`,
+        { headers: authHeader },
+      );
+      const payload = await response.json();
+      return response.ok ? payload?.data || null : null;
+    } catch (error) {
+      console.warn("Unable to load aircraft export details:", error);
+      return null;
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedWO) return;
+
+    try {
+      setExporting(true);
+      const [aircraftData, logoDataUrl] = await Promise.all([
+        fetchAircraftExportData(selectedWO.aircraft),
+        loadImageDataUrl(NGCP_LOGO_PATH).catch((error) => {
+          console.warn(error);
+          return null;
+        }),
+      ]);
+
+      const doc = new jsPDF("p", "pt", "a4");
+      const fileName = buildSafeFileName(
+        `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
+      );
+      const bodyRows = (
+        Array.isArray(selectedWO.workDetails) && selectedWO.workDetails.length > 0
+          ? selectedWO.workDetails
+          : [{ description: selectedWO.correctiveActionDone || selectedWO.defects || "" }]
+      )
+        .map((item) => formatPdfValue(item?.description || item, "").trim())
+        .filter(Boolean)
+        .map((description, index) => ["", `${index + 1}. ${description}`]);
+
+      const drawPageHeader = () =>
+        drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
+
+      const header = drawPageHeader();
+
+      autoTable(doc, {
+        startY: header.startY,
+        body: bodyRows.length ? bodyRows : [["", ""]],
+        theme: "grid",
+        margin: { left: header.marginX, right: header.marginX, top: header.startY },
+        tableWidth: header.contentWidth,
+        showHead: "never",
+        styles: {
+          font: "helvetica",
+          fontSize: 7.5,
+          cellPadding: 3,
+          lineColor: [25, 25, 25],
+          lineWidth: 0.75,
+          textColor: [20, 20, 20],
+          overflow: "linebreak",
+          valign: "middle",
+          minCellHeight: 16,
+        },
+        columnStyles: {
+          0: { cellWidth: header.numberColumnWidth },
+          1: { cellWidth: header.contentWidth - header.numberColumnWidth },
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            const pageHeader = drawPageHeader();
+            data.settings.margin.top = pageHeader.startY;
+          }
+        },
+      });
+
+      doc.save(`${fileName}.pdf`);
+    } catch (error) {
+      console.error("Failed to export maintenance log:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (viewLevel === "dashboard") {
-    const uniqueAircraft = [...new Set(allEntries.map((e) => e.aircraft))];
     return (
-      <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 40,
-          }}
-        >
-          <Input
-            placeholder="Search defect..."
-            prefix={<SearchOutlined />}
-            style={{ width: "50%", borderRadius: 10 }}
-          />
-        </div>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <Title level={3} style={{ marginBottom: 20 }}>
-            REMARKS
-          </Title>
-          <Row gutter={[16, 16]}>
-            {uniqueAircraft.map((reg) => (
-              <Col span={12} key={reg}>
+      <div style={pageScrollStyle}>
+        <Card style={{ marginBottom: 10 }}>
+          <Row gutter={[12, 12]} align="middle" style={{}}>
+            <Col xs={24} md={10}>
+              <Input
+                size="large"
+                placeholder="Search maintenance logs..."
+                prefix={<SearchOutlined />}
+                allowClear
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+              />
+            </Col>
+          </Row>
+        </Card>
+
+        <Row gutter={[16, 16]}>
+          {!loading && uniqueAircraft.length === 0 && (
+            <Col span={24}>
+              <Card>
+                <Text type="secondary">
+                  No maintenance logs found yet. Completed task-assignment
+                  records will appear here automatically.
+                </Text>
+              </Card>
+            </Col>
+          )}
+
+          {uniqueAircraft.map((reg) => {
+            const entriesForAircraft = filteredEntries.filter(
+              (entry) => entry.aircraft === reg,
+            );
+            const sample = entriesForAircraft[0];
+
+            return (
+              <Col xs={24} sm={12} md={6} key={reg}>
                 <Card
                   hoverable
                   onClick={() => navigateToAircraft(reg)}
-                  styles={{ body: { display: "flex", padding: 0 } }}
+                  styles={{ body: { padding: 0 } }}
+                  style={{ borderRadius: 12, overflow: "hidden" }}
                 >
-                  <div
-                    style={{
-                      width: 140,
-                      background: "#d1c4e9",
-                      borderRadius: "4px 0 0 4px",
-                    }}
-                  />
-                  <div style={{ padding: 15 }}>
-                    <Title level={5} style={{ margin: 0 }}>
-                      {reg}
-                    </Title>
-                    <Text type="secondary">ACFT TYPE: AS350 B3</Text>
-                    <br />
-                    <Text type="secondary">ACFT S/N: 7247</Text>
+                  <div style={{ display: "flex", minHeight: 120 }}>
+                    <div style={{ width: 7, background: "#26866f" }} />
+                    <div style={{ padding: 16, flex: 1 }}>
+                      <Title level={5} style={{ margin: "0 0 8px" }}>
+                        {reg}
+                      </Title>
+                      <Text type="secondary">
+                        SOURCE: {sample?.type || "Task Assignment"}
+                      </Text>
+                      <br />
+                      <Text type="secondary">
+                        ENTRIES: {entriesForAircraft.length}
+                      </Text>
+                    </div>
                   </div>
                 </Card>
               </Col>
-            ))}
-          </Row>
-        </div>
+            );
+          })}
+        </Row>
+        <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
+          <Text type="secondary">
+            Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
+          </Text>
+        </Col>
       </div>
     );
   }
 
-  // --- VIEW 2: AIRCRAFT DETAILS (Split View) ---
   if (viewLevel === "aircraft") {
     return (
-      <div style={{ padding: "20px" }}>
+      <div style={pageScrollStyle}>
         <Button
           icon={<ArrowLeftOutlined />}
           type="text"
           onClick={goBack}
-          style={{ marginBottom: 20 }}
-        />
-        <Row gutter={24} style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <Col span={14}>
-            <Card styles={{ body: { display: "flex", padding: 0 } }}>
-              <div style={{ width: 250, background: "#d1c4e9" }} />
-              <div style={{ padding: "20px" }}>
-                <Title level={3}>{selectedAircraft?.aircraft}</Title>
-                <Text type="secondary">Lightweight Utility Aircraft</Text>
-                <Row style={{ marginTop: 25 }} gutter={[0, 12]}>
-                  <Col span={12}>
-                    <Text strong>ACFT TYPE:</Text> {selectedAircraft?.type}
-                  </Col>
-                  <Col span={12}>
-                    <Text strong>LANDING CYC:</Text> 2522
-                  </Col>
+          style={{ marginBottom: 16 }}
+        >
+          Back
+        </Button>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} lg={14}>
+            <Card
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid #e8f0ec",
+              }}
+              styles={{ body: { padding: 0 } }}
+            >
+              <div
+                style={{
+                  padding: "18px 20px",
+                  background:
+                    "linear-gradient(135deg, #1f5f49 0%, #26866f 55%, #52a18b 100%)",
+                  color: "#fff",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 12,
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  MAINTENANCE SNAPSHOT
+                </Text>
+                <Title level={3} style={{ margin: "4px 0 2px", color: "#fff" }}>
+                  {selectedAircraft?.aircraft || "N/A"}
+                </Title>
+                <Text style={{ color: "rgba(255,255,255,0.88)" }}>
+                  Completed task records synced to maintenance logs
+                </Text>
+              </div>
+
+              <div style={{ padding: 18 }}>
+                <Row gutter={[12, 12]}>
+                  {[
+                    {
+                      label: "Reported By",
+                      value: selectedAircraft?.reportedBy || "N/A",
+                    },
+                    {
+                      label: "Status",
+                      value: selectedAircraft?.status || "N/A",
+                    },
+                    {
+                      label: "ACFT S/N",
+                      value: selectedAircraft?.sn || "N/A",
+                    },
+                    {
+                      label: "Work Orders",
+                      value: String(selectedAircraft?.entries?.length || 0),
+                    },
+                  ].map((item) => (
+                    <Col xs={24} sm={12} key={item.label}>
+                      <div
+                        style={{
+                          border: "1px solid #edf3f0",
+                          background: "#fbfdfc",
+                          borderRadius: 10,
+                          padding: "10px 12px",
+                          minHeight: 72,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            color: "#5a7268",
+                          }}
+                        >
+                          {item.label}
+                        </Text>
+                        <Text
+                          strong
+                          style={{
+                            fontSize: 16,
+                            marginTop: 2,
+                            color: "#1b3d2f",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {item.value}
+                        </Text>
+                      </div>
+                    </Col>
+                  ))}
                 </Row>
               </div>
             </Card>
           </Col>
-          <Col span={10}>
-            <MLogTable
-              headers={[
-                { title: "W.O. #", key: "id" },
-                { title: "DATE", key: "dateDefectRectified" },
-              ]}
-              data={selectedAircraft?.entries || []}
-              onRowClick={navigateToReport}
-              isSimple={true}
-            />
+
+          <Col xs={24} lg={10}>
+            <Card
+              title={
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <Text strong style={{ color: "#1b3d2f" }}>
+                    Work Orders
+                  </Text>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 28,
+                      height: 24,
+                      padding: "0 8px",
+                      borderRadius: 999,
+                      background: "#e6f4ef",
+                      color: "#1f5f49",
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    {selectedAircraft?.entries?.length || 0}
+                  </span>
+                </div>
+              }
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid #e8f0ec",
+              }}
+              styles={{
+                body: { padding: 0 },
+                header: { borderBottom: "1px solid #edf3f0" },
+              }}
+            >
+              <div>
+                <MLogTable
+                  headers={[
+                    { title: "W.O. #", key: "id", width: "20%" },
+                    { title: "DATE", key: "dateDefectRectified", width: "30%" },
+                  ]}
+                  data={(selectedAircraft?.entries || []).map((entry) => ({
+                    ...entry,
+                    dateDefectRectified: formatDisplayDate(
+                      entry.dateDefectRectified,
+                    ),
+                  }))}
+                  onRowClick={navigateToReport}
+                  isSimple={true}
+                />
+              </div>
+            </Card>
           </Col>
         </Row>
       </div>
     );
   }
 
-  // --- VIEW 3: WORK REPORT (Blank Fields + Grid Table) ---
   if (viewLevel === "report") {
     return (
-      <div style={{ padding: "20px" }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          type="text"
-          onClick={goBack}
-          style={{ marginBottom: 10 }}
-        />
-        <div style={{ maxWidth: 950, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: 10,
-            }}
-          >
+      <div style={pageScrollStyle}>
+        <Row
+          justify="space-between"
+          align="middle"
+          style={{ marginBottom: 12 }}
+        >
+          <Col>
+            <Button icon={<ArrowLeftOutlined />} type="text" onClick={goBack}>
+              Back
+            </Button>
+          </Col>
+          <Col>
             <Button
-              icon={<PrinterOutlined />}
+              icon={<ExportOutlined />}
               type="primary"
               style={{ backgroundColor: "#26866f", border: "none" }}
+              onClick={handleExport}
+              loading={exporting}
             >
-              Print
+              Export
             </Button>
-          </div>
-          <Card style={{ marginBottom: 15 }}>
-            <Row gutter={[16, 12]}>
-              <Col span={12}>
-                <Space.Compact>
-                  {addon}
-                  <Input addonBefore="Aircraft Type:" value="" readOnly />
-                </Space.Compact>
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft Reg:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Landing Cyc:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Aircraft S/N:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine TT:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="W.O. #:" value="" readOnly />
-              </Col>
-              <Col span={12}>
-                <Input addonBefore="Engine Cyc:" value="" readOnly />
-              </Col>
-            </Row>
-          </Card>
-          <Title level={5} style={{ marginBottom: 10 }}>
-            WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE
-          </Title>
-          <div
-            style={{
-              border: "1px solid #d9d9d9",
-              borderRadius: 4,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                background: "#26866f",
-                color: "white",
-                padding: "10px 15px",
-                fontWeight: "bold",
-              }}
-            >
-              DESCRIPTION OF WORK
-            </div>
-            <MLogTable
-              headers={[{ title: "", key: "description" }]}
-              data={selectedWO?.workDetails || []}
-              isSimple={true}
-              isWorkReport={true}
-            />
-          </div>
-        </div>
+          </Col>
+        </Row>
+
+        <Card style={{ marginBottom: 15 }}>
+          <Row gutter={[16, 12]}>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField("Aircraft:", selectedWO?.aircraft)}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField(
+                "Task ID:",
+                selectedWO?.sourceTaskId || selectedWO?.id,
+              )}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField(
+                "Task Status:",
+                selectedWO?.sourceTaskStatus,
+              )}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField("Log Status:", selectedWO?.status)}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField(
+                "Rectified:",
+                formatDisplayDate(selectedWO?.dateDefectRectified),
+              )}
+            </Col>
+            <Col xs={24} md={12}>
+              {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+            </Col>
+          </Row>
+        </Card>
+        <Card
+          title="WORK DONE REPORT/CERTIFICATE OF RETURN TO SERVICE"
+          styles={{
+            header: {
+              background: "#26866f",
+              color: "#fff",
+              fontWeight: 700,
+            },
+          }}
+        >
+          <MLogTable
+            headers={[{ title: "DESCRIPTION OF WORK", key: "description" }]}
+            data={selectedWO?.workDetails || []}
+            isSimple={true}
+            isWorkReport={true}
+          />
+        </Card>
       </div>
     );
   }
+
+  return null;
 }

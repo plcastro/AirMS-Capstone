@@ -1,0 +1,231 @@
+{
+  "source": "OCR-assisted analysis of user-supplied PDF manuals",
+  "note": "This catalog captures the maintenance class and AMM reference recovered from the PDFs so starter rules can be seeded from analyzed file content rather than from filenames alone.",
+  "files": [
+    {
+      "name": "Mechanical assemblies - Main Rotor Drive or Tail Rotor Drive.pdf",
+      "maintenanceClass": "Calendar Inspections",
+      "reference": "AMM 05-60-00,6-1"
+    },
+    {
+      "name": "Tasks Identified in the Maintenance Procedures of the MMEL.pdf",
+      "maintenanceClass": "Unscheduled Maintenance Checks - MMEL",
+      "reference": "AMM 05-50-01,6-1"
+    },
+    {
+      "name": "Inspection of the components and optional equipment involved in a hard landing.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-25"
+    },
+    {
+      "name": "Operation to be carried out after immersion.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-24"
+    },
+    {
+      "name": "Diagnosis of anomalies through vibration analysis.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-21A"
+    },
+    {
+      "name": "Diagnosis of anomalies through vibration analysis using STEADY Control adjustment equipment.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-21B"
+    },
+    {
+      "name": "Actions to be taken in the events of abnormal behaviour of helicopter on the ground, with rotor spinning.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-20"
+    },
+    {
+      "name": "Measures Required in Case of a Contaminated Engine Oil Circuit.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-19"
+    },
+    {
+      "name": "Procedure After an Engine-health Check - (No Torque Margin Engine).pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-17"
+    },
+    {
+      "name": "Procedure applicable when an engine power check shows a negative torque.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-17"
+    },
+    {
+      "name": "Procedure After Fuel Contamination.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-16"
+    },
+    {
+      "name": "Procedure if the pre-clogging indicator of the hydraulic system filter is extended.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-15"
+    },
+    {
+      "name": "Procedure After Oil Leaks from the Gearboxes.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-14"
+    },
+    {
+      "name": "Procedure After Jerks on the Freewheel.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-12"
+    },
+    {
+      "name": "Procedure After Sudden Application of the Main Rotor Brake.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-11"
+    },
+    {
+      "name": "Steps to be Taken on Aircraft Struck by Lightning.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-10"
+    },
+    {
+      "name": "Steps to be Taken on Aircraft Struck by Lightning 2.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-10"
+    },
+    {
+      "name": "Procedure After Flight in Strong Turbulence.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-9"
+    },
+    {
+      "name": "Steps to be Taken for Non-Rotating Blades in Gusts.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-8"
+    },
+    {
+      "name": "Measures to be Taken After Impact or Unbalance on the Tail Rotor Blade.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-7"
+    },
+    {
+      "name": "Procedure if there is an impact on the main rotor blades.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-6"
+    },
+    {
+      "name": "Procedure after a hard landing PRE MOD 074302.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-5A"
+    },
+    {
+      "name": "Procedure after a hard landing POST MOD 074302.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-5B"
+    },
+    {
+      "name": "Procedure After Overtorque.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-4"
+    },
+    {
+      "name": "Actions to take if there is overtorque PRE MOD 074302.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-4A"
+    },
+    {
+      "name": "Procedure if there is overtorque POST MOD 074302.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-4B"
+    },
+    {
+      "name": "Steps to be taken after rotor overspeed.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-3"
+    },
+    {
+      "name": "Procedure if Chips are Detected and  or if the MGB P and  or MGB TEMP Warning Lights Come on - TGB or MGB.pdf",
+      "maintenanceClass": "Unscheduled Inspections",
+      "reference": "AMM 05-50-00,6-1"
+    },
+    {
+      "name": "inspection after aff optional equipment.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-10"
+    },
+    {
+      "name": "inspection after aff optional equipment 2.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-10"
+    },
+    {
+      "name": "inspection before bff optional equipment.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-9"
+    },
+    {
+      "name": "inspection before bff optional equipment 2.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-9"
+    },
+    {
+      "name": "p inspection optional equipment.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-8"
+    },
+    {
+      "name": "p inspection optional equipment 2.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-8"
+    },
+    {
+      "name": "p inspection.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-7"
+    },
+    {
+      "name": "p inspection pre mod 074302.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-7A"
+    },
+    {
+      "name": "p inspection post mod 074302.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-7B"
+    },
+    {
+      "name": "inspection after aff.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-6"
+    },
+    {
+      "name": "inspection after aff 2.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-6"
+    },
+    {
+      "name": "turnaround checks.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-5"
+    },
+    {
+      "name": "inspection before bff.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,6-4"
+    },
+    {
+      "name": "general instructions for daily checks.pdf",
+      "maintenanceClass": "Daily Checks",
+      "reference": "AMM 05-40-00,3-1"
+    },
+    {
+      "name": "type f inspection.pdf",
+      "maintenanceClass": "FAA Complementary Inspection",
+      "reference": "AMM 05-32-00,6-1"
+    },
+    {
+      "name": "New numbering of tasks.pdf",
+      "maintenanceClass": "New numbering of Tasks",
+      "reference": "AMM 01-20-00,2-1"
+    },
+    {
+      "name": "List of citical parts.pdf",
+      "maintenanceClass": "Critical / Important Parts",
+      "reference": "AMM 01-10-00,2-1"
+    }
+  ]
+}

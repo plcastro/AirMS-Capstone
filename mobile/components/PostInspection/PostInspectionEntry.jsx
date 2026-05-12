@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -17,13 +16,16 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import { getDefaultPostInspectionFormData } from "./PostInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PostInspectionEntry({
   visible,
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
@@ -35,6 +37,7 @@ export default function PostInspectionEntry({
     "Engine",
     "Main Rotor",
     "Cabin Interior",
+    "Notes",
   ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -65,11 +68,11 @@ export default function PostInspectionEntry({
 
   const handleSave = () => {
     if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
+      showToast("Aircraft RPC is required");
       return;
     }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
+      showToast("Aircraft Type is required");
       return;
     }
     onSave(formData);
@@ -97,6 +100,7 @@ export default function PostInspectionEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1":
@@ -139,6 +143,14 @@ export default function PostInspectionEntry({
             isEditable={true}
           />
         );
+      case "Notes":
+        return (
+          <PostInspectionModalNotes
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={true}
+          />
+        );
       default:
         return null;
     }
@@ -150,10 +162,44 @@ export default function PostInspectionEntry({
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 16,
+              marginBottom: 12,
+            }}
+          >
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                New Entry - Post-Inspection
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+                Select Section
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              gap: 12,
+              paddingBottom: 12,
+            }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
@@ -174,7 +220,7 @@ export default function PostInspectionEntry({
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -194,17 +240,6 @@ export default function PostInspectionEntry({
             }}
           />
 
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -242,7 +277,7 @@ export default function PostInspectionEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>

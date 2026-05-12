@@ -1,37 +1,43 @@
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import React from "react";
+import LoginLayout from "../Layout/LoginLayout";
+import { COLORS } from "../stylesheets/colors";
 
-export default function LoadingScreen() {
+export default function LoadingScreen({
+  message = "Loading...",
+  showLogo = true,
+}) {
   return (
-    <View style={styles.overlay}>
-      <Image
-        source={require("../assets/AirMS_web.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.text}>Loading...</Text>
-    </View>
+    <LoginLayout cardTitle="Please wait" cardsubTitle={message}>
+      <View style={styles.content}>
+        <ActivityIndicator size="large" color="#244D3B" />
+        <Text style={styles.text}>
+          {showLogo
+            ? "We are preparing your session."
+            : "Loading your request."}
+        </Text>
+      </View>
+    </LoginLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#fff",
-    justifyContent: "center",
+  content: {
+    width: "100%",
+    minHeight: 120,
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
     alignItems: "center",
-    zIndex: 999,
-  },
-  logo: {
-    width: 200,
-    height: 200,
+    justifyContent: "center",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
   },
   text: {
-    marginTop: 20,
-    fontSize: 16,
+    marginTop: 12,
+    fontSize: 12,
+    color: COLORS.grayDark,
+    textAlign: "center",
   },
 });

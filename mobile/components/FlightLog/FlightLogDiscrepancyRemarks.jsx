@@ -16,7 +16,7 @@ export default function FlightLogDiscrepancyRemarks({
 }) {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Discrepancy/Remarks
       </Text>
 
@@ -33,14 +33,14 @@ export default function FlightLogDiscrepancyRemarks({
         overflow: "hidden",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Discrepancy/Remarks
           </Text>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Discrepancy/Remarks
             </Text>
             <TextInput
@@ -50,7 +50,7 @@ export default function FlightLogDiscrepancyRemarks({
                 height: 100,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
-                fontSize: 14,
+                fontSize: 12,
                 color: isEditable ? COLORS.black : COLORS.grayDark,
                 textAlignVertical: "top",
               }}
@@ -65,7 +65,7 @@ export default function FlightLogDiscrepancyRemarks({
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Sling
             </Text>
             <TextInput
@@ -75,7 +75,7 @@ export default function FlightLogDiscrepancyRemarks({
                 height: 100,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
-                fontSize: 14,
+                fontSize: 12,
                 color: isEditable ? COLORS.black : COLORS.grayDark,
                 textAlignVertical: "top",
               }}

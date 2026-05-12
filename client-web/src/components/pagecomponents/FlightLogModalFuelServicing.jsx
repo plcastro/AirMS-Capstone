@@ -1,6 +1,7 @@
-import React, { useRef } from "react";
-import { Input, Button } from "antd";
-import SignatureCanvas from "react-signature-canvas";
+import React, { useState } from "react";
+import { Input, Button, DatePicker } from "antd";
+import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import dayjs from "dayjs";
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -11,38 +12,55 @@ const getOrdinalSuffix = (n) => {
 };
 
 function LegSignaturePad({ value, onChange, disabled }) {
-  const sigRef = useRef(null);
-
-  const handleEnd = () => {
-    if (sigRef.current && onChange) onChange(sigRef.current.toDataURL("image/png"));
-  };
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [isSignatureOpen, setIsSignatureOpen] = useState(false);
 
   const handleClear = () => {
-    if (sigRef.current) sigRef.current.clear();
     if (onChange) onChange("");
+    setIsReplacing(false);
   };
+
+  const showSavedSignature = value && (disabled || !isReplacing);
 
   return (
     <div>
       <div className="fl-sig-box">
-        {value && disabled ? (
+        {showSavedSignature ? (
           <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
         ) : (
-          <SignatureCanvas
-            ref={sigRef}
-            penColor="#000"
-            canvasProps={{ style: { width: "100%", height: 60 } }}
-            onEnd={handleEnd}
-          />
+          <Button type="link" onClick={() => setIsSignatureOpen(true)}>
+            Tap to sign
+          </Button>
         )}
       </div>
       {!disabled && (
-        <Button size="small" danger onClick={handleClear} style={{ marginTop: 4, float: "right" }}>
-          Clear
-        </Button>
+        <div style={{ marginTop: 4, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {value && !isReplacing && (
+            <Button size="small" onClick={() => setIsReplacing(true)}>
+              Replace
+            </Button>
+          )}
+          <Button size="small" danger onClick={handleClear}>
+            Clear
+          </Button>
+        </div>
       )}
+      <PinVerifiedSignatureModal
+        open={isSignatureOpen}
+        title="Fuel Servicing Signature"
+        description="Draw the refueler signature below."
+        confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+        onCancel={() => {
+          setIsSignatureOpen(false);
+          setIsReplacing(false);
+        }}
+        onSave={(signature) => {
+          onChange?.(signature);
+          setIsReplacing(false);
+        }}
+      />
     </div>
   );
 }
@@ -77,11 +95,18 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
             <div className="fl-card-body">
               <div className="fl-field-row">
                 <span className="fl-label">Date:</span>
-                <Input
+                <DatePicker
                   className="fl-input"
-                  value={fuel.date || ""}
-                  onChange={(e) => updateFuel(legIdx, "date", e.target.value)}
-                  placeholder="MM/DD/YYYY"
+                  style={{ width: "100%" }}
+                  format="MM/DD/YYYY"
+                  value={fuel.date ? dayjs(fuel.date) : null}
+                  onChange={(date) =>
+                    updateFuel(
+                      legIdx,
+                      "date",
+                      date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                    )
+                  }
                   disabled={!isEditable}
                 />
               </div>

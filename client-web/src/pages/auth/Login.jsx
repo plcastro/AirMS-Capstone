@@ -2,22 +2,16 @@ import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import {
-  Card,
-  Input,
-  Checkbox,
-  Button,
-  message as antMessage,
-  Typography,
-  Row,
-  Col,
-  Form,
-} from "antd";
+import { App, Input, Checkbox, Button, Typography, Row, Col, Form } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
+import LoginLayout from "../../components/layout/LoginLayout";
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import AirMSLogo from "../../assets/AirMS_web.png";
+const { Text } = Typography;
 
-const { Title, Text } = Typography;
 const Login = () => {
+  const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -27,17 +21,15 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
-    const savedPassword = localStorage.getItem("rememberedPassword");
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
-        password: savedPassword || "",
+        password: "",
       });
       setRememberMe(true);
     }
@@ -56,9 +48,8 @@ const Login = () => {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false"); // triggers other tabs
+      localStorage.setItem("rememberMe", "false");
       localStorage.removeItem("rememberedIdentifier");
-      localStorage.removeItem("rememberedPassword");
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -80,19 +71,20 @@ const Login = () => {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({
+          identifier,
+          password,
+          client: "web",
+          rememberMe,
+        }),
         credentials: "include",
       });
 
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("Non-JSON response from server:", text);
-        setError("Server error. Please try again later.");
-        return;
-      }
+      const contentType = response.headers.get("content-type") || "";
+      const isJsonResponse = contentType.includes("application/json");
+      const data = isJsonResponse
+        ? await response.json()
+        : { message: (await response.text()) || "Login failed" };
 
       if (response.ok) {
         if (data.requireSetup) {
@@ -101,24 +93,30 @@ const Login = () => {
           );
           return;
         }
-        await loginUser(data.user, data.token);
+        await loginUser(data.user, data.token, { rememberMe });
 
         if (rememberMe) {
           localStorage.setItem(
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
-          localStorage.setItem("rememberedPassword", formData.password.trim());
+
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("rememberedIdentifier");
-          localStorage.removeItem("rememberedPassword");
           localStorage.removeItem("rememberMe");
         }
-        antMessage.success("Logged in successfully!");
+        message.success("Logged in successfully!");
         handleNavigate(data.user);
       } else {
-        setError(data.message || "Login failed");
+        if (response.status === 429) {
+          setError(
+            data.message ||
+              "Too many login attempts. Please wait a few minutes and try again.",
+          );
+        } else {
+          setError(data.message || "Login failed");
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -129,25 +127,20 @@ const Login = () => {
   };
 
   const handleNavigate = (loggedInUser) => {
-    if (loggedInUser?.securitySetupCompleted && !loggedInUser?.signature) {
-      navigate("/dashboard/profile");
-      return;
-    }
-
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
 
     switch (pos) {
       case "admin":
         navigate("/dashboard/user-management/view-users");
         break;
-      case "pilot":
-        navigate("/dashboard/flight-log");
-        break;
-      case "maintenance manager":
+      case "mechanic":
         navigate("/dashboard/maintenance-log");
         break;
+      case "maintenance manager":
+        navigate("/dashboard/maintenance-dashboard");
+        break;
       case "officer-in-charge":
-        navigate("/dashboard/parts-lifespan-monitoring");
+        navigate("/dashboard/maintenance-dashboard");
         break;
       case "warehouse department":
         navigate("/dashboard/parts-requisition");
@@ -158,80 +151,93 @@ const Login = () => {
     }
   };
   return (
-    <Card className="login-container">
-      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2} className="title">
-            Login
-          </Title>
-          <Text>Please enter your AirMS account details to log in</Text>
-        </Col>
-      </Row>
-
-      <Form layout="vertical" onFinish={handleSubmit}>
-        <Form.Item label="Username/Email" required>
-          <Input
-            type="text"
-            id="identifier"
-            size="large"
-            placeholder="Enter username/email"
-            value={formData.identifier}
-            onChange={handleInputChange}
-            autoComplete="username"
-            required
-            allowClear
-          />
-        </Form.Item>
-
-        <Form.Item label="Password" required>
-          <Input.Password
-            id="password"
-            placeholder="Enter password"
-            size="large"
-            value={formData.password}
-            onChange={handleInputChange}
-            autoComplete="current-password"
-            required
-            allowClear
-          />
-          <Row>{error && <Text type="danger">{error}</Text>}</Row>
-        </Form.Item>
-
-        <Row
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            marginBottom: 10,
-          }}
+    <>
+      {loading && (
+        <div
+          className="login-loading-overlay"
+          aria-live="polite"
+          aria-busy="true"
         >
-          <Col lg={12}>
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onChange={handleRememberMeChange}
+          <div className="login-loading-card">
+            <img src={AirMSLogo} alt="AirMS" className="login-loading-logo" />
+            <div className="login-loading-spinner" />
+            <p className="login-loading-title">Signing You In</p>
+            <p className="login-loading-subtitle">
+              Verifying your account and preparing your workspace.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <LoginLayout>
+        <Form layout="vertical" onFinish={handleSubmit}>
+          <Form.Item label="Username or Email" required>
+            <Input
+              type="text"
+              id="identifier"
+              size="large"
+              placeholder="Enter username or email"
+              value={formData.identifier}
+              onChange={handleInputChange}
+              autoComplete="username"
+              required
+              allowClear
+              prefix={<UserOutlined />}
+            />
+          </Form.Item>
+
+          <Form.Item label="Password" required>
+            <Input.Password
+              id="password"
+              placeholder="Enter password"
+              size="large"
+              value={formData.password}
+              onChange={handleInputChange}
+              autoComplete="current-password"
+              required
+              allowClear
+              prefix={<LockOutlined />}
+            />
+            {error && <Text type="danger">{error}</Text>}
+          </Form.Item>
+
+          <Row style={{ marginBottom: 20 }}>
+            <Col xs={12} sm={12}>
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onChange={handleRememberMeChange}
+              >
+                Remember Me
+              </Checkbox>
+            </Col>
+            <Col
+              xs={12}
+              sm={12}
+              style={{ display: "flex", justifyContent: "flex-end" }}
             >
-              Remember Me
-            </Checkbox>
-          </Col>
-          <Col lg={12} style={{ textAlign: "right" }}>
-            <Link to="/forgot" className="forgot-password">
-              Forgot password?
-            </Link>
-          </Col>
-        </Row>
+              <Link
+                to="/forgot"
+                className="link"
+                style={{ textAlign: "right" }}
+              >
+                Forgot password?
+              </Link>
+            </Col>
+          </Row>
 
-        <Button
-          htmlType="submit"
-          type="primary"
-          className="login-btn"
-          disabled={loading}
-        >
-          {loading ? "PLEASE WAIT..." : "LOGIN"}
-        </Button>
-      </Form>
-    </Card>
+          <Button
+            htmlType="submit"
+            type="primary"
+            className="login-btn"
+            disabled={loading}
+            size="large"
+          >
+            {loading ? "PLEASE WAIT..." : "LOGIN"}
+          </Button>
+        </Form>
+      </LoginLayout>
+    </>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import {
   Modal,
   Upload,
@@ -10,12 +10,28 @@ import {
   Col,
   Row,
   Typography,
+  Grid,
+  Space,
+  Form,
+  Descriptions,
+  Avatar,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, UserOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
+
+const ROLE_MAP = {
+  Admin: "Admin",
+  Pilot: "User",
+  "Maintenance Manager": "Superuser",
+  "Officer-In-Charge": "Superuser",
+  Mechanic: "User",
+  "Warehouse Department": "User",
+};
 
 export default function UserForm({
   visible,
@@ -24,67 +40,62 @@ export default function UserForm({
   user,
   allUsers,
 }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [accessLevel, setAccessLevel] = useState("");
-  const [licenseNo, setLicenseNo] = useState("");
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+  const { getValidToken } = useContext(AuthContext);
+  const [form] = Form.useForm();
+
   const [joinedDate, setJoinedDate] = useState(new Date());
   const [imageUrl, setImageUrl] = useState(null);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
 
-  const [touched, setTouched] = useState({});
-
-  const handleBlur = (field) =>
-    setTouched((prev) => ({ ...prev, [field]: true }));
+  const firstNameValue = Form.useWatch("firstName", form) || "";
+  const lastNameValue = Form.useWatch("lastName", form) || "";
+  const jobTitleValue = Form.useWatch("jobTitle", form) || "";
 
   useEffect(() => {
     if (!visible) return;
 
-    setTouched({});
-    const roleMap = {
-      Admin: "Admin",
-      Pilot: "User",
-      "Maintenance Manager": "Superuser",
-      "Officer-In-Charge": "Superuser",
-      Mechanic: "User",
-      "Warehouse Department": "User",
-    };
-
     if (user) {
-      // Editing user
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setEmail(user.email || "");
-      setUsername(user.username || "");
-      setJobTitle(user.jobTitle || "");
-      setAccessLevel(roleMap[user.jobTitle] || "");
+      form.setFieldsValue({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        username: user.username || "",
+        jobTitle: user.jobTitle || undefined,
+        base: user.base || undefined,
+        access: user.access || ROLE_MAP[user.jobTitle] || "",
+        licenseNo: user.licenseNo || "",
+      });
       setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
       setImageUrl(user.image || null);
       setFile(null);
     } else {
-      // New user
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      setJobTitle("");
-      setAccessLevel("");
+      form.resetFields();
+      form.setFieldsValue({
+        firstName: "",
+        lastName: "",
+        email: "",
+        username: "",
+        jobTitle: undefined,
+        base: undefined,
+        access: "",
+        licenseNo: "",
+      });
       setJoinedDate(new Date());
       setImageUrl(null);
       setFile(null);
-      setUsername("");
     }
-  }, [visible, user]);
+  }, [visible, user, form]);
 
-  // Generate username for new users
   useEffect(() => {
-    if (user) return; // skip for editing
-    if (!firstName || !lastName || !allUsers) return;
+    if (user) return;
+    if (!firstNameValue || !lastNameValue || !allUsers) return;
 
-    let base = `${lastName}${firstName[0]}`
+    const base = `${lastNameValue}${firstNameValue[0]}`
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[^a-z0-9]/g, "");
@@ -92,68 +103,48 @@ export default function UserForm({
     let counter = 1;
     let finalUsername = base;
     const usernameExists = (name) => allUsers.some((u) => u.username === name);
+
     while (usernameExists(finalUsername)) {
-      counter++;
+      counter += 1;
       finalUsername = `${base}${counter}`;
     }
-    setUsername(finalUsername);
-  }, [firstName, lastName, user, allUsers]);
 
-  // Auto-assign access level based on jobTitle
+    form.setFieldValue("username", finalUsername);
+  }, [firstNameValue, lastNameValue, user, allUsers, form]);
+
   useEffect(() => {
-    const roleMap = {
-      Admin: "Admin",
-      Pilot: "User",
-      "Officer-In-Charge": "Superuser",
-      "Maintenance Manager": "Superuser",
-      Mechanic: "User",
-      "Warehouse Department": "User",
-    };
-    setAccessLevel(roleMap[jobTitle] || "");
-  }, [jobTitle]);
+    form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
+    if (
+      ![
+        "maintenance manager",
+        "pilot",
+        "mechanic",
+        "officer-in-charge",
+      ].includes(jobTitleValue.toLowerCase())
+    ) {
+      form.setFieldValue("licenseNo", "");
+    }
+  }, [jobTitleValue, form]);
 
-  // Validation
-  const errors = useMemo(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const nameRegex = /^[a-zA-Z'-\s]+$/;
-
-    return {
-      firstName: !firstName.trim()
-        ? "First name is required"
-        : !nameRegex.test(firstName)
-          ? "First name can only contain letters, hyphens, or apostrophes"
-          : null,
-      lastName: !lastName.trim()
-        ? "Last name is required"
-        : !nameRegex.test(lastName)
-          ? "Last name can only contain letters, hyphens, or apostrophes"
-          : null,
-      email: !email.trim()
-        ? "Email is required"
-        : !emailRegex.test(email)
-          ? "Invalid email format"
-          : null,
-      jobTitle: !jobTitle ? "Job Title is required" : null,
-    };
-  }, [firstName, lastName, email, jobTitle]);
-
-  const isFormInvalid = Object.values(errors).some((err) => err !== null);
-
-  const handleSave = async () => {
+  const handleSave = async (values) => {
     setLoading(true);
 
     try {
+      const token = await getValidToken();
       let body;
-      let headers = {};
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
       if (file) {
         body = new FormData();
-        body.append("firstName", firstName.trim());
-        body.append("lastName", lastName.trim());
-        body.append("email", email.trim());
-        body.append("username", username.trim());
-        body.append("jobTitle", jobTitle);
-        body.append("access", accessLevel);
+        body.append("firstName", values.firstName.trim());
+        body.append("lastName", values.lastName.trim());
+        body.append("email", values.email.trim());
+        body.append("username", values.username.trim());
+        body.append("jobTitle", values.jobTitle);
+        body.append("base", values.base);
+        body.append("access", values.access);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("image", file);
         if (
@@ -162,22 +153,22 @@ export default function UserForm({
             "pilot",
             "mechanic",
             "officer-in-charge",
-          ].includes(jobTitle.toLowerCase())
+          ].includes(values.jobTitle.toLowerCase())
         ) {
-          body.append("licenseNo", licenseNo);
+          body.append("licenseNo", values.licenseNo || "");
         }
       } else {
-        // No file, send JSON
         headers["Content-Type"] = "application/json";
         body = JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim(),
-          username: username.trim(),
-          jobTitle,
-          access: accessLevel,
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          email: values.email.trim(),
+          username: values.username.trim(),
+          jobTitle: values.jobTitle,
+          base: values.base,
+          access: values.access,
           dateCreated: joinedDate.toISOString(),
-          licenseNo,
+          licenseNo: values.licenseNo || "",
         });
       }
 
@@ -195,7 +186,10 @@ export default function UserForm({
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Operation failed");
       }
+
       const savedUser = await res.json();
+      const savedUserData = savedUser?.data || savedUser?.user || null;
+
       antMessage.success(
         user ? "User updated successfully!" : "User added successfully!",
       );
@@ -203,23 +197,28 @@ export default function UserForm({
       if (!user) {
         Modal.success({
           title: "Email Sent",
-          content: `An invitation email has been sent to ${email}.`,
+          content: `An invitation email has been sent to ${values.email}.`,
         });
       }
 
       const updatedUser = {
-        _id: savedUser?.data?._id || user?._id,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        username,
-        jobTitle,
-        access: accessLevel,
+        _id: savedUserData?._id || user?._id,
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        email: values.email.trim(),
+        username: values.username,
+        jobTitle: values.jobTitle,
+        base: values.base,
+        access: values.access,
         dateCreated: joinedDate.toISOString(),
-        image: savedUser?.data?.image || imageUrl,
-        status: savedUser?.data?.status || "active",
+        image: savedUserData?.image || imageUrl,
+        status: savedUserData?.status || "inactive",
+        invitationStatus: savedUserData?.invitationStatus || "pending",
+        invitationExpiresAt: savedUserData?.invitationExpiresAt || null,
+        licenseNo: savedUserData?.licenseNo || values.licenseNo || "",
       };
 
+      setPreviewOpen(false);
       onUserSaved?.(updatedUser);
       onClose();
     } catch (err) {
@@ -230,177 +229,321 @@ export default function UserForm({
     }
   };
 
+  const handlePreview = async () => {
+    try {
+      const values = await form.validateFields();
+      setPreviewData(values);
+      setPreviewOpen(true);
+    } catch {
+      // validation errors are displayed by Form
+    }
+  };
+
+  const requiresLicense = useMemo(
+    () =>
+      [
+        "maintenance manager",
+        "pilot",
+        "mechanic",
+        "officer-in-charge",
+      ].includes(jobTitleValue.toLowerCase()),
+    [jobTitleValue],
+  );
+
   return (
-    <Modal
-      open={visible}
-      title={user ? "Edit User" : "Add User"}
-      onCancel={onClose}
-      width={600}
-      footer={[
-        <Button key="cancel" onClick={onClose}>
-          Cancel
-        </Button>,
-        <Button
-          key="save"
-          type="primary"
-          loading={loading}
-          onClick={handleSave}
-          disabled={isFormInvalid}
-        >
-          {user ? "Update" : "Save"}
-        </Button>,
-      ]}
-    >
-      <Divider />
-      <Row gutter={[16, 16]}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <ImgCrop rotationSlider aspect={1 / 1}>
-            <Upload
-              listType="picture-card"
-              showUploadList={false}
-              beforeUpload={(file) => {
-                setFile(file);
-                setImageUrl(URL.createObjectURL(file));
-                return false;
-              }}
-            >
+    <>
+      <Modal
+        open={visible}
+        title={user ? "Edit User" : "Add User"}
+        onCancel={onClose}
+        width={isMobile ? "96vw" : 760}
+        centered
+        styles={{
+          header: {
+            padding: "16px 24px 8px",
+          },
+          body: {
+            maxHeight: isMobile ? "76vh" : "80vh",
+            padding: "4px 24px 24px",
+          },
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={onClose}
+            style={{ width: isMobile ? "48%" : "auto" }}
+          >
+            Cancel
+          </Button>,
+          <Button
+            key="preview"
+            type="primary"
+            onClick={handlePreview}
+            loading={loading}
+            style={{ width: isMobile ? "48%" : "auto" }}
+          >
+            Create
+          </Button>,
+        ]}
+      >
+        <Divider style={{ marginTop: 0 }} />
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Space direction="vertical" size={14} style={{ width: "100%" }}>
+            <Row justify="center">
+              <Col style={{ textAlign: "center" }}>
+                <ImgCrop rotationSlider aspect={1 / 1}>
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    beforeUpload={(nextFile) => {
+                      setFile(nextFile);
+                      setImageUrl(URL.createObjectURL(nextFile));
+                      return false;
+                    }}
+                  >
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt="avatar"
+                        style={{ width: "100%" }}
+                      />
+                    ) : (
+                      <PlusOutlined />
+                    )}
+                  </Upload>
+                </ImgCrop>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Upload profile photo
+                </Text>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 14]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="First Name"
+                  name="firstName"
+                  rules={[
+                    { required: true, message: "First name is required" },
+                    {
+                      pattern: /^[a-zA-Z'\-\s]+$/,
+                      message:
+                        "First name can only contain letters, hyphens, or apostrophes",
+                    },
+                  ]}
+                >
+                  <Input
+                    maxLength={128}
+                    size="large"
+                    placeholder="Enter first name"
+                    onChange={(e) => {
+                      const value = e.target.value.replace(
+                        /[^a-zA-Z'\-\s]/g,
+                        "",
+                      );
+                      form.setFieldValue("firstName", value);
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Last Name"
+                  name="lastName"
+                  rules={[
+                    { required: true, message: "Last name is required" },
+                    {
+                      pattern: /^[a-zA-Z'\-\s]+$/,
+                      message:
+                        "Last name can only contain letters, hyphens, or apostrophes",
+                    },
+                  ]}
+                >
+                  <Input
+                    maxLength={128}
+                    size="large"
+                    placeholder="Enter last name"
+                    onChange={(e) => {
+                      const value = e.target.value.replace(
+                        /[^a-zA-Z'\-\s]/g,
+                        "",
+                      );
+                      form.setFieldValue("lastName", value);
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={24}>
+                <Form.Item
+                  label="Email Address"
+                  name="email"
+                  rules={[
+                    { required: true, message: "Email is required" },
+                    { type: "email", message: "Invalid email format" },
+                  ]}
+                >
+                  <Input
+                    placeholder="Enter email address"
+                    size="large"
+                    maxLength={256}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item label="Generated Username" name="username">
+                  <Input size="large" disabled />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Job Title"
+                  name="jobTitle"
+                  rules={[{ required: true, message: "Job Title is required" }]}
+                >
+                  <Select
+                    size="large"
+                    options={[
+                      { label: "Admin", value: "Admin" },
+                      {
+                        label: "Maintenance Manager",
+                        value: "Maintenance Manager",
+                      },
+                      { label: "Pilot", value: "Pilot" },
+                      {
+                        label: "Officer-In-Charge",
+                        value: "Officer-In-Charge",
+                      },
+                      { label: "Mechanic", value: "Mechanic" },
+                      {
+                        label: "Warehouse Department",
+                        value: "Warehouse Department",
+                      },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Base"
+                  name="base"
+                  rules={[{ required: true, message: "Base is required" }]}
+                >
+                  <Select
+                    size="large"
+                    placeholder="Select user base"
+                    options={[
+                      { label: "MANILA", value: "MANILA" },
+                      { label: "CEBU", value: "CEBU" },
+                      { label: "CDO", value: "CDO" },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item label="Access Level" name="access">
+                  <Input size="large" disabled />
+                </Form.Item>
+              </Col>
+
+              {requiresLicense ? (
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="License No."
+                    name="licenseNo"
+                    rules={[
+                      { required: true, message: "License number is required" },
+                      {
+                        pattern: /^\d{6}$/,
+                        message: "License number must be 6 digits",
+                      },
+                    ]}
+                  >
+                    <Input
+                      placeholder="Enter license number"
+                      size="large"
+                      maxLength={6}
+                      onChange={(e) =>
+                        form.setFieldValue(
+                          "licenseNo",
+                          e.target.value.replace(/\D/g, ""),
+                        )
+                      }
+                    />
+                  </Form.Item>
+                </Col>
+              ) : null}
+            </Row>
+          </Space>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={previewOpen}
+        title={user ? "Preview Updated User" : "Preview New User"}
+        onCancel={() => setPreviewOpen(false)}
+        width={isMobile ? "94vw" : 640}
+        centered
+        footer={[
+          <Button key="back" onClick={() => setPreviewOpen(false)}>
+            Back
+          </Button>,
+          <Button
+            key="save"
+            type="primary"
+            loading={loading}
+            onClick={() => previewData && handleSave(previewData)}
+          >
+            {user ? "Save Changes" : "Create User"}
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+          <Row justify="center">
+            <Col style={{ textAlign: "center" }}>
               {imageUrl ? (
-                <img src={imageUrl} alt="avatar" style={{ width: "100%" }} />
+                <Avatar size={84} src={imageUrl} />
               ) : (
-                <PlusOutlined />
+                <Avatar size={84} icon={<UserOutlined />} />
               )}
-            </Upload>
-          </ImgCrop>
-        </Col>
+            </Col>
+          </Row>
 
-        <Col span={12}>
-          <Text strong>First Name</Text>
-          <Input
-            maxLength={128}
-            size="large"
-            placeholder="Enter first name"
-            status={touched.firstName && errors.firstName ? "error" : ""}
-            value={firstName}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, ""); // remove invalid chars
-              setFirstName(value);
-            }}
-            onBlur={() => handleBlur("firstName")}
-          />
-          {touched.firstName && errors.firstName && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              {errors.firstName}
-            </Text>
-          )}
-        </Col>
-
-        <Col span={12}>
-          <Text strong>Last Name</Text>
-          <Input
-            maxLength={128}
-            size="large"
-            placeholder="Enter last name"
-            status={touched.lastName && errors.lastName ? "error" : ""}
-            value={lastName}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z'-\s]/g, "");
-              setLastName(value);
-            }}
-            onBlur={() => handleBlur("lastName")}
-          />
-          {touched.lastName && errors.lastName && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              {errors.lastName}
-            </Text>
-          )}
-        </Col>
-
-        {/* Email */}
-        <Col span={24}>
-          <Text strong>Email Address</Text>
-          <Input
-            placeholder="Enter email address"
-            size="large"
-            maxLength={256}
-            status={touched.email && errors.email ? "error" : ""}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => handleBlur("email")}
-          />
-          {touched.email && errors.email && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              {errors.email}
-            </Text>
-          )}
-        </Col>
-
-        <Col span={12}>
-          <Text strong>Generated Username</Text>
-          <Input size="large" value={username} disabled />
-        </Col>
-
-        <Col span={12}>
-          <Text strong>Job Title</Text>
-          <Select
-            status={touched.jobTitle && errors.jobTitle ? "error" : ""}
-            size="large"
-            style={{ width: "100%" }}
-            value={jobTitle || undefined}
-            onChange={(val) => {
-              setJobTitle(val);
-              handleBlur("jobTitle");
-            }}
-            options={[
-              { label: "Admin", value: "Admin" },
-              { label: "Maintenance Manager", value: "Maintenance Manager" },
-              { label: "Pilot", value: "Pilot" },
-              { label: "Officer-In-Charge", value: "Officer-In-Charge" },
-              { label: "Mechanic", value: "Mechanic" },
-              { label: "Warehouse Department", value: "Warehouse Department" },
-            ]}
-          />
-          {touched.jobTitle && errors.jobTitle && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              {errors.jobTitle}
-            </Text>
-          )}
-        </Col>
-
-        <Col span={12}>
-          <Text strong>Access Level</Text>
-          <Input value={accessLevel} disabled />
-        </Col>
-
-        {[
-          "maintenance manager",
-          "pilot",
-          "mechanic",
-          "officer-in-charge",
-        ].includes(jobTitle.toLowerCase()) ? (
-          <Col span={12}>
-            <Text strong>License No.</Text>
-            <Input
-              placeholder="Enter license number"
-              size="large"
-              value={licenseNo}
-              onChange={(e) => setLicenseNo(e.target.value.replace(/\D/g, ""))}
-              maxLength={6}
-              required={["maintenance manager", "pilot", "mechanic"].includes(
-                jobTitle.toLowerCase(),
-              )}
-            />
-          </Col>
-        ) : null}
-
-        <Col span={12}>
-          <Text strong>Date Joined</Text>
-          <Input
-            size="large"
-            value={joinedDate.toLocaleDateString()}
-            disabled
-          />
-        </Col>
-      </Row>
-    </Modal>
+          <Descriptions bordered column={isMobile ? 1 : 2} size="middle">
+            <Descriptions.Item label="First Name">
+              {previewData?.firstName || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Last Name">
+              {previewData?.lastName || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Email">
+              {previewData?.email || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Username">
+              {previewData?.username || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Job Title">
+              {previewData?.jobTitle || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Base">
+              {previewData?.base || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Access Level">
+              {previewData?.access || "-"}
+            </Descriptions.Item>
+            {previewData?.licenseNo ? (
+              <Descriptions.Item label="License No.">
+                {previewData.licenseNo}
+              </Descriptions.Item>
+            ) : null}
+          </Descriptions>
+        </Space>
+      </Modal>
+    </>
   );
 }

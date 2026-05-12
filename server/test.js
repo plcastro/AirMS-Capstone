@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const sendEmail = require("./utilities/sendEmail");
+const sendEmail = require("./utils/sendEmail");
 
 console.log("ENV:", process.env.EMAIL_HOST, process.env.EMAIL_PORT);
 

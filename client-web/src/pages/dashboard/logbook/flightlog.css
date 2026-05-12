@@ -1,7 +1,8 @@
 .fl-page {
-  padding: 16px 20px;
+  padding: 16px;
   background: #f5f5f5;
   min-height: 100vh;
+  overflow-y: scroll;
 }
 
 /* Search Row */
@@ -87,30 +88,6 @@
   background: #f5f5f5;
 }
 
-/* ── Table ──────────────────────────────────────────────── */
-.fl-table-wrapper {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.fl-table .ant-table-thead > tr > th {
-  font-size: 13px;
-  padding: 10px 12px;
-  background: #26866f;
-  color: #fff;
-}
-
-.fl-table .ant-table-thead > tr > th::before {
-  display: none !important;
-}
-
-.fl-table .ant-table-tbody > tr > td {
-  font-size: 13px;
-  padding: 9px 12px;
-}
-
 /* ── Status badges (matching mobile) ─────────────────────── */
 .fl-badge {
   display: inline-block;
@@ -125,9 +102,25 @@
   color: #2e7d32;
 }
 
-.fl-badge--ongoing {
+.fl-badge--ongoing,
+.fl-badge--pending-release {
   background: #fff3e0;
   color: #ed6c02;
+}
+
+.fl-badge--released {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.fl-badge--accepted {
+  background: #ede7f6;
+  color: #5e35b1;
+}
+
+.fl-badge--for-completion {
+  background: #fff8e1;
+  color: #8a5a00;
 }
 
 /* ── Entry modal shell ──────────────────────────────────── */
@@ -193,10 +186,9 @@
 
 /* ── Modal body (scrollable) ────────────────────────────── */
 .fl-modal-body {
-  padding: 14px 18px 10px;
-  max-height: 62vh;
+  padding-top: 10px;
+  height: 70vh;
   overflow-y: auto;
-  background: #f5f5f5;
 }
 
 /* ── Modal footer ────────────────────────────────────────── */
@@ -216,17 +208,23 @@
   padding: 0 14px;
 }
 
-.fl-page-indicator {
-  min-width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: #26866f;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
+.fl-modal-header-block {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #fff;
+}
+
+.fl-modal-title-main {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+}
+
+.fl-modal-title-sub {
+  margin-top: 2px;
+  font-size: 12px;
   font-weight: 600;
+  color: #777;
 }
 
 /* ── Section / Card ─────────────────────────────────────── */
@@ -267,30 +265,69 @@
 .fl-field-row {
   display: flex;
   align-items: center;
-  margin-bottom: 7px;
-  min-height: 26px;
+  margin-bottom: 10px;
+  min-height: 36px;
 }
 
 .fl-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #555;
-  min-width: 155px;
+  min-width: 180px;
   flex-shrink: 0;
 }
 
 .fl-input.ant-input,
 .fl-input {
   flex: 1;
-  height: 26px !important;
-  font-size: 12px !important;
+  height: 36px !important;
+  font-size: 13px !important;
   border-radius: 4px !important;
-  padding: 0 8px !important;
+  padding: 0 10px !important;
+}
+
+.fl-input.ant-picker {
+  padding: 0 10px !important;
+}
+
+.fl-input.ant-picker .ant-picker-input > input {
+  font-size: 13px !important;
+}
+
+.fl-rpc-select .ant-select-selection-item,
+.fl-rpc-select .ant-select-selection-placeholder {
+  font-size: 13px !important;
+}
+
+.fl-rpc-select .ant-select-selector {
+  min-height: 36px !important;
 }
 
 /* ── Custom Dropdown (for modal selects) ─────────────────── */
 .fl-dropdown-container {
   flex: 1;
   position: relative;
+}
+
+.fl-rpc-select {
+  width: 100%;
+}
+
+.fl-rpc-select .ant-select-selector {
+  height: 32px !important;
+  border-radius: 6px !important;
+  background: #f8f8f8 !important;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+
+.fl-rpc-select .ant-select-selection-wrap {
+  align-items: center;
+}
+
+.fl-rpc-select.ant-select-disabled .ant-select-selector {
+  background: #e8e8e8 !important;
+  color: #999 !important;
 }
 
 .fl-custom-select {
@@ -342,6 +379,22 @@
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fl-signature-summary {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.fl-signature-card {
+  background: #fff;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .fl-select-option {

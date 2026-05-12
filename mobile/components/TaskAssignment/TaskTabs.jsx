@@ -1,4 +1,4 @@
-import { View, ScrollView, Text } from "react-native";
+import { View, ScrollView, Text, RefreshControl } from "react-native";
 import React, { useState, useContext } from "react";
 import TaskCard from "./TaskCard";
 import Button from "../Button";
@@ -6,8 +6,15 @@ import { styles } from "../../stylesheets/styles";
 import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
+import { COLORS } from "../../stylesheets/colors";
 
-export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
+export default function TaskTabs({
+  tasks,
+  employees = [],
+  onTaskPress,
+  onRefresh,
+  refreshing = false,
+}) {
   const { user } = useContext(AuthContext);
   const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
 
@@ -43,17 +50,15 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
       }
     } else {
       return tasks.filter((task) => {
-        const dueDate = new Date(task.dueDate);
+        const deadline = task.endDateTime || task.dueDate;
+        if (!deadline) return false;
+        const dueDate = new Date(deadline);
         const today = new Date(
           now.getFullYear(),
           now.getMonth(),
           now.getDate(),
         );
         const isPastDue = dueDate < today;
-
-        console.log(
-          `Task ${task.id}: status=${task.status}, dueDate=${task.dueDate}, isPastDue=${isPastDue}`,
-        );
 
         switch (activeTab) {
           case "Upcoming":
@@ -79,6 +84,40 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
     }
   };
 
+  const getMechanicTabCount = (tab) =>
+    tasks.filter((task) => {
+      const deadline = task.endDateTime || task.dueDate;
+      if (!deadline) return false;
+
+      const dueDate = new Date(deadline);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const isPastDue = dueDate < today;
+
+      switch (tab) {
+        case "Upcoming":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            !isPastDue
+          );
+        case "Past Due":
+          return (
+            (task.status === "Pending" ||
+              task.status === "Returned" ||
+              task.status === "Ongoing") &&
+            isPastDue
+          );
+        case "Completed":
+          return task.status === "Completed" || task.status === "Turned in";
+        default:
+          return false;
+      }
+    }).length;
+
+  const getTabLabel = (tab) =>
+    isHead ? tab : `${tab} (${getMechanicTabCount(tab)})`;
+
   const getGroupedTasks = () => {
     if (isHead) return [];
 
@@ -86,7 +125,8 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
     const grouped = {};
 
     filtered.forEach((task) => {
-      const date = new Date(task.dueDate);
+      const deadline = task.endDateTime || task.dueDate;
+      const date = new Date(deadline);
       const formattedDate = formatDisplayDate(date);
 
       if (!grouped[formattedDate]) {
@@ -125,47 +165,32 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
     } else if (action === "edit") {
       setSelectedTask(task);
       setShowEditModal(true);
-    } else if (action === "delete") {
-      console.log("Delete task", task.id);
     }
   };
 
-  const taskHeader =
-    activeTab === "Upcoming"
-      ? "Upcoming Tasks"
-      : activeTab === "Past Due"
-        ? "Past Due"
-        : activeTab === "Completed"
-          ? "Completed"
-          : activeTab === "Tasks"
-            ? "Task Orders"
-            : activeTab === "Submitted"
-              ? "Submitted Tasks"
-              : "Tasks";
-
   return (
     <View style={{ flex: 1 }}>
-      {/* Tabs - Using Button component for styling */}
       <View
         style={{
           flexDirection: "row",
-          flexWrap: "wrap",
-          marginBottom: 25,
-          gap: 5,
+          justifyContent: "flex-start",
+          gap: 3,
         }}
       >
         {tabsToRender.map((tab) => (
           <Button
             key={tab}
-            label={tab}
+            label={getTabLabel(tab)}
             onPress={() => setActiveTab(tab)}
             buttonStyle={[
               activeTab === tab ? styles.primaryAlertBtn : styles.secondaryBtn,
-              { width: 120 },
+              { minWidth: 100, paddingHorizontal: 7 },
             ]}
             buttonTextStyle={[
-              activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
-              { fontSize: 14 },
+              activeTab === tab
+                ? styles.primaryBtnTxt
+                : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
+              { fontSize: 12 },
             ]}
           />
         ))}
@@ -175,22 +200,22 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
           <Button
             label="+ Add Task"
             onPress={() => setShowAddModal(true)}
-            buttonStyle={[styles.primaryAlertBtn, { width: 120 }]}
+            buttonStyle={[styles.unifiedActionButton, { width: 130 }]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
       </View>
 
-      {/* Header */}
-      <View style={styles.taskTableHeader}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          {taskHeader}
-        </Text>
-      </View>
-
       {/* Task List */}
       <View style={styles.taskTable}>
-        <ScrollView contentContainerStyle={{ padding: 10 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 10 }}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            ) : undefined
+          }
+        >
           {!isHead && groupedTasks.length > 0
             ? groupedTasks.map((section) => (
                 <View key={section.title}>
@@ -206,7 +231,7 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
                     <Text
                       style={{
                         fontWeight: "700",
-                        fontSize: 17,
+                        fontSize: 12,
                       }}
                     >
                       {section.title}
@@ -253,7 +278,6 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
             visible={showAddModal}
             onClose={() => setShowAddModal(false)}
             onAddTask={(newTask) => {
-              console.log("Added Task:", newTask);
               setShowAddModal(false);
             }}
             employees={employees}
@@ -263,7 +287,6 @@ export default function TaskTabs({ tasks, employees = [], onTaskPress }) {
             visible={showEditModal}
             onClose={() => setShowEditModal(false)}
             onSave={(updatedTask) => {
-              console.log("Updated Task:", updatedTask);
               setShowEditModal(false);
             }}
             task={selectedTask}

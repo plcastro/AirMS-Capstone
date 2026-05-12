@@ -1,19 +1,115 @@
-import React, { useState } from "react";
-import { Input, Select, Button } from "antd";
-import { DownOutlined, UpOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { DatePicker, Input, Select } from "antd";
+import dayjs from "dayjs";
+import { API_BASE } from "../../utils/API_BASE";
 
-// Mock data for dropdowns (matching mobile's flightLogsMockData)
-const MOCK_AIRCRAFT_TYPES = ["AS350B3", "R44", "Bell 206", "Robinson R22"];
-const MOCK_RPC_OPTIONS = ["RP-C1234", "RP-C5678", "RP-C9012", "RP-C3456"];
+export default function FlightLogModalInfo({
+  formData,
+  updateForm,
+  isEditable = true,
+  isRPCEditable = true,
+  onAircraftDataLoaded,
+}) {
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
 
-export default function FlightLogModalInfo({ formData, updateForm, isEditable = true }) {
-  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
-  const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    if (date instanceof Date) return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
-    return date;
+  useEffect(() => {
+    const fetchAircraftOptions = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+        const data = await response.json();
+
+        if (response.ok && Array.isArray(data.data)) {
+          setAircraftOptions(data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching aircraft options:", error);
+      }
+    };
+
+    fetchAircraftOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchOngoingAircraftRpcs = async () => {
+      try {
+        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const responses = await Promise.all(
+          statuses.map((status) =>
+            fetch(
+              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+            ),
+          ),
+        );
+        const payloads = await Promise.all(
+          responses.map((response) => response.json()),
+        );
+
+        const nextOngoingAircraft = payloads.flatMap((payload, index) =>
+          responses[index].ok && Array.isArray(payload.data)
+            ? payload.data
+                .map((log) => normalizeRpc(log.rpc))
+                .filter(Boolean)
+            : [],
+        );
+
+        setOngoingAircraftRpcs([...new Set(nextOngoingAircraft)]);
+      } catch (error) {
+        console.error("Error fetching ongoing aircraft options:", error);
+      }
+    };
+
+    fetchOngoingAircraftRpcs();
+  }, []);
+
+  const parseDatePickerValue = (value) => {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      const parsedFromDate = dayjs(value);
+      return parsedFromDate.isValid() ? parsedFromDate : null;
+    }
+
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed : null;
+  };
+
+  const aircraftTypeLabel = useMemo(
+    () => formData.aircraftType || "Aircraft type will load automatically",
+    [formData.aircraftType],
+  );
+
+  const availableAircraftOptions = useMemo(() => {
+    const ongoingSet = new Set(ongoingAircraftRpcs);
+    const currentRpc = normalizeRpc(formData.rpc);
+
+    return aircraftOptions.filter((rpc) => {
+      const normalizedRpc = normalizeRpc(rpc);
+      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+    });
+  }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
+
+  const handleRPCSelect = async (rpc) => {
+    updateForm("rpc", rpc);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/parts-monitoring/${rpc}`);
+      const data = await response.json();
+
+      if (response.ok && data?.data) {
+        updateForm("aircraftType", data.data.aircraftType || "");
+        onAircraftDataLoaded?.(data.data);
+      } else {
+        updateForm("aircraftType", "");
+        onAircraftDataLoaded?.(null);
+      }
+    } catch (error) {
+      console.error("Error fetching aircraft type:", error);
+      updateForm("aircraftType", "");
+      onAircraftDataLoaded?.(null);
+    }
   };
 
   return (
@@ -21,91 +117,51 @@ export default function FlightLogModalInfo({ formData, updateForm, isEditable = 
       <div className="fl-section-title">BASIC INFORMATION</div>
 
       <div className="fl-card">
-        <div className="fl-card-header">Rotary Winged Aircraft – Single Engine</div>
+        <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
         <div className="fl-card-body">
-          {/* Aircraft Type Dropdown */}
+          <div className="fl-field-row">
+            <span className="fl-label">RP-C: *</span>
+            <div className="fl-dropdown-container">
+              <Select
+                className="fl-rpc-select"
+                value={formData.rpc || undefined}
+                placeholder="Select RP/C"
+                onChange={handleRPCSelect}
+                disabled={!isEditable || !isRPCEditable}
+                showSearch
+                optionFilterProp="label"
+                popupMatchSelectWidth
+                getPopupContainer={() => document.body}
+                options={availableAircraftOptions.map((rpc) => ({
+                  value: rpc,
+                  label: rpc,
+                }))}
+              />
+            </div>
+          </div>
+
           <div className="fl-field-row">
             <span className="fl-label">Aircraft Type:</span>
-            <div className="fl-dropdown-container">
-              <div
-                className={`fl-custom-select ${!isEditable ? "fl-custom-select-disabled" : ""}`}
-                onClick={() => isEditable && setShowAircraftDropdown(!showAircraftDropdown)}
-              >
-                <span className={formData.aircraftType ? "fl-select-value" : "fl-select-placeholder"}>
-                  {formData.aircraftType || "Select Aircraft Type"}
-                </span>
-                {isEditable && (
-                  <span className="fl-select-arrow">
-                    {showAircraftDropdown ? <UpOutlined /> : <DownOutlined />}
-                  </span>
-                )}
-              </div>
-              {showAircraftDropdown && isEditable && (
-                <div className="fl-select-dropdown">
-                  {MOCK_AIRCRAFT_TYPES.map((type, index) => (
-                    <div
-                      key={index}
-                      className={`fl-select-option ${formData.aircraftType === type ? "fl-select-option-selected" : ""}`}
-                      onClick={() => {
-                        updateForm("aircraftType", type);
-                        setShowAircraftDropdown(false);
-                      }}
-                    >
-                      {type}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Input className="fl-input" value={aircraftTypeLabel} disabled />
           </div>
 
-          {/* RP/C Dropdown */}
-          <div className="fl-field-row">
-            <span className="fl-label">RP-C:</span>
-            <div className="fl-dropdown-container">
-              <div
-                className={`fl-custom-select ${!isEditable ? "fl-custom-select-disabled" : ""}`}
-                onClick={() => isEditable && setShowRPCDropdown(!showRPCDropdown)}
-              >
-                <span className={formData.rpc ? "fl-select-value" : "fl-select-placeholder"}>
-                  {formData.rpc || "Select RP/C"}
-                </span>
-                {isEditable && (
-                  <span className="fl-select-arrow">
-                    {showRPCDropdown ? <UpOutlined /> : <DownOutlined />}
-                  </span>
-                )}
-              </div>
-              {showRPCDropdown && isEditable && (
-                <div className="fl-select-dropdown">
-                  {MOCK_RPC_OPTIONS.map((rpc, index) => (
-                    <div
-                      key={index}
-                      className={`fl-select-option ${formData.rpc === rpc ? "fl-select-option-selected" : ""}`}
-                      onClick={() => {
-                        updateForm("rpc", rpc);
-                        setShowRPCDropdown(false);
-                      }}
-                    >
-                      {rpc}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date Field (disabled) */}
           <div className="fl-field-row">
             <span className="fl-label">Date:</span>
-            <Input
+            <DatePicker
               className="fl-input"
-              value={formatDate(formData.date)}
-              disabled
+              style={{ width: "100%" }}
+              format="MM/DD/YYYY"
+              value={parseDatePickerValue(formData.date)}
+              onChange={(date) =>
+                updateForm(
+                  "date",
+                  date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
+                )
+              }
+              disabled={!isEditable}
             />
           </div>
 
-          {/* Control Number */}
           <div className="fl-field-row">
             <span className="fl-label">Control No.:</span>
             <Input

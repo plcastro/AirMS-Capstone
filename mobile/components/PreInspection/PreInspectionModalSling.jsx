@@ -103,7 +103,7 @@ export default function PreInspectionModalSling({
     <View key={field} style={{ marginBottom: 18 }}>
       <Text
         style={{
-          fontSize: 16,
+          fontSize: 12,
           fontWeight: "bold",
           color: COLORS.black,
           marginBottom: 8,
@@ -145,7 +145,7 @@ export default function PreInspectionModalSling({
         </View>
         <Text
           style={{
-            fontSize: 16,
+            fontSize: 12,
             color: COLORS.grayDark,
             flex: 1,
             flexWrap: "wrap",
@@ -181,7 +181,7 @@ export default function PreInspectionModalSling({
           }}
         >
           <Text
-            style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}
+            style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Station 3
           </Text>
@@ -224,7 +224,7 @@ export default function PreInspectionModalSling({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
               </Text>
@@ -270,7 +270,7 @@ export default function PreInspectionModalSling({
           }}
         >
           <Text
-            style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}
+            style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Sling
           </Text>
@@ -313,7 +313,7 @@ export default function PreInspectionModalSling({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
               </Text>
