@@ -34,48 +34,78 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
+
+  const wrapLabel = (text) => {
+    if (collapsed) return null;
+
+    return (
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          opacity: 0.7,
+          paddingTop: 18,
+          color: "#000",
+        }}
+      >
+        {text}
+      </div>
+    );
+  };
+
   const menuItems = [
+    // ===== GENERAL =====
     {
-      key: "13",
-      label: "Reports and Analytics",
-      icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
-      roles: ["maintenance manager", "officer-in-charge"],
-    },
-    {
-      key: "15",
-      label: "Messages",
-      icon: <MessageOutlined style={{ fontSize: 24 }} />,
-      roles: [
-        "admin",
-        "maintenance manager",
-        "officer-in-charge",
-        "warehouse department",
-        "mechanic",
+      type: "group",
+      label: collapsed ? null : wrapLabel("GENERAL"),
+      children: [
+        {
+          key: "13",
+          label: "Reports and Analytics",
+          icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
+          roles: ["maintenance manager", "officer-in-charge"],
+        },
+        {
+          key: "15",
+          label: "Messages",
+          icon: <MessageOutlined style={{ fontSize: 24 }} />,
+          roles: [
+            "admin",
+            "maintenance manager",
+            "officer-in-charge",
+            "warehouse department",
+            "mechanic",
+          ],
+        },
       ],
     },
-    // {
-    //   key: "1",
-    //   label: "Admin Dashboard",
-    //   icon: <DashboardOutlined style={{ fontSize: 24 }} />,
-    //   roles: ["admin"],
-    // },
 
+    // ===== ADMINISTRATION =====
     {
-      key: "1",
-      label: "Manage Users",
-      icon: <TeamOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin"],
+      type: "group",
+      label: collapsed ? null : wrapLabel("USER MANAGEMENT"),
+      children: [
+        {
+          key: "1",
+          label: "Manage Users",
+          icon: <TeamOutlined style={{ fontSize: 24 }} />,
+          roles: ["admin"],
+        },
+        {
+          key: "2",
+          label: "Activity Logs",
+          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          roles: ["admin"],
+        },
+      ],
     },
+
+    // ===== AIRCRAFT HEALTH LOGBOOK =====
     {
-      key: "2",
-      label: "Activity Logs",
-      icon: <AuditOutlined style={{ fontSize: 24 }} />,
-      roles: ["admin"],
-    },
-    {
-      key: "3-4",
-      label: "Aircraft Health Logbook",
-      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      type: "group",
+      label: collapsed ? null : wrapLabel("AIRCRAFT HEALTH LOGBOOK"),
       roles: ["maintenance manager", "officer-in-charge", "mechanic", "pilot"],
       children: [
         {
@@ -121,10 +151,11 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
       ],
     },
+
+    // ===== TASK MANAGEMENT =====
     {
-      key: "7-8",
-      label: "Task Assignment and Monitoring",
-      icon: <AuditOutlined style={{ fontSize: 24 }} />,
+      type: "group",
+      label: collapsed ? null : wrapLabel("TASK ASSIGNMENT & MONITORING"),
       roles: ["maintenance manager", "mechanic"],
       children: [
         {
@@ -142,10 +173,12 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       ],
     },
 
+    // ===== MAINTENANCE TRACKING =====
     {
-      key: "9-10-11",
-      label: "Parts Lifespan Monitoring and Maintenance tracking",
-      icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+      type: "group",
+      label: collapsed
+        ? null
+        : wrapLabel("PARTS LIFESPAN & MAINTENANCE TRACKING"),
       roles: ["maintenance manager", "officer-in-charge"],
       children: [
         {
@@ -168,45 +201,68 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
       ],
     },
+
+    // ===== PARTS REQUISITION =====
     {
-      key: "12",
-      label: "Parts Requisition Monitoring",
-      icon: <InboxOutlined style={{ fontSize: 24 }} />,
-      roles: [
-        "warehouse department",
-        "maintenance manager",
-        "officer-in-charge",
-        "mechanic",
+      type: "group",
+      label: collapsed ? null : wrapLabel("Parts Requisition"),
+      children: [
+        {
+          key: "12",
+          label: "Parts Requisition Monitoring",
+          icon: <InboxOutlined style={{ fontSize: 24 }} />,
+          roles: [
+            "warehouse department",
+            "maintenance manager",
+            "officer-in-charge",
+            "mechanic",
+          ],
+        },
       ],
     },
     {
-      key: "14",
-      label: "Profile",
-      icon: <UserOutlined style={{ fontSize: 24 }} />,
-      roles: [
-        "maintenance manager",
-        "officer-in-charge",
-        "warehouse department",
-        "admin",
-        "mechanic",
+      type: "group",
+      label: collapsed ? null : wrapLabel("SETTINGS"),
+      children: [
+        {
+          key: "14",
+          label: "Profile",
+          icon: <UserOutlined style={{ fontSize: 24 }} />,
+          roles: [
+            "maintenance manager",
+            "officer-in-charge",
+            "warehouse department",
+            "admin",
+            "mechanic",
+          ],
+        },
       ],
     },
   ];
 
   // Filter items based on user jobTitle
   const filteredItems = menuItems
-    .filter((item) => !item.roles || item.roles.includes(jobTitle))
     .map((item) => {
       if (item.children) {
+        const filteredChildren = item.children.filter(
+          (child) => !child.roles || child.roles.includes(jobTitle),
+        );
+
+        if (!filteredChildren.length) return null;
+
         return {
           ...item,
-          children: item.children.filter(
-            (child) => !child.roles || child.roles.includes(jobTitle),
-          ),
+          children: filteredChildren,
         };
       }
-      return item;
-    });
+
+      if (!item.roles || item.roles.includes(jobTitle)) {
+        return item;
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 
   const routeToKey = useMemo(
     () => ({
@@ -214,9 +270,9 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       "/dashboard/user-management/view-users": "1",
       "/dashboard/user-management/activity-logs": "2",
       "/dashboard/flight-log": "3",
-      "/dashboard/pre-inspection": "4",
-      "/dashboard/post-inspection": "5",
-      "/dashboard/maintenance-log": "6",
+      "/dashboard/maintenance-log": "4",
+      "/dashboard/pre-inspection": "5",
+      "/dashboard/post-inspection": "6",
       "/dashboard/tasks": "7",
       "/dashboard/mechanics": "8",
       "/dashboard/parts-lifespan-monitoring": "9",
@@ -289,63 +345,104 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const handleCancel = () => setOpen(false);
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      {/* HEADER */}
       <div
         style={{
-          justifyContent: "center",
-          alignItems: "center",
           height: 64,
           display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+
+          padding: "10px",
         }}
       >
         {!collapsed ? (
           <img
             src={AirMS_web}
             alt="Logo"
-            style={{ maxWidth: 120, height: 40 }}
+            style={{
+              maxWidth: 130,
+              height: 40,
+              objectFit: "contain",
+            }}
           />
         ) : (
           <img
             src={AirMS_logo}
             alt="Logo"
-            style={{ maxWidth: 40, height: 40 }}
+            style={{
+              width: 40,
+              height: 40,
+              objectFit: "contain",
+            }}
           />
         )}
       </div>
 
-      <Menu
-        theme="light"
-        mode="inline"
-        selectedKeys={[current]}
-        openKeys={openKeys}
-        onOpenChange={onOpenChange}
-        onClick={onClickMenu}
+      {/* MENU WRAPPER */}
+      <div
         style={{
           flex: 1,
-          minHeight: 0,
           overflowY: "auto",
-          borderRight: 0,
-          textAlign: "left",
+          padding: "8px 6px",
         }}
-        items={filteredItems}
-      />
+      >
+        <Menu
+          className="sidebar-menu"
+          theme="light"
+          mode="inline"
+          selectedKeys={[current]}
+          openKeys={openKeys}
+          onOpenChange={onOpenChange}
+          onClick={onClickMenu}
+          items={filteredItems} // 👈 unchanged logic
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            borderRight: 0,
+            textAlign: "left",
+          }}
+        />
+      </div>
 
-      <div style={{ padding: "16px" }}>
+      {/* FOOTER */}
+      <div
+        style={{
+          padding: 12,
+          background: "#ffffff",
+        }}
+      >
         <Button
           type="primary"
           danger
           block
           icon={<LogoutOutlined />}
           onClick={showModal}
+          style={{
+            height: 40,
+            borderRadius: 8,
+            fontWeight: 500,
+          }}
         >
-          {collapsed ? "" : "Logout"}
+          {!collapsed && "Logout"}
         </Button>
       </div>
 
+      {/* MODAL */}
       <Modal
         title="Confirm Logout"
         open={open}
         centered
+        zIndex={2100}
         onOk={handleOk}
         confirmLoading={confirmLoading}
         onCancel={handleCancel}

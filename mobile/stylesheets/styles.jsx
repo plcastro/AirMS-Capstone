@@ -29,7 +29,8 @@ export const styles = StyleSheet.create({
     padding: 12,
   },
   codeInputText: {
-    fontSize: BODY_FONT_SIZE,
+    fontSize: SUBHEADER_FONT_SIZE,
+    fontWeight: "bold",
     textAlign: "center",
     color: COLORS.black,
     fontFamily: "Arial",
@@ -84,6 +85,7 @@ export const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     padding: 10,
+    color: "#000",
   },
   loginPickerContainer: {
     height: 50,

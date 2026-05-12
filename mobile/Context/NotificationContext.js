@@ -15,14 +15,7 @@ import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
-import * as Notifications from "expo-notifications";
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+
 export const NotificationContext = createContext({
   notifications: [],
   unreadCount: 0,
@@ -41,7 +34,7 @@ const buildTargetNavigation = (notificationPayload) => {
 
   if (moduleName === "flight-logs") {
     return {
-      screen: "Flight Logbook",
+      screen: "Flight Logs",
       params: {
         refreshAt: Date.now(),
         targetFlightLogId:
@@ -121,7 +114,7 @@ const buildTargetNavigation = (notificationPayload) => {
   }
 
   return {
-    screen: "Parts Requisition",
+    screen: "Parts Requisition Monitoring",
     params: {
       refreshAt: Date.now(),
       targetRequestId:

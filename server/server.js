@@ -9,9 +9,7 @@ const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
-
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
-
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
 const taskRoutes = require("./routes/taskRoute");

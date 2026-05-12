@@ -5,7 +5,7 @@
   "build": {
     "preview": {
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.148:8000"
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online"
       },
       "android": {
         "buildType": "apk"
@@ -13,7 +13,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.0.148:8000"
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online"
       },
       "android": {
         "buildType": "app-bundle"

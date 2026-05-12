@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Button, Input, message, Modal, Space, Spin } from "antd";
+import { Button, message, Modal, Spin, Typography } from "antd";
 import {
   InfoCircleOutlined,
   EnvironmentOutlined,
@@ -21,13 +21,20 @@ import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 const resolveRole = (role = "") => {
   const r = role.toLowerCase();
   if (r === "pilot") return "pilot";
-  if (r === "engineer" || r === "maintenance manager" || r === "officer-in-charge") return "mechanic";
+  if (
+    r === "engineer" ||
+    r === "maintenance manager" ||
+    r === "officer-in-charge"
+  )
+    return "mechanic";
   return "pilot";
 };
 
 const isReleasedFlightLogStatus = (status = "") =>
   ["pending_acceptance", "released", "accepted", "completed"].includes(
-    String(status || "").trim().toLowerCase(),
+    String(status || "")
+      .trim()
+      .toLowerCase(),
   );
 
 const emptyComponentSection = () => ({
@@ -128,7 +135,13 @@ export default function FlightLogEntry({
   initialData = null,
   initialComponentData = null,
   readOnly = false,
+  onRelease,
+  onAccept,
+  onNotify,
+  onComplete,
+  workflowLoading = false,
 }) {
+  const { Text } = Typography;
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
@@ -202,7 +215,9 @@ export default function FlightLogEntry({
       ...prev,
       broughtForwardData: {
         ...prev.broughtForwardData,
-        ...mapAircraftReferenceToBroughtForward(loadedAircraftData.referenceData),
+        ...mapAircraftReferenceToBroughtForward(
+          loadedAircraftData.referenceData,
+        ),
       },
     }));
   }, [loadedAircraftData, editMode]);
@@ -318,11 +333,6 @@ export default function FlightLogEntry({
     }
   }, [isPilot, editMode, formData.remarks]);
 
-  const tabKeys = tabs.map((t) => t.key);
-  const currentIdx = Math.max(0, tabKeys.indexOf(activeTab));
-  const isFirst = currentIdx === 0;
-  const isLast = currentIdx === tabKeys.length - 1;
-
   const updateForm = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
@@ -399,27 +409,54 @@ export default function FlightLogEntry({
   };
 
   // EDIT PERMISSIONS (who can edit what)
-  const canEditBasicInfo = !readOnly && (!editMode || formData.createdBy === userRole);
+  const canEditBasicInfo =
+    !readOnly && (!editMode || formData.createdBy === userRole);
   const isCompletedLog = editMode && formData.status === "completed";
-  const isRPCEditable = !editMode || !isReleasedFlightLogStatus(formData.status);
-  const canEditDestinations = !readOnly && (!editMode ? isPilot : isPilot && editMode);
+  const isRPCEditable =
+    !editMode || !isReleasedFlightLogStatus(formData.status);
+  const canEditDestinations =
+    !readOnly && (!editMode ? isPilot : isPilot && editMode);
   const canEditComponent = !readOnly && isMechanic;
   const canEditNextInspectionDates = !readOnly && isMechanic;
-  const canEditFuelOil = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
-  const canEditWorkDone = !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditFuelOil =
+    !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
+  const canEditWorkDone =
+    !readOnly &&
+    isMechanic &&
+    (!editMode ||
+      String(formData.status || "").toLowerCase() === "pending_release");
   const canEditDiscrepancy = !readOnly;
   const canSave = !readOnly && !isCompletedLog;
   const canSaveCurrentTab =
     canSave || (activeTab === "component" && canEditNextInspectionDates);
 
   const handleSave = async () => {
-    if (isCompletedLog && !(activeTab === "component" && canEditNextInspectionDates)) {
+    if (
+      isCompletedLog &&
+      !(activeTab === "component" && canEditNextInspectionDates)
+    ) {
       message.info("Completed flight logs are view-only.");
       return;
     }
 
     if (!formData.rpc?.trim()) {
       message.error("Aircraft RPC is required");
+      return;
+    }
+    if (!formData.date) {
+      message.error("Flight log date is required");
+      return;
+    }
+    const hasInvalidLeg = (formData.legs || []).some((leg) => {
+      const hasRoute = (leg.stations || []).some(
+        (station) =>
+          !String(station?.from || "").trim() ||
+          !String(station?.to || "").trim(),
+      );
+      return hasRoute || !String(leg.date || "").trim();
+    });
+    if (hasInvalidLeg) {
+      message.error("Each leg must include complete station route and date");
       return;
     }
     const dateStr =
@@ -505,18 +542,63 @@ export default function FlightLogEntry({
     }
   };
 
+  const formatSignatureDate = (timestamp) => {
+    if (!timestamp) return "";
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleString();
+  };
+
+  const getSignerLabel = (signatureData = {}) =>
+    signatureData?.id
+      ? `${signatureData.name || "Unknown"} / ${signatureData.id}`
+      : signatureData?.name || "Unknown";
+
+  const normalizedStatus = String(formData.status || "")
+    .trim()
+    .toLowerCase();
+  const showReleaseButton =
+    editMode &&
+    !readOnly &&
+    isMechanic &&
+    normalizedStatus === "pending_release";
+  const showAcceptButton =
+    editMode &&
+    !readOnly &&
+    isPilot &&
+    ["pending_acceptance", "released"].includes(normalizedStatus);
+  const showNotifyButton =
+    editMode &&
+    !readOnly &&
+    isPilot &&
+    normalizedStatus === "accepted" &&
+    !formData.notifiedForCompletion;
+  const showCompleteButton =
+    editMode &&
+    !readOnly &&
+    isMechanic &&
+    normalizedStatus === "accepted" &&
+    formData.notifiedForCompletion;
+
   return (
     <Modal
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={760}
+      width={1160}
       centered
       styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"
       destroyOnHidden
     >
       <Spin spinning={submitting}>
+        <div className="fl-modal-header-block">
+          <div className="fl-modal-title-main">
+            {editMode ? "Edit Entry - Flight Log" : "Add Entry - Flight Log"}
+          </div>
+          <div className="fl-modal-title-sub">Select Section</div>
+        </div>
+
         {/* Tab nav */}
         <div className="fl-tab-nav">
           {tabs.map((tab) => (
@@ -532,27 +614,97 @@ export default function FlightLogEntry({
         </div>
 
         {/* Scrollable body */}
-        <div className="fl-modal-body">{renderContent()}</div>
-
-        {/* Footer nav */}
-        <div className="fl-modal-footer">
-          <Button
-            className="fl-nav-btn"
-            onClick={() => setActiveTab(tabKeys[currentIdx - 1])}
-            disabled={isFirst}
-          >
-            Previous
-          </Button>
-          <span className="fl-page-indicator">{currentIdx + 1}</span>
-          {!isLast ? (
-            <Button
-              type="primary"
-              className="fl-nav-btn"
-              onClick={() => setActiveTab(tabKeys[currentIdx + 1])}
+        <div className="fl-modal-body">
+          {renderContent()}
+          {editMode &&
+            (formData?.releasedBy?.name ||
+              formData?.releasedBy?.signature ||
+              formData?.acceptedBy?.name ||
+              formData?.acceptedBy?.signature) && (
+              <div className="fl-signature-summary">
+                {!!(
+                  formData?.releasedBy?.name || formData?.releasedBy?.signature
+                ) && (
+                  <div className="fl-signature-card">
+                    <Text strong>Released By</Text>
+                    <div>{getSignerLabel(formData.releasedBy)}</div>
+                    {!!formatSignatureDate(formData.releasedBy?.timestamp) && (
+                      <Text type="secondary">
+                        {formatSignatureDate(formData.releasedBy?.timestamp)}
+                      </Text>
+                    )}
+                  </div>
+                )}
+                {!!(
+                  formData?.acceptedBy?.name || formData?.acceptedBy?.signature
+                ) && (
+                  <div className="fl-signature-card">
+                    <Text strong>Accepted By</Text>
+                    <div>{getSignerLabel(formData.acceptedBy)}</div>
+                    {!!formatSignatureDate(formData.acceptedBy?.timestamp) && (
+                      <Text type="secondary">
+                        {formatSignatureDate(formData.acceptedBy?.timestamp)}
+                      </Text>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          {(showReleaseButton ||
+            showAcceptButton ||
+            showNotifyButton ||
+            showCompleteButton) && (
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
             >
-              Next
-            </Button>
-          ) : canSaveCurrentTab ? (
+              {showReleaseButton && (
+                <Button
+                  type="primary"
+                  loading={workflowLoading}
+                  onClick={() => onRelease?.(formData)}
+                >
+                  Release
+                </Button>
+              )}
+              {showAcceptButton && (
+                <Button
+                  type="primary"
+                  loading={workflowLoading}
+                  onClick={() => onAccept?.(formData)}
+                >
+                  Accept
+                </Button>
+              )}
+              {showNotifyButton && (
+                <Button
+                  loading={workflowLoading}
+                  onClick={() => onNotify?.(formData)}
+                >
+                  Notify
+                </Button>
+              )}
+              {showCompleteButton && (
+                <Button
+                  type="primary"
+                  loading={workflowLoading}
+                  onClick={() => onComplete?.(formData)}
+                >
+                  Complete
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="fl-modal-footer">
+          {canSaveCurrentTab ? (
             <Button
               type="primary"
               className="fl-nav-btn"
@@ -566,6 +718,9 @@ export default function FlightLogEntry({
               Close
             </Button>
           )}
+          <Button className="fl-nav-btn" onClick={onClose}>
+            Cancel
+          </Button>
         </div>
       </Spin>
     </Modal>
