@@ -1,10 +1,17 @@
 const express = require("express");
 const router = express.Router();
+
 const { rateLimiter, otpRequestLimiter } = require("../middleware/rateLimiter");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { touchSessionActivity } = require("../middleware/sessionActivity");
-const { requireActionConfirmation } = require("../middleware/actionConfirmation");
+const {
+  requireActionConfirmation,
+} = require("../middleware/actionConfirmation");
+
+const permissions = require("../config/permissions");
+const { requirePermission } = require("../middleware/permissions");
 const rbacMiddleware = require("../middleware/rbacMiddleware");
+
 const {
   loginUser,
   refreshToken,
@@ -44,10 +51,16 @@ const {
   handleUploadError,
 } = require("../middleware/upload");
 
-// User management routes
+/* =========================================
+   AUTH
+========================================= */
+
 router.post("/login", rateLimiter, loginUser);
+
 router.post("/refresh-token", refreshToken);
+
 router.post("/logout", logoutUser);
+
 router.post(
   "/register-mobile-push-device",
   verifyToken,
@@ -55,38 +68,55 @@ router.post(
   registerMobilePushDevice,
 );
 
-// Admin-only routes (user creation and management)
+/* =========================================
+   USER MANAGEMENT
+========================================= */
+
 router.post(
   "/create",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireAdmin,
+  requirePermission(permissions.USERS_CREATE),
   requireActionConfirmation,
-  rbacMiddleware.verifyPrivilegeLevelChange,
   upload.single("image"),
   processImage,
   createUser,
 );
+
 router.get("/username-exists", checkUsernameExists);
+
 router.get(
   "/get-all-users",
   verifyToken,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.logAdminAction,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_READ),
   getAllUsers,
 );
+
 router.put(
   "/update-user/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireAdmin,
-  rbacMiddleware.verifyPrivilegeLevelChange,
+  requirePermission(permissions.USERS_UPDATE),
   requireActionConfirmation,
-  rbacMiddleware.logAdminAction,
   upload.single("image"),
   processImage,
   updateUser,
 );
+
+router.put(
+  "/update-user-status/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  updateUserStatus,
+);
+
+/* =========================================
+   SELF / PROFILE MANAGEMENT
+========================================= */
+
 router.put(
   "/update-user-profile/:id",
   verifyToken,
@@ -95,6 +125,7 @@ router.put(
   requireActionConfirmation,
   updateUserProfile,
 );
+
 router.put(
   "/change-password/:id",
   verifyToken,
@@ -103,6 +134,7 @@ router.put(
   requireActionConfirmation,
   updatePassword,
 );
+
 router.put(
   "/update-pin/:id",
   verifyToken,
@@ -111,21 +143,14 @@ router.put(
   requireActionConfirmation,
   updatePIN,
 );
+
 router.post(
   "/verify-pin/:id",
   verifyToken,
   rbacMiddleware.requireSelfOrAdmin("id"),
   verifyPIN,
 );
-router.put(
-  "/update-user-status/:id",
-  verifyToken,
-  touchSessionActivity,
-  rbacMiddleware.requireAdmin,
-  requireActionConfirmation,
-  rbacMiddleware.logAdminAction,
-  updateUserStatus,
-);
+
 router.put(
   "/update-user-image/:id",
   verifyToken,
@@ -136,6 +161,7 @@ router.put(
   processImage,
   updateUserImage,
 );
+
 router.delete(
   "/update-user-image/:id",
   verifyToken,
@@ -144,52 +170,86 @@ router.delete(
   requireActionConfirmation,
   updateUserImage,
 );
+
 router.put(
   "/updateSignature/:id",
+  verifyToken,
+  touchSessionActivity,
+  rbacMiddleware.requireSelfOrAdmin("id"),
   requireActionConfirmation,
   upload.single("signature"),
   processImage,
   updateSignature,
 );
 
+/* =========================================
+   ACTIVATION / INVITATION
+========================================= */
+
 router.post("/activate", activateUser);
+
 router.post("/resend-activation", resendActivation);
+
 router.post(
   "/resend-activation/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireAdmin,
+  requirePermission(permissions.INVITATION_MANAGE),
   requireActionConfirmation,
-  rbacMiddleware.logAdminAction,
   resendActivationByAdmin,
 );
+
 router.put(
   "/extend-invitation-expiry/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireAdmin,
+  requirePermission(permissions.INVITATION_MANAGE),
   requireActionConfirmation,
-  rbacMiddleware.logAdminAction,
   extendInvitationExpiry,
 );
+
 router.put(
   "/revoke-invitation/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireAdmin,
+  requirePermission(permissions.INVITATION_MANAGE),
   requireActionConfirmation,
-  rbacMiddleware.logAdminAction,
   revokeInvitation,
 );
+
 router.post("/complete-security-setup", completeSecuritySetup);
 
+/* =========================================
+   PASSWORD RESET
+========================================= */
+
 router.post("/request-password-reset", requestPasswordReset);
-router.post("/verify-otp", otpRequestLimiter, verifyOtp);
+
+router.post(
+  "/verify-otp",
+  otpRequestLimiter,
+  verifyOtp,
+);
+
 router.post("/reset-password", resetPassword);
 
+/* =========================================
+   PIN RESET
+========================================= */
+
 router.post("/request-pin-reset/:id", requestPinReset);
-router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
+
+router.post(
+  "/verify-pin-otp",
+  otpRequestLimiter,
+  verifyPinOtp,
+);
+
 router.post("/reset-pin", resetPin);
+
+/* =========================================
+   ERROR HANDLER
+========================================= */
 
 router.use(handleUploadError);
 

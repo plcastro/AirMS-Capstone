@@ -602,7 +602,7 @@ export default function Messaging() {
     <div style={{ padding: isMobile ? 8 : 16, height: "100%" }}>
       <Row gutter={[12, 12]} style={{ height: "100%" }}>
         {(!isMobile || mobileView === "list") && (
-          <Col xs={24} md={8} lg={7} style={{ height: "100%" }}>
+          <Col xs={24} md={9} lg={7} style={{ height: "100%" }}>
             <Card
               title="Messages"
               size="small"
@@ -733,7 +733,7 @@ export default function Messaging() {
           </Col>
         )}
         {(!isMobile || mobileView === "chat") && (
-          <Col xs={24} md={16} lg={17} style={{ height: "100%" }}>
+          <Col xs={24} md={15} lg={17} style={{ height: "100%" }}>
             <Card
               title={
                 selectedConversationDetails ? (
@@ -906,7 +906,7 @@ export default function Messaging() {
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
       >
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
             value={groupName}
             onChange={(event) => setGroupName(event.target.value)}
@@ -943,7 +943,7 @@ export default function Messaging() {
         {selectedGroupMembers.length === 0 ? (
           <Empty description="No members" />
         ) : (
-          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={10} style={{ width: "100%" }}>
             {selectedGroupMembers.map((member) => (
               <div
                 key={String(getEntityId(member))}

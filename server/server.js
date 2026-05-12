@@ -7,11 +7,10 @@ const path = require("path");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
+const attachPermissions = require("./config/attachPermissions");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
-
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
-
 const approveTechnicalLogRoutes = require("./routes/approveTechnicalLogRoute");
 const aircraftRoutes = require("./routes/aircraftRoute");
 const taskRoutes = require("./routes/taskRoute");
@@ -48,7 +47,7 @@ const allowedOrigins = [
   "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000", // Android emulator (if using different port)
 ];
-
+app.use(attachPermissions);
 app.use(
   cors({
     origin: (origin, callback) => {
