@@ -5,7 +5,10 @@
   "build": {
     "preview": {
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online"
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
+        "ACCESS_KEY": "access_token",
+        "REFRESH_KEY": "refresh_token",
+        "USER_KEY": "current_user"
       },
       "android": {
         "buildType": "apk"
@@ -13,7 +16,10 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online"
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
+        "ACCESS_KEY": "access_token",
+        "REFRESH_KEY": "refresh_token",
+        "USER_KEY": "current_user"
       },
       "android": {
         "buildType": "app-bundle"

@@ -2,16 +2,11 @@ import React, { createContext, useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../utilities/API_BASE";
-
 export const AuthContext = createContext();
 
-const ACCESS_KEY = "access_token";
-const REFRESH_KEY = "refresh_token";
-const USER_KEY = "current_user";
-
-/**
- * Safe storage wrapper (prevents undefined crash)
- */
+const ACCESS_KEY = process.env.ACCESS_KEY;
+const REFRESH_KEY = process.env.REFRESH_KEY;
+const USER_KEY = process.env.USER_KEY;
 const storage = {
   get: async (key) => {
     return Platform.OS === "web"
