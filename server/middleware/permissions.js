@@ -1,10 +1,12 @@
 const hasPermission = (req, permission) => {
-  if (!req.permissions) return false;
+  if (!req.user?.jobTitle) return false;
 
-  return (
-    req.permissions.includes("*") ||
-    req.permissions.includes(permission)
-  );
+  const jobTitles = require("../config/jobTitles");
+
+  const role = req.user.jobTitle.toLowerCase();
+  const permissions = jobTitles[role] || [];
+
+  return permissions.includes("*") || permissions.includes(permission);
 };
 
 const requirePermission = (permission) => {
