@@ -44,7 +44,7 @@ import {
 const { Title, Text } = Typography;
 
 export default function AdminDashboard() {
-  const { getValidToken } = useContext(AuthContext);
+  const { getAuthHeader, getValidToken } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -98,7 +98,9 @@ export default function AdminDashboard() {
         setLoadingLogs(true);
       }
       try {
-        const token = await getValidToken();
+        const authHeader = getAuthHeader
+          ? await getAuthHeader()
+          : { Authorization: `Bearer ${await getValidToken()}` };
         let url = `${API_BASE}/api/logs/getAllUserLogs`;
         if (startDate && endDate) {
           const params = new URLSearchParams({
@@ -118,7 +120,7 @@ export default function AdminDashboard() {
 
         const res = await fetch(url, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...authHeader,
           },
         });
         const json = await res.json();
@@ -134,6 +136,8 @@ export default function AdminDashboard() {
             dateTime: log.dateTime || null,
             actionMade: log.actionMade || log.action || "N/A",
             username: log.username || "Unknown",
+            platform: log.platform || "UNKNOWN",
+            base: log.base || "UNKNOWN",
           }));
           setLogs(mapped);
         } else {
@@ -149,7 +153,7 @@ export default function AdminDashboard() {
         }
       }
     },
-    [getValidToken],
+    [getAuthHeader, getValidToken],
   );
 
   useEffect(() => {
