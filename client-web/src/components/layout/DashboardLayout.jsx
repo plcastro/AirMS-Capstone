@@ -49,7 +49,7 @@ const DashboardLayout = () => {
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
       <Sider
-        width={265}
+        width={270}
         collapsible
         collapsed={collapsed}
         trigger={null}
@@ -60,9 +60,12 @@ const DashboardLayout = () => {
           setCollapsed(broken);
         }}
         style={{
-          position: screens.xs ? "fixed" : "relative", // fixed for mobile
+          position: screens.xs ? "fixed" : "relative",
+          left: 0,
+          top: 0,
+          bottom: 0,
           height: "100vh",
-          zIndex: screens.xs ? 1200 : "auto",
+          zIndex: screens.xs ? 1100 : 100,
           overflow: "auto",
           fontSize: 16,
         }}
@@ -81,7 +84,11 @@ const DashboardLayout = () => {
             justifyContent: "space-between",
             alignItems: "center",
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-            padding: 12,
+            padding: "0 12px",
+            position: "sticky",
+            top: 0,
+            zIndex: screens.xs ? 1100 : 100,
+            width: "100%",
           }}
         >
           <div
@@ -128,7 +135,11 @@ const DashboardLayout = () => {
             >
               {user?.image ? (
                 <img
-                  src={user.image.startsWith("http") ? user.image : `${API_BASE}${user.image}`}
+                  src={
+                    user.image.startsWith("http")
+                      ? user.image
+                      : `${API_BASE}${user.image}`
+                  }
                   alt="User"
                   style={{
                     width: 40,
@@ -170,6 +181,7 @@ const DashboardLayout = () => {
             overflowX: "hidden",
             background: "#efeeee",
             borderRadius: borderRadiusLG,
+            marginTop: screens.xs ? 0 : 0,
           }}
         >
           <Outlet />

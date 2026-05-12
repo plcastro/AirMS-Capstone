@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useMemo, useState, useEffect } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+} from "react";
 import {
   Alert,
   Button,
@@ -78,7 +84,13 @@ export default function PartsRequisition() {
   const [error, setError] = useState(false);
   const [requisitions, setRequisitions] = useState([]);
   const userRole = user?.jobTitle?.toLowerCase() || "";
-  const isWarehouseDepartment = userRole === "warehouse department";
+  const allowedRoles = [
+    "warehouse department",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ];
+  const canAccessPartsRequisition = allowedRoles.includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -264,7 +276,7 @@ export default function PartsRequisition() {
   }, [activeTab]);
 
   const handleAllRequisitions = useCallback(async () => {
-    if (!isWarehouseDepartment) return;
+    if (!canAccessPartsRequisition) return;
 
     try {
       setLoading(true);
@@ -294,14 +306,14 @@ export default function PartsRequisition() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, isWarehouseDepartment]);
+  }, [canAccessPartsRequisition, getAuthHeader]);
 
   useEffect(() => {
     handleAllRequisitions();
   }, [handleAllRequisitions]);
 
   useEffect(() => {
-    if (!isWarehouseDepartment) {
+    if (!canAccessPartsRequisition) {
       return undefined;
     }
 
@@ -310,9 +322,9 @@ export default function PartsRequisition() {
     }, 15000);
 
     return () => window.clearInterval(refreshInterval);
-  }, [handleAllRequisitions, isWarehouseDepartment]);
+  }, [canAccessPartsRequisition, handleAllRequisitions]);
 
-  if (!isWarehouseDepartment) {
+  if (!canAccessPartsRequisition) {
     return <Navigate to="/dashboard/profile" replace />;
   }
 
@@ -338,16 +350,7 @@ export default function PartsRequisition() {
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
-        <Col xs={24} md={8} lg={6}>
-          <Select
-            size="large"
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-            style={{ width: "100%" }}
-            options={statusOptions}
-          />
-        </Col>
-        <Col xs={24} md={8} lg={6}>
+        <Col xs={24} md={6} lg={4}>
           <Select
             size="large"
             value={dateSortOrder}

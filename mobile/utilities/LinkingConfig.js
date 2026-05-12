@@ -15,7 +15,16 @@ const LinkingConfig = {
       dashboard: {
         path: "dashboard",
         screens: {
+          "Flight Logbook": "flight-log",
+          "Pre-Inspection": "pre-inspection",
+          "Post-Inspection": "post-inspection",
           Tasks: "tasks",
+          Mechanics: "mechanics",
+          "Parts Requisition": "parts-requisition",
+          "User Management": "user-management",
+          "Activity Logs": "activity-logs",
+          Messages: "messages",
+          Profile: "profile",
         },
       },
     },

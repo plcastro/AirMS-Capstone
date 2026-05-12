@@ -666,9 +666,14 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
               marginBottom: 12,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600" }}>
-              Select Section
-            </Text>
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                New Entry - Flight Log
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+                Select Section
+              </Text>
+            </View>
 
             <TouchableOpacity
               onPress={onClose}

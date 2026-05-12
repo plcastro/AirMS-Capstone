@@ -15,13 +15,24 @@ export default function LoginLayout({
   const isMobile = !screens.md;
 
   return (
-    <div style={{ padding: isMobile ? "8px 4px" : "8px 0" }}>
-      <Row style={{ marginBottom: isMobile ? 20 : 30 }} align="middle" justify="center">
+    <>
+      <Row align="middle" justify="center">
         <Space orientation="vertical" size="small">
           <Col span={24} style={{ display: "flex", justifyContent: "center" }}>
-            <img src={AirMS_web} alt="logo" style={{ width: isMobile ? 170 : 200 }} />
+            <img
+              src={AirMS_web}
+              alt="logo"
+              style={{ width: isMobile ? 170 : 200 }}
+            />
           </Col>
-          <Col span={24} style={{ display: "flex", justifyContent: "center", textAlign: "center" }}>
+          <Col
+            span={24}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              textAlign: "center",
+            }}
+          >
             <Text style={{ fontWeight: 300 }}>
               AIRCRAFT MAINTENANCE MANAGEMENT SYSTEM
             </Text>
@@ -44,6 +55,6 @@ export default function LoginLayout({
       </Row>
 
       {children}
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import React from "react";
-import { Input, Button } from "antd";
+import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -93,13 +94,31 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
               ].map(([label, key]) => (
                 <div className="fl-field-row" key={key}>
                   <span className="fl-label">{label}</span>
-                  <Input
-                    className="fl-input"
-                    value={leg[key] || ""}
-                    onChange={(e) => updateLeg(legIdx, key, e.target.value)}
-                    placeholder={key === "date" ? "MM/DD/YYYY" : ""}
-                    disabled={!isEditable}
-                  />
+                  {key === "date" ? (
+                    <DatePicker
+                      className="fl-input"
+                      style={{ width: "100%" }}
+                      format="MM/DD/YYYY"
+                      value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
+                      onChange={(date) =>
+                        updateLeg(
+                          legIdx,
+                          "date",
+                          date && dayjs.isDayjs(date)
+                            ? date.format("MM/DD/YYYY")
+                            : "",
+                        )
+                      }
+                      disabled={!isEditable}
+                    />
+                  ) : (
+                    <Input
+                      className="fl-input"
+                      value={leg[key] || ""}
+                      onChange={(e) => updateLeg(legIdx, key, e.target.value)}
+                      disabled={!isEditable}
+                    />
+                  )}
                 </div>
               ))}
             </div>
