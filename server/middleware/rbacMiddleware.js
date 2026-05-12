@@ -1,64 +1,71 @@
-/**
- * RBAC (Role-Based Access Control) Middleware
- * Provides granular permission checks for admin operations
- */
-
 const rbacMiddleware = {
-  /**
-   * Verify user has admin or superuser access
-   */
-  requireAdmin: (req, res, next) => {
+  requireAuth: (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    if (!["Admin", "Superuser"].includes(req.user.access)) {
-      return res.status(403).json({
-        message: "Forbidden: Admin access required",
-        requiredAccess: "Admin or Superuser",
+      return res.status(401).json({
+        message: "Not authenticated",
       });
     }
 
     next();
   },
 
-  /**
-   * Verify user has superuser access (higher privilege than admin)
-   */
+  // Access-level RBAC
+  requireAdmin: (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Not authenticated",
+      });
+    }
+
+    const access = req.user.access;
+
+    if (!["Admin", "Superuser"].includes(access)) {
+      return res.status(403).json({
+        message: "Admin access required",
+        currentAccess: access,
+      });
+    }
+
+    next();
+  },
+
   requireSuperuser: (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
+      return res.status(401).json({
+        message: "Not authenticated",
+      });
     }
 
     if (req.user.access !== "Superuser") {
       return res.status(403).json({
-        message: "Forbidden: Superuser access required",
-        requiredAccess: "Superuser",
+        message: "Superuser access required",
+        currentAccess: req.user.access,
       });
     }
 
     next();
   },
 
-  /**
-   * Verify user has specific access levels
-   * @param {string|string[]} allowedAccess - Single or array of allowed access levels
-   */
-  requireAccess: (allowedAccess) => {
+  // Job-title RBAC
+  requireJobTitle: (allowedJobTitles = []) => {
     return (req, res, next) => {
       if (!req.user) {
-        return res.status(401).json({ message: "Not authenticated" });
+        return res.status(401).json({
+          message: "Not authenticated",
+        });
       }
 
-      const allowed = Array.isArray(allowedAccess)
-        ? allowedAccess
-        : [allowedAccess];
+      const userJobTitle = req.user.jobTitle;
 
-      if (!allowed.includes(req.user.access)) {
+      const allowed = Array.isArray(allowedJobTitles)
+        ? allowedJobTitles
+        : [allowedJobTitles];
+
+      if (!allowed.includes(userJobTitle)) {
         return res.status(403).json({
-          message: "Forbidden: Insufficient access level",
-          requiredAccess: allowed,
-          currentAccess: req.user.access,
+          message: "Insufficient job title permissions",
+          allowedJobTitles: allowed,
+          currentJobTitle: userJobTitle,
         });
       }
 
@@ -66,25 +73,24 @@ const rbacMiddleware = {
     };
   },
 
-  /**
-   * Allow self or admin access
-   * Used for user profile/preference updates
-   */
-  requireSelfOrAdmin: (userIdParam = "userId") => {
+  // Self or admin access
+  requireSelfOrAdmin: (userIdParam = "id") => {
     return (req, res, next) => {
       if (!req.user) {
-        return res.status(401).json({ message: "Not authenticated" });
+        return res.status(401).json({
+          message: "Not authenticated",
+        });
       }
 
-      const targetUserId = req.params[userIdParam] || req.body.userId;
+      const targetUserId = req.params[userIdParam] || req.body[userId];
+
+      const isSelf = String(req.user.id) === String(targetUserId);
+
       const isAdmin = ["Admin", "Superuser"].includes(req.user.access);
-      const isSelf = req.user.id === targetUserId;
 
-      if (!isAdmin && !isSelf) {
+      if (!isSelf && !isAdmin) {
         return res.status(403).json({
-          message: "Forbidden: Can only access own data or admin required",
-          attemptedAccess: targetUserId,
-          currentUser: req.user.id,
+          message: "Forbidden: You can only access your own account",
         });
       }
 
@@ -92,57 +98,18 @@ const rbacMiddleware = {
     };
   },
 
-  /**
-   * Log admin actions for audit trail
-   */
-  logAdminAction: async (req, res, next) => {
-    if (!req.user) {
-      return next();
-    }
-
-    // Only log for admin/superuser actions
-    if (["Admin", "Superuser"].includes(req.user.access)) {
+  // Optional admin activity logging
+  logAdminAction: (req, res, next) => {
+    if (req.user && ["Admin", "Superuser"].includes(req.user.access)) {
       req.adminAction = {
         performedBy: req.user.id,
         username: req.user.username,
-        email: req.user.email,
         access: req.user.access,
-        timestamp: new Date(),
-        method: req.method,
         endpoint: req.originalUrl,
+        method: req.method,
+        timestamp: new Date(),
         ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get("user-agent"),
       };
-    }
-
-    next();
-  },
-
-  /**
-   * Verify admin can only manage users with lower or equal privilege levels
-   * Prevents admins from modifying other admins/superusers without superuser role
-   */
-  verifyPrivilegeLevelChange: async (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-
-    const targetAccessLevel = req.body.access;
-
-    if (!targetAccessLevel) {
-      return next(); // No access change attempted
-    }
-
-    const accessHierarchy = { User: 0, Admin: 1, Superuser: 2 };
-    const userLevel = accessHierarchy[req.user.access];
-    const targetLevel = accessHierarchy[targetAccessLevel];
-
-    // Only superuser can create/modify admins and superusers
-    if (targetLevel >= 1 && req.user.access !== "Admin") {
-      return res.status(403).json({
-        message: "Forbidden: Only admin can assign Admin or Superuser roles",
-        attemptedRole: targetAccessLevel,
-      });
     }
 
     next();

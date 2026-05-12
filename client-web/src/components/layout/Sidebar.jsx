@@ -35,26 +35,31 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
 
-  const wrapLabel = (text) => (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: 1,
-        textTransform: "uppercase",
-        opacity: 0.7,
-        paddingTop: 18,
-      }}
-    >
-      {text}
-    </div>
-  );
+  const wrapLabel = (text) => {
+    if (collapsed) return null;
+
+    return (
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          opacity: 0.7,
+          paddingTop: 18,
+          color: "#000",
+        }}
+      >
+        {text}
+      </div>
+    );
+  };
 
   const menuItems = [
     // ===== GENERAL =====
     {
       type: "group",
-      label: wrapLabel("GENERAL"),
+      label: collapsed ? null : wrapLabel("GENERAL"),
       children: [
         {
           key: "13",
@@ -80,7 +85,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // ===== ADMINISTRATION =====
     {
       type: "group",
-      label: wrapLabel("ADMINISTRATION"),
+      label: collapsed ? null : wrapLabel("USER MANAGEMENT"),
       children: [
         {
           key: "1",
@@ -100,7 +105,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // ===== AIRCRAFT HEALTH LOGBOOK =====
     {
       type: "group",
-      label: wrapLabel("AIRCRAFT HEALTH LOGBOOK"),
+      label: collapsed ? null : wrapLabel("AIRCRAFT HEALTH LOGBOOK"),
       roles: ["maintenance manager", "officer-in-charge", "mechanic", "pilot"],
       children: [
         {
@@ -150,7 +155,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // ===== TASK MANAGEMENT =====
     {
       type: "group",
-      label: wrapLabel("TASK ASSIGNMENT & MONITORING"),
+      label: collapsed ? null : wrapLabel("TASK ASSIGNMENT & MONITORING"),
       roles: ["maintenance manager", "mechanic"],
       children: [
         {
@@ -171,7 +176,9 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // ===== MAINTENANCE TRACKING =====
     {
       type: "group",
-      label: wrapLabel("MAINTENANCE TRACKING"),
+      label: collapsed
+        ? null
+        : wrapLabel("PARTS LIFESPAN & MAINTENANCE TRACKING"),
       roles: ["maintenance manager", "officer-in-charge"],
       children: [
         {
@@ -195,10 +202,10 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       ],
     },
 
-    // ===== INVENTORY =====
+    // ===== PARTS REQUISITION =====
     {
       type: "group",
-      label: wrapLabel("INVENTORY"),
+      label: collapsed ? null : wrapLabel("Parts Requisition"),
       children: [
         {
           key: "12",
@@ -215,7 +222,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     },
     {
       type: "group",
-      label: wrapLabel("SETTINGS"),
+      label: collapsed ? null : wrapLabel("SETTINGS"),
       children: [
         {
           key: "14",
