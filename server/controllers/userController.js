@@ -110,7 +110,7 @@ const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
     normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
-  const normalizedBase = normalizeBase(req.headers["x-base"]);
+  const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
     userId,
@@ -246,11 +246,17 @@ const loginUser = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
+    const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
+    }
+    if (loginBase === "UNKNOWN") {
+      return res.status(400).json({
+        message: "Please select where you are logging in from",
+      });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
       return res.status(400).json({ message: "Invalid input" });
@@ -365,6 +371,9 @@ const loginUser = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         access: user.access,
+        sessionId: session.sessionId,
+        platform: session.platform,
+        base: session.base,
       },
       process.env.JWT_SECRET,
       { expiresIn: "30m" },
@@ -412,6 +421,8 @@ const loginUser = async (req, res) => {
       lastLogin: user.lastLogin,
       isOnline: user.isOnline,
       platform: user.platform,
+      base: session.base,
+      sessionId: session.sessionId,
       lastSeenAt: user.lastSeenAt,
     };
 
@@ -491,6 +502,9 @@ const refreshToken = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         access: user.access,
+        sessionId: req.headers["x-session-id"] || payload.sessionId || null,
+        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+        base: req.headers["x-base"] || payload.base || "UNKNOWN",
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },

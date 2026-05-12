@@ -11,11 +11,16 @@ import {
   Row,
   Col,
   Form,
+  Select,
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
-import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  EnvironmentOutlined,
+  LockOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import AirMSLogo from "../../assets/AirMS_web.png";
 const { Text } = Typography;
 
@@ -26,6 +31,7 @@ const Login = () => {
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
+    base: "",
   });
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,6 +45,7 @@ const Login = () => {
       setFormData({
         identifier: savedIdentifier,
         password: "",
+        base: "",
       });
       setRememberMe(true);
     }
@@ -69,9 +76,14 @@ const Login = () => {
 
     const identifier = formData.identifier?.trim();
     const password = formData.password?.trim();
+    const base = formData.base?.trim();
 
     if (!identifier || !password) {
       setError("Username/email and password are required");
+      return;
+    }
+    if (!base) {
+      setError("Please select where you are logging in from");
       return;
     }
     setLoading(true);
@@ -79,12 +91,13 @@ const Login = () => {
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-base": base },
         body: JSON.stringify({
           identifier,
           password,
           client: "web",
           rememberMe,
+          base,
         }),
         credentials: "include",
       });
@@ -102,7 +115,11 @@ const Login = () => {
           );
           return;
         }
-        await loginUser(data.user, data.token, { rememberMe });
+        await loginUser(data.user, data.token, {
+          rememberMe,
+          base: data.user?.base || base,
+          sessionId: data.sessionId || data.user?.sessionId,
+        });
 
         if (rememberMe) {
           localStorage.setItem(
@@ -212,6 +229,24 @@ const Login = () => {
               prefix={<LockOutlined />}
             />
             {error && <Text type="danger">{error}</Text>}
+          </Form.Item>
+
+          <Form.Item label="Logging in from" required>
+            <Select
+              id="base"
+              size="large"
+              placeholder="Select base"
+              value={formData.base || undefined}
+              onChange={(value) =>
+                setFormData((prevState) => ({ ...prevState, base: value }))
+              }
+              suffixIcon={<EnvironmentOutlined />}
+              options={[
+                { value: "MANILA", label: "Manila" },
+                { value: "CEBU", label: "Cebu" },
+                { value: "CDO", label: "CDO" },
+              ]}
+            />
           </Form.Item>
 
           <Row className="login-form-meta">

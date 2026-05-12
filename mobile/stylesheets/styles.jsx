@@ -85,6 +85,21 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 10,
   },
+  loginPickerContainer: {
+    height: 50,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: COLORS.grayLight,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  loginPicker: {
+    width: "100%",
+    height: 50,
+  },
   headerText: {
     fontSize: HEADER_FONT_SIZE,
     fontWeight: "500",

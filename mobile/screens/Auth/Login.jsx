@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -26,6 +27,7 @@ export default function Login() {
   const { loginUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
+  const [selectedBase, setSelectedBase] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
@@ -46,6 +48,7 @@ export default function Login() {
             identifier: savedIdentifier || "",
             password: savedPassword || "",
           });
+          setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
           setRememberMe(true);
         }
       } catch (err) {
@@ -66,6 +69,9 @@ export default function Login() {
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Please enter your password");
+    if (!selectedBase) {
+      return setMessage("Please select where you are logging in from");
+    }
 
     login();
   };
@@ -77,11 +83,12 @@ export default function Login() {
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-base": selectedBase },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
           client: "mobile",
+          base: selectedBase,
         }),
       });
 
@@ -117,10 +124,12 @@ export default function Login() {
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
+          await AsyncStorage.setItem("rememberedBase", selectedBase);
         } else {
           await AsyncStorage.setItem("token", token);
           await AsyncStorage.setItem("rememberMe", "false");
           await AsyncStorage.removeItem("rememberedIdentifier");
+          await AsyncStorage.removeItem("rememberedBase");
         }
 
         // Inactive users go to security setup
@@ -209,6 +218,19 @@ export default function Login() {
             value={formData.password}
             onChangeText={(text) => changeHandler("password", text)}
           />
+          <Text style={styles.label}>Logging in from</Text>
+          <View style={styles.loginPickerContainer}>
+            <Picker
+              selectedValue={selectedBase}
+              onValueChange={setSelectedBase}
+              style={styles.loginPicker}
+            >
+              <Picker.Item label="Select base" value="" />
+              <Picker.Item label="Manila" value="MANILA" />
+              <Picker.Item label="Cebu" value="CEBU" />
+              <Picker.Item label="CDO" value="CDO" />
+            </Picker>
+          </View>
           {getMessage && !loginSuccess && (
             <Text style={styles.error}>{getMessage}</Text>
           )}
