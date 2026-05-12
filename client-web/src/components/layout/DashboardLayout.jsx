@@ -49,7 +49,7 @@ const DashboardLayout = () => {
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
       <Sider
-        width={270}
+        width={290}
         collapsible
         collapsed={collapsed}
         trigger={null}
