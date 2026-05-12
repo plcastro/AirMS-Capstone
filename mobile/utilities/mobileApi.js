@@ -1,0 +1,46 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export const getAuthHeaders = async (extraHeaders = {}) => {
+  const token = await AsyncStorage.getItem("currentUserToken");
+
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+export const getArrayData = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.records)) return payload.records;
+  return [];
+};
+
+export const formatDate = (value, options = {}) => {
+  if (!value) return "N/A";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "N/A";
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    ...options,
+  });
+};
+
+export const formatDateTime = (value) => {
+  if (!value) return "N/A";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "N/A";
+
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};

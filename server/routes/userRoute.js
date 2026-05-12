@@ -20,6 +20,7 @@ const {
   createUser,
   checkUsernameExists,
   getAllUsers,
+  getAssignableUsers,
   updateUser,
   updateUserStatus,
   updateUserProfile,
@@ -91,6 +92,14 @@ router.get(
   touchSessionActivity,
   requirePermission(permissions.USERS_READ),
   getAllUsers,
+);
+
+router.get(
+  "/assignable-users",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.TASKS_CREATE),
+  getAssignableUsers,
 );
 
 router.put(

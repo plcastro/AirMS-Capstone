@@ -238,6 +238,21 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const getAssignableUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find({
+      status: "active",
+      jobTitle: { $regex: /^mechanic$/i },
+    }).select(
+      "firstName lastName jobTitle status image isOnline online platform",
+    );
+
+    res.status(200).json({ status: "Ok", data: users });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 const loginUser = async (req, res) => {
   try {
     if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
@@ -1548,6 +1563,7 @@ module.exports = {
   checkUsernameExists,
   updateUser,
   getAllUsers,
+  getAssignableUsers,
   updateUserStatus,
   updateUserProfile,
   updatePassword,
