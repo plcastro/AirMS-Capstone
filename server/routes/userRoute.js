@@ -2,15 +2,24 @@ const express = require("express");
 const router = express.Router();
 
 const { rateLimiter, otpRequestLimiter } = require("../middleware/rateLimiter");
+
 const { verifyToken } = require("../middleware/authMiddleware");
+
 const { touchSessionActivity } = require("../middleware/sessionActivity");
+
 const {
   requireActionConfirmation,
 } = require("../middleware/actionConfirmation");
 
 const permissions = require("../config/permissions");
+
 const { requirePermission } = require("../middleware/permissions");
-const rbacMiddleware = require("../middleware/rbacMiddleware");
+
+const {
+  upload,
+  processImage,
+  handleUploadError,
+} = require("../middleware/upload");
 
 const {
   loginUser,
@@ -31,9 +40,6 @@ const {
   activateUser,
   resendActivation,
   completeSecuritySetup,
-  resendActivationByAdmin,
-  extendInvitationExpiry,
-  revokeInvitation,
 } = require("../controllers/userController");
 
 const {
@@ -44,12 +50,6 @@ const {
   verifyPinOtp,
   resetPin,
 } = require("../controllers/passwordResetController");
-
-const {
-  upload,
-  processImage,
-  handleUploadError,
-} = require("../middleware/upload");
 
 /* =========================================
    AUTH
@@ -114,14 +114,14 @@ router.put(
 );
 
 /* =========================================
-   SELF / PROFILE MANAGEMENT
+   PROFILE MANAGEMENT
 ========================================= */
 
 router.put(
   "/update-user-profile/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   updateUserProfile,
 );
@@ -130,7 +130,7 @@ router.put(
   "/change-password/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   updatePassword,
 );
@@ -139,7 +139,7 @@ router.put(
   "/update-pin/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   updatePIN,
 );
@@ -147,7 +147,7 @@ router.put(
 router.post(
   "/verify-pin/:id",
   verifyToken,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_READ),
   verifyPIN,
 );
 
@@ -155,7 +155,7 @@ router.put(
   "/update-user-image/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   upload.single("image"),
   processImage,
@@ -166,7 +166,7 @@ router.delete(
   "/update-user-image/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   updateUserImage,
 );
@@ -175,7 +175,7 @@ router.put(
   "/updateSignature/:id",
   verifyToken,
   touchSessionActivity,
-  rbacMiddleware.requireSelfOrAdmin("id"),
+  requirePermission(permissions.PROFILE_UPDATE),
   requireActionConfirmation,
   upload.single("signature"),
   processImage,
@@ -183,53 +183,18 @@ router.put(
 );
 
 /* =========================================
-   ACTIVATION / INVITATION
+   ACTIVATION
 ========================================= */
 
 router.post("/activate", activateUser);
 
 router.post("/resend-activation", resendActivation);
 
-router.post(
-  "/resend-activation/:id",
-  verifyToken,
-  touchSessionActivity,
-  requirePermission(permissions.INVITATION_MANAGE),
-  requireActionConfirmation,
-  resendActivationByAdmin,
-);
-
-router.put(
-  "/extend-invitation-expiry/:id",
-  verifyToken,
-  touchSessionActivity,
-  requirePermission(permissions.INVITATION_MANAGE),
-  requireActionConfirmation,
-  extendInvitationExpiry,
-);
-
-router.put(
-  "/revoke-invitation/:id",
-  verifyToken,
-  touchSessionActivity,
-  requirePermission(permissions.INVITATION_MANAGE),
-  requireActionConfirmation,
-  revokeInvitation,
-);
-
 router.post("/complete-security-setup", completeSecuritySetup);
-
-/* =========================================
-   PASSWORD RESET
-========================================= */
 
 router.post("/request-password-reset", requestPasswordReset);
 
-router.post(
-  "/verify-otp",
-  otpRequestLimiter,
-  verifyOtp,
-);
+router.post("/verify-otp", otpRequestLimiter, verifyOtp);
 
 router.post("/reset-password", resetPassword);
 
@@ -239,11 +204,7 @@ router.post("/reset-password", resetPassword);
 
 router.post("/request-pin-reset/:id", requestPinReset);
 
-router.post(
-  "/verify-pin-otp",
-  otpRequestLimiter,
-  verifyPinOtp,
-);
+router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
 
 router.post("/reset-pin", resetPin);
 
