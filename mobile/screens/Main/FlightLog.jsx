@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -68,6 +69,29 @@ export default function FlightLog({ route, navigation }) {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+
+  const getAuthHeaders = useCallback(async () => {
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    let sessionMeta = {};
+
+    try {
+      sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+    } catch {
+      sessionMeta = {};
+    }
+
+    return {
+      "Content-Type": "application/json",
+      "x-action-confirmed": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "x-platform": "MOBILE",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+    };
+  }, []);
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
   const fetchFlightLogs = useCallback(async ({ silent = false } = {}) => {
@@ -227,11 +251,10 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           ...newEntry,
           createdByName:
@@ -268,13 +291,12 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders,
           body: JSON.stringify(updatedLog),
         },
       );

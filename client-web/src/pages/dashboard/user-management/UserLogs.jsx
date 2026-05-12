@@ -33,7 +33,7 @@ const { useBreakpoint } = Grid;
 export default function UserLogs() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getValidToken } = useContext(AuthContext);
+  const { getAuthHeader } = useContext(AuthContext);
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -51,7 +51,7 @@ export default function UserLogs() {
         setLoading(true);
       }
       try {
-        const token = await getValidToken();
+        const authHeader = getAuthHeader ? await getAuthHeader() : {};
         const params = new URLSearchParams({
           page: "1",
           limit: "1000",
@@ -64,7 +64,7 @@ export default function UserLogs() {
 
         const response = await fetch(url, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...authHeader,
           },
         });
         const json = await response.json();
@@ -90,6 +90,8 @@ export default function UserLogs() {
             : "N/A",
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
+          platform: log.platform || "UNKNOWN",
+          base: log.base || "UNKNOWN",
         }));
 
         setAllUserLogs(mappedLogs);
@@ -102,7 +104,7 @@ export default function UserLogs() {
         }
       }
     },
-    [getValidToken],
+    [getAuthHeader],
   );
 
   const handleSearchChange = (text) => {

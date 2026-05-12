@@ -317,11 +317,14 @@ export default function FlightLog() {
   const handleSaveNew = async (newEntry) => {
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
+          ...authHeader,
         },
         body: JSON.stringify({
           ...newEntry,
@@ -359,6 +362,7 @@ export default function FlightLog() {
 
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${selectedLog._id}`,
@@ -366,6 +370,8 @@ export default function FlightLog() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
+            ...authHeader,
           },
           body: JSON.stringify({
             ...selectedLog,
@@ -474,7 +480,11 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/release`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json", ...authHeader },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...authHeader,
+            },
             body: JSON.stringify({
               name: getUserDisplayName(),
               signature,
@@ -493,7 +503,11 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/accept`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json", ...authHeader },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...authHeader,
+            },
             body: JSON.stringify({
               name: getUserDisplayName(),
               signature,
@@ -536,6 +550,7 @@ export default function FlightLog() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(getAuthHeader ? await getAuthHeader() : {}),
           },
           body: JSON.stringify({
@@ -567,7 +582,11 @@ export default function FlightLog() {
           `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
             body: JSON.stringify({
               acftTT: Number(toDateData.airframe) || 0,
               n1Cycles: Number(toDateData.cycleN1) || 0,
@@ -590,6 +609,7 @@ export default function FlightLog() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              "x-action-confirmed": "true",
               ...(getAuthHeader ? await getAuthHeader() : {}),
             },
           },
