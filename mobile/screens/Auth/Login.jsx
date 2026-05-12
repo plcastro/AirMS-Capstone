@@ -6,78 +6,98 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
+
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
-import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
+import LoadingScreen from "../LoadingScreen";
+
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
-import LoadingScreen from "../LoadingScreen";
 
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
 
-  const [formData, setFormData] = useState({ identifier: "", password: "" });
-  const [rememberMe, setRememberMe] = useState(false);
-  const [getMessage, setMessage] = useState("");
-  const [loginSuccess, setLoginSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
-  // Load saved credentials on mount
-  useEffect(() => {
-    const loadSavedCredentials = async () => {
-      try {
-        const savedRememberMe = await AsyncStorage.getItem("rememberMe");
-        if (savedRememberMe === "true") {
-          const savedIdentifier = await AsyncStorage.getItem(
-            "rememberedIdentifier",
-          );
-          const savedPassword =
-            await AsyncStorage.getItem("rememberedPassword");
+  const [formData, setFormData] = useState({
+    identifier: "",
+    password: "",
+  });
 
-          setFormData({
-            identifier: savedIdentifier || "",
-            password: savedPassword || "",
-          });
-          setRememberMe(true);
-        }
-      } catch (err) {
-        console.error(err);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // =========================
+  // LOAD REMEMBERED DATA
+  // =========================
+  useEffect(() => {
+    const load = async () => {
+      const saved = await AsyncStorage.getItem("rememberMe");
+
+      if (saved === "true") {
+        const identifier = await AsyncStorage.getItem("rememberedIdentifier");
+
+        setFormData((prev) => ({
+          ...prev,
+          identifier: identifier || "",
+        }));
+
+        setRememberMe(true);
       }
     };
-    loadSavedCredentials();
+
+    load();
   }, []);
 
   const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  // =========================
+  // VALIDATION
+  // =========================
   const validate = () => {
     const { identifier, password } = formData;
-    if (!identifier.trim() && !password.trim())
-      return setMessage("Please enter your username/email and password");
-    if (!identifier.trim())
-      return setMessage("Please enter your username or email");
-    if (!password.trim()) return setMessage("Please enter your password");
+
+    if (!identifier.trim() && !password.trim()) {
+      setMessage("Enter username/email and password");
+      return;
+    }
+
+    if (!identifier.trim()) {
+      setMessage("Enter username or email");
+      return;
+    }
+
+    if (!password.trim()) {
+      setMessage("Enter password");
+      return;
+    }
 
     login();
   };
 
+  // =========================
+  // LOGIN REQUEST
+  // =========================
   const login = async () => {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/user/login`, {
+      const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
@@ -85,88 +105,96 @@ export default function Login() {
         }),
       });
 
-      const responseText = await response.text();
-      let data = null;
+      const data = await res.json();
 
-      try {
-        data = responseText ? JSON.parse(responseText) : {};
-      } catch (error) {
-        console.error("Login returned non-JSON response:", responseText);
-        setMessage(
-          responseText || "Login failed. Server returned an invalid response.",
-        );
+      if (!res.ok) {
+        setMessage(data.message || "Login failed");
         return;
       }
 
-      if (response.ok) {
-        const { user, token } = data;
-        const normalizedJobTitle = (user?.jobTitle || "").trim().toLowerCase();
-        const allowedMobileJobTitles = [
-          "maintenance manager",
-          "pilot",
-          "officer-in-charge",
-          "mechanic",
-        ];
+      const user = data.user;
+      const accessToken = data.token || data.accessToken;
 
-        // Deactivated account
-        if (user.status === "deactivated") {
-          setMessage(
-            "This account is deactivated. Please contact AirMS Support",
-          );
-          return;
-        }
-
-        // Block users with no mobile modules.
-        if (!allowedMobileJobTitles.includes(normalizedJobTitle)) {
-          setMessage(
-            "This account is only allowed to log in on the web portal.",
-          );
-          return;
-        }
-
-        // Remember me logic
-        if (rememberMe) {
-          await AsyncStorage.setItem("token", token);
-          await AsyncStorage.setItem("rememberMe", "true");
-          await AsyncStorage.setItem(
-            "rememberedIdentifier",
-            formData.identifier.trim(),
-          );
-        } else {
-          await AsyncStorage.setItem("token", token);
-          await AsyncStorage.setItem("rememberMe", "false");
-          await AsyncStorage.removeItem("rememberedIdentifier");
-        }
-
-        // Inactive users go to security setup
-        if (user.status === "inactive" || user.setupToken) {
-          nav.replace("securitySetup", {
-            email: user.email,
-            setupToken: user.setupToken,
-          });
-          return;
-        }
-        setLoginSuccess(true);
-        await loginUser(user, token);
-        const pendingRedirect = await readPendingRedirect();
-
-        if (pendingRedirect?.screen) {
-          await clearPendingRedirect();
-          nav.replace("dashboard", {
-            screen: pendingRedirect.screen,
-            params: pendingRedirect.params || {},
-          });
-          return;
-        }
-
-        nav.replace("dashboard");
-      } else {
-        console.log("Login error message:", data.message);
-        setMessage(data.message || "Login failed");
+      if (!user || !accessToken) {
+        setMessage("Invalid server response");
+        return;
       }
+
+      const role = (user.jobTitle || "").toLowerCase();
+
+      const allowed = [
+        "maintenance manager",
+        "pilot",
+        "officer-in-charge",
+        "mechanic",
+      ];
+
+      // =========================
+      // ACCOUNT CHECKS
+      // =========================
+      if (user.status === "deactivated") {
+        setMessage("Account deactivated");
+        return;
+      }
+
+      if (!allowed.includes(role)) {
+        setMessage("Web portal only account");
+        return;
+      }
+
+      // =========================
+      // REMEMBER ME
+      // =========================
+      if (rememberMe) {
+        await AsyncStorage.setItem("rememberMe", "true");
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          formData.identifier.trim(),
+        );
+      } else {
+        await AsyncStorage.setItem("rememberMe", "false");
+        await AsyncStorage.removeItem("rememberedIdentifier");
+      }
+
+      // =========================
+      // SECURITY SETUP
+      // =========================
+      if (user.status === "inactive" || user.setupToken) {
+        nav.replace("securitySetup", {
+          email: user.email,
+          setupToken: user.setupToken,
+        });
+        return;
+      }
+
+      // =========================
+      // AUTH STORE
+      // =========================
+      await loginUser({
+        user,
+        accessToken,
+        refreshToken: data.refreshToken || null,
+      });
+
+      // =========================
+      // REDIRECT HANDLING
+      // =========================
+      const redirect = await readPendingRedirect();
+
+      if (redirect?.screen) {
+        await clearPendingRedirect();
+
+        nav.replace("dashboard", {
+          screen: redirect.screen,
+          params: redirect.params || {},
+        });
+        return;
+      }
+
+      nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Too many login attempts. Please try again later");
+      setMessage("Login error. Try again later.");
     } finally {
       setLoading(false);
     }
@@ -181,54 +209,38 @@ export default function Login() {
   };
 
   if (loading) {
-    return <LoadingScreen message="Signing you in..." showLogo />;
+    return <LoadingScreen message="Signing you in..." />;
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
-        <LoginLayout
-          cardTitle="Login"
-          cardsubTitle="Sign in to access your AirMS account"
-        >
-          <Text style={[styles.label, { textAlign: "left" }]}>
-            Username or Email
-          </Text>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <LoginLayout cardTitle="Login" cardsubTitle="Sign in to AirMS">
+          <Text style={styles.label}>Username or Email</Text>
+
           <TextInput
             style={styles.formInput}
-            maxLength={256}
             placeholder="Username or Email"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            keyboardType="default"
             value={formData.identifier}
-            onChangeText={(text) => changeHandler("identifier", text)}
+            onChangeText={(t) => changeHandler("identifier", t)}
+            autoCapitalize="none"
           />
+
           <Text style={styles.label}>Password</Text>
+
           <TextInput
             style={styles.formInput}
-            maxLength={256}
             placeholder="Password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
             secureTextEntry
-            keyboardType="default"
             value={formData.password}
-            onChangeText={(text) => changeHandler("password", text)}
+            onChangeText={(t) => changeHandler("password", t)}
           />
-          {getMessage && !loginSuccess && (
-            <Text style={styles.error}>{getMessage}</Text>
-          )}
+
+          {!!message && <Text style={styles.error}>{message}</Text>}
+
           <View style={styles.loginHelper}>
             <CheckBox
               title="Remember me"
-              checkboxStyle={styles.checkBox}
               value={rememberMe}
               onValueChange={setRememberMe}
             />
