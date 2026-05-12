@@ -1,9 +1,5 @@
 const mongoose = require("mongoose");
 
-/**
- * User Permission Schema
- * Defines granular permissions per user for specific modules/operations
- */
 const userPermissionSchema = new mongoose.Schema(
   {
     user: {
@@ -112,7 +108,7 @@ const userPermissionSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("UserPermission", userPermissionSchema);
