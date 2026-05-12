@@ -40,8 +40,15 @@ const permissions = {
 
   // ===== TASKS =====
   TASKS_READ: "tasks.read",
+  TASKS_READ_OWN: "tasks.read.own",
+  TASKS_READ_ALL: "tasks.read.all",
+
   TASKS_CREATE: "tasks.create",
+
   TASKS_UPDATE: "tasks.update",
+  TASKS_UPDATE_OWN: "tasks.update.own",
+  TASKS_UPDATE_ALL: "tasks.update.all",
+
   TASKS_DELETE: "tasks.delete",
 
   // ===== MECHANICS =====
