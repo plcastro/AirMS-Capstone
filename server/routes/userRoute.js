@@ -192,10 +192,6 @@ router.post("/resend-activation", resendActivation);
 
 router.post("/complete-security-setup", completeSecuritySetup);
 
-/* =========================================
-   PASSWORD RESET
-========================================= */
-
 router.post("/request-password-reset", requestPasswordReset);
 
 router.post("/verify-otp", otpRequestLimiter, verifyOtp);

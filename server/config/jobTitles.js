@@ -1,7 +1,7 @@
 const permissions = require("./permissions");
 
 const jobTitles = {
-  Mechanic: [
+  mechanic: [
     permissions.USERS_READ,
     permissions.TASKS_READ_OWN,
     permissions.TASKS_UPDATE_OWN,
@@ -10,14 +10,14 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  Pilot: [
+  pilot: [
     permissions.FLIGHTLOG_CREATE,
     permissions.FLIGHTLOG_READ,
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
   ],
 
-  "Warehouse Department": [
+  "warehouse department": [
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
     permissions.WAREHOUSE_READ,
@@ -26,7 +26,7 @@ const jobTitles = {
     permissions.WAREHOUSE_CANCEL,
   ],
 
-  "Officer-In-Charge": [
+  "officer-in-charge": [
     permissions.REPORTS_READ,
     permissions.REPORTS_EXPORT,
 
@@ -39,7 +39,7 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  "Maintenance Manager": [
+  "maintenance manager": [
     permissions.TASKS_READ_ALL,
     permissions.TASKS_CREATE,
     permissions.TASKS_UPDATE_ALL,
@@ -53,7 +53,7 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  Admin: [
+  admin: [
     permissions.ADMIN_PANEL,
 
     permissions.USERS_READ,
