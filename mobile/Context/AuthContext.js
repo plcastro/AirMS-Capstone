@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   // =========================
   // LOGOUT
   // =========================
-  const logout = async () => {
+  const logoutUser = async () => {
     setUser(null);
     await storage.remove(USER_KEY);
     await storage.remove(ACCESS_KEY);
@@ -178,7 +178,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         loginUser,
-        logout,
+        logoutUser,
         restoreSession,
       }}
     >
