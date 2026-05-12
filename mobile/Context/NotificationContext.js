@@ -104,6 +104,15 @@ const buildTargetNavigation = (notificationPayload) => {
     };
   }
 
+  if (moduleName === "messages") {
+    return {
+      screen: "Messages",
+      params: {
+        refreshAt: Date.now(),
+      },
+    };
+  }
+
   return {
     screen: "Parts Requisition Monitoring",
     params: {

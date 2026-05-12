@@ -30,27 +30,6 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
-const MOBILE_ALLOWED_JOB_TITLES = new Set([
-  "maintenance manager",
-  "pilot",
-  "officer-in-charge",
-  "mechanic",
-  "engineer",
-]);
-
-const canUseMobileClient = (user) => {
-  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
-
-  return MOBILE_ALLOWED_JOB_TITLES.has(normalizedJobTitle);
-};
-
-const canUseWebClient = (user) => {
-  const normalizedJobTitle = (user.jobTitle || "").trim().toLowerCase();
-
-  // Pilot accounts are restricted to the mobile client.
-  return normalizedJobTitle !== "pilot";
-};
-
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -131,7 +110,7 @@ const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
     normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
-  const normalizedBase = normalizeBase(req.headers["x-base"]);
+  const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
     userId,
@@ -282,11 +261,17 @@ const loginUser = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
+    const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
+    }
+    if (loginBase === "UNKNOWN") {
+      return res.status(400).json({
+        message: "Please select where you are logging in from",
+      });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
       return res.status(400).json({ message: "Invalid input" });
@@ -346,17 +331,6 @@ const loginUser = async (req, res) => {
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid temporary password" });
       }
-      if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
-        return res.status(403).json({
-          message: "This account is only allowed to log in on the web portal.",
-        });
-      }
-      if (normalizedClient === "web" && !canUseWebClient(user)) {
-        return res.status(403).json({
-          message:
-            "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
-        });
-      }
       if (!process.env.JWT_SECRET) {
         throw new Error("JWT_SECRET not set in environment variables");
       }
@@ -392,19 +366,6 @@ const loginUser = async (req, res) => {
         .json({ message: "Invalid username/email or password" });
     }
 
-    // Enforce platform access on the server so web-only / non-mobile roles cannot sign in on mobile.
-    if (normalizedClient === "mobile" && !canUseMobileClient(user)) {
-      return res.status(403).json({
-        message: "This account is only allowed to log in on the web portal.",
-      });
-    }
-    if (normalizedClient === "web" && !canUseWebClient(user)) {
-      return res.status(403).json({
-        message:
-          "Pilot accounts are mobile-only. Please use the mobile app to sign in.",
-      });
-    }
-
     // Reset failed login attempts
     user.failedLoginAttempts = 0;
     user.isLocked = false;
@@ -425,6 +386,9 @@ const loginUser = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         access: user.access,
+        sessionId: session.sessionId,
+        platform: session.platform,
+        base: session.base,
       },
       process.env.JWT_SECRET,
       { expiresIn: "30m" },
@@ -472,6 +436,8 @@ const loginUser = async (req, res) => {
       lastLogin: user.lastLogin,
       isOnline: user.isOnline,
       platform: user.platform,
+      base: session.base,
+      sessionId: session.sessionId,
       lastSeenAt: user.lastSeenAt,
     };
 
@@ -551,6 +517,9 @@ const refreshToken = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         access: user.access,
+        sessionId: req.headers["x-session-id"] || payload.sessionId || null,
+        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+        base: req.headers["x-base"] || payload.base || "UNKNOWN",
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },

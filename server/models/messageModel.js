@@ -20,10 +20,38 @@ const messageSchema = new mongoose.Schema(
     },
     body: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 1000,
+      default: "",
     },
+    attachments: [
+      {
+        url: {
+          type: String,
+          required: true,
+        },
+        name: {
+          type: String,
+          required: true,
+          trim: true,
+          maxlength: 180,
+        },
+        mimeType: {
+          type: String,
+          trim: true,
+          maxlength: 120,
+        },
+        size: {
+          type: Number,
+          default: 0,
+        },
+        kind: {
+          type: String,
+          enum: ["image", "file"],
+          default: "file",
+        },
+      },
+    ],
     readAt: {
       type: Date,
       default: null,
@@ -48,6 +76,10 @@ const messageSchema = new mongoose.Schema(
 messageSchema.pre("validate", function validateMessageTarget() {
   if (!this.recipient && !this.conversation) {
     throw new Error("Message requires a recipient or conversation");
+  }
+
+  if (!String(this.body || "").trim() && (!this.attachments || this.attachments.length === 0)) {
+    throw new Error("Message requires text or an attachment");
   }
 });
 

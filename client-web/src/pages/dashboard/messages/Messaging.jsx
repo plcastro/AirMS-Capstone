@@ -23,6 +23,9 @@ import {
   message as antdMessage,
 } from "antd";
 import {
+  CloseOutlined,
+  FileOutlined,
+  PaperClipOutlined,
   SearchOutlined,
   SendOutlined,
   TeamOutlined,
@@ -53,6 +56,22 @@ const getImageUrl = (image) => {
 };
 
 const getEntityId = (value) => value?._id || value?.id || value;
+
+const getAttachmentUrl = (url) => {
+  if (!url) return "";
+  return String(url).startsWith("http") || String(url).startsWith("blob:")
+    ? url
+    : `${API_BASE}${url}`;
+};
+
+const getAttachmentLabel = (attachments = []) => {
+  const attachment = attachments[0];
+  if (!attachment) return "";
+  const prefix = attachment.kind === "image" ? "Photo" : "File";
+  return attachments.length > 1
+    ? `${prefix}: ${attachment.name} +${attachments.length - 1}`
+    : `${prefix}: ${attachment.name}`;
+};
 
 const getConversationTitle = (conversation) =>
   conversation.type === "group"
@@ -124,6 +143,7 @@ export default function Messaging() {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -137,6 +157,7 @@ export default function Messaging() {
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const threadBottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -458,7 +479,7 @@ export default function Messaging() {
 
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;
-    if (!lastMessage?.body) return null;
+    if (!lastMessage?.body && !lastMessage?.attachments?.length) return null;
     const mine =
       String(getEntityId(lastMessage.sender)) === String(currentUserId);
     const groupSender = item.group?.members?.find(
@@ -475,7 +496,9 @@ export default function Messaging() {
         : getDisplayFirstName(item.user || {});
 
     return {
-      text: `${mine ? "You" : senderName}: ${lastMessage.body}`,
+      text: `${mine ? "You" : senderName}: ${
+        lastMessage.body || getAttachmentLabel(lastMessage.attachments)
+      }`,
       time: formatConversationTime(lastMessage.createdAt),
     };
   };
@@ -494,32 +517,43 @@ export default function Messaging() {
 
   const handleSend = async () => {
     const body = draft.trim();
-    if (!selectedConversation?.id || !body) return;
+    if (!selectedConversation?.id || (!body && attachments.length === 0)) return;
 
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
+    const pendingAttachments = attachments.map((file) => ({
+      url: file.previewUrl || "",
+      name: file.name,
+      mimeType: file.type,
+      size: file.size,
+      kind: file.type?.startsWith("image/") ? "image" : "file",
+    }));
     const pendingMessage = {
       _id: tempId,
       sender: currentUserId,
       recipient: isGroup ? undefined : selectedConversation.id,
       conversation: isGroup ? selectedConversation.id : undefined,
       body,
+      attachments: pendingAttachments,
       deliveryStatus: "sending",
     };
 
     setDraft("");
+    setAttachments([]);
     setMessages((current) => [...current, pendingMessage]);
 
     try {
       setSending(true);
+      const formData = new FormData();
+      formData.append(isGroup ? "conversationId" : "recipientId", selectedConversation.id);
+      formData.append("body", body);
+      attachments.forEach((file) => {
+        formData.append("attachments", file);
+      });
+
       const data = await authFetch(`${API_BASE}/api/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          isGroup
-            ? { conversationId: selectedConversation.id, body }
-            : { recipientId: selectedConversation.id, body },
-        ),
+        body: formData,
       });
 
       setMessages((current) =>
@@ -550,6 +584,68 @@ export default function Messaging() {
       setSending(false);
     }
   };
+
+  const handleAttachmentChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    setAttachments((current) =>
+      [...current, ...selectedFiles].slice(0, 5).map((file) => {
+        if (file.previewUrl || !file.type?.startsWith("image/")) return file;
+        return Object.assign(file, { previewUrl: URL.createObjectURL(file) });
+      }),
+    );
+
+    event.target.value = "";
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments((current) => {
+      const removed = current[index];
+      if (removed?.previewUrl) {
+        URL.revokeObjectURL(removed.previewUrl);
+      }
+      return current.filter((item, itemIndex) => itemIndex !== index);
+    });
+  };
+
+  const renderAttachments = (message) =>
+    (message.attachments || []).map((attachment) => {
+      const url = getAttachmentUrl(attachment.url);
+      const isImage =
+        attachment.kind === "image" || attachment.mimeType?.startsWith("image/");
+
+      if (isImage && url) {
+        return (
+          <a
+            key={`${message._id}-${attachment.url}-${attachment.name}`}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="message-attachment-image-link"
+          >
+            <img
+              src={url}
+              alt={attachment.name || "Attachment"}
+              className="message-attachment-image"
+            />
+          </a>
+        );
+      }
+
+      return (
+        <a
+          key={`${message._id}-${attachment.url}-${attachment.name}`}
+          href={url || undefined}
+          target={url ? "_blank" : undefined}
+          rel={url ? "noreferrer" : undefined}
+          className="message-attachment-file"
+        >
+          <FileOutlined />
+          <span>{attachment.name || "Attachment"}</span>
+        </a>
+      );
+    });
 
   const handleCreateGroup = async () => {
     const name = groupName.trim();
@@ -836,9 +932,16 @@ export default function Messaging() {
                               overflowWrap: "anywhere",
                             }}
                           >
-                            <div style={{ whiteSpace: "pre-wrap" }}>
-                              {item.body}
-                            </div>
+                            {item.body ? (
+                              <div style={{ whiteSpace: "pre-wrap" }}>
+                                {item.body}
+                              </div>
+                            ) : null}
+                            {item.attachments?.length ? (
+                              <div className="message-attachments">
+                                {renderAttachments(item)}
+                              </div>
+                            ) : null}
                           </div>
                           <div
                             className="message-meta"
@@ -868,7 +971,42 @@ export default function Messaging() {
                     <div ref={threadBottomRef} />
                   </div>
                   <div style={{ padding: 12, borderTop: "1px solid #eee" }}>
+                    {attachments.length > 0 ? (
+                      <div className="message-composer-attachments">
+                        {attachments.map((file, index) => (
+                          <div
+                            key={`${file.name}-${file.size}-${index}`}
+                            className="message-composer-attachment"
+                          >
+                            {file.type?.startsWith("image/") ? (
+                              <img src={file.previewUrl} alt="" />
+                            ) : (
+                              <FileOutlined />
+                            )}
+                            <span>{file.name}</span>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<CloseOutlined />}
+                              onClick={() => removeAttachment(index)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     <Space.Compact style={{ width: "100%", height: "100%" }}>
+                      <Button
+                        icon={<PaperClipOutlined />}
+                        onClick={() => fileInputRef.current?.click()}
+                      />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                        onChange={handleAttachmentChange}
+                        style={{ display: "none" }}
+                      />
                       <TextArea
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
@@ -887,6 +1025,7 @@ export default function Messaging() {
                         icon={<SendOutlined />}
                         loading={sending}
                         onClick={handleSend}
+                        disabled={!draft.trim() && attachments.length === 0}
                       />
                     </Space.Compact>
                   </div>
@@ -906,7 +1045,7 @@ export default function Messaging() {
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
       >
-        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
           <Input
             value={groupName}
             onChange={(event) => setGroupName(event.target.value)}
