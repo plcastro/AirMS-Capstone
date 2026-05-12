@@ -1,12 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
+  const [activeTab, setActiveTab] = useState("Ongoing");
+  const isCompletedTask = (task) =>
+    ["completed", "turned in", "approved"].includes(
+      task?.status?.toLowerCase?.() || "",
+    );
   const assignedTasks = tasks.filter(
     (task) => String(task.assignedTo) === String(mechanic.id),
   );
+  const completedTasks = assignedTasks.filter((task) => isCompletedTask(task));
+  const ongoingTasks = assignedTasks.filter((task) => !isCompletedTask(task));
+  const visibleTasks =
+    activeTab === "Completed" ? completedTasks : ongoingTasks;
+  const isOnline = Boolean(mechanic?.isOnline ?? mechanic?.online);
+  const activePlatform =
+    mechanic?.platform === "web"
+      ? "Web"
+      : mechanic?.platform === "mobile"
+        ? "Mobile"
+        : "Unknown";
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -22,17 +38,17 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   };
 
   // Calculate overdue time (days or hours)
-  const calculateOverdueTime = (dueDate) => {
+  const calculateOverdueTime = (deadline) => {
     const now = new Date();
-    const due = new Date(dueDate);
+    const due = new Date(deadline);
     const diffMs = now - due;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffHours < 24) {
-      return `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+      return `Submitted late by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
     } else {
-      return `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+      return `Submitted late by ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
     }
   };
 
@@ -47,9 +63,25 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+    const formattedTime = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${formattedDate} ${formattedTime}`;
+  };
+
   // Format due time
-  const formatDueTime = (dueDate) => {
-    const date = new Date(dueDate);
+  const formatDueTime = (deadline) => {
+    const date = new Date(deadline);
     return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
@@ -59,13 +91,14 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
 
   const renderTaskItem = ({ item }) => {
     const now = new Date();
-    const dueDate = new Date(item.dueDate);
-    const isPastDue =
-      dueDate < now &&
-      item.status !== "Completed" &&
-      item.status !== "Turned in";
-    const overdueText = isPastDue ? calculateOverdueTime(item.dueDate) : null;
-    const dueTime = formatDueTime(item.dueDate);
+    const deadlineValue = item.endDateTime || item.dueDate;
+    const dueDate = new Date(deadlineValue);
+    const isCompleted = isCompletedTask(item);
+    const wasLate = isCompleted
+      ? item.completedAt && new Date(item.completedAt) > dueDate
+      : dueDate < now;
+    const overdueText = wasLate ? calculateOverdueTime(deadlineValue) : null;
+    const dueTime = formatDueTime(deadlineValue);
 
     return (
       <TouchableOpacity
@@ -82,7 +115,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           <Text
             style={{
               fontWeight: "bold",
-              fontSize: 16,
+              fontSize: 12,
               color: "#000",
               flex: 1,
               marginRight: 10,
@@ -126,15 +159,15 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           )}
         </View>
 
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Aircraft: {item.aircraft}
         </Text>
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Date Due: {formatDate(item.dueDate)}
+        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
+          Due: {formatDateTime(deadlineValue)}
         </Text>
 
-        {isPastDue && (
-          <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 4 }}>
+        {wasLate && (
+          <Text style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4 }}>
             {overdueText} | Due at {dueTime}
           </Text>
         )}
@@ -163,7 +196,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           onPress={onBack}
           style={{ marginRight: 15, padding: 5 }}
         >
-          <Text style={{ fontSize: 24, color: COLORS.primaryLight }}>
+          <Text style={{ fontSize: 12, color: COLORS.primaryLight }}>
             {"<"}
           </Text>
         </TouchableOpacity>
@@ -179,7 +212,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 24, fontWeight: "bold" }}>
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
             {mechanic.name.charAt(0)}
           </Text>
         </View>
@@ -187,7 +220,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
         <View>
           <Text
             style={{
-              fontSize: 20,
+              fontSize: 12,
               fontWeight: "bold",
               marginBottom: 4,
               color: COLORS.black,
@@ -195,27 +228,74 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           >
             {mechanic.name}
           </Text>
-          <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
+          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
             {mechanic.jobTitle || "Mechanic"}
           </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginTop: 6,
+              gap: 6,
+            }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: isOnline ? "#22c55e" : "#9ca3af",
+              }}
+            />
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+              {isOnline ? "Online" : "Offline"} • {activePlatform}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={[styles.taskTableHeader, { marginBottom: 15 }]}>
-        <Text style={{ color: "#fff", fontWeight: "500", fontSize: 16 }}>
-          Assigned Tasks ({assignedTasks.length})
-        </Text>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+        {["Ongoing", "Completed"].map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 6,
+              alignItems: "center",
+              backgroundColor:
+                activeTab === tab ? COLORS.primaryLight : COLORS.white,
+              borderWidth: 1,
+              borderColor:
+                activeTab === tab ? COLORS.primaryLight : COLORS.border,
+            }}
+          >
+            <Text
+              style={{
+                color: activeTab === tab ? "#fff" : COLORS.grayDark,
+                fontWeight: "600",
+              }}
+            >
+              {tab} Tasks (
+              {tab === "Completed"
+                ? completedTasks.length
+                : ongoingTasks.length}
+              )
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
-        data={assignedTasks}
-        keyExtractor={(item) => item.id.toString()}
+        data={visibleTasks}
+        keyExtractor={(item) => String(item.id || item._id)}
         renderItem={renderTaskItem}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 16 }}>
-              No tasks assigned to this mechanic
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+              No {activeTab.toLowerCase()} tasks assigned to this mechanic
             </Text>
           </View>
         }

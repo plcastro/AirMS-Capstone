@@ -41,10 +41,36 @@ const userSchema = new mongoose.Schema({
     default: "User",
   },
   tempPasswordExpires: Date,
+  invitationStatus: {
+    type: String,
+    enum: ["pending", "expired", "claimed", "revoked"],
+    default: "pending",
+  },
+  invitationSentAt: { type: Date, default: Date.now },
+  invitationExpiresAt: { type: Date, default: null },
+  invitationClaimedAt: { type: Date, default: null },
   licenseNo: { type: String, unique: true, trim: true },
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
+  isOnline: { type: Boolean, default: false },
+  platform: {
+    type: String,
+    enum: ["web", "mobile", "unknown"],
+    default: "unknown",
+  },
+  lastSeenAt: { type: Date, default: null },
+  mobilePushDevices: {
+    type: [
+      {
+        deviceId: { type: String, required: true },
+        expoPushToken: { type: String, required: true },
+        platform: { type: String, default: "unknown" },
+        lastSeenAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
 
   // --- PASSWORD RESET ---
   resetPasswordToken: String,

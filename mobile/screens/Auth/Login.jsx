@@ -4,16 +4,22 @@ import {
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
+  ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import {
+  readPendingRedirect,
+  clearPendingRedirect,
+} from "../../utilities/pendingRedirect";
+import LoadingScreen from "../LoadingScreen";
 
 export default function Login() {
   const nav = useNavigation();
@@ -65,6 +71,9 @@ export default function Login() {
   };
 
   const login = async () => {
+    setLoading(true);
+    setMessage("");
+
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
@@ -72,13 +81,32 @@ export default function Login() {
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
+          client: "mobile",
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = null;
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (error) {
+        console.error("Login returned non-JSON response:", responseText);
+        setMessage(
+          responseText || "Login failed. Server returned an invalid response.",
+        );
+        return;
+      }
 
       if (response.ok) {
         const { user, token } = data;
+        const normalizedJobTitle = (user?.jobTitle || "").trim().toLowerCase();
+        const allowedMobileJobTitles = [
+          "maintenance manager",
+          "pilot",
+          "officer-in-charge",
+          "mechanic",
+        ];
 
         // Deactivated account
         if (user.status === "deactivated") {
@@ -88,21 +116,26 @@ export default function Login() {
           return;
         }
 
+        // Block users with no mobile modules.
+        if (!allowedMobileJobTitles.includes(normalizedJobTitle)) {
+          setMessage(
+            "This account is only allowed to log in on the web portal.",
+          );
+          return;
+        }
+
         // Remember me logic
         if (rememberMe) {
+          await AsyncStorage.setItem("token", token);
           await AsyncStorage.setItem("rememberMe", "true");
           await AsyncStorage.setItem(
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
-          await AsyncStorage.setItem(
-            "rememberedPassword",
-            formData.password.trim(),
-          );
         } else {
+          await AsyncStorage.setItem("token", token);
           await AsyncStorage.setItem("rememberMe", "false");
           await AsyncStorage.removeItem("rememberedIdentifier");
-          await AsyncStorage.removeItem("rememberedPassword");
         }
 
         // Inactive users go to security setup
@@ -115,77 +148,107 @@ export default function Login() {
         }
         setLoginSuccess(true);
         await loginUser(user, token);
+        const pendingRedirect = await readPendingRedirect();
+
+        if (pendingRedirect?.screen) {
+          await clearPendingRedirect();
+          nav.replace("dashboard", {
+            screen: pendingRedirect.screen,
+            params: pendingRedirect.params || {},
+          });
+          return;
+        }
+
         nav.replace("dashboard");
       } else {
         console.log("Login error message:", data.message);
-        setMessage("Login Failed", data.message || "Unauthorized");
+        setMessage(data.message || "Login failed");
       }
     } catch (err) {
       console.error(err);
       setMessage("Too many login attempts. Please try again later");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const goToForgotPassword = () => nav.navigate("forgotPassword");
+  const goToForgotPassword = () => {
+    const email = formData.identifier.includes("@")
+      ? formData.identifier.trim()
+      : "";
+
+    nav.navigate("forgotPassword", { email });
+  };
+
+  if (loading) {
+    return <LoadingScreen message="Signing you in..." showLogo />;
+  }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.formCard}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      enabled
-    >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Login</Text>
-        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-          Please enter your username and password
-        </Text>
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Username/Email"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          keyboardType="default"
-          value={formData.identifier}
-          onChangeText={(text) => changeHandler("identifier", text)}
-        />
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Password"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          secureTextEntry
-          keyboardType="default"
-          value={formData.password}
-          onChangeText={(text) => changeHandler("password", text)}
-        />
-        {getMessage && !loginSuccess && (
-          <Text style={styles.error}>{getMessage}</Text>
-        )}
-        <View style={styles.loginHelper}>
-          <CheckBox
-            title="Remember me"
-            checkboxStyle={styles.checkBox}
-            value={rememberMe}
-            onValueChange={setRememberMe}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Login"
+          cardsubTitle="Sign in to access your AirMS account"
+        >
+          <Text style={[styles.label, { textAlign: "left" }]}>
+            Username or Email
+          </Text>
+          <TextInput
+            style={styles.formInput}
+            maxLength={256}
+            placeholder="Username or Email"
+            placeholderTextColor="gray"
+            autoCapitalize="none"
+            keyboardType="default"
+            value={formData.identifier}
+            onChangeText={(text) => changeHandler("identifier", text)}
           />
-          <View style={styles.forgotPassLink}>
-            <Button
-              onPress={goToForgotPassword}
-              label="Forgot Password?"
-              buttonTextStyle={{ color: "#555555" }}
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.formInput}
+            maxLength={256}
+            placeholder="Password"
+            placeholderTextColor="gray"
+            autoCapitalize="none"
+            secureTextEntry
+            keyboardType="default"
+            value={formData.password}
+            onChangeText={(text) => changeHandler("password", text)}
+          />
+          {getMessage && !loginSuccess && (
+            <Text style={styles.error}>{getMessage}</Text>
+          )}
+          <View style={styles.loginHelper}>
+            <CheckBox
+              title="Remember me"
+              checkboxStyle={styles.checkBox}
+              value={rememberMe}
+              onValueChange={setRememberMe}
             />
+            <View style={styles.forgotPassLink}>
+              <Button
+                onPress={goToForgotPassword}
+                label="Forgot Password?"
+                buttonTextStyle={{ color: "#059670" }}
+              />
+            </View>
           </View>
-        </View>
-        <Button
-          onPress={validate}
-          label={loading ? "Logging in..." : "LOGIN"}
-          disabled={loading}
-          buttonStyle={[styles.primaryBtn]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
-      </View>
+          <Button
+            onPress={validate}
+            label="LOGIN"
+            disabled={loading}
+            buttonStyle={[styles.primaryBtn]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

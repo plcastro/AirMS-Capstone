@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -6,21 +6,47 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Legend,
 } from "recharts";
 import { Card } from "antd";
 
 const RepairFrequencyChart = ({ data, title }) => {
+  const containerRef = useRef(null);
+  const [chartSize, setChartSize] = useState({ width: 0, height: 300 });
+  const chartData = data || [];
+  const seriesKeys = chartData.length > 0
+    ? Object.keys(chartData[0]).filter((key) => key !== "date")
+    : [];
+  const colors = ["#9d50f0", "#38b2ac", "#f6ad55", "#ef4444", "#2563eb"];
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateSizeState = () => {
+      const { clientWidth, clientHeight } = element;
+      setChartSize({
+        width: Math.max(clientWidth, 0),
+        height: Math.max(clientHeight, 300),
+      });
+    };
+
+    updateSizeState();
+    const observer = new ResizeObserver(updateSizeState);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Card
       title={title || "Aircraft repair frequency"}
       variant="borderless"
       style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.05)", borderRadius: "8px" }}
     >
-      <div style={{ width: "100%", height: 300 }}>
-        <ResponsiveContainer>
-          <AreaChart data={data}>
+      <div ref={containerRef} style={{ width: "100%", height: 300, minHeight: 300 }}>
+        {chartSize.width > 0 && (
+          <AreaChart width={chartSize.width} height={chartSize.height} data={chartData}>
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -57,33 +83,19 @@ const RepairFrequencyChart = ({ data, title }) => {
               wrapperStyle={{ paddingTop: "20px" }}
             />
 
-            <Area
-              type="monotone"
-              dataKey="2810"
-              stackId="1"
-              stroke="#9d50f0"
-              fill="#9d50f0"
-              fillOpacity={0.6}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="RP-C7057"
-              stackId="1"
-              stroke="#38b2ac"
-              fill="#38b2ac"
-              fillOpacity={0.6}
-            />
-            <Area
-              type="monotone"
-              dataKey="RP-C7226"
-              stackId="1"
-              stroke="#f6ad55"
-              fill="#f6ad55"
-              fillOpacity={0.6}
-            />
+            {seriesKeys.map((key, index) => (
+              <Area
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stackId="1"
+                stroke={colors[index % colors.length]}
+                fill={colors[index % colors.length]}
+                fillOpacity={0.6}
+              />
+            ))}
           </AreaChart>
-        </ResponsiveContainer>
+        )}
       </div>
     </Card>
   );

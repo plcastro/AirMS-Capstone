@@ -1,5 +1,8 @@
 const FlightLog = require("../models/flightLogModel");
 const { auditLog } = require("./logsController");
+const {
+  createFlightLogNotifications,
+} = require("../utils/flightLogNotificationService");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -9,11 +12,84 @@ const withActorId = (req, action, fallbackId = null) => {
   };
 };
 
-// Helper function to get user role from token
-const getUserRole = (user) => {
-  // Try different possible field names based on your JWT payload
-  return user.role || user.userRole || user.jobTitle || user.userType;
+const toComparableFlightLog = (flightLog) => {
+  if (!flightLog) {
+    return null;
+  }
+
+  return typeof flightLog.toObject === "function"
+    ? flightLog.toObject()
+    : flightLog;
 };
+
+const isReleasedFlightLogStatus = (status = "") =>
+  ["pending_acceptance", "released", "accepted", "completed"].includes(
+    String(status || "").trim().toLowerCase(),
+  );
+
+const ONGOING_FLIGHT_LOG_STATUSES = [
+  "pending_release",
+  "pending_acceptance",
+  "released",
+  "accepted",
+  "ongoing",
+  "draft",
+];
+
+const escapeRegex = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeAircraftRpc = (value = "") => String(value || "").trim();
+
+const findOngoingFlightLogForAircraft = async (rpc, excludedId = null) => {
+  const normalizedRpc = normalizeAircraftRpc(rpc);
+
+  if (!normalizedRpc) {
+    return null;
+  }
+
+  const query = {
+    rpc: { $regex: `^${escapeRegex(normalizedRpc)}$`, $options: "i" },
+    status: { $in: ONGOING_FLIGHT_LOG_STATUSES },
+  };
+
+  if (excludedId) {
+    query._id = { $ne: excludedId };
+  }
+
+  return FlightLog.findOne(query).select("_id rpc status controlNo date").lean();
+};
+
+const normalizeFlightLogStatusFilter = (status = "") => {
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  if (normalized === "all" || normalized === "all_status") {
+    return [];
+  }
+
+  if (normalized === "pending_release") {
+    return ["pending_release", "ongoing", "draft"];
+  }
+  if (normalized === "pending_acceptance") {
+    return ["pending_acceptance", "released"];
+  }
+
+  return normalized ? [normalized] : [];
+};
+
+const hasDestinationInfo = (flightLog = {}) =>
+  Array.isArray(flightLog.legs) &&
+  flightLog.legs.some((leg) =>
+    Array.isArray(leg?.stations) &&
+    leg.stations.some(
+      (station) =>
+        String(station?.from || "").trim() &&
+        String(station?.to || "").trim(),
+    ),
+  );
 
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
@@ -31,7 +107,9 @@ const createFlightLog = async (req, res) => {
     delete flightLogData.id;
 
     // Validate required fields
-    if (!flightLogData.rpc || flightLogData.rpc.trim() === "") {
+    flightLogData.rpc = normalizeAircraftRpc(flightLogData.rpc);
+
+    if (!flightLogData.rpc) {
       console.log("Validation failed: Missing or empty rpc");
       return res.status(400).json({
         success: false,
@@ -39,10 +117,27 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    // Set status based on user role from frontend
-    const userRole = flightLogData.createdBy;
-    flightLogData.status =
-      userRole === "pilot" ? "pending_release" : "pending_acceptance";
+    const existingOngoingFlightLog = await findOngoingFlightLogForAircraft(
+      flightLogData.rpc,
+    );
+
+    if (existingOngoingFlightLog) {
+      return res.status(409).json({
+        success: false,
+        message: `Aircraft ${flightLogData.rpc} already has an ongoing flight log. Complete the existing flight log before creating a new entry.`,
+        existingFlightLog: existingOngoingFlightLog,
+      });
+    }
+
+    // Keep the frontend workflow status when it is valid.
+    flightLogData.status = [
+      "pending_release",
+      "pending_acceptance",
+      "accepted",
+      "completed",
+    ].includes(flightLogData.status)
+      ? flightLogData.status
+      : "pending_release";
 
     // Handle component times - map componentTimes to componentData if needed
     if (flightLogData.componentTimes && !flightLogData.componentData) {
@@ -105,6 +200,10 @@ const createFlightLog = async (req, res) => {
     console.log("FlightLog model created");
 
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog: null,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log created: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
     console.log("FlightLog saved successfully with ID:", flightLog._id);
@@ -170,32 +269,67 @@ const getFlightLogs = async (req, res) => {
     } = req.query;
 
     console.log("Query params:", req.query);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 500);
+    const allowedSortFields = new Set([
+      "date",
+      "createdAt",
+      "updatedAt",
+      "status",
+      "rpc",
+      "aircraftType",
+      "controlNo",
+    ]);
+    const safeSortBy = allowedSortFields.has(sortBy) ? sortBy : "date";
+    const safeSortOrder = sortOrder === "asc" ? 1 : -1;
 
     // Build filter object
     const filter = {};
 
-    if (status) filter.status = status;
-    if (aircraftRPC) filter.rpc = aircraftRPC;
-    if (createdBy) filter.createdBy = createdBy;
+    if (typeof status === "string" && status.trim()) {
+      const statuses = normalizeFlightLogStatusFilter(status);
+      if (statuses.length === 1) {
+        filter.status = statuses[0];
+      } else if (statuses.length > 1) {
+        filter.status = { $in: statuses };
+      }
+    }
+    if (typeof aircraftRPC === "string" && aircraftRPC.trim())
+      filter.rpc = aircraftRPC.trim();
+    if (typeof createdBy === "string" && createdBy.trim())
+      filter.createdBy = createdBy.trim();
 
     // Date range filter
     if (startDate || endDate) {
       filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
+      if (startDate) {
+        const parsedStartDate = new Date(startDate);
+        if (!Number.isNaN(parsedStartDate.getTime())) {
+          filter.date.$gte = parsedStartDate.toISOString();
+        }
+      }
+      if (endDate) {
+        const parsedEndDate = new Date(endDate);
+        if (!Number.isNaN(parsedEndDate.getTime())) {
+          filter.date.$lte = parsedEndDate.toISOString();
+        }
+      }
+      if (Object.keys(filter.date).length === 0) {
+        delete filter.date;
+      }
     }
 
     // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (safePage - 1) * safeLimit;
 
     // Sort
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const sort = { [safeSortBy]: safeSortOrder };
 
     const flightLogs = await FlightLog.find(filter)
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(safeLimit)
+      .lean();
 
     const total = await FlightLog.countDocuments(filter);
 
@@ -203,14 +337,19 @@ const getFlightLogs = async (req, res) => {
       success: true,
       data: flightLogs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / safeLimit),
       },
     });
   } catch (error) {
-    console.error("Error fetching flight logs:", error);
+    console.error("Error fetching flight logs:", {
+      message: error.message,
+      name: error.name,
+      query: req.query,
+      stack: error.stack,
+    });
     res.status(500).json({
       success: false,
       message: "Error fetching flight logs",
@@ -283,12 +422,69 @@ const updateFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    const existingFlightLog = await FlightLog.findById(id);
+
+    if (!existingFlightLog) {
+      return res.status(404).json({
+        success: false,
+        message: "Flight log not found",
+      });
+    }
+
+    if (existingFlightLog.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed flight logs cannot be edited",
+      });
+    }
 
     // Remove fields that shouldn't be updated directly
     delete updates._id;
     delete updates.id;
     delete updates.createdAt;
     delete updates.__v;
+
+    if (isReleasedFlightLogStatus(existingFlightLog.status)) {
+      delete updates.rpc;
+    }
+
+    if (
+      updates.rpc &&
+      normalizeAircraftRpc(updates.rpc).toLowerCase() !==
+        normalizeAircraftRpc(existingFlightLog.rpc).toLowerCase()
+    ) {
+      updates.rpc = normalizeAircraftRpc(updates.rpc);
+      const existingOngoingFlightLog = await findOngoingFlightLogForAircraft(
+        updates.rpc,
+        id,
+      );
+
+      if (existingOngoingFlightLog) {
+        return res.status(409).json({
+          success: false,
+          message: `Aircraft ${updates.rpc} already has an ongoing flight log. Complete the existing flight log before using this aircraft.`,
+          existingFlightLog: existingOngoingFlightLog,
+        });
+      }
+    }
+
+    if (
+      updates.notifiedForCompletion === true &&
+      existingFlightLog.notifiedForCompletion !== true
+    ) {
+      const nextFlightLog = {
+        ...toComparableFlightLog(existingFlightLog),
+        ...updates,
+      };
+
+      if (!hasDestinationInfo(nextFlightLog)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Add at least one complete From-To station in Destination/s before notifying for completion.",
+        });
+      }
+    }
 
     // Update the flight log
     const flightLog = await FlightLog.findByIdAndUpdate(
@@ -297,12 +493,10 @@ const updateFlightLog = async (req, res) => {
       { returnDocument: "after", runValidators: true },
     );
 
-    if (!flightLog) {
-      return res.status(404).json({
-        success: false,
-        message: "Flight log not found",
-      });
-    }
+    await createFlightLogNotifications({
+      previousFlightLog: toComparableFlightLog(existingFlightLog),
+      flightLog,
+    });
 
     res.status(200).json({
       success: true,
@@ -346,8 +540,13 @@ const releaseFlightLog = async (req, res) => {
     }
 
     // Release the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.release(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log released: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 
@@ -392,16 +591,28 @@ const acceptFlightLog = async (req, res) => {
     }
 
     // Check if flight log is in correct state
-    if (flightLog.status !== "pending_acceptance") {
+    if (!["pending_acceptance", "released"].includes(flightLog.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot accept flight log in ${flightLog.status} status`,
       });
     }
 
+    if (!flightLog.releasedBy?.signature && !flightLog.releasedBy?.name) {
+      return res.status(400).json({
+        success: false,
+        message: "Flight log must be released by a mechanic before acceptance",
+      });
+    }
+
     // Accept the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.accept(name, signature);
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log accepted: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 
@@ -445,8 +656,13 @@ const completeFlightLog = async (req, res) => {
     }
 
     // Complete the flight log
+    const previousFlightLog = toComparableFlightLog(flightLog);
     flightLog.complete();
     await flightLog.save();
+    await createFlightLogNotifications({
+      previousFlightLog,
+      flightLog,
+    });
     const audit = withActorId(req, `Flight log completed: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
 

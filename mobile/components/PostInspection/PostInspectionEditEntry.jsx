@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -17,11 +17,14 @@ import PostInspectionModalStation2 from "./PostInspectionModalStation2";
 import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
+import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
+import AlertComp from "../AlertComp";
 import {
   areAllPostInspectionChecksComplete,
   getDefaultPostInspectionFormData,
 } from "./PostInspectionForms";
+import { showToast } from "../../utilities/toast";
 
 export default function PostInspectionEditEntry({
   visible,
@@ -29,12 +32,21 @@ export default function PostInspectionEditEntry({
   onClose,
   onSave,
   userRole,
+  rpcOptions = [],
+  readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    closeOnFinish: false,
+  });
 
+  const isPilot = userRole === "pilot";
   const canReleasePostInspection =
     userRole === "mechanic" || userRole === "maintenance manager";
   const tabs = [
@@ -44,6 +56,7 @@ export default function PostInspectionEditEntry({
     "Engine",
     "Main Rotor",
     "Cabin Interior",
+    "Notes",
   ];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -80,13 +93,13 @@ export default function PostInspectionEditEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const persistInspection = async (nextFormData) => {
+  const persistInspection = async (nextFormData, options) => {
     if (isSubmitting) {
       return;
     }
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData);
+      await onSave(nextFormData, options);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,10 +107,7 @@ export default function PostInspectionEditEntry({
 
   const handleRelease = async (signatureData) => {
     if (!areAllPostInspectionChecksComplete(formData)) {
-      Alert.alert(
-        "Validation Error",
-        "All checklist fields must be checked before release.",
-      );
+      showToast("All checklist fields must be checked before release.");
       return;
     }
 
@@ -106,25 +116,21 @@ export default function PostInspectionEditEntry({
       releasedBy: {
         name: signatureData.name,
         id: signatureData.id,
+        signature: signatureData.signature,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
     };
 
+    await persistInspection(nextFormData, { closeOnSave: false });
+    setFormData(nextFormData);
     setShowReleaseModal(false);
-    await persistInspection(nextFormData);
-  };
-
-  const handleSave = async () => {
-    if (!formData.rpc || formData.rpc.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft RPC is required");
-      return;
-    }
-    if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      Alert.alert("Validation Error", "Aircraft Type is required");
-      return;
-    }
-    await persistInspection(formData);
+    setFeedbackAlert({
+      visible: true,
+      title: "Success",
+      message: "Post-inspection has been completed",
+      closeOnFinish: true,
+    });
   };
 
   const handleNext = () => {
@@ -140,7 +146,9 @@ export default function PostInspectionEditEntry({
   };
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
-  const isFormEditable = !hasReleaseSignature;
+  const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
+  const isFormEditable =
+    !readOnly && !isPilot && !hasReleaseSignature && !hasAcceptSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -152,6 +160,7 @@ export default function PostInspectionEditEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={false}
+            rpcOptions={rpcOptions}
           />
         );
       case "Station 1":
@@ -194,6 +203,14 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
+      case "Notes":
+        return (
+          <PostInspectionModalNotes
+            formData={formData}
+            updateForm={updateForm}
+            isEditable={isFormEditable}
+          />
+        );
       default:
         return null;
     }
@@ -207,17 +224,11 @@ export default function PostInspectionEditEntry({
 
   const showReleaseButton =
     canReleasePostInspection &&
+    !readOnly &&
     !hasReleaseSignature &&
-    formData.status !== "completed" &&
+    formData.status === "pending" &&
     !isSubmitting;
-  const footerActionLabel = formData.status === "completed" ? "Close" : "Save";
-  const handleFooterAction = () => {
-    if (footerActionLabel === "Close") {
-      onClose();
-      return;
-    }
-    handleSave();
-  };
+  const footerActionLabel = "Close";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -225,10 +236,44 @@ export default function PostInspectionEditEntry({
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 16,
+              marginBottom: 12,
+            }}
+          >
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                Edit Entry - Post-Inspection
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+                Select Section
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              gap: 12,
+              paddingBottom: 12,
+            }}
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
@@ -249,7 +294,7 @@ export default function PostInspectionEditEntry({
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: "500",
                     color:
                       currentPage === index ? COLORS.white : COLORS.grayDark,
@@ -269,17 +314,6 @@ export default function PostInspectionEditEntry({
             }}
           />
 
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -295,7 +329,15 @@ export default function PostInspectionEditEntry({
             <View style={{ marginTop: 20, marginBottom: 20 }}>
               {showReleaseButton && (
                 <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
+                  onPress={() => {
+                    if (areAllPostInspectionChecksComplete(formData)) {
+                      setShowReleaseModal(true);
+                    } else {
+                      showToast(
+                        "All checklist fields must be checked before release.",
+                      );
+                    }
+                  }}
                   style={{
                     backgroundColor: COLORS.primaryLight,
                     paddingVertical: 12,
@@ -308,7 +350,7 @@ export default function PostInspectionEditEntry({
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
-                      fontSize: 16,
+                      fontSize: 12,
                     }}
                   >
                     Release
@@ -336,7 +378,7 @@ export default function PostInspectionEditEntry({
                   >
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.white,
                         fontWeight: "600",
                       }}
@@ -347,7 +389,7 @@ export default function PostInspectionEditEntry({
                   <View style={{ padding: 20 }}>
                     <Text
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: COLORS.black,
                         marginBottom: 4,
                         fontWeight: "500",
@@ -375,6 +417,91 @@ export default function PostInspectionEditEntry({
                     >
                       {formatDate(formData.releasedBy.timestamp)}
                     </Text>
+                    {!!formData.releasedBy.signature && (
+                      <Image
+                        source={{ uri: formData.releasedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {formData.acceptedBy?.name && (
+                <View
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    marginBottom: 20,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.white,
+                        fontWeight: "600",
+                      }}
+                    >
+                      ACCEPTED BY:
+                    </Text>
+                  </View>
+                  <View style={{ padding: 20 }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.black,
+                        marginBottom: 4,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {formData.acceptedBy.name} / {formData.acceptedBy.id}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      PILOT
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: COLORS.grayDark,
+                        marginTop: 8,
+                      }}
+                    >
+                      {formatDate(formData.acceptedBy.timestamp)}
+                    </Text>
+                    {!!formData.acceptedBy.signature && (
+                      <Image
+                        source={{ uri: formData.acceptedBy.signature }}
+                        style={{
+                          width: "100%",
+                          height: 80,
+                          resizeMode: "contain",
+                          marginTop: 12,
+                          backgroundColor: COLORS.white,
+                        }}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -407,7 +534,7 @@ export default function PostInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
             </Text>
           </TouchableOpacity>
@@ -428,7 +555,7 @@ export default function PostInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleFooterAction : handleNext}
+            onPress={isLastPage ? onClose : handleNext}
             disabled={isSubmitting}
             style={{
               paddingVertical: 8,
@@ -452,11 +579,21 @@ export default function PostInspectionEditEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
-          role={
-            userRole === "maintenance manager"
-              ? "MAINTENANCE MANAGER"
-              : "MECHANIC"
-          }
+          actionLabel="release"
+        />
+
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
         />
       </SafeAreaView>
     </Modal>

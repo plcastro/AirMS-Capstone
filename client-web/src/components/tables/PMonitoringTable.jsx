@@ -1,5 +1,5 @@
 import { Table, Tag, Input } from "antd";
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 
 // Helper to format YYYY-MM-DD to DD/MM/YYYY for display
 const formatDateForDisplay = (dateStr) => {
@@ -37,7 +37,7 @@ export default function PMonitoringTable({
           key: "daysRemaining",
           width: header.width,
           sorter: (a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0),
-          render: (value, record) => {
+          render: (value) => {
             if (value === undefined || value === null) return "-";
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return value;
@@ -66,6 +66,17 @@ export default function PMonitoringTable({
           dataIndex: "due",
           key: "due",
           width: header.width,
+          sorter: (a, b) => {
+            // Calculate priority: 0 = DUE, 1 = Due Soon, 2 = OK/No tag
+            const getPriority = (record) => {
+              const days = parseFloat(record.daysRemaining);
+              if (isNaN(days)) return 2; // No tag or invalid
+              if (days <= 0) return 0; // DUE
+              if (days <= 30) return 1; // Due Soon
+              return 2; // OK
+            };
+            return getPriority(a) - getPriority(b);
+          },
           render: (value, record) => {
             if (value) {
               return (
@@ -117,9 +128,48 @@ export default function PMonitoringTable({
 
       // Default column rendering – editable if needed
       const renderCell = (value, record) => {
-        if (!editable) return value || "";
-        if (!isCellEditable(record, header.key)) return value || "";
+        if (!editable) {
+          // Non-editable: format date columns for display
+          if (isDateColumn && value && value !== "N/A") {
+            return formatDateForDisplay(value);
+          }
+          return value || "";
+        }
 
+        if (!isCellEditable(record, header.key)) {
+          // Not editable: format date columns for display
+          if (isDateColumn && value && value !== "N/A") {
+            return formatDateForDisplay(value);
+          }
+          return value || "";
+        }
+
+        // Editable date column – use native date picker
+        if (isDateColumn) {
+          // Ensure value is in YYYY-MM-DD format; if not, try to parse
+          let dateValue = value;
+          if (value && value.includes("/")) {
+            // Convert from DD/MM/YYYY to YYYY-MM-DD if needed (fallback)
+            const parts = value.split("/");
+            if (parts.length === 3) {
+              const [day, month, year] = parts;
+              dateValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+            }
+          }
+          return (
+            <Input
+              type="date"
+              value={dateValue || ""}
+              onChange={(e) =>
+                onCellEdit(record[rowKey], header.key, e.target.value)
+              }
+              size="small"
+              style={{ width: "100%" }}
+            />
+          );
+        }
+
+        // Default text input for other editable columns
         return (
           <Input
             value={value || ""}
@@ -137,7 +187,7 @@ export default function PMonitoringTable({
         dataIndex: header.key,
         key: header.key,
         width: header.width,
-        onCell: (_, index) => getColumnStyle(header.key),
+        onCell: () => getColumnStyle(header.key),
         render: renderCell,
         sorter: (a, b) => {
           const valA = a[header.key] ?? "";
@@ -151,9 +201,7 @@ export default function PMonitoringTable({
     });
   };
 
-  const columns = useMemo(() => {
-    return processColumns(headers);
-  }, [headers, editable, isCellEditable]);
+  const columns = processColumns(headers);
 
   return (
     <Table
@@ -166,7 +214,7 @@ export default function PMonitoringTable({
       pagination={{
         pageSize: pageSize,
         showSizeChanger: true,
-        pageSizeOptions: ["10", "20", "50"],
+        pageSizeOptions: ["10", "15", "30"],
         current: currentPage,
         onChange: (page, size) => {
           setCurrentPage(page);
@@ -176,10 +224,6 @@ export default function PMonitoringTable({
       }}
       size="small"
       bordered
-      style={{
-        backgroundColor: "#fff",
-        borderRadius: "4px",
-      }}
       rowClassName={(record, index) => {
         return index % 2 === 0 ? "table-row-light" : "table-row-dark";
       }}

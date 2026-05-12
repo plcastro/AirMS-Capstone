@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   ScrollView,
@@ -8,19 +14,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { AuthContext } from "../../Context/AuthContext";
 import { COLORS } from "../../stylesheets/colors";
+import { AuthContext } from "../../Context/AuthContext";
+import { NotificationContext } from "../../Context/NotificationContext";
 import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequisitionCards";
+import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
 import { API_BASE } from "../../utilities/API_BASE";
-
-const parseRequestedDate = (dateValue) => {
-  const parsedDate = new Date(dateValue);
-  return Number.isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
-};
-
+import { showToast } from "../../utilities/toast";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -51,131 +55,294 @@ const formatDateTime = (dateValue) => {
   });
 };
 
+const normalizeOverallStatus = (status) => {
+  switch (status) {
+    case "Pending":
+      return "Parts Requested";
+    case "Completed":
+      return "Delivered";
+    case "Rejected":
+      return "Cancelled";
+    case "In Progress":
+      return "Ordered";
+    default:
+      return status || "Parts Requested";
+  }
+};
+
+const normalizeItemStatus = (status) => {
+  switch (status) {
+    case "Ready for Pickup":
+      return "Ordered";
+    default:
+      return status || "Parts Requested";
+  }
+};
+
+const hasWarehouseAssessment = (record) =>
+  Boolean(record.dateWarehouseReviewed) ||
+  (record.items || []).some(
+    (item) => normalizeItemStatus(item.stockStatus) !== "Parts Requested",
+  );
+
+const hasRestockFlow = (record, overallStatus) => {
+  const assessed = hasWarehouseAssessment(record);
+
+  return (
+    Boolean(record.dateOrdered) ||
+    ["To Be Ordered", "Ordered"].includes(overallStatus) ||
+    (assessed &&
+      (record.items || []).some((item) => {
+        const status = normalizeItemStatus(item.stockStatus);
+
+        return (
+          status === "Out of Stock" ||
+          status === "To Be Ordered" ||
+          status === "Ordered" ||
+          Number(item.availableQty || 0) < Number(item.quantity || 0)
+        );
+      }))
+  );
+};
+
+const isItemAvailableForApproval = (status) =>
+  ["In Stock", "Ordered", "Approved", "Delivered"].includes(
+    normalizeItemStatus(status),
+  );
+
+const getItemParticular = (item = {}) =>
+  item.particular ||
+  item.codeParticular?.[0]?.particular ||
+  item.itemName ||
+  "";
+
+const getDisplayStatusLabel = (status) => {
+  switch (status) {
+    case "To Be Ordered":
+      return "To Be Restocked";
+    case "Ordered":
+      return "Restocked";
+    default:
+      return status;
+  }
+};
+
 const buildTimeline = (record) => {
+  const overallStatus = normalizeOverallStatus(record.status);
   const currentStatus =
-    record.status === "Cancelled" ? "Rejected" : record.status;
-  const timeline = [
-    {
-      status: "Pending",
+    overallStatus === "Parts Requested" && hasWarehouseAssessment(record)
+      ? "Availability Checked"
+      : overallStatus;
+  const statusSteps = ["Parts Requested", "Availability Checked"];
+
+  if (hasRestockFlow(record, overallStatus)) {
+    statusSteps.push("To Be Ordered", "Ordered");
+  }
+
+  statusSteps.push("Approved", "Delivered");
+
+  const currentStepIndex = Math.max(statusSteps.indexOf(currentStatus), 0);
+  const stepDetails = {
+    "Parts Requested": {
+      status: "Parts Requested",
       dateTime: formatDateTime(record.dateRequested || record.createdAt),
-      by: record.staff?.requisitioner || record.staff?.employeeName || "-",
+      by: record.staff?.requisitioner || "-",
       description: `Request submitted with ${record.items?.length || 0} item(s)`,
     },
-  ];
-
-  if (
-    ["Approved", "In Progress", "Completed"].includes(currentStatus) &&
-    (record.dateApproved || record.updatedAt)
-  ) {
-    timeline.push({
+    "Availability Checked": {
+      status: "Availability Checked",
+      dateTime: formatDateTime(
+        record.dateWarehouseReviewed || record.updatedAt,
+      ),
+      by: record.staff?.warehouseBy || "Warehouse Department",
+      description: "Warehouse reviewed item stock availability",
+    },
+    "To Be Ordered": {
+      status: "To Be Ordered",
+      dateTime: formatDateTime(record.dateOrdered || record.updatedAt),
+      by: record.staff?.approvedBy || "Maintenance Manager",
+      description: "Unavailable items were marked to be restocked",
+    },
+    Ordered: {
+      status: "Ordered",
+      dateTime: formatDateTime(record.updatedAt),
+      by: record.staff?.warehouseBy || "Warehouse Department",
+      description: "Warehouse confirmed the restocked items are available",
+    },
+    Approved: {
       status: "Approved",
       dateTime: formatDateTime(record.dateApproved || record.updatedAt),
       by: record.staff?.approvedBy || "-",
-      description: "Requisition approved",
-    });
+      description: "Requisition approved by maintenance manager",
+    },
+    Delivered: {
+      status: "Delivered",
+      dateTime: formatDateTime(
+        record.dateDelivered || record.dateReceived || record.updatedAt,
+      ),
+      by: record.staff?.deliveredBy || record.staff?.warehouseBy || "-",
+      description: "Warehouse marked the requisition as delivered",
+    },
+  };
+
+  if (overallStatus === "Cancelled") {
+    return [
+      {
+        ...stepDetails["Parts Requested"],
+        isCompleted: true,
+        isCurrent: false,
+      },
+      {
+        status: "Cancelled",
+        dateTime: formatDateTime(record.dateCancelled || record.updatedAt),
+        by: record.staff?.requisitioner || "-",
+        description: "Requisition was cancelled",
+        isCurrent: true,
+        isCompleted: false,
+      },
+    ];
   }
 
-  if (currentStatus === "In Progress") {
-    timeline.push({
-      status: "In Progress",
-      dateTime: formatDateTime(record.updatedAt),
-      by: "Warehouse Department",
-      description: "Request is being prepared by warehouse",
-    });
-  }
-
-  if (currentStatus === "Completed") {
-    timeline.push({
-      status: "Completed",
-      dateTime: formatDateTime(record.dateReceived || record.updatedAt),
-      by: record.staff?.receiver || "-",
-      description: "Items were released and received",
-    });
-  }
-
-  if (currentStatus === "Rejected") {
-    timeline.push({
-      status: currentStatus,
-      dateTime: formatDateTime(record.updatedAt),
-      by: record.staff?.approvedBy || "-",
-      description: "Requisition was rejected",
-    });
-  }
-
-  return timeline;
+  return statusSteps.map((step, index) => ({
+    ...stepDetails[step],
+    dateTime:
+      index <= currentStepIndex ? stepDetails[step].dateTime : "Pending",
+    by: index <= currentStepIndex ? stepDetails[step].by : "-",
+    isCompleted: index < currentStepIndex,
+    isCurrent: index === currentStepIndex,
+  }));
 };
 
 const mapRequisitionToCard = (record) => {
-  const items = Array.isArray(record.items) ? record.items : [];
+  const items = (Array.isArray(record.items) ? record.items : []).map(
+    (item) => ({
+      ...item,
+      stockStatus: normalizeItemStatus(item.stockStatus),
+      availableQty: Number(item.availableQty) || 0,
+    }),
+  );
   const totalQuantity = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0),
     0,
   );
   const firstItem = items[0];
-  const normalizedStatus =
-    record.status === "Cancelled" ? "Rejected" : record.status;
+  const firstItemParticular = getItemParticular(firstItem);
+  const rawStatus = normalizeOverallStatus(record.status);
+  const reviewed = hasWarehouseAssessment({ ...record, items });
 
   return {
     ...record,
     id: record._id,
-    status: normalizedStatus,
     slipNo: record.wrsNo,
-    requestedBy:
-      record.staff?.requisitioner || record.staff?.employeeName || "-",
+    status: rawStatus,
+    rawStatus,
+    hasWarehouseAssessment: reviewed,
+    requestedBy: record.staff?.requisitioner || "-",
+    aircraft: record.aircraft || "-",
     itemSummary: firstItem
       ? items.length === 1
-        ? `${firstItem.particular} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
-        : `${firstItem.particular} +${items.length - 1} more`
+        ? `${firstItemParticular || "-"} x ${firstItem.quantity} ${firstItem.unitOfMeasure || ""}`.trim()
+        : `${firstItemParticular || "-"} +${items.length - 1} more`
       : "No items",
+    purpose: firstItem?.purpose || "-",
     totalItems: items.length,
-    totalQuantity,
-    totalQuantityLabel: `${totalQuantity}`,
-    formattedDateRequested: formatDate(record.dateRequested || record.createdAt),
+    totalQuantity: `${totalQuantity}`,
+    dateRequested: formatDate(record.dateRequested || record.createdAt),
     requestDetails: {
       id: record._id,
       requestId: record.wrsNo,
       requestDate: formatDate(record.dateRequested || record.createdAt),
-      requestedBy:
-        record.staff?.requisitioner || record.staff?.employeeName || "-",
+      requestedBy: record.staff?.requisitioner || "-",
       aircraft: record.aircraft || "-",
       totalItems: items.length,
       totalQuantity: `${totalQuantity}`,
-      overallStatus: normalizedStatus,
+      overallStatus: rawStatus,
+      rawStatus,
+      hasWarehouseAssessment: reviewed,
       requestItems: items.map((item) => ({
-        itemName: item.particular || "-",
-        materialCodeNumber: item.matCodeNo || "-",
+        itemName: getItemParticular(item) || "-",
         purpose: item.purpose || "-",
         requested: `${item.quantity || 0} ${item.unitOfMeasure || ""}`.trim(),
-        status: normalizedStatus,
+        availableQty: `${item.availableQty || 0}`,
+        status: item.stockStatus,
       })),
-      notes: "",
-      timeline: buildTimeline(record),
+      timeline: buildTimeline({ ...record, status: rawStatus, items }),
+      rawRecord: { ...record, status: rawStatus, items },
     },
   };
 };
 
-export default function PartsRequisition() {
+const resolveTabForRequest = (request, isManager) => {
+  if (!request) {
+    return null;
+  }
+  if (isManager) {
+    return ["Delivered", "Cancelled"].includes(request.rawStatus)
+      ? "Closed"
+      : "For Review";
+  }
+
+  if (["Delivered", "Cancelled"].includes(request.rawStatus)) {
+    return "Closed";
+  }
+
+  if (request.rawStatus === "Approved") {
+    return "Approved";
+  }
+
+  return "Pending";
+};
+
+export default function PartsRequisition({ route, navigation }) {
   const { user } = useContext(AuthContext);
+  const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [dateSortOrder, setDateSortOrder] = useState("newest");
+  const [selectedTab, setSelectedTab] = useState("Pending");
+  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [editingRequest, setEditingRequest] = useState(null);
   const [requisitions, setRequisitions] = useState([]);
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "";
-  const isWarehouseDepartment = userRole === "warehouse department";
-  const isReviewer = ["maintenance manager", "officer-in-charge"].includes(
+  const userRole = user?.jobTitle?.toLowerCase();
+  const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
+  const tabLabels = isManager
+    ? ["For Review", "Closed"]
+    : ["Pending", "Approved", "Closed"];
+  const defaultTab = isManager ? "For Review" : "Pending";
 
-  const fetchRequisitions = useCallback(async () => {
+  useEffect(() => {
+    setSelectedTab(defaultTab);
+  }, [defaultTab]);
+
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
     try {
-      setLoading(true);
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
+  const fetchRequisitions = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (!silent) {
+        setLoading(true);
+      }
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
-        `${API_BASE}/api/parts-requisition/get/all-requisition`,
+        `${API_BASE}/api/parts-requisition/get-all-requisition`,
         {
           headers: token
             ? {
@@ -186,158 +353,327 @@ export default function PartsRequisition() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch requisitions");
+        throw new Error(
+          `Failed to fetch requisitions (${response.status} ${response.statusText})`,
+        );
       }
 
-      const data = await response.json();
+      const data = await parseJsonSafely(response);
       setRequisitions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching requisitions:", error);
-      Alert.alert("Error", "Failed to fetch parts requisitions.");
+      showToast("Failed to fetch parts requisitions.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  const fetchAircraftOptions = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch aircraft options");
+      }
+
+      const data = await response.json();
+      setAircraftOptions(
+        (data.data || []).map((aircraft) => ({
+          id: aircraft,
+          name: aircraft,
+        })),
+      );
+    } catch (error) {
+      console.error("Error fetching aircraft options:", error);
+      setAircraftOptions([]);
     }
   }, []);
 
   useEffect(() => {
     fetchRequisitions();
-  }, [fetchRequisitions]);
+    fetchAircraftOptions();
+  }, [fetchAircraftOptions, fetchRequisitions]);
 
-  const allRequisitionsWithCounts = useMemo(
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchRequisitions({ silent: true });
+      await fetchNotifications();
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [fetchNotifications, fetchRequisitions]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRequisitions();
+      fetchNotifications();
+    }, [fetchNotifications, fetchRequisitions]),
+  );
+
+  useEffect(() => {
+    if (!route?.params?.refreshAt) {
+      return;
+    }
+
+    fetchRequisitions();
+    fetchNotifications();
+  }, [fetchNotifications, fetchRequisitions, route?.params?.refreshAt]);
+
+  const mappedRequisitions = useMemo(
     () => requisitions.map(mapRequisitionToCard),
     [requisitions],
   );
 
-  const visibleRequisitions = useMemo(() => {
-    if (isWarehouseDepartment) {
-      return allRequisitionsWithCounts.filter((item) =>
-        ["Approved", "In Progress", "Completed"].includes(item.status),
-      );
-    }
+  const filteredRequisitions = useMemo(() => {
+    const sourceData = mappedRequisitions.filter((item) => {
+      if (isManager) {
+        if (selectedTab === "For Review") {
+          return ["Availability Checked", "Ordered"].includes(item.rawStatus);
+        }
+        return ["Delivered", "Cancelled"].includes(item.rawStatus);
+      }
 
-    return allRequisitionsWithCounts;
-  }, [allRequisitionsWithCounts, isWarehouseDepartment]);
+      if (selectedTab === "Pending") {
+        return !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
+      }
+      if (selectedTab === "Approved") {
+        return item.rawStatus === "Approved";
+      }
+      return ["Delivered", "Cancelled"].includes(item.rawStatus);
+    });
 
-  const stats = useMemo(
+    return sourceData.filter((item) => {
+      const matchesSearch =
+        searchQuery.trim().length === 0 ||
+        item.slipNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.requestedBy?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.itemSummary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.aircraft.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesSearch;
+    });
+  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
+
+  const tabCounts = useMemo(
     () => ({
-      total: visibleRequisitions.length,
-      pending: visibleRequisitions.filter((r) => r.status === "Pending").length,
-      approved: visibleRequisitions.filter((r) => r.status === "Approved").length,
-      inProgress: visibleRequisitions.filter((r) => r.status === "In Progress")
-        .length,
-      completed: visibleRequisitions.filter((r) => r.status === "Completed")
-        .length,
-      rejected: visibleRequisitions.filter((r) =>
-        ["Rejected", "Cancelled"].includes(r.status),
-      )
-        .length,
+      "For Review": mappedRequisitions.filter((item) =>
+        ["Availability Checked", "Ordered"].includes(item.rawStatus),
+      ).length,
+      Pending: mappedRequisitions.filter(
+        (item) =>
+          !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
+      ).length,
+      Approved: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Approved",
+      ).length,
+      Closed: mappedRequisitions.filter((item) =>
+        ["Delivered", "Cancelled"].includes(item.rawStatus),
+      ).length,
     }),
-    [visibleRequisitions],
+    [mappedRequisitions],
   );
 
-  const filteredRequisitions = useMemo(() => {
-    let data = visibleRequisitions;
+  useEffect(() => {
+    const targetRequestId = route?.params?.targetRequestId;
 
-    if (searchQuery.trim()) {
-      const normalizedQuery = searchQuery.trim().toLowerCase();
-      data = data.filter(
-        (item) =>
-          item.wrsNo?.toLowerCase().includes(normalizedQuery) ||
-          item.aircraft?.toLowerCase().includes(normalizedQuery) ||
-          item.status?.toLowerCase().includes(normalizedQuery) ||
-          item.requestedBy?.toLowerCase().includes(normalizedQuery),
-      );
+    if (!targetRequestId || mappedRequisitions.length === 0) {
+      return;
     }
 
-    if (selectedStatus !== "all") {
-      data = data.filter((item) => item.status === selectedStatus);
+    const matchedRequest = mappedRequisitions.find(
+      (item) => item.id === targetRequestId,
+    );
+
+    if (!matchedRequest) {
+      return;
     }
 
-    return [...data].sort((firstItem, secondItem) => {
-      const firstDate = parseRequestedDate(
-        firstItem.dateRequested || firstItem.createdAt,
-      );
-      const secondDate = parseRequestedDate(
-        secondItem.dateRequested || secondItem.createdAt,
-      );
+    const nextTab = resolveTabForRequest(matchedRequest, isManager);
 
-      return dateSortOrder === "oldest"
-        ? firstDate - secondDate
-        : secondDate - firstDate;
+    if (nextTab && nextTab !== selectedTab) {
+      setSelectedTab(nextTab);
+    }
+
+    setSelectedRequest(matchedRequest.requestDetails);
+    setShowDetailsModal(true);
+    navigation?.setParams?.({
+      refreshAt: undefined,
+      targetRequestId: undefined,
+      notificationStatus: undefined,
     });
-  }, [dateSortOrder, searchQuery, selectedStatus, visibleRequisitions]);
+  }, [
+    isManager,
+    mappedRequisitions,
+    navigation,
+    route?.params?.targetRequestId,
+    selectedTab,
+  ]);
 
-  const statusCards = useMemo(() => {
-    const baseCards = [
-      {
-        title: "Total",
-        value: stats.total,
-        icon: "inbox-outline",
-        statusKey: "all",
-        backgroundColor: "#F5F5F5",
-        textColor: "#555555",
-      },
-      {
-        title: "Pending",
-        value: stats.pending,
-        icon: "clock-outline",
-        statusKey: "Pending",
-        backgroundColor: "#E3F2FD",
-        textColor: "#1565C0",
-      },
-      {
-        title: "Approved",
-        value: stats.approved,
-        icon: "check-circle-outline",
-        statusKey: "Approved",
-        backgroundColor: "#E0F7FA",
-        textColor: "#00838F",
-      },
-      {
-        title: "In Progress",
-        value: stats.inProgress,
-        icon: "progress-clock",
-        statusKey: "In Progress",
-        backgroundColor: "#FFF3E0",
-        textColor: "#EF6C00",
-      },
-      {
-        title: "Completed",
-        value: stats.completed,
-        icon: "file-check-outline",
-        statusKey: "Completed",
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
-      },
-      {
-        title: "Rejected",
-        value: stats.rejected,
-        icon: "close-circle-outline",
-        statusKey: "Rejected",
-        backgroundColor: "#FDECEC",
-        textColor: "#C62828",
-      },
-    ];
-
-    if (isWarehouseDepartment) {
-      return baseCards.filter((card) =>
-        ["all", "Approved", "In Progress", "Completed"].includes(card.statusKey),
-      );
-    }
-
-    return baseCards;
-  }, [isWarehouseDepartment, stats]);
+  const handleNewEntry = () => {
+    setEditingRequest(null);
+    setSelectedAircraft("");
+    setShowNewEntryModal(true);
+  };
 
   const handleViewDetails = (item) => {
     setSelectedRequest(item.requestDetails);
     setShowDetailsModal(true);
   };
 
-  const updateRequestStatus = async (request, nextStatus) => {
+  const handleEdit = (item) => {
+    setEditingRequest(item);
+    setSelectedAircraft(item.aircraft || "");
+    setShowNewEntryModal(true);
+  };
+
+  const buildRequestItemsPayload = (items) =>
+    items.map((item, index) => ({
+      itemNo: index + 1,
+      particular: item.particular.trim(),
+      quantity: Number(item.quantity),
+      unitOfMeasure: item.unit,
+      purpose: item.purpose.trim(),
+      availableQty: 0,
+      stockStatus: "Parts Requested",
+    }));
+
+  const resetEntryModal = () => {
+    setShowNewEntryModal(false);
+    setEditingRequest(null);
+    setSelectedAircraft("");
+  };
+
+  const submitRequisitionUpdate = useCallback(
+    async (requestId, payload, successMessage) => {
+      try {
+        const token = await AsyncStorage.getItem("currentUserToken");
+        const response = await fetch(
+          `${API_BASE}/api/parts-requisition/update-requisition/${requestId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token
+                ? {
+                    Authorization: `Bearer ${token}`,
+                  }
+                : {}),
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        if (!response.ok) {
+          const errorData = await parseJsonSafely(response);
+          throw new Error(errorData?.message || "Failed to update requisition");
+        }
+
+        setShowDetailsModal(false);
+        resetEntryModal();
+        await fetchRequisitions();
+
+        if (successMessage) {
+          showToast(successMessage);
+        }
+      } catch (error) {
+        console.error("Error updating requisition:", error);
+        showToast(error.message || "Failed to update requisition.");
+      }
+    },
+    [fetchRequisitions],
+  );
+
+  const handleCancelRequest = async (item) => {
+    const existingItems = item.requestDetails?.rawRecord?.items || [];
+
+    await submitRequisitionUpdate(
+      item.id,
+      {
+        status: "Cancelled",
+        dateCancelled: new Date().toISOString(),
+        items: existingItems.map((requestItem) => ({
+          ...requestItem,
+          stockStatus: "Cancelled",
+        })),
+      },
+      `${item.slipNo} cancelled successfully.`,
+    );
+  };
+
+  const handleDelete = (item) => {
+    Alert.alert("Cancel Requisition", `Cancel ${item.slipNo}?`, [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: () => handleCancelRequest(item),
+      },
+    ]);
+  };
+
+  const handleSubmitNewEntry = async ({ aircraft, items }) => {
+    if (!aircraft) {
+      showToast("Please choose an aircraft.");
+      return;
+    }
+
+    if (!items?.length) {
+      showToast("Please add at least one item.");
+      return;
+    }
+
+    if (
+      items.some(
+        (item) =>
+          !item.particular.trim() ||
+          !item.quantity ||
+          Number(item.quantity) <= 0,
+      )
+    ) {
+      showToast("Particular, and quantity are required for each item.");
+      return;
+    }
+
+    const fullName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
+    const requestItems = buildRequestItemsPayload(items);
+
     try {
+      if (editingRequest) {
+        await submitRequisitionUpdate(
+          editingRequest.id,
+          {
+            aircraft,
+            items: requestItems,
+          },
+          `${editingRequest.slipNo} updated successfully.`,
+        );
+        return;
+      }
+
+      const highestSlipNumber = mappedRequisitions.reduce((highest, item) => {
+        const numericPart = Number(item.slipNo?.replace("WRS-", "")) || 0;
+        return numericPart > highest ? numericPart : highest;
+      }, 0);
+      const nextSlipNumber = highestSlipNumber + 1;
+      const nextSlipNo = `WRS-${String(nextSlipNumber).padStart(3, "0")}`;
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
-        `${API_BASE}/api/parts-requisition/update-requisition/${request.id}`,
+        `${API_BASE}/api/parts-requisition/create-requisition`,
         {
           method: "POST",
           headers: {
@@ -348,101 +684,173 @@ export default function PartsRequisition() {
                 }
               : {}),
           },
-          body: JSON.stringify({ status: nextStatus }),
+          body: JSON.stringify({
+            wrsNo: nextSlipNo,
+            aircraft,
+            staff: {
+              requisitioner: fullName,
+              approvedBy: "",
+              receiver: "",
+              notedBy: "",
+              warehouseBy: "",
+              deliveredBy: "",
+            },
+            items: requestItems,
+            dateRequested: new Date().toISOString(),
+            status: "Parts Requested",
+          }),
         },
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to update requisition to ${nextStatus}`);
+        const errorData = await parseJsonSafely(response);
+        throw new Error(errorData?.message || "Failed to create requisition");
       }
 
+      resetEntryModal();
+      setSelectedTab(defaultTab);
       await fetchRequisitions();
-      setShowDetailsModal(false);
-      Alert.alert("Success", `${request.requestId} marked as ${nextStatus}.`);
+      showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
-      console.error("Error updating requisition status:", error);
-      Alert.alert("Error", "Failed to update requisition status.");
+      console.error("Error creating requisition:", error);
+      showToast(error.message || "Failed to create requisition.");
     }
   };
 
-  const handleApproveRequest = (request) => {
-    updateRequestStatus(request, "Approved");
+  const handleOrderRequest = async (request) => {
+    const updatedItems = (request.rawRecord.items || []).map((item) => ({
+      ...item,
+      stockStatus:
+        normalizeItemStatus(item.stockStatus) === "Out of Stock"
+          ? "To Be Ordered"
+          : normalizeItemStatus(item.stockStatus),
+    }));
+
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "To Be Ordered",
+        dateOrdered: new Date().toISOString(),
+        items: updatedItems,
+      },
+      `${request.requestId} marked as to be restocked.`,
+    );
   };
 
-  const handleRejectRequest = (request) => {
-    updateRequestStatus(request, "Rejected");
+  const handleApproveRequest = async (request) => {
+    const fullName =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      "Unknown User";
+    const updatedItems = (request.rawRecord.items || []).map((item) => ({
+      ...item,
+      stockStatus: "Approved",
+    }));
+
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "Approved",
+        dateApproved: new Date().toISOString(),
+        approvedBy: fullName,
+        items: updatedItems,
+      },
+      `${request.requestId} approved successfully.`,
+    );
   };
 
-  const renderStatusCard = (card) => {
-    const isSelected = selectedStatus === card.statusKey;
+  const renderTabButton = (label) => {
+    const isSelected = selectedTab === label;
+    const count = tabCounts[label] || 0;
 
     return (
       <TouchableOpacity
-        key={card.statusKey}
-        activeOpacity={0.85}
-        onPress={() => setSelectedStatus(card.statusKey)}
-        style={{
-          width: 142,
-          borderRadius: 16,
-          paddingHorizontal: 14,
-          paddingVertical: 14,
-          marginRight: 10,
-          backgroundColor: COLORS.white,
-          borderWidth: 2,
-          borderColor: isSelected ? card.textColor : "#ECECEC",
-        }}
+        key={label}
+        activeOpacity={0.8}
+        onPress={() => setSelectedTab(label)}
+        style={[
+          {
+            minWidth: 92,
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderRadius: 7,
+            backgroundColor: COLORS.white,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+          },
+          isSelected && {
+            backgroundColor: COLORS.primaryLight,
+            borderColor: COLORS.primaryLight,
+          },
+        ]}
       >
-        <View
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: card.backgroundColor,
-            marginBottom: 12,
-          }}
-        >
-          <MaterialCommunityIcons
-            name={card.icon}
-            size={20}
-            color={card.textColor}
-          />
-        </View>
-
         <Text
-          style={{
-            fontSize: 22,
-            fontWeight: "700",
-            color: COLORS.black,
-          }}
+          style={[
+            {
+              textAlign: "center",
+              color: "#6A6A6A",
+              fontSize: 12,
+              fontWeight: "500",
+            },
+            isSelected && { color: COLORS.white },
+          ]}
         >
-          {card.value}
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            marginTop: 4,
-            color: COLORS.grayDark,
-          }}
-        >
-          {card.title}
+          {`${label} (${count})`}
         </Text>
       </TouchableOpacity>
     );
   };
 
+  const initialEditItems = editingRequest
+    ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
+        id: item._id,
+        particular: getItemParticular(item),
+        quantity: item.quantity,
+        unitOfMeasure: item.unitOfMeasure,
+        purpose: item.purpose,
+      }))
+    : [];
+  const detailRequestItems = selectedRequest?.requestItems || [];
+  const hasMissingItems = detailRequestItems.some(
+    (item) => normalizeItemStatus(item.status) === "Out of Stock",
+  );
+  const allItemsAvailable =
+    detailRequestItems.length > 0 &&
+    detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
+  const canOrder =
+    isManager &&
+    selectedTab === "For Review" &&
+    selectedRequest?.hasWarehouseAssessment &&
+    ["Parts Requested", "Availability Checked"].includes(
+      selectedRequest?.rawStatus,
+    ) &&
+    hasMissingItems;
+  const canApprove =
+    isManager &&
+    selectedTab === "For Review" &&
+    selectedRequest?.hasWarehouseAssessment &&
+    !["Approved", "Delivered", "Cancelled"].includes(
+      selectedRequest?.rawStatus,
+    ) &&
+    allItemsAvailable;
+  const orderLabel =
+    selectedRequest &&
+    ["To Be Ordered", "Ordered", "Approved", "Delivered"].includes(
+      selectedRequest.rawStatus,
+    )
+      ? "Restocked"
+      : "Order";
+
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
+    <View
+      style={{ flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 10 }}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 7, paddingBottom: 24 }}
-      >
-        <View style={{ marginTop: 8, marginBottom: 14, gap: 12 }}>
+      <View style={{ flex: 1, paddingHorizontal: 7 }}>
+        <View style={{ flexDirection: "row", marginBottom: 14, gap: 12 }}>
           <View
             style={{
+              flex: 1,
               flexDirection: "row",
               alignItems: "center",
               backgroundColor: COLORS.white,
@@ -459,12 +867,12 @@ export default function PartsRequisition() {
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Search by WRS no., aircraft, status, or requester"
+              placeholder="Search by WRS#"
               placeholderTextColor={COLORS.grayDark}
               style={{
                 flex: 1,
                 marginLeft: 10,
-                fontSize: 15,
+                fontSize: 12,
                 color: COLORS.black,
                 padding: 0,
               }}
@@ -473,95 +881,91 @@ export default function PartsRequisition() {
             />
           </View>
 
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            {[
-              { key: "newest", label: "Date: Newest First" },
-              { key: "oldest", label: "Date: Oldest First" },
-            ].map((option) => {
-              const isSelected = dateSortOrder === option.key;
-
-              return (
-                <TouchableOpacity
-                  key={option.key}
-                  activeOpacity={0.8}
-                  onPress={() => setDateSortOrder(option.key)}
-                  style={{
-                    borderRadius: 20,
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    backgroundColor: isSelected
-                      ? COLORS.primaryLight
-                      : COLORS.white,
-                    borderWidth: 1,
-                    borderColor: isSelected
-                      ? COLORS.primaryLight
-                      : COLORS.grayMedium,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: isSelected ? COLORS.white : COLORS.grayDark,
-                      fontWeight: "500",
-                    }}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
+          {!isManager && (
             <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={fetchRequisitions}
               style={{
-                marginLeft: "auto",
-                width: 44,
-                height: 44,
-                borderRadius: 22,
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 16,
+                flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: COLORS.white,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
               }}
+              activeOpacity={0.8}
+              onPress={handleNewEntry}
             >
               <MaterialCommunityIcons
-                name="refresh"
+                name="plus"
                 size={20}
-                color={COLORS.primaryLight}
+                color={COLORS.white}
               />
+              <Text
+                style={{
+                  color: COLORS.white,
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                Request
+              </Text>
             </TouchableOpacity>
-          </View>
+          )}
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 3,
+            marginBottom: 20,
+          }}
+        >
+          {tabLabels.map(renderTabButton)}
         </View>
 
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 4, paddingRight: 6 }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
         >
-          {statusCards.map(renderStatusCard)}
-        </ScrollView>
-
-        <View style={{ marginTop: 18 }}>
           <PartsRequisitionCards
             requisitions={filteredRequisitions}
             onViewDetails={handleViewDetails}
-            hideActions
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            showActions={!isManager}
+            actionsDisabled={!isManager && selectedTab !== "Pending"}
             loading={loading}
           />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
+
+      {!isManager && (
+        <PartsRequisitionEntry
+          visible={showNewEntryModal}
+          onClose={resetEntryModal}
+          onSubmit={handleSubmitNewEntry}
+          selectedAircraft={selectedAircraft}
+          onChangeAircraft={setSelectedAircraft}
+          aircraftOptions={aircraftOptions}
+          initialAircraft={editingRequest?.aircraft || ""}
+          initialItems={initialEditItems}
+          title={editingRequest ? "Edit Request" : "New Entry"}
+          submitLabel={editingRequest ? "Save Changes" : "Submit"}
+        />
+      )}
 
       <PartsRequisitionDetails
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showReviewActions={
-          isReviewer && selectedRequest?.overallStatus === "Pending"
-        }
+        showManagerActions={isManager && selectedTab === "For Review"}
+        canOrder={canOrder}
+        canApprove={canApprove}
+        orderLabel={orderLabel}
+        approveLabel="Approve"
+        onOrder={handleOrderRequest}
         onApprove={handleApproveRequest}
-        onReject={handleRejectRequest}
       />
     </View>
   );

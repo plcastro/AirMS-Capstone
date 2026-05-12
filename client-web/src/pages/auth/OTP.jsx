@@ -6,6 +6,7 @@ import { API_BASE } from "../../utils/API_BASE";
 
 import "./login.css";
 import "../../App.css";
+import LoginLayout from "../../components/layout/LoginLayout";
 const { Title, Text } = Typography;
 
 export default function OTP() {
@@ -103,15 +104,11 @@ export default function OTP() {
   };
 
   return (
-    <Card className="login-container">
+    <LoginLayout
+      title="Account Verification"
+      subtitle={`Enter the 6-digit code sent to ${maskEmail(email) || "your email"}`}
+    >
       <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Title level={2}>Account Verification</Title>
-          <Text>
-            Please enter the 6-digit code sent to{" "}
-            {maskEmail(email) || "your email"}
-          </Text>
-        </Col>
         <Col span={24} style={{ textAlign: "center" }}>
           <Input.OTP
             value={code}
@@ -131,7 +128,7 @@ export default function OTP() {
         disabled={!pinReady}
         loading={confirmLoading}
         style={{ width: "100%", marginBottom: 10 }}
-        className="primary-btn"
+        className="login-btn"
       >
         Verify
       </Button>
@@ -144,6 +141,6 @@ export default function OTP() {
       >
         {resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
       </Button>
-    </Card>
+    </LoginLayout>
   );
 }

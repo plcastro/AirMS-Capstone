@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput, Dimensions, Alert } from "react-native";
+import { View, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -7,53 +7,129 @@ import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-
-export default function EngineerTaskScreen() {
+import { showToast } from "../../utilities/toast";
+export default function MechanicTaskScreen({
+  targetTaskId,
+  targetNotificationStatus,
+}) {
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
+  const currentUserId = user?.id || user?._id || "";
 
-  // Fetch tasks assigned to the current engineer
-  useEffect(() => {
-    const fetchTasks = async () => {
-      console.log("User:", user);
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        console.log("Response status:", response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched tasks:", data.data);
-          const assignedTasks = (data.data || []).filter(
-            (task) => String(task.assignedTo) === String(user?.id),
-          );
-          console.log("Assigned tasks:", assignedTasks);
-          setTasks(assignedTasks || []);
-        } else {
-          console.error("Failed to fetch tasks, status:", response.status);
-          const errorText = await response.text();
-          console.error("Error response:", errorText);
-          setTasks([]);
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
+  const isSameTask = (left, right) =>
+    String(left?.id || left?._id || "") ===
+    String(right?.id || right?._id || "");
+
+  const ensureEndAfterStart = (task, startDate) => {
+    const nextStart =
+      startDate instanceof Date ? startDate : new Date(startDate);
+    const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
+
+    if (currentEnd && currentEnd > nextStart) {
+      return task.endDateTime;
+    }
+
+    return new Date(nextStart.getTime() + 60 * 1000).toISOString();
+  };
+
+  const fetchTasks = async ({ silent = false } = {}) => {
+    if (!currentUserId) return;
+
+    try {
+      if (!silent) setRefreshing(true);
+      const token = await AsyncStorage.getItem("currentUserToken");
+      const response = await fetch(`${API_BASE}/api/tasks/getAll`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await parseJsonSafely(response);
+        const assignedTasks = (data?.data || []).filter(
+          (task) => String(task.assignedTo) === String(currentUserId),
+        );
+        setTasks(assignedTasks || []);
+      } else {
+        console.error("Failed to fetch tasks, status:", response.status);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
         setTasks([]);
       }
-    };
-    if (user) {
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setTasks([]);
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  };
+
+  // Fetch tasks assigned to the current mechanic
+  useEffect(() => {
+    if (currentUserId) {
       fetchTasks();
     }
-  }, [user]);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId || typeof EventSource === "undefined") {
+      return undefined;
+    }
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = () => {
+      fetchTasks({ silent: true });
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) {
+      return;
+    }
+
+    const match = tasks.find(
+      (task) =>
+        String(task._id) === String(targetTaskId) ||
+        String(task.id) === String(targetTaskId),
+    );
+
+    if (match) {
+      setSelectedTask(match);
+      setModalVisible(true);
+      if (targetNotificationStatus === "Turned in") {
+        setSelectedAircraft(match.aircraft || "all");
+      }
+    }
+  }, [targetTaskId, targetNotificationStatus, tasks]);
 
   // Fetch aircraft options
   useEffect(() => {
@@ -83,9 +159,11 @@ export default function EngineerTaskScreen() {
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
+    const taskTitle = task?.title || task?.maintenanceType || "";
+
     if (
       searchQuery &&
-      !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
     )
       return false;
 
@@ -105,21 +183,12 @@ export default function EngineerTaskScreen() {
 
   const handleStartTask = async (task) => {
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
 
     const updatedTask = {
       ...task,
       status: "Ongoing",
-      startDateTime: `${formattedDate} ${formattedTime}`,
+      startDateTime: now.toISOString(),
+      endDateTime: ensureEndAfterStart(task, now),
     };
 
     try {
@@ -133,21 +202,23 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask({
-          ...data.data,
-          findings: data.data.findings || "",
+          ...savedTask,
+          findings: savedTask.findings || "",
         });
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to start task");
+        showToast("Failed to start task");
       }
     } catch (error) {
       console.error("Error starting task:", error);
-      Alert.alert("Error", "Failed to start task");
+      showToast("Failed to start task");
     }
   };
 
@@ -156,6 +227,10 @@ export default function EngineerTaskScreen() {
       ...task,
       checklistState: checklistState,
       findings: findings,
+      endDateTime: ensureEndAfterStart(
+        task,
+        task.startDateTime || task.createdAt || new Date(),
+      ),
     };
 
     try {
@@ -169,35 +244,28 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
         setSelectedTask((prev) => ({
-          ...data.data,
+          ...(prev || {}),
+          ...savedTask,
         }));
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to save draft");
+        showToast("Failed to save draft");
       }
     } catch (error) {
       console.error("Error saving draft:", error);
-      Alert.alert("Error", "Failed to save draft");
+      showToast("Failed to save draft");
     }
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const now = new Date().toISOString();
 
     const updatedTask = {
       ...task,
@@ -207,10 +275,10 @@ export default function EngineerTaskScreen() {
 
     if (options.undo) {
       updatedTask.status = options.newStatus || "Ongoing";
-      updatedTask.endDateTime = "";
+      updatedTask.completedAt = null;
     } else {
       updatedTask.status = "Turned in";
-      updatedTask.endDateTime = `${formattedDate} ${formattedTime}`;
+      updatedTask.completedAt = now;
     }
 
     try {
@@ -224,17 +292,20 @@ export default function EngineerTaskScreen() {
         body: JSON.stringify(updatedTask),
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
         const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+          isSameTask(t, task) ? savedTask : t,
         );
         setTasks(updatedTasks);
+        setSelectedTask(savedTask);
+        await fetchTasks({ silent: true });
       } else {
-        Alert.alert("Error", "Failed to turn in task");
+        showToast("Failed to turn in task");
       }
     } catch (error) {
       console.error("Error turning in task:", error);
-      Alert.alert("Error", "Failed to turn in task");
+      showToast("Failed to turn in task");
     }
   };
 
@@ -254,22 +325,11 @@ export default function EngineerTaskScreen() {
           },
         ]}
       >
-        <View style={{ flex: 0.58 }}>
+        <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
           <TextInput
             placeholder="Search tasks"
-            placeholderTextColor="gray"
-            style={[
-              styles.searchInput,
-              {
-                height: 50,
-                width: "100%",
-                backgroundColor: "#fff",
-                borderWidth: 1,
-                borderColor: "#d4d4d4",
-                borderRadius: 8,
-                paddingHorizontal: 12,
-              },
-            ]}
+            placeholderTextColor="#666"
+            style={styles.unifiedSearchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -278,11 +338,11 @@ export default function EngineerTaskScreen() {
         <View
           style={{
             flex: 0.42,
-            minHeight: 40,
+            minHeight: 48,
             backgroundColor: "#fff",
             borderWidth: 1,
-            borderColor: "#d4d4d4",
-            borderRadius: 8,
+            borderColor: "#d1d5db",
+            borderRadius: 10,
             overflow: "hidden",
             justifyContent: "center",
           }}
@@ -296,7 +356,7 @@ export default function EngineerTaskScreen() {
                 height: 50,
                 width: "100%",
                 color: "#333",
-                fontSize: 14,
+                fontSize: 12,
                 marginTop: -4,
               },
             ]}
@@ -315,7 +375,12 @@ export default function EngineerTaskScreen() {
       </View>
       <View style={styles.maintenanceSearchDivider} />
 
-      <TaskTabs tasks={filteredTasks} onTaskPress={handleTaskPress} />
+      <TaskTabs
+        tasks={filteredTasks}
+        onTaskPress={handleTaskPress}
+        onRefresh={fetchTasks}
+        refreshing={refreshing}
+      />
 
       <TaskChecklist
         visible={modalVisible}

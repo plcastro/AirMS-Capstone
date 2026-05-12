@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState } from "react";
 import {
-  View,
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
+  ScrollView,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
+import LoginLayout from "../../Layout/LoginLayout";
 
 export default function ResetPassword() {
   const navigation = useNavigation();
@@ -24,7 +26,6 @@ export default function ResetPassword() {
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Password requirements
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
     hasUppercase: /[A-Z]/.test(formData.newPassword),
@@ -78,7 +79,7 @@ export default function ResetPassword() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token: token,
+          token,
           newPassword: formData.newPassword,
         }),
       });
@@ -99,94 +100,119 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <View style={styles.formCard}>
-        <View style={styles.formContainer}>
-          <Text style={styles.headerText}>Invalid Reset Link</Text>
-          <Text style={styles.subHeaderText}>
-            This password reset link is invalid or has expired.
-          </Text>
-        </View>
-      </View>
+      <LoginLayout
+        cardTitle="Invalid Reset Link"
+        cardsubTitle="This password reset link is invalid or has expired."
+      />
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.formCard}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Reset Password</Text>
-        <Text style={styles.subHeaderText}>Enter your new password</Text>
-
-        <TextInput
-          style={styles.formInput}
-          placeholder="New Password"
-          secureTextEntry
-          placeholderTextColor="gray"
-          value={formData.newPassword}
-          onChangeText={(text) => handleChange("newPassword", text)}
-        />
-
-        <TextInput
-          style={styles.formInput}
-          placeholder="Confirm Password"
-          secureTextEntry
-          placeholderTextColor="gray"
-          value={formData.confirmPassword}
-          onChangeText={(text) => handleChange("confirmPassword", text)}
-        />
-
-        {/* Password requirements */}
-        <View style={{ marginVertical: 10 }}>
-          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
-            Password Requirements:
-          </Text>
-          <View style={{ flexDirection: "row" }}>
-            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-              ✓{" "}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: 30,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Reset Password"
+          cardsubTitle="Enter your new password"
+        >
+          {/* PASSWORD FIELDS */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={styles.label}>
+              New Password <Text style={{ color: "red" }}>*</Text>
             </Text>
-            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
-              At least 8 characters
-            </Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="New Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.newPassword}
+              onChangeText={(text) => handleChange("newPassword", text)}
+            />
           </View>
-          <View style={{ flexDirection: "row" }}>
+
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>
+              Confirm Password <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Confirm Password"
+              secureTextEntry
+              placeholderTextColor="gray"
+              value={formData.confirmPassword}
+              onChangeText={(text) => handleChange("confirmPassword", text)}
+            />
+          </View>
+
+          {/* REQUIREMENTS BOX */}
+          <View style={{ marginTop: 10, marginBottom: 15 }}>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+              Password Requirements:
+            </Text>
+
+            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+              {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
+              characters
+            </Text>
+
             <Text
               style={getRequirementStyle(passwordRequirements.hasUppercase)}
             >
-              ✓{" "}
+              {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
+              letter
             </Text>
-            <Text
-              style={getRequirementStyle(passwordRequirements.hasUppercase)}
-            >
-              One uppercase letter
+
+            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
             </Text>
           </View>
-          <View style={{ flexDirection: "row" }}>
-            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-              ✓{" "}
-            </Text>
-            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
-              One number
-            </Text>
+
+          {/* ERROR / SUCCESS */}
+          <View style={{ marginBottom: 10 }}>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            {successMessage ? (
+              <Text style={{ color: "green", marginTop: 5 }}>
+                {successMessage}
+              </Text>
+            ) : null}
           </View>
-        </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {successMessage ? (
-          <Text style={{ color: "green", marginTop: 10 }}>
-            {successMessage}
-          </Text>
-        ) : null}
+          {/* BUTTON */}
+          <View style={{ marginTop: 10 }}>
+            <Button
+              label={loading ? "RESETTING..." : "RESET PASSWORD"}
+              onPress={handleSubmit}
+              buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
+              buttonTextStyle={styles.primaryBtnTxt}
+              disabled={loading || !isFormValid}
+            />
+          </View>
 
-        <Button
-          label={loading ? "RESETTING..." : "RESET PASSWORD"}
-          onPress={handleSubmit}
-          buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
-          buttonTextStyle={styles.primaryBtnTxt}
-          disabled={loading || !isFormValid}
-        />
-      </View>
+          {/* FOOTER LINK */}
+          <TouchableOpacity
+            onPress={() => nav.replace("login")}
+            activeOpacity={0.8}
+            style={{ marginTop: 25, alignItems: "center" }}
+          >
+            <Text style={{ color: "#374151", textAlign: "center" }}>
+              Remember your password?
+              <Text style={{ color: "#059670", fontWeight: "bold" }}>
+                {" "}
+                Sign In
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

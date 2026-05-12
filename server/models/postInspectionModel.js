@@ -4,6 +4,7 @@ const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
+    signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
   { _id: false },
@@ -11,14 +12,25 @@ const signatureSchema = new mongoose.Schema(
 
 const postInspectionSchema = new mongoose.Schema(
   {
+    preInspectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PreInspection",
+      default: null,
+      index: true,
+    },
+    linkedFromPreFlight: {
+      type: Boolean,
+      default: false,
+    },
     aircraftType: { type: String, required: true, trim: true },
     rpc: { type: String, required: true, trim: true },
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    notes: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["pending", "completed"],
+      enum: ["pending", "released", "completed"],
       default: "pending",
     },
     station1_transparentPanels_condition: { type: Boolean, default: false },
@@ -109,6 +121,7 @@ const postInspectionSchema = new mongoose.Schema(
     cabin_vemd_recordData: { type: Boolean, default: false },
     cabin_batterySwitchOff_off: { type: Boolean, default: false },
     releasedBy: { type: signatureSchema, default: () => ({}) },
+    acceptedBy: { type: signatureSchema, default: () => ({}) },
   },
   { collection: "post_inspections", timestamps: true },
 );

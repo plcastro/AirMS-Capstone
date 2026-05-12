@@ -1,11 +1,9 @@
-import { useState } from "react";
-
 export const rawData = [
-  // Row 6 - AIRWORTHINES CERTIFICATE
+  // Row 6 - AIRWORTHINESS CERTIFICATE
   {
     _id: "6",
     rowType: "part",
-    componentName: "AIRWORTHINES CERTIFICATE",
+    componentName: "AIRWORTHINESS CERTIFICATE",
     hourLimit1: "",
     hourLimit2: "",
     hourLimit3: "",
@@ -3729,8 +3727,3 @@ export const rawData = [
     };
   }),
 ];
-
-export const useRawData = () => {
-  const [data, setData] = useState(rawData); // reference the exported array
-  return { rawData: data, setRawData: setData };
-};
