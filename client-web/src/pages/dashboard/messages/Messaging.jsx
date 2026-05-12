@@ -693,7 +693,7 @@ export default function Messaging() {
                             </Text>
                             <Space
                               className="message-card-details"
-                              direction="vertical"
+                              orientation="vertical"
                               size={0}
                               style={{ width: "100%" }}
                             >
