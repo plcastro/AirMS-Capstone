@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
+import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import LoadingScreen from "../LoadingScreen";
@@ -54,17 +55,13 @@ export default function Login() {
         console.error(err);
       }
     };
-
-    load();
+    loadSavedCredentials();
   }, []);
 
   const changeHandler = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // =========================
-  // VALIDATION
-  // =========================
   const validate = () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
@@ -79,9 +76,6 @@ export default function Login() {
     login();
   };
 
-  // =========================
-  // LOGIN REQUEST
-  // =========================
   const login = async () => {
     setLoading(true);
     setMessage("");
@@ -89,7 +83,10 @@ export default function Login() {
     try {
       const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-base": selectedBase },
+        headers: {
+          "Content-Type": "application/json",
+          "x-base": selectedBase,
+        },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
@@ -105,100 +102,38 @@ export default function Login() {
         return;
       }
 
-      if (response.ok) {
-        const { user, token } = data;
+      const { user, token, refreshToken } = data;
 
-        // Deactivated account
-        if (user.status === "deactivated") {
-          setMessage(
-            "This account is deactivated. Please contact AirMS Support",
-          );
-          return;
-        }
+      if (user?.status === "deactivated") {
+        setMessage("This account is deactivated. Please contact support");
+        return;
+      }
 
-        // Remember me logic
-        if (rememberMe) {
-          await AsyncStorage.setItem("token", token);
-          await AsyncStorage.setItem("rememberMe", "true");
-          await AsyncStorage.setItem(
-            "rememberedIdentifier",
-            formData.identifier.trim(),
-          );
-          await AsyncStorage.setItem("rememberedBase", selectedBase);
-        } else {
-          await AsyncStorage.setItem("token", token);
-          await AsyncStorage.setItem("rememberMe", "false");
-          await AsyncStorage.removeItem("rememberedIdentifier");
-          await AsyncStorage.removeItem("rememberedBase");
-        }
+      // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
+      await AsyncStorage.setItem("currentUserToken", String(token));
 
-        // Inactive users go to security setup
-        if (user.status === "inactive" || user.setupToken) {
-          nav.replace("securitySetup", {
-            email: user.email,
-            setupToken: user.setupToken,
-          });
-          return;
-        }
-        setLoginSuccess(true);
-        await loginUser(user, token);
-        const pendingRedirect = await readPendingRedirect();
-
-        if (pendingRedirect?.screen) {
-          await clearPendingRedirect();
-          nav.replace("dashboard", {
-            screen: pendingRedirect.screen,
-            params: pendingRedirect.params || {},
-          });
-          return;
-        }
-
-        nav.replace("dashboard");
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
       } else {
-        console.log("Login error message:", data.message);
-        setMessage(data.message || "Login failed");
+        await AsyncStorage.removeItem("refreshToken");
       }
 
-      const role = (user.jobTitle || "").toLowerCase();
+      // remember me
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
-      const allowed = [
-        "maintenance manager",
-        "pilot",
-        "officer-in-charge",
-        "mechanic",
-      ];
-
-      // =========================
-      // ACCOUNT CHECKS
-      // =========================
-      if (user.status === "deactivated") {
-        setMessage("Account deactivated");
-        return;
-      }
-
-      if (!allowed.includes(role)) {
-        setMessage("Web portal only account");
-        return;
-      }
-
-      // =========================
-      // REMEMBER ME
-      // =========================
       if (rememberMe) {
-        await AsyncStorage.setItem("rememberMe", "true");
         await AsyncStorage.setItem(
           "rememberedIdentifier",
           formData.identifier.trim(),
         );
+        await AsyncStorage.setItem("rememberedBase", selectedBase);
       } else {
-        await AsyncStorage.setItem("rememberMe", "false");
         await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedBase");
       }
 
-      // =========================
-      // SECURITY SETUP
-      // =========================
-      if (user.status === "inactive" || user.setupToken) {
+      // security redirect
+      if (user?.status === "inactive" || user?.setupToken) {
         nav.replace("securitySetup", {
           email: user.email,
           setupToken: user.setupToken,
@@ -206,27 +141,24 @@ export default function Login() {
         return;
       }
 
-      // =========================
-      // AUTH STORE
-      // =========================
+      setLoginSuccess(true);
+
       await loginUser({
         user,
-        accessToken,
-        refreshToken: data.refreshToken || null,
+        accessToken: token,
+        refreshToken,
       });
 
-      // =========================
-      // REDIRECT HANDLING
-      // =========================
-      const redirect = await readPendingRedirect();
+      const pendingRedirect = await readPendingRedirect();
 
-      if (redirect?.screen) {
+      if (pendingRedirect && pendingRedirect.screen) {
         await clearPendingRedirect();
 
         nav.replace("dashboard", {
-          screen: redirect.screen,
-          params: redirect.params || {},
+          screen: pendingRedirect.screen,
+          params: pendingRedirect.params || {},
         });
+
         return;
       }
 
@@ -248,29 +180,44 @@ export default function Login() {
   };
 
   if (loading) {
-    return <LoadingScreen message="Signing you in..." />;
+    return <LoadingScreen message="Signing you in..." showLogo />;
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <LoginLayout cardTitle="Login" cardsubTitle="Sign in to AirMS">
-          <Text style={styles.label}>Username or Email</Text>
-
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Login"
+          cardsubTitle="Sign in to access your AirMS account"
+        >
+          <Text style={[styles.label, { textAlign: "left" }]}>
+            Username or Email
+          </Text>
           <TextInput
             style={styles.formInput}
+            maxLength={256}
             placeholder="Username or Email"
-            value={formData.identifier}
-            onChangeText={(t) => changeHandler("identifier", t)}
+            placeholderTextColor="gray"
             autoCapitalize="none"
+            keyboardType="default"
+            value={formData.identifier}
+            onChangeText={(text) => changeHandler("identifier", text)}
           />
-
           <Text style={styles.label}>Password</Text>
-
           <TextInput
             style={styles.formInput}
+            maxLength={256}
             placeholder="Password"
+            placeholderTextColor="gray"
+            autoCapitalize="none"
             secureTextEntry
+            keyboardType="default"
             value={formData.password}
             onChangeText={(t) => changeHandler("password", t)}
           />
@@ -293,6 +240,7 @@ export default function Login() {
           <View style={styles.loginHelper}>
             <CheckBox
               title="Remember me"
+              checkboxStyle={styles.checkBox}
               value={rememberMe}
               onValueChange={setRememberMe}
             />

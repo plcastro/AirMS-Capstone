@@ -64,7 +64,6 @@ export default function ChatView({
         keyboardVerticalOffset={0}
       >
         <View style={{ flex: 1 }}>
-          {/* --- HEADER --- */}
           <View
             style={{
               flexDirection: "row",
@@ -305,7 +304,9 @@ export default function ChatView({
                   left: 10,
                   right: 10,
                   bottom:
-                    Platform.OS === "ios" ? Math.max(insets.bottom, 8) + 50 : 58,
+                    Platform.OS === "ios"
+                      ? Math.max(insets.bottom, 8) + 50
+                      : 58,
                   flexDirection: "row",
                   flexWrap: "wrap",
                   gap: 6,

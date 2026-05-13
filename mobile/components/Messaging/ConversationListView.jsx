@@ -31,7 +31,7 @@ export default function ConversationListView({
   getDisplayName,
 }) {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
+    <>
       <View
         style={{
           paddingHorizontal: 16,
@@ -81,7 +81,7 @@ export default function ConversationListView({
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 96 }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
       >
         {conversationItems.length === 0 ? (
           <View
@@ -96,16 +96,16 @@ export default function ConversationListView({
               size={42}
               color="#B7C6C2"
             />
-              <Text
-                style={{
-                  marginTop: 10,
-                  fontSize: 14,
-                  color: COLORS.grayDark,
-                  textAlign: "center",
-                }}
-              >
-                No conversations
-              </Text>
+            <Text
+              style={{
+                marginTop: 10,
+                fontSize: 14,
+                color: COLORS.grayDark,
+                textAlign: "center",
+              }}
+            >
+              No conversations
+            </Text>
           </View>
         ) : (
           conversationItems.map((item) => {
@@ -219,7 +219,7 @@ export default function ConversationListView({
         style={{
           position: "absolute",
           right: 24,
-          bottom: 24,
+          bottom: "10%",
           width: 56,
           height: 56,
           borderRadius: 28,
@@ -250,6 +250,6 @@ export default function ConversationListView({
         renderAvatar={renderAvatar}
         getDisplayName={getDisplayName}
       />
-    </SafeAreaView>
+    </>
   );
 }
