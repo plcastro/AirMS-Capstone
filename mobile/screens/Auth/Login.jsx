@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
@@ -14,7 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import LoadingScreen from "../LoadingScreen";
-
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
@@ -32,6 +33,7 @@ export default function Login() {
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -210,17 +212,35 @@ export default function Login() {
             onChangeText={(text) => changeHandler("identifier", text)}
           />
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.formInput}
-            maxLength={256}
-            placeholder="Password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            secureTextEntry
-            keyboardType="default"
-            value={formData.password}
-            onChangeText={(t) => changeHandler("password", t)}
-          />
+          <View style={{ position: "relative", justifyContent: "center" }}>
+            <TextInput
+              style={[styles.formInput, { paddingRight: 50 }]}
+              maxLength={256}
+              placeholder="Password"
+              placeholderTextColor="gray"
+              autoCapitalize="none"
+              secureTextEntry={!showPassword} // Toggle based on state
+              keyboardType="default"
+              value={formData.password}
+              onChangeText={(t) => changeHandler("password", t)}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: 10,
+                height: "100%",
+                justifyContent: "center",
+                paddingHorizontal: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? "eye-off" : "eye"}
+                size={21}
+                color="#059670" // Matching your theme color
+              />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.label}>Logging in from</Text>
           <View style={styles.loginPickerContainer}>
             <Picker
