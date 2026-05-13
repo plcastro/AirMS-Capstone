@@ -378,7 +378,7 @@ function LoginWrapper({ navigation, ...props }) {
 
 // --- Stack navigator ---
 function StackNavWrapper() {
-  const { loading } = useContext(AuthContext);
+  const { loading, token } = useContext(AuthContext);
 
   if (loading) return null;
 
@@ -389,14 +389,18 @@ function StackNavWrapper() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="login" component={LoginWrapper} />
+      {token ? (
+        <Stack.Screen
+          name="dashboard"
+          component={DrawerNav}
+          options={{ headerShown: false }}
+        />
+      ) : (
+        <Stack.Screen name="login" component={LoginWrapper} />
+      )}
       <Stack.Screen name="otpScreen" component={OTP} />
       <Stack.Screen name="securitySetup" component={SecuritySetup} />
-      <Stack.Screen
-        name="dashboard"
-        component={DrawerNav}
-        options={{ headerShown: false }}
-      />
+
       <Stack.Screen name="forgotPassword" component={ForgotPassword} />
       <Stack.Screen name="resetPassword" component={ResetPassword} />
     </Stack.Navigator>

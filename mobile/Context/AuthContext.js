@@ -1,17 +1,22 @@
+import React, { createContext, useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-// ... other imports
+import { API_BASE } from "../utilities/API_BASE";
 
+export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // =========================
-  // REFRESH SESSION (The "Stay Logged In" Engine)
-  // =========================
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     try {
-      const refreshToken = await SecureStore.getItemAsync("refreshToken");
+      // Check SecureStore first, fallback to AsyncStorage
+      let refreshToken = await SecureStore.getItemAsync("refreshToken");
+      if (!refreshToken) {
+        refreshToken = await AsyncStorage.getItem("refreshToken");
+      }
+
       if (!refreshToken) throw new Error("No refresh token available");
 
       const response = await fetch(`${API_BASE}/api/auth/refresh`, {
@@ -22,38 +27,45 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        await SecureStore.setItemAsync("accessToken", data.accessToken);
-        if (data.refreshToken)
-          await SecureStore.setItemAsync("refreshToken", data.refreshToken);
-
+      if (response.ok && data.accessToken) {
+        // Update states
         setToken(data.accessToken);
+
+        // Update storage
+        await SecureStore.setItemAsync("accessToken", data.accessToken);
+        await AsyncStorage.setItem("currentUserToken", data.accessToken);
+
+        if (data.refreshToken) {
+          await SecureStore.setItemAsync("refreshToken", data.refreshToken);
+          await AsyncStorage.setItem("refreshToken", data.refreshToken);
+        }
+
         return data.accessToken;
       } else {
-        throw new Error("Refresh failed");
+        throw new Error("Session expired");
       }
     } catch (err) {
-      logoutUser(); // If refresh fails, session is dead
+      console.warn("Silent refresh failed:", err.message);
+      await logoutUser();
       return null;
     }
-  };
+  }, [logoutUser]);
 
-  // =========================
-  // BOOTSTRAP (On App Load)
-  // =========================
   useEffect(() => {
     const loadPersistedAuth = async () => {
       try {
         const storedUser = await AsyncStorage.getItem("currentUser");
-        const accessToken = await SecureStore.getItemAsync("accessToken");
-        const refreshToken = await SecureStore.getItemAsync("refreshToken");
+        const accessToken = await AsyncStorage.getItem("currentUserToken");
+        const refreshToken = await AsyncStorage.getItem("refreshToken");
 
-        if (storedUser && refreshToken) {
+        if (storedUser && (accessToken || refreshToken)) {
           setUser(JSON.parse(storedUser));
           setToken(accessToken);
 
-          // Background check: attempt refresh to ensure session is still valid
-          refreshSession();
+          // If we have a refresh token, validate the session immediately
+          if (refreshToken) {
+            await refreshSession();
+          }
         }
       } catch (err) {
         console.error("Bootstrap failed", err);
@@ -62,27 +74,47 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadPersistedAuth();
-  }, []);
-
+  }, [refreshSession]);
   // =========================
   // LOGIN & LOGOUT
   // =========================
   const loginUser = async ({ user, accessToken, refreshToken }) => {
-    setUser(user);
-    setToken(accessToken);
-    await AsyncStorage.setItem("currentUser", JSON.stringify(user));
-    await SecureStore.setItemAsync("accessToken", accessToken);
-    if (refreshToken)
-      await SecureStore.setItemAsync("refreshToken", refreshToken);
+    try {
+      setUser(user);
+      setToken(accessToken);
+
+      // Save to AsyncStorage (for your API utilities)
+      await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+      await AsyncStorage.setItem("currentUserToken", accessToken);
+
+      // Save to SecureStore (for extra security)
+      await SecureStore.setItemAsync("accessToken", accessToken);
+
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+        await SecureStore.setItemAsync("refreshToken", refreshToken);
+      }
+    } catch (e) {
+      console.error("Login storage error", e);
+    }
   };
 
-  const logoutUser = async () => {
+  const logoutUser = useCallback(async () => {
     setUser(null);
     setToken(null);
-    await AsyncStorage.clear();
-    await SecureStore.deleteItemAsync("accessToken");
-    await SecureStore.deleteItemAsync("refreshToken");
-  };
+    try {
+      // Clear all storage
+      await AsyncStorage.multiRemove([
+        "currentUser",
+        "currentUserToken",
+        "refreshToken",
+      ]);
+      await SecureStore.deleteItemAsync("accessToken");
+      await SecureStore.deleteItemAsync("refreshToken");
+    } catch (e) {
+      console.error("Logout storage error", e);
+    }
+  }, []);
 
   return (
     <AuthContext.Provider
