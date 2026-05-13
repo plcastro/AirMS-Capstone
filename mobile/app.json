@@ -3,7 +3,11 @@
     "name": "AirMS",
     "slug": "AirMS",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -50,7 +54,8 @@
         {
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

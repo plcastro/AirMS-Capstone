@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -133,7 +139,12 @@ export default function UserManagement() {
   }, [searchQuery, statusFilter, users]);
 
   const counts = useMemo(() => {
-    const base = { total: users.length, active: 0, inactive: 0, deactivated: 0 };
+    const base = {
+      total: users.length,
+      active: 0,
+      inactive: 0,
+      deactivated: 0,
+    };
     users.forEach((item) => {
       const status = String(item.status || "").toLowerCase();
       if (base[status] !== undefined) base[status] += 1;
@@ -151,34 +162,86 @@ export default function UserManagement() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight, padding: 10 }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          marginBottom: 10,
+        }}
+      >
         {[
           { label: "Total", value: counts.total },
           { label: "Active", value: counts.active },
           { label: "Inactive", value: counts.inactive },
           { label: "Deactivated", value: counts.deactivated },
         ].map((item) => (
-          <View key={item.label} style={{ backgroundColor: COLORS.white, borderRadius: 8, padding: 10, minWidth: "23%", borderWidth: 1, borderColor: COLORS.border }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 11 }}>{item.label}</Text>
-            <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "700" }}>{item.value}</Text>
+          <View
+            key={item.label}
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 8,
+              padding: 10,
+              minWidth: "23%",
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <Text style={{ color: COLORS.grayDark, fontSize: 11 }}>
+              {item.label}
+            </Text>
+            <Text
+              style={{ color: COLORS.black, fontSize: 16, fontWeight: "700" }}
+            >
+              {item.value}
+            </Text>
           </View>
         ))}
       </View>
 
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white, borderRadius: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: COLORS.border }}>
-          <MaterialCommunityIcons name="magnify" size={20} color={COLORS.grayDark} />
+        <View
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: COLORS.white,
+            borderRadius: 8,
+            paddingHorizontal: 10,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="magnify"
+            size={20}
+            color={COLORS.grayDark}
+          />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search user"
             placeholderTextColor={COLORS.grayDark}
-            style={{ flex: 1, color: COLORS.black, fontSize: 12, marginLeft: 6, height: 40 }}
+            style={{
+              flex: 1,
+              color: COLORS.black,
+              fontSize: 12,
+              marginLeft: 6,
+              height: 40,
+            }}
           />
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          alignItems: "flex-start",
+          gap: 8,
+          paddingVertical: 15,
+        }}
+      >
         <View style={{ flexDirection: "row", gap: 6 }}>
           {STATUS_OPTIONS.map((option) => {
             const selected = statusFilter === option;
@@ -191,12 +254,24 @@ export default function UserManagement() {
                   paddingVertical: 8,
                   borderRadius: 7,
                   borderWidth: 1,
-                  borderColor: selected ? COLORS.primaryLight : COLORS.grayMedium,
-                  backgroundColor: selected ? COLORS.primaryLight : COLORS.white,
+                  borderColor: selected
+                    ? COLORS.primaryLight
+                    : COLORS.grayMedium,
+                  backgroundColor: selected
+                    ? COLORS.primaryLight
+                    : COLORS.white,
                 }}
               >
-                <Text style={{ color: selected ? COLORS.white : COLORS.grayDark, fontSize: 12, fontWeight: "600" }}>
-                  {option === "all" ? "All" : option[0].toUpperCase() + option.slice(1)}
+                <Text
+                  style={{
+                    color: selected ? COLORS.white : COLORS.grayDark,
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  {option === "all"
+                    ? "All"
+                    : option[0].toUpperCase() + option.slice(1)}
                 </Text>
               </TouchableOpacity>
             );
@@ -218,8 +293,14 @@ export default function UserManagement() {
       >
         {filteredUsers.length === 0 ? (
           <View style={{ alignItems: "center", marginTop: 40 }}>
-            <MaterialCommunityIcons name="account-search-outline" size={44} color={COLORS.grayMedium} />
-            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>No users found</Text>
+            <MaterialCommunityIcons
+              name="account-search-outline"
+              size={44}
+              color={COLORS.grayMedium}
+            />
+            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>
+              No users found
+            </Text>
           </View>
         ) : (
           filteredUsers.map((item) => {
@@ -227,37 +308,104 @@ export default function UserManagement() {
             const canReactivate = status === "deactivated";
 
             return (
-              <View key={String(item._id)} style={{ backgroundColor: COLORS.white, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10, padding: 12 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.black }}>
-                  {`${item.firstName || ""} ${item.lastName || ""}`.trim() || item.username || "Unknown"}
+              <View
+                key={String(item._id)}
+                style={{
+                  backgroundColor: COLORS.white,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  marginBottom: 10,
+                  padding: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "700",
+                    color: COLORS.black,
+                  }}
+                >
+                  {`${item.firstName || ""} ${item.lastName || ""}`.trim() ||
+                    item.username ||
+                    "Unknown"}
                 </Text>
-                <Text style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}>
+                <Text
+                  style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}
+                >
                   @{item.username || "-"}
                 </Text>
-                <Text style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}>
+                <Text
+                  style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}
+                >
                   {maskEmail(item.email || "-")}
                 </Text>
-                <Text style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}>
-                  {item.jobTitle || "N/A"} · {item.access || "N/A"}
+                <Text
+                  style={{ marginTop: 2, fontSize: 12, color: COLORS.grayDark }}
+                >
+                  {item.jobTitle || "N/A"} {item.access || "N/A"}
                 </Text>
-                <Text style={{ marginTop: 2, fontSize: 12, color: status === "active" ? "#1D7A3B" : status === "deactivated" ? COLORS.dangerBorder : "#A46A00" }}>
+                <Text
+                  style={{
+                    marginTop: 2,
+                    fontSize: 12,
+                    color:
+                      status === "active"
+                        ? "#1D7A3B"
+                        : status === "deactivated"
+                          ? COLORS.dangerBorder
+                          : "#A46A00",
+                  }}
+                >
                   {status.toUpperCase()}
                 </Text>
 
-                <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 8 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    marginTop: 8,
+                  }}
+                >
                   {canReactivate ? (
                     <TouchableOpacity
                       onPress={() => runStatusAction(item, "active")}
-                      style={{ backgroundColor: COLORS.primaryLight, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 }}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        borderRadius: 7,
+                        paddingHorizontal: 10,
+                        paddingVertical: 7,
+                      }}
                     >
-                      <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "700" }}>Reactivate</Text>
+                      <Text
+                        style={{
+                          color: COLORS.white,
+                          fontSize: 12,
+                          fontWeight: "700",
+                        }}
+                      >
+                        Reactivate
+                      </Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       onPress={() => runStatusAction(item, "deactivated")}
-                      style={{ backgroundColor: COLORS.dangerBorder, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 }}
+                      style={{
+                        backgroundColor: COLORS.dangerBorder,
+                        borderRadius: 7,
+                        paddingHorizontal: 10,
+                        paddingVertical: 7,
+                      }}
                     >
-                      <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "700" }}>Deactivate</Text>
+                      <Text
+                        style={{
+                          color: COLORS.white,
+                          fontSize: 12,
+                          fontWeight: "700",
+                        }}
+                      >
+                        Deactivate
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>

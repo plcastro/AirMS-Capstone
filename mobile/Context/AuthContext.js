@@ -1,118 +1,92 @@
-import React, { createContext, useEffect, useState } from "react";
-import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE } from "../utilities/API_BASE";
-
-export const AuthContext = createContext();
+import * as SecureStore from "expo-secure-store";
+// ... other imports
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   // =========================
-  // CLEAR STORAGE
+  // REFRESH SESSION (The "Stay Logged In" Engine)
   // =========================
-  const clearStoredAuth = async () => {
+  const refreshSession = async () => {
     try {
-      if (Platform.OS === "web") {
-        localStorage.removeItem("currentUser");
-        localStorage.removeItem("currentUserToken");
+      const refreshToken = await SecureStore.getItemAsync("refreshToken");
+      if (!refreshToken) throw new Error("No refresh token available");
+
+      const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await SecureStore.setItemAsync("accessToken", data.accessToken);
+        if (data.refreshToken)
+          await SecureStore.setItemAsync("refreshToken", data.refreshToken);
+
+        setToken(data.accessToken);
+        return data.accessToken;
       } else {
-        await AsyncStorage.multiRemove([
-          "currentUser",
-          "currentUserToken",
-          "refreshToken",
-        ]);
+        throw new Error("Refresh failed");
       }
     } catch (err) {
-      console.error("Clear auth failed:", err);
+      logoutUser(); // If refresh fails, session is dead
+      return null;
     }
   };
 
   // =========================
-  // LOGOUT
-  // =========================
-  const logoutUser = async () => {
-    setUser(null);
-    await clearStoredAuth();
-  };
-
-  // =========================
-  // RESTORE SESSION
+  // BOOTSTRAP (On App Load)
   // =========================
   useEffect(() => {
-    const loadUser = async () => {
+    const loadPersistedAuth = async () => {
       try {
-        let storedUser;
-        let storedToken;
+        const storedUser = await AsyncStorage.getItem("currentUser");
+        const accessToken = await SecureStore.getItemAsync("accessToken");
+        const refreshToken = await SecureStore.getItemAsync("refreshToken");
 
-        if (Platform.OS === "web") {
-          storedUser = localStorage.getItem("currentUser");
-          storedToken = localStorage.getItem("currentUserToken");
-        } else {
-          const result = await AsyncStorage.multiGet([
-            "currentUser",
-            "currentUserToken",
-          ]);
+        if (storedUser && refreshToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(accessToken);
 
-          storedUser = result[0][1];
-          storedToken = result[1][1];
+          // Background check: attempt refresh to ensure session is still valid
+          refreshSession();
         }
-
-        if (!storedUser || !storedToken) {
-          setUser(null);
-          return;
-        }
-
-        setUser(JSON.parse(storedUser));
       } catch (err) {
-        console.error("Session restore failed:", err);
-        setUser(null);
+        console.error("Bootstrap failed", err);
       } finally {
         setLoading(false);
       }
     };
-
-    loadUser();
+    loadPersistedAuth();
   }, []);
 
   // =========================
-  // LOGIN
+  // LOGIN & LOGOUT
   // =========================
   const loginUser = async ({ user, accessToken, refreshToken }) => {
-    if (!user || !accessToken) return;
-
     setUser(user);
     setToken(accessToken);
+    await AsyncStorage.setItem("currentUser", JSON.stringify(user));
+    await SecureStore.setItemAsync("accessToken", accessToken);
+    if (refreshToken)
+      await SecureStore.setItemAsync("refreshToken", refreshToken);
+  };
 
-    try {
-      if (Platform.OS === "web") {
-        localStorage.setItem("currentUser", JSON.stringify(user));
-        localStorage.setItem("currentUserToken", accessToken);
-        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-      } else {
-        await AsyncStorage.multiSet([
-          ["currentUser", JSON.stringify(user)],
-          ["currentUserToken", accessToken],
-          ["refreshToken", refreshToken || ""],
-        ]);
-      }
-    } catch (err) {
-      console.error("Login storage failed:", err);
-    }
+  const logoutUser = async () => {
+    setUser(null);
+    setToken(null);
+    await AsyncStorage.clear();
+    await SecureStore.deleteItemAsync("accessToken");
+    await SecureStore.deleteItemAsync("refreshToken");
   };
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        setUser,
-        loginUser,
-        logoutUser,
-        loading,
-        token,
-        setToken,
-      }}
+      value={{ user, token, loginUser, logoutUser, loading, refreshSession }}
     >
       {children}
     </AuthContext.Provider>

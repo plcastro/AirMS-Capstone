@@ -133,6 +133,8 @@ const getPortalUrlByJobTitle = (jobTitle) =>
   jobTitle === "Maintenance Manager" ||
   jobTitle === "Officer-In-Charge" ||
   jobTitle === "Admin" ||
+  jobTitle === "Pilot" ||
+  jobTitle === "Warehouse Department" ||
   jobTitle === "Mechanic"
     ? `${WEB_URL}/login`
     : `${MOBILE_URL}/login`;
