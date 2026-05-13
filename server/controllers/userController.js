@@ -444,6 +444,7 @@ const loginUser = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
+      refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
       sessionId: session.sessionId,
       user: responseUser,
     });
@@ -468,9 +469,12 @@ const unlockUser = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
-  const incomingRefreshToken = req.cookies?.refreshToken;
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body?.refreshToken;
   if (!incomingRefreshToken) {
-    return res.status(401).json({ message: "No token" });
+    return res
+      .status(401)
+      .json({ message: "No refresh token provided (cookie or body missing)" });
   }
 
   try {

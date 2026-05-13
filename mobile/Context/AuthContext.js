@@ -1,197 +1,117 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import React, { createContext, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../utilities/API_BASE";
+
 export const AuthContext = createContext();
-
-const ACCESS_KEY = process.env.ACCESS_KEY;
-const REFRESH_KEY = process.env.REFRESH_KEY;
-const USER_KEY = process.env.USER_KEY;
-const storage = {
-  get: async (key) => {
-    return Platform.OS === "web"
-      ? localStorage.getItem(key)
-      : await AsyncStorage.getItem(key);
-  },
-
-  set: async (key, value) => {
-    if (value === undefined || value === null) return;
-
-    return Platform.OS === "web"
-      ? localStorage.setItem(key, value)
-      : await AsyncStorage.setItem(key, value);
-  },
-
-  remove: async (key) => {
-    return Platform.OS === "web"
-      ? localStorage.removeItem(key)
-      : await AsyncStorage.removeItem(key);
-  },
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const appState = useRef(AppState.currentState);
+  const [token, setToken] = useState(null);
+  // =========================
+  // CLEAR STORAGE
+  // =========================
+  const clearStoredAuth = async () => {
+    try {
+      if (Platform.OS === "web") {
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("currentUserToken");
+      } else {
+        await AsyncStorage.multiRemove([
+          "currentUser",
+          "currentUserToken",
+          "refreshToken",
+        ]);
+      }
+    } catch (err) {
+      console.error("Clear auth failed:", err);
+    }
+  };
 
   // =========================
   // LOGOUT
   // =========================
   const logoutUser = async () => {
     setUser(null);
-    await storage.remove(USER_KEY);
-    await storage.remove(ACCESS_KEY);
-    await storage.remove(REFRESH_KEY);
-  };
-
-  // =========================
-  // REFRESH TOKEN
-  // =========================
-  const refreshToken = async () => {
-    const refresh = await storage.get(REFRESH_KEY);
-    if (!refresh) throw new Error("No refresh token");
-
-    const res = await fetch(`${API_BASE}/api/user/refresh-token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${refresh}`,
-      },
-    });
-
-    if (!res.ok) throw new Error("Refresh failed");
-
-    const data = await res.json();
-
-    await storage.set(ACCESS_KEY, data.accessToken);
-    if (data.refreshToken) {
-      await storage.set(REFRESH_KEY, data.refreshToken);
-    }
-
-    return data.accessToken;
-  };
-
-  // =========================
-  // TOKEN CHECK
-  // =========================
-  const decodeToken = (token) => {
-    try {
-      return JSON.parse(atob(token.split(".")[1]));
-    } catch {
-      return null;
-    }
-  };
-
-  const isExpired = (token) => {
-    const payload = decodeToken(token);
-    if (!payload) return true;
-    return payload.exp * 1000 < Date.now();
-  };
-
-  const verifyToken = async (token) => {
-    if (!token || isExpired(token)) {
-      try {
-        await refreshToken();
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    return true;
+    await clearStoredAuth();
   };
 
   // =========================
   // RESTORE SESSION
   // =========================
-  const restoreSession = async () => {
-    try {
-      const token = await storage.get(ACCESS_KEY);
-      const cachedUser = await storage.get(USER_KEY);
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        let storedUser;
+        let storedToken;
 
-      if (notifyServer && Platform.OS !== "web") {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const sessionMeta = await getSessionMeta();
+        if (Platform.OS === "web") {
+          storedUser = localStorage.getItem("currentUser");
+          storedToken = localStorage.getItem("currentUserToken");
+        } else {
+          const result = await AsyncStorage.multiGet([
+            "currentUser",
+            "currentUserToken",
+          ]);
 
-        if (token) {
-          await fetch(`${API_BASE}/api/user/logout`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-              "x-platform": "MOBILE",
-              ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-              ...(sessionMeta.sessionId
-                ? { "x-session-id": sessionMeta.sessionId }
-                : {}),
-            },
-          }).catch((error) => {
-            console.error("Server logout failed:", error);
-          });
+          storedUser = result[0][1];
+          storedToken = result[1][1];
         }
-      }
 
-      if (cachedUser) {
-        setUser(JSON.parse(cachedUser));
-      }
+        if (!storedUser || !storedToken) {
+          setUser(null);
+          return;
+        }
 
-      const valid = await verifyToken(token);
-
-      if (!valid) {
-        await logout();
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error("Session restore failed:", err);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      await logout();
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    loadUser();
+  }, []);
 
   // =========================
-  // LOGIN (CLEAN CONTRACT)
+  // LOGIN
   // =========================
   const loginUser = async ({ user, accessToken, refreshToken }) => {
-    if (!user || !accessToken) {
-      console.log("❌ Invalid login payload", {
-        user,
-        accessToken,
-        refreshToken,
-      });
-      return;
-    }
+    if (!user || !accessToken) return;
 
     setUser(user);
+    setToken(accessToken);
 
-    await storage.set(USER_KEY, JSON.stringify(user));
-    await storage.set(ACCESS_KEY, accessToken);
-
-    if (refreshToken) {
-      await storage.set(REFRESH_KEY, refreshToken);
+    try {
+      if (Platform.OS === "web") {
+        localStorage.setItem("currentUser", JSON.stringify(user));
+        localStorage.setItem("currentUserToken", accessToken);
+        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+      } else {
+        await AsyncStorage.multiSet([
+          ["currentUser", JSON.stringify(user)],
+          ["currentUserToken", accessToken],
+          ["refreshToken", refreshToken || ""],
+        ]);
+      }
+    } catch (err) {
+      console.error("Login storage failed:", err);
     }
   };
-
-  // =========================
-  // APP STATE LISTENER
-  // =========================
-  useEffect(() => {
-    restoreSession();
-
-    const sub = AppState.addEventListener("change", async (state) => {
-      if (appState.current.match(/inactive|background/) && state === "active") {
-        await restoreSession();
-      }
-      appState.current = state;
-    });
-
-    return () => sub.remove();
-  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        loading,
+        setUser,
         loginUser,
         logoutUser,
-        restoreSession,
+        loading,
+        token,
+        setToken,
       }}
     >
       {children}

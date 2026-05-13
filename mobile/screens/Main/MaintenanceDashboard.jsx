@@ -1,8 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useContext,
+} from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
-import { formatDate, getArrayData, getAuthHeaders } from "../../utilities/mobileApi";
+import {
+  formatDate,
+  getArrayData,
+  getAuthHeaders,
+} from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
 import {
   EmptyState,
@@ -16,7 +26,7 @@ import {
   StatusChip,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
-
+import { AuthContext } from "../../Context/AuthContext";
 const normalizeStatus = (value) =>
   String(value || "Unknown")
     .replace(/_/g, " ")
@@ -36,7 +46,9 @@ const topRows = (counts, limit = 4) =>
     .slice(0, limit);
 
 const isCompletedTask = (task = {}) => {
-  const status = String(task.status || "").toLowerCase().trim();
+  const status = String(task.status || "")
+    .toLowerCase()
+    .trim();
   return (
     ["completed", "turned in", "approved"].includes(status) ||
     task.isApproved === true ||
@@ -73,7 +85,12 @@ export default function MaintenanceDashboard() {
   const [preInspections, setPreInspections] = useState([]);
   const [postInspections, setPostInspections] = useState([]);
   const [partsRequisitions, setPartsRequisitions] = useState([]);
-
+  const { user } = useContext(AuthContext);
+  useEffect(() => {
+    if (user) {
+      fetchReportData();
+    }
+  }, [user, fetchReportData]);
   const fetchReportData = useCallback(async () => {
     try {
       setLoading(true);
@@ -105,7 +122,11 @@ export default function MaintenanceDashboard() {
         Object.entries(requests).map(async ([key, request]) => {
           try {
             const response = await request;
-            if (!response.ok) throw new Error(`${key} failed`);
+            if (!response.ok) {
+              const text = await response.text();
+              console.error(`${key} failed`, response.status, text);
+              throw new Error(`${key} failed`);
+            }
             return [key, await response.json()];
           } catch (error) {
             console.error(`Report fetch failed for ${key}:`, error);
@@ -136,8 +157,10 @@ export default function MaintenanceDashboard() {
   const stats = useMemo(
     () => ({
       completed: tasks.filter(isCompletedTask).length,
-      dueSoon: tasks.filter((task) => getTaskCategory(task) === "dueSoon").length,
-      overdue: tasks.filter((task) => getTaskCategory(task) === "overdue").length,
+      dueSoon: tasks.filter((task) => getTaskCategory(task) === "dueSoon")
+        .length,
+      overdue: tasks.filter((task) => getTaskCategory(task) === "overdue")
+        .length,
       moduleReports: 8,
     }),
     [tasks],
@@ -184,7 +207,9 @@ export default function MaintenanceDashboard() {
       const days = Number(part.daysRemaining);
       const hours = Number(part.timeRemaining);
       return (
-        String(part.due || "").toLowerCase().includes("due") ||
+        String(part.due || "")
+          .toLowerCase()
+          .includes("due") ||
         (Number.isFinite(days) && days <= 30) ||
         (Number.isFinite(hours) && hours <= 50)
       );
@@ -218,7 +243,9 @@ export default function MaintenanceDashboard() {
       {
         title: "Parts Requisition Status",
         rows: topRows(
-          countBy(partsRequisitions, (record) => normalizeStatus(record.status)),
+          countBy(partsRequisitions, (record) =>
+            normalizeStatus(record.status),
+          ),
         ),
       },
       {
@@ -226,7 +253,14 @@ export default function MaintenanceDashboard() {
         rows: topRows(countBy(dueComponents, (part) => part.aircraft)),
       },
     ];
-  }, [flightLogs, partsRecords, partsRequisitions, postInspections, preInspections, tasks]);
+  }, [
+    flightLogs,
+    partsRecords,
+    partsRequisitions,
+    postInspections,
+    preInspections,
+    tasks,
+  ]);
 
   const tabs = [
     ["completed", `Completed (${stats.completed})`],
@@ -236,7 +270,11 @@ export default function MaintenanceDashboard() {
 
   return (
     <ModuleContainer>
-      <SearchBar value={search} onChangeText={setSearch} placeholder="Search task details" />
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search task details"
+      />
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <StatCard label="Completed Tasks" value={stats.completed} />
@@ -245,7 +283,10 @@ export default function MaintenanceDashboard() {
         <StatCard label="Module Reports" value={stats.moduleReports} />
       </View>
 
-      <InfoCard title="Task Details" subtitle="Records behind the summary cards">
+      <InfoCard
+        title="Task Details"
+        subtitle="Records behind the summary cards"
+      >
         <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
           {tabs.map(([key, label]) => {
             const selected = taskView === key;
@@ -258,7 +299,9 @@ export default function MaintenanceDashboard() {
                   borderRadius: 8,
                   paddingVertical: 9,
                   paddingHorizontal: 6,
-                  backgroundColor: selected ? COLORS.primaryLight : COLORS.grayLight,
+                  backgroundColor: selected
+                    ? COLORS.primaryLight
+                    : COLORS.grayLight,
                   alignItems: "center",
                 }}
               >
@@ -279,7 +322,9 @@ export default function MaintenanceDashboard() {
       </InfoCard>
 
       {loading && <LoadingState text="Loading reports..." />}
-      {!loading && taskRows.length === 0 && <EmptyState text="No task records for this view." />}
+      {!loading && taskRows.length === 0 && (
+        <EmptyState text="No task records for this view." />
+      )}
       {taskRows.slice(0, 12).map((task) => (
         <InfoCard
           key={task._id || task.id}
@@ -293,19 +338,32 @@ export default function MaintenanceDashboard() {
           }
         >
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Mechanic" value={task.assignedToName || task.assignedMechanic || "Unassigned"} />
+            <FieldRow
+              label="Mechanic"
+              value={
+                task.assignedToName || task.assignedMechanic || "Unassigned"
+              }
+            />
             <FieldRow label="Type" value={task.maintenanceType} />
-            <FieldRow label="Due Date" value={formatDate(task.dueDate || task.endDateTime)} />
+            <FieldRow
+              label="Due Date"
+              value={formatDate(task.dueDate || task.endDateTime)}
+            />
             <FieldRow label="Priority" value={task.priority || "Normal"} />
           </View>
         </InfoCard>
       ))}
 
-      <SectionTitle title="Module Reports" subtitle="Compact mobile summaries from web analytics" />
+      <SectionTitle
+        title="Module Reports"
+        subtitle="Compact mobile summaries from web analytics"
+      />
       {reportSections.map((section) => (
         <InfoCard key={section.title} title={section.title}>
           {section.rows.length === 0 ? (
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</Text>
+            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+              No data available.
+            </Text>
           ) : (
             section.rows.map((row) => (
               <View

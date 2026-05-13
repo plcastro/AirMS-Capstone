@@ -141,6 +141,7 @@ function DrawerNav({ navigation }) {
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "admin";
   const canAccessActivityLogs = normalizedRole === "admin";
+
   const profileImage =
     user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
