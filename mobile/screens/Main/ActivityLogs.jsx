@@ -19,11 +19,26 @@ const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
-  if (["created", "added", "inserted", "new"].some((k) => text.includes(k))) return "create";
-  if (["updated", "modified", "changed", "edited"].some((k) => text.includes(k))) return "update";
-  if (["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))) return "delete";
-  if (["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))) return "login";
-  if (["log out", "logged out", "logout", "signed out"].some((k) => text.includes(k))) return "logout";
+  if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
+    return "create";
+  if (
+    ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
+  )
+    return "update";
+  if (
+    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
+  )
+    return "delete";
+  if (
+    ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
+  )
+    return "login";
+  if (
+    ["log out", "logged out", "logout", "signed out"].some((k) =>
+      text.includes(k),
+    )
+  )
+    return "logout";
   return "other";
 };
 
@@ -38,11 +53,14 @@ export default function ActivityLogs() {
     try {
       if (!silent) setLoading(true);
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const response = await fetch(
+        `${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         },
-      });
+      );
 
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -96,7 +114,9 @@ export default function ActivityLogs() {
   const filteredLogs = useMemo(() => {
     let next = [...logs];
     if (actionType !== "all") {
-      next = next.filter((item) => getActionCategory(item.actionMade) === actionType);
+      next = next.filter(
+        (item) => getActionCategory(item.actionMade) === actionType,
+      );
     }
 
     const query = searchQuery.trim().toLowerCase();
@@ -134,18 +154,43 @@ export default function ActivityLogs() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight, padding: 10 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white, borderRadius: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 }}>
-        <MaterialCommunityIcons name="magnify" size={20} color={COLORS.grayDark} />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: COLORS.white,
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          marginBottom: 10,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="magnify"
+          size={20}
+          color={COLORS.grayDark}
+        />
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search logs"
           placeholderTextColor={COLORS.grayDark}
-          style={{ flex: 1, color: COLORS.black, fontSize: 12, marginLeft: 6, height: 40 }}
+          style={{
+            flex: 1,
+            color: COLORS.black,
+            fontSize: 12,
+            marginLeft: 6,
+            height: 40,
+          }}
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginBottom: 10 }}
+      >
         <View style={{ flexDirection: "row", gap: 6 }}>
           {ACTION_TYPES.map((type) => {
             const selected = actionType === type;
@@ -158,12 +203,24 @@ export default function ActivityLogs() {
                   paddingVertical: 8,
                   borderRadius: 7,
                   borderWidth: 1,
-                  borderColor: selected ? COLORS.primaryLight : COLORS.grayMedium,
-                  backgroundColor: selected ? COLORS.primaryLight : COLORS.white,
+                  borderColor: selected
+                    ? COLORS.primaryLight
+                    : COLORS.grayMedium,
+                  backgroundColor: selected
+                    ? COLORS.primaryLight
+                    : COLORS.white,
                 }}
               >
-                <Text style={{ color: selected ? COLORS.white : COLORS.grayDark, fontSize: 12, fontWeight: "600" }}>
-                  {type === "all" ? "All Actions" : type[0].toUpperCase() + type.slice(1)}
+                <Text
+                  style={{
+                    color: selected ? COLORS.white : COLORS.grayDark,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {type === "all"
+                    ? "All Actions"
+                    : type[0].toUpperCase() + type.slice(1)}
                 </Text>
               </TouchableOpacity>
             );
@@ -185,19 +242,41 @@ export default function ActivityLogs() {
       >
         {filteredLogs.length === 0 ? (
           <View style={{ alignItems: "center", marginTop: 40 }}>
-            <MaterialCommunityIcons name="history" size={44} color={COLORS.grayMedium} />
-            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>No logs found</Text>
+            <MaterialCommunityIcons
+              name="history"
+              size={44}
+              color={COLORS.grayMedium}
+            />
+            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>
+              No logs found
+            </Text>
           </View>
         ) : (
           filteredLogs.map((item) => (
-            <View key={String(item._id)} style={{ backgroundColor: COLORS.white, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10, padding: 12 }}>
-              <Text style={{ color: COLORS.black, fontSize: 13, fontWeight: "700" }}>
+            <View
+              key={String(item._id)}
+              style={{
+                backgroundColor: COLORS.white,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                marginBottom: 10,
+                padding: 12,
+              }}
+            >
+              <Text
+                style={{ color: COLORS.black, fontSize: 13, fontWeight: "700" }}
+              >
                 {item.actionMade || "N/A"}
               </Text>
-              <Text style={{ marginTop: 4, color: COLORS.grayDark, fontSize: 12 }}>
+              <Text
+                style={{ marginTop: 4, color: COLORS.grayDark, fontSize: 12 }}
+              >
                 User: {item.username || "Unknown"}
               </Text>
-              <Text style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}>
+              <Text
+                style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}
+              >
                 {formatDisplayDate(item.dateTime)}
               </Text>
             </View>
