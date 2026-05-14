@@ -561,7 +561,9 @@ export default function PartsMonitoring() {
       worksheet.mergeCells("C3:F3");
       const aircraftInfoCell = worksheet.getCell("C3");
       aircraftInfoCell.value = `ACFT. TYPE: ${aircraftDetails.aircraftType || ""}${
-        aircraftDetails.serialNumber ? `   SN: ${aircraftDetails.serialNumber}` : ""
+        aircraftDetails.serialNumber
+          ? `   SN: ${aircraftDetails.serialNumber}`
+          : ""
       }`;
       aircraftInfoCell.font = { bold: true, size: 10 };
       aircraftInfoCell.alignment = {
@@ -640,7 +642,11 @@ export default function PartsMonitoring() {
       });
 
       for (let rowNumber = 4; rowNumber <= 5; rowNumber += 1) {
-        for (let columnNumber = 1; columnNumber <= exportColumns.length; columnNumber += 1) {
+        for (
+          let columnNumber = 1;
+          columnNumber <= exportColumns.length;
+          columnNumber += 1
+        ) {
           styleHeaderCell(worksheet.getCell(rowNumber, columnNumber));
         }
       }
@@ -701,9 +707,17 @@ export default function PartsMonitoring() {
             Number.isFinite(daysRemaining)
           ) {
             if (daysRemaining <= 0) {
-              cell.font = { ...cell.font, bold: true, color: { argb: "FFFF0000" } };
+              cell.font = {
+                ...cell.font,
+                bold: true,
+                color: { argb: "FFFF0000" },
+              };
             } else if (daysRemaining <= 30) {
-              cell.font = { ...cell.font, bold: true, color: { argb: "FFFF9900" } };
+              cell.font = {
+                ...cell.font,
+                bold: true,
+                color: { argb: "FFFF9900" },
+              };
             }
           }
         });
@@ -741,7 +755,7 @@ export default function PartsMonitoring() {
     <div className="parts-monitoring-container">
       {" "}
       <Card style={{ marginBottom: 10 }}>
-        <Row justify="space-between" align="middle" className="header-row">
+        <Row justify="space-between" align="middle">
           <Col flex="auto">
             <div className="header-left">
               <Input
@@ -775,7 +789,9 @@ export default function PartsMonitoring() {
               <Button
                 icon={<DownloadOutlined />}
                 onClick={handleExportExcel}
-                disabled={!selectedAircraft || loading || computedData.length === 0}
+                disabled={
+                  !selectedAircraft || loading || computedData.length === 0
+                }
               >
                 Export
               </Button>
@@ -789,42 +805,45 @@ export default function PartsMonitoring() {
               )}
             </div>
           </Col>
-        </Row>{" "}
+        </Row>
       </Card>
-      <Divider />
-      <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-        <Col sm={24} md={6}>
-          <Card className="aircraft-card">
-            <div>
-              <Text>Aircraft: </Text>
-              <Text className="info-value">
-                {selectedAircraft || "Not selected"}
-              </Text>
-            </div>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={24} md={6}>
+          <Card>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text>Aircraft:</Text>
+                <Text className="info-value">
+                  {selectedAircraft || "Not selected"}
+                </Text>
+              </div>
 
-            <div>
-              <Text>Date Manufactured: </Text>
-              <Text className="info-value">
-                {aircraftDetails.dateManufactured
-                  ? aircraftDetails.dateManufactured.toLocaleDateString()
-                  : "Not available"}
-              </Text>
-            </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text>Date Manufactured:</Text>
+                <Text className="info-value">
+                  {aircraftDetails.dateManufactured
+                    ? new Date(
+                        aircraftDetails.dateManufactured,
+                      ).toLocaleDateString()
+                    : "Not available"}
+                </Text>
+              </div>
 
-            <div>
-              <Text>Acft. Type: </Text>
-              <Text className="info-value">
-                {aircraftDetails.aircraftType || "Not available"}
-              </Text>
-            </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text>Acft. Type:</Text>
+                <Text className="info-value">
+                  {aircraftDetails.aircraftType || "Not available"}
+                </Text>
+              </div>
 
-            <div>
-              <Text>Creep Damage: </Text>
-              <Text className="info-value">
-                {aircraftDetails.creepDamage
-                  ? `${aircraftDetails.creepDamage}%`
-                  : "Not available"}
-              </Text>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <Text>Creep Damage:</Text>
+                <Text className="info-value">
+                  {aircraftDetails.creepDamage != null
+                    ? `${aircraftDetails.creepDamage}%`
+                    : "Not available"}
+                </Text>
+              </div>
             </div>
           </Card>
         </Col>
@@ -833,10 +852,12 @@ export default function PartsMonitoring() {
         <Col xs={24} md={18}>
           <Card className="aircraft-card">
             <Form layout="vertical" colon={false}>
-              <Row gutter={[16, 8]}>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Engine Cycle">
+              <Row gutter={[12, 6]}>
+                {/* Engine Cycle */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="Engine Cycle" style={{ marginBottom: 8 }}>
                     <Input
+                      size="middle"
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -851,9 +872,12 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Date">
+
+                {/* Date */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="Date" style={{ marginBottom: 8 }}>
                     <Input
+                      size="middle"
                       type="date"
                       value={refs.today.toISOString().split("T")[0]}
                       onChange={(e) =>
@@ -866,9 +890,12 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="N1">
+
+                {/* N1 */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="N1" style={{ marginBottom: 8 }}>
                     <Input
+                      size="middle"
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -883,26 +910,12 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Eng. TT">
+
+                {/* N2 */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="N2" style={{ marginBottom: 8 }}>
                     <Input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      value={refs.engTT}
-                      onChange={(e) =>
-                        setRefs((prev) => ({
-                          ...prev,
-                          engTT: parseFloat(e.target.value) || 0,
-                        }))
-                      }
-                      disabled={!selectedAircraft || isOfficerInCharge}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="N2">
-                    <Input
+                      size="middle"
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -917,9 +930,12 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Acft. TT">
+
+                {/* Aircraft TT */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="Acft. TT" style={{ marginBottom: 8 }}>
                     <Input
+                      size="middle"
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -934,9 +950,12 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Landings">
+
+                {/* Landings */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="Landings" style={{ marginBottom: 8 }}>
                     <Input
+                      size="middle"
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -951,9 +970,14 @@ export default function PartsMonitoring() {
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <Form.Item label="Sling">
-                    <Input disabled={!selectedAircraft || isOfficerInCharge} />
+
+                {/* Sling */}
+                <Col xs={24} sm={12} md={6}>
+                  <Form.Item label="Sling" style={{ marginBottom: 8 }}>
+                    <Input
+                      size="middle"
+                      disabled={!selectedAircraft || isOfficerInCharge}
+                    />
                   </Form.Item>
                 </Col>
               </Row>

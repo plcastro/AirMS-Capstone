@@ -332,15 +332,15 @@ export default function App() {
     <ConfigProvider
       theme={{
         components: {
-          // Table: {
-          //   headerBg: "#000000",
-          //   headerColor: "#fff",
-          //   headerSortHoverBg: "#1f6654",
-          //   headerSortActiveBg: "#1f6654",
-          //   headerFilterHoverBg: "#1f6654",
-          //   headerBorderRadius: 10,
-          //   headerBorderColor: "#002019",
-          // },
+          Table: {
+            headerBg: "#1f6654",
+            headerColor: "#fff",
+            headerSortHoverBg: "#1f6654",
+            headerSortActiveBg: "#1f6654",
+            headerFilterHoverBg: "#1f6654",
+            headerBorderRadius: 10,
+            headerBorderColor: "#1f6654",
+          },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {
             colorBgContainer: "#ffffff",

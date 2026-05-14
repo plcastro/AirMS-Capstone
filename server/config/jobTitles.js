@@ -43,7 +43,7 @@ const jobTitles = {
     permissions.TASKS_READ_ALL,
     permissions.TASKS_CREATE,
     permissions.TASKS_UPDATE_ALL,
-
+    permissions.USERS_READ,
     permissions.MAINTENANCELOG_UPDATE,
 
     permissions.MECHANICS_READ,

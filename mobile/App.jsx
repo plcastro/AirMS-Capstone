@@ -354,9 +354,6 @@ function LoginWrapper({ navigation, ...props }) {
     if (user.status === "deactivated") {
       return;
     }
-    if (user.jobTitle === "Admin") {
-      return;
-    }
 
     if (user.status === "inactive") {
       console.log(user.setupToken);
@@ -366,6 +363,9 @@ function LoginWrapper({ navigation, ...props }) {
       });
 
       return;
+    }
+    if (user) {
+      navigation.replace("dashboard");
     }
   }, [user, loading, navigation]);
 
@@ -389,15 +389,8 @@ function StackNavWrapper() {
         headerShown: false,
       }}
     >
-      {token ? (
-        <Stack.Screen
-          name="dashboard"
-          component={DrawerNav}
-          options={{ headerShown: false }}
-        />
-      ) : (
-        <Stack.Screen name="login" component={LoginWrapper} />
-      )}
+      <Stack.Screen name="login" component={LoginWrapper} />
+      <Stack.Screen name="dashboard" component={DrawerNav} />
       <Stack.Screen name="otpScreen" component={OTP} />
       <Stack.Screen name="securitySetup" component={SecuritySetup} />
 

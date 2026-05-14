@@ -65,6 +65,7 @@ export default function TaskAssignment() {
     try {
       setLoading(true);
       const headers = await getAuthHeader();
+      console.log(headers);
       const [taskResponse, userResponse] = await Promise.all([
         fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
         fetch(`${API_BASE}/api/user/get-all-users`, { headers }),
@@ -449,7 +450,11 @@ export default function TaskAssignment() {
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item label="Priority" name="priority" initialValue="Normal">
+                <Form.Item
+                  label="Priority"
+                  name="priority"
+                  initialValue="Normal"
+                >
                   <Select
                     size="large"
                     options={["Low", "Normal", "High"].map((value) => ({
@@ -687,7 +692,11 @@ export default function TaskAssignment() {
                 ({ index }) => (selectedTask?.checklistState || [])[index],
               )
               .map(({ item, index }) => (
-                <Col xs={24} md={12} key={`${item.taskId || item.taskName}-${index}`}>
+                <Col
+                  xs={24}
+                  md={12}
+                  key={`${item.taskId || item.taskName}-${index}`}
+                >
                   <Checkbox
                     checked={!itemsToUncheck.includes(index)}
                     onChange={(e) => {

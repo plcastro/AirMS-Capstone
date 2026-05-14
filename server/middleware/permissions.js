@@ -6,6 +6,9 @@ const hasPermission = (req, permission) => {
   const role = req.user.jobTitle.toLowerCase();
   const permissions = jobTitles[role] || [];
 
+  console.log("ROLE:", role);
+  console.log("PERMISSIONS:", permissions);
+  console.log("REQUIRED:", permission);
   return permissions.includes("*") || permissions.includes(permission);
 };
 
