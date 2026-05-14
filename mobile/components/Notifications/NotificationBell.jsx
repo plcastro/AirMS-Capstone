@@ -92,23 +92,30 @@ export default function NotificationBell({ navigation }) {
           size={24}
           color={COLORS.black}
         />
+
         {unreadCount > 0 && (
           <View
             style={{
               position: "absolute",
               top: 4,
-              right: 2,
-              minWidth: 18,
-              height: 18,
+              right: 4,
+              minWidth: 16,
+              height: 16,
+              borderRadius: 8,
               paddingHorizontal: 4,
-              borderRadius: 9,
-              backgroundColor: "#26866F",
+              backgroundColor: "#d31e1e",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
             <Text
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+              style={{
+                color: COLORS.white,
+                fontSize: 10,
+                fontWeight: "700",
+                includeFontPadding: false,
+                textAlignVertical: "center",
+              }}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Text>

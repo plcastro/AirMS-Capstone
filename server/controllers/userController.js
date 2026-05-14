@@ -54,7 +54,8 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   const refreshCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "Strict",
+    sameSite: "None",
+    secure: true,
   };
 
   if (isPersistent) {
@@ -129,16 +130,6 @@ const createUserSession = async (req, userId, platform) => {
   };
 };
 
-const getPortalUrlByJobTitle = (jobTitle) =>
-  jobTitle === "Maintenance Manager" ||
-  jobTitle === "Officer-In-Charge" ||
-  jobTitle === "Admin" ||
-  jobTitle === "Pilot" ||
-  jobTitle === "Warehouse Department" ||
-  jobTitle === "Mechanic"
-    ? `${WEB_URL}/login`
-    : `${MOBILE_URL}/login`;
-
 const sendActivationCredentialsEmail = async ({
   to,
   firstName,
@@ -147,7 +138,8 @@ const sendActivationCredentialsEmail = async ({
   jobTitle,
   isResend = false,
 }) => {
-  const portalUrl = getPortalUrlByJobTitle(jobTitle);
+  const portalUrlWeb = `${WEB_URL}/login`;
+  const portalUrlMobile = `${MOBILE_URL}/login`;
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";
@@ -171,7 +163,10 @@ const sendActivationCredentialsEmail = async ({
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+          <a href="${portalUrlWeb}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Web</a>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalUrlMobile}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Mobile</a>
         </div>
 
         <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
@@ -380,6 +375,12 @@ const loginUser = async (req, res) => {
 
     const session = await createUserSession(req, user._id, loginPlatform);
 
+    const sessionStart = session.createdAt || session.startTime;
+
+    const sessionMinutes = sessionStart
+      ? Math.floor((Date.now() - new Date(sessionStart)) / 60000)
+      : 0;
+
     // Generate JWT
     const token = jwt.sign(
       {
@@ -440,6 +441,7 @@ const loginUser = async (req, res) => {
       platform: user.platform,
       base: session.base,
       sessionId: session.sessionId,
+      sessionMinutes,
       lastSeenAt: user.lastSeenAt,
     };
 
@@ -448,7 +450,13 @@ const loginUser = async (req, res) => {
       token,
       refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
       sessionId: session.sessionId,
+      sessionMinutes,
       user: responseUser,
+    });
+    console.log("SESSION DEBUG:", {
+      createdAt: session.createdAt,
+      loginAt: session.loginAt,
+      raw: session,
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -502,7 +510,8 @@ const refreshToken = async (req, res) => {
       res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "None",
+        secure: true,
       });
       return res.status(403).json({ message: "Invalid refresh token" });
     }
@@ -556,7 +565,8 @@ const refreshToken = async (req, res) => {
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      sameSite: "None",
+      secure: true,
     });
     res.status(403).json({ message: "Invalid refresh token" });
   }
@@ -577,7 +587,8 @@ const logoutUser = async (req, res) => {
       res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "None",
+        secure: true,
       });
       return res.status(200).json({ message: "Logged out successfully" });
     }
@@ -617,7 +628,8 @@ const logoutUser = async (req, res) => {
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      sameSite: "None",
+      secure: true,
     });
 
     res.status(200).json({ message: "Logged out successfully" });

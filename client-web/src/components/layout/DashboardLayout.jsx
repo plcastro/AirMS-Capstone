@@ -179,7 +179,7 @@ const DashboardLayout = () => {
             height: "calc(100vh - 64px)",
             overflowY: "auto",
             overflowX: "hidden",
-            background: "#efeeee",
+            background: "#f5f6f8",
             borderRadius: borderRadiusLG,
             marginTop: screens.xs ? 0 : 0,
           }}

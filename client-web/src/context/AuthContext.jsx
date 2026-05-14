@@ -34,6 +34,12 @@ export const AuthProvider = ({ children }) => {
   const persistAuthState = (normalizedUser, token) => {
     sessionStorage.setItem("currentUser", JSON.stringify(normalizedUser));
     sessionStorage.setItem("token", token);
+
+    // persist only if "remember me" was used
+    if (normalizedUser?.rememberMe) {
+      localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+      localStorage.setItem("token", token);
+    }
   };
 
   const persistSessionMeta = (meta = {}) => {
@@ -172,13 +178,29 @@ export const AuthProvider = ({ children }) => {
     const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
       method: "POST",
       credentials: "include",
-      headers: buildSessionHeaders(),
+      headers: {
+        "Content-Type": "application/json",
+        ...buildSessionHeaders(),
+      },
     });
 
-    if (!response.ok) throw new Error("Failed to refresh token");
+    const text = await response.text(); // 👈 IMPORTANT FIX
 
-    const data = await response.json();
-    if (!data.token) throw new Error("No token received");
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.error("Refresh returned non-JSON:", text); // THIS stops "<html>" crash issue
+      throw new Error("Failed to refresh token (invalid response)");
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.message || "Failed to refresh token");
+    }
+
+    if (!data.token) {
+      throw new Error("No token received");
+    }
 
     sessionStorage.setItem("token", data.token);
     scheduleTokenExpiryLogout(data.token, logoutUser);
@@ -189,8 +211,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const storedUser = sessionStorage.getItem("currentUser");
-        let token = sessionStorage.getItem("token");
+        let storedUser =
+          sessionStorage.getItem("currentUser") ||
+          localStorage.getItem("currentUser");
+
+        let token =
+          sessionStorage.getItem("token") || localStorage.getItem("token");
 
         if (!storedUser && !token) {
           setUser(null);
@@ -225,7 +251,9 @@ export const AuthProvider = ({ children }) => {
               }
             : null);
 
-        setUser(normalizedFromToken ? normalizeUser(normalizedFromToken) : null);
+        setUser(
+          normalizedFromToken ? normalizeUser(normalizedFromToken) : null,
+        );
         if (normalizedFromToken) {
           persistAuthState(normalizeUser(normalizedFromToken), token);
         }
@@ -252,6 +280,7 @@ export const AuthProvider = ({ children }) => {
       platform: "web",
       base: options.base || userData.base,
       sessionId: options.sessionId || userData.sessionId,
+      rememberMe: options.rememberMe,
     });
 
     setUser(normalized);
@@ -293,7 +322,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getValidToken = async () => {
-    const token = getStoredToken();
+    const token = getStoredToken(); // ✅ MUST define it here
 
     if (token && isTokenValid(token)) {
       scheduleTokenExpiryLogout(token, logoutUser);
@@ -357,6 +386,7 @@ export const AuthProvider = ({ children }) => {
         showSessionTimeoutWarning,
         warningSecondsRemaining,
         continueSession: recordActivity,
+        token: sessionStorage.getItem("token"),
       }}
     >
       {children}

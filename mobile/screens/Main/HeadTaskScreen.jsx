@@ -45,7 +45,9 @@ export default function HeadTaskScreen({
 
   const isEmployeeBusy = (employeeId) =>
     tasks.some((task) => {
-      const status = String(task?.status || "").trim().toLowerCase();
+      const status = String(task?.status || "")
+        .trim()
+        .toLowerCase();
       return (
         String(task?.assignedTo || "") === String(employeeId) &&
         OPEN_TASK_STATUSES.has(status)
@@ -495,12 +497,11 @@ export default function HeadTaskScreen({
             styles.unifiedActionButton,
             { marginLeft: 5, width: 100 },
           ]}
-          buttonTextStyle={styles.primaryBtnTxt}
+          buttonTextStyle={[styles.unifiedActionButtonText, { fontSize: 14 }]}
         />
       </View>
       <View style={styles.maintenanceSearchDivider} />
 
-      {/* Tabs and Add Task Button */}
       <View
         style={{
           flexDirection: "row",
@@ -522,7 +523,9 @@ export default function HeadTaskScreen({
                 : { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
-              activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
+              activeTab === tab
+                ? styles.primaryBtnTxt
+                : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
               { fontSize: 12 },
             ]}
           />
