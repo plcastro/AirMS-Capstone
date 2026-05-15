@@ -76,13 +76,20 @@ const parseTableDate = (dateValue) => {
   return new Date(year, month - 1, day).getTime() || 0;
 };
 
-export default function PRMTable({ data = [], loading = false, onUpdated }) {
+export default function PRMTable({
+  data = [],
+  loading = false,
+  onUpdated,
+  initialSelectedRecord = null,
+}) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedWRS, setSelectedWRS] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(
+    Boolean(initialSelectedRecord),
+  );
+  const [selectedWRS, setSelectedWRS] = useState(initialSelectedRecord);
 
   const handleShowModal = (record) => {
     setSelectedWRS(record);

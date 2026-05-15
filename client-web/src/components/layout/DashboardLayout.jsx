@@ -1,5 +1,5 @@
-import React, { useState, useContext, useMemo } from "react";
-import { Layout, Button, theme, Avatar, Grid, Row } from "antd";
+import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
+import { Layout, Button, theme, Avatar, Grid, Row, Badge, App } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -18,7 +18,10 @@ const DashboardLayout = () => {
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { user } = useContext(AuthContext);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const seenNotificationIdsRef = useRef(new Set());
+  const { notification } = App.useApp();
+  const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
   const location = useLocation();
   const {
@@ -45,6 +48,65 @@ const DashboardLayout = () => {
 
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncNotifications = async () => {
+      if (!user?.id) {
+        if (isMounted) {
+          setUnreadCount(0);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/notifications`, {
+          headers: await getAuthHeader(),
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const notifications = Array.isArray(data) ? data : [];
+
+        if (!isMounted) return;
+
+        setUnreadCount(notifications.filter((item) => !item.read).length);
+
+        const nextSeenIds = new Set(seenNotificationIdsRef.current);
+
+        notifications.forEach((item) => {
+          if (item?._id && !nextSeenIds.has(item._id)) {
+            nextSeenIds.add(item._id);
+
+            if (seenNotificationIdsRef.current.size > 0 && !item.read) {
+              notification.info({
+                message: item.title || "New Notification",
+                description: item.description || "You have a new update.",
+                placement: "topRight",
+                duration: 4,
+              });
+            }
+          }
+        });
+
+        seenNotificationIdsRef.current = nextSeenIds;
+      } catch (error) {
+        console.error("Notification sync failed:", error);
+      }
+    };
+
+    syncNotifications();
+    const intervalId = setInterval(syncNotifications, 30000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [user?.id, getAuthHeader, notification]);
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -120,11 +182,13 @@ const DashboardLayout = () => {
             </span>
           </div>
           <Row align="middle" gutter={16}>
-            <Button
-              icon={<BellOutlined />}
-              style={{ marginRight: 16 }}
-              onClick={() => setNotificationsOpen(true)}
-            />
+            <Badge count={unreadCount} size="small" offset={[-6, 6]}>
+              <Button
+                icon={<BellOutlined />}
+                style={{ marginRight: 16 }}
+                onClick={() => setNotificationsOpen(true)}
+              />
+            </Badge>
             <div
               style={{
                 display: "flex",

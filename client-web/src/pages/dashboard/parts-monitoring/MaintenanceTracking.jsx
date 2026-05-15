@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
+  App,
   Alert,
   Button,
   Card,
@@ -12,7 +13,6 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -149,6 +149,7 @@ const getTaskScheduleState = (task = {}) => {
 };
 
 export default function MaintenanceTracking() {
+  const { message } = App.useApp();
   const { user, getAuthHeader } = useContext(AuthContext);
   const isOfficerInCharge =
     user?.jobTitle?.toLowerCase() === "officer-in-charge";
@@ -835,7 +836,7 @@ export default function MaintenanceTracking() {
             <Alert
               type="info"
               showIcon
-              message="AI Mode"
+              title="AI Mode"
               description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "OpenAI summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current OpenAI request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
             />
           )}
@@ -852,7 +853,6 @@ export default function MaintenanceTracking() {
                     : "error"
               }
               showIcon
-              message="AI Health"
               title="OpenAI health"
               description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
             />
@@ -862,7 +862,7 @@ export default function MaintenanceTracking() {
 
       {/* ================= INSIGHTS ================= */}
       <Card title="Maintenance Insights" style={{ borderRadius: 12 }}>
-        <Space direction="vertical">
+        <Space orientation="vertical">
           {maintenanceTrackingInsights.map((insight) => (
             <Text key={insight} type="secondary">
               • {insight}
@@ -875,7 +875,7 @@ export default function MaintenanceTracking() {
       <Card
         title="Condensed AI Findings"
         style={{ borderRadius: 12 }}
-        bodyStyle={{ padding: 12 }}
+        styles={{ body: { padding: 12 } }}
       >
         <MTrackingTable
           headers={columnHeader}
@@ -915,6 +915,7 @@ export default function MaintenanceTracking() {
             <Table
               columns={scheduledTaskColumns}
               dataSource={scheduledTaskRows}
+              rowKey={(record) => record.id || record.key}
               loading={loading}
               size="small"
               pagination={{ pageSize: 5 }}
@@ -934,6 +935,9 @@ export default function MaintenanceTracking() {
           style={{ marginTop: 12 }}
           columns={inspectionRemainingColumns}
           dataSource={filteredInspectionRemainingRows}
+          rowKey={(record) =>
+            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}`
+          }
           loading={loading || inspectionRemainingLoading}
           size="small"
           pagination={{ pageSize: 8 }}

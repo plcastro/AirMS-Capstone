@@ -1,12 +1,17 @@
 import React from "react";
 import { View, Text, Image, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useWindowDimensions } from "react-native";
 
 export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
+  const { width, height } = useWindowDimensions();
+  const isSmall = width < 390;
+  const heroHeight = Math.max(220, Math.min(340, Math.round(height * 0.38)));
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { height: heroHeight }]}>
           <Image
             source={require("../assets/mobile_hero.png")}
             style={styles.topImage}
@@ -16,18 +21,20 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           <View style={styles.overlay}>
             <Image
               source={require("../assets/airmslogo_dark.png")}
-              style={styles.logo}
+              style={[styles.logo, { width: isSmall ? 180 : 230 }]}
             />
-            <Text style={styles.title}>
+            <Text style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
               Aircraft Maintenance Made{" "}
               <Text style={styles.highlight}>Smarter</Text>
             </Text>
           </View>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { paddingHorizontal: isSmall ? 16 : 25 }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{cardTitle}</Text>
+            <Text style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
+              {cardTitle}
+            </Text>
             <Text style={styles.cardSubTitle}>{cardsubTitle}</Text>
           </View>
 
@@ -107,5 +114,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 5,
+    textAlign: "center",
   },
 });

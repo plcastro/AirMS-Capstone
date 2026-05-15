@@ -17,8 +17,13 @@ export default function LoginLayout({
   return (
     <div
       style={{
-        paddingLeft: isMobile ? 0 : 20,
-        paddingRight: isMobile ? 0 : 20,
+        width: "100%",
+        maxWidth: isMobile ? "100%" : 560,
+        margin: "0 auto",
+        paddingLeft: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 8 : 20,
+        paddingBottom: isMobile ? 8 : 20,
       }}
     >
       <Row align="middle" justify="center">

@@ -71,6 +71,20 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
+  trustedDevices: {
+    type: [
+      {
+        tokenHash: { type: String, required: true },
+        label: { type: String, default: "" },
+        platform: { type: String, default: "unknown" },
+        createdAt: { type: Date, default: Date.now },
+        lastUsedAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true },
+        revokedAt: { type: Date, default: null },
+      },
+    ],
+    default: [],
+  },
 
   // --- PASSWORD RESET ---
   resetPasswordToken: String,
@@ -79,6 +93,11 @@ const userSchema = new mongoose.Schema({
   otpExpires: Date,
   otpAttempts: { type: Number, default: 0 },
   otpLockUntil: Date,
+  loginOtp: String,
+  loginOtpExpires: Date,
+  loginOtpToken: String,
+  loginOtpAttempts: { type: Number, default: 0 },
+  loginOtpLockUntil: Date,
 
   // --- PIN RESET ---
   resetPinToken: String,

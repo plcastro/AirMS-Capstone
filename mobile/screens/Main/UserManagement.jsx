@@ -9,36 +9,34 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet,
-  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
-import defaultAvatar from "../../assets/images/default_avatar.jpg";
-const STATUS_OPTIONS = ["all", "active", "inactive", "deactivated"];
+import UserStatsRow from "../../components/UserManagement/UserStatsRow";
+import UserCard from "../../components/UserManagement/UserCard";
+import UserFormModal from "../../components/UserManagement/UserFormModal";
+import { STATUS_OPTIONS } from "../../components/UserManagement/constants";
 
-const maskEmail = (email) => {
-  if (!email) return "";
-  const [name, domain] = String(email).split("@");
-  if (!name || !domain) return email;
-  return `${name.slice(0, 2)}${"*".repeat(Math.max(name.length - 2, 0))}@${domain}`;
-};
-
-// Helper for User Avatar Initials
-const getInitials = (firstName, lastName) => {
-  return (
-    `${(firstName || "").charAt(0)}${(lastName || "").charAt(0)}`.toUpperCase() ||
-    "?"
-  );
+const parseJsonResponse = async (response, fallbackMessage) => {
+  const raw = await response.text();
+  let json = {};
+  try {
+    json = raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(fallbackMessage);
+  }
+  return json;
 };
 
 export default function UserManagement() {
@@ -48,6 +46,9 @@ export default function UserManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [formVisible, setFormVisible] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [savingUser, setSavingUser] = useState(false);
 
   const currentUserId = user?.id || user?._id || "";
 
@@ -55,13 +56,17 @@ export default function UserManagement() {
     try {
       if (!silent) setLoading(true);
       const token = await AsyncStorage.getItem("currentUserToken");
+      if (!token) throw new Error("Session not found. Please log in again.");
       const response = await fetch(`${API_BASE}/api/user/get-all-users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const json = await response.json();
+      const json = await parseJsonResponse(
+        response,
+        "Invalid server response while loading users.",
+      );
       if (!response.ok)
         throw new Error(json?.message || "Failed to load users");
 
@@ -100,16 +105,75 @@ export default function UserManagement() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({ status, confirmAction: true }),
         },
       );
 
-      if (!response.ok) throw new Error("Update failed");
+      const json = await parseJsonResponse(
+        response,
+        "Invalid server response while updating status.",
+      );
+      if (!response.ok) throw new Error(json?.message || "Update failed");
 
       showToast(`User ${status === "active" ? "reactivated" : "deactivated"}.`);
       fetchUsers({ silent: true });
     } catch (error) {
       showToast(error.message);
+    }
+  };
+
+  const openCreateModal = () => {
+    setUserToEdit(null);
+    setFormVisible(true);
+  };
+
+  const openEditModal = (selectedUser) => {
+    setUserToEdit(selectedUser);
+    setFormVisible(true);
+  };
+
+  const handleSubmitUser = async (payload, isEdit) => {
+    try {
+      setSavingUser(true);
+      const token = await AsyncStorage.getItem("currentUserToken");
+
+      const response = await fetch(
+        isEdit
+          ? `${API_BASE}/api/user/update-user/${userToEdit?._id}`
+          : `${API_BASE}/api/user/create`,
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...payload,
+            confirmAction: true,
+          }),
+        },
+      );
+
+      const json = await parseJsonResponse(
+        response,
+        `Invalid server response while ${isEdit ? "updating" : "creating"} user.`,
+      );
+      if (!response.ok) {
+        throw new Error(
+          json?.message || `Failed to ${isEdit ? "update" : "create"} user`,
+        );
+      }
+
+      showToast(
+        isEdit ? "User updated successfully." : "User created successfully.",
+      );
+      setFormVisible(false);
+      setUserToEdit(null);
+      fetchUsers({ silent: true });
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -124,7 +188,7 @@ export default function UserManagement() {
     if (!query) return next;
 
     return next.filter((u) =>
-      `${u.firstName} ${u.lastName} ${u.username} ${u.email}`
+      `${u.firstName} ${u.lastName} ${u.username} ${u.email} ${u.jobTitle || ""} ${u.base || ""}`
         .toLowerCase()
         .includes(query),
     );
@@ -139,7 +203,7 @@ export default function UserManagement() {
     };
     users.forEach((u) => {
       const s = String(u.status || "").toLowerCase();
-      if (base[s] !== undefined) base[s]++;
+      if (base[s] !== undefined) base[s] += 1;
     });
     return base;
   }, [users]);
@@ -154,26 +218,20 @@ export default function UserManagement() {
 
   return (
     <View style={ui.container}>
-      {/* Stats Section */}
-      <View style={ui.statsRow}>
-        {[
-          { label: "Total", value: counts.total, icon: "account-group" },
-          { label: "Active", value: counts.active, icon: "account-check" },
-          { label: "Inactive", value: counts.inactive, icon: "account-clock" },
-          {
-            label: "Deactivated",
-            value: counts.deactivated,
-            icon: "account-off",
-          },
-        ].map((item) => (
-          <View key={item.label} style={ui.statCard}>
-            <Text style={ui.statLabel}>{item.label}</Text>
-            <Text style={ui.statValue}>{item.value}</Text>
-          </View>
-        ))}
+      <View style={ui.headerRow}>
+        <Text style={ui.pageTitle}>User Management</Text>
+        <TouchableOpacity style={ui.addBtn} onPress={openCreateModal}>
+          <MaterialCommunityIcons
+            name="account-plus-outline"
+            size={16}
+            color={COLORS.white}
+          />
+          <Text style={ui.addBtnTxt}> Add User</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Search & Filters */}
+      <UserStatsRow counts={counts} />
+
       <View style={ui.searchBar}>
         <MaterialCommunityIcons
           name="magnify"
@@ -183,33 +241,22 @@ export default function UserManagement() {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search name, email, or role..."
+          placeholder="Search name, email, role, or base..."
           placeholderTextColor={COLORS.grayDark}
           style={ui.searchInput}
         />
       </View>
 
-      <View style={{ height: 55 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={ui.filterScroll}
-        >
-          {STATUS_OPTIONS.map((option) => {
-            const selected = statusFilter === option;
-            return (
-              <TouchableOpacity
-                key={option}
-                onPress={() => setStatusFilter(option)}
-                style={[ui.filterBtn, selected && ui.filterBtnActive]}
-              >
-                <Text style={[ui.filterText, selected && ui.filterTextActive]}>
-                  {option.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      <View style={ui.filterDropdownWrap}>
+        <Picker selectedValue={statusFilter} onValueChange={setStatusFilter}>
+          {STATUS_OPTIONS.map((option) => (
+            <Picker.Item
+              key={option}
+              value={option}
+              label={option[0].toUpperCase() + option.slice(1)}
+            />
+          ))}
+        </Picker>
       </View>
 
       <ScrollView
@@ -232,103 +279,29 @@ export default function UserManagement() {
             </Text>
           </View>
         ) : (
-          filteredUsers.map((item) => {
-            const status = String(item.status || "inactive").toLowerCase();
-            const isActive = status === "active";
-
-            return (
-              <View key={String(item._id)} style={ui.userCard}>
-                <View style={ui.cardHeader}>
-                  <View style={ui.avatar}>
-                    {item.image ? (
-                      <Image
-                        source={
-                          item?.image ? { uri: item.image } : defaultAvatar
-                        }
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 20,
-                        }}
-                      />
-                    ) : (
-                      <Text style={ui.avatarText}>
-                        {getInitials(item.firstName, item.lastName)}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={ui.userName}>
-                      {`${item.firstName || ""} ${item.lastName || ""}`.trim() ||
-                        "New User"}
-                    </Text>
-                    <Text style={ui.userMeta}>
-                      @{item.username} • {item.access}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      ui.badge,
-                      { backgroundColor: isActive ? "#E8F5E9" : "#FFEBEE" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        ui.badgeText,
-                        { color: isActive ? "#2E7D32" : "#C62828" },
-                      ]}
-                    >
-                      {status}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={ui.cardBody}>
-                  <View style={ui.infoRow}>
-                    <MaterialCommunityIcons
-                      name="email-outline"
-                      size={14}
-                      color={COLORS.grayDark}
-                    />
-                    <Text style={ui.infoText}>{maskEmail(item.email)}</Text>
-                  </View>
-                  <View style={ui.infoRow}>
-                    <MaterialCommunityIcons
-                      name="briefcase-outline"
-                      size={14}
-                      color={COLORS.grayDark}
-                    />
-                    <Text style={ui.infoText}>
-                      {item.jobTitle || "No Title Set"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={ui.cardActions}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      runStatusAction(item, isActive ? "deactivated" : "active")
-                    }
-                    style={[
-                      ui.actionBtn,
-                      isActive ? ui.btnDanger : ui.btnSuccess,
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={isActive ? "account-remove" : "account-check"}
-                      size={16}
-                      color="white"
-                    />
-                    <Text style={ui.actionBtnText}>
-                      {isActive ? " Deactivate" : " Reactivate"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })
+          filteredUsers.map((item) => (
+            <UserCard
+              key={String(item._id)}
+              item={item}
+              isCurrentUser={String(item._id) === String(currentUserId)}
+              onEdit={openEditModal}
+              onToggleStatus={runStatusAction}
+            />
+          ))
         )}
       </ScrollView>
+
+      <UserFormModal
+        visible={formVisible}
+        onClose={() => {
+          setFormVisible(false);
+          setUserToEdit(null);
+        }}
+        onSubmit={handleSubmitUser}
+        users={users}
+        userToEdit={userToEdit}
+        saving={savingUser}
+      />
     </View>
   );
 }
@@ -336,21 +309,22 @@ export default function UserManagement() {
 const ui = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7F8", padding: 12 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  statsRow: {
+  pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  statCard: {
-    backgroundColor: COLORS.white,
-    padding: 10,
-    borderRadius: 10,
-    width: "23%",
-    elevation: 2,
     alignItems: "center",
+    marginBottom: 12,
   },
-  statLabel: { fontSize: 10, color: COLORS.grayDark, marginBottom: 4 },
-  statValue: { fontSize: 16, fontWeight: "bold" },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  addBtnTxt: { color: COLORS.white, fontWeight: "700", fontSize: 12 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -363,71 +337,15 @@ const ui = StyleSheet.create({
     marginBottom: 10,
   },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 14 },
-  filterScroll: { gap: 8, paddingVertical: 5 },
-  filterBtn: {
-    paddingHorizontal: 16,
-    height: 36,
-    justifyContent: "center",
-    borderRadius: 20,
+  filterDropdownWrap: {
+    height: 50,
     backgroundColor: COLORS.white,
-    borderSize: 1,
+    borderWidth: 1,
     borderColor: "#DDD",
-  },
-  filterBtnActive: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primaryLight,
-  },
-  filterText: { fontSize: 12, fontWeight: "600", color: COLORS.grayDark },
-  filterTextActive: { color: COLORS.white },
-  userCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  avatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: "#F0F2F5",
+    borderRadius: 10,
+    marginBottom: 10,
     justifyContent: "center",
-    alignItems: "center",
-    borderSize: 1,
-    borderColor: "#E0E0E0",
+    overflow: "hidden",
   },
-  avatarText: { fontWeight: "bold", color: COLORS.primaryLight, fontSize: 16 },
-  userName: { fontSize: 16, fontWeight: "700", color: "#1A1A1A" },
-  userMeta: { fontSize: 12, color: COLORS.grayDark },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgeText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
-  cardBody: {
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    paddingTop: 10,
-    gap: 5,
-  },
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  infoText: { fontSize: 13, color: "#444" },
-  cardActions: {
-    marginTop: 15,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  btnDanger: { backgroundColor: "#FF5252" },
-  btnSuccess: { backgroundColor: "#4CAF50" },
-  actionBtnText: { color: "white", fontWeight: "bold", fontSize: 12 },
   emptyState: { alignItems: "center", marginTop: 50, gap: 10 },
 });

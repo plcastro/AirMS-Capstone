@@ -219,6 +219,144 @@ const validateTaskSchedule = (taskData = {}) => {
   return null;
 };
 
+const normalizeBase = (task = {}) =>
+  String(
+    task.base ||
+      task.locationBase ||
+      task.assignedBase ||
+      task.stationBase ||
+      "UNKNOWN",
+  )
+    .trim()
+    .toUpperCase();
+
+const getDiscoveredAt = (task = {}) =>
+  toValidDate(
+    task?.maintenanceHistory?.defectDiscoveredAt ||
+      task?.dateDiscovered ||
+      task?.createdAt,
+  );
+
+const getRectifiedAt = (task = {}) =>
+  toValidDate(
+    task?.maintenanceHistory?.defectRectifiedAt ||
+      task?.dateRectified ||
+      task?.completedAt ||
+      task?.approvedAt,
+  );
+
+const isDamageRelated = (task = {}) => {
+  const hasDefectNotes = Boolean(
+    String(task?.defects || "").trim() || String(task?.findings || "").trim(),
+  );
+  const maintenanceType = String(task?.maintenanceType || "").toLowerCase();
+  return hasDefectNotes || maintenanceType.includes("corrective");
+};
+
+const isSameCalendarDay = (leftDate, rightDate) =>
+  leftDate.getFullYear() === rightDate.getFullYear() &&
+  leftDate.getMonth() === rightDate.getMonth() &&
+  leftDate.getDate() === rightDate.getDate();
+
+const getBaseMaintenanceAnalytics = async (req, res) => {
+  try {
+    const tasks = await TaskModel.find({});
+    const byBase = {};
+    const totals = {
+      damagedCount: 0,
+      repairedCount: 0,
+      sameDayRepairCount: 0,
+      rectificationHoursTotal: 0,
+      rectificationSamples: 0,
+      averageRectificationHours: 0,
+    };
+
+    tasks.forEach((task) => {
+      const base = normalizeBase(task);
+      if (!byBase[base]) {
+        byBase[base] = {
+          base,
+          damagedCount: 0,
+          repairedCount: 0,
+          sameDayRepairCount: 0,
+          rectificationHoursTotal: 0,
+          rectificationSamples: 0,
+          averageRectificationHours: 0,
+        };
+      }
+
+      const discoveredAt = getDiscoveredAt(task);
+      const rectifiedAt = getRectifiedAt(task);
+      const damageRelated = isDamageRelated(task);
+
+      if (damageRelated) {
+        byBase[base].damagedCount += 1;
+        totals.damagedCount += 1;
+      }
+
+      if (rectifiedAt) {
+        byBase[base].repairedCount += 1;
+        totals.repairedCount += 1;
+      }
+
+      if (discoveredAt && rectifiedAt) {
+        const rectificationHours =
+          (rectifiedAt.getTime() - discoveredAt.getTime()) / (1000 * 60 * 60);
+
+        if (Number.isFinite(rectificationHours) && rectificationHours >= 0) {
+          byBase[base].rectificationHoursTotal += rectificationHours;
+          byBase[base].rectificationSamples += 1;
+          totals.rectificationHoursTotal += rectificationHours;
+          totals.rectificationSamples += 1;
+        }
+
+        const sameDay =
+          task?.maintenanceHistory?.sameDayRepair === true ||
+          isSameCalendarDay(discoveredAt, rectifiedAt);
+
+        if (sameDay) {
+          byBase[base].sameDayRepairCount += 1;
+          totals.sameDayRepairCount += 1;
+        }
+      }
+    });
+
+    const baseRows = Object.values(byBase)
+      .map((row) => ({
+        ...row,
+        averageRectificationHours:
+          row.rectificationSamples > 0
+            ? roundHours(row.rectificationHoursTotal / row.rectificationSamples)
+            : 0,
+      }))
+      .sort((left, right) => right.damagedCount - left.damagedCount);
+
+    const topDamagedBase =
+      [...baseRows].sort((left, right) => right.damagedCount - left.damagedCount)[0] ||
+      null;
+    const topRepairedBase =
+      [...baseRows].sort((left, right) => right.repairedCount - left.repairedCount)[0] ||
+      null;
+
+    totals.averageRectificationHours =
+      totals.rectificationSamples > 0
+        ? roundHours(totals.rectificationHoursTotal / totals.rectificationSamples)
+        : 0;
+
+    return res.status(200).json({
+      status: "Ok",
+      data: {
+        byBase: baseRows,
+        topDamagedBase,
+        topRepairedBase,
+        totals,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 const createTask = async (req, res) => {
   try {
     const taskData = prepareTaskUpdate(null, req.body);
@@ -354,6 +492,7 @@ const deleteTask = async (req, res) => {
 module.exports = {
   createTask,
   getTasks,
+  getBaseMaintenanceAnalytics,
   getTaskById,
   updateTask,
   cleanupAssignedMechanic,

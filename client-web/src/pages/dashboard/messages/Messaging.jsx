@@ -517,7 +517,8 @@ export default function Messaging() {
 
   const handleSend = async () => {
     const body = draft.trim();
-    if (!selectedConversation?.id || (!body && attachments.length === 0)) return;
+    if (!selectedConversation?.id || (!body && attachments.length === 0))
+      return;
 
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
@@ -545,7 +546,10 @@ export default function Messaging() {
     try {
       setSending(true);
       const formData = new FormData();
-      formData.append(isGroup ? "conversationId" : "recipientId", selectedConversation.id);
+      formData.append(
+        isGroup ? "conversationId" : "recipientId",
+        selectedConversation.id,
+      );
       formData.append("body", body);
       attachments.forEach((file) => {
         formData.append("attachments", file);
@@ -613,7 +617,8 @@ export default function Messaging() {
     (message.attachments || []).map((attachment) => {
       const url = getAttachmentUrl(attachment.url);
       const isImage =
-        attachment.kind === "image" || attachment.mimeType?.startsWith("image/");
+        attachment.kind === "image" ||
+        attachment.mimeType?.startsWith("image/");
 
       if (isImage && url) {
         return (
@@ -1045,7 +1050,7 @@ export default function Messaging() {
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
       >
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
             value={groupName}
             onChange={(event) => setGroupName(event.target.value)}

@@ -174,11 +174,31 @@ export function LoadingState({ text = "Loading records..." }) {
   );
 }
 
-export function StatCard({ label, value, tone = COLORS.primaryLight }) {
+export function StatCard({
+  label,
+  value,
+  tone = COLORS.primaryLight,
+  compact = false,
+}) {
   return (
-    <View style={[moduleStyles.card, { flex: 1, minWidth: "45%" }]}>
-      <Text style={moduleStyles.label}>{label}</Text>
-      <Text style={{ color: tone, fontSize: 22, fontWeight: "800" }}>
+    <View
+      style={[
+        moduleStyles.card,
+        { flex: 1, minWidth: compact ? "48%" : "45%" },
+        compact ? { padding: 9, marginBottom: 8 } : null,
+      ]}
+    >
+      <Text style={[moduleStyles.label, compact ? { fontSize: 10 } : null]}>
+        {label}
+      </Text>
+      <Text
+        style={{
+          color: tone,
+          fontSize: compact ? 16 : 22,
+          fontWeight: "800",
+          marginTop: compact ? 1 : 0,
+        }}
+      >
         {value ?? 0}
       </Text>
     </View>

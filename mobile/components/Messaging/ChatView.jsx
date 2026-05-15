@@ -56,7 +56,7 @@ export default function ChatView({
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: "#F7F9F8" }}
-      edges={["top", "left", "right", "bottom"]}
+      edges={["left", "right", "bottom"]}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}

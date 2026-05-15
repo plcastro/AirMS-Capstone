@@ -1,9 +1,10 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
+  App,
   Row,
   Col,
   Card,
@@ -11,7 +12,6 @@ import {
   Button,
   Select,
   Statistic,
-  message,
   Typography,
   Segmented,
   Table,
@@ -28,6 +28,7 @@ import {
   InspectionReport,
   PartsRequisitionReport,
 } from "./ModuleReports";
+import { SDMChart } from "../../../components/common/PieChart";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 const { Title, Text } = Typography;
@@ -67,7 +68,55 @@ const buildSafeFileName = (value) =>
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
+const inferTaskBase = (task = {}) =>
+  String(
+    task.base ||
+      task.locationBase ||
+      task.assignedBase ||
+      task.stationBase ||
+      "UNKNOWN",
+  )
+    .trim()
+    .toUpperCase();
+
+const isDamageRelatedTask = (task = {}) => {
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return ["damage", "damaged", "defect", "crack", "fault", "issue"].some((k) =>
+    text.includes(k),
+  );
+};
+
+const isRepairedTask = (task = {}) => {
+  if (isCompletedTask(task)) return true;
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return ["repair", "repaired", "rectified", "fixed", "resolved"].some((k) =>
+    text.includes(k),
+  );
+};
+
 export default function MaintenanceDashboard() {
+  const { message } = App.useApp();
   const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
@@ -78,9 +127,11 @@ export default function MaintenanceDashboard() {
   const [preInspections, setPreInspections] = useState([]);
   const [postInspections, setPostInspections] = useState([]);
   const [partsRequisitions, setPartsRequisitions] = useState([]);
+  const [baseAnalytics, setBaseAnalytics] = useState(null);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
   const [taskDetailView, setTaskDetailView] = useState("dueSoon");
+  const [activeKpi, setActiveKpi] = useState("dueSoon");
 
   const isCompletedTask = (task = {}) => {
     const status = String(task.status || "")
@@ -152,6 +203,12 @@ export default function MaintenanceDashboard() {
         const headers = { Authorization: `Bearer ${token}` };
         const requests = {
           tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
+          baseAnalytics: fetch(
+            `${API_BASE}/api/tasks/analytics/base-maintenance`,
+            {
+              headers,
+            },
+          ),
           parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
             headers,
           }),
@@ -197,6 +254,7 @@ export default function MaintenanceDashboard() {
         const taskData = getArrayData(resultMap.tasks);
         const partsData = getArrayData(resultMap.parts);
         setTasks(taskData);
+        setBaseAnalytics(resultMap.baseAnalytics?.data || null);
         setPartsRecords(partsData);
         setFlightLogs(getArrayData(resultMap.flightLogs));
         setPreInspections(getArrayData(resultMap.preInspections));
@@ -236,24 +294,28 @@ export default function MaintenanceDashboard() {
   const cards = [
     {
       key: "performance",
+      category: "Performance",
       title: "Performance Overview",
       component: <MaintenancePerformance tasks={tasks} />,
       keywords: ["performance", "overview"],
     },
     {
       key: "history",
+      category: "Performance",
       title: "Maintenance History",
       component: <MaintenanceHistory tasks={tasks} loading={loadingTasks} />,
       keywords: ["history", "maintenance", "record"],
     },
     {
       key: "summary",
+      category: "Performance",
       title: "Maintenance Insights",
       component: <MaintenanceSummary tasks={tasks} loading={loadingTasks} />,
       keywords: ["summary", "insights", "repair"],
     },
     {
       key: "component",
+      category: "Inventory",
       title: "Component Analysis",
       component: (
         <ComponentUsage records={partsRecords} loading={loadingTasks} />
@@ -262,6 +324,7 @@ export default function MaintenanceDashboard() {
     },
     {
       key: "flight-log",
+      category: "Logbook",
       title: "Flight Log Report",
       component: (
         <FlightLogReport records={flightLogs} loading={loadingTasks} />
@@ -270,6 +333,7 @@ export default function MaintenanceDashboard() {
     },
     {
       key: "pre-inspection",
+      category: "Logbook",
       title: "Pre-Inspection Report",
       component: (
         <InspectionReport
@@ -282,6 +346,7 @@ export default function MaintenanceDashboard() {
     },
     {
       key: "post-inspection",
+      category: "Logbook",
       title: "Post-Inspection Report",
       component: (
         <InspectionReport
@@ -294,6 +359,7 @@ export default function MaintenanceDashboard() {
     },
     {
       key: "parts-requisition",
+      category: "Inventory",
       title: "Parts Requisition Report",
       component: (
         <PartsRequisitionReport
@@ -316,6 +382,17 @@ export default function MaintenanceDashboard() {
     }))
     .sort((a, b) => b.relevance - a.relevance)
     .filter((card) => searchText === "" || card.relevance > 0);
+
+  const groupedFilteredCards = React.useMemo(
+    () =>
+      filteredCards.reduce((acc, card) => {
+        const category = card.category || "Other";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(card);
+        return acc;
+      }, {}),
+    [filteredCards],
+  );
 
   const taskDetailRows = tasks
     .filter((task) => getTaskDetailCategory(task) === taskDetailView)
@@ -430,6 +507,91 @@ export default function MaintenanceDashboard() {
     },
   ];
 
+  const baseDamageRepairSummary = React.useMemo(() => {
+    if (baseAnalytics?.byBase?.length) {
+      const rows = baseAnalytics.byBase.map((row) => ({
+        label: row.base,
+        value: row.damagedCount || 0,
+      }));
+      const repairedRows = baseAnalytics.byBase.map((row) => ({
+        label: row.base,
+        value: row.repairedCount || 0,
+      }));
+      return {
+        topDamagedBase: baseAnalytics.topDamagedBase
+          ? {
+              label: baseAnalytics.topDamagedBase.base,
+              value: baseAnalytics.topDamagedBase.damagedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        topRepairedBase: baseAnalytics.topRepairedBase
+          ? {
+              label: baseAnalytics.topRepairedBase.base,
+              value: baseAnalytics.topRepairedBase.repairedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        damageRows: rows.sort((a, b) => b.value - a.value),
+        repairRows: repairedRows.sort((a, b) => b.value - a.value),
+        averageRectificationHours:
+          baseAnalytics?.totals?.averageRectificationHours || 0,
+        sameDayRepairCount: baseAnalytics?.totals?.sameDayRepairCount || 0,
+      };
+    }
+
+    const damageCounts = {};
+    const repairCounts = {};
+
+    tasks.forEach((task) => {
+      const base = inferTaskBase(task);
+      if (isDamageRelatedTask(task)) {
+        damageCounts[base] = (damageCounts[base] || 0) + 1;
+      }
+      if (isRepairedTask(task)) {
+        repairCounts[base] = (repairCounts[base] || 0) + 1;
+      }
+    });
+
+    const damageRows = toRows(damageCounts);
+    const repairRows = toRows(repairCounts);
+
+    return {
+      topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
+      topRepairedBase: repairRows[0] || { label: "N/A", value: 0 },
+      damageRows,
+      repairRows,
+      averageRectificationHours: 0,
+      sameDayRepairCount: 0,
+    };
+  }, [tasks, baseAnalytics]);
+
+  const chartPalette = [
+    "#cf1322",
+    "#fa541c",
+    "#faad14",
+    "#13c2c2",
+    "#2f54eb",
+    "#722ed1",
+  ];
+  const damageBasePieData = useMemo(
+    () =>
+      baseDamageRepairSummary.damageRows.map((row, index) => ({
+        name: row.label,
+        value: row.value,
+        fill: chartPalette[index % chartPalette.length],
+      })),
+    [baseDamageRepairSummary.damageRows],
+  );
+
+  const repairedBasePieData = useMemo(
+    () =>
+      baseDamageRepairSummary.repairRows.map((row, index) => ({
+        name: row.label,
+        value: row.value,
+        fill: chartPalette[index % chartPalette.length],
+      })),
+    [baseDamageRepairSummary.repairRows],
+  );
+
   const buildReportExportSections = () => {
     const completedTasks = tasks.filter((task) => isCompletedTask(task)).length;
     const totalRequisitionItems = partsRequisitions.reduce(
@@ -476,7 +638,31 @@ export default function MaintenanceDashboard() {
           ["Post-Inspections", postInspections.length],
           ["Parts Requisitions", partsRequisitions.length],
           ["Requested Line Items", totalRequisitionItems],
+          [
+            "Top Base (Most Damage Reports)",
+            `${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`,
+          ],
+          [
+            "Top Base (Most Repaired Aircraft)",
+            `${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`,
+          ],
         ],
+      },
+      {
+        title: "Base Damage and Repair Counts",
+        columns: ["Base", "Damage Reports", "Repaired Aircraft"],
+        rows: Array.from(
+          new Set([
+            ...baseDamageRepairSummary.damageRows.map((row) => row.label),
+            ...baseDamageRepairSummary.repairRows.map((row) => row.label),
+          ]),
+        ).map((base) => [
+          base,
+          baseDamageRepairSummary.damageRows.find((row) => row.label === base)
+            ?.value || 0,
+          baseDamageRepairSummary.repairRows.find((row) => row.label === base)
+            ?.value || 0,
+        ]),
       },
       {
         title: "Task Status Counts",
@@ -590,6 +776,26 @@ export default function MaintenanceDashboard() {
     ];
   };
 
+  const moduleRows = cards.map((card, index) => ({
+    key: `${card.key}-${index}`,
+    category: card.category || "Other",
+    title: card.title,
+  }));
+
+  const baseByRectificationRows = (baseAnalytics?.byBase || []).map((row) => ({
+    key: `rect-${row.base}`,
+    base: row.base,
+    averageRectificationHours: row.averageRectificationHours || 0,
+    repairedCount: row.repairedCount || 0,
+  }));
+
+  const baseBySameDayRows = (baseAnalytics?.byBase || []).map((row) => ({
+    key: `same-${row.base}`,
+    base: row.base,
+    sameDayRepairCount: row.sameDayRepairCount || 0,
+    repairedCount: row.repairedCount || 0,
+  }));
+
   const exportReportsToExcel = async () => {
     try {
       const workbook = new ExcelJS.Workbook();
@@ -644,6 +850,84 @@ export default function MaintenanceDashboard() {
       const doc = new jsPDF("p", "pt", "a4");
       const sections = buildReportExportSections();
       let y = 42;
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      const drawKpiCard = ({
+        x,
+        y: cardY,
+        width,
+        height,
+        label,
+        value,
+        color = [4, 138, 37],
+      }) => {
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(225, 232, 238);
+        doc.roundedRect(x, cardY, width, height, 8, 8, "FD");
+        doc.setFillColor(...color);
+        doc.rect(x, cardY, 6, height, "F");
+        doc.setFontSize(9);
+        doc.setTextColor(90);
+        doc.text(String(label), x + 14, cardY + 18);
+        doc.setFontSize(16);
+        doc.setTextColor(20);
+        doc.text(String(value), x + 14, cardY + 38);
+      };
+
+      const drawBarChart = ({
+        x,
+        y: chartY,
+        width,
+        height,
+        title,
+        rows = [],
+        barColor = [4, 138, 37],
+      }) => {
+        doc.setDrawColor(225, 232, 238);
+        doc.roundedRect(x, chartY, width, height, 8, 8, "S");
+        doc.setFontSize(11);
+        doc.setTextColor(30);
+        doc.text(title, x + 10, chartY + 18);
+
+        const topRows = rows.slice(0, 5);
+        const max = Math.max(...topRows.map((r) => Number(r.value) || 0), 1);
+        const rowHeight = 20;
+        const startY = chartY + 34;
+        const labelWidth = width * 0.42;
+        const barMaxWidth = width * 0.45;
+
+        topRows.forEach((row, index) => {
+          const currentY = startY + index * rowHeight;
+          const label = String(row.label || "Unknown").slice(0, 24);
+          const value = Number(row.value) || 0;
+          const barWidth = (value / max) * barMaxWidth;
+
+          doc.setFontSize(8.5);
+          doc.setTextColor(70);
+          doc.text(label, x + 10, currentY + 11);
+
+          doc.setFillColor(236, 242, 245);
+          doc.roundedRect(
+            x + labelWidth,
+            currentY + 3,
+            barMaxWidth,
+            9,
+            3,
+            3,
+            "F",
+          );
+          doc.setFillColor(...barColor);
+          doc.roundedRect(x + labelWidth, currentY + 3, barWidth, 9, 3, 3, "F");
+
+          doc.setFontSize(8);
+          doc.setTextColor(35);
+          doc.text(
+            String(value),
+            x + labelWidth + barMaxWidth + 6,
+            currentY + 11,
+          );
+        });
+      };
 
       doc.setFontSize(18);
       doc.text("Reports and Analytics - Statistics", 40, y);
@@ -652,7 +936,85 @@ export default function MaintenanceDashboard() {
       doc.setTextColor(90);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 40, y);
       doc.setTextColor(0);
-      y += 18;
+      y += 20;
+
+      const cardGap = 12;
+      const cardWidth = (pageWidth - 80 - cardGap) / 2;
+      const cardHeight = 52;
+      drawKpiCard({
+        x: 40,
+        y,
+        width: cardWidth,
+        height: cardHeight,
+        label: "Base With Most Damage Reports",
+        value: `${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`,
+        color: [207, 19, 34],
+      });
+      drawKpiCard({
+        x: 40 + cardWidth + cardGap,
+        y,
+        width: cardWidth,
+        height: cardHeight,
+        label: "Base With Most Repaired Aircraft",
+        value: `${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`,
+        color: [4, 138, 37],
+      });
+      y += cardHeight + 10;
+
+      drawKpiCard({
+        x: 40,
+        y,
+        width: cardWidth,
+        height: cardHeight,
+        label: "Average Rectification Time",
+        value: `${baseDamageRepairSummary.averageRectificationHours} hrs`,
+        color: [24, 144, 255],
+      });
+      drawKpiCard({
+        x: 40 + cardWidth + cardGap,
+        y,
+        width: cardWidth,
+        height: cardHeight,
+        label: "Same-Day Repairs",
+        value: baseDamageRepairSummary.sameDayRepairCount,
+        color: [245, 124, 0],
+      });
+      y += cardHeight + 16;
+
+      drawBarChart({
+        x: 40,
+        y,
+        width: cardWidth,
+        height: 148,
+        title: "Task Status Distribution",
+        rows: toRows(
+          countBy(tasks, (task) => normalizeReportStatus(task.status)),
+        ),
+        barColor: [4, 138, 37],
+      });
+      drawBarChart({
+        x: 40 + cardWidth + cardGap,
+        y,
+        width: cardWidth,
+        height: 148,
+        title: "Base Damage Reports",
+        rows: baseDamageRepairSummary.damageRows,
+        barColor: [207, 19, 34],
+      });
+      y += 168;
+
+      drawBarChart({
+        x: 40,
+        y,
+        width: pageWidth - 80,
+        height: 138,
+        title: "Base Repaired Aircraft",
+        rows: baseDamageRepairSummary.repairRows,
+        barColor: [4, 138, 37],
+      });
+
+      doc.addPage();
+      y = 42;
 
       sections.forEach((section, index) => {
         if (index > 0 && y > 650) {
@@ -748,14 +1110,23 @@ export default function MaintenanceDashboard() {
         </Row>
       </Card>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
+        <Col span={24}>
+          <Title level={5} style={{ margin: 0 }}>
+            Operations
+          </Title>
+        </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
             hoverable
-            onClick={() => setTaskDetailView("completed")}
+            onClick={() => {
+              setTaskDetailView("completed");
+              setActiveKpi("completed");
+            }}
             style={{
-              borderColor:
-                taskDetailView === "completed" ? "#048a25" : undefined,
+              borderColor: activeKpi === "completed" ? "#048a25" : undefined,
             }}
           >
             <Statistic
@@ -767,10 +1138,15 @@ export default function MaintenanceDashboard() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
             hoverable
-            onClick={() => setTaskDetailView("dueSoon")}
+            onClick={() => {
+              setTaskDetailView("dueSoon");
+              setActiveKpi("dueSoon");
+            }}
             style={{
-              borderColor: taskDetailView === "dueSoon" ? "#faad14" : undefined,
+              borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
             }}
           >
             <Statistic
@@ -782,10 +1158,15 @@ export default function MaintenanceDashboard() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
             hoverable
-            onClick={() => setTaskDetailView("overdue")}
+            onClick={() => {
+              setTaskDetailView("overdue");
+              setActiveKpi("overdue");
+            }}
             style={{
-              borderColor: taskDetailView === "overdue" ? "#cf1322" : undefined,
+              borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
             }}
           >
             <Statistic
@@ -796,7 +1177,15 @@ export default function MaintenanceDashboard() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
+            hoverable
+            onClick={() => setActiveKpi("modules")}
+            style={{
+              borderColor: activeKpi === "modules" ? "#26866f" : undefined,
+            }}
+          >
             <Statistic
               title="Module Reports"
               value={cards.length}
@@ -806,45 +1195,219 @@ export default function MaintenanceDashboard() {
         </Col>
       </Row>
 
-      <Card
-        style={{ marginBottom: 20 }}
-        title="Task Details"
-        extra={
-          <Segmented
-            value={taskDetailView}
-            onChange={setTaskDetailView}
-            options={[
-              { label: `Completed (${stats.completed})`, value: "completed" },
-              { label: `Due Soon (${stats.dueSoon})`, value: "dueSoon" },
-              { label: `Overdue (${stats.overdue})`, value: "overdue" },
+      <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
+        <Col span={24}>
+          <Title level={5} style={{ margin: 0 }}>
+            Base Health
+          </Title>
+        </Col>
+        <Col xs={24} sm={12} lg={12}>
+          <Card
+            size="small"
+            title="Base Damage Distribution"
+            styles={{ body: { padding: 10 } }}
+            hoverable
+            onClick={() => setActiveKpi("baseDamage")}
+            style={{
+              borderColor: activeKpi === "baseDamage" ? "#cf1322" : undefined,
+            }}
+          >
+            <SDMChart data={damageBasePieData} height={230} outerRadius={76} />
+            <Text type="secondary">
+              Top: {baseDamageRepairSummary.topDamagedBase.label} (
+              {baseDamageRepairSummary.topDamagedBase.value})
+            </Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={12}>
+          <Card
+            size="small"
+            title="Base Repaired Distribution"
+            styles={{ body: { padding: 10 } }}
+            hoverable
+            onClick={() => setActiveKpi("baseRepair")}
+            style={{
+              borderColor: activeKpi === "baseRepair" ? "#048a25" : undefined,
+            }}
+          >
+            <SDMChart
+              data={repairedBasePieData}
+              height={230}
+              outerRadius={76}
+            />
+            <Text type="secondary">
+              Top: {baseDamageRepairSummary.topRepairedBase.label} (
+              {baseDamageRepairSummary.topRepairedBase.value})
+            </Text>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+        <Col span={24}>
+          <Title level={5} style={{ margin: 0 }}>
+            Repair Efficiency
+          </Title>
+        </Col>
+        <Col xs={24} sm={12} lg={12}>
+          <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
+            hoverable
+            onClick={() => setActiveKpi("avgRectification")}
+            style={{
+              borderColor:
+                activeKpi === "avgRectification" ? "#1890ff" : undefined,
+            }}
+          >
+            <Statistic
+              title="Average Rectification Time"
+              value={baseDamageRepairSummary.averageRectificationHours}
+              suffix="hrs"
+              styles={{ content: { color: "#1890ff" } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={12}>
+          <Card
+            size="small"
+            styles={{ body: { padding: 12 } }}
+            hoverable
+            onClick={() => setActiveKpi("sameDay")}
+            style={{
+              borderColor: activeKpi === "sameDay" ? "#d46b08" : undefined,
+            }}
+          >
+            <Statistic
+              title="Same-Day Repairs"
+              value={baseDamageRepairSummary.sameDayRepairCount}
+              styles={{ content: { color: "#d46b08" } }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
+        {(activeKpi === "completed" ||
+          activeKpi === "dueSoon" ||
+          activeKpi === "overdue") && (
+          <>
+            <Segmented
+              value={taskDetailView}
+              onChange={(value) => {
+                setTaskDetailView(value);
+                setActiveKpi(value);
+              }}
+              options={[
+                { label: `Completed (${stats.completed})`, value: "completed" },
+                { label: `Due Soon (${stats.dueSoon})`, value: "dueSoon" },
+                { label: `Overdue (${stats.overdue})`, value: "overdue" },
+              ]}
+            />
+            <Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 12, marginTop: 12 }}
+            >
+              Task records for the selected operational KPI.
+            </Text>
+            <Table
+              columns={taskDetailColumns}
+              dataSource={taskDetailRows}
+              loading={loadingTasks}
+              pagination={{
+                pageSize: 5,
+                showSizeChanger: true,
+                pageSizeOptions: ["5", "10", "15"],
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} of ${total}`,
+              }}
+              scroll={{ x: 1300 }}
+            />
+          </>
+        )}
+
+        {activeKpi === "baseDamage" && (
+          <Table
+            columns={[
+              { title: "Base", dataIndex: "label", key: "label" },
+              { title: "Damage Reports", dataIndex: "value", key: "value" },
             ]}
+            dataSource={baseDamageRepairSummary.damageRows.map((row) => ({
+              key: `d-${row.label}`,
+              ...row,
+            }))}
+            pagination={{ pageSize: 6 }}
           />
-        }
-      >
-        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
-          These are the task records behind the summary cards above.
-        </Text>
-        <Table
-          columns={taskDetailColumns}
-          dataSource={taskDetailRows}
-          loading={loadingTasks}
-          pagination={{
-            pageSize: 5,
-            showSizeChanger: true,
-            pageSizeOptions: ["5", "10", "15"],
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-          }}
-          scroll={{ x: 1300 }}
-        />
+        )}
+
+        {activeKpi === "baseRepair" && (
+          <Table
+            columns={[
+              { title: "Base", dataIndex: "label", key: "label" },
+              { title: "Repaired Aircraft", dataIndex: "value", key: "value" },
+            ]}
+            dataSource={baseDamageRepairSummary.repairRows.map((row) => ({
+              key: `r-${row.label}`,
+              ...row,
+            }))}
+            pagination={{ pageSize: 6 }}
+          />
+        )}
+
+        {activeKpi === "avgRectification" && (
+          <Table
+            columns={[
+              { title: "Base", dataIndex: "base", key: "base" },
+              {
+                title: "Average Rectification (hrs)",
+                dataIndex: "averageRectificationHours",
+                key: "averageRectificationHours",
+              },
+              { title: "Repaired Count", dataIndex: "repairedCount", key: "repairedCount" },
+            ]}
+            dataSource={baseByRectificationRows}
+            pagination={{ pageSize: 6 }}
+          />
+        )}
+
+        {activeKpi === "sameDay" && (
+          <Table
+            columns={[
+              { title: "Base", dataIndex: "base", key: "base" },
+              { title: "Same-Day Repairs", dataIndex: "sameDayRepairCount", key: "sameDayRepairCount" },
+              { title: "Total Repaired", dataIndex: "repairedCount", key: "repairedCount" },
+            ]}
+            dataSource={baseBySameDayRows}
+            pagination={{ pageSize: 6 }}
+          />
+        )}
+
+        {activeKpi === "modules" && (
+          <Table
+            columns={[
+              { title: "Category", dataIndex: "category", key: "category" },
+              { title: "Report Module", dataIndex: "title", key: "title" },
+            ]}
+            dataSource={moduleRows}
+            pagination={{ pageSize: 8 }}
+          />
+        )}
       </Card>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 100 }}>
-        {filteredCards.map((card) => (
-          <Col xs={24} key={card.key}>
-            <Card title={card.title}>{card.component}</Card>
-          </Col>
-        ))}
-      </Row>
+      {Object.entries(groupedFilteredCards).map(([category, categoryCards]) => (
+        <div key={category} style={{ marginBottom: 20 }}>
+          <Title level={5} style={{ marginBottom: 10 }}>
+            {category} Reports
+          </Title>
+          <Row gutter={[16, 16]}>
+            {categoryCards.map((card) => (
+              <Col xs={24} key={card.key}>
+                <Card title={card.title}>{card.component}</Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      ))}
     </div>
   );
 }

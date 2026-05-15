@@ -21,7 +21,8 @@ export const AuthProvider = ({ children }) => {
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
 
-  const getStoredToken = () => sessionStorage.getItem("token");
+  const getStoredToken = () =>
+    sessionStorage.getItem("token") || localStorage.getItem("token");
 
   const normalizeUser = (userData) => ({
     ...userData,
@@ -63,6 +64,8 @@ export const AuthProvider = ({ children }) => {
   const clearAuthStorage = () => {
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("token");
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("token");
     localStorage.removeItem(SESSION_META_KEY);
   };
 
@@ -203,6 +206,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     sessionStorage.setItem("token", data.token);
+    if (localStorage.getItem("rememberMe") === "true") {
+      localStorage.setItem("token", data.token);
+    }
     scheduleTokenExpiryLogout(data.token, logoutUser);
 
     return data.token;

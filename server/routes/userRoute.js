@@ -23,6 +23,8 @@ const {
 
 const {
   loginUser,
+  verifyLoginOtp,
+  resendLoginOtp,
   refreshToken,
   logoutUser,
   registerMobilePushDevice,
@@ -41,6 +43,8 @@ const {
   activateUser,
   resendActivation,
   completeSecuritySetup,
+  revokeTrustedDevice,
+  revokeAllTrustedDevices,
 } = require("../controllers/userController");
 
 const {
@@ -57,10 +61,24 @@ const {
 ========================================= */
 
 router.post("/login", rateLimiter, loginUser);
+router.post("/login/verify-otp", otpRequestLimiter, verifyLoginOtp);
+router.post("/login/resend-otp", otpRequestLimiter, resendLoginOtp);
 
 router.post("/refresh-token", refreshToken);
 
 router.post("/logout", logoutUser);
+router.post(
+  "/trusted-device/revoke",
+  verifyToken,
+  touchSessionActivity,
+  revokeTrustedDevice,
+);
+router.post(
+  "/trusted-device/revoke-all",
+  verifyToken,
+  touchSessionActivity,
+  revokeAllTrustedDevices,
+);
 
 router.post(
   "/register-mobile-push-device",

@@ -10,17 +10,17 @@ import {
   Card,
   Checkbox,
   Col,
+  DatePicker,
+  Empty,
   Form,
   Input,
   Modal,
+  Progress,
   Row,
   Select,
   Space,
-  Table,
-  Tabs,
   Tag,
   Typography,
-  DatePicker,
   message,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -28,17 +28,37 @@ import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import TaskCard from "../../../components/TaskAssignment/TaskCard";
+import CreateTaskModal from "../../../components/TaskAssignment/CreateTaskModal";
+import {
+  addMinutesToDate,
+  estimateInspectionSchedule,
+} from "../../../utils/inspectionTiming";
 
-const { Text } = Typography;
-const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
+const { Text, Title } = Typography;
+const OPEN_STATUSES = new Set(["pending", "ongoing", "returned"]);
+const CUSTOM_INSPECTION_ID = "custom-task";
 
 const normalizeStatus = (value) =>
   String(value || "")
     .trim()
     .toLowerCase();
+
 const isTurnedIn = (task) => normalizeStatus(task?.status) === "turned in";
 const isReviewed = (task) =>
   task?.isApproved || normalizeStatus(task?.status) === "approved";
+
+const formatDateTime = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 export default function TaskAssignment() {
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -47,10 +67,10 @@ export default function TaskAssignment() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("assigned");
+  const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [selectedTask, setSelectedTask] = useState(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [form] = Form.useForm();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
   const [itemsToUncheck, setItemsToUncheck] = useState([]);
@@ -58,24 +78,39 @@ export default function TaskAssignment() {
     open: false,
     mode: null,
   });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [aircraftList, setAircraftList] = useState([]);
+  const [inspectionOptions, setInspectionOptions] = useState([]);
+  const [selectedInspectionId, setSelectedInspectionId] = useState("");
+  const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
+  const [checklistDraftItems, setChecklistDraftItems] = useState([]);
+  const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
+  const [form] = Form.useForm();
+
   const role = user?.jobTitle?.toLowerCase() || "";
   const isManager = role === "maintenance manager";
+  const currentUserId = user?.id || user?._id;
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const headers = await getAuthHeader();
-      console.log(headers);
+
       const [taskResponse, userResponse] = await Promise.all([
         fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
-        fetch(`${API_BASE}/api/user/get-all-users`, { headers }),
+        fetch(`${API_BASE}/api/user/assignable-users`, { headers }),
       ]);
+
       const taskData = await taskResponse.json();
       const userData = await userResponse.json();
-      if (!taskResponse.ok)
+
+      if (!taskResponse.ok) {
         throw new Error(taskData.message || "Failed to load tasks");
-      if (!userResponse.ok)
+      }
+      if (!userResponse.ok) {
         throw new Error(userData.message || "Failed to load users");
+      }
+
       setTasks(Array.isArray(taskData.data) ? taskData.data : []);
       setUsers(Array.isArray(userData.data) ? userData.data : []);
     } catch (error) {
@@ -89,6 +124,76 @@ export default function TaskAssignment() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!createOpen) return;
+
+    const initializeCreateModal = async () => {
+      try {
+        setCreateLoading(true);
+        const [aircraftResponse, inspectionResponse] = await Promise.all([
+          fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`),
+          fetch(`${API_BASE}/api/inspections/schedules`),
+        ]);
+
+        const aircraftData = await aircraftResponse.json();
+        const inspectionData = await inspectionResponse.json();
+
+        setAircraftList(
+          Array.isArray(aircraftData?.data) ? aircraftData.data : [],
+        );
+
+        const options = Array.from(
+          new Map(
+            (Array.isArray(inspectionData) ? inspectionData : []).map(
+              (inspection) => [
+                inspection._id,
+                {
+                  id: inspection._id,
+                  name: inspection.inspectionName,
+                  aircraftModel: inspection.aircraftModel,
+                },
+              ],
+            ),
+          ).values(),
+        );
+        setInspectionOptions(options);
+      } catch (error) {
+        message.error(error.message || "Failed to load task setup data");
+      } finally {
+        setCreateLoading(false);
+      }
+    };
+
+    const start = addMinutesToDate(new Date(), 5);
+    const end = addMinutesToDate(start, 60);
+    form.setFieldsValue({
+      startDateTime: dayjs(start),
+      endDateTime: dayjs(end),
+      priority: "Normal",
+      maintenanceType: "Corrective Maintenance",
+    });
+    setSelectedInspectionId("");
+    setChecklistDraftItems([]);
+    setCustomTaskTitle("Custom Task");
+    setEndDateManuallyAdjusted(false);
+
+    initializeCreateModal();
+  }, [createOpen, form]);
+  const scheduleEstimate = useMemo(
+    () => estimateInspectionSchedule(checklistDraftItems),
+    [checklistDraftItems],
+  );
+  useEffect(() => {
+    if (!createOpen || endDateManuallyAdjusted) return;
+    const start = form.getFieldValue("startDateTime");
+    if (!start) return;
+    const nextEnd = addMinutesToDate(
+      dayjs(start).toDate(),
+      scheduleEstimate.minutes,
+    );
+    form.setFieldValue("endDateTime", dayjs(nextEnd));
+  }, [createOpen, endDateManuallyAdjusted, form, scheduleEstimate.minutes]);
+
   const mechanics = useMemo(
     () =>
       users.filter(
@@ -99,49 +204,134 @@ export default function TaskAssignment() {
     [users],
   );
 
-  const myTasks = useMemo(
-    () =>
-      isManager
-        ? tasks
-        : tasks.filter((task) => String(task.assignedTo) === String(user?.id)),
-    [isManager, tasks, user?.id],
+  const isCustomTask = selectedInspectionId === CUSTOM_INSPECTION_ID;
+
+  const dedupeChecklistItems = (items = []) => {
+    const seen = new Set();
+    return items.filter((item) => {
+      const key = `${item.taskId || ""}|${item.taskName || ""}|${item.inspectionTypeFull || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const fetchInspectionTasks = async (inspection) => {
+    const response = await fetch(
+      `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspection?.name || "")}&aircraftModel=${encodeURIComponent(inspection?.aircraftModel || "")}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch inspection tasks");
+    }
+
+    const tasks = await response.json();
+    const normalizedTasks = Array.isArray(tasks)
+      ? tasks.map((item) => ({
+          ...item,
+          taskId: String(item?.taskId || "").trim(),
+          taskName: String(item?.taskName || "").trim(),
+          inspectionTypeFull: String(item?.inspectionTypeFull || "").trim(),
+        }))
+      : [];
+
+    return dedupeChecklistItems(normalizedTasks).filter(
+      (item) => item.taskName.length > 0,
+    );
+  };
+
+  const myTasks = useMemo(() => {
+    if (isManager) return tasks;
+    return tasks.filter(
+      (task) => String(task.assignedTo || "") === String(currentUserId || ""),
+    );
+  }, [currentUserId, isManager, tasks]);
+
+  const aircraftOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        myTasks
+          .map((item) => String(item?.aircraft || "").trim())
+          .filter(Boolean),
+      ),
+    );
+    return [{ label: "All Aircraft", value: "all" }].concat(
+      values.map((aircraft) => ({ label: aircraft, value: aircraft })),
+    );
+  }, [myTasks]);
+
+  const today = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
+
+  const isPastDueOpenTask = useCallback(
+    (task) => {
+      if (!OPEN_STATUSES.has(normalizeStatus(task?.status))) return false;
+      const deadline = task?.endDateTime || task?.dueDate;
+      if (!deadline) return false;
+      const dueDate = new Date(deadline);
+      if (Number.isNaN(dueDate.getTime())) return false;
+      return dueDate < today;
+    },
+    [today],
   );
 
   const filteredByTab = useMemo(() => {
     return myTasks.filter((task) => {
-      if (activeTab === "assigned")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status));
-      if (activeTab === "for_review")
-        return (
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved)
-        );
-      if (activeTab === "reviewed") return isReviewed(task);
-      if (activeTab === "ongoing")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status));
-      if (activeTab === "completed")
-        return isTurnedIn(task) || isReviewed(task);
+      const status = normalizeStatus(task?.status);
+
+      if (isManager) {
+        if (activeTab === "assigned") return OPEN_STATUSES.has(status);
+        if (activeTab === "for_review")
+          return (
+            isTurnedIn(task) || (status === "completed" && !task.isApproved)
+          );
+        if (activeTab === "reviewed") return isReviewed(task);
+        return true;
+      }
+
+      if (activeTab === "upcoming") {
+        return OPEN_STATUSES.has(status) && !isPastDueOpenTask(task);
+      }
+      if (activeTab === "past_due") {
+        return isPastDueOpenTask(task);
+      }
+      if (activeTab === "completed") {
+        return isTurnedIn(task) || isReviewed(task) || status === "completed";
+      }
       return true;
     });
-  }, [activeTab, myTasks]);
+  }, [activeTab, isManager, isPastDueOpenTask, myTasks]);
 
-  const displayedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     return filteredByTab.filter((task) => {
       const needle = query.trim().toLowerCase();
+      if (
+        selectedAircraft !== "all" &&
+        String(task.aircraft) !== selectedAircraft
+      ) {
+        return false;
+      }
       if (!needle) return true;
-      return [task.id, task.title, task.aircraft, task.assignedToName].some(
-        (value) =>
-          String(value || "")
-            .toLowerCase()
-            .includes(needle),
+      return [
+        task.id,
+        task.title,
+        task.aircraft,
+        task.assignedToName,
+        task.maintenanceType,
+      ].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(needle),
       );
     });
-  }, [filteredByTab, query]);
+  }, [filteredByTab, query, selectedAircraft]);
 
   const counts = useMemo(
     () => ({
       assigned: myTasks.filter((task) =>
-        ACTIVE_OPEN.has(normalizeStatus(task.status)),
+        OPEN_STATUSES.has(normalizeStatus(task.status)),
       ).length,
       forReview: myTasks.filter(
         (task) =>
@@ -149,14 +339,40 @@ export default function TaskAssignment() {
           (normalizeStatus(task.status) === "completed" && !task.isApproved),
       ).length,
       reviewed: myTasks.filter((task) => isReviewed(task)).length,
-      ongoing: myTasks.filter((task) =>
-        ACTIVE_OPEN.has(normalizeStatus(task.status)),
+      upcoming: myTasks.filter(
+        (task) =>
+          OPEN_STATUSES.has(normalizeStatus(task.status)) &&
+          !isPastDueOpenTask(task),
       ).length,
-      completed: myTasks.filter((task) => isTurnedIn(task) || isReviewed(task))
-        .length,
+      pastDue: myTasks.filter((task) => isPastDueOpenTask(task)).length,
+      completed: myTasks.filter(
+        (task) =>
+          isTurnedIn(task) ||
+          isReviewed(task) ||
+          normalizeStatus(task.status) === "completed",
+      ).length,
     }),
-    [myTasks],
+    [isPastDueOpenTask, myTasks],
   );
+
+  const taskGroups = useMemo(() => {
+    const map = new Map();
+    filteredTasks.forEach((task) => {
+      const keyDate =
+        task?.endDateTime || task?.dueDate || task?.createdAt || new Date();
+      const date = new Date(keyDate);
+      const label = Number.isNaN(date.getTime())
+        ? "No Schedule"
+        : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (!map.has(label)) map.set(label, []);
+      map.get(label).push(task);
+    });
+
+    return Array.from(map.entries()).map(([label, items]) => ({
+      label,
+      items,
+    }));
+  }, [filteredTasks]);
 
   const upsertTask = async (taskPayload) => {
     const response = await fetch(`${API_BASE}/api/tasks/${taskPayload.id}`, {
@@ -174,28 +390,38 @@ export default function TaskAssignment() {
 
   const handleStart = async () => {
     if (!selectedTask) return;
-    const now = new Date().toISOString();
-    const next = { ...selectedTask, status: "Ongoing", startDateTime: now };
+    const nowIso = new Date().toISOString();
     try {
-      await upsertTask(next);
+      await upsertTask({
+        ...selectedTask,
+        status: "Ongoing",
+        startDateTime: nowIso,
+      });
       message.success("Task started");
-      setChecklistOpen(false);
       await load();
     } catch (error) {
       message.error(error.message || "Failed to start task");
     }
   };
 
-  const handleSaveDraftOrTurnIn = async (turnIn = false) => {
+  const handleSaveDraftOrTurnIn = async (turnIn = false, options = {}) => {
     if (!selectedTask) return;
-    const now = new Date().toISOString();
+    const nowIso = new Date().toISOString();
     const next = {
       ...selectedTask,
-      status: turnIn ? "Turned in" : selectedTask.status,
-      completedAt: turnIn ? now : selectedTask.completedAt,
+      status: options.undo
+        ? "Ongoing"
+        : turnIn
+          ? "Turned in"
+          : selectedTask.status,
+      completedAt: options.undo
+        ? null
+        : turnIn
+          ? nowIso
+          : selectedTask.completedAt,
     };
 
-    if (turnIn) {
+    if (turnIn && !options.undo) {
       const checklist = Array.isArray(next.checklistState)
         ? next.checklistState
         : [];
@@ -207,8 +433,13 @@ export default function TaskAssignment() {
 
     try {
       await upsertTask(next);
-      message.success(turnIn ? "Task turned in" : "Draft saved");
-      setChecklistOpen(false);
+      message.success(
+        options.undo
+          ? "Turn in reverted"
+          : turnIn
+            ? "Task turned in"
+            : "Draft saved",
+      );
       await load();
     } catch (error) {
       message.error(error.message || "Failed to update task");
@@ -218,9 +449,37 @@ export default function TaskAssignment() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
+      if (!selectedInspectionId) {
+        message.error("Inspection is required");
+        return;
+      }
       const selectedMechanic = mechanics.find(
         (item) => String(item._id) === String(values.assignedTo),
       );
+      const selectedInspection = inspectionOptions.find(
+        (item) => String(item.id) === String(selectedInspectionId),
+      );
+      const selectedInspectionName = isCustomTask
+        ? customTaskTitle.trim() || "Custom Task"
+        : selectedInspection?.name || values.title;
+
+      const filteredChecklist = checklistDraftItems
+        .filter((item) => String(item?.taskName || "").trim())
+        .map((item, index) => ({
+          ...item,
+          inspectionName: selectedInspectionName,
+          taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
+          inspectionType: isCustomTask ? "Custom" : item.inspectionType,
+          inspectionTypeFull: isCustomTask
+            ? "Custom Task"
+            : item.inspectionTypeFull,
+        }));
+
+      if (!filteredChecklist.length) {
+        message.error("Please add at least one checklist item.");
+        return;
+      }
+
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
         method: "POST",
         headers: {
@@ -229,43 +488,39 @@ export default function TaskAssignment() {
         },
         body: JSON.stringify({
           id: `TSK-${Date.now()}`,
-          title: values.title,
+          title: selectedInspectionName,
           aircraft: values.aircraft,
           assignedTo: values.assignedTo,
           assignedToName:
             `${selectedMechanic?.firstName || ""} ${selectedMechanic?.lastName || ""}`.trim(),
-          startDateTime: dayjs(values.startDateTime).format("YYYY-MM-DD HH:mm"),
-          endDateTime: dayjs(values.endDateTime).format("YYYY-MM-DD HH:mm"),
-          dueDate: dayjs(values.endDateTime).format("YYYY-MM-DD HH:mm"),
+          startDateTime: dayjs(values.startDateTime).toISOString(),
+          endDateTime: dayjs(values.endDateTime).toISOString(),
+          dueDate: dayjs(values.endDateTime).toISOString(),
           status: "Pending",
           priority: values.priority,
-          maintenanceType: values.maintenanceType,
-          checklistItems: values.checklistItems
-            .split("\n")
-            .map((name) => name.trim())
-            .filter(Boolean)
-            .map((name, index) => ({
-              taskId: `CL-${index + 1}`,
-              taskName: name,
-            })),
-          checklistState: values.checklistItems
-            .split("\n")
-            .map((name) => name.trim())
-            .filter(Boolean)
-            .map(() => false),
+          maintenanceType: isCustomTask
+            ? "Custom Task"
+            : values.maintenanceType,
+          checklistItems: filteredChecklist,
+          checklistState: filteredChecklist.map(() => false),
+          performance: { estimatedHours: scheduleEstimate.hours },
           confirmAction: true,
         }),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "Failed to create task");
+
       message.success("Task created");
       form.resetFields();
+      setChecklistDraftItems([]);
+      setSelectedInspectionId("");
       setCreateOpen(false);
       await load();
     } catch (error) {
-      if (!error?.errorFields)
+      if (!error?.errorFields) {
         message.error(error.message || "Failed to create task");
+      }
     }
   };
 
@@ -296,7 +551,6 @@ export default function TaskAssignment() {
       });
       message.success("Task returned");
       setReviewOpen(false);
-      setChecklistOpen(false);
       setReviewNote("");
       setItemsToUncheck([]);
       await load();
@@ -323,7 +577,6 @@ export default function TaskAssignment() {
       });
       message.success("Task approved");
       setSignatureState({ open: false, mode: null });
-      setChecklistOpen(false);
       await load();
     } catch (error) {
       message.error(error.message || "Failed to approve task");
@@ -337,27 +590,51 @@ export default function TaskAssignment() {
         { key: "reviewed", label: `Reviewed (${counts.reviewed})` },
       ]
     : [
-        { key: "ongoing", label: `Ongoing (${counts.ongoing})` },
+        { key: "upcoming", label: `Upcoming (${counts.upcoming})` },
+        { key: "past_due", label: `Past Due (${counts.pastDue})` },
         { key: "completed", label: `Completed (${counts.completed})` },
       ];
 
   return (
-    <div style={{ padding: 20 }}>
-      <Card>
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={10}>
+    <div style={{ padding: 18 }}>
+      <Card
+        style={{
+          borderRadius: 14,
+          border: "1px solid #E5E7EB",
+          boxShadow: "0 6px 22px rgba(16,24,40,0.04)",
+        }}
+      >
+        <Row gutter={[10, 10]}>
+          <Col xs={24} lg={10}>
             <Input
+              size="large"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
+              style={{ borderRadius: 10 }}
             />
           </Col>
+
+          {!isManager && (
+            <Col xs={24} lg={8}>
+              <Select
+                size="large"
+                value={selectedAircraft}
+                onChange={setSelectedAircraft}
+                options={aircraftOptions}
+                style={{ width: "100%" }}
+              />
+            </Col>
+          )}
+
           {isManager && (
-            <Col xs={24} md={6}>
+            <Col xs={24} lg={5}>
               <Button
                 type="primary"
+                size="large"
                 icon={<PlusOutlined />}
+                style={{ width: "100%", borderRadius: 10 }}
                 onClick={() => setCreateOpen(true)}
               >
                 Add Task
@@ -365,193 +642,90 @@ export default function TaskAssignment() {
             </Col>
           )}
         </Row>
-        <Tabs
-          style={{ marginTop: 10 }}
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabs}
-        />
+
+        <div
+          style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}
+        >
+          {tabs.map((tab) => (
+            <Button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              type={activeTab === tab.key ? "primary" : "default"}
+              style={{
+                borderRadius: 7,
+                height: 36,
+                fontWeight: 600,
+                background: activeTab === tab.key ? "#26866F" : "#fff",
+                borderColor: activeTab === tab.key ? "#26866F" : "#D0D5DD",
+              }}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
       </Card>
 
-      <Table
-        style={{ marginTop: 12 }}
-        loading={loading}
-        rowKey={(record) => record._id || record.id}
-        dataSource={displayedTasks}
-        pagination={{ pageSize: 10 }}
-        onRow={(record) => ({
-          onClick: () => {
-            setSelectedTask(record);
-            setChecklistOpen(true);
-          },
-        })}
-        columns={[
-          { title: "Task ID", dataIndex: "id" },
-          { title: "Title", dataIndex: "title" },
-          { title: "Aircraft", dataIndex: "aircraft" },
-          { title: "Assigned To", dataIndex: "assignedToName" },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => <Tag>{value || "Pending"}</Tag>,
-          },
-          {
-            title: "Due",
-            render: (_, record) => record.endDateTime || record.dueDate || "-",
-          },
-        ]}
-      />
+      <div style={{ marginTop: 14 }}>
+        {loading ? (
+          <Card loading style={{ borderRadius: 14 }} />
+        ) : taskGroups.length === 0 ? (
+          <Card style={{ borderRadius: 14 }}>
+            <Empty description="No tasks available in this view" />
+          </Card>
+        ) : (
+          taskGroups.map((group) => (
+            <div key={group.label} style={{ marginBottom: 14 }}>
+              {!isManager && (
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#344054",
+                    marginBottom: 8,
+                  }}
+                >
+                  {group.label}
+                </Text>
+              )}
+              <div style={{ display: "grid", gap: 10 }}>
+                {group.items.map((task) => (
+                  <TaskCard
+                    key={task._id || task.id}
+                    task={task}
+                    onOpen={(item) => {
+                      setSelectedTask(item);
+                      setChecklistOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
-      <Modal
+      <CreateTaskModal
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         onOk={handleCreate}
-        title="Create Task"
-        okText="Create"
-        width={960}
-      >
-        <Form form={form} layout="vertical">
-          <Space direction="vertical" size={6} style={{ width: "100%" }}>
-            <Row gutter={[12, 4]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Title"
-                  name="title"
-                  rules={[
-                    { required: true, message: "Task title is required" },
-                    { min: 3, message: "Title must be at least 3 characters" },
-                  ]}
-                >
-                  <Input size="large" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Aircraft"
-                  name="aircraft"
-                  rules={[{ required: true, message: "Aircraft is required" }]}
-                >
-                  <Input size="large" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Assign Mechanic"
-                  name="assignedTo"
-                  rules={[{ required: true, message: "Assignee is required" }]}
-                >
-                  <Select
-                    size="large"
-                    options={mechanics.map((item) => ({
-                      value: item._id,
-                      label: `${item.firstName} ${item.lastName}`,
-                    }))}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Priority"
-                  name="priority"
-                  initialValue="Normal"
-                >
-                  <Select
-                    size="large"
-                    options={["Low", "Normal", "High"].map((value) => ({
-                      value,
-                      label: value,
-                    }))}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Start Date/Time"
-                  name="startDateTime"
-                  rules={[
-                    { required: true, message: "Start date/time is required" },
-                  ]}
-                >
-                  <DatePicker
-                    size="large"
-                    style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
-                    showTime={{ format: "HH:mm" }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="End Date/Time"
-                  name="endDateTime"
-                  dependencies={["startDateTime"]}
-                  rules={[
-                    { required: true, message: "End date/time is required" },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        const start = getFieldValue("startDateTime");
-                        if (!start || !value) return Promise.resolve();
-                        if (dayjs(value).isAfter(dayjs(start)))
-                          return Promise.resolve();
-                        return Promise.reject(
-                          new Error(
-                            "End date/time must be later than start date/time",
-                          ),
-                        );
-                      },
-                    }),
-                  ]}
-                >
-                  <DatePicker
-                    size="large"
-                    style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
-                    showTime={{ format: "HH:mm" }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item
-                  label="Maintenance Type"
-                  name="maintenanceType"
-                  initialValue="Corrective Maintenance"
-                >
-                  <Select
-                    size="large"
-                    options={[
-                      "Corrective Maintenance",
-                      "Preventive Maintenance",
-                    ].map((value) => ({ value, label: value }))}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item
-                  label="Checklist Items (one per line)"
-                  name="checklistItems"
-                  rules={[
-                    { required: true, message: "Checklist items are required" },
-                    {
-                      validator(_, value) {
-                        const itemCount = String(value || "")
-                          .split("\n")
-                          .map((line) => line.trim())
-                          .filter(Boolean).length;
-                        if (itemCount > 0) return Promise.resolve();
-                        return Promise.reject(
-                          new Error("Enter at least one checklist item"),
-                        );
-                      },
-                    },
-                  ]}
-                >
-                  <Input.TextArea rows={5} />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Space>
-        </Form>
-      </Modal>
+        confirmLoading={createLoading}
+        form={form}
+        aircraftList={aircraftList}
+        selectedInspectionId={selectedInspectionId}
+        setSelectedInspectionId={setSelectedInspectionId}
+        inspectionOptions={inspectionOptions}
+        checklistDraftItems={checklistDraftItems}
+        setChecklistDraftItems={setChecklistDraftItems}
+        customTaskTitle={customTaskTitle}
+        setCustomTaskTitle={setCustomTaskTitle}
+        isCustomTask={isCustomTask}
+        mechanics={mechanics}
+        setEndDateManuallyAdjusted={setEndDateManuallyAdjusted}
+        fetchInspectionTasks={fetchInspectionTasks}
+        setCreateLoading={setCreateLoading}
+        messageApi={message}
+        endDateManuallyAdjusted={endDateManuallyAdjusted}
+      />
 
       <Modal
         open={checklistOpen}
@@ -563,15 +737,35 @@ export default function TaskAssignment() {
         {selectedTask && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
             <Text type="secondary">
-              Aircraft: {selectedTask.aircraft} | Due:{" "}
-              {selectedTask.endDateTime || selectedTask.dueDate || "-"}
+              End{" "}
+              {formatDateTime(selectedTask.endDateTime || selectedTask.dueDate)}{" "}
+              | Aircraft {selectedTask.aircraft || "N/A"}
             </Text>
+
             {!!selectedTask.returnComments && (
               <Card
                 size="small"
                 style={{ background: "#fff1f0", borderColor: "#ffccc7" }}
               >
                 <Text strong>Remarks:</Text> {selectedTask.returnComments}
+              </Card>
+            )}
+
+            {(isTurnedIn(selectedTask) || isReviewed(selectedTask)) && (
+              <Card
+                size="small"
+                style={{ background: "#e8f5e9", borderColor: "#c8e6c9" }}
+              >
+                <Text strong style={{ color: "#2e7d32" }}>
+                  Task Completed
+                </Text>
+                <div>
+                  <Text type="secondary">
+                    {isReviewed(selectedTask)
+                      ? `Approved by ${selectedTask?.approvedBy || "Maintenance Manager"}`
+                      : "Pending review by Maintenance Manager"}
+                  </Text>
+                </div>
               </Card>
             )}
 
@@ -615,18 +809,21 @@ export default function TaskAssignment() {
             })}
 
             {!isManager && (
-              <Input.TextArea
-                rows={4}
-                value={selectedTask.findings || ""}
-                onChange={(e) =>
-                  setSelectedTask((prev) => ({
-                    ...prev,
-                    findings: e.target.value,
-                  }))
-                }
-                placeholder="Findings"
-                disabled={isReviewed(selectedTask)}
-              />
+              <>
+                <Text strong>Findings (AI-interpreted)</Text>
+                <Input.TextArea
+                  rows={4}
+                  value={selectedTask.findings || ""}
+                  onChange={(e) =>
+                    setSelectedTask((prev) => ({
+                      ...prev,
+                      findings: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter findings, symptoms, affected parts, and inspection results..."
+                  disabled={isReviewed(selectedTask)}
+                />
+              </>
             )}
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
@@ -670,6 +867,18 @@ export default function TaskAssignment() {
                     </Button>
                   </>
                 )}
+
+              {!isManager &&
+                isTurnedIn(selectedTask) &&
+                !isReviewed(selectedTask) && (
+                  <Button
+                    onClick={() =>
+                      handleSaveDraftOrTurnIn(false, { undo: true })
+                    }
+                  >
+                    Undo Turn In
+                  </Button>
+                )}
             </Space>
           </Space>
         )}
@@ -683,7 +892,7 @@ export default function TaskAssignment() {
         onCancel={() => setReviewOpen(false)}
         width={720}
       >
-        <Space direction="vertical" style={{ width: "100%" }} size={10}>
+        <Space orientation="vertical" style={{ width: "100%" }} size={10}>
           <Text>Uncheck items that need rework:</Text>
           <Row gutter={[8, 8]}>
             {(selectedTask?.checklistItems || [])
