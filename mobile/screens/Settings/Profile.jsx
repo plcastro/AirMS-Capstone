@@ -15,8 +15,10 @@ import {
   TextInput,
   Avatar,
   Text,
+  Switch,
 } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
+import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DefaultAvatar from "../../assets/images/default_avatar.jpg";
 import { AuthContext } from "../../Context/AuthContext";
@@ -27,24 +29,21 @@ export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
 
   const [activeTab, setActiveTab] = useState("info");
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [previewUri, setPreviewUri] = useState(null);
   const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
+  const [fontSizePreference, setFontSizePreference] = useState("medium");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationPermission, setNotificationPermission] =
+    useState("undetermined");
+  const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
-  // --- VALIDATION LOGIC ---
-  const hasNumbers = (text) => /\d/.test(text);
-  const hasChanges =
-    formData.firstName !== user?.firstName ||
-    formData.lastName !== user?.lastName;
-
-  const isSaveDisabled =
-    hasNumbers(formData.firstName) ||
-    hasNumbers(formData.lastName) ||
-    formData.firstName.trim() === "" ||
-    formData.lastName.trim() === "" ||
-    !hasChanges;
+  const fontScaleMap = {
+    small: 0.9,
+    medium: 1,
+    large: 1.1,
+  };
+  const fontScale = fontScaleMap[fontSizePreference] || 1;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -59,16 +58,46 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-      });
       const imgPath = user.image?.startsWith("http")
         ? user.image
         : `${API_BASE}${user.image || DefaultAvatar}`;
       setPreviewUri(imgPath);
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const stored = JSON.parse(
+          (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
+        );
+        setFontSizePreference(stored.fontSizePreference || "medium");
+        setNotificationsEnabled(
+          typeof stored.notificationsEnabled === "boolean"
+            ? stored.notificationsEnabled
+            : true,
+        );
+      } catch {}
+
+      try {
+        const permissionStatus = await Notifications.getPermissionsAsync();
+        setNotificationPermission(permissionStatus.status || "undetermined");
+      } catch {}
+    };
+
+    loadSettings();
+  }, []);
+
+  const saveSettings = async (next = {}) => {
+    const payload = {
+      fontSizePreference: next.fontSizePreference || fontSizePreference,
+      notificationsEnabled:
+        typeof next.notificationsEnabled === "boolean"
+          ? next.notificationsEnabled
+          : notificationsEnabled,
+    };
+    await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
+  };
 
   // --- IMAGE PICKER HANDLER ---
   const handleImagePick = async () => {
@@ -107,35 +136,6 @@ export default function Profile() {
       setPreviewUri(selectedFile.uri);
     }
   };
-  // --- HANDLERS ---
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("currentUserToken");
-      const res = await fetch(
-        `${API_BASE}/api/user/update-user-profile/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(formData),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Update failed");
-
-      setUser({ ...user, ...formData });
-      setIsEditing(false);
-      showToast("Profile updated!");
-    } catch (err) {
-      showToast(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveImage = async () => {
     if (!file || !file.uri) return;
     setLoading(true);
@@ -285,6 +285,11 @@ export default function Profile() {
                 label: "Security",
                 icon: "shield-check-outline",
               },
+              {
+                value: "settings",
+                label: "Settings",
+                icon: "cog-outline",
+              },
             ]}
             style={styles.segmented}
           />
@@ -295,30 +300,20 @@ export default function Profile() {
         <Card style={styles.formCard}>
           <Card.Content>
             <TextInput
-              label="First Name *"
+              label="First Name"
               mode="outlined"
-              value={formData.firstName}
-              onChangeText={(t) => setFormData({ ...formData, firstName: t })}
-              editable={isEditing}
-              error={isEditing && hasNumbers(formData.firstName)}
+              value={user?.firstName || ""}
+              editable={false}
               style={styles.input}
             />
-            {isEditing && hasNumbers(formData.firstName) && (
-              <Text style={styles.errorText}>Numbers are not allowed.</Text>
-            )}
 
             <TextInput
-              label="Last Name *"
+              label="Last Name"
               mode="outlined"
-              value={formData.lastName}
-              onChangeText={(t) => setFormData({ ...formData, lastName: t })}
-              editable={isEditing}
-              error={isEditing && hasNumbers(formData.lastName)}
+              value={user?.lastName || ""}
+              editable={false}
               style={styles.input}
             />
-            {isEditing && hasNumbers(formData.lastName) && (
-              <Text style={styles.errorText}>Numbers are not allowed.</Text>
-            )}
 
             <TextInput
               label="Username"
@@ -342,47 +337,73 @@ export default function Profile() {
               style={styles.input}
             />
 
-            <View style={styles.buttonRow}>
-              {isEditing ? (
-                <>
-                  <Button
-                    mode="contained"
-                    onPress={handleSaveProfile}
-                    disabled={isSaveDisabled}
-                    loading={loading}
-                    style={styles.actionButton}
-                  >
-                    Save Changes
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    onPress={() => {
-                      setIsEditing(false);
-                      setFormData({
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                      });
-                    }}
-                    style={styles.actionButton}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  icon="pencil"
-                  mode="contained"
-                  onPress={() => setIsEditing(true)}
-                  style={styles.fullWidthButton}
+            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+              Name editing is disabled. Contact an administrator to update your
+              legal profile name.
+            </Text>
+          </Card.Content>
+        </Card>
+      ) : activeTab === "security" ? (
+        <UpdateSecurity />
+      ) : (
+        <Card style={styles.formCard}>
+          <Card.Content>
+            <Text style={[styles.settingsTitle, { fontSize: 16 * fontScale }]}>
+              App Settings
+            </Text>
+
+            <Text style={[styles.settingLabel, { fontSize: 14 * fontScale }]}>
+              Font Size
+            </Text>
+            <SegmentedButtons
+              value={fontSizePreference}
+              onValueChange={async (value) => {
+                setFontSizePreference(value);
+                await saveSettings({ fontSizePreference: value });
+                showToast("Font size preference saved.");
+              }}
+              buttons={[
+                { value: "small", label: "Small" },
+                { value: "medium", label: "Medium" },
+                { value: "large", label: "Large" },
+              ]}
+              style={{ marginBottom: 14 }}
+            />
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text
+                  style={[styles.settingLabel, { fontSize: 14 * fontScale }]}
                 >
-                  Edit User Information
-                </Button>
-              )}
+                  Enable Notifications
+                </Text>
+                <Text style={styles.settingSub}>
+                  Permission: {notificationPermission}
+                </Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={async (value) => {
+                  if (value) {
+                    const permissionRequest =
+                      await Notifications.requestPermissionsAsync();
+                    const status = permissionRequest.status || "undetermined";
+                    setNotificationPermission(status);
+                    if (status !== "granted") {
+                      setNotificationsEnabled(false);
+                      await saveSettings({ notificationsEnabled: false });
+                      showToast("Notification permission not granted.");
+                      return;
+                    }
+                  }
+                  setNotificationsEnabled(value);
+                  await saveSettings({ notificationsEnabled: value });
+                  showToast("Notification preference saved.");
+                }}
+              />
             </View>
           </Card.Content>
         </Card>
-      ) : (
-        <UpdateSecurity />
       )}
     </ScrollView>
   );
@@ -431,4 +452,23 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600"},
+  settingsTitle: {
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  settingLabel: {
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  settingSub: {
+    color: "#6b7280",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  settingRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 });

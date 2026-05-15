@@ -5,9 +5,9 @@ import {
   ScrollView,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,6 +16,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const FILTER_MODES = ["all", "base", "platform"];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
@@ -48,6 +49,8 @@ export default function ActivityLogs() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
+  const [filterMode, setFilterMode] = useState("all");
+  const [filterValue, setFilterValue] = useState("all");
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -74,6 +77,12 @@ export default function ActivityLogs() {
             dateTime: item.dateTime,
             actionMade: item.actionMade || item.action || "N/A",
             username: item.username || "Unknown",
+            base: String(item.base || item.loginBase || "unknown")
+              .trim()
+              .toUpperCase(),
+            platform: String(item.platform || "unknown")
+              .trim()
+              .toLowerCase(),
           }))
         : [];
 
@@ -119,17 +128,43 @@ export default function ActivityLogs() {
       );
     }
 
+    if (filterMode !== "all" && filterValue !== "all") {
+      next = next.filter((item) =>
+        filterMode === "base"
+          ? String(item.base || "unknown") === filterValue
+          : String(item.platform || "unknown") === filterValue,
+      );
+    }
+
     const query = searchQuery.trim().toLowerCase();
     if (!query) return next;
 
     return next.filter((item) =>
-      [item.actionMade, item.username, item.dateTime]
+      [item.actionMade, item.username, item.dateTime, item.base, item.platform]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [actionType, logs, searchQuery]);
+  }, [actionType, filterMode, filterValue, logs, searchQuery]);
+
+  const filterOptions = useMemo(() => {
+    if (filterMode === "base") {
+      const values = Array.from(
+        new Set(logs.map((item) => item.base).filter(Boolean)),
+      ).sort();
+      return ["all", ...values];
+    }
+
+    if (filterMode === "platform") {
+      const values = Array.from(
+        new Set(logs.map((item) => item.platform).filter(Boolean)),
+      ).sort();
+      return ["all", ...values];
+    }
+
+    return ["all"];
+  }, [filterMode, logs]);
 
   const formatDisplayDate = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -186,47 +221,94 @@ export default function ActivityLogs() {
         />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginBottom: 10 }}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          columnGap: 8,
+          marginBottom: 10,
+        }}
       >
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          {ACTION_TYPES.map((type) => {
-            const selected = actionType === type;
-            return (
-              <TouchableOpacity
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: COLORS.white,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            overflow: "hidden",
+          }}
+        >
+          <Picker selectedValue={actionType} onValueChange={setActionType}>
+            {ACTION_TYPES.map((type) => (
+              <Picker.Item
                 key={type}
-                onPress={() => setActionType(type)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 7,
-                  borderWidth: 1,
-                  borderColor: selected
-                    ? COLORS.primaryLight
-                    : COLORS.grayMedium,
-                  backgroundColor: selected
-                    ? COLORS.primaryLight
-                    : COLORS.white,
-                }}
-              >
-                <Text
-                  style={{
-                    color: selected ? COLORS.white : COLORS.grayDark,
-                    fontSize: 12,
-                    fontWeight: "600",
-                  }}
-                >
-                  {type === "all"
+                value={type}
+                label={
+                  type === "all"
                     ? "All Actions"
-                    : type[0].toUpperCase() + type.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                    : type[0].toUpperCase() + type.slice(1)
+                }
+              />
+            ))}
+          </Picker>
         </View>
-      </ScrollView>
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: COLORS.white,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            overflow: "hidden",
+          }}
+        >
+          <Picker
+            selectedValue={filterMode}
+            onValueChange={(value) => {
+              setFilterMode(value);
+              setFilterValue("all");
+            }}
+          >
+            <Picker.Item label="All Scope" value="all" />
+            <Picker.Item label="Base" value="base" />
+            <Picker.Item label="Platform" value="platform" />
+          </Picker>
+        </View>
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: COLORS.white,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            overflow: "hidden",
+            opacity: filterMode === "all" ? 0.65 : 1,
+          }}
+        >
+          <Picker
+            selectedValue={filterValue}
+            onValueChange={setFilterValue}
+            enabled={filterMode !== "all"}
+          >
+            {filterOptions.map((value) => (
+              <Picker.Item
+                key={value}
+                value={value}
+                label={
+                  value === "all"
+                    ? `All ${filterMode === "base" ? "Base" : "Platform"}`
+                    : filterMode === "platform"
+                      ? value[0].toUpperCase() + value.slice(1)
+                      : value
+                }
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
 
       <ScrollView
         refreshControl={
@@ -278,6 +360,12 @@ export default function ActivityLogs() {
                 style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}
               >
                 {formatDisplayDate(item.dateTime)}
+              </Text>
+              <Text
+                style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}
+              >
+                Base: {item.base || "UNKNOWN"} | Platform:{" "}
+                {String(item.platform || "unknown").toUpperCase()}
               </Text>
             </View>
           ))

@@ -53,7 +53,7 @@ const Screens = {
   ),
   Messages: withDashboard(() => require("./screens/Main/Messaging").default),
   ManageUsers: withDashboard(
-    () => require("./screens/Main/UserManagement").default,
+    () => require("./screens/Main/UserManagement.jsx").default,
   ),
   ActivityLogs: withDashboard(
     () => require("./screens/Main/ActivityLogs").default,
@@ -91,36 +91,42 @@ function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
   const normalizedRole = user?.jobTitle?.toLowerCase() || "";
   const canAccessFlightAndPreInspection = [
+    "admin",
     "maintenance manager",
     "pilot",
     "officer-in-charge",
     "mechanic",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
+    "admin",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
   ].includes(normalizedRole);
   const canAccessMechanics = normalizedRole === "maintenance manager";
-  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
+  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessPartsRequisition = [
+    "admin",
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
+    "admin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(normalizedRole);
   const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
   const canAccessReports = [
+    "admin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
+    "admin",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -358,7 +364,7 @@ function LoginWrapper({ navigation, ...props }) {
     if (user.status === "inactive") {
       console.log(user.setupToken);
       navigation.navigate("securitySetup", {
-        setupToken: user.token,
+        setupToken: user.setupToken,
         email: user.email,
       });
 

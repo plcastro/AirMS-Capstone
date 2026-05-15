@@ -64,8 +64,10 @@ const authenticateWebSocket = (req) => {
   }
 };
 
-const getDecodedUserId = (decoded = {}) =>
-  decoded.id || decoded._id || decoded.userId || decoded.sub || null;
+const getDecodedUserId = (decoded) => {
+  if (!decoded || typeof decoded !== "object") return null;
+  return decoded.id || decoded._id || decoded.userId || decoded.sub || null;
+};
 
 /* =========================
    SSE (Server-Sent Events)

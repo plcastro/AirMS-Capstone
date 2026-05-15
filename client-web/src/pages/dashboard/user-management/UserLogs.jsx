@@ -43,6 +43,8 @@ export default function UserLogs() {
   ]);
   const [loading, setLoading] = useState(false);
   const [selectedActionType, setSelectedActionType] = useState("all");
+  const [selectedScope, setSelectedScope] = useState("all");
+  const [selectedScopeValue, setSelectedScopeValue] = useState("all");
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -136,8 +138,47 @@ export default function UserLogs() {
       );
     }
 
+    if (selectedScope !== "all" && selectedScopeValue !== "all") {
+      filtered = filtered.filter((log) =>
+        selectedScope === "base"
+          ? String(log.base || "UNKNOWN").toUpperCase() === selectedScopeValue
+          : String(log.platform || "UNKNOWN").toUpperCase() ===
+            selectedScopeValue,
+      );
+    }
+
     return filtered;
-  }, [allUserLogs, searchQuery, selectedActionType]);
+  }, [allUserLogs, searchQuery, selectedActionType, selectedScope, selectedScopeValue]);
+
+  const scopeValueOptions = useMemo(() => {
+    if (selectedScope === "base") {
+      const values = Array.from(
+        new Set(
+          allUserLogs.map((log) => String(log.base || "UNKNOWN").toUpperCase()),
+        ),
+      ).sort();
+      return [
+        { label: "All Base", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+
+    if (selectedScope === "platform") {
+      const values = Array.from(
+        new Set(
+          allUserLogs.map((log) =>
+            String(log.platform || "UNKNOWN").toUpperCase(),
+          ),
+        ),
+      ).sort();
+      return [
+        { label: "All Platform", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+
+    return [{ label: "All Scope", value: "all" }];
+  }, [allUserLogs, selectedScope]);
 
   useEffect(() => {
     setFilteredUsers(filteredLogs);
@@ -224,7 +265,9 @@ export default function UserLogs() {
   return (
     <div
       style={{
-        padding: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingLeft: isMobile ? 12 : 20,
         maxWidth: "100%",
         paddingBottom: 24,
       }}
@@ -258,6 +301,29 @@ export default function UserLogs() {
           size="large"
           style={{ width: isMobile ? "100%" : 180 }}
         />
+        <Select
+          value={selectedScope}
+          onChange={(value) => {
+            setSelectedScope(value);
+            setSelectedScopeValue("all");
+          }}
+          options={[
+            { label: "All Scope", value: "all" },
+            { label: "Base", value: "base" },
+            { label: "Platform", value: "platform" },
+          ]}
+          size="large"
+          style={{ width: isMobile ? "100%" : 180 }}
+        />
+        {selectedScope !== "all" && (
+          <Select
+            value={selectedScopeValue}
+            onChange={setSelectedScopeValue}
+            options={scopeValueOptions}
+            size="large"
+            style={{ width: isMobile ? "100%" : 180 }}
+          />
+        )}
       </Space>
       <div style={{ marginBottom: 20 }}>
         <Card title="Activity Trends" size="small" loading={loading}>

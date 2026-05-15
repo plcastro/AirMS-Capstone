@@ -75,6 +75,53 @@ const getTaskCategory = (task = {}) => {
   return "other";
 };
 
+const inferTaskBase = (task = {}) =>
+  String(
+    task.base ||
+      task.locationBase ||
+      task.assignedBase ||
+      task.stationBase ||
+      "UNKNOWN",
+  )
+    .trim()
+    .toUpperCase();
+
+const isDamageRelatedTask = (task = {}) => {
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return ["damage", "damaged", "defect", "crack", "fault", "issue"].some((k) =>
+    text.includes(k),
+  );
+};
+
+const isRepairedTask = (task = {}) => {
+  if (isCompletedTask(task)) return true;
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return ["repair", "repaired", "rectified", "fixed", "resolved"].some((k) =>
+    text.includes(k),
+  );
+};
+
 export default function MaintenanceDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -85,6 +132,7 @@ export default function MaintenanceDashboard() {
   const [preInspections, setPreInspections] = useState([]);
   const [postInspections, setPostInspections] = useState([]);
   const [partsRequisitions, setPartsRequisitions] = useState([]);
+  const [baseAnalytics, setBaseAnalytics] = useState(null);
   const { user } = useContext(AuthContext);
   useEffect(() => {
     if (user) {
@@ -97,6 +145,9 @@ export default function MaintenanceDashboard() {
       const headers = await getAuthHeaders();
       const requests = {
         tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
+        baseAnalytics: fetch(`${API_BASE}/api/tasks/analytics/base-maintenance`, {
+          headers,
+        }),
         parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
           headers,
         }),
@@ -137,6 +188,7 @@ export default function MaintenanceDashboard() {
       const resultMap = Object.fromEntries(entries);
 
       setTasks(getArrayData(resultMap.tasks));
+      setBaseAnalytics(resultMap.baseAnalytics?.data || null);
       setPartsRecords(getArrayData(resultMap.parts));
       setFlightLogs(getArrayData(resultMap.flightLogs));
       setPreInspections(getArrayData(resultMap.preInspections));
@@ -262,6 +314,62 @@ export default function MaintenanceDashboard() {
     tasks,
   ]);
 
+  const baseDamageRepairSummary = useMemo(() => {
+    if (baseAnalytics?.byBase?.length) {
+      const damageRows = baseAnalytics.byBase
+        .map((row) => ({ label: row.base, value: row.damagedCount || 0 }))
+        .sort((a, b) => b.value - a.value);
+      const repairRows = baseAnalytics.byBase
+        .map((row) => ({ label: row.base, value: row.repairedCount || 0 }))
+        .sort((a, b) => b.value - a.value);
+
+      return {
+        topDamagedBase: baseAnalytics.topDamagedBase
+          ? {
+              label: baseAnalytics.topDamagedBase.base,
+              value: baseAnalytics.topDamagedBase.damagedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        topRepairedBase: baseAnalytics.topRepairedBase
+          ? {
+              label: baseAnalytics.topRepairedBase.base,
+              value: baseAnalytics.topRepairedBase.repairedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        damageRows,
+        repairRows,
+        averageRectificationHours:
+          baseAnalytics?.totals?.averageRectificationHours || 0,
+        sameDayRepairCount: baseAnalytics?.totals?.sameDayRepairCount || 0,
+      };
+    }
+
+    const damageCounts = {};
+    const repairCounts = {};
+
+    tasks.forEach((task) => {
+      const base = inferTaskBase(task);
+      if (isDamageRelatedTask(task)) {
+        damageCounts[base] = (damageCounts[base] || 0) + 1;
+      }
+      if (isRepairedTask(task)) {
+        repairCounts[base] = (repairCounts[base] || 0) + 1;
+      }
+    });
+
+    const damageRows = topRows(damageCounts, 10);
+    const repairRows = topRows(repairCounts, 10);
+
+    return {
+      topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
+      topRepairedBase: repairRows[0] || { label: "N/A", value: 0 },
+      damageRows,
+      repairRows,
+      averageRectificationHours: 0,
+      sameDayRepairCount: 0,
+    };
+  }, [tasks, baseAnalytics]);
+
   const tabs = [
     ["completed", `Completed (${stats.completed})`],
     ["dueSoon", `Due Soon (${stats.dueSoon})`],
@@ -276,11 +384,35 @@ export default function MaintenanceDashboard() {
         placeholder="Search task details"
       />
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        <StatCard label="Completed Tasks" value={stats.completed} />
-        <StatCard label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
-        <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
-        <StatCard label="Module Reports" value={stats.moduleReports} />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        <StatCard compact label="Completed Tasks" value={stats.completed} />
+        <StatCard compact label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
+        <StatCard compact label="Overdue" value={stats.overdue} tone="#cf1322" />
+        <StatCard compact label="Module Reports" value={stats.moduleReports} />
+        <StatCard
+          compact
+          label="Most Damage Base"
+          value={`${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`}
+          tone="#cf1322"
+        />
+        <StatCard
+          compact
+          label="Most Repaired Base"
+          value={`${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`}
+          tone="#048a25"
+        />
+        <StatCard
+          compact
+          label="Avg Rectification Time"
+          value={`${baseDamageRepairSummary.averageRectificationHours} hrs`}
+          tone="#1890ff"
+        />
+        <StatCard
+          compact
+          label="Same-Day Repairs"
+          value={baseDamageRepairSummary.sameDayRepairCount}
+          tone="#d46b08"
+        />
       </View>
 
       <InfoCard
@@ -358,6 +490,46 @@ export default function MaintenanceDashboard() {
         title="Module Reports"
         subtitle="Compact mobile summaries from web analytics"
       />
+
+      <InfoCard title="Base Damage and Repair Summary">
+        {Array.from(
+          new Set([
+            ...baseDamageRepairSummary.damageRows.map((row) => row.label),
+            ...baseDamageRepairSummary.repairRows.map((row) => row.label),
+          ]),
+        )
+          .slice(0, 8)
+          .map((base) => (
+            <View
+              key={base}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderTopWidth: 1,
+                borderTopColor: COLORS.border,
+                paddingVertical: 9,
+              }}
+            >
+              <Text style={{ color: COLORS.black, flex: 1, fontSize: 12 }}>
+                {base}
+              </Text>
+              <Text style={{ color: "#cf1322", fontWeight: "700" }}>
+                D:{" "}
+                {baseDamageRepairSummary.damageRows.find((r) => r.label === base)
+                  ?.value || 0}
+              </Text>
+              <Text
+                style={{ color: "#048a25", fontWeight: "700", marginLeft: 12 }}
+              >
+                R:{" "}
+                {baseDamageRepairSummary.repairRows.find((r) => r.label === base)
+                  ?.value || 0}
+              </Text>
+            </View>
+          ))}
+      </InfoCard>
+
       {reportSections.map((section) => (
         <InfoCard key={section.title} title={section.title}>
           {section.rows.length === 0 ? (

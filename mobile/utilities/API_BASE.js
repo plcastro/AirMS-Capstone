@@ -24,9 +24,18 @@ const normalizeAndroidDevUrl = (url) => {
 };
 
 if (!__DEV__ && !envBackendUrl) {
-  throw new Error("EXPO_PUBLIC_BACKEND_URL is not defined for production build");
+  throw new Error(
+    "EXPO_PUBLIC_BACKEND_URL is not defined for production build",
+  );
 }
+// uncomment for testing
+// export const API_BASE = Platform.select({
+//   ios: localUrl,
+//   android: normalizeAndroidDevUrl(localUrl),
+//   default: localUrl,
+// });
 
+//for production only
 export const API_BASE = Platform.select({
   ios: __DEV__ ? envBackendUrl || localUrl : envBackendUrl,
   android: __DEV__ ? normalizeAndroidDevUrl(envBackendUrl) : envBackendUrl,

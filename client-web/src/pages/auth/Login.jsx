@@ -89,6 +89,9 @@ const Login = () => {
     setLoading(true);
 
     try {
+      const trustedDeviceToken =
+        localStorage.getItem("trustedDeviceToken") || "";
+
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-base": base },
@@ -98,6 +101,7 @@ const Login = () => {
           client: "web",
           rememberMe,
           base,
+          trustedDeviceToken,
         }),
         credentials: "include",
       });
@@ -115,6 +119,22 @@ const Login = () => {
           );
           return;
         }
+
+        if (data.requireLoginOtp && data.verification?.token) {
+          navigate("/verification", {
+            state: {
+              mode: "login-2fa",
+              token: data.verification.token,
+              email: data.verification.email,
+              maskedEmail: data.verification.maskedEmail,
+              rememberMe,
+              base,
+              client: "web",
+            },
+          });
+          return;
+        }
+
         await loginUser(data.user, data.token, {
           rememberMe,
           base: data.user?.base || base,

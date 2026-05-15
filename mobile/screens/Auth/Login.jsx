@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureGetItem } from "../../utilities/secureStorage";
 import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
@@ -43,12 +44,10 @@ export default function Login() {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
-          const savedPassword =
-            await AsyncStorage.getItem("rememberedPassword");
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: savedPassword || "",
+            password: "",
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
           setRememberMe(true);
@@ -83,6 +82,20 @@ export default function Login() {
     setMessage("");
 
     try {
+      const trustedDeviceToken =
+        (await secureGetItem("trustedDeviceToken")) ||
+        (await AsyncStorage.getItem("trustedDeviceToken")) ||
+        "";
+
+      const parseResponse = async (res) => {
+        const text = await res.text();
+        try {
+          return text ? JSON.parse(text) : {};
+        } catch {
+          return { message: text || "Unexpected server response" };
+        }
+      };
+
       const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: {
@@ -93,18 +106,46 @@ export default function Login() {
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
           client: "mobile",
+          rememberMe,
           base: selectedBase,
+          trustedDeviceToken,
         }),
       });
 
-      const data = await res.json();
+      const data = await parseResponse(res);
 
       if (!res.ok) {
         setMessage(data.message || "Login failed");
         return;
       }
 
+      if (data.requireSetup) {
+        nav.replace("securitySetup", {
+          email: data.user?.email,
+          setupToken: data.user?.setupToken,
+        });
+        return;
+      }
+
+      if (data.requireLoginOtp && data.verification?.token) {
+        nav.replace("otpScreen", {
+          mode: "login-2fa",
+          token: data.verification.token,
+          email: data.verification.email,
+          maskedEmail: data.verification.maskedEmail,
+          identifier: formData.identifier.trim(),
+          rememberMe,
+          base: selectedBase,
+          client: "mobile",
+        });
+        return;
+      }
+
       const { user, token, refreshToken } = data;
+      if (!user || !token) {
+        setMessage(data.message || "Invalid login response");
+        return;
+      }
 
       if (user?.status === "deactivated") {
         setMessage("This account is deactivated. Please contact support");

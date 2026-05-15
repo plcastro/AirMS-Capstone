@@ -147,7 +147,10 @@ export default function PushNotificationsCard({ open, onClose }) {
     await markNotificationRead(notification._id);
     onClose?.();
 
-    const moduleName = notification?.module || notification?.metadata?.module;
+    const moduleName =
+      notification?.module ||
+      notification?.metadata?.module ||
+      notification?.data?.module;
 
     if (moduleName === "flight-logs") {
       const status = notification?.metadata?.status || "";
@@ -158,6 +161,44 @@ export default function PushNotificationsCard({ open, onClose }) {
       });
 
       window.location.assign(`/dashboard/flight-log?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "pre-inspections") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetPreInspectionId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+      window.location.assign(`/dashboard/pre-inspection?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "post-inspections") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetPostInspectionId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+      window.location.assign(`/dashboard/post-inspection?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "tasks") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetTaskId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+      window.location.assign(`/dashboard/tasks?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "messages") {
+      window.location.assign(`/dashboard/messages?refreshAt=${Date.now()}`);
       return;
     }
 
@@ -182,36 +223,63 @@ export default function PushNotificationsCard({ open, onClose }) {
     }
 
     return (
-      <div>
+      <div style={{ paddingRight: 2 }}>
         {sortedNotifications.map((item) => (
           <div
             key={item._id}
             onClick={() => handleNotificationClick(item)}
             style={{
-              padding: "12px 16px",
-              background: item.read ? "#fff" : "#f6ffed",
-              borderRadius: 8,
-              marginBottom: 8,
+              padding: "12px",
+              background: item.read ? "#FFFFFF" : "#F6FFED",
+              borderRadius: 12,
+              marginBottom: 10,
               cursor: "pointer",
-              transition: "0.2s",
+              border: `1px solid ${item.read ? "#E4E4E4" : "#CDECCB"}`,
+              transition: "0.2s ease",
             }}
           >
             <Space align="start" size={12} style={{ width: "100%" }}>
               <Avatar
                 icon={<BellOutlined />}
                 style={{
-                  backgroundColor: item.read ? "#d9d9d9" : "#52c41a",
+                  backgroundColor: item.read ? "#D9D9D9" : "#52C41A",
+                  color: "#FFFFFF",
                 }}
               />
               <div style={{ flex: 1 }}>
-                <Space>
-                  <Text strong={!item.read}>{item.title}</Text>
-                  {!item.read && <Tag color="green">New</Tag>}
+                <Space size={6} wrap>
+                  <Text
+                    style={{
+                      color: "#101828",
+                      fontWeight: item.read ? 600 : 700,
+                      fontSize: 14,
+                      lineHeight: "20px",
+                    }}
+                  >
+                    {item.title}
+                  </Text>
+                  {!item.read && (
+                    <Tag
+                      style={{
+                        marginInlineEnd: 0,
+                        borderRadius: 999,
+                        border: "none",
+                        background: "#52C41A",
+                        color: "#FFFFFF",
+                        fontWeight: 700,
+                        paddingInline: 8,
+                      }}
+                    >
+                      New
+                    </Tag>
+                  )}
                 </Space>
-                <div>
-                  <Text type="secondary">{item.description}</Text>
+                <div style={{ marginTop: 4 }}>
+                  <Text style={{ color: "#667085", fontSize: 13 }}>
+                    {item.description}
+                  </Text>
                 </div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text style={{ color: "#98A2B3", fontSize: 12, marginTop: 6 }}>
                   {formatTimeAgo(item.createdAt)}
                 </Text>
               </div>
@@ -232,7 +300,17 @@ export default function PushNotificationsCard({ open, onClose }) {
         <Space>
           <BellOutlined />
           Notifications
-          <Tag color="blue">{unreadCount} Unread</Tag>
+          <Tag
+            style={{
+              borderRadius: 999,
+              border: "none",
+              background: "#E9F4F1",
+              color: "#26866F",
+              fontWeight: 600,
+            }}
+          >
+            {unreadCount} Unread
+          </Tag>
         </Space>
       }
     >

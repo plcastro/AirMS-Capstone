@@ -401,7 +401,9 @@ export default function UserManagement() {
   return (
     <div
       style={{
-        padding: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingLeft: isMobile ? 12 : 20,
         maxWidth: "100%",
         paddingBottom: 24,
       }}

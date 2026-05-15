@@ -161,6 +161,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    "admin",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -176,6 +177,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    "admin",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -191,6 +193,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    "admin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -204,7 +207,7 @@ const AppRouter = () => {
               path="tasks"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "mechanic"]}
+                  allowedRoles={["admin", "maintenance manager", "mechanic"]}
                 >
                   <TaskAssignment />
                 </ProtectedRoute>
@@ -213,7 +216,7 @@ const AppRouter = () => {
             <Route
               path="mechanics"
               element={
-                <ProtectedRoute allowedRoles={["maintenance manager"]}>
+                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
                   <MechanicList />
                 </ProtectedRoute>
               }
@@ -223,6 +226,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    "admin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -236,7 +240,11 @@ const AppRouter = () => {
               path="parts-lifespan-monitoring"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
                 >
                   <PartsLifespanMonitoring />
                 </ProtectedRoute>
@@ -246,7 +254,11 @@ const AppRouter = () => {
               path="maintenance-tracking"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
                 >
                   <MaintenanceTracking />
                 </ProtectedRoute>
@@ -256,7 +268,7 @@ const AppRouter = () => {
             <Route
               path="maintenance-priority"
               element={
-                <ProtectedRoute allowedRoles={["maintenance manager"]}>
+                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
                   <MaintenancePriority />
                 </ProtectedRoute>
               }
@@ -265,7 +277,11 @@ const AppRouter = () => {
               path="maintenance-dashboard"
               element={
                 <ProtectedRoute
-                  allowedRoles={["maintenance manager", "officer-in-charge"]}
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
                 >
                   <MaintenanceDashboard />
                 </ProtectedRoute>
@@ -276,6 +292,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    "admin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -333,13 +350,14 @@ export default function App() {
       theme={{
         components: {
           Table: {
-            headerBg: "#1f6654",
+            headerBg: "#26866f",
             headerColor: "#fff",
             headerSortHoverBg: "#1f6654",
             headerSortActiveBg: "#1f6654",
             headerFilterHoverBg: "#1f6654",
             headerBorderRadius: 10,
             headerBorderColor: "#1f6654",
+            fontSize: 14,
           },
           Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
           Menu: {

@@ -288,7 +288,7 @@ export default function UserForm({
       >
         <Divider style={{ marginTop: 0 }} />
         <Form form={form} layout="vertical" requiredMark={false}>
-          <Space direction="vertical" size={14} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={14} style={{ width: "100%" }}>
             <Row justify="center">
               <Col style={{ textAlign: "center" }}>
                 <ImgCrop rotationSlider aspect={1 / 1}>
@@ -503,7 +503,7 @@ export default function UserForm({
           </Button>,
         ]}
       >
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={16} style={{ width: "100%" }}>
           <Row justify="center">
             <Col style={{ textAlign: "center" }}>
               {imageUrl ? (

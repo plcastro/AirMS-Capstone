@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   createTask,
   getTasks,
+  getBaseMaintenanceAnalytics,
   getTaskById,
   updateTask,
   cleanupAssignedMechanic,
@@ -14,6 +15,7 @@ const { requireActionConfirmation } = require("../middleware/actionConfirmation"
 
 router.post("/create", verifyToken, touchSessionActivity, requireActionConfirmation, createTask);
 router.get("/getAll", verifyToken, getTasks);
+router.get("/analytics/base-maintenance", verifyToken, getBaseMaintenanceAnalytics);
 router.patch(
   "/cleanup/remove-assigned-mechanic",
   verifyToken,

@@ -1,15 +1,29 @@
+const jobTitles = require("../config/jobTitles");
+
+const normalizeRole = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
 const hasPermission = (req, permission) => {
-  if (!req.user?.jobTitle) return false;
+  if (!req.user) return false;
 
-  const jobTitles = require("../config/jobTitles");
+  const jobTitleRole = normalizeRole(req.user.jobTitle);
+  const accessRole = normalizeRole(req.user.access);
+  const resolvedRole = jobTitles[jobTitleRole]
+    ? jobTitleRole
+    : jobTitles[accessRole]
+      ? accessRole
+      : "";
 
-  const role = req.user.jobTitle.toLowerCase();
-  const permissions = jobTitles[role] || [];
+  const rolePermissions = resolvedRole ? jobTitles[resolvedRole] || [] : [];
 
-  console.log("ROLE:", role);
-  console.log("PERMISSIONS:", permissions);
-  console.log("REQUIRED:", permission);
-  return permissions.includes("*") || permissions.includes(permission);
+  // Hard guarantee: Admin access can open all modules even if role mapping drifts.
+  if (accessRole === "admin" || jobTitleRole === "admin") return true;
+
+  return (
+    rolePermissions.includes("*") || rolePermissions.includes(permission)
+  );
 };
 
 const requirePermission = (permission) => {
