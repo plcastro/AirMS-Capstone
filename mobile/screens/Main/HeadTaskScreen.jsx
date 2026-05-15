@@ -19,6 +19,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -240,6 +241,13 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
+    const confirmed = await confirmAction({
+      title: "Create Task",
+      message: "Submit this new task assignment?",
+      confirmText: "Create",
+    });
+    if (!confirmed) return;
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
@@ -255,6 +263,7 @@ export default function HeadTaskScreen({
         console.log("Task added:", data.data);
         setTasks([...tasks, data.data]);
         setAddModalVisible(false);
+        showToast("Task created successfully.");
         await fetchTasks({ silent: true });
       } else {
         const errorData = await response.json();
@@ -268,6 +277,13 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
+    const confirmed = await confirmAction({
+      title: "Update Task",
+      message: "Save changes to this task?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/${updatedTask.id}`, {
@@ -285,6 +301,7 @@ export default function HeadTaskScreen({
         );
         setTasks(updatedTasks);
         setEditModalVisible(false);
+        showToast("Task updated successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to update task");
@@ -307,6 +324,7 @@ export default function HeadTaskScreen({
       if (response.ok) {
         const updatedTasks = tasks.filter((t) => t.id !== taskId);
         setTasks(updatedTasks);
+        showToast("Task deleted successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to delete task");
@@ -332,6 +350,13 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
+    const confirmed = await confirmAction({
+      title: "Approve Task",
+      message: "Confirm approval and submit this task review?",
+      confirmText: "Approve",
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
     const approverName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -364,6 +389,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        showToast("Task approved successfully.");
         await fetchTasks({ silent: true });
       } else {
         const data = await response.json().catch(() => ({}));
@@ -376,6 +402,14 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
+    const confirmed = await confirmAction({
+      title: "Return Task",
+      message: "Return this task to the mechanic for revision?",
+      confirmText: "Return",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
       ? returnData.itemsToUncheck
@@ -417,6 +451,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        showToast("Task returned successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to return task");

@@ -24,6 +24,7 @@ import { message } from "antd";
 import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { confirmAction } from "../../../utils/confirmAction";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -357,6 +358,13 @@ export default function PartsMonitoring() {
 
   // Save data to database
   const handleSaveToDatabase = async () => {
+    const confirmed = await confirmAction({
+      title: "Save Parts Lifespan Data",
+      content: `Save current parts lifespan values for ${selectedAircraft || "selected aircraft"}?`,
+      okText: "Save",
+    });
+    if (!confirmed) return;
+
     setSaving(true);
     try {
       const saveData = {

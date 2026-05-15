@@ -1,26 +1,35 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
-export default function UserStatsRow({ counts }) {
+const STAT_ITEMS = [
+  { key: "all", label: "Total", valueKey: "total" },
+  { key: "active", label: "Active", valueKey: "active" },
+  { key: "inactive", label: "Inactive", valueKey: "inactive" },
+  { key: "deactivated", label: "Deactivated", valueKey: "deactivated" },
+];
+
+export default function UserStatsRow({ counts, statusFilter = "all", onStatusPress }) {
   return (
     <View style={styles.statsRow}>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Total</Text>
-        <Text style={styles.statValue}>{counts.total}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Active</Text>
-        <Text style={styles.statValue}>{counts.active}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Inactive</Text>
-        <Text style={styles.statValue}>{counts.inactive}</Text>
-      </View>
-      <View style={styles.statCard}>
-        <Text style={styles.statLabel}>Deactivated</Text>
-        <Text style={styles.statValue}>{counts.deactivated}</Text>
-      </View>
+      {STAT_ITEMS.map((item) => {
+        const isActive = statusFilter === item.key;
+        return (
+          <TouchableOpacity
+            key={item.key}
+            style={[styles.statCard, isActive && styles.statCardActive]}
+            activeOpacity={0.85}
+            onPress={() => onStatusPress?.(item.key)}
+          >
+            <Text style={[styles.statLabel, isActive && styles.statLabelActive]}>
+              {item.label}
+            </Text>
+            <Text style={[styles.statValue, isActive && styles.statValueActive]}>
+              {counts[item.valueKey] ?? 0}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -40,7 +49,13 @@ const styles = StyleSheet.create({
     elevation: 2,
     alignItems: "center",
   },
+  statCardActive: {
+    backgroundColor: "#E6F4F1",
+    borderWidth: 1,
+    borderColor: COLORS.primaryLight,
+  },
   statLabel: { fontSize: 10, color: COLORS.grayDark, marginBottom: 4 },
+  statLabelActive: { color: COLORS.primary },
   statValue: { fontSize: 15, fontWeight: "bold" },
+  statValueActive: { color: COLORS.primaryLight },
 });
-

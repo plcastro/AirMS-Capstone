@@ -17,6 +17,7 @@ import {
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { confirmAction } from "../../../utils/confirmAction";
 
 const { Title, Text } = Typography;
 
@@ -279,6 +280,14 @@ export default function MaintenanceTracking() {
   }, []);
 
   const fetchLlmSummaries = async () => {
+    const confirmed = await confirmAction({
+      title: "Regenerate AI Insights",
+      content:
+        "Regenerate maintenance summaries now? This may consume OpenAI quota.",
+      okText: "Regenerate",
+    });
+    if (!confirmed) return;
+
     const currentHealth = await refreshLlmHealth();
 
     if (currentHealth && currentHealth.configured === false) {

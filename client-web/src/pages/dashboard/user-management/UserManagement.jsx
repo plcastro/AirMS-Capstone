@@ -18,6 +18,7 @@ import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
+import { confirmAction } from "../../../utils/confirmAction";
 const { Title } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -265,6 +266,13 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     if (user._id === currentUserId) return;
+    const confirmed = await confirmAction({
+      title: "Deactivate User",
+      content: `Are you sure you want to deactivate ${user.username || user.fullname}?`,
+      okText: "Deactivate",
+      okType: "danger",
+    });
+    if (!confirmed) return;
     try {
       const token = await getValidToken();
       const response = await fetch(
@@ -311,6 +319,12 @@ export default function UserManagement() {
   };
 
   const handleResendInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Resend Activation Invite",
+      content: `Resend activation email to ${user.email}?`,
+      okText: "Resend",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/resend-activation/${user._id}`, "POST");
       message.success(`Activation email resent to ${user.email}`);
@@ -321,6 +335,12 @@ export default function UserManagement() {
   };
 
   const handleExtendInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Extend Invitation",
+      content: `Extend invitation expiry for ${user.email} by 24 hours?`,
+      okText: "Extend",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(
         `/api/user/extend-invitation-expiry/${user._id}`,
@@ -337,6 +357,13 @@ export default function UserManagement() {
   };
 
   const handleRevokeInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Revoke Invitation",
+      content: `Revoke invitation for ${user.email}?`,
+      okText: "Revoke",
+      okType: "danger",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/revoke-invitation/${user._id}`, "PUT");
       message.success("Invitation revoked");
@@ -347,6 +374,12 @@ export default function UserManagement() {
   };
 
   const handleReactivateUser = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Reactivate User",
+      content: `Reactivate ${user.username || user.fullname}?`,
+      okText: "Reactivate",
+    });
+    if (!confirmed) return;
     try {
       const token = await getValidToken();
       const response = await fetch(

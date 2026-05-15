@@ -25,11 +25,11 @@ import Dashboard from "./Layout/Dashboard";
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
-import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
+import { getUserAvatarSource, getUserImageUri, getUserInitials } from "./utilities/avatar";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -38,7 +38,7 @@ const withDashboard = (loadScreen) => {
   function DashboardScreen(props) {
     const Screen = loadScreen();
     return (
-      <Dashboard>
+      <Dashboard currentRouteName={props?.route?.name}>
         <Screen {...props} />
       </Dashboard>
     );
@@ -119,7 +119,9 @@ function DrawerNav({ navigation }) {
     "maintenance manager",
     "officer-in-charge",
   ].includes(normalizedRole);
-  const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
+  const canAccessMaintenancePriority = ["admin", "maintenance manager"].includes(
+    normalizedRole,
+  );
   const canAccessReports = [
     "admin",
     "maintenance manager",
@@ -148,12 +150,6 @@ function DrawerNav({ navigation }) {
   const canAccessUserManagement = normalizedRole === "admin";
   const canAccessActivityLogs = normalizedRole === "admin";
 
-  const profileImage =
-    user?.image && typeof user.image === "string"
-      ? user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`
-      : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
 
@@ -198,17 +194,33 @@ function DrawerNav({ navigation }) {
               }}
               onPress={() => navigation.navigate("Profile")}
             >
-              <Image
-                source={{
-                  uri: profileImage,
-                }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  marginRight: 5,
-                }}
-              />
+              {getUserImageUri(user?.image) ? (
+                <Image
+                  source={getUserAvatarSource(user?.image)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                    backgroundColor: "#E9F4F1",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ color: "#26866F", fontWeight: "700", fontSize: 13 }}>
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </Text>
+                </View>
+              )}
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
                   <Text style={{ fontSize: 14, fontWeight: "600" }}>

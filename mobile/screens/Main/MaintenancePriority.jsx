@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import {
   EmptyState,
   FieldRow,
@@ -155,6 +156,13 @@ export default function MaintenancePriority() {
   }, [search]);
 
   const saveRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Save Priority Rules",
+      message: "Save these maintenance priority thresholds as default rules?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       setSaving(true);
       const response = await fetch(
@@ -183,6 +191,13 @@ export default function MaintenancePriority() {
   };
 
   const applyRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Apply Priority Rules",
+      message: "Apply these rule thresholds now?",
+      confirmText: "Apply",
+    });
+    if (!confirmed) return;
+
     try {
       setLoading(true);
       setRules(draftRules);

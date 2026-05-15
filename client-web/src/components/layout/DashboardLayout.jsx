@@ -1,5 +1,5 @@
 import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
-import { Layout, Button, theme, Avatar, Grid, Row, Badge, App } from "antd";
+import { Layout, Button, theme, Avatar, Grid, Row, Badge, notification } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -14,13 +14,22 @@ import PushNotificationsCard from "../common/PushNotificationsCard";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
+const buildWsUrl = (token) => {
+  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
+    match.toLowerCase() === "https" ? "wss" : "ws",
+  );
+  const separator = wsBase.includes("?") ? "&" : "?";
+  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+};
+
 const DashboardLayout = () => {
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const seenNotificationIdsRef = useRef(new Set());
-  const { notification } = App.useApp();
+  const wsRef = useRef(null);
+  const wsReconnectTimeoutRef = useRef(null);
   const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
   const location = useLocation();
@@ -100,11 +109,53 @@ const DashboardLayout = () => {
     };
 
     syncNotifications();
-    const intervalId = setInterval(syncNotifications, 30000);
+
+    let closedByEffect = false;
+
+    const connect = () => {
+      const token = localStorage.getItem("currentUserToken");
+      if (!token || !user?.id) return;
+
+      const ws = new WebSocket(buildWsUrl(token));
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data || "{}");
+          const nextEvent = String(payload?.event || "");
+
+          if (
+            nextEvent === "data-changed" ||
+            nextEvent === "chat:message" ||
+            nextEvent === "chat:conversation"
+          ) {
+            syncNotifications();
+          }
+        } catch (error) {
+          console.error("Notification websocket parse error:", error);
+        }
+      };
+
+      ws.onclose = () => {
+        if (!closedByEffect) {
+          wsReconnectTimeoutRef.current = setTimeout(connect, 1500);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    };
+
+    connect();
 
     return () => {
+      closedByEffect = true;
       isMounted = false;
-      clearInterval(intervalId);
+      if (wsReconnectTimeoutRef.current) {
+        clearTimeout(wsReconnectTimeoutRef.current);
+      }
+      wsRef.current?.close?.();
     };
   }, [user?.id, getAuthHeader, notification]);
 

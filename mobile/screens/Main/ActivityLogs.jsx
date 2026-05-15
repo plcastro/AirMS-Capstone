@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -16,7 +17,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
-const FILTER_MODES = ["all", "base", "platform"];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
@@ -43,14 +43,22 @@ const getActionCategory = (actionText = "") => {
   return "other";
 };
 
+const ACTION_TAG_COLORS = {
+  create: { bg: "#E7F7ED", text: "#157A38" },
+  update: { bg: "#E7F0FF", text: "#1F5FBF" },
+  delete: { bg: "#FDEAEA", text: "#B42318" },
+  login: { bg: "#EAF7FE", text: "#0B6B9E" },
+  logout: { bg: "#FFF2E8", text: "#AD4E00" },
+  other: { bg: "#F2F4F7", text: "#344054" },
+};
+
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
-  const [filterMode, setFilterMode] = useState("all");
-  const [filterValue, setFilterValue] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all");
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -128,12 +136,17 @@ export default function ActivityLogs() {
       );
     }
 
-    if (filterMode !== "all" && filterValue !== "all") {
-      next = next.filter((item) =>
-        filterMode === "base"
-          ? String(item.base || "unknown") === filterValue
-          : String(item.platform || "unknown") === filterValue,
-      );
+    if (scopeFilter !== "all") {
+      const [scopeType, scopeValue] = String(scopeFilter).split(":");
+      if (scopeType === "base") {
+        next = next.filter(
+          (item) => String(item.base || "unknown") === String(scopeValue),
+        );
+      } else if (scopeType === "platform") {
+        next = next.filter(
+          (item) => String(item.platform || "unknown") === String(scopeValue),
+        );
+      }
     }
 
     const query = searchQuery.trim().toLowerCase();
@@ -146,25 +159,37 @@ export default function ActivityLogs() {
         .toLowerCase()
         .includes(query),
     );
-  }, [actionType, filterMode, filterValue, logs, searchQuery]);
+  }, [actionType, logs, scopeFilter, searchQuery]);
 
-  const filterOptions = useMemo(() => {
-    if (filterMode === "base") {
-      const values = Array.from(
-        new Set(logs.map((item) => item.base).filter(Boolean)),
-      ).sort();
-      return ["all", ...values];
-    }
+  const scopeOptions = useMemo(() => {
+    const platformValues = Array.from(
+      new Set(logs.map((item) => item.platform).filter(Boolean)),
+    ).sort((a, b) => {
+      if (a === "unknown") return 1;
+      if (b === "unknown") return -1;
+      return a.localeCompare(b);
+    });
+    const baseValues = Array.from(
+      new Set([
+        "MANILA",
+        "CEBU",
+        "CDO",
+        ...logs.map((item) => item.base).filter(Boolean),
+      ]),
+    ).sort();
 
-    if (filterMode === "platform") {
-      const values = Array.from(
-        new Set(logs.map((item) => item.platform).filter(Boolean)),
-      ).sort();
-      return ["all", ...values];
-    }
-
-    return ["all"];
-  }, [filterMode, logs]);
+    return [
+      { label: "All Platform/Base", value: "all" },
+      ...platformValues.map((value) => ({
+        label: `Platform > ${value[0].toUpperCase() + value.slice(1)}`,
+        value: `platform:${value}`,
+      })),
+      ...baseValues.map((value) => ({
+        label: `Base > ${value}`,
+        value: `base:${value}`,
+      })),
+    ];
+  }, [logs]);
 
   const formatDisplayDate = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -188,19 +213,8 @@ export default function ActivityLogs() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.grayLight, padding: 10 }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: COLORS.white,
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          marginBottom: 10,
-        }}
-      >
+    <View style={styles.container}>
+      <View style={styles.searchBar}>
         <MaterialCommunityIcons
           name="magnify"
           size={20}
@@ -211,34 +225,12 @@ export default function ActivityLogs() {
           onChangeText={setSearchQuery}
           placeholder="Search logs"
           placeholderTextColor={COLORS.grayDark}
-          style={{
-            flex: 1,
-            color: COLORS.black,
-            fontSize: 12,
-            marginLeft: 6,
-            height: 40,
-          }}
+          style={styles.searchInput}
         />
       </View>
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          columnGap: 8,
-          marginBottom: 10,
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: COLORS.white,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            overflow: "hidden",
-          }}
-        >
+      <View style={styles.filtersRow}>
+        <View style={styles.filterCard}>
           <Picker selectedValue={actionType} onValueChange={setActionType}>
             {ACTION_TYPES.map((type) => (
               <Picker.Item
@@ -254,56 +246,13 @@ export default function ActivityLogs() {
           </Picker>
         </View>
 
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: COLORS.white,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            overflow: "hidden",
-          }}
-        >
-          <Picker
-            selectedValue={filterMode}
-            onValueChange={(value) => {
-              setFilterMode(value);
-              setFilterValue("all");
-            }}
-          >
-            <Picker.Item label="All Scope" value="all" />
-            <Picker.Item label="Base" value="base" />
-            <Picker.Item label="Platform" value="platform" />
-          </Picker>
-        </View>
-
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: COLORS.white,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            overflow: "hidden",
-            opacity: filterMode === "all" ? 0.65 : 1,
-          }}
-        >
-          <Picker
-            selectedValue={filterValue}
-            onValueChange={setFilterValue}
-            enabled={filterMode !== "all"}
-          >
-            {filterOptions.map((value) => (
+        <View style={styles.filterCard}>
+          <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
+            {scopeOptions.map((value) => (
               <Picker.Item
-                key={value}
-                value={value}
-                label={
-                  value === "all"
-                    ? `All ${filterMode === "base" ? "Base" : "Platform"}`
-                    : filterMode === "platform"
-                      ? value[0].toUpperCase() + value.slice(1)
-                      : value
-                }
+                key={value.value}
+                value={value.value}
+                label={value.label}
               />
             ))}
           </Picker>
@@ -311,6 +260,7 @@ export default function ActivityLogs() {
       </View>
 
       <ScrollView
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -323,54 +273,172 @@ export default function ActivityLogs() {
         }
       >
         {filteredLogs.length === 0 ? (
-          <View style={{ alignItems: "center", marginTop: 40 }}>
+          <View style={styles.emptyState}>
             <MaterialCommunityIcons
               name="history"
               size={44}
               color={COLORS.grayMedium}
             />
-            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>
-              No logs found
-            </Text>
+            <Text style={styles.emptyText}>No logs found</Text>
           </View>
         ) : (
-          filteredLogs.map((item) => (
-            <View
-              key={String(item._id)}
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                marginBottom: 10,
-                padding: 12,
-              }}
-            >
-              <Text
-                style={{ color: COLORS.black, fontSize: 13, fontWeight: "700" }}
-              >
-                {item.actionMade || "N/A"}
-              </Text>
-              <Text
-                style={{ marginTop: 4, color: COLORS.grayDark, fontSize: 12 }}
-              >
-                User: {item.username || "Unknown"}
-              </Text>
-              <Text
-                style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}
-              >
-                {formatDisplayDate(item.dateTime)}
-              </Text>
-              <Text
-                style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}
-              >
-                Base: {item.base || "UNKNOWN"} | Platform:{" "}
-                {String(item.platform || "unknown").toUpperCase()}
-              </Text>
-            </View>
-          ))
+          filteredLogs.map((item) => {
+            const actionCategory = getActionCategory(item.actionMade);
+            const actionColors =
+              ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
+            return (
+              <View key={String(item._id)} style={styles.logCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>
+                    {item.actionMade || "N/A"}
+                  </Text>
+                  <View
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: actionColors.bg,
+                        borderColor: actionColors.bg,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.tagText, { color: actionColors.text }]}
+                    >
+                      {actionCategory.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.userText}>
+                  User: {item.username || "Unknown"}
+                </Text>
+                <Text style={styles.dateText}>
+                  {formatDisplayDate(item.dateTime)}
+                </Text>
+
+                <View style={styles.metaTagsRow}>
+                  <View style={[styles.tag, styles.baseTag]}>
+                    <Text style={[styles.tagText, styles.baseTagText]}>
+                      BASE: {item.base || "UNKNOWN"}
+                    </Text>
+                  </View>
+                  <View style={[styles.tag, styles.platformTag]}>
+                    <Text style={[styles.tagText, styles.platformTagText]}>
+                      {String(item.platform || "unknown").toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.grayLight, padding: 10 },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    marginLeft: 6,
+    height: 40,
+  },
+  filtersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 8,
+    marginBottom: 10,
+  },
+  filterCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingTop: 8,
+  },
+  filterTitle: {
+    marginLeft: 6,
+    color: COLORS.grayDark,
+    fontWeight: "700",
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  listContent: { paddingBottom: 20 },
+  emptyState: { alignItems: "center", marginTop: 40 },
+  emptyText: { marginTop: 8, color: COLORS.grayDark },
+  logCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+    padding: 12,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  cardTitle: {
+    color: COLORS.black,
+    fontSize: 13,
+    fontWeight: "700",
+    flex: 1,
+    paddingRight: 8,
+  },
+  userText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  dateText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  metaTagsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 6,
+    marginTop: 8,
+  },
+  tag: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tagText: { fontSize: 10, fontWeight: "700" },
+  baseTag: { backgroundColor: "#EEF4FF", borderColor: "#D5E3FF" },
+  baseTagText: { color: "#2B5CC7" },
+  platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
+  platformTagText: { color: "#137333" },
+});

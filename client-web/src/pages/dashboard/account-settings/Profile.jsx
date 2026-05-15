@@ -12,7 +12,7 @@ import {
   Descriptions,
   Avatar,
   Space,
-  Select,
+  Slider,
   Switch,
 } from "antd";
 import {
@@ -33,18 +33,17 @@ export default function Profile() {
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
-  const [fontSizePreference, setFontSizePreference] = useState("medium");
+  const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [browserPermission, setBrowserPermission] = useState("default");
   const WEB_SETTINGS_KEY = "webProfileSettings";
 
-  const applyWebFontSize = (preference) => {
-    const map = {
-      small: "14px",
-      medium: "16px",
-      large: "18px",
-    };
-    document.documentElement.style.fontSize = map[preference] || map.medium;
+  const WEB_FONT_RECOMMENDED = 1;
+  const WEB_FONT_MAX = 1.3;
+
+  const applyWebFontSize = (scale = WEB_FONT_RECOMMENDED) => {
+    const clamped = Math.min(Math.max(Number(scale) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED), WEB_FONT_MAX);
+    document.documentElement.style.fontSize = `${(16 * clamped).toFixed(1)}px`;
   };
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -72,18 +71,26 @@ export default function Profile() {
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
-      const nextFont = stored.fontSizePreference || "medium";
+      const storedFont = stored.fontSizePreference;
+      const nextFont =
+        typeof storedFont === "number"
+          ? storedFont
+          : {
+              small: 0.9,
+              medium: 1,
+              large: 1.1,
+            }[storedFont] || WEB_FONT_RECOMMENDED;
       const nextNotifications =
         typeof stored.notificationsEnabled === "boolean"
           ? stored.notificationsEnabled
           : true;
-      setFontSizePreference(nextFont);
+      setFontScalePreference(nextFont);
       setNotificationsEnabled(nextNotifications);
       applyWebFontSize(nextFont);
     } catch {
-      setFontSizePreference("medium");
+      setFontScalePreference(WEB_FONT_RECOMMENDED);
       setNotificationsEnabled(true);
-      applyWebFontSize("medium");
+      applyWebFontSize(WEB_FONT_RECOMMENDED);
     }
 
     if (typeof Notification !== "undefined") {
@@ -94,7 +101,7 @@ export default function Profile() {
   const persistWebSettings = (next) => {
     const payload = {
       fontSizePreference:
-        next.fontSizePreference ?? fontSizePreference ?? "medium",
+        next.fontSizePreference ?? fontScalePreference ?? WEB_FONT_RECOMMENDED,
       notificationsEnabled:
         typeof next.notificationsEnabled === "boolean"
           ? next.notificationsEnabled
@@ -224,21 +231,27 @@ export default function Profile() {
           <Card size="small" title="Display">
             <Space orientation="vertical" style={{ width: "100%" }}>
               <Text strong>Font Size</Text>
-              <Select
-                value={fontSizePreference}
+              <Text type="secondary">
+                Range: Recommended ({WEB_FONT_RECOMMENDED.toFixed(2)}x) to Max ({WEB_FONT_MAX.toFixed(2)}x)
+              </Text>
+              <Slider
+                min={WEB_FONT_RECOMMENDED}
+                max={WEB_FONT_MAX}
+                step={0.05}
+                value={fontScalePreference}
                 onChange={(value) => {
-                  setFontSizePreference(value);
+                  setFontScalePreference(value);
                   applyWebFontSize(value);
+                }}
+                onChangeComplete={(value) => {
                   persistWebSettings({ fontSizePreference: value });
                   message.success("Font size preference saved.");
                 }}
-                options={[
-                  { label: "Small", value: "small" },
-                  { label: "Medium", value: "medium" },
-                  { label: "Large", value: "large" },
-                ]}
-                style={{ maxWidth: 260 }}
+                style={{ maxWidth: 320 }}
               />
+              <Text type="secondary">
+                Current: {fontScalePreference.toFixed(2)}x
+              </Text>
             </Space>
           </Card>
 

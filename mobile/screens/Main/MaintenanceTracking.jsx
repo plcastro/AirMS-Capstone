@@ -6,6 +6,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDateTime, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import {
   EmptyState,
   FieldRow,
@@ -133,6 +134,14 @@ export default function MaintenanceTracking() {
       showToast(health.message || "OpenAI is not configured on the server.");
       return;
     }
+
+    const confirmed = await confirmAction({
+      title: "Regenerate AI Summaries",
+      message:
+        "Regenerate maintenance summaries now? This may consume OpenAI quota.",
+      confirmText: "Regenerate",
+    });
+    if (!confirmed) return;
 
     try {
       setSummaryLoading(true);

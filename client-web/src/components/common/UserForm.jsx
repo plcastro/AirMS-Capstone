@@ -20,6 +20,7 @@ import { PlusOutlined, UserOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
+import { confirmAction } from "../../utils/confirmAction";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -127,6 +128,16 @@ export default function UserForm({
   }, [jobTitleValue, form]);
 
   const handleSave = async (values) => {
+    const confirmed = await confirmAction({
+      title: user ? "Update User" : "Create User",
+      content: user
+        ? "Save these changes to the user account?"
+        : "Create this new user account?",
+      okText: user ? "Save" : "Create",
+      okType: user ? "primary" : "primary",
+    });
+    if (!confirmed) return;
+
     setLoading(true);
 
     try {

@@ -6,6 +6,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDate } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import {
   EmptyState,
   FieldRow,
@@ -60,8 +61,8 @@ const getPartStatus = (part = {}) => {
 
 export default function PartsLifespanMonitoring() {
   const { user } = useContext(AuthContext);
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
+  const canEditParts = ["maintenance manager", "admin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [search, setSearch] = useState("");
@@ -134,7 +135,9 @@ export default function PartsLifespanMonitoring() {
 
   const filteredParts = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const cleanParts = parts.filter((part) => part.rowType !== "header");
+    const cleanParts = parts
+      .map((part, index) => ({ ...part, __sourceIndex: index }))
+      .filter((part) => part.rowType !== "header");
     if (!needle) return cleanParts;
     return cleanParts.filter((part) =>
       [
@@ -181,11 +184,26 @@ export default function PartsLifespanMonitoring() {
     setComponentPage(0);
   }, [search, selectedAircraft]);
 
+  const updatePartField = (sourceIndex, field, value) => {
+    setParts((currentParts) =>
+      currentParts.map((part, index) =>
+        index === sourceIndex ? { ...part, [field]: value } : part,
+      ),
+    );
+  };
+
   const saveToDatabase = async () => {
     if (!selectedAircraft) {
       showToast("Select an aircraft before saving.");
       return;
     }
+
+    const confirmed = await confirmAction({
+      title: "Save Parts Lifespan Data",
+      message: `Save current parts lifespan values for ${selectedAircraft}?`,
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
 
     try {
       setSaving(true);
@@ -265,7 +283,7 @@ export default function PartsLifespanMonitoring() {
                 <Text style={moduleStyles.label}>{label}</Text>
                 <TextInput
                   value={String(refs[key] ?? "")}
-                  editable={!isOfficerInCharge}
+                  editable={canEditParts}
                   keyboardType={key === "today" ? "default" : "numeric"}
                   onChangeText={(value) =>
                     setRefs((current) => ({ ...current, [key]: value }))
@@ -277,13 +295,13 @@ export default function PartsLifespanMonitoring() {
                     paddingHorizontal: 10,
                     paddingVertical: 8,
                     marginTop: 5,
-                    backgroundColor: isOfficerInCharge ? COLORS.grayLight : COLORS.white,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
                   }}
                 />
               </View>
             ))}
           </View>
-          {!isOfficerInCharge && (
+          {canEditParts && (
             <TouchableOpacity
               style={[moduleStyles.button, { marginTop: 12 }]}
               onPress={saveToDatabase}
@@ -332,8 +350,85 @@ export default function PartsLifespanMonitoring() {
               <FieldRow label="Time Remaining" value={part.timeRemaining} />
               <FieldRow label="Date Due" value={part.dateDue} />
               <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
-              <FieldRow label="HRS C/W" value={part.hoursCW} />
-              <FieldRow label="Total Time Since New" value={part.totalTimeSinceNew} />
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>HRS C/W</Text>
+                <TextInput
+                  value={String(part.hoursCW ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "hoursCW", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>TIME SINCE INSTALLATION</Text>
+                <TextInput
+                  value={String(part.timeSinceInstall ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "timeSinceInstall", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>TOTAL TIME SINCE NEW</Text>
+                <TextInput
+                  value={String(part.totalTimeSinceNew ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "totalTimeSinceNew", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>DATE C/W</Text>
+                <TextInput
+                  value={String(part.dateCW ?? "")}
+                  editable={canEditParts}
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "dateCW", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
             </View>
           </InfoCard>
         );

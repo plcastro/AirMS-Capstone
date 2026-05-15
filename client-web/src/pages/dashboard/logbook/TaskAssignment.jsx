@@ -34,6 +34,7 @@ import {
   addMinutesToDate,
   estimateInspectionSchedule,
 } from "../../../utils/inspectionTiming";
+import { confirmAction } from "../../../utils/confirmAction";
 
 const { Text, Title } = Typography;
 const OPEN_STATUSES = new Set(["pending", "ongoing", "returned"]);
@@ -390,6 +391,13 @@ export default function TaskAssignment() {
 
   const handleStart = async () => {
     if (!selectedTask) return;
+    const confirmed = await confirmAction({
+      title: "Start Task",
+      content: "Start this task now?",
+      okText: "Start",
+    });
+    if (!confirmed) return;
+
     const nowIso = new Date().toISOString();
     try {
       await upsertTask({
@@ -406,6 +414,21 @@ export default function TaskAssignment() {
 
   const handleSaveDraftOrTurnIn = async (turnIn = false, options = {}) => {
     if (!selectedTask) return;
+    const confirmed = await confirmAction({
+      title: options.undo
+        ? "Undo Turn In"
+        : turnIn
+          ? "Turn In Task"
+          : "Save Task",
+      content: options.undo
+        ? "Revert this task back to Ongoing?"
+        : turnIn
+          ? "Submit this task for review?"
+          : "Save current task progress?",
+      okText: options.undo ? "Undo" : turnIn ? "Turn In" : "Save",
+    });
+    if (!confirmed) return;
+
     const nowIso = new Date().toISOString();
     const next = {
       ...selectedTask,
@@ -480,6 +503,13 @@ export default function TaskAssignment() {
         return;
       }
 
+      const confirmed = await confirmAction({
+        title: "Create Task",
+        content: "Create this new task assignment?",
+        okText: "Create",
+      });
+      if (!confirmed) return;
+
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
         method: "POST",
         headers: {
@@ -529,6 +559,13 @@ export default function TaskAssignment() {
       message.error("Return remarks are required");
       return;
     }
+    const confirmed = await confirmAction({
+      title: "Return Task",
+      content: "Return this task to the mechanic for revision?",
+      okText: "Return",
+      okType: "danger",
+    });
+    if (!confirmed) return;
 
     const nextChecklist = Array.isArray(selectedTask.checklistState)
       ? [...selectedTask.checklistState]
@@ -561,6 +598,13 @@ export default function TaskAssignment() {
 
   const submitApprove = async (signature) => {
     if (!selectedTask) return;
+    const confirmed = await confirmAction({
+      title: "Approve Task",
+      content: "Approve and finalize this task?",
+      okText: "Approve",
+    });
+    if (!confirmed) return;
+
     const approver =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       user?.username ||

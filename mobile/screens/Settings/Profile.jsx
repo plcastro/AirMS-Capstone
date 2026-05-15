@@ -17,14 +17,15 @@ import {
   Text,
   Switch,
 } from "react-native-paper";
+import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DefaultAvatar from "../../assets/images/default_avatar.jpg";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import { showToast } from "../../utilities/toast";
+import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
 
@@ -32,18 +33,15 @@ export default function Profile() {
   const [previewUri, setPreviewUri] = useState(null);
   const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
-  const [fontSizePreference, setFontSizePreference] = useState("medium");
+  const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationPermission, setNotificationPermission] =
     useState("undetermined");
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
-  const fontScaleMap = {
-    small: 0.9,
-    medium: 1,
-    large: 1.1,
-  };
-  const fontScale = fontScaleMap[fontSizePreference] || 1;
+  const MOBILE_FONT_RECOMMENDED = 1;
+  const MOBILE_FONT_MAX = 1.3;
+  const fontScale = Number(fontScalePreference) || 1;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -58,10 +56,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
-      const imgPath = user.image?.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image || DefaultAvatar}`;
-      setPreviewUri(imgPath);
+      setPreviewUri(getUserImageUri(user.image));
     }
   }, [user]);
 
@@ -71,7 +66,17 @@ export default function Profile() {
         const stored = JSON.parse(
           (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
         );
-        setFontSizePreference(stored.fontSizePreference || "medium");
+        const storedFont = stored.fontSizePreference;
+        if (typeof storedFont === "number") {
+          setFontScalePreference(storedFont);
+        } else {
+          const legacyMap = {
+            small: 0.9,
+            medium: 1,
+            large: 1.1,
+          };
+          setFontScalePreference(legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED);
+        }
         setNotificationsEnabled(
           typeof stored.notificationsEnabled === "boolean"
             ? stored.notificationsEnabled
@@ -90,7 +95,10 @@ export default function Profile() {
 
   const saveSettings = async (next = {}) => {
     const payload = {
-      fontSizePreference: next.fontSizePreference || fontSizePreference,
+      fontSizePreference:
+        typeof next.fontSizePreference === "number"
+          ? next.fontSizePreference
+          : fontScalePreference,
       notificationsEnabled:
         typeof next.notificationsEnabled === "boolean"
           ? next.notificationsEnabled
@@ -171,9 +179,7 @@ export default function Profile() {
         id: data?.user?.id || data?.user?._id || prev?.id,
       }));
       const uploadedImagePath =
-        data?.user?.image && data.user.image.startsWith("http")
-          ? data.user.image
-          : `${API_BASE}${data?.user?.image || ""}`;
+        getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
       setFile(null);
       showToast("Image updated!");
@@ -230,11 +236,19 @@ export default function Profile() {
       <Card style={styles.headerCard}>
         <Card.Content style={styles.avatarContainer}>
           <TouchableOpacity onPress={handleImagePick}>
-            <Avatar.Image
-              size={120}
-              source={previewUri ? { uri: previewUri } : DefaultAvatar}
-              style={styles.avatar}
-            />
+            {previewUri ? (
+              <Avatar.Image
+                size={120}
+                source={{ uri: previewUri }}
+                style={styles.avatar}
+              />
+            ) : (
+              <Avatar.Text
+                size={120}
+                label={getUserInitials(user?.firstName, user?.lastName)}
+                style={styles.avatar}
+              />
+            )}
             <View style={styles.editBadge}>
               <Text style={styles.editBadgeText}>{file ? "New" : "Edit"}</Text>
             </View>
@@ -355,20 +369,26 @@ export default function Profile() {
             <Text style={[styles.settingLabel, { fontSize: 14 * fontScale }]}>
               Font Size
             </Text>
-            <SegmentedButtons
-              value={fontSizePreference}
-              onValueChange={async (value) => {
-                setFontSizePreference(value);
+            <Text style={styles.settingSub}>
+              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max ({MOBILE_FONT_MAX.toFixed(2)}x)
+            </Text>
+            <Slider
+              minimumValue={MOBILE_FONT_RECOMMENDED}
+              maximumValue={MOBILE_FONT_MAX}
+              step={0.05}
+              value={fontScalePreference}
+              minimumTrackTintColor="#26866F"
+              maximumTrackTintColor="#CFE7E0"
+              thumbTintColor="#26866F"
+              onValueChange={(value) => setFontScalePreference(value)}
+              onSlidingComplete={async (value) => {
                 await saveSettings({ fontSizePreference: value });
                 showToast("Font size preference saved.");
               }}
-              buttons={[
-                { value: "small", label: "Small" },
-                { value: "medium", label: "Medium" },
-                { value: "large", label: "Large" },
-              ]}
-              style={{ marginBottom: 14 }}
             />
+            <Text style={[styles.settingSub, { marginBottom: 14 }]}>
+              Current: {fontScalePreference.toFixed(2)}x
+            </Text>
 
             <View style={styles.settingRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>

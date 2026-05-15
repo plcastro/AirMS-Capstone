@@ -16,6 +16,7 @@ import {
 } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
+import { confirmAction } from "../../../utils/confirmAction";
 
 const { Title, Text } = Typography;
 
@@ -162,11 +163,25 @@ export default function MaintenancePriority() {
   };
 
   const applyRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Apply Priority Rules",
+      content: "Apply these thresholds now for current ranking?",
+      okText: "Apply",
+    });
+    if (!confirmed) return;
+
     setRules(draftRules);
     await fetchPriorityData(draftRules);
   };
 
   const saveRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Save Priority Rules",
+      content: "Save these maintenance priority thresholds as default rules?",
+      okText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       setSavingRules(true);
       const response = await fetch(
@@ -207,6 +222,14 @@ export default function MaintenancePriority() {
   };
 
   const resetRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Reset Priority Rules",
+      content: "Reset all rule thresholds to default values?",
+      okText: "Reset",
+      okType: "danger",
+    });
+    if (!confirmed) return;
+
     setDraftRules(DEFAULT_RULES);
     setRules(DEFAULT_RULES);
     await fetchPriorityData(DEFAULT_RULES);

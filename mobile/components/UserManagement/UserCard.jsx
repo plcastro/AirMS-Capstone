@@ -2,7 +2,7 @@ import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
-import defaultAvatar from "../../assets/images/default_avatar.jpg";
+import { getUserAvatarSource, getUserImageUri } from "../../utilities/avatar";
 
 const maskEmail = (email) => {
   if (!email) return "";
@@ -22,8 +22,8 @@ export default function UserCard({ item, isCurrentUser, onEdit, onToggleStatus }
     <View style={styles.userCard}>
       <View style={styles.cardHeader}>
         <View style={styles.avatar}>
-          {item.image ? (
-            <Image source={item?.image ? { uri: item.image } : defaultAvatar} style={styles.avatarImage} />
+          {getUserImageUri(item?.image) ? (
+            <Image source={getUserAvatarSource(item?.image)} style={styles.avatarImage} />
           ) : (
             <Text style={styles.avatarText}>{getInitials(item.firstName, item.lastName)}</Text>
           )}
@@ -129,4 +129,3 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   actionBtnText: { color: "white", fontWeight: "bold", fontSize: 12 },
 });
-

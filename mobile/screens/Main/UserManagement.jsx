@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -23,10 +24,11 @@ import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import UserStatsRow from "../../components/UserManagement/UserStatsRow";
 import UserCard from "../../components/UserManagement/UserCard";
 import UserFormModal from "../../components/UserManagement/UserFormModal";
-import { STATUS_OPTIONS } from "../../components/UserManagement/constants";
+import { JOB_TITLE_OPTIONS } from "../../components/UserManagement/constants";
 
 const parseJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text();
@@ -41,11 +43,14 @@ const parseJsonResponse = async (response, fallbackMessage) => {
 
 export default function UserManagement() {
   const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
+  const route = useRoute();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [jobTitleFilter, setJobTitleFilter] = useState("all");
   const [formVisible, setFormVisible] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [savingUser, setSavingUser] = useState(false);
@@ -95,6 +100,14 @@ export default function UserManagement() {
       return;
     }
 
+    const confirmed = await confirmAction({
+      title: `${status === "active" ? "Reactivate" : "Deactivate"} User`,
+      message: `Are you sure you want to ${status === "active" ? "reactivate" : "deactivate"} ${targetUser.firstName || "this user"}?`,
+      confirmText: status === "active" ? "Reactivate" : "Deactivate",
+      destructive: status !== "active",
+    });
+    if (!confirmed) return;
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
@@ -127,12 +140,28 @@ export default function UserManagement() {
     setFormVisible(true);
   };
 
+  useEffect(() => {
+    if (route?.params?.fabAction === "addUser") {
+      openCreateModal();
+      navigation.setParams?.({ fabAction: undefined, at: undefined });
+    }
+  }, [navigation, route?.params?.at, route?.params?.fabAction]);
+
   const openEditModal = (selectedUser) => {
     setUserToEdit(selectedUser);
     setFormVisible(true);
   };
 
   const handleSubmitUser = async (payload, isEdit) => {
+    const confirmed = await confirmAction({
+      title: isEdit ? "Update User" : "Create User",
+      message: isEdit
+        ? "Save changes to this user account?"
+        : "Create this user account now?",
+      confirmText: isEdit ? "Save" : "Create",
+    });
+    if (!confirmed) return;
+
     try {
       setSavingUser(true);
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -184,6 +213,14 @@ export default function UserManagement() {
         (u) => String(u.status || "").toLowerCase() === statusFilter,
       );
     }
+    if (jobTitleFilter !== "all") {
+      next = next.filter(
+        (u) =>
+          String(u.jobTitle || "")
+            .trim()
+            .toLowerCase() === jobTitleFilter,
+      );
+    }
     const query = searchQuery.trim().toLowerCase();
     if (!query) return next;
 
@@ -192,7 +229,7 @@ export default function UserManagement() {
         .toLowerCase()
         .includes(query),
     );
-  }, [searchQuery, statusFilter, users]);
+  }, [jobTitleFilter, searchQuery, statusFilter, users]);
 
   const counts = useMemo(() => {
     const base = {
@@ -208,6 +245,14 @@ export default function UserManagement() {
     return base;
   }, [users]);
 
+  const jobTitleOptions = useMemo(() => {
+    const dynamicTitles = users
+      .map((u) => String(u.jobTitle || "").trim())
+      .filter(Boolean);
+    const merged = Array.from(new Set([...JOB_TITLE_OPTIONS, ...dynamicTitles]));
+    return ["all", ...merged];
+  }, [users]);
+
   if (loading) {
     return (
       <View style={ui.center}>
@@ -218,19 +263,11 @@ export default function UserManagement() {
 
   return (
     <View style={ui.container}>
-      <View style={ui.headerRow}>
-        <Text style={ui.pageTitle}>User Management</Text>
-        <TouchableOpacity style={ui.addBtn} onPress={openCreateModal}>
-          <MaterialCommunityIcons
-            name="account-plus-outline"
-            size={16}
-            color={COLORS.white}
-          />
-          <Text style={ui.addBtnTxt}> Add User</Text>
-        </TouchableOpacity>
-      </View>
-
-      <UserStatsRow counts={counts} />
+      <UserStatsRow
+        counts={counts}
+        statusFilter={statusFilter}
+        onStatusPress={setStatusFilter}
+      />
 
       <View style={ui.searchBar}>
         <MaterialCommunityIcons
@@ -248,18 +285,23 @@ export default function UserManagement() {
       </View>
 
       <View style={ui.filterDropdownWrap}>
-        <Picker selectedValue={statusFilter} onValueChange={setStatusFilter}>
-          {STATUS_OPTIONS.map((option) => (
+        <Picker selectedValue={jobTitleFilter} onValueChange={setJobTitleFilter}>
+          {jobTitleOptions.map((option) => (
             <Picker.Item
               key={option}
-              value={option}
-              label={option[0].toUpperCase() + option.slice(1)}
+              value={String(option).toLowerCase()}
+              label={
+                option === "all"
+                  ? "All Roles / Job Titles"
+                  : String(option)
+              }
             />
           ))}
         </Picker>
       </View>
 
       <ScrollView
+        contentContainerStyle={ui.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -302,6 +344,7 @@ export default function UserManagement() {
         userToEdit={userToEdit}
         saving={savingUser}
       />
+
     </View>
   );
 }
@@ -310,21 +353,7 @@ const ui = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7F8", padding: 12 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  addBtnTxt: { color: COLORS.white, fontWeight: "700", fontSize: 12 },
+  listContent: { paddingBottom: 92 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
