@@ -1,5 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React, { Suspense, lazy, useContext } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
@@ -71,6 +78,32 @@ const Profile = lazy(
   () => import("./pages/dashboard/account-settings/Profile"),
 );
 const NotFound = lazy(() => import("./pages/NotFound"));
+const WEB_SETTINGS_KEY = "webProfileSettings";
+const WEB_FONT_RECOMMENDED = 1;
+const WEB_FONT_MAX = 1.3;
+
+const clampFontScale = (value) =>
+  Math.min(
+    Math.max(Number(value) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED),
+    WEB_FONT_MAX,
+  );
+
+const resolveStoredFontScale = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    const storedFont = stored?.fontSizePreference;
+    if (typeof storedFont === "number") return clampFontScale(storedFont);
+    return (
+      {
+        small: 0.9,
+        medium: 1,
+        large: 1.1,
+      }[storedFont] || WEB_FONT_RECOMMENDED
+    );
+  } catch {
+    return WEB_FONT_RECOMMENDED;
+  }
+};
 
 const AppRouter = () => {
   const {
@@ -345,48 +378,84 @@ const AppRouter = () => {
   );
 };
 export default function App() {
-  return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Table: {
-            headerBg: "#26866f",
-            headerColor: "#fff",
-            headerSortHoverBg: "#1f6654",
-            headerSortActiveBg: "#1f6654",
-            headerFilterHoverBg: "#1f6654",
-            headerBorderRadius: 10,
-            headerBorderColor: "#1f6654",
-            fontSize: 14,
-          },
-          Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
-          Menu: {
-            colorBgContainer: "#ffffff",
-            itemBg: "#ffffff",
-            subMenuItemBg: "#ffffff",
-            popupBg: "#ffffff",
+  const [fontScale, setFontScale] = useState(() => resolveStoredFontScale());
 
-            itemColor: "#575757",
-            itemHoverColor: "#006340",
-            itemSelectedColor: "#ffffff",
+  useEffect(() => {
+    const applyScale = (nextScale) => {
+      const clamped = clampFontScale(nextScale);
+      setFontScale(clamped);
+      document.documentElement.style.fontSize = `${(16 * clamped).toFixed(1)}px`;
+    };
 
-            itemHoverBg: "#ffffff",
-            itemSelectedBg: "#006340",
-            itemActiveBg: "#ffffff",
+    const syncScaleFromSettings = () => applyScale(resolveStoredFontScale());
 
-            subMenuItemSelectedColor: "#006340",
-          },
-          Tabs: {
-            inkBarColor: "#006340",
-            itemSelectedColor: "#006340",
-            itemHoverColor: "#26866f",
-          },
-          Statistic: {
-            fontSize: "clamp(14px, 16px)",
-          },
+    syncScaleFromSettings();
+    window.addEventListener("storage", syncScaleFromSettings);
+    window.addEventListener("web-settings-updated", syncScaleFromSettings);
+
+    return () => {
+      window.removeEventListener("storage", syncScaleFromSettings);
+      window.removeEventListener("web-settings-updated", syncScaleFromSettings);
+    };
+  }, []);
+
+  const scaledTheme = useMemo(
+    () => ({
+      token: {
+        fontSize: Math.round(14 * fontScale),
+        fontSizeSM: Math.round(12 * fontScale),
+        fontSizeLG: Math.round(16 * fontScale),
+      },
+      components: {
+        Table: {
+          headerBg: "#26866f",
+          headerColor: "#fff",
+          headerSortHoverBg: "#1f6654",
+          headerSortActiveBg: "#1f6654",
+          headerFilterHoverBg: "#1f6654",
+          headerBorderRadius: 10,
+          headerBorderColor: "#1f6654",
+          fontSize: Math.round(14 * fontScale),
         },
-      }}
-    >
+        Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
+        Menu: {
+          colorBgContainer: "#ffffff",
+          itemBg: "#ffffff",
+          subMenuItemBg: "#ffffff",
+          popupBg: "#ffffff",
+
+          itemColor: "#575757",
+          itemHoverColor: "#006340",
+          itemSelectedColor: "#ffffff",
+
+          itemHoverBg: "#ffffff",
+          itemSelectedBg: "#006340",
+          itemActiveBg: "#ffffff",
+
+          subMenuItemSelectedColor: "#006340",
+        },
+        Tabs: {
+          inkBarColor: "#006340",
+          itemSelectedColor: "#006340",
+          itemHoverColor: "#26866f",
+        },
+        Card: {
+          paddingLG: 16,
+          paddingSM: 12,
+          headerHeight: 44,
+          headerHeightSM: 36,
+        },
+        Statistic: {
+          fontSize: `${Math.round(12 * fontScale)}px`,
+          contentFontSize: `${Math.round(20 * fontScale)}px`,
+        },
+      },
+    }),
+    [fontScale],
+  );
+
+  return (
+    <ConfigProvider theme={scaledTheme}>
       <AntdApp>
         <AuthProvider>
           <BrowserRouter>

@@ -35,6 +35,7 @@ import {
   estimateInspectionSchedule,
 } from "../../../utils/inspectionTiming";
 import { confirmAction } from "../../../utils/confirmAction";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const { Text, Title } = Typography;
 const OPEN_STATUSES = new Set(["pending", "ongoing", "returned"]);
@@ -63,6 +64,8 @@ const formatDateTime = (value) => {
 
 export default function TaskAssignment() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +89,7 @@ export default function TaskAssignment() {
   const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
   const [checklistDraftItems, setChecklistDraftItems] = useState([]);
   const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
+  const [pendingTargetTaskId, setPendingTargetTaskId] = useState("");
   const [form] = Form.useForm();
 
   const role = user?.jobTitle?.toLowerCase() || "";
@@ -124,6 +128,143 @@ export default function TaskAssignment() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const targetTaskId = params.get("targetTaskId") || params.get("taskId");
+    const notificationStatus =
+      params.get("notificationStatus") || params.get("status");
+    const openAddTaskRaw = params.get("openAddTask");
+    const openAddTask =
+      openAddTaskRaw === "1" || String(openAddTaskRaw).toLowerCase() === "true";
+    const routeStateDraft = location.state?.addTaskDraft || null;
+
+    if (targetTaskId) {
+      setPendingTargetTaskId(targetTaskId);
+    }
+
+    if (isManager) {
+      if (notificationStatus && notificationStatus.toLowerCase() === "turned in") {
+        setActiveTab("for_review");
+      }
+    } else if (notificationStatus) {
+      const normalized = notificationStatus.toLowerCase();
+      if (["approved", "completed"].includes(normalized)) {
+        setActiveTab("completed");
+      } else if (normalized === "turned in") {
+        setActiveTab("completed");
+      } else {
+        setActiveTab("upcoming");
+      }
+    }
+
+    if (isManager && (openAddTask || routeStateDraft)) {
+      const draftAircraft = routeStateDraft?.aircraft || params.get("aircraft") || "";
+      const draftAircraftModel =
+        routeStateDraft?.aircraftModel || params.get("aircraftModel") || "";
+      const draftInspectionName =
+        routeStateDraft?.inspectionName || params.get("inspectionName") || "OC Inspection";
+      const draftIssueTitle =
+        routeStateDraft?.issueTitle ||
+        params.get("issueTitle") ||
+        "Rectify maintenance finding";
+      const draftComponent = routeStateDraft?.component || params.get("component") || "";
+      const draftRiskLevel = routeStateDraft?.riskLevel || params.get("riskLevel") || "";
+      const draftRecommendedAction =
+        routeStateDraft?.recommendedAction || params.get("recommendedAction") || "";
+      const draftManualReference =
+        routeStateDraft?.manualReference || params.get("manualReference") || "";
+
+      const start = addMinutesToDate(new Date(), 5);
+      const end = addMinutesToDate(start, 60);
+
+      form.setFieldsValue({
+        aircraft: draftAircraft || undefined,
+        startDateTime: dayjs(start),
+        endDateTime: dayjs(end),
+        priority:
+          ["critical", "high"].includes(String(draftRiskLevel).toLowerCase())
+            ? "High"
+            : "Normal",
+        maintenanceType: "Corrective Maintenance",
+      });
+
+      setSelectedInspectionId(CUSTOM_INSPECTION_ID);
+      setCustomTaskTitle(draftInspectionName || "Custom Task");
+      setChecklistDraftItems([
+        {
+          inspectionName: draftInspectionName,
+          aircraftModel: draftAircraftModel,
+          ata: {
+            chapter: 0,
+            chapterName: "",
+            section: 0,
+            sectionName: "",
+          },
+          taskId: `ai-rectify-${Date.now()}`,
+          taskName: draftIssueTitle,
+          component: draftComponent,
+          componentModel: "",
+          inspectionType: "Corrective",
+          inspectionTypeFull: draftManualReference || draftInspectionName,
+          documentation: draftManualReference,
+          description: draftIssueTitle,
+          correctiveAction: draftRecommendedAction,
+          environmentalCondition: "",
+          engineModel: "",
+          conditions: {
+            modificationStatus: "",
+            modificationNumbers: [],
+            effectivity: [],
+          },
+          interval: {
+            flightHours: 0,
+            calendarMonths: 0,
+            specificInterval: draftInspectionName,
+          },
+        },
+      ]);
+      setEndDateManuallyAdjusted(false);
+      setCreateOpen(true);
+
+      const cleanupParams = new URLSearchParams(location.search);
+      cleanupParams.delete("openAddTask");
+      cleanupParams.delete("aircraft");
+      cleanupParams.delete("aircraftModel");
+      cleanupParams.delete("inspectionName");
+      cleanupParams.delete("issueTitle");
+      cleanupParams.delete("component");
+      cleanupParams.delete("riskLevel");
+      cleanupParams.delete("recommendedAction");
+      cleanupParams.delete("manualReference");
+      navigate(
+        {
+          pathname: "/dashboard/tasks",
+          search: cleanupParams.toString() ? `?${cleanupParams.toString()}` : "",
+        },
+        { replace: true, state: null },
+      );
+    }
+  }, [form, isManager, location.search, location.state, navigate]);
+
+  useEffect(() => {
+    if (!pendingTargetTaskId || !tasks.length) return;
+    const matched = tasks.find(
+      (task) =>
+        String(task._id) === String(pendingTargetTaskId) ||
+        String(task.id) === String(pendingTargetTaskId),
+    );
+    if (!matched) return;
+
+    setSelectedTask(matched);
+    setChecklistOpen(true);
+    setPendingTargetTaskId("");
+
+    const params = new URLSearchParams(location.search);
+    if (params.toString()) {
+      navigate("/dashboard/tasks", { replace: true });
+    }
+  }, [location.search, navigate, pendingTargetTaskId, tasks]);
 
   useEffect(() => {
     if (!createOpen) return;
@@ -736,6 +877,10 @@ export default function TaskAssignment() {
                   <TaskCard
                     key={task._id || task.id}
                     task={task}
+                    highlighted={
+                      String(selectedTask?._id || selectedTask?.id) ===
+                      String(task?._id || task?.id)
+                    }
                     onOpen={(item) => {
                       setSelectedTask(item);
                       setChecklistOpen(true);

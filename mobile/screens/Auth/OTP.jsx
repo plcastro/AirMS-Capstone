@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   View,
-  Switch,
+  Pressable,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -125,11 +125,6 @@ export default function OTP() {
       }
 
       await AsyncStorage.setItem("currentUserToken", String(accessToken));
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-      } else {
-        await AsyncStorage.removeItem("refreshToken");
-      }
 
       await AsyncStorage.setItem(
         "rememberMe",
@@ -144,7 +139,12 @@ export default function OTP() {
         await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
       }
 
-      await loginUser({ user, accessToken, refreshToken });
+      await loginUser({
+        user,
+        accessToken,
+        refreshToken,
+        rememberMe: Boolean(route.params?.rememberMe),
+      });
 
       const pendingRedirect = await readPendingRedirect();
       if (pendingRedirect?.screen) {
@@ -261,7 +261,27 @@ export default function OTP() {
               <Text style={{ color: "#1f2937", fontWeight: "600" }}>
                 Trust this device for 30 days
               </Text>
-              <Switch value={trustDevice} onValueChange={setTrustDevice} />
+              <Pressable
+                onPress={() => setTrustDevice((prev) => !prev)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: trustDevice }}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderWidth: 2,
+                  borderColor: trustDevice ? "#1d4ed8" : "#9ca3af",
+                  borderRadius: 4,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: trustDevice ? "#1d4ed8" : "transparent",
+                }}
+              >
+                {trustDevice && (
+                  <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+                    ✓
+                  </Text>
+                )}
+              </Pressable>
             </View>
           )}
 

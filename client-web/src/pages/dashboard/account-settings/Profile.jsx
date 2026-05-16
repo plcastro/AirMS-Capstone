@@ -29,20 +29,30 @@ const { Title, Text } = Typography;
 
 export default function Profile() {
   const { message } = App.useApp();
-  const { user, setUser, getValidToken } = useContext(AuthContext);
+  const {
+    user,
+    setUser,
+    getValidToken,
+    rememberMePreference,
+    updateRememberMePreference,
+  } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [browserPermission, setBrowserPermission] = useState("default");
+  const [updatingRememberMe, setUpdatingRememberMe] = useState(false);
   const WEB_SETTINGS_KEY = "webProfileSettings";
 
   const WEB_FONT_RECOMMENDED = 1;
   const WEB_FONT_MAX = 1.3;
 
   const applyWebFontSize = (scale = WEB_FONT_RECOMMENDED) => {
-    const clamped = Math.min(Math.max(Number(scale) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED), WEB_FONT_MAX);
+    const clamped = Math.min(
+      Math.max(Number(scale) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED),
+      WEB_FONT_MAX,
+    );
     document.documentElement.style.fontSize = `${(16 * clamped).toFixed(1)}px`;
   };
   const formatDate = (dateString) => {
@@ -108,6 +118,7 @@ export default function Profile() {
           : notificationsEnabled,
     };
     localStorage.setItem(WEB_SETTINGS_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new Event("web-settings-updated"));
   };
 
   const pickImage = (e) => {
@@ -232,7 +243,8 @@ export default function Profile() {
             <Space orientation="vertical" style={{ width: "100%" }}>
               <Text strong>Font Size</Text>
               <Text type="secondary">
-                Range: Recommended ({WEB_FONT_RECOMMENDED.toFixed(2)}x) to Max ({WEB_FONT_MAX.toFixed(2)}x)
+                Range: Recommended ({WEB_FONT_RECOMMENDED.toFixed(2)}x) to Max (
+                {WEB_FONT_MAX.toFixed(2)}x)
               </Text>
               <Slider
                 min={WEB_FONT_RECOMMENDED}
@@ -245,7 +257,6 @@ export default function Profile() {
                 }}
                 onChangeComplete={(value) => {
                   persistWebSettings({ fontSizePreference: value });
-                  message.success("Font size preference saved.");
                 }}
                 style={{ maxWidth: 320 }}
               />
@@ -290,6 +301,40 @@ export default function Profile() {
                       ? "Denied"
                       : "Default"}
                 </strong>
+              </Text>
+            </Space>
+          </Card>
+
+          <Card size="small" title="Session">
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              <Space>
+                <Text strong>Keep Me Signed In (Remember Me)</Text>
+                <Switch
+                  checked={rememberMePreference}
+                  loading={updatingRememberMe}
+                  onChange={async (checked) => {
+                    try {
+                      setUpdatingRememberMe(true);
+                      await updateRememberMePreference(checked, {
+                        revokePersistentTokens: !checked,
+                      });
+                      message.success(
+                        checked
+                          ? "Remember Me enabled for future refreshes."
+                          : "Remember Me disabled. Current session stays active until expiry.",
+                      );
+                    } catch (error) {
+                      message.error(
+                        error.message || "Failed to update session preference.",
+                      );
+                    } finally {
+                      setUpdatingRememberMe(false);
+                    }
+                  }}
+                />
+              </Space>
+              <Text type="secondary">
+                Session ID: {user?.sessionId || "N/A"} | Base: {user?.base || "UNKNOWN"}
               </Text>
             </Space>
           </Card>

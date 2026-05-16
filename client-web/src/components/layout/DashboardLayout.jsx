@@ -1,9 +1,16 @@
 import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
-import { Layout, Button, theme, Avatar, Grid, Row, Badge, notification } from "antd";
+import {
+  Layout,
+  Button,
+  theme,
+  Grid,
+  Row,
+  Badge,
+  notification,
+} from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  UserOutlined,
   BellOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
@@ -13,6 +20,13 @@ import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
+
+const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
+  const initials = `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
+    .toUpperCase()
+    .trim();
+  return initials || fallback;
+};
 
 const buildWsUrl = (token) => {
   const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
@@ -264,7 +278,29 @@ const DashboardLayout = () => {
                   }}
                 />
               ) : (
-                <Avatar size="large" icon={<UserOutlined />} />
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    marginRight: 5,
+                    backgroundColor: "#E9F4F1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    userSelect: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#26866F",
+                      fontWeight: 700,
+                      fontSize: 13,
+                    }}
+                  >
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </span>
+                </div>
               )}
               {screens.md && (
                 <div
@@ -278,10 +314,12 @@ const DashboardLayout = () => {
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>
-                    {user?.firstName + " " + user?.lastName || "Unknown User"}
+                    {user?.firstName.toUpperCase() +
+                      " " +
+                      user?.lastName.toUpperCase() || "Unknown User"}
                   </span>
                   <span style={{ fontSize: 12, color: "#888" }}>
-                    {user?.jobTitle || "Unknown Job Title"}
+                    {user?.jobTitle.toUpperCase() || "Unknown Job Title"}
                   </span>
                 </div>
               )}

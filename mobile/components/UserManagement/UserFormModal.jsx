@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
 import { COLORS } from "../../stylesheets/colors";
 import {
   BASE_OPTIONS,
@@ -66,6 +69,9 @@ export default function UserFormModal({
   const isEdit = Boolean(userToEdit?._id);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
+  const [imageUri, setImageUri] = useState("");
+  const [pickedImageAsset, setPickedImageAsset] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -81,8 +87,12 @@ export default function UserFormModal({
           userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
         licenseNo: userToEdit?.licenseNo || "",
       });
+      setImageUri(userToEdit?.image || "");
+      setPickedImageAsset(null);
     } else {
       setForm(emptyForm);
+      setImageUri("");
+      setPickedImageAsset(null);
     }
     setError("");
   }, [isEdit, userToEdit, visible]);
@@ -138,7 +148,58 @@ export default function UserFormModal({
     }
 
     setError("");
+    if (pickedImageAsset?.uri) {
+      payload.__multipart = true;
+      payload.image = {
+        uri: pickedImageAsset.uri,
+        name: pickedImageAsset.fileName || `user-${Date.now()}.jpg`,
+        type: pickedImageAsset.mimeType || "image/jpeg",
+      };
+    }
+
     onSubmit(payload, isEdit);
+  };
+
+  const pickImage = async (fromCamera = false) => {
+    try {
+      setImageLoading(true);
+      if (fromCamera) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (permission.status !== "granted") {
+          setError("Camera permission is required to take a profile photo.");
+          return;
+        }
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== "granted") {
+          setError("Media library permission is required to pick a photo.");
+          return;
+        }
+      }
+
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            quality: 0.7,
+            aspect: [1, 1],
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            allowsEditing: true,
+            quality: 0.7,
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            aspect: [1, 1],
+          });
+
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      setImageUri(asset.uri || "");
+      setPickedImageAsset(asset);
+      setError("");
+    } catch (pickerError) {
+      setError("Failed to select image. Please try again.");
+    } finally {
+      setImageLoading(false);
+    }
   };
 
   return (
@@ -147,6 +208,33 @@ export default function UserFormModal({
         <View style={styles.card}>
           <Text style={styles.title}>{isEdit ? "Edit User" : "Add User"}</Text>
           <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={styles.label}>Profile Image</Text>
+            <View style={styles.imageRow}>
+              <View style={styles.imagePreviewWrap}>
+                {imageUri ? (
+                  <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                ) : (
+                  <Text style={styles.imagePlaceholder}>No image</Text>
+                )}
+              </View>
+              <View style={{ flex: 1, gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
+                  onPress={() => pickImage(false)}
+                  disabled={imageLoading}
+                >
+                  <Text style={styles.imageBtnTxt}>Choose from Gallery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
+                  onPress={() => pickImage(true)}
+                  disabled={imageLoading}
+                >
+                  <Text style={styles.imageBtnTxt}>Take Photo</Text>
+                </TouchableOpacity>
+                {imageLoading ? <ActivityIndicator color={COLORS.primaryLight} /> : null}
+              </View>
+            </View>
             <Text style={styles.label}>First Name</Text>
             <TextInput
               style={styles.input}
@@ -299,6 +387,30 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 8,
   },
+  imageRow: { flexDirection: "row", gap: 10, marginBottom: 6 },
+  imagePreviewWrap: {
+    width: 78,
+    height: 78,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: "#F8FAFC",
+  },
+  imagePreview: { width: "100%", height: "100%" },
+  imagePlaceholder: { fontSize: 11, color: COLORS.grayDark },
+  imageBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primaryLight,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: "center",
+  },
+  imageBtnDisabled: { opacity: 0.6 },
+  imageBtnTxt: { color: COLORS.primaryLight, fontSize: 12, fontWeight: "700" },
   btn: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -319,4 +431,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

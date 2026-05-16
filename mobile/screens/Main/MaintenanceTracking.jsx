@@ -27,6 +27,19 @@ const RISK_COLORS = {
   Low: "#26866F",
 };
 
+const getTaskScheduleState = (task = {}) => {
+  const status = String(task.status || "").toLowerCase();
+  const endDate = new Date(task.endDateTime || task.dueDate || "");
+
+  if (["completed", "approved", "closed", "turned in"].includes(status)) {
+    return { label: "Completed", color: "#2e7d32" };
+  }
+  if (!Number.isNaN(endDate.getTime()) && endDate < new Date()) {
+    return { label: "Overdue", color: "#cf1322" };
+  }
+  return { label: "Scheduled", color: COLORS.primaryLight };
+};
+
 const buildClearedInsight = (item) => ({
   ...item,
   issueTitle: "No maintenance issue detected",
@@ -47,6 +60,7 @@ export default function MaintenanceTracking() {
   const [health, setHealth] = useState(null);
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   const loadTracking = useCallback(async () => {
     try {
@@ -91,6 +105,23 @@ export default function MaintenanceTracking() {
   useEffect(() => {
     loadTracking();
   }, [loadTracking]);
+  useEffect(() => {
+    const cooldownUntil = health?.cooldown?.cooldownUntil;
+    if (!health?.cooldown?.active || !cooldownUntil) {
+      setCooldownRemaining(0);
+      return undefined;
+    }
+    const updateCooldown = () => {
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((new Date(cooldownUntil).getTime() - Date.now()) / 1000),
+      );
+      setCooldownRemaining(remainingSeconds);
+    };
+    updateCooldown();
+    const intervalId = setInterval(updateCooldown, 1000);
+    return () => clearInterval(intervalId);
+  }, [health?.cooldown?.active, health?.cooldown?.cooldownUntil]);
 
   const aircraftOptions = useMemo(() => {
     const set = new Set();
@@ -113,6 +144,37 @@ export default function MaintenanceTracking() {
         ? remainingRows
         : remainingRows.filter((item) => item.aircraft === aircraftFilter),
     [aircraftFilter, remainingRows],
+  );
+
+  const scheduledTasks = useMemo(() => {
+    const rows = filteredInsights.flatMap((insight) =>
+      (insight.scheduledTasks || []).map((task) => ({
+        ...task,
+        key: `${insight.aircraftId || insight.aircraft}-${task.id || task.title}`,
+        aircraft: task.aircraft || insight.aircraft,
+      })),
+    );
+    return rows.sort((left, right) => {
+      const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
+      const rightDate = new Date(right.endDateTime || right.dueDate || 0).getTime();
+      return leftDate - rightDate;
+    });
+  }, [filteredInsights]);
+
+  const scheduledStats = useMemo(
+    () =>
+      scheduledTasks.reduce(
+        (totals, task) => {
+          const state = getTaskScheduleState(task).label;
+          totals.total += 1;
+          if (state === "Overdue") totals.overdue += 1;
+          else if (state === "Completed") totals.completed += 1;
+          else totals.scheduled += 1;
+          return totals;
+        },
+        { total: 0, scheduled: 0, overdue: 0, completed: 0 },
+      ),
+    [scheduledTasks],
   );
 
   const stats = useMemo(
@@ -197,8 +259,12 @@ export default function MaintenanceTracking() {
                   method: "POST",
                   headers: await getAuthHeaders({
                     "Content-Type": "application/json",
+                    "x-action-confirmed": "true",
                   }),
-                  body: JSON.stringify(payload),
+                  body: JSON.stringify({
+                    ...payload,
+                    confirmAction: true,
+                  }),
                 },
               );
               const result = await response.json();
@@ -254,6 +320,16 @@ export default function MaintenanceTracking() {
               {summaryLoading ? "Refreshing..." : "Regenerate OpenAI Summaries"}
             </Text>
           </TouchableOpacity>
+        )}
+        {!!health && (
+          <Text style={[moduleStyles.subtitle, { marginTop: 10 }]}>
+            OpenAI: {health.configured ? "Configured" : "Not configured"} |{" "}
+            {health.reachable ? "Reachable" : "Unavailable"}
+            {health.model ? ` | Model: ${health.model}` : ""}
+            {health?.cooldown?.active
+              ? ` | Cooldown: ${cooldownRemaining || health.cooldown.retryAfterSeconds || 0}s`
+              : ""}
+          </Text>
         )}
       </InfoCard>
 
@@ -319,6 +395,32 @@ export default function MaintenanceTracking() {
           </View>
         </InfoCard>
       ))}
+
+      <SectionTitle title="Scheduled Tasks" />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <StatCard label="Total" value={scheduledStats.total} />
+        <StatCard label="Scheduled" value={scheduledStats.scheduled} tone={COLORS.primaryLight} />
+        <StatCard label="Overdue" value={scheduledStats.overdue} tone="#cf1322" />
+        <StatCard label="Completed" value={scheduledStats.completed} tone="#2e7d32" />
+      </View>
+      {scheduledTasks.slice(0, 20).map((task) => {
+        const state = getTaskScheduleState(task);
+        return (
+          <InfoCard
+            key={task.key}
+            title={task.aircraft || "N/A"}
+            subtitle={task.title || "Untitled task"}
+            right={<StatusChip label={state.label} color={state.color} />}
+          >
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              <FieldRow label="Mechanic" value={task.assignedToName || "Unassigned"} />
+              <FieldRow label="Type" value={task.maintenanceType || "Maintenance"} />
+              <FieldRow label="Start" value={formatDateTime(task.startDateTime)} />
+              <FieldRow label="End / Due" value={formatDateTime(task.endDateTime || task.dueDate)} />
+            </View>
+          </InfoCard>
+        );
+      })}
     </ModuleContainer>
   );
 }

@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-import { formatDate } from "../../utilities/mobileApi";
+import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
 import { confirmAction } from "../../utilities/confirmAction";
 import {
@@ -209,7 +209,9 @@ export default function PartsLifespanMonitoring() {
       setSaving(true);
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({
+          "x-action-confirmed": "true",
+        }),
         body: JSON.stringify({
           aircraft: selectedAircraft,
           referenceData: {
@@ -217,6 +219,7 @@ export default function PartsLifespanMonitoring() {
             today: new Date(refs.today),
           },
           parts,
+          confirmAction: true,
           updatedBy: user
             ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
             : "mobile user",

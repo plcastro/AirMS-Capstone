@@ -54,6 +54,7 @@ export default function UserManagement() {
   const [formVisible, setFormVisible] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [savingUser, setSavingUser] = useState(false);
+  const [inviteActionLoadingByUser, setInviteActionLoadingByUser] = useState({});
 
   const currentUserId = user?.id || user?._id || "";
 
@@ -75,7 +76,22 @@ export default function UserManagement() {
       if (!response.ok)
         throw new Error(json?.message || "Failed to load users");
 
-      setUsers(Array.isArray(json.data) ? json.data : []);
+      const now = Date.now();
+      const mapped = Array.isArray(json.data)
+        ? json.data.map((u) => ({
+            ...u,
+            invitationStatus:
+              u.invitationStatus ||
+              (String(u.status || "").toLowerCase() === "active"
+                ? "claimed"
+                : u.tempPasswordExpires &&
+                    new Date(u.tempPasswordExpires).getTime() < now
+                  ? "expired"
+                  : "pending"),
+            invitationExpiresAt: u.invitationExpiresAt || u.tempPasswordExpires || null,
+          }))
+        : [];
+      setUsers(mapped);
     } catch (error) {
       showToast(error.message);
     } finally {
@@ -116,6 +132,7 @@ export default function UserManagement() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ status, confirmAction: true }),
@@ -129,6 +146,97 @@ export default function UserManagement() {
       if (!response.ok) throw new Error(json?.message || "Update failed");
 
       showToast(`User ${status === "active" ? "reactivated" : "deactivated"}.`);
+      fetchUsers({ silent: true });
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
+
+  const runInviteAction = async (endpoint, method = "PUT", payload = null) => {
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "x-action-confirmed": "true",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...(payload || {}),
+        confirmAction: true,
+      }),
+    });
+
+    const json = await parseJsonResponse(response, "Invalid invite response.");
+    if (!response.ok) throw new Error(json?.message || "Invite action failed");
+    return json;
+  };
+  const withInviteActionLoading = async (userId, work) => {
+    const key = String(userId || "");
+    setInviteActionLoadingByUser((prev) => ({ ...prev, [key]: true }));
+    try {
+      await work();
+    } finally {
+      setInviteActionLoadingByUser((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleResendInvite = async (targetUser) => {
+    const confirmed = await confirmAction({
+      title: "Resend Activation Invite",
+      message: `Resend activation email to ${targetUser?.email || "this user"}?`,
+      confirmText: "Resend",
+    });
+    if (!confirmed) return;
+
+    try {
+      await withInviteActionLoading(targetUser?._id, async () => {
+        await runInviteAction(`/api/user/resend-activation/${targetUser._id}`, "POST");
+      });
+      showToast(`Activation email resent to ${targetUser?.email || "user"}.`);
+      fetchUsers({ silent: true });
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
+
+  const handleExtendInvite = async (targetUser) => {
+    const confirmed = await confirmAction({
+      title: "Extend Invitation",
+      message: `Extend invitation expiry for ${targetUser?.email || "this user"} by 24 hours?`,
+      confirmText: "Extend",
+    });
+    if (!confirmed) return;
+
+    try {
+      await withInviteActionLoading(targetUser?._id, async () => {
+        await runInviteAction(
+          `/api/user/extend-invitation-expiry/${targetUser._id}`,
+          "PUT",
+          { hours: 24 },
+        );
+      });
+      showToast("Invitation expiry extended by 24 hours.");
+      fetchUsers({ silent: true });
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
+
+  const handleRevokeInvite = async (targetUser) => {
+    const confirmed = await confirmAction({
+      title: "Revoke Invitation",
+      message: `Revoke invitation for ${targetUser?.email || "this user"}?`,
+      confirmText: "Revoke",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await withInviteActionLoading(targetUser?._id, async () => {
+        await runInviteAction(`/api/user/revoke-invitation/${targetUser._id}`, "PUT");
+      });
+      showToast("Invitation revoked.");
       fetchUsers({ silent: true });
     } catch (error) {
       showToast(error.message);
@@ -166,20 +274,39 @@ export default function UserManagement() {
       setSavingUser(true);
       const token = await AsyncStorage.getItem("currentUserToken");
 
+      const isMultipart = Boolean(payload?.__multipart);
+      const requestPayload = { ...payload };
+      delete requestPayload.__multipart;
       const response = await fetch(
         isEdit
           ? `${API_BASE}/api/user/update-user/${userToEdit?._id}`
           : `${API_BASE}/api/user/create`,
         {
           method: isEdit ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            ...payload,
-            confirmAction: true,
-          }),
+          headers: isMultipart
+            ? {
+                "x-action-confirmed": "true",
+                Authorization: `Bearer ${token}`,
+              }
+            : {
+                "Content-Type": "application/json",
+                "x-action-confirmed": "true",
+                Authorization: `Bearer ${token}`,
+              },
+          body: isMultipart
+            ? (() => {
+                const formData = new FormData();
+                Object.entries(requestPayload || {}).forEach(([key, value]) => {
+                  if (value === undefined || value === null || value === "") return;
+                  formData.append(key, value);
+                });
+                formData.append("confirmAction", "true");
+                return formData;
+              })()
+            : JSON.stringify({
+                ...requestPayload,
+                confirmAction: true,
+              }),
         },
       );
 
@@ -328,6 +455,10 @@ export default function UserManagement() {
               isCurrentUser={String(item._id) === String(currentUserId)}
               onEdit={openEditModal}
               onToggleStatus={runStatusAction}
+              onResendInvite={handleResendInvite}
+              onExtendInvite={handleExtendInvite}
+              onRevokeInvite={handleRevokeInvite}
+              inviteActionLoading={Boolean(inviteActionLoadingByUser[String(item._id)])}
             />
           ))
         )}

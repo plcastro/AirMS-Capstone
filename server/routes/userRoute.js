@@ -42,6 +42,9 @@ const {
   updateSignature,
   activateUser,
   resendActivation,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
   completeSecuritySetup,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
@@ -216,6 +219,33 @@ router.put(
 router.post("/activate", activateUser);
 
 router.post("/resend-activation", resendActivation);
+
+router.post(
+  "/resend-activation/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  resendActivationByAdmin,
+);
+
+router.put(
+  "/extend-invitation-expiry/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  extendInvitationExpiry,
+);
+
+router.put(
+  "/revoke-invitation/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  revokeInvitation,
+);
 
 router.post("/complete-security-setup", completeSecuritySetup);
 

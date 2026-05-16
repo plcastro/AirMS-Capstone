@@ -15,8 +15,15 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import AreaChart from "../../components/common/AreaChart";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const DATE_RANGE_OPTIONS = [
+  { label: "Last 7 days", value: "7" },
+  { label: "Last 30 days", value: "30" },
+  { label: "Last 90 days", value: "90" },
+  { label: "All time", value: "all" },
+];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
@@ -52,6 +59,15 @@ const ACTION_TAG_COLORS = {
   other: { bg: "#F2F4F7", text: "#344054" },
 };
 
+const buildEmptyDailyCategories = () => ({
+  create: 0,
+  update: 0,
+  delete: 0,
+  login: 0,
+  logout: 0,
+  other: 0,
+});
+
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +75,7 @@ export default function ActivityLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState("30");
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -130,6 +147,16 @@ export default function ActivityLogs() {
 
   const filteredLogs = useMemo(() => {
     let next = [...logs];
+    if (dateRangeFilter !== "all") {
+      const days = Number(dateRangeFilter);
+      if (Number.isFinite(days) && days > 0) {
+        const threshold = Date.now() - days * 24 * 60 * 60 * 1000;
+        next = next.filter((item) => {
+          const time = new Date(item.dateTime).getTime();
+          return Number.isFinite(time) && time >= threshold;
+        });
+      }
+    }
     if (actionType !== "all") {
       next = next.filter(
         (item) => getActionCategory(item.actionMade) === actionType,
@@ -159,7 +186,90 @@ export default function ActivityLogs() {
         .toLowerCase()
         .includes(query),
     );
-  }, [actionType, logs, scopeFilter, searchQuery]);
+  }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+
+  const actionCounts = useMemo(() => {
+    return filteredLogs.reduce(
+      (counts, log) => {
+        const category = getActionCategory(log.actionMade);
+        counts[category] = (counts[category] || 0) + 1;
+        return counts;
+      },
+      { ...buildEmptyDailyCategories() },
+    );
+  }, [filteredLogs]);
+
+  const trendSeries = useMemo(() => {
+    const dailyStats = {};
+
+    filteredLogs.forEach((log) => {
+      const parsedDate = new Date(log.dateTime);
+      if (Number.isNaN(parsedDate.getTime())) return;
+      const dateKey = parsedDate.toISOString().slice(0, 10);
+
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = {
+          date: dateKey,
+          ...buildEmptyDailyCategories(),
+        };
+      }
+
+      const category = getActionCategory(log.actionMade);
+      dailyStats[dateKey][category] += 1;
+    });
+
+    const sortedKeys = Object.keys(dailyStats).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    const windowKeys = sortedKeys.slice(-8);
+
+    return windowKeys.map((dateKey) => {
+      const row = dailyStats[dateKey];
+      const labelDate = new Date(`${dateKey}T00:00:00`);
+      return {
+        date: dateKey,
+        label: Number.isNaN(labelDate.getTime())
+          ? dateKey
+          : labelDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+        value: Object.values(row)
+          .filter((value) => typeof value === "number")
+          .reduce((sum, value) => sum + value, 0),
+        ...row,
+      };
+    });
+  }, [filteredLogs]);
+  const groupedSummary = useMemo(() => {
+    const byUser = {};
+    const byModule = {};
+    filteredLogs.forEach((item) => {
+      const userKey = String(item.username || "Unknown");
+      byUser[userKey] = (byUser[userKey] || 0) + 1;
+      const actionText = String(item.actionMade || "").toLowerCase();
+      const module =
+        actionText.includes("task")
+          ? "tasks"
+          : actionText.includes("flight")
+            ? "flight logs"
+            : actionText.includes("inspection")
+              ? "inspections"
+              : actionText.includes("requisition")
+                ? "requisitions"
+                : actionText.includes("user")
+                  ? "users"
+                  : "other";
+      byModule[module] = (byModule[module] || 0) + 1;
+    });
+    const topUsers = Object.entries(byUser)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    const topModules = Object.entries(byModule)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    return { topUsers, topModules };
+  }, [filteredLogs]);
 
   const scopeOptions = useMemo(() => {
     const platformValues = Array.from(
@@ -247,6 +357,14 @@ export default function ActivityLogs() {
         </View>
 
         <View style={styles.filterCard}>
+          <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
+            {DATE_RANGE_OPTIONS.map((value) => (
+              <Picker.Item key={value.value} value={value.value} label={value.label} />
+            ))}
+          </Picker>
+        </View>
+
+        <View style={styles.filterCard}>
           <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
             {scopeOptions.map((value) => (
               <Picker.Item
@@ -256,6 +374,54 @@ export default function ActivityLogs() {
               />
             ))}
           </Picker>
+        </View>
+      </View>
+
+      <View style={styles.analyticsCard}>
+        <Text style={styles.analyticsTitle}>Activity Trends</Text>
+        <AreaChart data={trendSeries} height={130} />
+        <View style={styles.trendLabelsRow}>
+          {trendSeries.map((point) => (
+            <Text key={point.date} style={styles.trendLabel}>
+              {point.label}
+            </Text>
+          ))}
+        </View>
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Create</Text>
+            <Text style={styles.kpiValue}>{actionCounts.create}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Update</Text>
+            <Text style={styles.kpiValue}>{actionCounts.update}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Delete</Text>
+            <Text style={styles.kpiValue}>{actionCounts.delete}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Login</Text>
+            <Text style={styles.kpiValue}>{actionCounts.login}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Logout</Text>
+            <Text style={styles.kpiValue}>{actionCounts.logout}</Text>
+          </View>
+        </View>
+        <View style={styles.groupSummaryWrap}>
+          <Text style={styles.groupSummaryTitle}>Top Users</Text>
+          {groupedSummary.topUsers.map(([name, count]) => (
+            <Text key={name} style={styles.groupSummaryText}>
+              {name}: {count}
+            </Text>
+          ))}
+          <Text style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</Text>
+          {groupedSummary.topModules.map(([name, count]) => (
+            <Text key={name} style={styles.groupSummaryText}>
+              {name}: {count}
+            </Text>
+          ))}
         </View>
       </View>
 
@@ -362,9 +528,8 @@ const styles = StyleSheet.create({
     height: 40,
   },
   filtersRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 8,
+    flexDirection: "column",
+    rowGap: 8,
     marginBottom: 10,
   },
   filterCard: {
@@ -380,6 +545,54 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  analyticsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    padding: 10,
+  },
+  analyticsTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.black,
+    marginBottom: 8,
+  },
+  trendLabelsRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    columnGap: 4,
+  },
+  trendLabel: {
+    color: COLORS.grayDark,
+    fontSize: 10,
+  },
+  kpiRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  kpiChip: {
+    backgroundColor: "#F4F7F8",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  kpiLabel: {
+    color: COLORS.grayDark,
+    fontSize: 10,
+  },
+  kpiValue: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  groupSummaryWrap: { marginTop: 8 },
+  groupSummaryTitle: { fontSize: 11, fontWeight: "700", color: COLORS.black },
+  groupSummaryText: { fontSize: 11, color: COLORS.grayDark, marginTop: 2 },
   filterTitleRow: {
     flexDirection: "row",
     alignItems: "center",

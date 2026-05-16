@@ -43,7 +43,7 @@ const getProgress = (task) => {
   return Math.round((done / items.length) * 100);
 };
 
-export default function TaskCard({ task, onOpen }) {
+export default function TaskCard({ task, onOpen, highlighted = false }) {
   const statusMeta = getStatusMeta(task.status);
   const progress = getProgress(task);
   const deadline = task.endDateTime || task.dueDate;
@@ -58,9 +58,10 @@ export default function TaskCard({ task, onOpen }) {
       bodyStyle={{ padding: 14 }}
       style={{
         borderRadius: 12,
-        border: "1px solid #E4E7EC",
+        border: highlighted ? "1px solid #26866F" : "1px solid #E4E7EC",
         boxShadow: "0 2px 10px rgba(16,24,40,0.04)",
         cursor: "pointer",
+        backgroundColor: highlighted ? "#F3FAF8" : "#FFFFFF",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>

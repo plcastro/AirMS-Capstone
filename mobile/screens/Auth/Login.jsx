@@ -155,12 +155,6 @@ export default function Login() {
       // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
       await AsyncStorage.setItem("currentUserToken", String(token));
 
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-      } else {
-        await AsyncStorage.removeItem("refreshToken");
-      }
-
       // remember me
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
@@ -190,6 +184,7 @@ export default function Login() {
         user,
         accessToken: token,
         refreshToken,
+        rememberMe,
       });
 
       const pendingRedirect = await readPendingRedirect();

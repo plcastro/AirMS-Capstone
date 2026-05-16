@@ -282,8 +282,9 @@ export default function UserManagement() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify({ status: "deactivated" }),
+          body: JSON.stringify({ status: "deactivated", confirmAction: true }),
         },
       );
       const data = await response.json().catch(() => ({}));
@@ -306,8 +307,12 @@ export default function UserManagement() {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        "x-action-confirmed": "true",
       },
-      body: payload ? JSON.stringify(payload) : undefined,
+      body: JSON.stringify({
+        ...(payload || {}),
+        confirmAction: true,
+      }),
     });
 
     const data = await response.json().catch(() => ({}));
@@ -389,8 +394,9 @@ export default function UserManagement() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify({ status: "active" }),
+          body: JSON.stringify({ status: "active", confirmAction: true }),
         },
       );
       const data = await response.json().catch(() => ({}));

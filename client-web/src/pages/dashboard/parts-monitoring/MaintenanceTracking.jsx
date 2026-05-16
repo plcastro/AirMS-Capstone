@@ -408,9 +408,13 @@ export default function MaintenanceTracking() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           ...authHeader,
         },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          confirmAction: true,
+        }),
       },
     );
     const result = await response.json().catch(() => ({}));

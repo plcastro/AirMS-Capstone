@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
 
 const NotificationSchema = new mongoose.Schema(
   {
@@ -47,5 +48,15 @@ const NotificationSchema = new mongoose.Schema(
 NotificationSchema.index({ module: 1, createdAt: -1 });
 NotificationSchema.index({ recipientRoles: 1, createdAt: -1 });
 NotificationSchema.index({ recipientUsers: 1, createdAt: -1 });
+
+NotificationSchema.post("save", function onNotificationSaved(doc) {
+  publishTypedEvent("notification:new", {
+    notificationId: String(doc._id),
+    module: doc.module,
+    entityType: doc.entityType,
+    entityId: doc.entityId ? String(doc.entityId) : null,
+    createdAt: doc.createdAt,
+  });
+});
 
 module.exports = mongoose.model("Notification", NotificationSchema);

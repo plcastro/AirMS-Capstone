@@ -567,13 +567,17 @@ export default function PartsRequisition({ route, navigation }) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-action-confirmed": "true",
               ...(token
                 ? {
                     Authorization: `Bearer ${token}`,
                   }
                 : {}),
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({
+              ...payload,
+              confirmAction: true,
+            }),
           },
         );
 
@@ -693,6 +697,7 @@ export default function PartsRequisition({ route, navigation }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(token
               ? {
                   Authorization: `Bearer ${token}`,
@@ -702,6 +707,7 @@ export default function PartsRequisition({ route, navigation }) {
           body: JSON.stringify({
             wrsNo: nextSlipNo,
             aircraft,
+            confirmAction: true,
             staff: {
               requisitioner: fullName,
               approvedBy: "",

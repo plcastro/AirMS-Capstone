@@ -403,9 +403,13 @@ export default function PreInspection({ route }) {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveNewEntry(newEntry)),
+                body: JSON.stringify({
+                  ...handleSaveNewEntry(newEntry),
+                  confirmAction: true,
+                }),
               },
             );
 
@@ -445,9 +449,13 @@ export default function PreInspection({ route }) {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 

@@ -153,6 +153,7 @@ app.use("/api/admin-activity", adminActivityRoutes);
 app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
+app.use("/api/requisitions", partsRequisitionRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
 
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);

@@ -368,9 +368,13 @@ export default function PostInspection({ route }) {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 

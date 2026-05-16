@@ -10,6 +10,7 @@ const { requirePermission } = require("../middleware/permissions");
 const {
   createAuditLogFromRequest,
   getAllUserLogs,
+  getLatestLog,
 } = require("../controllers/logsController");
 
 router.post(
@@ -24,6 +25,13 @@ router.get(
   verifyToken,
   requirePermission(permissions.ACTIVITYLOGS_READ),
   getAllUserLogs,
+);
+
+router.get(
+  "/latest",
+  verifyToken,
+  requirePermission(permissions.ACTIVITYLOGS_READ),
+  getLatestLog,
 );
 
 module.exports = router;

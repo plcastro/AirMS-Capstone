@@ -78,6 +78,18 @@ const inferTaskBase = (task = {}) =>
   )
     .trim()
     .toUpperCase();
+const REPORT_CATEGORY_ORDER = ["Performance", "Inventory", "Logbook"];
+
+const isTaskCompletedLike = (task = {}) => {
+  const status = String(task.status || "")
+    .trim()
+    .toLowerCase();
+  return (
+    ["completed", "turned in", "approved"].includes(status) ||
+    task.isApproved === true ||
+    Boolean(task.completedAt)
+  );
+};
 
 const isDamageRelatedTask = (task = {}) => {
   const text = [
@@ -98,7 +110,7 @@ const isDamageRelatedTask = (task = {}) => {
 };
 
 const isRepairedTask = (task = {}) => {
-  if (isCompletedTask(task)) return true;
+  if (isTaskCompletedLike(task)) return true;
   const text = [
     task.status,
     task.title,
@@ -393,6 +405,15 @@ export default function MaintenanceDashboard() {
       }, {}),
     [filteredCards],
   );
+  const orderedReportGroups = React.useMemo(() => {
+    const knownGroups = REPORT_CATEGORY_ORDER
+      .filter((category) => groupedFilteredCards[category]?.length)
+      .map((category) => [category, groupedFilteredCards[category]]);
+    const otherGroups = Object.entries(groupedFilteredCards).filter(
+      ([category]) => !REPORT_CATEGORY_ORDER.includes(category),
+    );
+    return [...knownGroups, ...otherGroups];
+  }, [groupedFilteredCards]);
 
   const taskDetailRows = tasks
     .filter((task) => getTaskDetailCategory(task) === taskDetailView)
@@ -1103,6 +1124,7 @@ export default function MaintenanceDashboard() {
               icon={<ExportOutlined />}
               block
               onClick={handleExportReports}
+              width={"100%"}
             >
               Export
             </Button>
@@ -1212,7 +1234,7 @@ export default function MaintenanceDashboard() {
               borderColor: activeKpi === "baseDamage" ? "#cf1322" : undefined,
             }}
           >
-            <SDMChart data={damageBasePieData} height={230} outerRadius={76} />
+            <SDMChart data={damageBasePieData} height={190} outerRadius={58} />
             <Text type="secondary">
               Top: {baseDamageRepairSummary.topDamagedBase.label} (
               {baseDamageRepairSummary.topDamagedBase.value})
@@ -1232,8 +1254,8 @@ export default function MaintenanceDashboard() {
           >
             <SDMChart
               data={repairedBasePieData}
-              height={230}
-              outerRadius={76}
+              height={190}
+              outerRadius={58}
             />
             <Text type="secondary">
               Top: {baseDamageRepairSummary.topRepairedBase.label} (
@@ -1363,7 +1385,11 @@ export default function MaintenanceDashboard() {
                 dataIndex: "averageRectificationHours",
                 key: "averageRectificationHours",
               },
-              { title: "Repaired Count", dataIndex: "repairedCount", key: "repairedCount" },
+              {
+                title: "Repaired Count",
+                dataIndex: "repairedCount",
+                key: "repairedCount",
+              },
             ]}
             dataSource={baseByRectificationRows}
             pagination={{ pageSize: 6 }}
@@ -1374,8 +1400,16 @@ export default function MaintenanceDashboard() {
           <Table
             columns={[
               { title: "Base", dataIndex: "base", key: "base" },
-              { title: "Same-Day Repairs", dataIndex: "sameDayRepairCount", key: "sameDayRepairCount" },
-              { title: "Total Repaired", dataIndex: "repairedCount", key: "repairedCount" },
+              {
+                title: "Same-Day Repairs",
+                dataIndex: "sameDayRepairCount",
+                key: "sameDayRepairCount",
+              },
+              {
+                title: "Total Repaired",
+                dataIndex: "repairedCount",
+                key: "repairedCount",
+              },
             ]}
             dataSource={baseBySameDayRows}
             pagination={{ pageSize: 6 }}
@@ -1394,19 +1428,38 @@ export default function MaintenanceDashboard() {
         )}
       </Card>
 
-      {Object.entries(groupedFilteredCards).map(([category, categoryCards]) => (
-        <div key={category} style={{ marginBottom: 20 }}>
-          <Title level={5} style={{ marginBottom: 10 }}>
-            {category} Reports
-          </Title>
+      <div style={{ marginBottom: 8 }}>
+        <Title level={5} style={{ marginBottom: 4 }}>
+          Grouped Analytics Modules
+        </Title>
+        <Text type="secondary">
+          Related tables and charts are grouped by domain for easier review.
+        </Text>
+      </div>
+
+      {orderedReportGroups.map(([category, categoryCards]) => (
+        <Card
+          key={category}
+          size="small"
+          title={`${category} Reports`}
+          style={{ marginBottom: 16 }}
+          styles={{ body: { paddingTop: 10 } }}
+        >
           <Row gutter={[16, 16]}>
             {categoryCards.map((card) => (
-              <Col xs={24} key={card.key}>
-                <Card title={card.title}>{card.component}</Card>
+              <Col xs={24} xl={12} key={card.key}>
+                <Card
+                  size="small"
+                  title={card.title}
+                  style={{ height: "100%" }}
+                  styles={{ body: { padding: 12 } }}
+                >
+                  {card.component}
+                </Card>
               </Col>
             ))}
           </Row>
-        </div>
+        </Card>
       ))}
     </div>
   );

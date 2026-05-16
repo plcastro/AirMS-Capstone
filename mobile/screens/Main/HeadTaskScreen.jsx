@@ -254,9 +254,13 @@ export default function HeadTaskScreen({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newTask),
+        body: JSON.stringify({
+          ...newTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -290,9 +294,13 @@ export default function HeadTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -318,6 +326,7 @@ export default function HeadTaskScreen({
       const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "DELETE",
         headers: {
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -379,9 +388,13 @@ export default function HeadTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -441,9 +454,13 @@ export default function HeadTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();

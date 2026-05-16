@@ -415,9 +415,13 @@ export default function WRSModal({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(await getAuthHeader()),
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            ...payload,
+            confirmAction: true,
+          }),
         },
       );
 

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Platform,
   Image,
@@ -7,6 +7,7 @@ import {
   View,
   Modal,
   Pressable,
+  DeviceEventEmitter,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -30,9 +31,53 @@ import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
 import { getUserAvatarSource, getUserImageUri, getUserInitials } from "./utilities/avatar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
+const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
+const MOBILE_FONT_RECOMMENDED = 1;
+const MOBILE_FONT_MAX = 1.3;
+const FONT_SCALE_EVENT = "mobile-font-scale-updated";
+
+const clampFontScale = (value) =>
+  Math.min(
+    Math.max(Number(value) || MOBILE_FONT_RECOMMENDED, MOBILE_FONT_RECOMMENDED),
+    MOBILE_FONT_MAX,
+  );
+
+const resolveStoredFontScale = async () => {
+  try {
+    const stored = JSON.parse(
+      (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
+    );
+    const storedFont = stored?.fontSizePreference;
+    if (typeof storedFont === "number") {
+      return clampFontScale(storedFont);
+    }
+    return (
+      {
+        small: 0.9,
+        medium: 1,
+        large: 1.1,
+      }[storedFont] || MOBILE_FONT_RECOMMENDED
+    );
+  } catch {
+    return MOBILE_FONT_RECOMMENDED;
+  }
+};
+
+const scalePaperFonts = (fonts, scale) =>
+  Object.fromEntries(
+    Object.entries(fonts || {}).map(([key, value]) => {
+      if (!value || typeof value !== "object") return [key, value];
+      const next = { ...value };
+      if (typeof next.fontSize === "number") {
+        next.fontSize = Math.round(next.fontSize * scale);
+      }
+      return [key, next];
+    }),
+  );
 
 const withDashboard = (loadScreen) => {
   function DashboardScreen(props) {
@@ -87,7 +132,7 @@ const Screens = {
   Profile: withDashboard(() => require("./screens/Settings/Profile").default),
 };
 
-function DrawerNav({ navigation }) {
+function DrawerNav({ navigation, fontScale = 1 }) {
   const { user, loading } = useContext(AuthContext);
   const normalizedRole = user?.jobTitle?.toLowerCase() || "";
   const canAccessFlightAndPreInspection = [
@@ -103,7 +148,9 @@ function DrawerNav({ navigation }) {
     "officer-in-charge",
     "mechanic",
   ].includes(normalizedRole);
-  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessMechanics = ["admin", "maintenance manager"].includes(
+    normalizedRole,
+  );
   const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
@@ -161,7 +208,7 @@ function DrawerNav({ navigation }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 12,
+      fontSize: 12 * fontScale,
       fontWeight: 200,
     },
   };
@@ -223,10 +270,10 @@ function DrawerNav({ navigation }) {
               )}
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
+                  <Text style={{ fontSize: 14 * fontScale, fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#777" }}>
+                  <Text style={{ fontSize: 12 * fontScale, color: "#777" }}>
                     {user?.jobTitle || ""}
                   </Text>
                 </View>
@@ -395,7 +442,7 @@ function LoginWrapper({ navigation, ...props }) {
 }
 
 // --- Stack navigator ---
-function StackNavWrapper() {
+function StackNavWrapper({ fontScale = 1 }) {
   const { loading, token } = useContext(AuthContext);
 
   if (loading) return null;
@@ -408,7 +455,9 @@ function StackNavWrapper() {
       }}
     >
       <Stack.Screen name="login" component={LoginWrapper} />
-      <Stack.Screen name="dashboard" component={DrawerNav} />
+      <Stack.Screen name="dashboard">
+        {(props) => <DrawerNav {...props} fontScale={fontScale} />}
+      </Stack.Screen>
       <Stack.Screen name="otpScreen" component={OTP} />
       <Stack.Screen name="securitySetup" component={SecuritySetup} />
 
@@ -420,29 +469,55 @@ function StackNavWrapper() {
 
 export default function App() {
   const linking = LinkingConfig;
+  const [fontScale, setFontScale] = useState(MOBILE_FONT_RECOMMENDED);
 
-  const theme = {
-    ...DefaultTheme,
-    colors: {
-      ...DefaultTheme.colors,
-      text: "#000000",
-      primary: "#26866F",
-    },
-    icons: {
-      ...DefaultTheme.icons,
-      icon: (props) => {
-        if (!props.name) return null;
-        return <MaterialCommunityIcons {...props} />;
+  useEffect(() => {
+    let mounted = true;
+
+    const loadScale = async () => {
+      const next = await resolveStoredFontScale();
+      if (mounted) {
+        setFontScale(next);
+      }
+    };
+
+    loadScale();
+    const subscription = DeviceEventEmitter.addListener(FONT_SCALE_EVENT, (nextScale) => {
+      setFontScale(clampFontScale(nextScale));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  const theme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        text: "#000000",
+        primary: "#26866F",
       },
-    },
-  };
+      fonts: scalePaperFonts(DefaultTheme.fonts, fontScale),
+      icons: {
+        ...DefaultTheme.icons,
+        icon: (props) => {
+          if (!props.name) return null;
+          return <MaterialCommunityIcons {...props} />;
+        },
+      },
+    }),
+    [fontScale],
+  );
 
   return (
     <AuthProvider>
       <NotificationProvider>
         <PaperProvider theme={theme}>
           <NavigationContainer linking={linking} ref={navigationRef}>
-            <StackNavWrapper />
+            <StackNavWrapper fontScale={fontScale} />
           </NavigationContainer>
         </PaperProvider>
       </NotificationProvider>

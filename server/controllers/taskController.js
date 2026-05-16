@@ -5,6 +5,7 @@ const {
   syncMaintenanceLogFromTask,
   removeMaintenanceLogForTask,
 } = require("./maintenanceLogController");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -373,6 +374,11 @@ const createTask = async (req, res) => {
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
+    publishTypedEvent("task:updated", {
+      taskId: String(task._id),
+      updatedAt: task.updatedAt || task.createdAt,
+      status: task.status,
+    });
     const audit = withActorId(req, `Task created: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(201).json({ status: "Ok", data: serializeTask(task) });
@@ -439,6 +445,11 @@ const updateTask = async (req, res) => {
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
+    publishTypedEvent("task:updated", {
+      taskId: String(refreshedTask._id),
+      updatedAt: refreshedTask.updatedAt || refreshedTask.createdAt,
+      status: refreshedTask.status,
+    });
 
     res.status(200).json({
       status: "Ok",
@@ -481,6 +492,11 @@ const deleteTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
     await removeMaintenanceLogForTask(task);
+    publishTypedEvent("task:updated", {
+      taskId: String(task._id),
+      updatedAt: new Date().toISOString(),
+      deleted: true,
+    });
     const audit = withActorId(req, `Task deleted: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(200).json({ status: "Ok", message: "Task deleted" });
@@ -489,9 +505,29 @@ const deleteTask = async (req, res) => {
   }
 };
 
+const getTaskSummary = async (req, res) => {
+  try {
+    const [count, latestTask] = await Promise.all([
+      TaskModel.countDocuments({}),
+      TaskModel.findOne({})
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select("updatedAt createdAt")
+        .lean(),
+    ]);
+
+    res.status(200).json({
+      count,
+      latestUpdatedAt: latestTask?.updatedAt || latestTask?.createdAt || null,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   createTask,
   getTasks,
+  getTaskSummary,
   getBaseMaintenanceAnalytics,
   getTaskById,
   updateTask,

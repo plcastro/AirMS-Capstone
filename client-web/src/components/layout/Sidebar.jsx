@@ -243,7 +243,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     // ===== PARTS REQUISITION =====
     {
       type: "group",
-      label: collapsed ? null : wrapLabel("Parts Requisition"),
+      label: collapsed ? null : wrapLabel("Parts Requisition Monitoring"),
       roles: [
         "admin",
         "warehouse department",
@@ -445,7 +445,6 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "8px 6px",
         }}
       >
         <Menu

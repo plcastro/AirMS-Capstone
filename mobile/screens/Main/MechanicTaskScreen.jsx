@@ -205,9 +205,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -255,9 +259,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -313,9 +321,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);

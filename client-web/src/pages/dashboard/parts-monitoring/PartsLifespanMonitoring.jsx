@@ -375,8 +375,14 @@ export default function PartsMonitoring() {
       };
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(saveData),
+        headers: {
+          "Content-Type": "application/json",
+          "x-action-confirmed": "true",
+        },
+        body: JSON.stringify({
+          ...saveData,
+          confirmAction: true,
+        }),
       });
       const data = await response.json();
       if (response.ok && data.success) {

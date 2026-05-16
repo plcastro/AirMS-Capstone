@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
-import { formatDate } from "../../utilities/mobileApi";
+import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
 import { confirmAction } from "../../utilities/confirmAction";
 import {
@@ -169,8 +169,13 @@ export default function MaintenancePriority() {
         `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draftRules),
+          headers: await getAuthHeaders({
+            "x-action-confirmed": "true",
+          }),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
