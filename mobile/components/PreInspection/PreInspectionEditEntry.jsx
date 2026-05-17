@@ -82,10 +82,7 @@ export default function PreInspectionEditEntry({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const hasAnySignature = Boolean(
-    formData.releasedBy?.name || formData.acceptedBy?.name,
-  );
-  const isFormEditable = !readOnly && !isPilot && !hasAnySignature;
+  const isFormEditable = false;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -166,24 +163,6 @@ export default function PreInspectionEditEntry({
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.rpc || formData.rpc.trim() === "") {
-      showToast("Aircraft RPC is required");
-      return;
-    }
-    if (!formData.aircraftType || formData.aircraftType.trim() === "") {
-      showToast("Aircraft Type is required");
-      return;
-    }
-
-    try {
-      await persistInspection(formData);
-    } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
-    }
-  };
-
   const handleNext = () => {
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1);
@@ -252,21 +231,10 @@ export default function PreInspectionEditEntry({
     !formData.acceptedBy?.name &&
     !isSubmitting;
 
-  const footerActionLabel =
-    readOnly ||
-    isPilot ||
-    formData.status === "completed" ||
-    (!isFormEditable && !showAcceptButton && !showReleaseButton)
-      ? "Close"
-      : "Save";
+  const footerActionLabel = "Close";
 
   const handleFooterAction = () => {
-    if (footerActionLabel === "Close") {
-      onClose();
-      return;
-    }
-
-    handleSave();
+    onClose();
   };
 
   // Format timestamp
@@ -294,7 +262,7 @@ export default function PreInspectionEditEntry({
           >
             <View>
               <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Pre-Inspection
+                View Entry - Pre-Inspection
               </Text>
               <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section

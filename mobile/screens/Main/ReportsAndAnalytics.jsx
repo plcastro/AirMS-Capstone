@@ -63,7 +63,7 @@ const getTaskCategory = (task = {}) => {
   return "other";
 };
 
-export default function MaintenanceDashboard() {
+export default function ReportsAndAnalytics() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [taskView, setTaskView] = useState("dueSoon");
@@ -122,7 +122,7 @@ export default function MaintenanceDashboard() {
       setPostInspections(getArrayData(resultMap.postInspections));
       setPartsRequisitions(getArrayData(resultMap.partsRequisitions));
     } catch (error) {
-      console.error("Maintenance dashboard load failed:", error);
+      console.error("Reports and analytics load failed:", error);
       showToast(error.message || "Failed to load reports.");
     } finally {
       setLoading(false);

@@ -429,6 +429,7 @@ const loginUser = async (req, res) => {
       lastName: user.lastName,
       jobTitle: user.jobTitle,
       access: user.access,
+      licenseNo: user.licenseNo,
       status: user.status,
       image: user.image,
       signature: user.signature,

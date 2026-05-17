@@ -8,8 +8,12 @@ import React, {
 import {
   Alert,
   Button,
+  Card,
   Col,
+  Form,
   Input,
+  InputNumber,
+  Modal,
   Row,
   Select,
   Space,
@@ -19,8 +23,10 @@ import {
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
+  DeleteOutlined,
   FileDoneOutlined,
   InboxOutlined,
+  PlusOutlined,
   SearchOutlined,
   ShoppingCartOutlined,
   SyncOutlined,
@@ -31,6 +37,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 
 const { Text } = Typography;
+const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
 
 const parseRequestedDate = (dateValue) => {
   const [month, day, year] = String(dateValue || "")
@@ -76,13 +83,17 @@ const normalizeRequisitionRecord = (record) =>
 
 export default function PartsRequisition() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const [form] = Form.useForm();
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
   const [error, setError] = useState(false);
   const [requisitions, setRequisitions] = useState([]);
+  const [aircraftOptions, setAircraftOptions] = useState([]);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const allowedRoles = [
     "warehouse department",
@@ -91,6 +102,9 @@ export default function PartsRequisition() {
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
+  const canRequestParts = !["maintenance manager", "officer-in-charge"].includes(
+    userRole,
+  );
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -308,9 +322,26 @@ export default function PartsRequisition() {
     }
   }, [canAccessPartsRequisition, getAuthHeader]);
 
+  const handleAircraftOptions = useCallback(async () => {
+    if (!canAccessPartsRequisition) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
+      const data = await response.json();
+      if (response.ok && Array.isArray(data.data)) {
+        setAircraftOptions(data.data.filter(Boolean));
+      }
+    } catch {
+      setAircraftOptions([]);
+    }
+  }, [canAccessPartsRequisition]);
+
   useEffect(() => {
     handleAllRequisitions();
-  }, [handleAllRequisitions]);
+    handleAircraftOptions();
+  }, [handleAircraftOptions, handleAllRequisitions]);
 
   useEffect(() => {
     if (!canAccessPartsRequisition) {
@@ -327,6 +358,87 @@ export default function PartsRequisition() {
   if (!canAccessPartsRequisition) {
     return <Navigate to="/dashboard/profile" replace />;
   }
+
+  const openRequestModal = () => {
+    form.setFieldsValue({
+      aircraft: undefined,
+      items: [{ particular: "", quantity: 1, unit: "pcs", purpose: "" }],
+    });
+    setRequestModalOpen(true);
+  };
+
+  const buildRequestItemsPayload = (items) =>
+    items.map((item, index) => ({
+      itemNo: index + 1,
+      particular: String(item.particular || "").trim(),
+      quantity: Number(item.quantity),
+      unitOfMeasure: item.unit || "pcs",
+      purpose: String(item.purpose || "").trim(),
+      availableQty: 0,
+      stockStatus: "Parts Requested",
+    }));
+
+  const handleSubmitRequest = async () => {
+    try {
+      const values = await form.validateFields();
+      const highestSlipNumber = requisitions.reduce((highest, item) => {
+        const numericPart = Number(item.wrsNo?.replace("WRS-", "")) || 0;
+        return numericPart > highest ? numericPart : highest;
+      }, 0);
+      const nextSlipNo = `WRS-${String(highestSlipNumber + 1).padStart(3, "0")}`;
+      const fullName =
+        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+        user?.username ||
+        "Unknown User";
+
+      setSubmittingRequest(true);
+      const response = await fetch(
+        `${API_BASE}/api/parts-requisition/create-requisition`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(await getAuthHeader()),
+          },
+          body: JSON.stringify({
+            wrsNo: nextSlipNo,
+            aircraft: values.aircraft,
+            staff: {
+              requisitioner: fullName,
+              approvedBy: "",
+              receiver: "",
+              notedBy: "",
+              warehouseBy: "",
+              deliveredBy: "",
+            },
+            items: buildRequestItemsPayload(values.items || []),
+            dateRequested: new Date().toISOString(),
+            status: "Parts Requested",
+            confirmAction: true,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create requisition");
+      }
+
+      setRequestModalOpen(false);
+      form.resetFields();
+      setActiveTab("pending");
+      setSelectedStatus("all");
+      await handleAllRequisitions();
+      Modal.success({ title: `${nextSlipNo} added successfully.` });
+    } catch (err) {
+      if (err?.errorFields) return;
+      Modal.error({
+        title: "Failed to create requisition",
+        content: err.message || "Please try again.",
+      });
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
 
   return (
     <div
@@ -362,6 +474,19 @@ export default function PartsRequisition() {
             ]}
           />
         </Col>
+        {canRequestParts && (
+          <Col xs={24} md={4} lg={3}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={openRequestModal}
+              block
+            >
+              Request
+            </Button>
+          </Col>
+        )}
       </Row>
 
       <Row style={{ marginTop: 10, marginBottom: 10 }}>
@@ -416,6 +541,124 @@ export default function PartsRequisition() {
         loading={loading}
         onUpdated={handleAllRequisitions}
       />
+
+      <Modal
+        open={requestModalOpen}
+        onCancel={() => setRequestModalOpen(false)}
+        onOk={handleSubmitRequest}
+        okText="Submit"
+        confirmLoading={submittingRequest}
+        title="New Entry"
+        width={820}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{
+            items: [{ particular: "", quantity: 1, unit: "pcs", purpose: "" }],
+          }}
+        >
+          <Form.Item
+            label="Choose Aircraft"
+            name="aircraft"
+            rules={[{ required: true, message: "Please choose an aircraft" }]}
+          >
+            <Select
+              placeholder="Choose Aircraft"
+              showSearch
+              optionFilterProp="label"
+              options={aircraftOptions.map((aircraft) => ({
+                value: aircraft,
+                label: aircraft,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.List name="items">
+            {(fields, { add, remove }) => (
+              <Space direction="vertical" style={{ width: "100%" }} size={12}>
+                {fields.map((field, index) => (
+                  <Card
+                    key={field.key}
+                    size="small"
+                    title={`Item ${index + 1}`}
+                    extra={
+                      fields.length > 1 ? (
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => remove(field.name)}
+                        />
+                      ) : null
+                    }
+                  >
+                    <Row gutter={[12, 0]}>
+                      <Col xs={24} md={10}>
+                        <Form.Item
+                          {...field}
+                          label="Particular"
+                          name={[field.name, "particular"]}
+                          rules={[
+                            { required: true, message: "Particular is required" },
+                          ]}
+                        >
+                          <Input placeholder="-" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={14} md={6}>
+                        <Form.Item
+                          {...field}
+                          label="Quantity"
+                          name={[field.name, "quantity"]}
+                          rules={[
+                            { required: true, message: "Quantity is required" },
+                          ]}
+                        >
+                          <InputNumber min={1} style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={10} md={4}>
+                        <Form.Item
+                          {...field}
+                          label="Unit"
+                          name={[field.name, "unit"]}
+                          rules={[{ required: true, message: "Unit is required" }]}
+                        >
+                          <Select
+                            options={UNIT_OPTIONS.map((unit) => ({
+                              value: unit,
+                              label: unit,
+                            }))}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={4}>
+                        <Form.Item
+                          {...field}
+                          label="Purpose"
+                          name={[field.name, "purpose"]}
+                        >
+                          <Input placeholder="-" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() =>
+                    add({ particular: "", quantity: 1, unit: "pcs", purpose: "" })
+                  }
+                >
+                  Add Another Item
+                </Button>
+              </Space>
+            )}
+          </Form.List>
+        </Form>
+      </Modal>
     </div>
   );
 }

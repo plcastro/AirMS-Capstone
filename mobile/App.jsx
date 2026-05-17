@@ -49,7 +49,7 @@ const withDashboard = (loadScreen) => {
 
 const Screens = {
   ReportsAndAnalytics: withDashboard(
-    () => require("./screens/Main/MaintenanceDashboard").default,
+    () => require("./screens/Main/ReportsAndAnalytics").default,
   ),
   Messages: withDashboard(() => require("./screens/Main/Messaging").default),
   ManageUsers: withDashboard(
@@ -139,6 +139,19 @@ function DrawerNav({ navigation }) {
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "admin";
   const canAccessActivityLogs = normalizedRole === "admin";
+  const initialDrawerRoute = canAccessReports
+    ? "Reports and Analytics"
+    : canAccessMessages
+      ? "Messages"
+      : canAccessUserManagement
+        ? "Manage Users"
+        : canAccessFlightAndPreInspection
+          ? "Flight Logs"
+          : canAccessTasks
+            ? "Tasks"
+            : canAccessPartsRequisition
+              ? "Parts Requisition Monitoring"
+              : "Profile";
   const profileImage =
     user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
@@ -163,6 +176,7 @@ function DrawerNav({ navigation }) {
 
   return (
     <Drawer.Navigator
+      initialRouteName={initialDrawerRoute}
       backBehavior="history"
       detachInactiveScreens
       drawerContent={(props) => <DrawerContent {...props} />}

@@ -66,8 +66,6 @@ export default function PreInspectionCards({
     <>
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
-        const isOfficerInCharge = userRole === "officer-in-charge";
-
         return (
           <TouchableOpacity
             key={inspection._id}
@@ -167,17 +165,9 @@ export default function PreInspectionCards({
                 }}
               >
                 <MaterialCommunityIcons
-                  name={
-                    inspection.status === "released" || isOfficerInCharge
-                      ? "eye-outline"
-                      : "pencil"
-                  }
+                  name="eye-outline"
                   size={18}
-                  color={
-                    inspection.status === "released" || isOfficerInCharge
-                      ? COLORS.primaryLight
-                      : "#777"
-                  }
+                  color={COLORS.primaryLight}
                 />
               </View>
             </View>

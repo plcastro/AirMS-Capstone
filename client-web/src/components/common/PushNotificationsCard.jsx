@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Modal,
   Avatar,
@@ -9,6 +16,7 @@ import {
   Empty,
   Spin,
   message,
+  notification as antdNotification,
 } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
@@ -17,9 +25,11 @@ import { API_BASE } from "../../utils/API_BASE";
 const { Text } = Typography;
 
 export default function PushNotificationsCard({ open, onClose }) {
-  const { getAuthHeader, user } = useContext(AuthContext);
+  const { getAuthHeader, getValidToken, user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const reconnectTimeoutRef = useRef(null);
+  const websocketRef = useRef(null);
 
   const formatTimeAgo = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -50,14 +60,16 @@ export default function PushNotificationsCard({ open, onClose }) {
     });
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async ({ silent = false } = {}) => {
     if (!user?.id) {
       setNotifications([]);
       return;
     }
 
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const response = await fetch(`${API_BASE}/api/notifications`, {
         headers: await getAuthHeader(),
       });
@@ -71,11 +83,15 @@ export default function PushNotificationsCard({ open, onClose }) {
     } catch (error) {
       console.error("Error fetching notifications:", error);
       setNotifications([]);
-      message.error("Failed to load notifications");
+      if (!silent) {
+        message.error("Failed to load notifications");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [getAuthHeader, user?.id]);
 
   const sortedNotifications = useMemo(
     () =>
@@ -90,7 +106,79 @@ export default function PushNotificationsCard({ open, onClose }) {
     if (open) {
       fetchNotifications();
     }
-  }, [open]);
+  }, [fetchNotifications, open]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const getWebSocketUrl = (token) => {
+      const apiUrl = new URL(API_BASE);
+      apiUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+      apiUrl.searchParams.set("token", token);
+      return apiUrl.toString();
+    };
+
+    const connect = async () => {
+      try {
+        const token = await getValidToken();
+
+        if (!token || !isMounted) {
+          return;
+        }
+
+        const socket = new WebSocket(getWebSocketUrl(token));
+        websocketRef.current = socket;
+
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+
+            if (payload?.event !== "notification-created") {
+              return;
+            }
+
+            fetchNotifications({ silent: true });
+
+            const notification = payload.data || {};
+            antdNotification.info({
+              message: notification.title || "New notification",
+              description:
+                notification.description || "You have a new AirMS notification.",
+              placement: "topRight",
+            });
+          } catch (error) {
+            console.error("Notification websocket parse error:", error);
+          }
+        };
+
+        socket.onclose = () => {
+          if (!isMounted) {
+            return;
+          }
+
+          reconnectTimeoutRef.current = setTimeout(connect, 5000);
+        };
+      } catch (error) {
+        console.error("Notification websocket error:", error);
+        if (isMounted) {
+          reconnectTimeoutRef.current = setTimeout(connect, 5000);
+        }
+      }
+    };
+
+    fetchNotifications({ silent: true });
+    connect();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(reconnectTimeoutRef.current);
+      websocketRef.current?.close?.();
+    };
+  }, [fetchNotifications, getValidToken, user?.id]);
 
   const markNotificationRead = async (notificationId) => {
     try {
@@ -158,6 +246,47 @@ export default function PushNotificationsCard({ open, onClose }) {
       });
 
       window.location.assign(`/dashboard/flight-log?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "pre-inspections") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetPreInspectionId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+
+      window.location.assign(`/dashboard/pre-inspection?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "post-inspections") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetPostInspectionId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+
+      window.location.assign(`/dashboard/post-inspection?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "tasks") {
+      const status = notification?.metadata?.status || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        targetTaskId: String(notification.entityId || ""),
+        ...(status ? { notificationStatus: status } : {}),
+      });
+
+      window.location.assign(`/dashboard/tasks?${params.toString()}`);
+      return;
+    }
+
+    if (moduleName === "messages") {
+      window.location.assign(`/dashboard/messages?refreshAt=${Date.now()}`);
       return;
     }
 

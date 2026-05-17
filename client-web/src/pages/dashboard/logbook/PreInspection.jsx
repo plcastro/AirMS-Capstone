@@ -11,19 +11,25 @@ import {
   Checkbox,
   Col,
   Descriptions,
-  Divider,
   Input,
+  InputNumber,
   Modal,
   Row,
   Select,
   Space,
+  Tabs,
   Table,
   Tag,
   Typography,
   DatePicker,
   message,
 } from "antd";
-import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  ExportOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -31,6 +37,129 @@ import dayjs from "dayjs";
 
 const { Text } = Typography;
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const PRE_INSPECTION_TABS = [
+  "Basic Information",
+  "Station 1 and 2",
+  "Station 3 and Sling",
+  "Floats and Onboard",
+];
+
+const station1Items = [
+  {
+    key: "station1_transparentPanels",
+    title: "Transparent Panels",
+    label: "Condition - Cleanliness",
+  },
+  {
+    key: "station1_engineOilCooler",
+    title: "Engine oil cooler air inlet",
+    label: "Check no obstruction nor debris",
+  },
+  {
+    key: "station1_sideSlipIndicator",
+    title: "Side slip indicator",
+    label: "Condition",
+  },
+  { key: "station1_pitotTube", title: "Pitot tube", label: "Cover removed - Condition" },
+  { key: "station1_landingLights", title: "Landing lights", label: "Condition" },
+];
+
+const station2Items = [
+  { key: "station2_frontDoor", title: "Front door", label: "Condition jettison system check" },
+  {
+    key: "station2_rearDoor",
+    title: "Rear door",
+    label: "Condition, closed, or opened lock (sliding door)",
+  },
+  { key: "station2_leftCargoDoorOpen", title: "Left cargo door", label: "Open" },
+  { key: "station2_loadsObjects", title: "Loads and objects carried", label: "Secured" },
+  { key: "station2_leftCargoDoorClosed", title: "Left cargo door", label: "Closed, locked" },
+  {
+    key: "station2_fuelTank",
+    title: "Fuel tank and system",
+    label: "Filler plug closed, Tank sump drained",
+  },
+  { key: "station1_mgbCowl", title: "MGB cowl", label: "MGB oil level - Cowl locked" },
+  { key: "station1_lowerFairings", title: "All lower fairings panels", label: "Locked" },
+  {
+    key: "station1_landingGear",
+    title: "Landing gear and footstep",
+    label: "Secure - Visual Check",
+  },
+  { key: "station1_staticPorts", title: "Static ports", label: "Clear, covers removed" },
+  { key: "station1_oatSensor", title: "OAT sensor, antennas", label: "Condition" },
+  {
+    key: "station1_mainRotor",
+    title: "Main rotor head blades",
+    label: "Visual inspection, no impact",
+  },
+  {
+    key: "station1_engineAirIntake",
+    title: "Engine air intake",
+    label: "Clear (water, snow foreign object)",
+  },
+  { key: "station1_engineCowl", title: "Engine cowl", label: "Locked" },
+  { key: "station1_exhaustCover", title: "Exhaust cover", label: "Removed" },
+  { key: "station1_rearCargoDoorOpen", title: "Rear cargo door", label: "Opened" },
+  { key: "station1_loadsObjects", title: "Loads and object carried", label: "Secured" },
+  { key: "station1_elt", title: "ELT", label: "Check ARMED" },
+  { key: "station1_rearCargoDoorClosed", title: "Rear cargo door", label: "Closed, locked" },
+  { key: "station1_oilDrain", title: "Oil drain", label: "No oil under scupper" },
+];
+
+const station3Items = [
+  { key: "station3_heatShield", title: "Heat shield on tail drive", label: "Condition, attachment" },
+  {
+    key: "station3_tailBoom",
+    title: "Tail boom, antennas",
+    label: "Condition - Fairings fasteners locked",
+  },
+  { key: "station3_stabilizer", title: "Stabilizer, fin, external lights", label: "General condition" },
+  {
+    key: "station3_tailRotorGuard",
+    title: "Tail rotor guard (if fitted)",
+    label: "Condition, attachment",
+  },
+  { key: "station3_tgbFairing", title: "TGB fairing", label: "Secured, fasteners locked" },
+  { key: "station3_tgbOilLevel", title: "TGB oil level", label: "Checked" },
+  { key: "station3_tailSkid", title: "Tail skid", label: "Condition, attachment" },
+  { key: "station3_flexibleCoupling", title: "Flexible Coupling", label: "Visual Check No Crack" },
+];
+
+const slingItems = [
+  { key: "sling_sling", title: "Sling", label: "Security - General condition" },
+  { key: "sling_cablePins", title: "Cable and Pins", label: "Condition, attachment points" },
+];
+
+const floatsItems = [
+  { key: "floats_lhRh", title: "LH & RH Floats", label: "Security - General Condition" },
+  { key: "floats_cylinder", title: "Cylinder", label: "Pressure & Condition, attachment points" },
+  { key: "floats_hoses", title: "Hoses", label: "Condition, attachment points" },
+];
+
+const onboardItems = [
+  { key: "onboard_firstAid", title: "First Aid Kit", label: "Condition, no expired" },
+  { key: "onboard_lifeVest", title: "Life Vest", label: "Condition, cleanliness & no damage" },
+  { key: "onboard_lifeRaft", title: "Life-raft", label: "Condition, cleanliness & no damage" },
+  { key: "onboard_axl", title: "AXL", label: "Security - General Condition" },
+  { key: "onboard_fireExt", title: "Fire Extinguisher", label: "Security - General Condition" },
+  { key: "onboard_certAirworthiness", title: "Certificate of Airworthiness", label: "Onboard" },
+  { key: "onboard_certRegistration", title: "Certificate of Registration", label: "Onboard" },
+  { key: "onboard_radioLicense", title: "Radio License", label: "Onboard" },
+  { key: "onboard_flightLogbook", title: "Flight Logbook", label: "Onboard" },
+];
+
+const CHECKLIST_GROUPS = [
+  { title: "Station 1", items: station1Items },
+  { title: "Station 2", items: station2Items },
+  { title: "Station 3", items: station3Items },
+  { title: "Sling", items: slingItems },
+  { title: "Floats", items: floatsItems },
+  { title: "Mandatory Onboard", items: onboardItems },
+];
+const CHECKLIST_KEYS = CHECKLIST_GROUPS.flatMap((group) =>
+  group.items.map((item) => item.key),
+);
 
 const signaturePayload = (user, signature) => ({
   name:
@@ -38,9 +167,52 @@ const signaturePayload = (user, signature) => ({
     user?.username ||
     "User",
   id: user?.id || user?._id || "",
+  licenseNo: user?.licenseNo || "",
   signature,
   timestamp: new Date().toISOString(),
 });
+
+const getDefaultSignature = () => ({
+  name: "",
+  id: "",
+  licenseNo: "",
+  signature: "",
+  timestamp: "",
+});
+
+const getDefaultPreInspectionFormData = (userRole = "") => ({
+  aircraftType: "",
+  rpc: "",
+  date: dayjs().format("MM/DD/YYYY"),
+  dateAdded: "",
+  createdBy: userRole,
+  status: "pending",
+  ...Object.fromEntries(CHECKLIST_KEYS.map((key) => [key, false])),
+  fob: "",
+  releasedBy: getDefaultSignature(),
+  acceptedBy: getDefaultSignature(),
+});
+
+const areAllInspectionChecksComplete = (record = {}) =>
+  CHECKLIST_KEYS.every((key) => record[key] === true);
+
+const getDisplayStatus = (statusValue) =>
+  statusValue === "completed"
+    ? "completed"
+    : statusValue === "released"
+      ? "released"
+      : "pending";
+
+const sanitizeFileName = (value) =>
+  String(value || "N-A")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const formatSignatureDate = (timestamp) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
+};
 
 export default function PreInspection() {
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -51,17 +223,15 @@ export default function PreInspection() {
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [draft, setDraft] = useState({ rpc: "", aircraftType: "", date: "" });
+  const [draft, setDraft] = useState(getDefaultPreInspectionFormData());
   const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canCreate = role !== "pilot" && !readOnly;
-  const canRelease = role === "mechanic";
+  const canRelease = role === "mechanic" || role === "maintenance manager";
+  const canCreate = canRelease;
   const canAccept = role === "pilot";
-  const formatDate = (value) =>
-    value ? dayjs(value).format("MM/DD/YYYY") : "";
   const isValidDate = (value) =>
     /^\d{2}\/\d{2}\/\d{4}$/.test(String(value || "")) &&
     dayjs(value, "MM/DD/YYYY").isValid();
@@ -87,6 +257,12 @@ export default function PreInspection() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (creating) {
+      setDraft(getDefaultPreInspectionFormData(role));
+    }
+  }, [creating, role]);
 
   useEffect(() => {
     const loadRpcOptions = async () => {
@@ -133,6 +309,61 @@ export default function PreInspection() {
     }
   };
 
+  const getFlightLogDateValue = (flightLog = {}) => {
+    const value = flightLog.date || flightLog.createdAt || flightLog.updatedAt;
+    if (!value) return 0;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  };
+
+  const getLatestFlightLogFuelOnBoard = (flightLogs = []) => {
+    const sortedLogs = [...flightLogs].sort(
+      (left, right) =>
+        getFlightLogDateValue(right) - getFlightLogDateValue(left),
+    );
+
+    for (const flightLog of sortedLogs) {
+      const fuelRows = Array.isArray(flightLog.fuelServicing)
+        ? [...flightLog.fuelServicing].reverse()
+        : [];
+      const fuelRow = fuelRows.find((row) =>
+        String(row?.mainTotal || row?.mainRemG || "").trim(),
+      );
+      const fuelValue = fuelRow?.mainTotal || fuelRow?.mainRemG;
+      const numericFuel = Number(String(fuelValue || "").replace(/,/g, ""));
+
+      if (Number.isFinite(numericFuel) && numericFuel > 0) {
+        return String(Math.round(Math.min((numericFuel / 200) * 100, 100)));
+      }
+    }
+
+    return "";
+  };
+
+  const resolveFobByRpc = async (rpc, { force = false, target = "draft" } = {}) => {
+    if (!rpc) return;
+    const currentRecord = target === "editing" ? editing : draft;
+    if (!force && String(currentRecord?.fob || "").trim()) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/aircraft/${encodeURIComponent(rpc)}?limit=20`,
+      );
+      const data = await response.json();
+      if (!response.ok) return;
+
+      const fob = getLatestFlightLogFuelOnBoard(
+        Array.isArray(data?.data) ? data.data : [],
+      );
+      if (!fob) return;
+
+      const setter = target === "editing" ? setEditing : setDraft;
+      setter((prev) => ({ ...prev, fob }));
+    } catch {
+      // Keep the field user-editable when the lookup is unavailable.
+    }
+  };
+
   const filtered = useMemo(
     () =>
       records.filter((item) => {
@@ -147,32 +378,43 @@ export default function PreInspection() {
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||
-          String(item.status || "").toLowerCase() === status;
+          getDisplayStatus(item.status) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
     [records, query, aircraft, status],
   );
 
-  const booleanFields = useMemo(
-    () =>
-      Object.keys(editing || {}).filter(
-        (key) => typeof editing?.[key] === "boolean",
-      ),
-    [editing],
-  );
-
-  const saveCreate = async () => {
-    if (!draft.rpc?.trim() || !draft.aircraftType?.trim() || !draft.date) {
-      message.warning("RP/C, aircraft type, and date are required");
-      return;
+  const validateBasicFields = (payload) => {
+    if (!payload?.rpc?.trim() || !payload?.aircraftType?.trim()) {
+      message.warning("RP/C and aircraft type are required");
+      return false;
     }
-    if (!isValidDate(draft.date)) {
+    if (!payload.date || !isValidDate(payload.date)) {
       message.warning("Please select a valid date");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const validateBeforeSigning = (payload, actionLabel) => {
+    if (!validateBasicFields(payload)) return false;
+    if (!String(payload.fob || "").trim()) {
+      message.warning(`FOB must be filled in before ${actionLabel}.`);
+      return false;
+    }
+    if (!areAllInspectionChecksComplete(payload)) {
+      message.warning(`All checklist fields must be checked before ${actionLabel}.`);
+      return false;
+    }
+    return true;
+  };
+
+  const saveCreate = async (signature) => {
+    if (!validateBeforeSigning(draft, "release")) return;
 
     try {
       setCreating(true);
+      const releasedBy = signaturePayload(user, signature);
       const response = await fetch(
         `${API_BASE}/api/pre-inspections/createPreInspection`,
         {
@@ -183,7 +425,8 @@ export default function PreInspection() {
           },
           body: JSON.stringify({
             ...draft,
-            status: "pending",
+            status: "released",
+            releasedBy,
             createdBy:
               `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
             confirmAction: true,
@@ -193,9 +436,9 @@ export default function PreInspection() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "Failed to create pre-inspection");
-      message.success("Pre-inspection created");
+      message.success("Pre-inspection created and released");
       setCreating(false);
-      setDraft({ rpc: "", aircraftType: "", date: "" });
+      setDraft(getDefaultPreInspectionFormData(role));
       await load();
     } catch (error) {
       setCreating(false);
@@ -205,14 +448,7 @@ export default function PreInspection() {
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
-    if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
-      message.warning("RP/C and aircraft type are required");
-      return;
-    }
-    if (!nextPayload.date || !isValidDate(nextPayload.date)) {
-      message.warning("Please select a valid date");
-      return;
-    }
+    if (!validateBasicFields(nextPayload)) return;
     try {
       const response = await fetch(
         `${API_BASE}/api/pre-inspections/updatePreInspectionById/${nextPayload._id}`,
@@ -237,8 +473,15 @@ export default function PreInspection() {
   };
 
   const handleSignedAction = async (signature) => {
+    if (signatureMode === "createRelease") {
+      await saveCreate(signature);
+      setSignatureMode(null);
+      return;
+    }
+
     if (!editing) return;
     if (signatureMode === "release") {
+      if (!validateBeforeSigning(editing, "release")) return;
       await saveEdit({
         ...editing,
         status: "released",
@@ -246,6 +489,7 @@ export default function PreInspection() {
       });
     }
     if (signatureMode === "accept") {
+      if (!validateBeforeSigning(editing, "acceptance")) return;
       await saveEdit({
         ...editing,
         status: "completed",
@@ -254,6 +498,235 @@ export default function PreInspection() {
     }
     setSignatureMode(null);
   };
+
+  const updateDraft = (field, value) =>
+    setDraft((prev) => ({ ...prev, [field]: value }));
+
+  const updateEditing = (field, value) =>
+    setEditing((prev) => ({ ...prev, [field]: value }));
+
+  const handleRpcChange = async (value, target) => {
+    const aircraftType = await resolveAircraftTypeByRpc(value);
+    const setter = target === "editing" ? setEditing : setDraft;
+    setter((prev) => ({
+      ...prev,
+      rpc: value,
+      aircraftType: aircraftType || prev.aircraftType,
+    }));
+    await resolveFobByRpc(value, { force: true, target });
+  };
+
+  const setGroupChecked = (setter, items, checked) => {
+    setter((prev) => ({
+      ...prev,
+      ...Object.fromEntries(items.map((item) => [item.key, checked])),
+    }));
+  };
+
+  const renderSignatureCard = (title, signature, roleLabel) => {
+    if (!signature?.name) return null;
+
+    return (
+      <Card
+        size="small"
+        title={title}
+        style={{ marginTop: 12 }}
+        styles={{ header: { background: "#1677ff", color: "#fff" } }}
+      >
+        <Space direction="vertical" size={6}>
+          <Text strong>
+            {signature.name} {signature.id ? `/ ${signature.id}` : ""}
+          </Text>
+          <Text type="secondary">{roleLabel}</Text>
+          <Text type="secondary">{formatSignatureDate(signature.timestamp)}</Text>
+          {!!signature.signature && (
+            <img
+              src={signature.signature}
+              alt={`${title} signature`}
+              style={{ maxWidth: 360, width: "100%", height: 80, objectFit: "contain" }}
+            />
+          )}
+        </Space>
+      </Card>
+    );
+  };
+
+  const renderChecklistGroup = (group, record, updateRecord, setRecord, isEditable) => {
+    const allChecked = group.items.every((item) => Boolean(record?.[item.key]));
+
+    return (
+      <Card
+        key={group.title}
+        size="small"
+        title={group.title}
+        extra={
+          isEditable ? (
+            <Checkbox
+              checked={allChecked}
+              onChange={(e) =>
+                setGroupChecked(setRecord, group.items, e.target.checked)
+              }
+            >
+              Select All
+            </Checkbox>
+          ) : null
+        }
+        style={{ marginBottom: 12 }}
+      >
+        <Row gutter={[12, 12]}>
+          {group.items.map((item, index) => (
+            <Col xs={24} md={12} lg={8} key={item.key}>
+              <Checkbox
+                checked={Boolean(record?.[item.key])}
+                disabled={!isEditable}
+                onChange={(e) => updateRecord(item.key, e.target.checked)}
+              >
+                <Text strong>{index + 1}. {item.title}</Text>
+                <br />
+                <Text type="secondary">{item.label}</Text>
+              </Checkbox>
+            </Col>
+          ))}
+        </Row>
+      </Card>
+    );
+  };
+
+  const renderBasicInformation = (record, target, editable) => (
+    <Card
+      title="Rotary Winged Aircraft - Single Engine"
+      size="small"
+      styles={{ header: { background: "#1677ff", color: "#fff" } }}
+    >
+      <Row gutter={[12, 12]}>
+        <Col xs={24} md={8}>
+          <Select
+            size="large"
+            value={record.rpc || undefined}
+            onChange={(value) => handleRpcChange(value, target)}
+            placeholder="Select RP/C"
+            showSearch
+            optionFilterProp="label"
+            disabled={!editable}
+            style={{ width: "100%" }}
+            options={rpcDropdownOptions.map((rpc) => ({
+              value: rpc,
+              label: rpc,
+            }))}
+          />
+        </Col>
+        <Col xs={24} md={8}>
+          <Input
+            size="large"
+            value={record.aircraftType}
+            placeholder="Auto-filled from RP/C"
+            disabled
+          />
+        </Col>
+        <Col xs={24} md={8}>
+          <DatePicker
+            size="large"
+            style={{ width: "100%" }}
+            format="MM/DD/YYYY"
+            value={record.date ? dayjs(record.date, "MM/DD/YYYY") : null}
+            disabled
+          />
+        </Col>
+      </Row>
+    </Card>
+  );
+
+  const renderPreInspectionTabs = (record, target, isEditable) => {
+    const updateRecord = target === "editing" ? updateEditing : updateDraft;
+    const setRecord = target === "editing" ? setEditing : setDraft;
+    return (
+      <Tabs
+        items={PRE_INSPECTION_TABS.map((tab) => ({
+          key: tab,
+          label: tab,
+          children:
+            tab === "Basic Information" ? (
+              renderBasicInformation(record, target, target !== "editing" && isEditable)
+            ) : tab === "Station 1 and 2" ? (
+              [CHECKLIST_GROUPS[0], CHECKLIST_GROUPS[1]].map((group) =>
+                renderChecklistGroup(group, record, updateRecord, setRecord, isEditable),
+              )
+            ) : tab === "Station 3 and Sling" ? (
+              [CHECKLIST_GROUPS[2], CHECKLIST_GROUPS[3]].map((group) =>
+                renderChecklistGroup(group, record, updateRecord, setRecord, isEditable),
+              )
+            ) : (
+              <>
+                {[CHECKLIST_GROUPS[4], CHECKLIST_GROUPS[5]].map((group) =>
+                  renderChecklistGroup(group, record, updateRecord, setRecord, isEditable),
+                )}
+                <Card
+                  size="small"
+                  title="Fuel On Board"
+                  styles={{ header: { background: "#1677ff", color: "#fff" } }}
+                >
+                  <InputNumber
+                    min={0}
+                    max={100}
+                    value={record.fob === "" ? null : Number(record.fob)}
+                    onChange={(value) => updateRecord("fob", value === null ? "" : String(value))}
+                    disabled={!isEditable}
+                    addonAfter="%"
+                    style={{ width: 220 }}
+                  />
+                </Card>
+              </>
+            ),
+        }))}
+      />
+    );
+  };
+
+  const downloadInspectionDocument = async (record, format) => {
+    if (!record?._id) {
+      message.error("Invalid inspection data");
+      return;
+    }
+
+    const exportPath = format === "pdf" ? "export-pdf" : "export-document";
+    const extension = format === "pdf" ? "pdf" : "docx";
+    const fileName = sanitizeFileName(
+      `Pre-Inspection-${record.rpc || "N-A"}-${record.date || dayjs().format("MM-DD-YYYY")}.${extension}`,
+    );
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/pre/${record._id}/${exportPath}`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to download document from server");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      message.success(`${format === "pdf" ? "PDF" : "Word"} export downloaded`);
+    } catch (error) {
+      message.error(error.message || "Unable to generate and download document");
+    }
+  };
+
+  const isEditingFormEditable = false;
+  const showReleaseButton =
+    canRelease &&
+    editing?.status === "pending" &&
+    !editing?.releasedBy?.name;
+  const showAcceptButton =
+    canAccept &&
+    editing?.status === "released" &&
+    !editing?.acceptedBy?.name;
 
   return (
     <div style={{ padding: 20 }}>
@@ -323,12 +796,25 @@ export default function PreInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Button
-                icon={<EditOutlined />}
-                onClick={() => setEditing(record)}
-              >
-                {readOnly ? "View" : "Edit"}
-              </Button>
+              <Space>
+                <Button
+                  icon={<EyeOutlined />}
+                  onClick={() =>
+                    setEditing({
+                      ...getDefaultPreInspectionFormData(role),
+                      ...record,
+                    })
+                  }
+                >
+                  View
+                </Button>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ExportOutlined />}
+                  onClick={() => downloadInspectionDocument(record, "pdf")}
+                />
+              </Space>
             ),
           },
         ]}
@@ -337,134 +823,57 @@ export default function PreInspection() {
       <Modal
         open={creating}
         onCancel={() => setCreating(false)}
-        onOk={saveCreate}
-        title="Create Pre-Inspection"
-        okText="Create"
-        width={760}
+        onOk={() => {
+          if (validateBeforeSigning(draft, "release")) {
+            setSignatureMode("createRelease");
+          }
+        }}
+        title="New Entry - Pre-Inspection"
+        okText="Release"
+        width={1140}
       >
-        <Space orientation="vertical" style={{ width: "100%" }} size={12}>
-          <Row gutter={[12, 12]}>
-            <Col xs={24}>
-              <Select
-                size="large"
-                value={draft.rpc}
-                onChange={async (value) => {
-                  const aircraftType = await resolveAircraftTypeByRpc(value);
-                  setDraft((prev) => ({
-                    ...prev,
-                    rpc: value,
-                    aircraftType: aircraftType || prev.aircraftType,
-                  }));
-                }}
-                placeholder="Select RP/C"
-                showSearch
-                filterOption={(input, option) =>
-                  (option?.label ?? "")
-                    .toLowerCase()
-                    .includes(input.toLowerCase())
-                }
-                options={rpcDropdownOptions.map((rpc) => ({
-                  value: rpc,
-                  label: rpc,
-                }))}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Input
-                size="large"
-                value={draft.aircraftType}
-                onChange={(e) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    aircraftType: e.target.value,
-                  }))
-                }
-                placeholder="Aircraft Type"
-              />
-            </Col>
-            <Col xs={24}>
-              <DatePicker
-                size="large"
-                style={{ width: "100%" }}
-                format="MM/DD/YYYY"
-                value={draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null}
-                onChange={(date) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    date: date ? formatDate(date) : "",
-                  }))
-                }
-              />
-            </Col>
-          </Row>
-        </Space>
+        {renderPreInspectionTabs(draft, "draft", true)}
       </Modal>
 
       <Modal
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
-        onOk={() => saveEdit()}
-        okButtonProps={{ disabled: readOnly }}
-        title={readOnly ? "View Pre-Inspection" : "Edit Pre-Inspection"}
-        okText="Save"
+        footer={[
+          <Button key="close" onClick={() => setEditing(null)}>
+            Close
+          </Button>,
+          showReleaseButton ? (
+            <Button
+              key="release"
+              type="primary"
+              onClick={() => {
+                if (validateBeforeSigning(editing, "release")) {
+                  setSignatureMode("release");
+                }
+              }}
+            >
+              Release
+            </Button>
+          ) : null,
+          showAcceptButton ? (
+            <Button
+              key="accept"
+              type="primary"
+              onClick={() => {
+                if (validateBeforeSigning(editing, "acceptance")) {
+                  setSignatureMode("accept");
+                }
+              }}
+            >
+              Accept
+            </Button>
+          ) : null,
+        ].filter(Boolean)}
+        title="View Pre-Inspection"
         width={1140}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            <Row gutter={[10, 10]}>
-              <Col span={8}>
-                <Select
-                  size="large"
-                  value={editing.rpc}
-                  onChange={async (value) => {
-                    const aircraftType = await resolveAircraftTypeByRpc(value);
-                    setEditing((prev) => ({
-                      ...prev,
-                      rpc: value,
-                      aircraftType: aircraftType || prev.aircraftType,
-                    }));
-                  }}
-                  showSearch
-                  optionFilterProp="label"
-                  options={rpcDropdownOptions.map((rpc) => ({
-                    value: rpc,
-                    label: rpc,
-                  }))}
-                  disabled={readOnly}
-                />
-              </Col>
-              <Col span={8}>
-                <Input
-                  size="large"
-                  value={editing.aircraftType}
-                  onChange={(e) =>
-                    setEditing((prev) => ({
-                      ...prev,
-                      aircraftType: e.target.value,
-                    }))
-                  }
-                  disabled={readOnly}
-                />
-              </Col>
-              <Col span={8}>
-                <DatePicker
-                  size="large"
-                  style={{ width: "100%" }}
-                  format="MM/DD/YYYY"
-                  value={
-                    editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
-                  }
-                  onChange={(date) =>
-                    setEditing((prev) => ({
-                      ...prev,
-                      date: date ? formatDate(date) : "",
-                    }))
-                  }
-                  disabled={readOnly}
-                />
-              </Col>
-            </Row>
-
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
                 {editing.status}
@@ -477,52 +886,9 @@ export default function PreInspection() {
               </Descriptions.Item>
             </Descriptions>
 
-            <Divider style={{ margin: "6px 0" }}>Checklist Points</Divider>
-            <Row gutter={[8, 8]}>
-              {booleanFields.map((field) => (
-                <Col xs={24} md={12} lg={8} key={field}>
-                  <Checkbox
-                    checked={Boolean(editing[field])}
-                    disabled={readOnly}
-                    onChange={(e) =>
-                      setEditing((prev) => ({
-                        ...prev,
-                        [field]: e.target.checked,
-                      }))
-                    }
-                  >
-                    {field}
-                  </Checkbox>
-                </Col>
-              ))}
-            </Row>
-
-            <Space style={{ justifyContent: "flex-end", width: "100%" }}>
-              {canRelease &&
-                editing.status === "pending" &&
-                !editing.releasedBy?.name && (
-                  <Button
-                    type="primary"
-                    onClick={() => setSignatureMode("release")}
-                  >
-                    Release
-                  </Button>
-                )}
-              {canAccept &&
-                editing.status === "released" &&
-                !editing.acceptedBy?.name && (
-                  <Button
-                    type="primary"
-                    onClick={() => setSignatureMode("accept")}
-                  >
-                    Accept / Complete
-                  </Button>
-                )}
-            </Space>
-            <Text type="secondary">
-              Mobile parity note: signatures and role-based release/accept are
-              now enforced on web too.
-            </Text>
+            {renderPreInspectionTabs(editing, "editing", isEditingFormEditable)}
+            {renderSignatureCard("Released By", editing.releasedBy, "MECHANIC")}
+            {renderSignatureCard("Accepted By", editing.acceptedBy, "PILOT")}
           </Space>
         )}
       </Modal>
@@ -530,12 +896,12 @@ export default function PreInspection() {
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title={
-          signatureMode === "release"
+          signatureMode === "release" || signatureMode === "createRelease"
             ? "Release Pre-Inspection"
             : "Accept Pre-Inspection"
         }
         description={
-          signatureMode === "release"
+          signatureMode === "release" || signatureMode === "createRelease"
             ? "Draw your release signature."
             : "Draw your acceptance signature."
         }

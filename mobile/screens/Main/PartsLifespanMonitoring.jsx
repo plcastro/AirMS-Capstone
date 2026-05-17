@@ -4,7 +4,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
-import { formatDate } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
 import {
   EmptyState,
@@ -41,6 +40,15 @@ const normalizeRef = (referenceData = {}) => ({
   landings: referenceData.landings ?? 0,
   referenceCells: referenceData.referenceCells || {},
 });
+
+const normalizeDateText = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toISOString().slice(0, 10);
+  }
+  return String(value);
+};
 
 const getPartStatus = (part = {}) => {
   const dueText = String(part.due || "").toLowerCase();
@@ -194,6 +202,9 @@ export default function PartsLifespanMonitoring() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           aircraft: selectedAircraft,
+          dateManufactured: aircraftDetails.dateManufactured || null,
+          aircraftType: aircraftDetails.aircraftType || "",
+          creepDamage: aircraftDetails.creepDamage || "",
           referenceData: {
             ...refs,
             today: new Date(refs.today),
@@ -216,6 +227,43 @@ export default function PartsLifespanMonitoring() {
       setSaving(false);
     }
   };
+
+  const updateAircraftDetail = (field, value) => {
+    setAircraftDetails((current) => ({ ...current, [field]: value }));
+  };
+
+  const updatePartField = (partIndex, field, value) => {
+    setParts((currentParts) =>
+      currentParts.map((part) =>
+        part.rowType !== "header" && part._id === partIndex
+          ? { ...part, [field]: value }
+          : part,
+      ),
+    );
+  };
+
+  const renderEditableDate = ({ label, value, onChangeText }) => (
+    <View style={{ width: "48%", marginBottom: 8 }}>
+      <Text style={moduleStyles.label}>{label}</Text>
+      <TextInput
+        value={value || ""}
+        editable={!isOfficerInCharge}
+        placeholder="YYYY-MM-DD"
+        placeholderTextColor={COLORS.grayDark}
+        onChangeText={onChangeText}
+        style={{
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          marginTop: 5,
+          backgroundColor: isOfficerInCharge ? COLORS.grayLight : COLORS.white,
+          color: COLORS.black,
+        }}
+      />
+    </View>
+  );
 
   return (
     <ModuleContainer>
@@ -247,7 +295,12 @@ export default function PartsLifespanMonitoring() {
       {!!selectedAircraft && (
         <InfoCard title={selectedAircraft} subtitle={aircraftDetails.aircraftType || "Aircraft details"}>
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Date Manufactured" value={formatDate(aircraftDetails.dateManufactured)} />
+            {renderEditableDate({
+              label: "Date Manufactured",
+              value: normalizeDateText(aircraftDetails.dateManufactured),
+              onChangeText: (value) =>
+                updateAircraftDetail("dateManufactured", value),
+            })}
             <FieldRow label="Serial Number" value={aircraftDetails.serialNumber} />
             <FieldRow label="Creep Damage" value={aircraftDetails.creepDamage ? `${aircraftDetails.creepDamage}%` : "N/A"} />
             <FieldRow label="Tracked Components" value={summary.total} />
@@ -330,7 +383,16 @@ export default function PartsLifespanMonitoring() {
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
               <FieldRow label="Days Remaining" value={part.daysRemaining} />
               <FieldRow label="Time Remaining" value={part.timeRemaining} />
-              <FieldRow label="Date Due" value={part.dateDue} />
+              {renderEditableDate({
+                label: "Date C/W",
+                value: part.dateCW || "",
+                onChangeText: (value) => updatePartField(part._id, "dateCW", value),
+              })}
+              {renderEditableDate({
+                label: "Date Due",
+                value: part.dateDue || "",
+                onChangeText: (value) => updatePartField(part._id, "dateDue", value),
+              })}
               <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
               <FieldRow label="HRS C/W" value={part.hoursCW} />
               <FieldRow label="Total Time Since New" value={part.totalTimeSinceNew} />

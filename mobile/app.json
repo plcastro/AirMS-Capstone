@@ -2,8 +2,13 @@
   "expo": {
     "name": "AirMS",
     "slug": "AirMS",
+    "owner": "kikobuddha",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -54,7 +59,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
+        "projectId": "da1fb019-e4e9-4be0-b593-d58faac70084"
       }
     }
   }
