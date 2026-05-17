@@ -23,6 +23,8 @@ const {
 
 const {
   loginUser,
+  verifyLoginOtp,
+  resendLoginOtp,
   refreshToken,
   logoutUser,
   registerMobilePushDevice,
@@ -40,7 +42,12 @@ const {
   updateSignature,
   activateUser,
   resendActivation,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
   completeSecuritySetup,
+  revokeTrustedDevice,
+  revokeAllTrustedDevices,
 } = require("../controllers/userController");
 
 const {
@@ -57,10 +64,24 @@ const {
 ========================================= */
 
 router.post("/login", rateLimiter, loginUser);
+router.post("/login/verify-otp", otpRequestLimiter, verifyLoginOtp);
+router.post("/login/resend-otp", otpRequestLimiter, resendLoginOtp);
 
 router.post("/refresh-token", refreshToken);
 
 router.post("/logout", logoutUser);
+router.post(
+  "/trusted-device/revoke",
+  verifyToken,
+  touchSessionActivity,
+  revokeTrustedDevice,
+);
+router.post(
+  "/trusted-device/revoke-all",
+  verifyToken,
+  touchSessionActivity,
+  revokeAllTrustedDevices,
+);
 
 router.post(
   "/register-mobile-push-device",
@@ -198,6 +219,33 @@ router.put(
 router.post("/activate", activateUser);
 
 router.post("/resend-activation", resendActivation);
+
+router.post(
+  "/resend-activation/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  resendActivationByAdmin,
+);
+
+router.put(
+  "/extend-invitation-expiry/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  extendInvitationExpiry,
+);
+
+router.put(
+  "/revoke-invitation/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  revokeInvitation,
+);
 
 router.post("/complete-security-setup", completeSecuritySetup);
 

@@ -25,6 +25,7 @@ import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequis
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -566,13 +567,17 @@ export default function PartsRequisition({ route, navigation }) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-action-confirmed": "true",
               ...(token
                 ? {
                     Authorization: `Bearer ${token}`,
                   }
                 : {}),
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({
+              ...payload,
+              confirmAction: true,
+            }),
           },
         );
 
@@ -654,6 +659,13 @@ export default function PartsRequisition({ route, navigation }) {
 
     try {
       if (editingRequest) {
+        const confirmedEdit = await confirmAction({
+          title: "Update Requisition",
+          message: `Save changes to ${editingRequest.slipNo}?`,
+          confirmText: "Save",
+        });
+        if (!confirmedEdit) return;
+
         await submitRequisitionUpdate(
           editingRequest.id,
           {
@@ -671,6 +683,13 @@ export default function PartsRequisition({ route, navigation }) {
       }, 0);
       const nextSlipNumber = highestSlipNumber + 1;
       const nextSlipNo = `WRS-${String(nextSlipNumber).padStart(3, "0")}`;
+      const confirmedCreate = await confirmAction({
+        title: "Submit Requisition",
+        message: `Submit new requisition ${nextSlipNo}?`,
+        confirmText: "Submit",
+      });
+      if (!confirmedCreate) return;
+
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
@@ -678,6 +697,7 @@ export default function PartsRequisition({ route, navigation }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(token
               ? {
                   Authorization: `Bearer ${token}`,
@@ -687,6 +707,7 @@ export default function PartsRequisition({ route, navigation }) {
           body: JSON.stringify({
             wrsNo: nextSlipNo,
             aircraft,
+            confirmAction: true,
             staff: {
               requisitioner: fullName,
               approvedBy: "",
@@ -718,6 +739,13 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleOrderRequest = async (request) => {
+    const confirmed = await confirmAction({
+      title: "Mark for Restock",
+      message: `Mark ${request.requestId} as to be restocked?`,
+      confirmText: "Confirm",
+    });
+    if (!confirmed) return;
+
     const updatedItems = (request.rawRecord.items || []).map((item) => ({
       ...item,
       stockStatus:
@@ -738,6 +766,13 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleApproveRequest = async (request) => {
+    const confirmed = await confirmAction({
+      title: "Approve Requisition",
+      message: `Approve ${request.requestId}?`,
+      confirmText: "Approve",
+    });
+    if (!confirmed) return;
+
     const fullName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       "Unknown User";

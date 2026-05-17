@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Table, Button, Modal } from "antd";
-import "../common/PaginationFix.css";
+
 export default function FLogTable({
   headers = [],
   data = [],

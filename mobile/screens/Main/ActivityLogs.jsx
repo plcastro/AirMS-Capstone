@@ -3,29 +3,70 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import AreaChart from "../../components/common/AreaChart";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const DATE_RANGE_OPTIONS = [
+  { label: "Last 7 days", value: "7" },
+  { label: "Last 30 days", value: "30" },
+  { label: "Last 90 days", value: "90" },
+  { label: "All time", value: "all" },
+];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
-  if (["created", "added", "inserted", "new"].some((k) => text.includes(k))) return "create";
-  if (["updated", "modified", "changed", "edited"].some((k) => text.includes(k))) return "update";
-  if (["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))) return "delete";
-  if (["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))) return "login";
-  if (["log out", "logged out", "logout", "signed out"].some((k) => text.includes(k))) return "logout";
+  if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
+    return "create";
+  if (
+    ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
+  )
+    return "update";
+  if (
+    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
+  )
+    return "delete";
+  if (
+    ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
+  )
+    return "login";
+  if (
+    ["log out", "logged out", "logout", "signed out"].some((k) =>
+      text.includes(k),
+    )
+  )
+    return "logout";
   return "other";
 };
+
+const ACTION_TAG_COLORS = {
+  create: { bg: "#E7F7ED", text: "#157A38" },
+  update: { bg: "#E7F0FF", text: "#1F5FBF" },
+  delete: { bg: "#FDEAEA", text: "#B42318" },
+  login: { bg: "#EAF7FE", text: "#0B6B9E" },
+  logout: { bg: "#FFF2E8", text: "#AD4E00" },
+  other: { bg: "#F2F4F7", text: "#344054" },
+};
+
+const buildEmptyDailyCategories = () => ({
+  create: 0,
+  update: 0,
+  delete: 0,
+  login: 0,
+  logout: 0,
+  other: 0,
+});
 
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
@@ -33,16 +74,21 @@ export default function ActivityLogs() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState("30");
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
       if (!silent) setLoading(true);
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const response = await fetch(
+        `${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         },
-      });
+      );
 
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -56,6 +102,12 @@ export default function ActivityLogs() {
             dateTime: item.dateTime,
             actionMade: item.actionMade || item.action || "N/A",
             username: item.username || "Unknown",
+            base: String(item.base || item.loginBase || "unknown")
+              .trim()
+              .toUpperCase(),
+            platform: String(item.platform || "unknown")
+              .trim()
+              .toLowerCase(),
           }))
         : [];
 
@@ -95,21 +147,159 @@ export default function ActivityLogs() {
 
   const filteredLogs = useMemo(() => {
     let next = [...logs];
+    if (dateRangeFilter !== "all") {
+      const days = Number(dateRangeFilter);
+      if (Number.isFinite(days) && days > 0) {
+        const threshold = Date.now() - days * 24 * 60 * 60 * 1000;
+        next = next.filter((item) => {
+          const time = new Date(item.dateTime).getTime();
+          return Number.isFinite(time) && time >= threshold;
+        });
+      }
+    }
     if (actionType !== "all") {
-      next = next.filter((item) => getActionCategory(item.actionMade) === actionType);
+      next = next.filter(
+        (item) => getActionCategory(item.actionMade) === actionType,
+      );
+    }
+
+    if (scopeFilter !== "all") {
+      const [scopeType, scopeValue] = String(scopeFilter).split(":");
+      if (scopeType === "base") {
+        next = next.filter(
+          (item) => String(item.base || "unknown") === String(scopeValue),
+        );
+      } else if (scopeType === "platform") {
+        next = next.filter(
+          (item) => String(item.platform || "unknown") === String(scopeValue),
+        );
+      }
     }
 
     const query = searchQuery.trim().toLowerCase();
     if (!query) return next;
 
     return next.filter((item) =>
-      [item.actionMade, item.username, item.dateTime]
+      [item.actionMade, item.username, item.dateTime, item.base, item.platform]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [actionType, logs, searchQuery]);
+  }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+
+  const actionCounts = useMemo(() => {
+    return filteredLogs.reduce(
+      (counts, log) => {
+        const category = getActionCategory(log.actionMade);
+        counts[category] = (counts[category] || 0) + 1;
+        return counts;
+      },
+      { ...buildEmptyDailyCategories() },
+    );
+  }, [filteredLogs]);
+
+  const trendSeries = useMemo(() => {
+    const dailyStats = {};
+
+    filteredLogs.forEach((log) => {
+      const parsedDate = new Date(log.dateTime);
+      if (Number.isNaN(parsedDate.getTime())) return;
+      const dateKey = parsedDate.toISOString().slice(0, 10);
+
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = {
+          date: dateKey,
+          ...buildEmptyDailyCategories(),
+        };
+      }
+
+      const category = getActionCategory(log.actionMade);
+      dailyStats[dateKey][category] += 1;
+    });
+
+    const sortedKeys = Object.keys(dailyStats).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    const windowKeys = sortedKeys.slice(-8);
+
+    return windowKeys.map((dateKey) => {
+      const row = dailyStats[dateKey];
+      const labelDate = new Date(`${dateKey}T00:00:00`);
+      return {
+        date: dateKey,
+        label: Number.isNaN(labelDate.getTime())
+          ? dateKey
+          : labelDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+        value: Object.values(row)
+          .filter((value) => typeof value === "number")
+          .reduce((sum, value) => sum + value, 0),
+        ...row,
+      };
+    });
+  }, [filteredLogs]);
+  const groupedSummary = useMemo(() => {
+    const byUser = {};
+    const byModule = {};
+    filteredLogs.forEach((item) => {
+      const userKey = String(item.username || "Unknown");
+      byUser[userKey] = (byUser[userKey] || 0) + 1;
+      const actionText = String(item.actionMade || "").toLowerCase();
+      const module =
+        actionText.includes("task")
+          ? "tasks"
+          : actionText.includes("flight")
+            ? "flight logs"
+            : actionText.includes("inspection")
+              ? "inspections"
+              : actionText.includes("requisition")
+                ? "requisitions"
+                : actionText.includes("user")
+                  ? "users"
+                  : "other";
+      byModule[module] = (byModule[module] || 0) + 1;
+    });
+    const topUsers = Object.entries(byUser)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    const topModules = Object.entries(byModule)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    return { topUsers, topModules };
+  }, [filteredLogs]);
+
+  const scopeOptions = useMemo(() => {
+    const platformValues = Array.from(
+      new Set(logs.map((item) => item.platform).filter(Boolean)),
+    ).sort((a, b) => {
+      if (a === "unknown") return 1;
+      if (b === "unknown") return -1;
+      return a.localeCompare(b);
+    });
+    const baseValues = Array.from(
+      new Set([
+        "MANILA",
+        "CEBU",
+        "CDO",
+        ...logs.map((item) => item.base).filter(Boolean),
+      ]),
+    ).sort();
+
+    return [
+      { label: "All Platform/Base", value: "all" },
+      ...platformValues.map((value) => ({
+        label: `Platform > ${value[0].toUpperCase() + value.slice(1)}`,
+        value: `platform:${value}`,
+      })),
+      ...baseValues.map((value) => ({
+        label: `Base > ${value}`,
+        value: `base:${value}`,
+      })),
+    ];
+  }, [logs]);
 
   const formatDisplayDate = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -133,45 +323,110 @@ export default function ActivityLogs() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.grayLight, padding: 10 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white, borderRadius: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 }}>
-        <MaterialCommunityIcons name="magnify" size={20} color={COLORS.grayDark} />
+    <View style={styles.container}>
+      <View style={styles.searchBar}>
+        <MaterialCommunityIcons
+          name="magnify"
+          size={20}
+          color={COLORS.grayDark}
+        />
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search logs"
           placeholderTextColor={COLORS.grayDark}
-          style={{ flex: 1, color: COLORS.black, fontSize: 12, marginLeft: 6, height: 40 }}
+          style={styles.searchInput}
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          {ACTION_TYPES.map((type) => {
-            const selected = actionType === type;
-            return (
-              <TouchableOpacity
+      <View style={styles.filtersRow}>
+        <View style={styles.filterCard}>
+          <Picker selectedValue={actionType} onValueChange={setActionType}>
+            {ACTION_TYPES.map((type) => (
+              <Picker.Item
                 key={type}
-                onPress={() => setActionType(type)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 7,
-                  borderWidth: 1,
-                  borderColor: selected ? COLORS.primaryLight : COLORS.grayMedium,
-                  backgroundColor: selected ? COLORS.primaryLight : COLORS.white,
-                }}
-              >
-                <Text style={{ color: selected ? COLORS.white : COLORS.grayDark, fontSize: 12, fontWeight: "600" }}>
-                  {type === "all" ? "All Actions" : type[0].toUpperCase() + type.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                value={type}
+                label={
+                  type === "all"
+                    ? "All Actions"
+                    : type[0].toUpperCase() + type.slice(1)
+                }
+              />
+            ))}
+          </Picker>
         </View>
-      </ScrollView>
+
+        <View style={styles.filterCard}>
+          <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
+            {DATE_RANGE_OPTIONS.map((value) => (
+              <Picker.Item key={value.value} value={value.value} label={value.label} />
+            ))}
+          </Picker>
+        </View>
+
+        <View style={styles.filterCard}>
+          <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
+            {scopeOptions.map((value) => (
+              <Picker.Item
+                key={value.value}
+                value={value.value}
+                label={value.label}
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      <View style={styles.analyticsCard}>
+        <Text style={styles.analyticsTitle}>Activity Trends</Text>
+        <AreaChart data={trendSeries} height={130} />
+        <View style={styles.trendLabelsRow}>
+          {trendSeries.map((point) => (
+            <Text key={point.date} style={styles.trendLabel}>
+              {point.label}
+            </Text>
+          ))}
+        </View>
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Create</Text>
+            <Text style={styles.kpiValue}>{actionCounts.create}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Update</Text>
+            <Text style={styles.kpiValue}>{actionCounts.update}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Delete</Text>
+            <Text style={styles.kpiValue}>{actionCounts.delete}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Login</Text>
+            <Text style={styles.kpiValue}>{actionCounts.login}</Text>
+          </View>
+          <View style={styles.kpiChip}>
+            <Text style={styles.kpiLabel}>Logout</Text>
+            <Text style={styles.kpiValue}>{actionCounts.logout}</Text>
+          </View>
+        </View>
+        <View style={styles.groupSummaryWrap}>
+          <Text style={styles.groupSummaryTitle}>Top Users</Text>
+          {groupedSummary.topUsers.map(([name, count]) => (
+            <Text key={name} style={styles.groupSummaryText}>
+              {name}: {count}
+            </Text>
+          ))}
+          <Text style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</Text>
+          {groupedSummary.topModules.map(([name, count]) => (
+            <Text key={name} style={styles.groupSummaryText}>
+              {name}: {count}
+            </Text>
+          ))}
+        </View>
+      </View>
 
       <ScrollView
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -184,26 +439,219 @@ export default function ActivityLogs() {
         }
       >
         {filteredLogs.length === 0 ? (
-          <View style={{ alignItems: "center", marginTop: 40 }}>
-            <MaterialCommunityIcons name="history" size={44} color={COLORS.grayMedium} />
-            <Text style={{ marginTop: 8, color: COLORS.grayDark }}>No logs found</Text>
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="history"
+              size={44}
+              color={COLORS.grayMedium}
+            />
+            <Text style={styles.emptyText}>No logs found</Text>
           </View>
         ) : (
-          filteredLogs.map((item) => (
-            <View key={String(item._id)} style={{ backgroundColor: COLORS.white, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10, padding: 12 }}>
-              <Text style={{ color: COLORS.black, fontSize: 13, fontWeight: "700" }}>
-                {item.actionMade || "N/A"}
-              </Text>
-              <Text style={{ marginTop: 4, color: COLORS.grayDark, fontSize: 12 }}>
-                User: {item.username || "Unknown"}
-              </Text>
-              <Text style={{ marginTop: 2, color: COLORS.grayDark, fontSize: 12 }}>
-                {formatDisplayDate(item.dateTime)}
-              </Text>
-            </View>
-          ))
+          filteredLogs.map((item) => {
+            const actionCategory = getActionCategory(item.actionMade);
+            const actionColors =
+              ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
+            return (
+              <View key={String(item._id)} style={styles.logCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>
+                    {item.actionMade || "N/A"}
+                  </Text>
+                  <View
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: actionColors.bg,
+                        borderColor: actionColors.bg,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.tagText, { color: actionColors.text }]}
+                    >
+                      {actionCategory.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.userText}>
+                  User: {item.username || "Unknown"}
+                </Text>
+                <Text style={styles.dateText}>
+                  {formatDisplayDate(item.dateTime)}
+                </Text>
+
+                <View style={styles.metaTagsRow}>
+                  <View style={[styles.tag, styles.baseTag]}>
+                    <Text style={[styles.tagText, styles.baseTagText]}>
+                      BASE: {item.base || "UNKNOWN"}
+                    </Text>
+                  </View>
+                  <View style={[styles.tag, styles.platformTag]}>
+                    <Text style={[styles.tagText, styles.platformTagText]}>
+                      {String(item.platform || "unknown").toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.grayLight, padding: 10 },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    marginLeft: 6,
+    height: 40,
+  },
+  filtersRow: {
+    flexDirection: "column",
+    rowGap: 8,
+    marginBottom: 10,
+  },
+  filterCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  analyticsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    padding: 10,
+  },
+  analyticsTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.black,
+    marginBottom: 8,
+  },
+  trendLabelsRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    columnGap: 4,
+  },
+  trendLabel: {
+    color: COLORS.grayDark,
+    fontSize: 10,
+  },
+  kpiRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  kpiChip: {
+    backgroundColor: "#F4F7F8",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  kpiLabel: {
+    color: COLORS.grayDark,
+    fontSize: 10,
+  },
+  kpiValue: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  groupSummaryWrap: { marginTop: 8 },
+  groupSummaryTitle: { fontSize: 11, fontWeight: "700", color: COLORS.black },
+  groupSummaryText: { fontSize: 11, color: COLORS.grayDark, marginTop: 2 },
+  filterTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingTop: 8,
+  },
+  filterTitle: {
+    marginLeft: 6,
+    color: COLORS.grayDark,
+    fontWeight: "700",
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  listContent: { paddingBottom: 20 },
+  emptyState: { alignItems: "center", marginTop: 40 },
+  emptyText: { marginTop: 8, color: COLORS.grayDark },
+  logCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+    padding: 12,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  cardTitle: {
+    color: COLORS.black,
+    fontSize: 13,
+    fontWeight: "700",
+    flex: 1,
+    paddingRight: 8,
+  },
+  userText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  dateText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  metaTagsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 6,
+    marginTop: 8,
+  },
+  tag: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tagText: { fontSize: 10, fontWeight: "700" },
+  baseTag: { backgroundColor: "#EEF4FF", borderColor: "#D5E3FF" },
+  baseTagText: { color: "#2B5CC7" },
+  platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
+  platformTagText: { color: "#137333" },
+});

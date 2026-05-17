@@ -1,9 +1,16 @@
-import React, { useState, useContext, useMemo } from "react";
-import { Layout, Button, theme, Avatar, Grid, Row } from "antd";
+import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
+import {
+  Layout,
+  Button,
+  theme,
+  Grid,
+  Row,
+  Badge,
+  notification,
+} from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  UserOutlined,
   BellOutlined,
 } from "@ant-design/icons";
 import Sidebar from "./Sidebar";
@@ -14,11 +21,30 @@ import PushNotificationsCard from "../common/PushNotificationsCard";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
+const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
+  const initials = `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
+    .toUpperCase()
+    .trim();
+  return initials || fallback;
+};
+
+const buildWsUrl = (token) => {
+  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
+    match.toLowerCase() === "https" ? "wss" : "ws",
+  );
+  const separator = wsBase.includes("?") ? "&" : "?";
+  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+};
+
 const DashboardLayout = () => {
   const screens = useBreakpoint();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { user } = useContext(AuthContext);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const seenNotificationIdsRef = useRef(new Set());
+  const wsRef = useRef(null);
+  const wsReconnectTimeoutRef = useRef(null);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
   const location = useLocation();
   const {
@@ -46,10 +72,111 @@ const DashboardLayout = () => {
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncNotifications = async () => {
+      if (!user?.id) {
+        if (isMounted) {
+          setUnreadCount(0);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/notifications`, {
+          headers: await getAuthHeader(),
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const notifications = Array.isArray(data) ? data : [];
+
+        if (!isMounted) return;
+
+        setUnreadCount(notifications.filter((item) => !item.read).length);
+
+        const nextSeenIds = new Set(seenNotificationIdsRef.current);
+
+        notifications.forEach((item) => {
+          if (item?._id && !nextSeenIds.has(item._id)) {
+            nextSeenIds.add(item._id);
+
+            if (seenNotificationIdsRef.current.size > 0 && !item.read) {
+              notification.info({
+                message: item.title || "New Notification",
+                description: item.description || "You have a new update.",
+                placement: "topRight",
+                duration: 4,
+              });
+            }
+          }
+        });
+
+        seenNotificationIdsRef.current = nextSeenIds;
+      } catch (error) {
+        console.error("Notification sync failed:", error);
+      }
+    };
+
+    syncNotifications();
+
+    let closedByEffect = false;
+
+    const connect = () => {
+      const token = localStorage.getItem("currentUserToken");
+      if (!token || !user?.id) return;
+
+      const ws = new WebSocket(buildWsUrl(token));
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data || "{}");
+          const nextEvent = String(payload?.event || "");
+
+          if (
+            nextEvent === "data-changed" ||
+            nextEvent === "chat:message" ||
+            nextEvent === "chat:conversation"
+          ) {
+            syncNotifications();
+          }
+        } catch (error) {
+          console.error("Notification websocket parse error:", error);
+        }
+      };
+
+      ws.onclose = () => {
+        if (!closedByEffect) {
+          wsReconnectTimeoutRef.current = setTimeout(connect, 1500);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      closedByEffect = true;
+      isMounted = false;
+      if (wsReconnectTimeoutRef.current) {
+        clearTimeout(wsReconnectTimeoutRef.current);
+      }
+      wsRef.current?.close?.();
+    };
+  }, [user?.id, getAuthHeader, notification]);
+
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
       <Sider
-        width={270}
+        width={290}
         collapsible
         collapsed={collapsed}
         trigger={null}
@@ -120,11 +247,13 @@ const DashboardLayout = () => {
             </span>
           </div>
           <Row align="middle" gutter={16}>
-            <Button
-              icon={<BellOutlined />}
-              style={{ marginRight: 16 }}
-              onClick={() => setNotificationsOpen(true)}
-            />
+            <Badge count={unreadCount} size="small" offset={[-6, 6]}>
+              <Button
+                icon={<BellOutlined />}
+                style={{ marginRight: 16 }}
+                onClick={() => setNotificationsOpen(true)}
+              />
+            </Badge>
             <div
               style={{
                 display: "flex",
@@ -149,7 +278,29 @@ const DashboardLayout = () => {
                   }}
                 />
               ) : (
-                <Avatar size="large" icon={<UserOutlined />} />
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    marginRight: 5,
+                    backgroundColor: "#E9F4F1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    userSelect: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#26866F",
+                      fontWeight: 700,
+                      fontSize: 13,
+                    }}
+                  >
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </span>
+                </div>
               )}
               {screens.md && (
                 <div
@@ -163,10 +314,12 @@ const DashboardLayout = () => {
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>
-                    {user?.firstName + " " + user?.lastName || "Unknown User"}
+                    {user?.firstName.toUpperCase() +
+                      " " +
+                      user?.lastName.toUpperCase() || "Unknown User"}
                   </span>
                   <span style={{ fontSize: 12, color: "#888" }}>
-                    {user?.jobTitle || "Unknown Job Title"}
+                    {user?.jobTitle.toUpperCase() || "Unknown Job Title"}
                   </span>
                 </div>
               )}
@@ -179,7 +332,7 @@ const DashboardLayout = () => {
             height: "calc(100vh - 64px)",
             overflowY: "auto",
             overflowX: "hidden",
-            background: "#efeeee",
+            background: "#f5f6f8",
             borderRadius: borderRadiusLG,
             marginTop: screens.xs ? 0 : 0,
           }}

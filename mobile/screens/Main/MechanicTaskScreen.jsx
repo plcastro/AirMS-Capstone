@@ -8,6 +8,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -182,6 +183,13 @@ export default function MechanicTaskScreen({
   };
 
   const handleStartTask = async (task) => {
+    const confirmed = await confirmAction({
+      title: "Start Task",
+      message: "Start this task now?",
+      confirmText: "Start",
+    });
+    if (!confirmed) return;
+
     const now = new Date();
 
     const updatedTask = {
@@ -197,9 +205,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -212,6 +224,7 @@ export default function MechanicTaskScreen({
           ...savedTask,
           findings: savedTask.findings || "",
         });
+        showToast("Task started successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to start task");
@@ -223,6 +236,13 @@ export default function MechanicTaskScreen({
   };
 
   const handleSaveDraft = async (task, checklistState, findings) => {
+    const confirmed = await confirmAction({
+      title: "Save Task Draft",
+      message: "Save current checklist progress and findings?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     const updatedTask = {
       ...task,
       checklistState: checklistState,
@@ -239,9 +259,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -254,6 +278,7 @@ export default function MechanicTaskScreen({
           ...(prev || {}),
           ...savedTask,
         }));
+        showToast("Task draft saved successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to save draft");
@@ -265,6 +290,15 @@ export default function MechanicTaskScreen({
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
+    const confirmed = await confirmAction({
+      title: options.undo ? "Undo Turn In" : "Turn In Task",
+      message: options.undo
+        ? "Revert this task back to Ongoing?"
+        : "Submit this task for review?",
+      confirmText: options.undo ? "Undo" : "Turn In",
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
 
     const updatedTask = {
@@ -287,9 +321,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -299,6 +337,11 @@ export default function MechanicTaskScreen({
         );
         setTasks(updatedTasks);
         setSelectedTask(savedTask);
+        showToast(
+          options.undo
+            ? "Task turn-in reverted successfully."
+            : "Task turned in successfully.",
+        );
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to turn in task");

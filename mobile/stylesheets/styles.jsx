@@ -100,7 +100,6 @@ export const styles = StyleSheet.create({
   },
   loginPicker: {
     width: "100%",
-    height: 50,
   },
   headerText: {
     fontSize: HEADER_FONT_SIZE,

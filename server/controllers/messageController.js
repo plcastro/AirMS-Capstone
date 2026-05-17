@@ -4,6 +4,7 @@ const Message = require("../models/messageModel");
 const User = require("../models/userModel");
 const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
+const { publishTypedForUsers } = require("../utils/realtimeEvents");
 const { sendPushNotificationToUsers } = require("../utils/mobilePushService");
 
 const getUserId = (req) => req.user?.id;
@@ -201,6 +202,24 @@ const getConversations = async (req, res) => {
   }
 };
 
+const getMessageSummary = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const unreadCount = await getUnreadMessageSenderCount(userId);
+    return res.status(200).json({
+      unreadCount,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Failed to load message summary:", error);
+    return res.status(500).json({ message: "Failed to load message summary" });
+  }
+};
+
 const markGroupThreadRead = async ({ conversationId, userId }) => {
   const unreadMessages = await Message.find({
     conversation: conversationId,
@@ -369,6 +388,12 @@ const sendMessage = async (req, res) => {
 
       const payload = mapMessage(message.toObject());
       sendToUsers(conversation.members, "chat:message", payload);
+      publishTypedForUsers(conversation.members, "message:new", {
+        messageId: String(message._id),
+        conversationId: String(conversationId),
+        senderId: String(senderId),
+        createdAt: message.createdAt,
+      });
       notifyUnreadMessageSummary(
         conversation.members.filter((memberId) => !isSameId(memberId, senderId)),
       ).catch((error) => {
@@ -408,6 +433,12 @@ const sendMessage = async (req, res) => {
 
     const payload = mapMessage(message.toObject());
     sendToUsers([senderId, recipientId], "chat:message", payload);
+    publishTypedForUsers([senderId, recipientId], "message:new", {
+      messageId: String(message._id),
+      senderId: String(senderId),
+      recipientId: String(recipientId),
+      createdAt: message.createdAt,
+    });
     notifyUnreadMessageSummary([recipientId]).catch((error) => {
       console.error("Message push notification failed:", error);
     });
@@ -490,6 +521,7 @@ const createGroupConversation = async (req, res) => {
 module.exports = {
   getMessageUsers,
   getConversations,
+  getMessageSummary,
   createGroupConversation,
   getThread,
   sendMessage,

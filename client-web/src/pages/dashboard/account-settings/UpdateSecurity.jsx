@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
+  App,
   Row,
   Col,
   Space,
@@ -8,7 +9,8 @@ import {
   Typography,
   Tabs,
   Form,
-  message,
+  Card,
+  Alert,
 } from "antd";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -16,6 +18,7 @@ import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
+  const { message } = App.useApp();
   const { user, setUser, getValidToken } = useContext(AuthContext);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -213,73 +216,84 @@ export default function UpdateSecurity() {
     }
   };
   const PasswordTab = (
-    <Form layout="vertical">
-      <Form.Item label="Current Password" required>
-        <Input.Password
-          size="large"
-          placeholder="Current Password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Text type="secondary">
+          Use a strong password with at least 8 characters, uppercase letters,
+          and numbers.
+        </Text>
+        <Form layout="vertical" requiredMark={false}>
+          <Form.Item label="Current Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
 
-      <Form.Item label="New Password" required>
-        <Input.Password
-          size="large"
-          placeholder="New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
+          <Form.Item label="New Password" required>
+            <Input.Password
+              size="large"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
 
-      <Form.Item label="Confirm Password" required>
-        <Input.Password
-          size="large"
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
 
-      <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-        {newPassword && (
-          <Text style={{ color: strength.color }}>{strength.text}</Text>
-        )}
-        {validationMessage && (
-          <Text
-            type={
-              validationMessage.includes("successfully") ? "success" : "danger"
-            }
-          >
-            {validationMessage}
-          </Text>
-        )}
+          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            {newPassword && (
+              <Text style={{ color: strength.color }}>{strength.text}</Text>
+            )}
+            {validationMessage && (
+              <Alert
+                type={
+                  validationMessage.includes("successfully")
+                    ? "success"
+                    : "error"
+                }
+                showIcon
+                message={validationMessage}
+              />
+            )}
+          </Space>
+
+          <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
+            <Col>
+              <Button type="default" onClick={resetAll} icon={<ClearOutlined />}>
+                Reset
+              </Button>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                onClick={savePassword}
+                disabled={!Object.values(passwordErrors).every(Boolean)}
+              >
+                Save Password
+              </Button>
+            </Col>
+          </Row>
+        </Form>
       </Space>
-
-      <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
-        <Col>
-          <Button type="default" onClick={resetAll} icon={<ClearOutlined />}>
-            Reset
-          </Button>
-        </Col>
-        <Col>
-          <Button
-            type="primary"
-            onClick={savePassword}
-            disabled={!Object.values(passwordErrors).every(Boolean)}
-          >
-            Save Password
-          </Button>
-        </Col>
-      </Row>
-    </Form>
+    </Card>
   );
 
   const PinTab = (
-    <Form layout="vertical">
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Form layout="vertical" requiredMark={false}>
       {!forgotPinMode && (
         <>
           <Form.Item label="Current PIN" required>
@@ -449,14 +463,15 @@ export default function UpdateSecurity() {
           </Row>
         </>
       )}
-    </Form>
+      </Form>
+    </Card>
   );
 
   return (
-    <Row justify="center">
+    <Row justify="center" style={{ marginTop: 4 }}>
       <Col xs={24}>
         <Tabs
-          centered
+          tabBarStyle={{ marginBottom: 12 }}
           items={[
             { key: "1", label: "Password", children: PasswordTab },
             { key: "2", label: "PIN", children: PinTab },

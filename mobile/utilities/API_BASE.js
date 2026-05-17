@@ -23,15 +23,35 @@ const normalizeAndroidDevUrl = (url) => {
   return url;
 };
 
-if (!__DEV__ && !envBackendUrl) {
-  throw new Error("EXPO_PUBLIC_BACKEND_URL is not defined for production build");
-}
+const trimTrailingSlash = (url) => String(url || "").replace(/\/+$/, "");
 
-export const API_BASE = Platform.select({
-  ios: __DEV__ ? envBackendUrl || localUrl : envBackendUrl,
-  android: __DEV__ ? normalizeAndroidDevUrl(envBackendUrl) : envBackendUrl,
-  default: __DEV__ ? envBackendUrl || localUrl : envBackendUrl,
+const fallbackBaseByPlatform = Platform.select({
+  ios: localUrl,
+  android: androidEmulatorUrl,
+  default: localUrl,
 });
+
+const resolvedEnvBase = trimTrailingSlash(envBackendUrl);
+const resolvedFallbackBase = trimTrailingSlash(fallbackBaseByPlatform);
+const resolvedBaseByPlatform = Platform.select({
+  ios: resolvedEnvBase || (__DEV__ ? localUrl : ""),
+  android: resolvedEnvBase
+    ? __DEV__
+      ? normalizeAndroidDevUrl(resolvedEnvBase)
+      : resolvedEnvBase
+    : __DEV__
+      ? androidEmulatorUrl
+      : "",
+  default: resolvedEnvBase || (__DEV__ ? resolvedFallbackBase : ""),
+});
+
+export const API_BASE = trimTrailingSlash(resolvedBaseByPlatform);
+
+if (!API_BASE) {
+  console.error(
+    "[API_BASE] Missing EXPO_PUBLIC_BACKEND_URL. Set it in mobile/.env for release builds.",
+  );
+}
 
 if (__DEV__) {
   console.log("[API_BASE]", API_BASE);

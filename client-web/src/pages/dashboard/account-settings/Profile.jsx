@@ -1,24 +1,25 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
+  App,
   Card,
   Typography,
   Button,
   Input,
-  Form,
   Row,
   Col,
   Tabs,
-  message,
   Popconfirm,
   Descriptions,
   Avatar,
   Space,
+  Slider,
+  Switch,
 } from "antd";
 import {
-  EditOutlined,
   LockOutlined,
   UserOutlined,
   DeleteOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -27,13 +28,33 @@ import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
 const { Title, Text } = Typography;
 
 export default function Profile() {
-  const { user, setUser, getValidToken } = useContext(AuthContext);
-  const [form] = Form.useForm();
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "" });
+  const { message } = App.useApp();
+  const {
+    user,
+    setUser,
+    getValidToken,
+    rememberMePreference,
+    updateRememberMePreference,
+  } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
+  const [fontScalePreference, setFontScalePreference] = useState(1);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [browserPermission, setBrowserPermission] = useState("default");
+  const [updatingRememberMe, setUpdatingRememberMe] = useState(false);
+  const WEB_SETTINGS_KEY = "webProfileSettings";
+
+  const WEB_FONT_RECOMMENDED = 1;
+  const WEB_FONT_MAX = 1.3;
+
+  const applyWebFontSize = (scale = WEB_FONT_RECOMMENDED) => {
+    const clamped = Math.min(
+      Math.max(Number(scale) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED),
+      WEB_FONT_MAX,
+    );
+    document.documentElement.style.fontSize = `${(16 * clamped).toFixed(1)}px`;
+  };
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -48,11 +69,6 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
 
-    setFormData({
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-    });
-
     const imageUrl = user.image
       ? user.image.startsWith("http")
         ? user.image
@@ -62,49 +78,54 @@ export default function Profile() {
     setFile(null);
   }, [user]);
 
-  const handleChange = (key, value) =>
-    setFormData((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+      const storedFont = stored.fontSizePreference;
+      const nextFont =
+        typeof storedFont === "number"
+          ? storedFont
+          : {
+              small: 0.9,
+              medium: 1,
+              large: 1.1,
+            }[storedFont] || WEB_FONT_RECOMMENDED;
+      const nextNotifications =
+        typeof stored.notificationsEnabled === "boolean"
+          ? stored.notificationsEnabled
+          : true;
+      setFontScalePreference(nextFont);
+      setNotificationsEnabled(nextNotifications);
+      applyWebFontSize(nextFont);
+    } catch {
+      setFontScalePreference(WEB_FONT_RECOMMENDED);
+      setNotificationsEnabled(true);
+      applyWebFontSize(WEB_FONT_RECOMMENDED);
+    }
+
+    if (typeof Notification !== "undefined") {
+      setBrowserPermission(Notification.permission);
+    }
+  }, []);
+
+  const persistWebSettings = (next) => {
+    const payload = {
+      fontSizePreference:
+        next.fontSizePreference ?? fontScalePreference ?? WEB_FONT_RECOMMENDED,
+      notificationsEnabled:
+        typeof next.notificationsEnabled === "boolean"
+          ? next.notificationsEnabled
+          : notificationsEnabled,
+    };
+    localStorage.setItem(WEB_SETTINGS_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new Event("web-settings-updated"));
+  };
 
   const pickImage = (e) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
     setFile(selectedFile);
     setPreviewUri(URL.createObjectURL(selectedFile));
-  };
-
-  const handleSaveProfile = async () => {
-    try {
-      if (
-        formData.firstName !== user.firstName ||
-        formData.lastName !== user.lastName
-      ) {
-        const res = await fetch(
-          `${API_BASE}/api/user/update-user-profile/${user.id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${await getValidToken()}`,
-            },
-            body: JSON.stringify(formData),
-          },
-        );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-      }
-
-      setUser((prev) => ({
-        ...prev,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-      }));
-
-      setIsEditing(false);
-      message.success("Profile updated successfully!");
-    } catch (err) {
-      console.error(err);
-      message.error(err.message || "Profile update failed");
-    }
   };
 
   const handleSaveImage = async () => {
@@ -177,89 +198,33 @@ export default function Profile() {
       label: "User Information",
       icon: <UserOutlined />,
       children: (
-        <Form layout="vertical" form={form}>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={24}>
-              {isEditing ? (
-                <Row gutter={[16, 16]}>
-                  <Col xs={24} md={12}>
-                    <Form.Item label="First Name" required>
-                      <Input
-                        value={formData.firstName}
-                        size="large"
-                        onChange={(e) =>
-                          handleChange("firstName", e.target.value)
-                        }
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item label="Last Name" required>
-                      <Input
-                        value={formData.lastName}
-                        size="large"
-                        onChange={(e) =>
-                          handleChange("lastName", e.target.value)
-                        }
-                      />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              ) : (
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="First Name">
-                    {user.firstName}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Last Name">
-                    {user.lastName}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Email">
-                    {user.email}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Username">
-                    {user.username}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Job Title">
-                    {user?.jobTitle
-                      ? user.jobTitle
-                          .split(" ")
-                          .map(
-                            (word) =>
-                              word.charAt(0).toUpperCase() +
-                              word.slice(1).toLowerCase(),
-                          )
-                          .join(" ")
-                      : "Unknown Job Title"}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Last Login">
-                    {formatDate(user.lastLogin)}
-                  </Descriptions.Item>
-                </Descriptions>
-              )}
-            </Col>
-          </Row>
-
-          <Row justify="end" gutter={16} style={{ marginTop: 24 }}>
-            {isEditing && (
-              <Button
-                type="primary"
-                onClick={handleSaveProfile}
-                disabled={
-                  formData.firstName === user.firstName &&
-                  formData.lastName === user.lastName
-                }
-              >
-                Save
-              </Button>
-            )}
-            <Button
-              icon={isEditing ? null : <EditOutlined />}
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              {isEditing ? "Cancel" : "Edit"}
-            </Button>
-          </Row>
-        </Form>
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="First Name">
+            {user.firstName}
+          </Descriptions.Item>
+          <Descriptions.Item label="Last Name">
+            {user.lastName}
+          </Descriptions.Item>
+          <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
+          <Descriptions.Item label="Username">
+            {user.username}
+          </Descriptions.Item>
+          <Descriptions.Item label="Job Title">
+            {user?.jobTitle
+              ? user.jobTitle
+                  .split(" ")
+                  .map(
+                    (word) =>
+                      word.charAt(0).toUpperCase() +
+                      word.slice(1).toLowerCase(),
+                  )
+                  .join(" ")
+              : "Unknown Job Title"}
+          </Descriptions.Item>
+          <Descriptions.Item label="Last Login">
+            {formatDate(user.lastLogin)}
+          </Descriptions.Item>
+        </Descriptions>
       ),
     },
     {
@@ -267,6 +232,114 @@ export default function Profile() {
       label: "Security",
       icon: <LockOutlined />,
       children: <UpdateSecurity />,
+    },
+    {
+      key: "AppSettings",
+      label: "Settings",
+      icon: <SettingOutlined />,
+      children: (
+        <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+          <Card size="small" title="Display">
+            <Space orientation="vertical" style={{ width: "100%" }}>
+              <Text strong>Font Size</Text>
+              <Text type="secondary">
+                Range: Recommended ({WEB_FONT_RECOMMENDED.toFixed(2)}x) to Max (
+                {WEB_FONT_MAX.toFixed(2)}x)
+              </Text>
+              <Slider
+                min={WEB_FONT_RECOMMENDED}
+                max={WEB_FONT_MAX}
+                step={0.05}
+                value={fontScalePreference}
+                onChange={(value) => {
+                  setFontScalePreference(value);
+                  applyWebFontSize(value);
+                }}
+                onChangeComplete={(value) => {
+                  persistWebSettings({ fontSizePreference: value });
+                }}
+                style={{ maxWidth: 320 }}
+              />
+              <Text type="secondary">
+                Current: {fontScalePreference.toFixed(2)}x
+              </Text>
+            </Space>
+          </Card>
+
+          <Card size="small" title="Notifications">
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              <Space>
+                <Text strong>Enable Browser Notifications</Text>
+                <Switch
+                  checked={notificationsEnabled}
+                  onChange={async (checked) => {
+                    if (checked && typeof Notification !== "undefined") {
+                      const permission = await Notification.requestPermission();
+                      setBrowserPermission(permission);
+                      if (permission !== "granted") {
+                        setNotificationsEnabled(false);
+                        persistWebSettings({ notificationsEnabled: false });
+                        message.warning(
+                          "Notification permission not granted by browser.",
+                        );
+                        return;
+                      }
+                    }
+
+                    setNotificationsEnabled(checked);
+                    persistWebSettings({ notificationsEnabled: checked });
+                    message.success("Notification preference saved.");
+                  }}
+                />
+              </Space>
+              <Text type="secondary">
+                Browser permission:{" "}
+                <strong>
+                  {browserPermission === "granted"
+                    ? "Granted"
+                    : browserPermission === "denied"
+                      ? "Denied"
+                      : "Default"}
+                </strong>
+              </Text>
+            </Space>
+          </Card>
+
+          <Card size="small" title="Session">
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              <Space>
+                <Text strong>Keep Me Signed In (Remember Me)</Text>
+                <Switch
+                  checked={rememberMePreference}
+                  loading={updatingRememberMe}
+                  onChange={async (checked) => {
+                    try {
+                      setUpdatingRememberMe(true);
+                      await updateRememberMePreference(checked, {
+                        revokePersistentTokens: !checked,
+                      });
+                      message.success(
+                        checked
+                          ? "Remember Me enabled for future refreshes."
+                          : "Remember Me disabled. Current session stays active until expiry.",
+                      );
+                    } catch (error) {
+                      message.error(
+                        error.message || "Failed to update session preference.",
+                      );
+                    } finally {
+                      setUpdatingRememberMe(false);
+                    }
+                  }}
+                />
+              </Space>
+              <Text type="secondary">
+                Session ID: {user?.sessionId || "N/A"} | Base: {user?.base || "UNKNOWN"}
+              </Text>
+            </Space>
+          </Card>
+        </Space>
+      ),
     },
   ];
 
@@ -303,10 +376,8 @@ export default function Profile() {
                       <Avatar
                         src={previewUri || DefaultAvatar}
                         size={172}
-                        style={{ cursor: isEditing ? "pointer" : "default" }}
-                        onClick={() =>
-                          isEditing && fileInputRef.current.click()
-                        }
+                        style={{ cursor: "pointer" }}
+                        onClick={() => fileInputRef.current?.click()}
                       />
                       <input
                         type="file"

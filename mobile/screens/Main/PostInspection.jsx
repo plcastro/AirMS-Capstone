@@ -130,7 +130,7 @@ export default function PostInspection({ route }) {
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
@@ -368,9 +368,13 @@ export default function PostInspection({ route }) {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 

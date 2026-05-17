@@ -3,6 +3,7 @@ const { auditLog } = require("./logsController");
 const {
   createPartsRequisitionNotifications,
 } = require("../utils/partsRequisitionNotificationService");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
 
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),
@@ -111,6 +112,26 @@ const getAllRequisitions = async (req, res) => {
   }
 };
 
+const getRequisitionSummary = async (req, res) => {
+  try {
+    const [count, latest] = await Promise.all([
+      partsRequisitionModel.countDocuments({}),
+      partsRequisitionModel
+        .findOne({})
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select("updatedAt createdAt")
+        .lean(),
+    ]);
+
+    res.status(200).json({
+      count,
+      latestUpdatedAt: latest?.updatedAt || latest?.createdAt || null,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
 const getRequisitionById = async (req, res) => {
   const requisitionId = req.params.id;
   try {
@@ -160,6 +181,11 @@ const createRequisition = async (req, res) => {
     await createPartsRequisitionNotifications({
       previousRequisition: null,
       requisition: savedRequisition,
+    });
+    publishTypedEvent("requisition:updated", {
+      requisitionId: String(savedRequisition._id),
+      updatedAt: savedRequisition.updatedAt || savedRequisition.createdAt,
+      status: savedRequisition.status,
     });
     res.status(201).json(savedRequisition);
   } catch (error) {
@@ -274,6 +300,11 @@ const updateRequisitionStatus = async (req, res) => {
       previousRequisition: existingRequisition,
       requisition: updatedRequisition,
     });
+    publishTypedEvent("requisition:updated", {
+      requisitionId: String(updatedRequisition._id),
+      updatedAt: updatedRequisition.updatedAt || updatedRequisition.createdAt,
+      status: updatedRequisition.status,
+    });
     res.status(200).json(updatedRequisition);
   } catch (error) {
     res.status(400).json({ message: "Update failed", error: error.message });
@@ -282,6 +313,7 @@ const updateRequisitionStatus = async (req, res) => {
 
 module.exports = {
   getAllRequisitions,
+  getRequisitionSummary,
   getRequisitionById,
   createRequisition,
   updateRequisitionStatus,

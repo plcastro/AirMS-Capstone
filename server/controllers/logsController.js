@@ -5,6 +5,7 @@ const {
   getRequestContext,
   markAuditLogged,
 } = require("../middleware/requestContext");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
 
 const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
 const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
@@ -113,10 +114,38 @@ const auditLog = async (
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
     });
+    publishTypedEvent("logs:new", {
+      logId: String(newLog._id),
+      at: newLog.dateTime || new Date().toISOString(),
+      action: sanitizedAction,
+    });
 
     return newLog;
   } catch (err) {
     console.error("Audit log failed:", err);
+  }
+};
+
+const getLatestLog = async (req, res) => {
+  try {
+    const latestLog = await UserLog.findOne({})
+      .sort({ dateTime: -1, createdAt: -1 })
+      .lean();
+
+    if (!latestLog) {
+      return res.status(200).json({});
+    }
+
+    return res.status(200).json({
+      _id: latestLog._id,
+      id: latestLog._id,
+      dateTime: latestLog.dateTime,
+      actionMade: latestLog.action,
+      username: latestLog.username || "Unknown",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to fetch latest log" });
   }
 };
 
@@ -256,4 +285,5 @@ module.exports = {
   auditLog,
   createAuditLogFromRequest,
   getAllUserLogs,
+  getLatestLog,
 };

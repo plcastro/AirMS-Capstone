@@ -56,6 +56,14 @@ export default function UserForm({
   const lastNameValue = Form.useWatch("lastName", form) || "";
   const jobTitleValue = Form.useWatch("jobTitle", form) || "";
 
+  const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
+    const initials =
+      `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
+        .toUpperCase()
+        .trim();
+    return initials || fallback;
+  };
+
   useEffect(() => {
     if (!visible) return;
 
@@ -134,6 +142,7 @@ export default function UserForm({
       let body;
       const headers = {
         Authorization: `Bearer ${token}`,
+        "x-action-confirmed": "true",
       };
 
       if (file) {
@@ -146,6 +155,7 @@ export default function UserForm({
         body.append("base", values.base);
         body.append("access", values.access);
         body.append("dateCreated", joinedDate.toISOString());
+        body.append("confirmAction", "true");
         body.append("image", file);
         if (
           [
@@ -160,6 +170,7 @@ export default function UserForm({
       } else {
         headers["Content-Type"] = "application/json";
         body = JSON.stringify({
+          confirmAction: true,
           firstName: values.firstName.trim(),
           lastName: values.lastName.trim(),
           email: values.email.trim(),
@@ -260,7 +271,7 @@ export default function UserForm({
         centered
         styles={{
           header: {
-            padding: "16px 24px 8px",
+            padding: "8px 24px",
           },
           body: {
             maxHeight: isMobile ? "76vh" : "80vh",
@@ -282,13 +293,13 @@ export default function UserForm({
             loading={loading}
             style={{ width: isMobile ? "48%" : "auto" }}
           >
-            Create
+            {user ? "Update" : "Create"}
           </Button>,
         ]}
       >
         <Divider style={{ marginTop: 0 }} />
-        <Form form={form} layout="vertical" requiredMark={false}>
-          <Space direction="vertical" size={14} style={{ width: "100%" }}>
+        <Form form={form} layout="vertical" requiredMark={true}>
+          <Space orientation="vertical" size={14} style={{ width: "100%" }}>
             <Row justify="center">
               <Col style={{ textAlign: "center" }}>
                 <ImgCrop rotationSlider aspect={1 / 1}>
@@ -445,11 +456,11 @@ export default function UserForm({
                 </Form.Item>
               </Col>
 
-              <Col xs={24} md={12}>
+              {/* <Col xs={24} md={12}>
                 <Form.Item label="Access Level" name="access">
                   <Input size="large" disabled />
                 </Form.Item>
-              </Col>
+              </Col> */}
 
               {requiresLicense ? (
                 <Col xs={24} md={12}>
@@ -503,13 +514,35 @@ export default function UserForm({
           </Button>,
         ]}
       >
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={16} style={{ width: "100%" }}>
           <Row justify="center">
             <Col style={{ textAlign: "center" }}>
               {imageUrl ? (
                 <Avatar size={84} src={imageUrl} />
               ) : (
-                <Avatar size={84} icon={<UserOutlined />} />
+                <div
+                  style={{
+                    width: 100,
+                    height: 100,
+                    borderRadius: "50%",
+                    marginRight: 5,
+                    backgroundColor: "#E9F4F1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    userSelect: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#26866F",
+                      fontWeight: 700,
+                      fontSize: 32,
+                    }}
+                  >
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </span>
+                </div>
               )}
             </Col>
           </Row>

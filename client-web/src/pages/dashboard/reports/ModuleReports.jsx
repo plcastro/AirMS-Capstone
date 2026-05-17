@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Card, Col, Row, Space, Table, Tag, Typography } from "antd";
+import React, { useMemo, useState } from "react";
+import { Card, Col, Row, Segmented, Space, Table, Tag, Typography } from "antd";
 import {
   Bar,
   BarChart,
@@ -73,10 +73,71 @@ const countBy = (records, getKey) =>
 const toChartData = (counts) =>
   Object.entries(counts).map(([name, value]) => ({ name, value }));
 
-const monthLabel = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "No date";
-  return date.toLocaleString("en-US", { month: "short" });
+const getWeekStart = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  const day = next.getDay();
+  next.setDate(next.getDate() - day);
+  return next;
+};
+
+const buildTimeSeriesData = (records, timeframe = "monthly") => {
+  const buckets = {};
+
+  records.forEach((record) => {
+    const rawDate = getRecordDate(record);
+    const date = new Date(rawDate);
+
+    if (Number.isNaN(date.getTime())) {
+      buckets["No date"] = {
+        label: "No date",
+        order: Number.MAX_SAFE_INTEGER,
+        value: (buckets["No date"]?.value || 0) + 1,
+      };
+      return;
+    }
+
+    if (timeframe === "yearly") {
+      const year = date.getFullYear();
+      const key = `${year}`;
+      buckets[key] = {
+        label: key,
+        order: year,
+        value: (buckets[key]?.value || 0) + 1,
+      };
+      return;
+    }
+
+    if (timeframe === "weekly") {
+      const weekStart = getWeekStart(date);
+      const key = weekStart.toISOString().slice(0, 10);
+      buckets[key] = {
+        label: weekStart.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "2-digit",
+        }),
+        order: weekStart.getTime(),
+        value: (buckets[key]?.value || 0) + 1,
+      };
+      return;
+    }
+
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+    const key = monthStart.toISOString().slice(0, 7);
+    buckets[key] = {
+      label: monthStart.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+      }),
+      order: monthStart.getTime(),
+      value: (buckets[key]?.value || 0) + 1,
+    };
+  });
+
+  return Object.values(buckets)
+    .sort((a, b) => a.order - b.order)
+    .map((row) => ({ month: row.label, value: row.value }));
 };
 
 const StatusTag = ({ status }) => {
@@ -100,7 +161,7 @@ const StatusPie = ({ data }) => {
   if (!data.length) return <EmptyChart />;
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={230}>
       <PieChart>
         <Pie
           data={data}
@@ -108,7 +169,7 @@ const StatusPie = ({ data }) => {
           nameKey="name"
           cx="50%"
           cy="50%"
-          outerRadius={90}
+          outerRadius={68}
           label
         >
           {data.map((entry, index) => (
@@ -144,31 +205,6 @@ const MonthlyBar = ({ data, dataKey = "value", name = "Records" }) => {
   );
 };
 
-const buildMonthlyData = (records) => {
-  const counts = countBy(records, (record) =>
-    monthLabel(getRecordDate(record)),
-  );
-  const order = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-    "No date",
-  ];
-
-  return Object.entries(counts)
-    .map(([month, value]) => ({ month, value }))
-    .sort((a, b) => order.indexOf(a.month) - order.indexOf(b.month));
-};
-
 const buildAircraftData = (records, getAircraft) =>
   toChartData(countBy(records, getAircraft))
     .sort((a, b) => b.value - a.value)
@@ -187,12 +223,16 @@ const ReportSection = ({ title, subtitle, children }) => (
 );
 
 export function FlightLogReport({ records = [], loading = false }) {
+  const [timeframe, setTimeframe] = useState("monthly");
   const statusData = useMemo(
     () =>
       toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
-  const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
+  const monthlyData = useMemo(
+    () => buildTimeSeriesData(records, timeframe),
+    [records, timeframe],
+  );
   const aircraftData = useMemo(
     () => buildAircraftData(records, (record) => record.rpc || "Unknown"),
     [records],
@@ -218,6 +258,17 @@ export function FlightLogReport({ records = [], loading = false }) {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="Logs by Month">
+            <Segmented
+              size="small"
+              value={timeframe}
+              onChange={setTimeframe}
+              options={[
+                { label: "Year", value: "yearly" },
+                { label: "Month", value: "monthly" },
+                { label: "Week", value: "weekly" },
+              ]}
+              style={{ marginBottom: 12 }}
+            />
             <MonthlyBar data={monthlyData} name="Flight logs" />
           </Card>
         </Col>
@@ -260,12 +311,16 @@ export function InspectionReport({
   loading = false,
   aircraftLabel = "rpc",
 }) {
+  const [timeframe, setTimeframe] = useState("monthly");
   const statusData = useMemo(
     () =>
       toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
-  const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
+  const monthlyData = useMemo(
+    () => buildTimeSeriesData(records, timeframe),
+    [records, timeframe],
+  );
   const aircraftData = useMemo(
     () =>
       buildAircraftData(
@@ -303,6 +358,17 @@ export function InspectionReport({
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="Inspections by Month">
+            <Segmented
+              size="small"
+              value={timeframe}
+              onChange={setTimeframe}
+              options={[
+                { label: "Year", value: "yearly" },
+                { label: "Month", value: "monthly" },
+                { label: "Week", value: "weekly" },
+              ]}
+              style={{ marginBottom: 12 }}
+            />
             <MonthlyBar data={monthlyData} name="Inspections" />
           </Card>
         </Col>
@@ -340,12 +406,16 @@ export function InspectionReport({
 }
 
 export function PartsRequisitionReport({ records = [], loading = false }) {
+  const [timeframe, setTimeframe] = useState("monthly");
   const statusData = useMemo(
     () =>
       toChartData(countBy(records, (record) => normalizeStatus(record.status))),
     [records],
   );
-  const monthlyData = useMemo(() => buildMonthlyData(records), [records]);
+  const monthlyData = useMemo(
+    () => buildTimeSeriesData(records, timeframe),
+    [records, timeframe],
+  );
   const itemStatusData = useMemo(() => {
     const items = records.flatMap((record) => record.items || []);
     return toChartData(
@@ -391,6 +461,17 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="Requisitions by Month">
+            <Segmented
+              size="small"
+              value={timeframe}
+              onChange={setTimeframe}
+              options={[
+                { label: "Year", value: "yearly" },
+                { label: "Month", value: "monthly" },
+                { label: "Week", value: "weekly" },
+              ]}
+              style={{ marginBottom: 12 }}
+            />
             <MonthlyBar data={monthlyData} name="Requisitions" />
           </Card>
         </Col>

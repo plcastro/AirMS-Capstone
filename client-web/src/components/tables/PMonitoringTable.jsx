@@ -204,29 +204,40 @@ export default function PMonitoringTable({
   const columns = processColumns(headers);
 
   return (
-    <Table
-      columns={columns}
-      dataSource={data}
-      rowKey={rowKey}
-      loading={loading}
-      scroll={{ x: 1500, y: "calc(100vh - 400px)" }}
-      sticky={true}
-      pagination={{
-        pageSize: pageSize,
-        showSizeChanger: true,
-        pageSizeOptions: ["10", "15", "30"],
-        current: currentPage,
-        onChange: (page, size) => {
-          setCurrentPage(page);
-          setPageSize(size);
-        },
-        placement: "bottomEnd",
+    <div
+      style={{
+        width: "100%",
+        height: "calc(100vh - 180px)",
       }}
-      size="small"
-      bordered
-      rowClassName={(record, index) => {
-        return index % 2 === 0 ? "table-row-light" : "table-row-dark";
-      }}
-    />
+    >
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowKey={rowKey}
+        loading={loading}
+        scroll={{ x: 1500 }}
+        sticky
+        pagination={{
+          pageSize: pageSize,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "15", "30"],
+          current: currentPage,
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          },
+          placement: "bottomEnd",
+        }}
+        size="small"
+        bordered
+        rowClassName={(record, index) =>
+          index % 2 === 0 ? "table-row-light" : "table-row-dark"
+        }
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
+      />
+    </div>
   );
 }

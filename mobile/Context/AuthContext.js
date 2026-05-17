@@ -1,387 +1,314 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { secureGetItem, secureSetItem, secureDeleteItem } from "../utilities/secureStorage";
 import { API_BASE } from "../utilities/API_BASE";
 
 export const AuthContext = createContext();
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
-const WARNING_DURATION_MS = 10 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
-    useState(false);
-  const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
-    WARNING_DURATION_MS / 1000,
-  );
-  const appStateRef = useRef(AppState.currentState);
-  const inactivityTimeoutRef = useRef(null);
-  const warningTimeoutRef = useRef(null);
-  const warningCountdownIntervalRef = useRef(null);
-  const tokenExpiryTimeoutRef = useRef(null);
-  const lastActivityAtRef = useRef(Date.now());
-  const normalizeUser = (userData) => ({
-    ...userData,
-    id: userData?.id || userData?._id || null,
-  });
+  const [rememberMePreference, setRememberMePreference] = useState(false);
+  const refreshTokenRef = useRef(null);
+  const refreshFailureLoggedRef = useRef(false);
 
-  const isTokenValid = (token) => {
-    try {
-      const base64Payload = token.split(".")[1];
-      const normalizedPayload = base64Payload
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
-
-      if (typeof global.atob !== "function") {
-        return true;
-      }
-
-      const payload = JSON.parse(global.atob(normalizedPayload));
-      return payload.exp * 1000 > Date.now();
-    } catch (err) {
-      return false;
-    }
-  };
-
-  const clearStoredAuth = async () => {
-    if (Platform.OS === "web") {
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("currentUserToken");
-      localStorage.removeItem("authSessionMeta");
-      return;
-    }
-
+  const clearStoredAuth = useCallback(async () => {
     await AsyncStorage.multiRemove([
       "currentUser",
       "currentUserToken",
+      "refreshToken",
       "authSessionMeta",
+      "rememberMe",
     ]);
-  };
+    await secureDeleteItem("accessToken");
+    await secureDeleteItem("refreshToken");
+  }, []);
 
-  const getSessionMeta = async () => {
-    try {
-      const raw =
-        Platform.OS === "web"
-          ? localStorage.getItem("authSessionMeta")
-          : await AsyncStorage.getItem("authSessionMeta");
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  };
+  const logoutUser = useCallback(
+    async ({ broadcast = true } = {}) => {
+      try {
+        const accessToken = token || (await AsyncStorage.getItem("currentUserToken"));
+        const refreshToken =
+          refreshTokenRef.current ||
+          (await AsyncStorage.getItem("refreshToken")) ||
+          (await secureGetItem("refreshToken"));
 
-  const clearInactivityTimeout = () => {
-    if (inactivityTimeoutRef.current) {
-      clearTimeout(inactivityTimeoutRef.current);
-      inactivityTimeoutRef.current = null;
-    }
-    if (warningTimeoutRef.current) {
-      clearTimeout(warningTimeoutRef.current);
-      warningTimeoutRef.current = null;
-    }
-    if (warningCountdownIntervalRef.current) {
-      clearInterval(warningCountdownIntervalRef.current);
-      warningCountdownIntervalRef.current = null;
-    }
-  };
-
-  const clearTokenExpiryTimeout = () => {
-    if (tokenExpiryTimeoutRef.current) {
-      clearTimeout(tokenExpiryTimeoutRef.current);
-      tokenExpiryTimeoutRef.current = null;
-    }
-  };
-
-  const getTokenExpiryTime = (token) => {
-    try {
-      const base64Payload = token.split(".")[1];
-      const normalizedPayload = base64Payload
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
-
-      if (typeof global.atob !== "function") {
-        return null;
-      }
-
-      const payload = JSON.parse(global.atob(normalizedPayload));
-      return payload.exp * 1000;
-    } catch (error) {
-      return null;
-    }
-  };
-
-  const startWarningCountdown = (secondsRemaining) => {
-    const safeSeconds = Math.max(0, secondsRemaining);
-    setShowSessionTimeoutWarning(true);
-    setWarningSecondsRemaining(safeSeconds);
-
-    if (warningCountdownIntervalRef.current) {
-      clearInterval(warningCountdownIntervalRef.current);
-    }
-
-    warningCountdownIntervalRef.current = setInterval(() => {
-      setWarningSecondsRemaining((previousSeconds) => {
-        if (previousSeconds <= 1) {
-          clearInterval(warningCountdownIntervalRef.current);
-          warningCountdownIntervalRef.current = null;
-          return 0;
-        }
-        return previousSeconds - 1;
-      });
-    }, 1000);
-  };
-
-  const scheduleTokenExpiryLogout = (token) => {
-    clearTokenExpiryTimeout();
-    const expiryAt = getTokenExpiryTime(token);
-
-    if (!expiryAt) {
-      return;
-    }
-
-    const msRemaining = expiryAt - Date.now();
-
-    if (msRemaining <= 0) {
-      logoutUser();
-      return;
-    }
-
-    tokenExpiryTimeoutRef.current = setTimeout(() => {
-      logoutUser();
-    }, msRemaining);
-  };
-
-  const logoutUser = async ({ notifyServer = false } = {}) => {
-    try {
-      setLoading(true);
-      clearInactivityTimeout();
-      clearTokenExpiryTimeout();
-      setShowSessionTimeoutWarning(false);
-
-      if (notifyServer && Platform.OS !== "web") {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const sessionMeta = await getSessionMeta();
-
-        if (token) {
+        if (accessToken) {
           await fetch(`${API_BASE}/api/user/logout`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${accessToken}`,
               "x-platform": "MOBILE",
-              ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-              ...(sessionMeta.sessionId
-                ? { "x-session-id": sessionMeta.sessionId }
-                : {}),
             },
-          }).catch((error) => {
-            console.error("Server logout failed:", error);
+            body: JSON.stringify({
+              refreshToken: refreshToken || undefined,
+            }),
           });
         }
+      } catch (error) {
+        console.error("Mobile logout API error:", error);
+      } finally {
+        setUser(null);
+        setToken(null);
+        refreshTokenRef.current = null;
+        setRememberMePreference(false);
+        await clearStoredAuth();
+      }
+    },
+    [clearStoredAuth, token],
+  );
+
+  const persistSessionMeta = useCallback(async (sessionData = {}) => {
+    const payload = {
+      base: sessionData.base || "UNKNOWN",
+      sessionId: sessionData.sessionId || null,
+      platform: "MOBILE",
+    };
+    await AsyncStorage.setItem("authSessionMeta", JSON.stringify(payload));
+    return payload;
+  }, []);
+
+  const getSessionMeta = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem("authSessionMeta");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const remembered = (await AsyncStorage.getItem("rememberMe")) === "true";
+      const inMemoryRefreshToken = refreshTokenRef.current;
+      const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
+      const secureRefreshToken = await secureGetItem("refreshToken");
+      const tokenCandidates = [
+        inMemoryRefreshToken,
+        asyncRefreshToken,
+        secureRefreshToken,
+      ].filter(Boolean);
+      const uniqueCandidates = [...new Set(tokenCandidates)];
+
+      if (!uniqueCandidates.length) throw new Error("No refresh token available");
+
+      const sessionMeta = await getSessionMeta();
+      let lastError = "Session expired";
+
+      for (const refreshToken of uniqueCandidates) {
+        const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-platform": "MOBILE",
+            ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+            ...(sessionMeta?.sessionId
+              ? { "x-session-id": sessionMeta.sessionId }
+              : {}),
+          },
+          body: JSON.stringify({ refreshToken }),
+          credentials: "include",
+        });
+
+        const text = await response.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = { message: `Invalid refresh response: ${text.slice(0, 80)}` };
+        }
+
+        const nextAccessToken = data?.token || data?.accessToken;
+        if (response.ok && nextAccessToken) {
+          const rotatedRefreshToken = data.refreshToken || refreshToken;
+          setToken(nextAccessToken);
+          refreshTokenRef.current = rotatedRefreshToken;
+
+          await secureSetItem("accessToken", nextAccessToken);
+          await AsyncStorage.setItem("currentUserToken", nextAccessToken);
+
+          if (remembered) {
+            await secureSetItem("refreshToken", rotatedRefreshToken);
+            await AsyncStorage.setItem("refreshToken", rotatedRefreshToken);
+          } else {
+            await AsyncStorage.removeItem("refreshToken");
+            await secureDeleteItem("refreshToken");
+          }
+          return nextAccessToken;
+        }
+
+        lastError = data?.message || `Refresh failed (${response.status})`;
       }
 
-      setUser(null);
-      await clearStoredAuth();
+      throw new Error(lastError);
     } catch (err) {
-      console.error("Failed to remove user:", err);
-    } finally {
-      setLoading(false);
+      const refreshMessage = String(err?.message || "");
+      const isInvalidRefreshToken =
+        refreshMessage.toLowerCase().includes("invalid refresh token") ||
+        refreshMessage.toLowerCase().includes("refresh token");
+
+      if (!refreshFailureLoggedRef.current) {
+        if (isInvalidRefreshToken) {
+          console.log("Session refresh skipped: stored refresh token is no longer valid.");
+        } else {
+          console.warn("Silent refresh failed:", refreshMessage);
+        }
+        refreshFailureLoggedRef.current = true;
+      }
+
+      // Stale/invalid refresh token should be cleared locally to stop retry loops.
+      if (isInvalidRefreshToken) {
+        setUser(null);
+        setToken(null);
+        setRememberMePreference(false);
+        refreshTokenRef.current = null;
+        await clearStoredAuth();
+      } else {
+        await logoutUser();
+      }
+      return null;
     }
-  };
-
-  const recordActivity = () => {
-    if (!user || Platform.OS === "web") {
-      return;
-    }
-
-    lastActivityAtRef.current = Date.now();
-    setShowSessionTimeoutWarning(false);
-    clearInactivityTimeout();
-
-    warningTimeoutRef.current = setTimeout(() => {
-      startWarningCountdown(WARNING_DURATION_MS / 1000);
-    }, INACTIVITY_LIMIT_MS - WARNING_DURATION_MS);
-
-    inactivityTimeoutRef.current = setTimeout(() => {
-      logoutUser();
-    }, INACTIVITY_LIMIT_MS);
-  };
-
-  const continueSession = () => {
-    recordActivity();
-  };
+  }, [clearStoredAuth, getSessionMeta, logoutUser]);
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadPersistedAuth = async () => {
       try {
-        let storedUser;
-        let storedToken;
+        const remembered = (await AsyncStorage.getItem("rememberMe")) === "true";
+        setRememberMePreference(remembered);
 
-        if (Platform.OS === "web") {
-          storedUser = localStorage.getItem("currentUser");
-          storedToken = localStorage.getItem("currentUserToken");
-        } else {
-          const result = await AsyncStorage.multiGet([
-            "currentUser",
-            "currentUserToken",
-          ]);
-          storedUser = result[0][1];
-          storedToken = result[1][1];
+        const storedUser = await AsyncStorage.getItem("currentUser");
+        const accessToken = await AsyncStorage.getItem("currentUserToken");
+        const persistedRefreshToken = remembered
+          ? (await AsyncStorage.getItem("refreshToken")) ||
+            (await secureGetItem("refreshToken"))
+          : null;
+
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+        if (accessToken) {
+          setToken(accessToken);
         }
 
-        if (!storedUser || !storedToken) {
-          setUser(null);
-          return;
+        refreshTokenRef.current = persistedRefreshToken;
+
+        if (storedUser && (accessToken || persistedRefreshToken)) {
+          if (persistedRefreshToken) {
+            await refreshSession();
+          }
         }
-
-        if (!isTokenValid(storedToken)) {
-          await clearStoredAuth();
-          setUser(null);
-          return;
-        }
-
-        const parsedUser = JSON.parse(storedUser);
-        setUser(normalizeUser(parsedUser));
-
-        scheduleTokenExpiryLogout(storedToken);
       } catch (err) {
-        console.error("Session restore failed:", err);
-        setUser(null);
+        console.error("Bootstrap failed", err);
       } finally {
         setLoading(false);
       }
     };
+    loadPersistedAuth();
+  }, [refreshSession]);
 
-    loadUser();
-  }, []);
+  const loginUser = async ({
+    user: userData,
+    accessToken,
+    refreshToken,
+    rememberMe = false,
+  }) => {
+    try {
+      setUser(userData);
+      setToken(accessToken);
+      setRememberMePreference(Boolean(rememberMe));
 
-  useEffect(() => {
-    if (Platform.OS === "web") {
-      return undefined;
-    }
+      await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
+      await AsyncStorage.setItem("currentUserToken", accessToken);
+      await secureSetItem("accessToken", accessToken);
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+      await persistSessionMeta({
+        base: userData?.base,
+        sessionId: userData?.sessionId,
+      });
+      refreshFailureLoggedRef.current = false;
 
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      const previousState = appStateRef.current;
-      appStateRef.current = nextAppState;
-
-      if (!user) {
-        clearInactivityTimeout();
-        return;
+      refreshTokenRef.current = refreshToken || null;
+      if (refreshToken && rememberMe) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+        await secureSetItem("refreshToken", refreshToken);
+      } else {
+        await AsyncStorage.removeItem("refreshToken");
+        await secureDeleteItem("refreshToken");
       }
-
-      if (
-        previousState.match(/inactive|background/) &&
-        nextAppState === "active"
-      ) {
-        const elapsed = Date.now() - lastActivityAtRef.current;
-        if (elapsed >= INACTIVITY_LIMIT_MS) {
-          logoutUser();
-          return;
-        }
-
-        if (elapsed >= INACTIVITY_LIMIT_MS - WARNING_DURATION_MS) {
-          const remainingSeconds = Math.ceil(
-            (INACTIVITY_LIMIT_MS - elapsed) / 1000,
-          );
-          startWarningCountdown(remainingSeconds);
-          inactivityTimeoutRef.current = setTimeout(() => {
-            logoutUser();
-          }, INACTIVITY_LIMIT_MS - elapsed);
-          return;
-        }
-
-        recordActivity();
-        return;
-      }
-
-      if (nextAppState.match(/inactive|background/)) {
-        clearInactivityTimeout();
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [user]);
-
-  useEffect(() => {
-    if (!user || Platform.OS === "web") {
-      clearInactivityTimeout();
-      return undefined;
+    } catch (e) {
+      console.error("Login storage error", e);
     }
-
-    recordActivity();
-
-    return () => {
-      clearInactivityTimeout();
-    };
-  }, [user]);
-
-  // Login
-  const loginUser = async (userData, token) => {
-    if (!token) {
-      console.error("No token provided");
-      return;
-    }
-
-    const normalizedUser = normalizeUser({
-      ...userData,
-      isOnline: true,
-      online: true,
-      platform: "mobile",
-    }); // keep case
-    setUser(normalizedUser); // update state immediately
-
-    if (Platform.OS === "web") {
-      localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
-      localStorage.setItem("currentUserToken", token);
-      localStorage.setItem(
-        "authSessionMeta",
-        JSON.stringify({
-          base: normalizedUser.base || "UNKNOWN",
-          sessionId: normalizedUser.sessionId || null,
-          platform: "MOBILE",
-        }),
-      );
-    } else {
-      await AsyncStorage.multiSet([
-        ["currentUser", JSON.stringify(normalizedUser)],
-        ["currentUserToken", token],
-        [
-          "authSessionMeta",
-          JSON.stringify({
-            base: normalizedUser.base || "UNKNOWN",
-            sessionId: normalizedUser.sessionId || null,
-            platform: "MOBILE",
-          }),
-        ],
-      ]).catch(console.error);
-    }
-
-    lastActivityAtRef.current = Date.now();
-    scheduleTokenExpiryLogout(token);
   };
 
-  useEffect(() => {
-    return () => {
-      clearInactivityTimeout();
-      clearTokenExpiryTimeout();
-    };
-  }, []);
+  const updateRememberMePreference = async (
+    rememberMe,
+    { revokePersistentTokens = false } = {},
+  ) => {
+    const accessToken = token || (await AsyncStorage.getItem("currentUserToken"));
+    const refreshToken =
+      refreshTokenRef.current ||
+      (await AsyncStorage.getItem("refreshToken")) ||
+      (await secureGetItem("refreshToken"));
+    if (!accessToken || !refreshToken) {
+      throw new Error("No active session to update");
+    }
+
+    const sessionMeta = await getSessionMeta();
+    const response = await fetch(`${API_BASE}/api/user/session-preference`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "x-platform": "MOBILE",
+        ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+        ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+      },
+      body: JSON.stringify({
+        rememberMe,
+        revokePersistentTokens,
+        refreshToken,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.message || "Failed to update remember me");
+    }
+
+    const nextRefreshToken = payload?.refreshToken || refreshToken;
+    refreshTokenRef.current = nextRefreshToken;
+    setRememberMePreference(rememberMe);
+    await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+
+    if (rememberMe) {
+      await AsyncStorage.setItem("refreshToken", nextRefreshToken);
+      await secureSetItem("refreshToken", nextRefreshToken);
+    } else {
+      await AsyncStorage.removeItem("refreshToken");
+      await secureDeleteItem("refreshToken");
+    }
+    return payload;
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        setUser,
+        token,
         loginUser,
         logoutUser,
-        recordActivity,
-        continueSession,
-        showSessionTimeoutWarning,
-        warningSecondsRemaining,
         loading,
+        refreshSession,
+        rememberMePreference,
+        updateRememberMePreference,
       }}
     >
       {children}

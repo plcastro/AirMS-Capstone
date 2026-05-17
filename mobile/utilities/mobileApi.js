@@ -5,6 +5,7 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
 
   return {
     ...extraHeaders,
+    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };

@@ -15,7 +15,17 @@ export default function LoginLayout({
   const isMobile = !screens.md;
 
   return (
-    <>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: isMobile ? "100%" : 560,
+        margin: "0 auto",
+        paddingLeft: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 8 : 20,
+        paddingBottom: isMobile ? 8 : 20,
+      }}
+    >
       <Row align="middle" justify="center">
         <Space orientation="vertical" size="small">
           <Col span={24} style={{ display: "flex", justifyContent: "center" }}>
@@ -55,6 +65,6 @@ export default function LoginLayout({
       </Row>
 
       {children}
-    </>
+    </div>
   );
 }

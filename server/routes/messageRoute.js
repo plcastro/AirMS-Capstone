@@ -10,6 +10,7 @@ const {
 const {
   getMessageUsers,
   getConversations,
+  getMessageSummary,
   createGroupConversation,
   getThread,
   sendMessage,
@@ -19,6 +20,7 @@ router.use(verifyToken);
 
 router.get("/users", getMessageUsers);
 router.get("/conversations", getConversations);
+router.get("/summary", getMessageSummary);
 router.post("/groups", touchSessionActivity, createGroupConversation);
 router.get("/:otherUserId", getThread);
 router.post(
