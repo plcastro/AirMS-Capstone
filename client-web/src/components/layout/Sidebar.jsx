@@ -319,7 +319,6 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   const routeToKey = useMemo(
     () => ({
-      // "/dashboard/user-management/admin-dashboard": "1",
       "/dashboard/user-management/view-users": "1",
       "/dashboard/user-management/activity-logs": "2",
       "/dashboard/flight-log": "3",

@@ -38,7 +38,6 @@ const UserManagement = lazy(
 const UserLogs = lazy(
   () => import("./pages/dashboard/user-management/UserLogs"),
 );
-
 const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
