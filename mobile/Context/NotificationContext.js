@@ -53,9 +53,14 @@ export const NotificationContext = createContext({
 
 const getStoredToken = async () => {
   if (Platform.OS === "web") {
-    return window.localStorage.getItem("currentUserToken");
+    const token = window.localStorage.getItem("currentUserToken");
+    console.log("Fetching stored token:", token);
+    return token;
   }
-  return AsyncStorage.getItem("currentUserToken");
+
+  const token = await AsyncStorage.getItem("currentUserToken");
+  console.log("Fetching stored token:", token);
+  return token;
 };
 
 const buildWsUrl = (token) => {
@@ -230,6 +235,7 @@ export function NotificationProvider({ children }) {
     userId: "",
     deviceId: "",
     expoPushToken: "",
+    fcmToken: "",
   });
 
   const isExpoGo = Constants?.appOwnership === "expo";
@@ -377,13 +383,24 @@ export function NotificationProvider({ children }) {
       const expoPushToken = projectId
         ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
         : (await Notifications.getExpoPushTokenAsync()).data;
+      let fcmToken = null;
+      try {
+        const devicePushToken = await Notifications.getDevicePushTokenAsync();
+        fcmToken =
+          devicePushToken?.type === "fcm" ? devicePushToken.data : null;
+      } catch (fcmError) {
+        console.warn("FCM token fetch failed:", fcmError);
+      }
+      console.log("Expo token:", expoPushToken);
+      console.log("FCM token:", fcmToken);
       const deviceId = await getDeviceInstallationId();
 
       const cached = lastRegisteredPushRef.current;
       if (
         cached.userId === String(user.id) &&
         cached.deviceId === deviceId &&
-        cached.expoPushToken === expoPushToken
+        cached.expoPushToken === expoPushToken &&
+        cached.fcmToken === (fcmToken || "")
       ) {
         log("push-register:dedup-hit");
         return;
@@ -400,6 +417,7 @@ export function NotificationProvider({ children }) {
           body: JSON.stringify({
             deviceId,
             expoPushToken,
+            fcmToken,
             platform: Platform.OS,
           }),
         },
@@ -417,6 +435,7 @@ export function NotificationProvider({ children }) {
         userId: String(user.id),
         deviceId,
         expoPushToken,
+        fcmToken: fcmToken || "",
       };
       log("push-register:success");
     } catch (error) {
