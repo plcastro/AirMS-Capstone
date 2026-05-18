@@ -53,7 +53,7 @@
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       }
     }
   }

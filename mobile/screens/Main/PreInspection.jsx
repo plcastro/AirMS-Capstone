@@ -30,6 +30,9 @@ const getDisplayStatus = (status) =>
       ? "released"
       : "pending";
 
+const isCompletedInspection = (inspection) =>
+  String(inspection?.status || "").toLowerCase() === "completed";
+
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
   const targetPreInspectionId = route?.params?.targetPreInspectionId;
@@ -436,6 +439,13 @@ export default function PreInspection({ route }) {
         }}
         onSave={async (updatedInspection) => {
           try {
+            if (isCompletedInspection(selectedInspection)) {
+              showToast("Completed pre-inspections are view-only.");
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              return;
+            }
+
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
               `${API_BASE}/api/pre-inspections/updatePreInspectionById/${updatedInspection._id}`,
@@ -473,6 +483,7 @@ export default function PreInspection({ route }) {
           }
         }}
         userRole={userRole}
+        readOnly={isCompletedInspection(selectedInspection)}
       />
       <AlertComp
         visible={exportAlert.visible}
