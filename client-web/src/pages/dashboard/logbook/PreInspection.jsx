@@ -25,7 +25,12 @@ import {
   Grid,
   message,
 } from "antd";
-import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  CheckOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -432,11 +437,21 @@ export default function PreInspection() {
   );
   const canAccept = role === "pilot";
   const getDisplayStatus = (value) =>
-    value === "completed"
+    String(value || "").toLowerCase() === "completed"
       ? "completed"
-      : value === "released"
+      : String(value || "").toLowerCase() === "released"
         ? "released"
         : "pending";
+  const isCompletedInspection = (record) =>
+    getDisplayStatus(record?.status) === "completed";
+  const isAcceptableByPilot = (record) =>
+    canAccept &&
+    getDisplayStatus(record?.status) === "released" &&
+    !record?.acceptedBy?.name;
+  const isRecordReadOnly = (record) =>
+    readOnly || isCompletedInspection(record) || getDisplayStatus(record?.status) === "released";
+  const getRecordActionLabel = (record) =>
+    isAcceptableByPilot(record) ? "Accept" : "View";
 
   const load = useCallback(async () => {
     try {
@@ -555,6 +570,8 @@ export default function PreInspection() {
       ),
     [editing],
   );
+  const editingReadOnly = editing ? isRecordReadOnly(editing) : readOnly;
+  const editingCanAccept = editing ? isAcceptableByPilot(editing) : false;
 
   const saveCreate = async () => {
     if (
@@ -606,6 +623,10 @@ export default function PreInspection() {
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
+    if (isCompletedInspection(nextPayload)) {
+      message.info("Completed pre-inspections are view-only.");
+      return;
+    }
     if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
       message.warning("RP/C and aircraft type are required");
       return;
@@ -803,10 +824,16 @@ export default function PreInspection() {
             title: "Action",
             render: (_, record) => (
               <Button
-                icon={<EditOutlined />}
+                icon={
+                  isAcceptableByPilot(record) ? (
+                    <CheckOutlined />
+                  ) : (
+                    <EyeOutlined />
+                  )
+                }
                 onClick={() => setEditing(record)}
               >
-                {readOnly ? "View" : "Edit"}
+                {getRecordActionLabel(record)}
               </Button>
             ),
           },
@@ -1013,9 +1040,17 @@ export default function PreInspection() {
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
-        okButtonProps={{ disabled: readOnly }}
-        title={readOnly ? "View Pre-Inspection" : "Edit Pre-Inspection"}
+        okButtonProps={{
+          disabled: editingReadOnly,
+          style: { display: editingReadOnly ? "none" : undefined },
+        }}
+        title={
+          editingCanAccept
+            ? "Accept Pre-Inspection"
+            : "View Pre-Inspection"
+        }
         okText="Save"
+        cancelText="Close"
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         styles={{
@@ -1045,7 +1080,7 @@ export default function PreInspection() {
                     value: rpc,
                     label: rpc,
                   }))}
-                  disabled={readOnly}
+                  disabled={editingReadOnly}
                 />
               </Col>
               <Col xs={24} md={8}>
@@ -1061,7 +1096,7 @@ export default function PreInspection() {
                       aircraftType: e.target.value,
                     }))
                   }
-                  disabled={readOnly}
+                  disabled={editingReadOnly}
                 />
               </Col>
               <Col xs={24} md={8}>
@@ -1081,7 +1116,7 @@ export default function PreInspection() {
                       date: date ? formatDate(date) : "",
                     }))
                   }
-                  disabled={readOnly}
+                  disabled={editingReadOnly}
                 />
               </Col>
             </Row>
@@ -1104,7 +1139,7 @@ export default function PreInspection() {
                 <Col xs={24} md={12} lg={8} key={field}>
                   <Checkbox
                     checked={Boolean(editing[field])}
-                    disabled={readOnly}
+                    disabled={editingReadOnly}
                     onChange={(e) =>
                       setEditing((prev) => ({
                         ...prev,
@@ -1121,7 +1156,8 @@ export default function PreInspection() {
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
               {canRelease &&
                 editing.status === "pending" &&
-                !editing.releasedBy?.name && (
+                !editing.releasedBy?.name &&
+                !editingReadOnly && (
                   <Button
                     type="primary"
                     onClick={() => setSignatureMode("release")}
