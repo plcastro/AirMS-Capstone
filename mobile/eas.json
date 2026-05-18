@@ -7,6 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCLPi72eCaAapcxwjAKavgyOWBdokDNsBo",
@@ -23,6 +24,7 @@
     },
     "preview": {
       "env": {
+        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCLPi72eCaAapcxwjAKavgyOWBdokDNsBo",
@@ -39,6 +41,7 @@
     },
     "production": {
       "env": {
+        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCLPi72eCaAapcxwjAKavgyOWBdokDNsBo",
