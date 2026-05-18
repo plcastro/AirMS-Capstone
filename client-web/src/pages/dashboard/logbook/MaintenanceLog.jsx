@@ -17,7 +17,9 @@ const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
 
 const formatPdfValue = (value, fallback = "") =>
-  value === null || value === undefined || value === "" ? fallback : String(value);
+  value === null || value === undefined || value === ""
+    ? fallback
+    : String(value);
 
 const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
   String(value || fallback)
@@ -71,7 +73,16 @@ const drawTextInBox = (doc, text, x, y, width, height, options = {}) => {
   doc.text(lines, textX, textY, { align });
 };
 
-const drawLabeledRow = (doc, label, value, x, y, labelWidth, valueWidth, rowHeight) => {
+const drawLabeledRow = (
+  doc,
+  label,
+  value,
+  x,
+  y,
+  labelWidth,
+  valueWidth,
+  rowHeight,
+) => {
   doc.rect(x, y, labelWidth, rowHeight);
   doc.rect(x + labelWidth, y, valueWidth, rowHeight);
   drawTextInBox(doc, label, x, y, labelWidth, rowHeight, {
@@ -85,7 +96,12 @@ const drawLabeledRow = (doc, label, value, x, y, labelWidth, valueWidth, rowHeig
   });
 };
 
-const drawMaintenanceReportHeader = (doc, record, aircraftData, logoDataUrl) => {
+const drawMaintenanceReportHeader = (
+  doc,
+  record,
+  aircraftData,
+  logoDataUrl,
+) => {
   const marginX = 28;
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - marginX * 2;
@@ -139,12 +155,21 @@ const drawMaintenanceReportHeader = (doc, record, aircraftData, logoDataUrl) => 
 
   doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", centerX + 10, metadataY + 4, centerWidth - 20, 38);
+    doc.addImage(
+      logoDataUrl,
+      "PNG",
+      centerX + 10,
+      metadataY + 4,
+      centerWidth - 20,
+      38,
+    );
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(32);
     doc.setTextColor(4, 100, 64);
-    doc.text("NGCP", centerX + centerWidth / 2, metadataY + 34, { align: "center" });
+    doc.text("NGCP", centerX + centerWidth / 2, metadataY + 34, {
+      align: "center",
+    });
     doc.setTextColor(0);
   }
 
@@ -175,11 +200,19 @@ const drawMaintenanceReportHeader = (doc, record, aircraftData, logoDataUrl) => 
 
   const descriptionY = reportTitleY + 32;
   doc.rect(marginX, descriptionY, contentWidth, 16);
-  drawTextInBox(doc, "DESCRIPTION OF WORK:", marginX, descriptionY, contentWidth, 16, {
-    bold: true,
-    fontSize: 9,
-    padding: 2,
-  });
+  drawTextInBox(
+    doc,
+    "DESCRIPTION OF WORK:",
+    marginX,
+    descriptionY,
+    contentWidth,
+    16,
+    {
+      bold: true,
+      fontSize: 9,
+      padding: 2,
+    },
+  );
 
   return {
     startY: descriptionY + 16,
@@ -435,9 +468,15 @@ export default function MaintenanceLog() {
         `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
       );
       const bodyRows = (
-        Array.isArray(selectedWO.workDetails) && selectedWO.workDetails.length > 0
+        Array.isArray(selectedWO.workDetails) &&
+        selectedWO.workDetails.length > 0
           ? selectedWO.workDetails
-          : [{ description: selectedWO.correctiveActionDone || selectedWO.defects || "" }]
+          : [
+              {
+                description:
+                  selectedWO.correctiveActionDone || selectedWO.defects || "",
+              },
+            ]
       )
         .map((item) => formatPdfValue(item?.description || item, "").trim())
         .filter(Boolean)
@@ -452,7 +491,11 @@ export default function MaintenanceLog() {
         startY: header.startY,
         body: bodyRows.length ? bodyRows : [["", ""]],
         theme: "grid",
-        margin: { left: header.marginX, right: header.marginX, top: header.startY },
+        margin: {
+          left: header.marginX,
+          right: header.marginX,
+          top: header.startY,
+        },
         tableWidth: header.contentWidth,
         showHead: "never",
         styles: {
@@ -496,7 +539,7 @@ export default function MaintenanceLog() {
           >
             <Row gutter={[12, 12]} align="middle" justify="space-between">
               <Col xs={24} md={10}>
-                <Space direction="vertical" size={2}>
+                <Space orientation="vertical" size={2}>
                   <Text type="secondary" style={{ letterSpacing: 0.3 }}>
                     MAINTENANCE LOGBOOK
                   </Text>
@@ -528,7 +571,9 @@ export default function MaintenanceLog() {
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     Aircraft
                   </Text>
-                  <div style={{ fontWeight: 700, color: "#1f5f49", fontSize: 18 }}>
+                  <div
+                    style={{ fontWeight: 700, color: "#1f5f49", fontSize: 18 }}
+                  >
                     {uniqueAircraft.length}
                   </div>
                 </div>
@@ -653,7 +698,10 @@ export default function MaintenanceLog() {
                   >
                     MAINTENANCE SNAPSHOT
                   </Text>
-                  <Title level={3} style={{ margin: "4px 0 2px", color: "#fff" }}>
+                  <Title
+                    level={3}
+                    style={{ margin: "4px 0 2px", color: "#fff" }}
+                  >
                     {selectedAircraft?.aircraft || "N/A"}
                   </Title>
                   <Text style={{ color: "rgba(255,255,255,0.88)" }}>
@@ -770,12 +818,21 @@ export default function MaintenanceLog() {
                   <MLogTable
                     headers={[
                       { title: "W.O. #", key: "id", width: "20%" },
-                      { title: "DATE", key: "dateDefectRectified", width: "30%" },
+                      {
+                        title: "DATE",
+                        key: "dateDefectRectified",
+                        width: "30%",
+                      },
                     ]}
                     data={(selectedAircraft?.entries || []).map((entry) => ({
                       ...entry,
                       id: (
-                        <span style={{ display: "inline-flex", alignItems: "center" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                          }}
+                        >
                           {entry.id || "N/A"}
                           {!seenLogIds.has(getLogStableId(entry))
                             ? buildNewBadge()

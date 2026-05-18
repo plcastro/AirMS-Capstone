@@ -265,7 +265,7 @@ export default function UpdateSecurity() {
                     : "error"
                 }
                 showIcon
-                message={validationMessage}
+                title={validationMessage}
               />
             )}
           </Space>

@@ -86,7 +86,7 @@ export default function GeneralReports({
             <Statistic
               title="Completed / Closed"
               value={rows.reduce((s, r) => s + r.completed, 0)}
-              valueStyle={{ color: "#26866f" }}
+              styles={{ content: { color: "#26866f" } }}
             />
           </Card>
         </Col>
@@ -95,7 +95,7 @@ export default function GeneralReports({
             <Statistic
               title="Open / Pending"
               value={rows.reduce((s, r) => s + (r.total - r.completed), 0)}
-              valueStyle={{ color: "#d46b08" }}
+              styles={{ content: { color: "#d46b08" } }}
             />
           </Card>
         </Col>
@@ -131,4 +131,3 @@ export default function GeneralReports({
     </div>
   );
 }
-

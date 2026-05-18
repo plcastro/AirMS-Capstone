@@ -3,8 +3,8 @@ import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
-const WARNING_DURATION_MS = 10 * 60 * 1000;
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+const WARNING_DURATION_MS = 2 * 60 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
@@ -120,16 +120,18 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   };
-  const persistSessionTiming = (token, source = "unknown") => {
+  const persistSessionTiming = (token, source = "unknown", options = {}) => {
+    const { restartFullWindow = false } = options;
     const now = Date.now();
-    const expiresAt = getTokenExpiryTime(token);
+    const tokenExpiresAt = getTokenExpiryTime(token);
+    const expiresAt = restartFullWindow
+      ? now + INACTIVITY_LIMIT_MS
+      : tokenExpiresAt || now + INACTIVITY_LIMIT_MS;
     const payload = {
       source,
       startedAt: now,
-      expiresAt: expiresAt || null,
-      remainingSeconds: expiresAt
-        ? Math.max(0, Math.floor((expiresAt - now) / 1000))
-        : null,
+      expiresAt,
+      remainingSeconds: Math.max(0, Math.floor((expiresAt - now) / 1000)),
       updatedAt: now,
     };
     sessionStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
@@ -197,7 +199,9 @@ export const AuthProvider = ({ children }) => {
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-      ...(sessionMeta.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
     };
   };
 
@@ -217,7 +221,8 @@ export const AuthProvider = ({ children }) => {
     } catch {
       throw new Error("Failed to refresh token (invalid response)");
     }
-    if (!response.ok) throw new Error(data?.message || "Failed to refresh token");
+    if (!response.ok)
+      throw new Error(data?.message || "Failed to refresh token");
     if (!data.token) throw new Error("No token received");
 
     sessionStorage.setItem("token", data.token);
@@ -317,7 +322,9 @@ export const AuthProvider = ({ children }) => {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${currentToken}`,
-        ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+        ...(sessionMeta?.sessionId
+          ? { "x-session-id": sessionMeta.sessionId }
+          : {}),
         ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
         "x-platform": "WEB",
       },
@@ -326,10 +333,13 @@ export const AuthProvider = ({ children }) => {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload?.message || "Failed to update session preference");
+      throw new Error(
+        payload?.message || "Failed to update session preference",
+      );
     }
 
-    const tokenToKeep = sessionStorage.getItem("token") || localStorage.getItem("token");
+    const tokenToKeep =
+      sessionStorage.getItem("token") || localStorage.getItem("token");
     if (rememberMe) {
       localStorage.setItem(REMEMBER_ME_KEY, "true");
       if (user) localStorage.setItem("currentUser", JSON.stringify(user));
@@ -413,7 +423,8 @@ export const AuthProvider = ({ children }) => {
         setRememberMePreferenceState(remembered);
 
         let storedUser =
-          sessionStorage.getItem("currentUser") || localStorage.getItem("currentUser");
+          sessionStorage.getItem("currentUser") ||
+          localStorage.getItem("currentUser");
         let token = getStoredToken();
 
         if (!storedUser && !token) {
@@ -428,7 +439,7 @@ export const AuthProvider = ({ children }) => {
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
           setUser(normalizeUser(parsedUser));
-          persistSessionTiming(token, "restore");
+          persistSessionTiming(token, "restore", { restartFullWindow: true });
           scheduleTokenExpiryLogout(token, logoutUser);
           return;
         }
@@ -449,11 +460,19 @@ export const AuthProvider = ({ children }) => {
               }
             : null);
 
-        setUser(normalizedFromToken ? normalizeUser(normalizedFromToken) : null);
+        setUser(
+          normalizedFromToken ? normalizeUser(normalizedFromToken) : null,
+        );
         if (normalizedFromToken) {
-          persistAuthState(normalizeUser(normalizedFromToken), token, remembered);
+          persistAuthState(
+            normalizeUser(normalizedFromToken),
+            token,
+            remembered,
+          );
         }
-        persistSessionTiming(token, "restore-refresh");
+        persistSessionTiming(token, "restore-refresh", {
+          restartFullWindow: true,
+        });
         scheduleTokenExpiryLogout(token, logoutUser);
       } catch (err) {
         console.error("Auth load error:", err);
@@ -481,7 +500,9 @@ export const AuthProvider = ({ children }) => {
       "touchstart",
       "click",
     ];
-    events.forEach((eventName) => window.addEventListener(eventName, recordActivity));
+    events.forEach((eventName) =>
+      window.addEventListener(eventName, recordActivity),
+    );
     return () => {
       events.forEach((eventName) =>
         window.removeEventListener(eventName, recordActivity),

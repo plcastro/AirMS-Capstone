@@ -68,6 +68,12 @@ const sanitizeActionText = (rawAction, username) => {
     );
   }
 
+  // Remove API endpoint fragments from stored audit messages.
+  action = action
+    .replace(/\b(?:GET|POST|PUT|PATCH|DELETE)\s+\/api\/[^\s)]+/gi, "")
+    .replace(/\b\/api\/[^\s)]+/gi, "")
+    .replace(/\s{2,}/g, " ");
+
   action = action
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.;:])/g, "$1")

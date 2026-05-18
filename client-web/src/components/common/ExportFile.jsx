@@ -4,12 +4,7 @@ import html2canvas from "html2canvas";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import {
-  mhistorydata,
-  summarydata,
-  componentData,
-  PACChartMock,
-} from "./MockData";
+
 import { message } from "antd";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
@@ -55,7 +50,10 @@ const flattenRecord = (value, prefix = "") => {
     }
 
     return value.flatMap((item, index) =>
-      flattenRecord(item, prefix ? `${prefix} ${index + 1}` : `Item ${index + 1}`),
+      flattenRecord(
+        item,
+        prefix ? `${prefix} ${index + 1}` : `Item ${index + 1}`,
+      ),
     );
   }
 
@@ -112,7 +110,9 @@ const FLIGHT_LOG_WORD_TEMPLATE_PATH = "/templates/AIRCRAFT-FLIGHT-LOG.docx";
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 
 const flightValue = (value, fallback = "") =>
-  value === null || value === undefined || value === "" ? fallback : String(value);
+  value === null || value === undefined || value === ""
+    ? fallback
+    : String(value);
 
 const formatFlightLogDate = (value) => {
   if (!value) return "";
@@ -135,9 +135,7 @@ const getStationText = (leg = {}) => {
   }
 
   return leg.stations
-    .map((station) =>
-      [station?.from, station?.to].filter(Boolean).join(" - "),
-    )
+    .map((station) => [station?.from, station?.to].filter(Boolean).join(" - "))
     .filter(Boolean)
     .join(" / ");
 };
@@ -146,7 +144,10 @@ const getComponentSection = (record = {}, sectionKey) =>
   record?.componentData?.[sectionKey] || {};
 
 const fitRows = (items = [], count, emptyFactory) =>
-  Array.from({ length: count }, (_, index) => items[index] || emptyFactory(index));
+  Array.from(
+    { length: count },
+    (_, index) => items[index] || emptyFactory(index),
+  );
 
 const escapeWordXml = (value) =>
   flightValue(value)
@@ -183,7 +184,13 @@ const replaceWordTableRowCells = (rowXml, values = [], startCell = 0) => {
   return `${openingTag}${cells.join("")}</w:tr>`;
 };
 
-const replaceWordTableCells = (documentXml, tableIndex, rowIndex, values, startCell = 0) => {
+const replaceWordTableCells = (
+  documentXml,
+  tableIndex,
+  rowIndex,
+  values,
+  startCell = 0,
+) => {
   const tables = Array.from(documentXml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g));
   const tableMatch = tables[tableIndex];
   if (!tableMatch) return documentXml;
@@ -226,7 +233,8 @@ const getImageFormatFromDataUrl = (dataUrl = "") => {
 };
 
 const isDrawableSignature = (value) =>
-  typeof value === "string" && /^data:image\/(png|jpe?g|webp);base64,/i.test(value);
+  typeof value === "string" &&
+  /^data:image\/(png|jpe?g|webp);base64,/i.test(value);
 
 const drawSignatureInCell = (doc, cell, signature, options = {}) => {
   if (!isDrawableSignature(signature)) return;
@@ -238,7 +246,10 @@ const drawSignatureInCell = (doc, cell, signature, options = {}) => {
     maxWidth = cell.width - horizontalPadding * 2,
   } = options;
 
-  const imageWidth = Math.max(16, Math.min(maxWidth, cell.width - horizontalPadding * 2));
+  const imageWidth = Math.max(
+    16,
+    Math.min(maxWidth, cell.width - horizontalPadding * 2),
+  );
   const imageX = cell.x + (cell.width - imageWidth) / 2;
   const imageY = cell.y + topOffset;
 
@@ -355,25 +366,27 @@ export const exportFlightLogToWordTemplate = async (record = {}) => {
       0,
     );
 
-    fitRows(record.fuelServicing || [], 4, () => ({})).forEach((fuel, index) => {
-      documentXml = replaceWordTableCells(
-        documentXml,
-        3,
-        index + 2,
-        [
-          FLIGHT_LEG_LABELS[index],
-          formatFlightLogDate(fuel.date),
-          flightValue(fuel.contCheck),
-          flightValue(fuel.mainRemG),
-          flightValue(fuel.mainAdd),
-          flightValue(fuel.mainTotal),
-          fuel.fuelType === "drum" ? "/" : "",
-          fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : "",
-          flightValue(fuel.refuelerName),
-        ],
-        0,
-      );
-    });
+    fitRows(record.fuelServicing || [], 4, () => ({})).forEach(
+      (fuel, index) => {
+        documentXml = replaceWordTableCells(
+          documentXml,
+          3,
+          index + 2,
+          [
+            FLIGHT_LEG_LABELS[index],
+            formatFlightLogDate(fuel.date),
+            flightValue(fuel.contCheck),
+            flightValue(fuel.mainRemG),
+            flightValue(fuel.mainAdd),
+            flightValue(fuel.mainTotal),
+            fuel.fuelType === "drum" ? "/" : "",
+            fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : "",
+            flightValue(fuel.refuelerName),
+          ],
+          0,
+        );
+      },
+    );
 
     fitRows(record.oilServicing || [], 4, () => ({})).forEach((oil, index) => {
       documentXml = replaceWordTableCells(
@@ -554,7 +567,10 @@ export const exportFlightLogToPDF = async (record = {}) => {
     autoTable(doc, {
       ...flightTableTheme,
       startY: doc.lastAutoTable.finalY + 8,
-      head: [[{ content: "PASSENGERS", colSpan: 9 }], ["DATE", ...PASSENGER_LEG_LABELS]],
+      head: [
+        [{ content: "PASSENGERS", colSpan: 9 }],
+        ["DATE", ...PASSENGER_LEG_LABELS],
+      ],
       body: Array.from({ length: 4 }, (_, rowIndex) => [
         rowIndex === 0 ? formatFlightLogDate(record.date) : "",
         ...PASSENGER_LEG_LABELS.map((_, legIndex) =>

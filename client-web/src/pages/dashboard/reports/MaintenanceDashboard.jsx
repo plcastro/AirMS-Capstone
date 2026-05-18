@@ -1374,6 +1374,7 @@ export default function MaintenanceDashboard() {
             <Table
               columns={taskDetailColumns}
               dataSource={taskDetailRows}
+              rowKey={(record) => record.key}
               loading={loadingTasks}
               pagination={{
                 pageSize: 5,
@@ -1397,6 +1398,7 @@ export default function MaintenanceDashboard() {
               key: `d-${row.label}`,
               ...row,
             }))}
+            rowKey={(record) => record.key}
             pagination={{ pageSize: 6 }}
           />
         )}
@@ -1411,6 +1413,7 @@ export default function MaintenanceDashboard() {
               key: `r-${row.label}`,
               ...row,
             }))}
+            rowKey={(record) => record.key}
             pagination={{ pageSize: 6 }}
           />
         )}
@@ -1431,6 +1434,7 @@ export default function MaintenanceDashboard() {
               },
             ]}
             dataSource={baseByRectificationRows}
+            rowKey={(record) => record.key}
             pagination={{ pageSize: 6 }}
           />
         )}
@@ -1451,6 +1455,7 @@ export default function MaintenanceDashboard() {
               },
             ]}
             dataSource={baseBySameDayRows}
+            rowKey={(record) => record.key}
             pagination={{ pageSize: 6 }}
           />
         )}
@@ -1462,6 +1467,7 @@ export default function MaintenanceDashboard() {
               { title: "Report Module", dataIndex: "title", key: "title" },
             ]}
             dataSource={moduleRows}
+            rowKey={(record) => record.key}
             pagination={{ pageSize: 8 }}
           />
         )}

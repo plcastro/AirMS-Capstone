@@ -22,6 +22,7 @@ import {
   Tabs,
   Typography,
   DatePicker,
+  Grid,
   message,
 } from "antd";
 import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -32,6 +33,7 @@ import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
 const isValidDate = (value) =>
@@ -173,10 +175,224 @@ const CREATE_FORM_SECTIONS = [
   },
 ];
 
-const toFieldLabel = (field) =>
-  String(field || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+const FIELD_META = {
+  station1_transparentPanels: {
+    title: "Transparent Panels",
+    label: "Condition - Cleanliness",
+  },
+  station1_engineOilCooler: {
+    title: "Engine oil cooler air inlet",
+    label: "Check no obstruction nor debris",
+  },
+  station1_sideSlipIndicator: {
+    title: "Side slip indicator",
+    label: "Condition",
+  },
+  station1_pitotTube: {
+    title: "Pitot tube",
+    label: "Cover removed - Condition",
+  },
+  station1_landingLights: { title: "Landing lights", label: "Condition" },
+  station2_frontDoor: {
+    title: "Front door",
+    label: "Condition jettison system check",
+  },
+  station2_rearDoor: {
+    title: "Rear door",
+    label: "Condition, closed, or opened lock (sliding door)",
+  },
+  station2_leftCargoDoorOpen: { title: "Left cargo door", label: "Open" },
+  station2_loadsObjects: {
+    title: "Loads and objects carried",
+    label: "Secured",
+  },
+  station2_leftCargoDoorClosed: {
+    title: "Left cargo door",
+    label: "Closed, locked",
+  },
+  station2_fuelTank: {
+    title: "Fuel tank and system",
+    label: "Filler plug closed, Tank sump drained",
+  },
+  station1_mgbCowl: { title: "MGB cowl", label: "MGB oil level - Cowl locked" },
+  station1_lowerFairings: {
+    title: "All lower fairings panels",
+    label: "Locked",
+  },
+  station1_landingGear: {
+    title: "Landing gear and footstep",
+    label: "Secure - Visual Check",
+  },
+  station1_staticPorts: {
+    title: "Static ports",
+    label: "Clear, covers removed",
+  },
+  station1_oatSensor: { title: "OAT sensor, antennas", label: "Condition" },
+  station1_mainRotor: {
+    title: "Main rotor head blades",
+    label: "Visual inspection, no impact",
+  },
+  station1_engineAirIntake: {
+    title: "Engine air intake",
+    label: "Clear (water, snow foreign object)",
+  },
+  station1_engineCowl: { title: "Engine cowl", label: "Locked" },
+  station1_exhaustCover: { title: "Exhaust cover", label: "Removed" },
+  station1_rearCargoDoorOpen: { title: "Rear cargo door", label: "Opened" },
+  station1_loadsObjects: {
+    title: "Loads and object carried",
+    label: "Secured",
+  },
+  station1_elt: { title: "ELT", label: "Check ARMED" },
+  station1_rearCargoDoorClosed: {
+    title: "Rear cargo door",
+    label: "Closed, locked",
+  },
+  station1_oilDrain: { title: "Oil drain", label: "No oil under scupper" },
+  station3_heatShield: {
+    title: "Heat shield on tail drive",
+    label: "Condition, attachment",
+  },
+  station3_tailBoom: {
+    title: "Tail boom, antennas",
+    label: "Condition - Fairings fasteners locked",
+  },
+  station3_stabilizer: {
+    title: "Stabilizer, fin, external lights",
+    label: "General condition",
+  },
+  station3_tailRotorGuard: {
+    title: "Tail rotor guard (if fitted)",
+    label: "Condition, attachment",
+  },
+  station3_tgbFairing: {
+    title: "TGB fairing",
+    label: "Secured, fasteners locked",
+  },
+  station3_tgbOilLevel: { title: "TGB oil level", label: "Checked" },
+  station3_tailSkid: { title: "Tail skid", label: "Condition, attachment" },
+  station3_flexibleCoupling: {
+    title: "Flexible Coupling",
+    label: "Visual Check No Crack",
+  },
+  sling_sling: { title: "Sling", label: "Security - General condition" },
+  sling_cablePins: {
+    title: "Cable and Pins",
+    label: "Condition, attachment points",
+  },
+  floats_lhRh: {
+    title: "LH & RH Floats",
+    label: "Security - General Condition",
+  },
+  floats_cylinder: {
+    title: "Cylinder",
+    label: "Pressure & Condition, attachment points",
+  },
+  floats_hoses: { title: "Hoses", label: "Condition, attachment points" },
+  onboard_firstAid: { title: "First Aid Kit", label: "Condition, no expired" },
+  onboard_lifeVest: {
+    title: "Life Vest",
+    label: "Condition, cleanliness & no damage",
+  },
+  onboard_lifeRaft: {
+    title: "Life-raft",
+    label: "Condition, cleanliness & no damage",
+  },
+  onboard_axl: { title: "AXL", label: "Security - General Condition" },
+  onboard_fireExt: {
+    title: "Fire Extinguisher",
+    label: "Security - General Condition",
+  },
+  onboard_certAirworthiness: {
+    title: "Certificate of Airworthiness",
+    label: "Onboard",
+  },
+  onboard_certRegistration: {
+    title: "Certificate of Registration",
+    label: "Onboard",
+  },
+  onboard_radioLicense: { title: "Radio License", label: "Onboard" },
+  onboard_flightLogbook: { title: "Flight Logbook", label: "Onboard" },
+};
+
+const CHECKLIST_GROUPS = {
+  station12: [
+    {
+      title: "Station 1",
+      fields: [
+        "station1_transparentPanels",
+        "station1_engineOilCooler",
+        "station1_sideSlipIndicator",
+        "station1_pitotTube",
+        "station1_landingLights",
+      ],
+    },
+    {
+      title: "Station 2",
+      fields: [
+        "station2_frontDoor",
+        "station2_rearDoor",
+        "station2_leftCargoDoorOpen",
+        "station2_loadsObjects",
+        "station2_leftCargoDoorClosed",
+        "station2_fuelTank",
+        "station1_mgbCowl",
+        "station1_lowerFairings",
+        "station1_landingGear",
+        "station1_staticPorts",
+        "station1_oatSensor",
+        "station1_mainRotor",
+        "station1_engineAirIntake",
+        "station1_engineCowl",
+        "station1_exhaustCover",
+        "station1_rearCargoDoorOpen",
+        "station1_loadsObjects",
+        "station1_elt",
+        "station1_rearCargoDoorClosed",
+        "station1_oilDrain",
+      ],
+    },
+  ],
+  station3sling: [
+    {
+      title: "Station 3",
+      fields: [
+        "station3_heatShield",
+        "station3_tailBoom",
+        "station3_stabilizer",
+        "station3_tailRotorGuard",
+        "station3_tgbFairing",
+        "station3_tgbOilLevel",
+        "station3_tailSkid",
+        "station3_flexibleCoupling",
+      ],
+    },
+    {
+      title: "Sling",
+      fields: ["sling_sling", "sling_cablePins"],
+    },
+  ],
+  floats: [
+    {
+      title: "Floats",
+      fields: ["floats_lhRh", "floats_cylinder", "floats_hoses"],
+    },
+    {
+      title: "Mandatory Onboard",
+      fields: [
+        "onboard_firstAid",
+        "onboard_lifeVest",
+        "onboard_lifeRaft",
+        "onboard_axl",
+        "onboard_fireExt",
+        "onboard_certAirworthiness",
+        "onboard_certRegistration",
+        "onboard_radioLicense",
+        "onboard_flightLogbook",
+      ],
+    },
+  ],
+};
 
 const signaturePayload = (user, signature) => ({
   name:
@@ -189,6 +405,8 @@ const signaturePayload = (user, signature) => ({
 });
 
 export default function PreInspection() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
@@ -202,6 +420,7 @@ export default function PreInspection() {
   const [draft, setDraft] = useState(() => getDefaultPreInspectionDraft(user));
   const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
+  const [createSelectAllState, setCreateSelectAllState] = useState({});
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
@@ -370,6 +589,7 @@ export default function PreInspection() {
       message.success("Pre-inspection created");
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
+      setCreateSelectAllState({});
       await load();
     } catch (error) {
       setCreating(false);
@@ -429,8 +649,81 @@ export default function PreInspection() {
     setSignatureMode(null);
   };
 
+  const setAllCreateFields = (fields = [], checked = false) => {
+    setDraft((prev) => {
+      const next = { ...prev };
+      fields.forEach((field) => {
+        next[field] = checked;
+      });
+      return next;
+    });
+  };
+
+  const renderChecklistGroup = (sectionKey, group) => {
+    const allChecked = group.fields.every((field) => Boolean(draft[field]));
+    const groupStateKey = `${sectionKey}:${group.title}`;
+    const selectedAll = createSelectAllState[groupStateKey] ?? allChecked;
+
+    return (
+      <Card
+        key={groupStateKey}
+        size="small"
+        title={group.title}
+        styles={{ header: { backgroundColor: "#0A7D37", color: "#fff" } }}
+      >
+        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+          <Checkbox
+            checked={selectedAll}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              setCreateSelectAllState((prev) => ({
+                ...prev,
+                [groupStateKey]: checked,
+              }));
+              setAllCreateFields(group.fields, checked);
+            }}
+          >
+            Select All
+          </Checkbox>
+
+          <Row gutter={[12, 12]}>
+            {group.fields.map((field, index) => {
+              const meta = FIELD_META[field] || { title: field, label: "" };
+              return (
+                <Col xs={24} md={12} key={field}>
+                  <Card size="small" styles={{ body: { padding: 10 } }}>
+                    <Space
+                      orientation="vertical"
+                      size={6}
+                      style={{ width: "100%" }}
+                    >
+                      <Text strong>
+                        {index + 1}. {meta.title}
+                      </Text>
+                      <Checkbox
+                        checked={Boolean(draft[field])}
+                        onChange={(event) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            [field]: event.target.checked,
+                          }))
+                        }
+                      >
+                        {meta.label}
+                      </Checkbox>
+                    </Space>
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+        </Space>
+      </Card>
+    );
+  };
+
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: isMobile ? 12 : 20 }}>
       <Card>
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
@@ -473,6 +766,7 @@ export default function PreInspection() {
                 icon={<PlusOutlined />}
                 onClick={() => setCreating(true)}
                 size="large"
+                block
               >
                 New Entry
               </Button>
@@ -517,11 +811,16 @@ export default function PreInspection() {
         onCancel={() => {
           setCreating(false);
           setDraft(getDefaultPreInspectionDraft(user));
+          setCreateSelectAllState({});
         }}
         onOk={saveCreate}
         title="Create Pre-Inspection"
         okText="Create"
-        width={1140}
+        width={isMobile ? "100%" : 1140}
+        destroyOnHidden
+        styles={{
+          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+        }}
       >
         <Tabs
           items={CREATE_FORM_SECTIONS.map((section) => ({
@@ -530,94 +829,148 @@ export default function PreInspection() {
             children: (
               <Space orientation="vertical" style={{ width: "100%" }} size={12}>
                 {section.key === "basic" ? (
-                  <Row gutter={[12, 12]}>
-                    <Col xs={24}>
-                      <Select
-                        size="large"
-                        value={draft.rpc}
-                        onChange={async (value) => {
-                          const aircraftType =
-                            await resolveAircraftTypeByRpc(value);
-                          setDraft((prev) => ({
-                            ...prev,
-                            rpc: value,
-                            aircraftType: aircraftType || prev.aircraftType,
-                          }));
-                        }}
-                        placeholder="Select RP/C"
-                        showSearch
-                        filterOption={(input, option) =>
-                          (option?.label ?? "")
-                            .toLowerCase()
-                            .includes(input.toLowerCase())
-                        }
-                        options={rpcDropdownOptions.map((rpc) => ({
-                          value: rpc,
-                          label: rpc,
-                        }))}
-                      />
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Input
-                        size="large"
-                        value={draft.aircraftType}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            aircraftType: e.target.value,
-                          }))
-                        }
-                        placeholder="Aircraft Type"
-                      />
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <DatePicker
-                        size="large"
-                        style={{ width: "100%" }}
-                        format="MM/DD/YYYY"
-                        value={
-                          draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null
-                        }
-                        onChange={(date) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            date: date ? formatDate(date) : "",
-                          }))
-                        }
-                      />
-                    </Col>
-                    <Col xs={24}>
-                      <Input
-                        size="large"
-                        value={draft.fob}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            fob: e.target.value,
-                          }))
-                        }
-                        placeholder="FOB"
-                      />
-                    </Col>
-                  </Row>
-                ) : (
-                  <Row gutter={[8, 8]}>
-                    {section.fields.map((field) => (
-                      <Col xs={24} md={12} lg={8} key={field}>
-                        <Checkbox
-                          checked={Boolean(draft[field])}
+                  <Card
+                    size="small"
+                    title="Rotary Winged Aircraft - Single Engine"
+                    styles={{
+                      header: { backgroundColor: "#0A7D37", color: "#fff" },
+                    }}
+                  >
+                    <Row gutter={[12, 12]}>
+                      <Col xs={24} md={12}>
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 6 }}
+                        >
+                          RP/C
+                        </Text>
+                        <Select
+                          size="large"
+                          style={{ width: "100%" }}
+                          value={draft.rpc}
+                          onChange={async (value) => {
+                            const aircraftType =
+                              await resolveAircraftTypeByRpc(value);
+                            setDraft((prev) => ({
+                              ...prev,
+                              rpc: value,
+                              aircraftType: aircraftType || prev.aircraftType,
+                            }));
+                          }}
+                          placeholder="Select RP/C"
+                          showSearch={{
+                            optionFilterProp: "label",
+                            filterOption: (input, option) =>
+                              String(option?.label || "")
+                                .toLowerCase()
+                                .includes(input.toLowerCase()),
+                          }}
+                          options={rpcDropdownOptions.map((rpc) => ({
+                            value: rpc,
+                            label: rpc,
+                          }))}
+                        />
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 6 }}
+                        >
+                          Aircraft Type
+                        </Text>
+                        <Input
+                          size="large"
+                          value={draft.aircraftType}
                           onChange={(e) =>
                             setDraft((prev) => ({
                               ...prev,
-                              [field]: e.target.checked,
+                              aircraftType: e.target.value,
                             }))
                           }
-                        >
-                          {toFieldLabel(field)}
-                        </Checkbox>
+                          placeholder="Aircraft Type"
+                        />
                       </Col>
-                    ))}
-                  </Row>
+                      <Col xs={24} md={12}>
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 6 }}
+                        >
+                          Date
+                        </Text>
+                        <DatePicker
+                          size="large"
+                          style={{ width: "100%" }}
+                          format="MM/DD/YYYY"
+                          value={
+                            draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null
+                          }
+                          onChange={(date) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              date: date ? formatDate(date) : "",
+                            }))
+                          }
+                        />
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 6 }}
+                        >
+                          Fuel On Board
+                        </Text>
+                        <Input
+                          type={"number"}
+                          size="large"
+                          value={draft.fob}
+                          onChange={(e) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              fob: e.target.value,
+                            }))
+                          }
+                          placeholder="Fuel On Board"
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
+                ) : (
+                  <Space
+                    orientation="vertical"
+                    size={14}
+                    style={{ width: "100%" }}
+                  >
+                    {(CHECKLIST_GROUPS[section.key] || []).map((group) =>
+                      renderChecklistGroup(section.key, group),
+                    )}
+                    {section.key === "floats" ? (
+                      <Card
+                        size="small"
+                        title="Fuel On Board"
+                        styles={{
+                          header: { backgroundColor: "#0A7D37", color: "#fff" },
+                        }}
+                      >
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 8 }}
+                        >
+                          Fuel On Board: <span style={{ color: "red" }}>*</span>
+                        </Text>
+                        <Input
+                          size="large"
+                          value={draft.fob}
+                          onChange={(e) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              fob: e.target.value,
+                            }))
+                          }
+                          suffix="%"
+                        />
+                      </Card>
+                    ) : null}
+                  </Space>
                 )}
               </Space>
             ),
@@ -632,12 +985,19 @@ export default function PreInspection() {
         okButtonProps={{ disabled: readOnly }}
         title={readOnly ? "View Pre-Inspection" : "Edit Pre-Inspection"}
         okText="Save"
-        width={1140}
+        width={isMobile ? "100%" : 1140}
+        destroyOnHidden
+        styles={{
+          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+        }}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
             <Row gutter={[10, 10]}>
-              <Col span={8}>
+              <Col xs={24} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                  RP/C
+                </Text>
                 <Select
                   size="large"
                   value={editing.rpc}
@@ -649,8 +1009,7 @@ export default function PreInspection() {
                       aircraftType: aircraftType || prev.aircraftType,
                     }));
                   }}
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: "label" }}
                   options={rpcDropdownOptions.map((rpc) => ({
                     value: rpc,
                     label: rpc,
@@ -658,7 +1017,10 @@ export default function PreInspection() {
                   disabled={readOnly}
                 />
               </Col>
-              <Col span={8}>
+              <Col xs={24} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                  Aircraft Type
+                </Text>
                 <Input
                   size="large"
                   value={editing.aircraftType}
@@ -671,7 +1033,10 @@ export default function PreInspection() {
                   disabled={readOnly}
                 />
               </Col>
-              <Col span={8}>
+              <Col xs={24} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                  Date
+                </Text>
                 <DatePicker
                   size="large"
                   style={{ width: "100%" }}

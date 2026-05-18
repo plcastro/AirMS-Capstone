@@ -328,13 +328,7 @@ const auditMutatingRequest = (req, res, next) => {
     }
 
     const status = res.statusCode < 400 ? "succeeded" : "failed";
-    const path = stripQuery(req.originalUrl);
-    const action = [
-      `${describeRoute(req)} ${status}:`,
-      req.method,
-      path,
-      `(status ${res.statusCode})`,
-    ].join(" ");
+    const action = `${describeRoute(req)} ${status} (status ${res.statusCode})`;
 
     auditLog(action, getActorId(req)).catch((error) => {
       console.error("Automatic audit log failed:", error);
