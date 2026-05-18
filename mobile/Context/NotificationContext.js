@@ -9,14 +9,14 @@ import React, {
 } from "react";
 import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
+// import Constants from "expo-constants";
+// import * as Device from "expo-device";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate, navigationRef } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
 import { showToast } from "../utilities/toast";
-
+import messaging from "@react-native-firebase/messaging";
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
   //if (__DEV_LOG__) console.log("[NotificationContext]", ...args);
@@ -27,8 +27,6 @@ const WS_BACKOFF_MAX_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 250;
 const NAV_QUEUE_RETRY_MS = 150;
 const NAV_QUEUE_MAX_ATTEMPTS = 40;
-
-let notificationHandlerInitialized = false;
 
 const VALID_MODULES = new Set([
   "flight-logs",
@@ -210,7 +208,6 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-  const notificationsModuleRef = useRef(null);
   const wsRef = useRef(null);
   const wsReconnectTimeoutRef = useRef(null);
   const wsReconnectAttemptsRef = useRef(0);
@@ -222,8 +219,6 @@ export function NotificationProvider({ children }) {
   const refreshDebounceRef = useRef(null);
   const pendingRefreshReasonRef = useRef(new Set());
 
-  const notificationResponseListenerRef = useRef(null);
-  const notificationReceivedListenerRef = useRef(null);
   const lastHandledNotificationRef = useRef("");
   const pendingNavQueueRef = useRef([]);
   const navQueueTimerRef = useRef(null);
@@ -235,11 +230,10 @@ export function NotificationProvider({ children }) {
   const lastRegisteredPushRef = useRef({
     userId: "",
     deviceId: "",
-    expoPushToken: "",
     fcmToken: "",
   });
 
-  const isExpoGo = Constants?.appOwnership === "expo";
+  // const isExpoGo = Constants?.appOwnership === "expo";
 
   const clearReconnectTimer = useCallback(() => {
     if (wsReconnectTimeoutRef.current) {
@@ -305,33 +299,6 @@ export function NotificationProvider({ children }) {
     [clearNavigationQueueTimer, drainNavigationQueue],
   );
 
-  const ensureNotificationsModule = useCallback(async () => {
-    if (Platform.OS === "web" || isExpoGo) {
-      return null;
-    }
-
-    if (notificationsModuleRef.current) {
-      return notificationsModuleRef.current;
-    }
-
-    const Notifications = await import("expo-notifications");
-    if (!notificationHandlerInitialized) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-      notificationHandlerInitialized = true;
-      log("push-handler:initialized-once");
-    }
-    notificationsModuleRef.current = Notifications;
-    return Notifications;
-  }, [isExpoGo]);
-
   const getDeviceInstallationId = useCallback(async () => {
     const storageKey = "deviceInstallationId";
     const existingId = await AsyncStorage.getItem(storageKey);
@@ -345,65 +312,33 @@ export function NotificationProvider({ children }) {
     if (Platform.OS === "web" || !user?.id) return;
 
     try {
-      const Notifications = await ensureNotificationsModule();
-      if (!Notifications) return;
-
-      if (!Device.isDevice) {
-        log("push-register:skipped-not-device");
-        return;
-      }
-
-      if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync("default", {
-          name: "default",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: "#239479",
-        });
-      }
-
-      const projectId =
-        Constants?.expoConfig?.extra?.eas?.projectId ||
-        Constants?.easConfig?.projectId;
-
       const authToken = await getStoredToken();
       if (!authToken) return;
 
-      const permissions = await Notifications.getPermissionsAsync();
-      let finalStatus = permissions.status;
-      if (finalStatus !== "granted") {
-        const requestPermissions =
-          await Notifications.requestPermissionsAsync();
-        finalStatus = requestPermissions.status;
-      }
-      if (finalStatus !== "granted") {
-        log("push-register:permission-denied");
+      await messaging().registerDeviceForRemoteMessages();
+
+      const authorizationStatus = await messaging().requestPermission();
+
+      const enabled =
+        authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      if (!enabled) {
+        console.log("Push permission denied");
         return;
       }
 
-      const expoPushToken = projectId
-        ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
-        : (await Notifications.getExpoPushTokenAsync()).data;
-      let fcmToken = null;
-      try {
-        const devicePushToken = await Notifications.getDevicePushTokenAsync();
-        fcmToken =
-          devicePushToken?.type === "fcm" ? devicePushToken.data : null;
-      } catch (fcmError) {
-        console.warn("FCM token fetch failed:", fcmError);
-      }
-      console.log("Expo token:", expoPushToken);
-      console.log("FCM token:", fcmToken);
+      const fcmToken = await messaging().getToken();
+      console.log("FCM Token:", fcmToken);
       const deviceId = await getDeviceInstallationId();
 
       const cached = lastRegisteredPushRef.current;
+
       if (
         cached.userId === String(user.id) &&
         cached.deviceId === deviceId &&
-        cached.expoPushToken === expoPushToken &&
-        cached.fcmToken === (fcmToken || "")
+        cached.fcmToken === fcmToken
       ) {
-        log("push-register:dedup-hit");
         return;
       }
 
@@ -417,7 +352,6 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
-            expoPushToken,
             fcmToken,
             platform: Platform.OS,
           }),
@@ -425,24 +359,20 @@ export function NotificationProvider({ children }) {
       );
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(
-          errorBody?.message ||
-            `Failed push registration (${response.status || "unknown"})`,
-        );
+        throw new Error("Push registration failed");
       }
 
       lastRegisteredPushRef.current = {
         userId: String(user.id),
         deviceId,
-        expoPushToken,
-        fcmToken: fcmToken || "",
+        fcmToken,
       };
-      log("push-register:success");
+
+      console.log("FCM registration success");
     } catch (error) {
-      console.error("Error registering push token:", error);
+      console.error("FCM registration error:", error);
     }
-  }, [ensureNotificationsModule, getDeviceInstallationId, user?.id]);
+  }, [getDeviceInstallationId, user?.id]);
 
   const fetchNotifications = useCallback(
     async ({ signal } = {}) => {
@@ -957,6 +887,16 @@ export function NotificationProvider({ children }) {
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
   useEffect(() => {
+    const unsubscribe = messaging().onTokenRefresh(async (token) => {
+      console.log("FCM token refreshed:", token);
+
+      await registerPushTokenWithServer();
+    });
+
+    return unsubscribe;
+  }, [registerPushTokenWithServer]);
+
+  useEffect(() => {
     registerPushTokenWithServer();
   }, [registerPushTokenWithServer]);
 
@@ -977,54 +917,58 @@ export function NotificationProvider({ children }) {
   }, [registerPushTokenWithServer, scheduleRefresh]);
 
   useEffect(() => {
-    if (Platform.OS === "web") return undefined;
+    if (Platform.OS === "web") return;
 
-    let mounted = true;
-    ensureNotificationsModule().then((Notifications) => {
-      if (!Notifications || !mounted) return;
+    const unsubscribeForeground = messaging().onMessage(
+      async (remoteMessage) => {
+        console.log("Foreground message:", remoteMessage);
 
-      Notifications.getLastNotificationResponse().then((response) => {
-        const payload = response?.notification?.request?.content?.data || null;
-        const responseId =
-          response?.notification?.request?.identifier ||
-          response?.notification?.date ||
-          "";
-        if (
-          payload &&
-          responseId &&
-          responseId !== lastHandledNotificationRef.current
-        ) {
-          lastHandledNotificationRef.current = responseId;
+        scheduleRefresh("push-foreground");
+
+        const payload = remoteMessage?.data || {};
+
+        if (Object.keys(payload).length > 0) {
+          showToast(
+            remoteMessage?.notification?.title || "New notification received",
+          );
+        }
+      },
+    );
+
+    const unsubscribeOpened = messaging().onNotificationOpenedApp(
+      (remoteMessage) => {
+        console.log("Notification caused app open:", remoteMessage);
+
+        const payload = remoteMessage?.data || {};
+
+        if (Object.keys(payload).length > 0) {
           openNotificationTarget(payload);
+        }
+      },
+    );
+
+    messaging()
+      .getInitialNotification()
+      .then((remoteMessage) => {
+        if (remoteMessage) {
+          console.log(
+            "Notification caused app open from quit state:",
+            remoteMessage,
+          );
+
+          const payload = remoteMessage?.data || {};
+
+          if (Object.keys(payload).length > 0) {
+            openNotificationTarget(payload);
+          }
         }
       });
 
-      notificationReceivedListenerRef.current =
-        Notifications.addNotificationReceivedListener(() => {
-          scheduleRefresh("push-foreground");
-        });
-
-      notificationResponseListenerRef.current =
-        Notifications.addNotificationResponseReceivedListener((response) => {
-          const payload = response?.notification?.request?.content?.data || {};
-          const responseId =
-            response?.notification?.request?.identifier ||
-            response?.notification?.date ||
-            "";
-          if (responseId && responseId === lastHandledNotificationRef.current) {
-            return;
-          }
-          lastHandledNotificationRef.current = responseId;
-          openNotificationTarget(payload);
-        });
-    });
-
     return () => {
-      mounted = false;
-      notificationReceivedListenerRef.current?.remove?.();
-      notificationResponseListenerRef.current?.remove?.();
+      unsubscribeForeground();
+      unsubscribeOpened();
     };
-  }, [ensureNotificationsModule, openNotificationTarget, scheduleRefresh]);
+  }, [openNotificationTarget, scheduleRefresh]);
 
   useEffect(
     () => () => {

@@ -132,6 +132,7 @@ export default function Messaging({ navigation }) {
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const liveSyncPausedUntilRef = useRef(0);
+  const notifiedMessageIdsRef = useRef(new Set());
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -237,6 +238,26 @@ export default function Messaging({ navigation }) {
 
     await fetchConversations();
   }, [fetchConversations, fetchThread]);
+
+  const notifyIncomingChat = useCallback(
+    (messagePayload) => {
+      const messageId = String(messagePayload?._id || "");
+      if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
+      notifiedMessageIdsRef.current.add(messageId);
+
+      const senderId = String(getEntityId(messagePayload?.sender));
+      if (!senderId || senderId === String(currentUserId)) return;
+
+      const senderUser = usersById.get(senderId) || {};
+      const senderName = getDisplayName(senderUser);
+      const preview =
+        String(messagePayload?.body || "").trim() ||
+        getAttachmentLabel(messagePayload?.attachments || []) ||
+        "sent a message";
+      showToast(`${senderName}: ${preview}`);
+    },
+    [currentUserId, usersById],
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -376,6 +397,7 @@ export default function Messaging({ navigation }) {
           if (payload.event !== "chat:message") return;
 
           const nextMessage = withSentStatus(payload.data);
+          notifyIncomingChat(nextMessage);
           const conversationId = nextMessage.conversation
             ? String(getEntityId(nextMessage.conversation))
             : String(getEntityId(nextMessage.sender)) === String(currentUserId)
@@ -432,7 +454,7 @@ export default function Messaging({ navigation }) {
       }
       wsRef.current?.close?.();
     };
-  }, [currentUserId, fetchConversations, fetchThread, getToken]);
+  }, [currentUserId, fetchConversations, fetchThread, getToken, notifyIncomingChat]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -546,6 +568,7 @@ export default function Messaging({ navigation }) {
     });
     setMessages([]);
   };
+
 
   const handleSend = async () => {
     const body = draft.trim();
