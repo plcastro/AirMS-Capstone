@@ -1,28 +1,22 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import React, { useContext } from "react";
 import * as Progress from "react-native-progress";
-import { styles } from "../../stylesheets/styles";
-import Button from "../Button";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskCard({
   data,
-  onStartTask,
+  onPress,
   onEditTask,
   onDeleteTask,
-  onReviewTask,
-  onPress,
-  onApprove,
-  onReturn,
-  isHeadView = false,
   showEditDelete = false,
-  variant = "default",
 }) {
   const {
     title,
-    dueDate,
     startDateTime,
+    endDateTime,
+    dueDate,
     status,
     aircraft,
     maintenanceType,
@@ -30,409 +24,128 @@ export default function TaskCard({
     returnComments,
     checklistItems,
     checklistState,
+    completedAt,
   } = data;
-  const { user } = useContext(AuthContext);
 
-  console.log(title);
+  const deadline = endDateTime || dueDate;
 
-  // Calculate progress for ongoing tasks
-  const calculateProgress = () => {
-    if (!checklistItems || checklistItems.length === 0) return 0;
-
-    // If we have saved checklistState, use that, otherwise assume none checked
-    const checkedCount = checklistState
-      ? checklistState.filter((item) => item).length
+  // Progress
+  const progress =
+    checklistItems?.length > 0
+      ? (checklistState?.filter(Boolean).length || 0) / checklistItems.length
       : 0;
-    return checkedCount / checklistItems.length;
-  };
 
-  const progress = calculateProgress();
   const progressPercentage = Math.round(progress * 100);
 
-  const formatDateTime = (dateString) => {
-    if (!dateString || dateString === "") return "Not set";
-    const date = new Date(dateString);
-    const formattedDate = date.toLocaleDateString("en-US", {
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
-    });
-    const formattedTime = date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
-      hour12: true,
-    });
-    return `${formattedDate} ${formattedTime}`;
-  };
-
-  const formatDisplayDate = (dateString) => {
-    if (!dateString || dateString === "") return "Not set";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
     });
   };
 
-  // Calculate overdue time (days or hours)
-  const calculateOverdueTime = (dueDate) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const diffMs = now - due;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffHours < 24) {
-      return {
-        value: diffHours,
-        unit: "hour",
-        text: `Overdue by ${diffHours} hour${diffHours !== 1 ? "s" : ""}`,
-      };
-    } else {
-      return {
-        value: diffDays,
-        unit: "day",
-        text: `Overdue by ${diffDays} day${diffDays !== 1 ? "s" : ""}`,
-      };
-    }
-  };
-
-  const formatDueTime = (dueDate) => {
-    const date = new Date(dueDate);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const renderBaseCard = (children) => (
+  const Card = ({ children }) => (
     <TouchableOpacity onPress={() => onPress?.(data)} activeOpacity={0.7}>
-      <View style={[styles.taskCard, { marginBottom: 8, padding: 15 }]}>
-        {children}
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: COLORS.white,
+          borderRadius: 10,
+          marginBottom: 12,
+          elevation: 3,
+          overflow: "hidden",
+        }}
+      >
+        {/* LEFT ACCENT BAR */}
+        <View
+          style={{
+            width: 5,
+            backgroundColor: COLORS.primaryLight,
+          }}
+        />
+
+        {/* CONTENT */}
+        <View style={{ flex: 1, padding: 12 }}>{children}</View>
       </View>
     </TouchableOpacity>
   );
 
-  if (variant === "upcoming") {
-    return renderBaseCard(
-      <>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 8,
-          }}
-        >
-          <Text
-            style={{
-              fontWeight: "bold",
-              fontSize: 16,
-              color: "#000",
-              flex: 1,
-              marginRight: 10,
-            }}
-          >
-            {aircraft} - {title || "Corrective Maintenance"}
-          </Text>
-
-          {status === "Returned" && (
-            <View
-              style={{
-                backgroundColor: "#ffebee",
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 10,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#c62828",
-                  fontWeight: "500",
-                  fontSize: 12,
-                }}
-              >
-                Returned
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: status === "Ongoing" || status === "Returned" ? 8 : 0,
-          }}
-        >
-          <Text style={{ color: "#666", fontSize: 14 }}>
-            Aircraft: {aircraft}
-          </Text>
-          <Text style={{ color: "#666", fontSize: 14 }}>
-            Start: {formatDateTime(startDateTime)}
-          </Text>
-        </View>
-
-        {/* Progress Bar - Shows for ongoing and returned tasks */}
-        {(status === "Ongoing" || status === "Returned") && (
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginBottom: 4,
-              }}
-            >
-              <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
-              <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
-                {progressPercentage}%
-              </Text>
-            </View>
-            <Progress.Bar
-              progress={progress}
-              width={null}
-              height={6}
-              color={COLORS.primaryLight}
-              unfilledColor="#e0e0e0"
-              borderWidth={0}
-              borderRadius={3}
-            />
-          </View>
-        )}
-      </>,
-    );
-  }
-
-  if (variant === "pastdue") {
-    const overdueTime = calculateOverdueTime(dueDate);
-    const dueTime = formatDueTime(dueDate);
-
-    return renderBaseCard(
-      <>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 8,
-          }}
-        >
-          <Text
-            style={{
-              fontWeight: "bold",
-              fontSize: 16,
-              color: "#000",
-              flex: 1,
-              marginRight: 10,
-            }}
-          >
-            {title}
-          </Text>
-
-          {status === "Returned" && (
-            <View
-              style={{
-                backgroundColor: "#ffebee",
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 4,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#c62828",
-                  fontWeight: "500",
-                  fontSize: 12,
-                }}
-              >
-                Returned
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Aircraft: {aircraft}
-        </Text>
-
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Start: {formatDateTime(startDateTime)}
-        </Text>
-
-        <Text style={{ color: "#ff6b6b", fontSize: 14, marginBottom: 8 }}>
-          {overdueTime.text} • Due at {dueTime}
-        </Text>
-
-        {/* Progress Bar - Shows for ongoing and returned tasks in past due */}
-        {(status === "Ongoing" || status === "Returned") && (
-          <View style={{ marginTop: 4, marginBottom: 4 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginBottom: 4,
-              }}
-            >
-              <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
-              <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
-                {progressPercentage}%
-              </Text>
-            </View>
-            <Progress.Bar
-              progress={progress}
-              width={null}
-              height={6}
-              color={COLORS.primaryLight}
-              unfilledColor="#e0e0e0"
-              borderWidth={0}
-              borderRadius={3}
-            />
-          </View>
-        )}
-      </>,
-    );
-  }
-
-  if (variant === "completed") {
-    return renderBaseCard(
-      <>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 8,
-          }}
-        >
-          <Text
-            style={{
-              fontWeight: "bold",
-              fontSize: 16,
-              color: "#000",
-              flex: 1,
-              marginRight: 10,
-            }}
-          >
-            {title}
-          </Text>
-
-          <View
-            style={{
-              backgroundColor: "#e8f5e9",
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-              borderRadius: 4,
-            }}
-          >
-            <Text
-              style={{
-                color: "#2e7d32",
-                fontWeight: "500",
-                fontSize: 12,
-              }}
-            >
-              Turned in
-            </Text>
-          </View>
-        </View>
-
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Aircraft: {aircraft}
-        </Text>
-
-        <Text style={{ color: "#666", fontSize: 14 }}>
-          Start: {formatDateTime(startDateTime)}
-        </Text>
-      </>,
-    );
-  }
-
-  // Default card (used for head view and ongoing tasks)
-  return renderBaseCard(
-    <>
+  return (
+    <Card>
+      {/* HEADER */}
       <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          marginBottom: 8,
+          marginBottom: 6,
         }}
       >
         <Text
           style={{
+            fontSize: 13,
             fontWeight: "bold",
-            fontSize: 16,
             color: "#000",
             flex: 1,
             marginRight: 10,
           }}
         >
-          {aircraft} - {title || "Corrective Maintenance"}
+          {title || maintenanceType || "Maintenance Task"}
         </Text>
 
-        {/* Show Returned badge for returned tasks */}
-        {status === "Returned" && (
-          <View
+        {/* STATUS */}
+        <View
+          style={{
+            backgroundColor:
+              status === "Completed"
+                ? "#E8F5E9"
+                : status === "Returned"
+                  ? "#FFEBEE"
+                  : "#FFF3E0",
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            borderRadius: 12,
+          }}
+        >
+          <Text
             style={{
-              backgroundColor: "#ffebee",
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-              borderRadius: 4,
+              fontSize: 10,
+              fontWeight: "600",
+              color:
+                status === "Completed"
+                  ? "#2E7D32"
+                  : status === "Returned"
+                    ? "#C62828"
+                    : "#ED6C02",
             }}
           >
-            <Text
-              style={{
-                color: "#c62828",
-                fontWeight: "500",
-                fontSize: 12,
-              }}
-            >
-              Returned
-            </Text>
-          </View>
-        )}
-
-        {/* Show Turned in badge for tasks that are turned in or completed */}
-        {(status === "Turned in" || status === "Completed") && (
-          <View
-            style={{
-              backgroundColor: "#e8f5e9",
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-              borderRadius: 4,
-            }}
-          >
-            <Text
-              style={{
-                color: "#2e7d32",
-                fontWeight: "500",
-                fontSize: 12,
-              }}
-            >
-              Turned in
-            </Text>
-          </View>
-        )}
+            {status}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
+          <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
+        </TouchableOpacity>
       </View>
 
-      <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
+      {/* BODY INFO */}
+      <Text style={{ fontSize: 12, color: "#555", marginBottom: 2 }}>
         Aircraft: {aircraft}
       </Text>
 
-      {assignedToName && isHeadView && (
-        <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-          Assigned to: {assignedToName}
-        </Text>
-      )}
-
-      <Text style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>
-        Start: {formatDateTime(startDateTime)}
+      <Text style={{ fontSize: 12, color: "#777", marginBottom: 2 }}>
+        Start: {formatDate(startDateTime)}
       </Text>
 
-      {/* Progress Bar - Shows for ongoing tasks only */}
+      <Text style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
+        Due: {formatDate(deadline)}
+      </Text>
+
+      {/* PROGRESS */}
       {(status === "Ongoing" || status === "Returned") && (
-        <View style={{ marginTop: 8, marginBottom: 8 }}>
+        <View style={{ marginTop: 6 }}>
           <View
             style={{
               flexDirection: "row",
@@ -441,67 +154,60 @@ export default function TaskCard({
             }}
           >
             <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
-            <Text style={{ fontSize: 12, color: "#666", fontWeight: "500" }}>
+            <Text style={{ fontSize: 12, color: "#666" }}>
               {progressPercentage}%
             </Text>
           </View>
+
           <Progress.Bar
             progress={progress}
             width={null}
             height={6}
             color={COLORS.primaryLight}
-            unfilledColor="#e0e0e0"
+            unfilledColor="#E0E0E0"
             borderWidth={0}
             borderRadius={3}
           />
         </View>
       )}
 
-      {/* Return comments if any */}
-      {returnComments && isHeadView && (
+      {/* ASSIGNED INFO */}
+      {assignedToName && (
+        <Text style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
+          Assigned to: {assignedToName}
+        </Text>
+      )}
+
+      {/* RETURN COMMENTS */}
+      {returnComments && (
         <View
           style={{
-            backgroundColor: "#ffebee",
+            backgroundColor: "#FFEBEE",
             padding: 8,
-            borderRadius: 4,
-            marginVertical: 8,
+            borderRadius: 6,
+            marginTop: 8,
           }}
         >
-          <Text style={{ color: "#c62828", fontSize: 12, fontWeight: "500" }}>
-            Return comments: {returnComments}
+          <Text style={{ fontSize: 12, color: "#C62828" }}>
+            {returnComments}
           </Text>
         </View>
       )}
 
-      {/* Due date only */}
-      <Text style={{ color: "#666", fontSize: 13, marginTop: 4 }}>
-        Due: {formatDisplayDate(dueDate)}
-      </Text>
-
-      {/* Edit/Delete buttons - only for head view on Assigned tab */}
+      {/* ACTIONS */}
       {showEditDelete && (
         <View
           style={{
             flexDirection: "row",
             justifyContent: "flex-end",
-            gap: 10,
-            marginTop: 12,
+            marginTop: 10,
           }}
         >
-          <Button
-            onPress={onEditTask}
-            label="Edit"
-            buttonStyle={[styles.neutralBtn, { width: 80 }]}
-            buttonTextStyle={styles.primaryBtnTxt}
-          />
-          <Button
-            onPress={onDeleteTask}
-            label="Delete"
-            buttonStyle={[styles.dangerBtn, { width: 80 }]}
-            buttonTextStyle={styles.primaryBtnTxt}
-          />
+          <TouchableOpacity onPress={() => onEditTask?.(data)}>
+            <MaterialCommunityIcons name="pencil" size={21} color="#777" />
+          </TouchableOpacity>
         </View>
       )}
-    </>,
+    </Card>
   );
 }

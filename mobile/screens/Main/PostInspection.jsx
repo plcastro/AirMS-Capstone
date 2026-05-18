@@ -13,28 +13,37 @@ import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
-import PostInspectionEntry from "../../components/PostInspection/PostInspectionEntry";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
-
+import {
+  exportPostInspectionTemplatePdf,
+  exportPostInspectionToWord,
+} from "../../utilities/documentExport";
+import { showToast } from "../../utilities/toast";
+import { styles } from "../../stylesheets/styles";
 const getDisplayStatus = (status) =>
-  status === "completed" ? "completed" : "ongoing";
+  status === "completed"
+    ? "completed"
+    : status === "released"
+      ? "released"
+      : "pending";
 
-export default function PostInspection() {
+export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
+  const targetPostInspectionId = route?.params?.targetPostInspectionId;
+  const targetNotificationStatus = route?.params?.notificationStatus;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
+  const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
-  const canCreatePostInspection =
-    userRole === "engineer" || userRole === "maintenance manager";
+  const isOfficerInCharge = userRole === "officer-in-charge";
 
   useEffect(() => {
     const fetchPostInspections = async () => {
@@ -57,14 +66,54 @@ export default function PostInspection() {
         setInspections(data.data || []);
       } catch (error) {
         console.error("Error fetching post-inspections:", error);
-        Alert.alert("Error", "Failed to fetch post-inspections");
+        showToast("Failed to fetch post-inspections");
       }
     };
 
     fetchPostInspections();
   }, []);
 
-  const handleSaveNewEntry = (newEntry) => newEntry;
+  useEffect(() => {
+    if (targetNotificationStatus) {
+      setSelectedStatus(targetNotificationStatus);
+    }
+  }, [targetNotificationStatus]);
+
+  useEffect(() => {
+    if (!targetPostInspectionId || inspections.length === 0) {
+      return;
+    }
+
+    const match = inspections.find(
+      (inspection) => String(inspection._id) === String(targetPostInspectionId),
+    );
+
+    if (match) {
+      setSelectedInspection(match);
+      setShowEditModal(true);
+    }
+  }, [targetPostInspectionId, inspections]);
+
+  useEffect(() => {
+    const fetchAircraftRpcOptions = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch aircraft RP-Cs");
+        }
+
+        const data = await response.json();
+        setAircraftRpcOptions(Array.isArray(data?.data) ? data.data : []);
+      } catch (error) {
+        console.error("Error fetching aircraft RP-Cs:", error);
+        setAircraftRpcOptions([]);
+      }
+    };
+
+    fetchAircraftRpcOptions();
+  }, []);
 
   const handleSaveEdit = (updatedInspection) => updatedInspection;
 
@@ -74,12 +123,16 @@ export default function PostInspection() {
 
   const aircraftOptions = [
     "all",
-    ...new Set(inspections.map((inspection) => inspection.rpc).filter(Boolean)),
+    ...new Set([
+      ...aircraftRpcOptions.filter(Boolean),
+      ...inspections.map((inspection) => inspection.rpc).filter(Boolean),
+    ]),
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
-    { label: "Ongoing", value: "ongoing" },
+    { label: "All Status", value: "all" },
+    { label: "Pending Release", value: "pending" },
+    { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -109,8 +162,18 @@ export default function PostInspection() {
     setShowEditModal(true);
   };
 
-  const handleExport = (inspection) => {
-    Alert.alert("Export", `Exporting inspection for ${inspection.rpc}`);
+  const handleExport = async (inspection) => {
+    Alert.alert("Export Post-Inspection", "Choose export format", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "PDF",
+        onPress: () => exportPostInspectionTemplatePdf(inspection),
+      },
+      {
+        text: "Word Template",
+        onPress: () => exportPostInspectionToWord(inspection),
+      },
+    ]);
   };
 
   const selectAircraft = (aircraft) => {
@@ -128,116 +191,44 @@ export default function PostInspection() {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
-        {/* Search Bar Row with New Entry Button */}
-        <View
-          style={{
-            flexDirection: "row",
-            marginBottom: 12,
-            gap: 12,
-            marginTop: 8,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              height: 48,
-              paddingHorizontal: 12,
-            }}
-          >
+        {/* Search Bar Row */}
+        <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
+          <View style={styles.unifiedSearchBox}>
             <MaterialCommunityIcons
               name="magnify"
               size={22}
               color={COLORS.grayDark}
             />
             <TextInput
-              placeholder="Q Search aircraft"
+              placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 16,
-                color: COLORS.black,
-                padding: 0,
-              }}
+              style={styles.unifiedSearchInput}
               value={searchQuery}
               onChangeText={handleSearchChange}
             />
           </View>
-
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: canCreatePostInspection ? 1 : 0.6,
-            }}
-            onPress={() => {
-              if (!canCreatePostInspection) {
-                Alert.alert(
-                  "Restricted",
-                  "Only engineers and maintenance managers can create post-inspections",
-                );
-                return;
-              }
-              setShowNewEntryModal(true);
-            }}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
-              style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
-              }}
-            >
-              New Entry
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Filters */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => {
                 setShowAircraftDropdown(!showAircraftDropdown);
                 setShowStatusDropdown(false);
               }}
             >
               <Text
-                style={{
-                  fontSize: 15,
-                  color:
-                    selectedAircraft && selectedAircraft !== "all"
-                      ? COLORS.black
-                      : COLORS.grayDark,
-                }}
+                style={[
+                  styles.unifiedFilterButtonText,
+                  {
+                    color:
+                      selectedAircraft && selectedAircraft !== "all"
+                        ? COLORS.black
+                        : COLORS.grayDark,
+                  },
+                ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP/C: ${selectedAircraft}`
@@ -251,35 +242,20 @@ export default function PostInspection() {
             </TouchableOpacity>
 
             {showAircraftDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                  maxHeight: 300,
-                }}
-              >
+              <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
                 <ScrollView>
                   {aircraftOptions.map((aircraft, index) => (
                     <TouchableOpacity
                       key={index}
                       style={{
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
+                        ...styles.unifiedDropdownItem,
                         borderBottomWidth:
                           index < aircraftOptions.length - 1 ? 1 : 0,
                         borderBottomColor: COLORS.grayMedium,
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={{ fontSize: 15 }}>
+                      <Text style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
@@ -293,23 +269,13 @@ export default function PostInspection() {
 
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => {
                 setShowStatusDropdown(!showStatusDropdown);
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={{ fontSize: 15, color: COLORS.black }}>
+              <Text style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </Text>
@@ -321,33 +287,21 @@ export default function PostInspection() {
             </TouchableOpacity>
 
             {showStatusDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                }}
-              >
+              <View style={styles.unifiedDropdownMenu}>
                 {statusOptions.map((option, index) => (
                   <TouchableOpacity
                     key={option.value}
                     style={{
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
+                      ...styles.unifiedDropdownItem,
                       borderBottomWidth:
                         index < statusOptions.length - 1 ? 1 : 0,
                       borderBottomColor: COLORS.grayMedium,
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={{ fontSize: 15 }}>{option.label}</Text>
+                    <Text style={styles.unifiedDropdownItemText}>
+                      {option.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -377,36 +331,13 @@ export default function PostInspection() {
               <Text
                 style={{
                   marginTop: 10,
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   textAlign: "center",
                 }}
               >
                 No post-inspections found
               </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  if (!canCreatePostInspection) {
-                    Alert.alert(
-                      "Restricted",
-                      "Only engineers and maintenance managers can create post-inspections",
-                    );
-                    return;
-                  }
-                  setShowNewEntryModal(true);
-                }}
-                style={{
-                  marginTop: 20,
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                  Create New Entry
-                </Text>
-              </TouchableOpacity>
             </View>
           ) : (
             <PostInspectionCards
@@ -419,50 +350,16 @@ export default function PostInspection() {
         </ScrollView>
       </View>
 
-      {/* New Entry Modal */}
-      <PostInspectionEntry
-        visible={showNewEntryModal}
-        onClose={() => setShowNewEntryModal(false)}
-        onSave={async (newEntry) => {
-          try {
-            const token = await AsyncStorage.getItem("currentUserToken");
-            const response = await fetch(
-              `${API_BASE}/api/post-inspections/createPostInspection`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(handleSaveNewEntry(newEntry)),
-              },
-            );
-
-            if (!response.ok) {
-              throw new Error("Failed to create post-inspection");
-            }
-
-            const data = await response.json();
-            setInspections((prev) => [data.data, ...prev]);
-            setShowNewEntryModal(false);
-            Alert.alert("Success", "Post-inspection created successfully");
-          } catch (error) {
-            console.error("Error creating post-inspection:", error);
-            Alert.alert("Error", "Failed to create post-inspection");
-          }
-        }}
-        userRole={userRole}
-      />
-
       {/* Edit Entry Modal */}
       <PostInspectionEditEntry
         visible={showEditModal}
         inspectionData={selectedInspection}
+        rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onClose={() => {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
-        onSave={async (updatedInspection) => {
+        onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
@@ -471,9 +368,13 @@ export default function PostInspection() {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 
@@ -487,16 +388,21 @@ export default function PostInspection() {
                 inspection._id === data.data._id ? data.data : inspection,
               ),
             );
-            setShowEditModal(false);
-            setSelectedInspection(null);
-            Alert.alert("Success", "Post-inspection updated successfully");
+            if (options.closeOnSave) {
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              showToast("Post-inspection updated successfully");
+            } else {
+              setSelectedInspection(data.data);
+            }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
-            Alert.alert("Error", "Failed to update post-inspection");
+            showToast("Failed to update post-inspection");
             throw error;
           }
         }}
         userRole={userRole}
+        readOnly={isOfficerInCharge}
       />
     </View>
   );

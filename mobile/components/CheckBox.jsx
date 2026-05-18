@@ -13,7 +13,7 @@ export default function CheckBox({
 }) {
   return (
     <TouchableOpacity
-      style={[{ flexDirection: "row", alignItems: "center" }, checkboxStyle]}
+      style={[{ flexDirection: "row", alignItems: "flex-start" }, checkboxStyle]}
       onPress={() => !disabled && onValueChange(!value)}
       activeOpacity={disabled ? 1 : 0.8}
       disabled={disabled}
@@ -24,7 +24,13 @@ export default function CheckBox({
         disabled={disabled}
         color={checkboxColor}
       />
-      <Text style={[{ marginLeft: 8 }, textStyle]}>{title}</Text>
+      {title !== undefined && title !== null
+        ? (typeof title === "string" ? (
+            <Text style={[{ marginLeft: 8, flexShrink: 1 }, textStyle]}>{title}</Text>
+          ) : (
+            <View style={{ flex: 1, marginLeft: 8 }}>{title}</View>
+          ))
+        : null}
     </TouchableOpacity>
   );
 }

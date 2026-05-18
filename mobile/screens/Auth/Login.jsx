@@ -4,26 +4,37 @@ import {
   Text,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { secureGetItem } from "../../utilities/secureStorage";
+import { Picker } from "@react-native-picker/picker";
+import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
+import LoadingScreen from "../LoadingScreen";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import {
+  readPendingRedirect,
+  clearPendingRedirect,
+} from "../../utilities/pendingRedirect";
 
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
+  const [selectedBase, setSelectedBase] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -33,13 +44,12 @@ export default function Login() {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
-          const savedPassword =
-            await AsyncStorage.getItem("rememberedPassword");
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: savedPassword || "",
+            password: "",
           });
+          setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
           setRememberMe(true);
         }
       } catch (err) {
@@ -50,7 +60,7 @@ export default function Login() {
   }, []);
 
   const changeHandler = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const validate = () => {
@@ -60,132 +70,253 @@ export default function Login() {
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Please enter your password");
+    if (!selectedBase) {
+      return setMessage("Please select where you are logging in from");
+    }
 
     login();
   };
 
   const login = async () => {
+    setLoading(true);
+    setMessage("");
+
     try {
-      const response = await fetch(`${API_BASE}/api/user/login`, {
+      const trustedDeviceToken =
+        (await secureGetItem("trustedDeviceToken")) ||
+        (await AsyncStorage.getItem("trustedDeviceToken")) ||
+        "";
+
+      const parseResponse = async (res) => {
+        const text = await res.text();
+        try {
+          return text ? JSON.parse(text) : {};
+        } catch {
+          return { message: text || "Unexpected server response" };
+        }
+      };
+
+      const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-base": selectedBase,
+        },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
+          client: "mobile",
+          rememberMe,
+          base: selectedBase,
+          trustedDeviceToken,
         }),
       });
 
-      const data = await response.json();
+      const data = await parseResponse(res);
 
-      if (response.ok) {
-        const { user, token } = data;
-
-        // Deactivated account
-        if (user.status === "deactivated") {
-          setMessage(
-            "This account is deactivated. Please contact AirMS Support",
-          );
-          return;
-        }
-
-        // Remember me logic
-        if (rememberMe) {
-          await AsyncStorage.setItem("rememberMe", "true");
-          await AsyncStorage.setItem(
-            "rememberedIdentifier",
-            formData.identifier.trim(),
-          );
-          await AsyncStorage.setItem(
-            "rememberedPassword",
-            formData.password.trim(),
-          );
-        } else {
-          await AsyncStorage.setItem("rememberMe", "false");
-          await AsyncStorage.removeItem("rememberedIdentifier");
-          await AsyncStorage.removeItem("rememberedPassword");
-        }
-
-        // Inactive users go to security setup
-        if (user.status === "inactive" || user.setupToken) {
-          nav.replace("securitySetup", {
-            email: user.email,
-            setupToken: user.setupToken,
-          });
-          return;
-        }
-        setLoginSuccess(true);
-        await loginUser(user, token);
-        nav.replace("dashboard");
-      } else {
-        console.log("Login error message:", data.message);
-        setMessage("Login Failed", data.message || "Unauthorized");
+      if (!res.ok) {
+        setMessage(data.message || "Login failed");
+        return;
       }
+
+      if (data.requireSetup) {
+        nav.replace("securitySetup", {
+          email: data.user?.email,
+          setupToken: data.user?.setupToken,
+        });
+        return;
+      }
+
+      if (data.requireLoginOtp && data.verification?.token) {
+        nav.replace("otpScreen", {
+          mode: "login-2fa",
+          token: data.verification.token,
+          email: data.verification.email,
+          maskedEmail: data.verification.maskedEmail,
+          identifier: formData.identifier.trim(),
+          rememberMe,
+          base: selectedBase,
+          client: "mobile",
+        });
+        return;
+      }
+
+      const { user, token, refreshToken } = data;
+      if (!user || !token) {
+        setMessage(data.message || "Invalid login response");
+        return;
+      }
+
+      if (user?.status === "deactivated") {
+        setMessage("This account is deactivated. Please contact support");
+        return;
+      }
+
+      // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
+      await AsyncStorage.setItem("currentUserToken", String(token));
+
+      // remember me
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+
+      if (rememberMe) {
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          formData.identifier.trim(),
+        );
+        await AsyncStorage.setItem("rememberedBase", selectedBase);
+      } else {
+        await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedBase");
+      }
+
+      // security redirect
+      if (user?.status === "inactive" || user?.setupToken) {
+        nav.replace("securitySetup", {
+          email: user.email,
+          setupToken: user.setupToken,
+        });
+        return;
+      }
+
+      setLoginSuccess(true);
+
+      await loginUser({
+        user,
+        accessToken: token,
+        refreshToken,
+        rememberMe,
+      });
+
+      const pendingRedirect = await readPendingRedirect();
+
+      if (pendingRedirect && pendingRedirect.screen) {
+        await clearPendingRedirect();
+
+        nav.replace("dashboard", {
+          screen: pendingRedirect.screen,
+          params: pendingRedirect.params || {},
+        });
+
+        return;
+      }
+
+      nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Too many login attempts. Please try again later");
+      setMessage("Login error. Try again later.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const goToForgotPassword = () => nav.navigate("forgotPassword");
+  const goToForgotPassword = () => {
+    const email = formData.identifier.includes("@")
+      ? formData.identifier.trim()
+      : "";
+
+    nav.navigate("forgotPassword", { email });
+  };
+
+  if (loading) {
+    return <LoadingScreen message="Signing you in..." showLogo />;
+  }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.formCard}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      enabled
-    >
-      <View style={styles.formContainer}>
-        <Text style={styles.headerText}>Login</Text>
-        <Text style={[styles.subHeaderText, { marginBottom: 20 }]}>
-          Please enter your username and password
-        </Text>
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Username/Email"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          keyboardType="default"
-          value={formData.identifier}
-          onChangeText={(text) => changeHandler("identifier", text)}
-        />
-        <TextInput
-          style={styles.formInput}
-          maxLength={100}
-          placeholder="Password"
-          placeholderTextColor="gray"
-          autoCapitalize="none"
-          secureTextEntry
-          keyboardType="default"
-          value={formData.password}
-          onChangeText={(text) => changeHandler("password", text)}
-        />
-        {getMessage && !loginSuccess && (
-          <Text style={styles.error}>{getMessage}</Text>
-        )}
-        <View style={styles.loginHelper}>
-          <CheckBox
-            title="Remember me"
-            checkboxStyle={styles.checkBox}
-            value={rememberMe}
-            onValueChange={setRememberMe}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Login"
+          cardsubTitle="Sign in to access your AirMS account"
+        >
+          <Text style={[styles.label, { textAlign: "left" }]}>
+            Username or Email
+          </Text>
+          <TextInput
+            style={styles.formInput}
+            maxLength={256}
+            placeholder="Username or Email"
+            placeholderTextColor="gray"
+            autoCapitalize="none"
+            keyboardType="default"
+            value={formData.identifier}
+            onChangeText={(text) => changeHandler("identifier", text)}
           />
-          <View style={styles.forgotPassLink}>
-            <Button
-              onPress={goToForgotPassword}
-              label="Forgot Password?"
-              buttonTextStyle={{ color: "#555555" }}
+          <Text style={styles.label}>Password</Text>
+          <View style={{ position: "relative", justifyContent: "center" }}>
+            <TextInput
+              style={[styles.formInput, { paddingRight: 50 }]}
+              maxLength={256}
+              placeholder="Password"
+              placeholderTextColor="gray"
+              autoCapitalize="none"
+              secureTextEntry={!showPassword} // Toggle based on state
+              keyboardType="default"
+              value={formData.password}
+              onChangeText={(t) => changeHandler("password", t)}
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: 10,
+                height: "100%",
+                justifyContent: "center",
+                paddingHorizontal: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? "eye-off" : "eye"}
+                size={21}
+                color="#059670" // Matching your theme color
+              />
+            </TouchableOpacity>
           </View>
-        </View>
-        <Button
-          onPress={validate}
-          label={loading ? "Logging in..." : "LOGIN"}
-          disabled={loading}
-          buttonStyle={[styles.primaryBtn]}
-          buttonTextStyle={styles.primaryBtnTxt}
-        />
-      </View>
+          <Text style={styles.label}>Logging in from</Text>
+          <View style={styles.loginPickerContainer}>
+            <Picker
+              selectedValue={selectedBase}
+              onValueChange={setSelectedBase}
+              style={styles.loginPicker}
+            >
+              <Picker.Item label="Select base" value="" />
+              <Picker.Item label="Manila" value="MANILA" />
+              <Picker.Item label="Cebu" value="CEBU" />
+              <Picker.Item label="CDO" value="CDO" />
+            </Picker>
+          </View>
+          {getMessage && !loginSuccess && (
+            <Text style={styles.error}>{getMessage}</Text>
+          )}
+          <View style={styles.loginHelper}>
+            <CheckBox
+              title="Remember me"
+              checkboxStyle={styles.checkBox}
+              value={rememberMe}
+              onValueChange={setRememberMe}
+            />
+            <View style={styles.forgotPassLink}>
+              <Button
+                onPress={goToForgotPassword}
+                label="Forgot Password?"
+                buttonTextStyle={{ color: "#059670" }}
+              />
+            </View>
+          </View>
+          <Button
+            onPress={validate}
+            label="LOGIN"
+            disabled={loading}
+            buttonStyle={[styles.primaryBtn]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+        </LoginLayout>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

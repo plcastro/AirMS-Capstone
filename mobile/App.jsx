@@ -1,72 +1,239 @@
-import React, { useContext, useEffect } from "react";
-import { Platform, Image, TouchableOpacity, Text, View } from "react-native";
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import {
+  Platform,
+  Image,
+  TouchableOpacity,
+  Text,
+  View,
+  Modal,
+  Pressable,
+  DeviceEventEmitter,
+} from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
-
+import { NotificationProvider } from "./Context/NotificationContext";
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
 
 import Dashboard from "./Layout/Dashboard";
-import Profile from "./screens/Settings/Profile";
-
-import FlightLog from "./screens/Main/FlightLog";
-import TaskAssignment from "./screens/Main/TaskAssignment";
-import HeadTaskScreen from "./screens/Main/HeadTaskScreen";
-import PreInspection from "./screens/Main/PreInspection";
-import PostInspection from "./screens/Main/PostInspection";
-import PartsRequisition from "./screens/Main/PartsRequisition";
 
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
-import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
-import MechanicTaskScreen from "./screens/Main/MechanicTaskScreen";
-import MechanicList from "./screens/Main/MechanicList";
+import NotificationBell from "./components/Notifications/NotificationBell";
+import { navigationRef } from "./utilities/navigationRef";
+import { getUserAvatarSource, getUserImageUri, getUserInitials } from "./utilities/avatar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
+const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
+const MOBILE_FONT_RECOMMENDED = 1;
+const MOBILE_FONT_MAX = 1.3;
+const FONT_SCALE_EVENT = "mobile-font-scale-updated";
 
-function DrawerNav() {
+const clampFontScale = (value) =>
+  Math.min(
+    Math.max(Number(value) || MOBILE_FONT_RECOMMENDED, MOBILE_FONT_RECOMMENDED),
+    MOBILE_FONT_MAX,
+  );
+
+const resolveStoredFontScale = async () => {
+  try {
+    const stored = JSON.parse(
+      (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
+    );
+    const storedFont = stored?.fontSizePreference;
+    if (typeof storedFont === "number") {
+      return clampFontScale(storedFont);
+    }
+    return (
+      {
+        small: 0.9,
+        medium: 1,
+        large: 1.1,
+      }[storedFont] || MOBILE_FONT_RECOMMENDED
+    );
+  } catch {
+    return MOBILE_FONT_RECOMMENDED;
+  }
+};
+
+const scalePaperFonts = (fonts, scale) =>
+  Object.fromEntries(
+    Object.entries(fonts || {}).map(([key, value]) => {
+      if (!value || typeof value !== "object") return [key, value];
+      const next = { ...value };
+      if (typeof next.fontSize === "number") {
+        next.fontSize = Math.round(next.fontSize * scale);
+      }
+      return [key, next];
+    }),
+  );
+
+const withDashboard = (loadScreen) => {
+  function DashboardScreen(props) {
+    const Screen = loadScreen();
+    return (
+      <Dashboard currentRouteName={props?.route?.name}>
+        <Screen {...props} />
+      </Dashboard>
+    );
+  }
+
+  return DashboardScreen;
+};
+
+const Screens = {
+  ReportsAndAnalytics: withDashboard(
+    () => require("./screens/Main/MaintenanceDashboard").default,
+  ),
+  Messages: withDashboard(() => require("./screens/Main/Messaging").default),
+  ManageUsers: withDashboard(
+    () => require("./screens/Main/UserManagement.jsx").default,
+  ),
+  ActivityLogs: withDashboard(
+    () => require("./screens/Main/ActivityLogs").default,
+  ),
+  FlightLogs: withDashboard(() => require("./screens/Main/FlightLog").default),
+  MaintenanceLogs: withDashboard(
+    () => require("./screens/Main/MaintenanceLog").default,
+  ),
+  PreInspection: withDashboard(
+    () => require("./screens/Main/PreInspection").default,
+  ),
+  PostInspection: withDashboard(
+    () => require("./screens/Main/PostInspection").default,
+  ),
+  Tasks: withDashboard(() => require("./screens/Main/TaskAssignment").default),
+  Mechanics: withDashboard(
+    () => require("./screens/Main/MechanicList").default,
+  ),
+  PartsLifespanMonitoring: withDashboard(
+    () => require("./screens/Main/PartsLifespanMonitoring").default,
+  ),
+  MaintenanceTracking: withDashboard(
+    () => require("./screens/Main/MaintenanceTracking").default,
+  ),
+  MaintenancePrioritySorting: withDashboard(
+    () => require("./screens/Main/MaintenancePriority").default,
+  ),
+  PartsRequisitionMonitoring: withDashboard(
+    () => require("./screens/Main/PartsRequisition").default,
+  ),
+  Profile: withDashboard(() => require("./screens/Settings/Profile").default),
+};
+
+function DrawerNav({ navigation, fontScale = 1 }) {
   const { user, loading } = useContext(AuthContext);
+  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const canAccessFlightAndPreInspection = [
+    "admin",
+    "maintenance manager",
+    "pilot",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessPostInspection = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessMechanics = ["admin", "maintenance manager"].includes(
+    normalizedRole,
+  );
+  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
+    normalizedRole,
+  );
+  const canAccessPartsRequisition = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessPartsMonitoring = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(normalizedRole);
+  const canAccessMaintenancePriority = ["admin", "maintenance manager"].includes(
+    normalizedRole,
+  );
+  const canAccessReports = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(normalizedRole);
+  const canAccessMaintenanceLog = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ].includes(normalizedRole);
+  const canAccessMessages = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessProfile = [
+    "admin",
+    "maintenance manager",
+    "mechanic",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(normalizedRole);
+  const canAccessUserManagement = normalizedRole === "admin";
+  const canAccessActivityLogs = normalizedRole === "admin";
 
-  const profileImage =
-    user.image && typeof user.image === "string"
-      ? user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`
-      : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
+
   if (loading) {
     return <LoadingScreen />;
   }
 
   if (!user) return null;
 
-  const wrapWithDashboard = (ScreenComponent) => (props) => (
-    <Dashboard>
-      <ScreenComponent {...props} />
-    </Dashboard>
-  );
+  const navLabel = {
+    headerTitleStyle: {
+      fontSize: 12 * fontScale,
+      fontWeight: 200,
+    },
+  };
 
   return (
     <Drawer.Navigator
+      backBehavior="history"
+      detachInactiveScreens
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,
+        lazy: true,
+        freezeOnBlur: true,
         drawerType: "slide",
-        drawerStyle: { width: 260 },
+        drawerStyle: { width: "85%" },
         overlayColor: "transparent",
         headerRight: () => (
-          <View style={{ marginHorizontal: 7 }}>
+          <View
+            style={{
+              paddingHorizontal: 7,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <NotificationBell navigation={navigation} />
             <TouchableOpacity
               style={{
                 flexDirection: "row",
@@ -74,23 +241,39 @@ function DrawerNav() {
               }}
               onPress={() => navigation.navigate("Profile")}
             >
-              <Image
-                source={{
-                  uri: profileImage,
-                }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  marginRight: 5,
-                }}
-              />
+              {getUserImageUri(user?.image) ? (
+                <Image
+                  source={getUserAvatarSource(user?.image)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                    backgroundColor: "#E9F4F1",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ color: "#26866F", fontWeight: "700", fontSize: 13 }}>
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </Text>
+                </View>
+              )}
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "bold" }}>
+                  <Text style={{ fontSize: 14 * fontScale, fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#777" }}>
+                  <Text style={{ fontSize: 12 * fontScale, color: "#777" }}>
                     {user?.jobTitle || ""}
                   </Text>
                 </View>
@@ -100,61 +283,128 @@ function DrawerNav() {
         ),
       })}
     >
-      {[
-        "maintenance manager",
-        "pilot",
-        "mechanic",
-        "officer-in-charge",
-      ].includes(user.jobTitle?.toLowerCase()) && (
-        <>
-          <Drawer.Screen
-            name="Flight Logbook"
-            component={wrapWithDashboard(FlightLog)}
-          />
-          <Drawer.Screen
-            name="Pre-Inspection"
-            component={wrapWithDashboard(PreInspection)}
-          />
-          <Drawer.Screen
-            name="Post-Inspection"
-            component={wrapWithDashboard(PostInspection)}
-          />
-        </>
-      )}
-
-      {user.jobTitle?.toLowerCase() === "maintenance manager" && (
+      {canAccessReports && (
         <Drawer.Screen
-          name="Mechanics"
-          component={wrapWithDashboard(MechanicList)}
+          name="Reports and Analytics"
+          component={Screens.ReportsAndAnalytics}
+          options={navLabel}
         />
       )}
 
-      {["maintenance manager", "mechanic"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessMessages && (
+        <Drawer.Screen
+          name="Messages"
+          component={Screens.Messages}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessUserManagement && (
+        <Drawer.Screen
+          name="Manage Users"
+          component={Screens.ManageUsers}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessActivityLogs && (
+        <Drawer.Screen
+          name="Activity Logs"
+          component={Screens.ActivityLogs}
+          options={navLabel}
+        />
+      )}
+
+      {(canAccessFlightAndPreInspection ||
+        canAccessMaintenanceLog ||
+        canAccessPostInspection) && (
+        <>
+          {canAccessFlightAndPreInspection && (
+            <Drawer.Screen
+              name="Flight Logs"
+              component={Screens.FlightLogs}
+              options={navLabel}
+            />
+          )}
+          {canAccessMaintenanceLog && (
+            <Drawer.Screen
+              name="Maintenance Logs"
+              component={Screens.MaintenanceLogs}
+              options={navLabel}
+            />
+          )}
+          {canAccessFlightAndPreInspection && (
+            <Drawer.Screen
+              name="Pre-Inspection"
+              component={Screens.PreInspection}
+              options={navLabel}
+            />
+          )}
+          {canAccessPostInspection && (
+            <Drawer.Screen
+              name="Post-Inspection"
+              component={Screens.PostInspection}
+              options={navLabel}
+            />
+          )}
+        </>
+      )}
+
+      {canAccessTasks && (
         <>
           <Drawer.Screen
             name="Tasks"
-            component={wrapWithDashboard(TaskAssignment)}
-          />
-
-          <Drawer.Screen
-            name="Post-Inspection"
-            component={wrapWithDashboard(PostInspection)}
+            component={Screens.Tasks}
+            options={navLabel}
           />
         </>
       )}
 
-      {["maintenance manager", "engineer", "officer-in-charge"].includes(
-        user.jobTitle?.toLowerCase(),
-      ) && (
+      {canAccessMechanics && (
         <Drawer.Screen
-          name="Parts Requisition"
-          component={wrapWithDashboard(PartsRequisition)}
+          name="Mechanics"
+          component={Screens.Mechanics}
+          options={navLabel}
         />
       )}
 
-      <Drawer.Screen name="Profile" component={wrapWithDashboard(Profile)} />
+      {canAccessPartsMonitoring && (
+        <>
+          <Drawer.Screen
+            name="Parts Lifespan Monitoring"
+            component={Screens.PartsLifespanMonitoring}
+            options={navLabel}
+          />
+          <Drawer.Screen
+            name="Maintenance Tracking"
+            component={Screens.MaintenanceTracking}
+            options={navLabel}
+          />
+        </>
+      )}
+      {canAccessMaintenancePriority && (
+        <Drawer.Screen
+          name="Maintenance Priority Sorting"
+          component={Screens.MaintenancePrioritySorting}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessPartsRequisition && (
+        <Drawer.Screen
+          name="Parts Requisition Monitoring"
+          component={Screens.PartsRequisitionMonitoring}
+          options={navLabel}
+        />
+      )}
+
+      {canAccessProfile && (
+        <Drawer.Screen
+          name="Profile"
+          component={Screens.Profile}
+          options={navLabel}
+        />
+      )}
     </Drawer.Navigator>
   );
 }
@@ -173,11 +423,14 @@ function LoginWrapper({ navigation, ...props }) {
     if (user.status === "inactive") {
       console.log(user.setupToken);
       navigation.navigate("securitySetup", {
-        setupToken: user.token,
+        setupToken: user.setupToken,
         email: user.email,
       });
 
       return;
+    }
+    if (user) {
+      navigation.replace("dashboard");
     }
   }, [user, loading, navigation]);
 
@@ -189,76 +442,85 @@ function LoginWrapper({ navigation, ...props }) {
 }
 
 // --- Stack navigator ---
-function StackNavWrapper() {
-  const optionsMain = {
-    headerShown: true,
-    title: "",
-    headerTitleAlign: "center",
-    headerTitle: () => (
-      <Image
-        source={require("./assets/AirMS_web.png")}
-        style={{ width: 150, height: 50 }}
-      />
-    ),
-  };
-
-  const { loading } = useContext(AuthContext);
+function StackNavWrapper({ fontScale = 1 }) {
+  const { loading, token } = useContext(AuthContext);
 
   if (loading) return null;
 
   return (
-    <Stack.Navigator initialRouteName="login">
-      <Stack.Screen
-        name="login"
-        component={LoginWrapper}
-        options={optionsMain}
-      />
-      <Stack.Screen name="otpScreen" component={OTP} options={optionsMain} />
-      <Stack.Screen
-        name="securitySetup"
-        component={SecuritySetup}
-        options={optionsMain}
-      />
-      <Stack.Screen
-        name="dashboard"
-        component={DrawerNav}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="forgotPassword"
-        component={ForgotPassword}
-        options={optionsMain}
-      />
-      <Stack.Screen
-        name="resetPassword"
-        component={ResetPassword}
-        options={optionsMain}
-      />
+    <Stack.Navigator
+      initialRouteName="login"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="login" component={LoginWrapper} />
+      <Stack.Screen name="dashboard">
+        {(props) => <DrawerNav {...props} fontScale={fontScale} />}
+      </Stack.Screen>
+      <Stack.Screen name="otpScreen" component={OTP} />
+      <Stack.Screen name="securitySetup" component={SecuritySetup} />
+
+      <Stack.Screen name="forgotPassword" component={ForgotPassword} />
+      <Stack.Screen name="resetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
   const linking = LinkingConfig;
-  const theme = {
-    ...DefaultTheme,
-    colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
-    icons: {
-      ...DefaultTheme.icons,
-      icon: (props) => {
-        if (!props.name) return null; // skip rendering if no name
-        return <MaterialCommunityIcons {...props} />;
+  const [fontScale, setFontScale] = useState(MOBILE_FONT_RECOMMENDED);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadScale = async () => {
+      const next = await resolveStoredFontScale();
+      if (mounted) {
+        setFontScale(next);
+      }
+    };
+
+    loadScale();
+    const subscription = DeviceEventEmitter.addListener(FONT_SCALE_EVENT, (nextScale) => {
+      setFontScale(clampFontScale(nextScale));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  const theme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        text: "#000000",
+        primary: "#26866F",
       },
-    },
-  };
+      fonts: scalePaperFonts(DefaultTheme.fonts, fontScale),
+      icons: {
+        ...DefaultTheme.icons,
+        icon: (props) => {
+          if (!props.name) return null;
+          return <MaterialCommunityIcons {...props} />;
+        },
+      },
+    }),
+    [fontScale],
+  );
 
   return (
     <AuthProvider>
-      <PaperProvider theme={theme}>
-        <NavigationContainer linking={linking}>
-          <StackNavWrapper />
-        </NavigationContainer>
-      </PaperProvider>
+      <NotificationProvider>
+        <PaperProvider theme={theme}>
+          <NavigationContainer linking={linking} ref={navigationRef}>
+            <StackNavWrapper fontScale={fontScale} />
+          </NavigationContainer>
+        </PaperProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

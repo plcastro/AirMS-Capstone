@@ -1,0 +1,66 @@
+{
+  "source": "OCR-assisted analysis of rotor brake, MGB bar, bi-directional suspension, and engine or MGB drive-line manuals",
+  "note": "This catalog records the recovered AMM families for the newly supplied inspection-criteria and fault-isolation PDFs analyzed on April 20, 2026. OCR was performed locally using the repo extractor with Windows OCR fallback where image-only PDFs had no embedded text.",
+  "families": [
+    {
+      "family": "Rotor Brake Inspection Criteria",
+      "chapter": "AMM 63-51-00",
+      "documents": [
+        "63-51-00,6-1 Rotor brake inspection criteria"
+      ]
+    },
+    {
+      "family": "NR or NF Indicator Fault Isolation",
+      "chapter": "AMM 63-41-00",
+      "documents": [
+        "63-41-00,1-1 NR / NF indicator fault isolation",
+        "63-41-00,1-2 N rotor alarm fault isolation"
+      ]
+    },
+    {
+      "family": "Bi-directional Suspension Inspection Criteria",
+      "chapter": "AMM 63-31-00",
+      "documents": [
+        "63-31-00,6-5 Laminated stops visual inspection criteria",
+        "63-31-00,6-4 Suspension crossbeam family including PN 350A38-1018-XX and PN 350A38-1040-00 / -20",
+        "63-31-00,6-3 Laminated suspension block pins",
+        "63-31-00,6-2 Laminated suspension block supports"
+      ]
+    },
+    {
+      "family": "MGB Suspension Bar Inspection Criteria",
+      "chapter": "AMM 63-32-00",
+      "documents": [
+        "63-32-00,6-4 Visual inspection criteria for MGB suspension bar bolt",
+        "63-32-00,6-2 Detailed inspection criteria for MGB suspension bar bolt",
+        "63-32-00,6-1 MGB bar inspection criteria"
+      ]
+    },
+    {
+      "family": "Engine or MGB Drive Line Inspection Criteria",
+      "chapter": "AMM 63-11-00",
+      "documents": [
+        "63-11-00,6-20 Hydraulic pump drive belt tension family including PRE / POST MOD variants",
+        "63-11-00,6-19 Detailed inspection criteria for belt-driven hydraulic pump drive bearing family",
+        "63-11-00,6-18 Visual inspection criteria for flexible coupling",
+        "63-11-00,6-17 Sealing sleeve POST MOD 079561 and PRE MOD 079566",
+        "63-11-00,6-16 Flexible couplings",
+        "63-11-00,6-15 Visual inspection criteria for belt-driven hydraulic pump drive bearing family",
+        "63-11-00,6-14 Belt-driven hydraulic pump driven pulley (Poly V)",
+        "63-11-00,6-12 Belt-driven hydraulic pump flexible coupling family including PRE MOD 0770000 variant",
+        "63-11-00,6-11 Belt-driven hydraulic pump drive flange",
+        "63-11-00,6-9 Engine flange",
+        "63-11-00,6-8 MGB drive shaft",
+        "63-11-00,6-7 Gimbal ring pin",
+        "63-11-00,6-6 Gimbal ring",
+        "63-11-00,6-5 Engine coupling housing",
+        "63-11-00,6-4 MGB coupling housing",
+        "63-11-00,6-3 Belt-driven hydraulic pump drive splines family including PRE MOD 079566 and PRE MOD 0770000 variants",
+        "63-11-00,6-2 Hydraulic pump drive belt family including PRE / POST MOD and PRE MOD 0770000 variants"
+      ],
+      "spotCheckNeeded": [
+        "Detailed Inspection Criteria - Flexible Coupling - Engine or MGB Drive line.pdf appears mislabeled or misfiled; OCR recovered AMM 62-33-00,6-2 Diapason scissors link content instead of an AMM 63-11 drive-line document."
+      ]
+    }
+  ]
+}

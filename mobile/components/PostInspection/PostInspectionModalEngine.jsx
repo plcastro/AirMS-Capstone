@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
@@ -224,7 +223,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
     return (
       <View key={item.key} style={{ marginBottom: 20 }}>
         <Text style={{ 
-          fontSize: 16, 
+          fontSize: 12, 
           fontWeight: "bold", 
           color: COLORS.black, 
           marginBottom: 10 
@@ -251,11 +250,11 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   borderRadius: 4,
                   borderWidth: 2,
-                  borderColor: value ? COLORS.primaryLight : COLORS.grayMedium,
+                  borderColor: COLORS.primaryLight,
                   backgroundColor: value ? COLORS.primaryLight : "transparent",
                   justifyContent: "center",
                   alignItems: "center",
@@ -267,7 +266,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                 )}
               </View>
               <Text style={{ 
-                fontSize: 14, 
+                fontSize: 12, 
                 color: COLORS.grayDark,
                 flex: 1,
                 flexWrap: "wrap",
@@ -282,7 +281,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+    <View>
       {/* Engine and Engine Bay Card */}
       <View style={{ 
         backgroundColor: COLORS.white,
@@ -300,7 +299,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 20, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Engine and Engine Bay
           </Text>
         </View>
@@ -318,8 +317,8 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   borderRadius: 4,
                   borderWidth: 2,
                   borderColor: COLORS.primaryLight,
@@ -333,7 +332,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -362,7 +361,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 20, fontWeight: "600", color: COLORS.white }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Station 3
           </Text>
         </View>
@@ -380,8 +379,8 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   borderRadius: 4,
                   borderWidth: 2,
                   borderColor: COLORS.primaryLight,
@@ -395,7 +394,7 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}>
+              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
               </Text>
             </TouchableOpacity>
@@ -406,6 +405,6 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           {station3Items.map((item, index) => renderItemWithChecks(index, item, true))}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }

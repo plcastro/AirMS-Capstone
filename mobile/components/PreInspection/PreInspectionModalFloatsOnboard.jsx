@@ -113,7 +113,7 @@ export default function PreInspectionModalFloatsOnboard({
     <View key={field} style={{ marginBottom: 18 }}>
       <Text
         style={{
-          fontSize: 16,
+          fontSize: 12,
           fontWeight: "bold",
           color: COLORS.black,
           marginBottom: 8,
@@ -155,7 +155,7 @@ export default function PreInspectionModalFloatsOnboard({
         </View>
         <Text
           style={{
-            fontSize: 16,
+            fontSize: 12,
             color: COLORS.grayDark,
             flex: 1,
             flexWrap: "wrap",
@@ -191,7 +191,7 @@ export default function PreInspectionModalFloatsOnboard({
           }}
         >
           <Text
-            style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}
+            style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Floats
           </Text>
@@ -234,7 +234,7 @@ export default function PreInspectionModalFloatsOnboard({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
               </Text>
@@ -280,7 +280,7 @@ export default function PreInspectionModalFloatsOnboard({
           }}
         >
           <Text
-            style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}
+            style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Mandatory Onboard
           </Text>
@@ -323,7 +323,7 @@ export default function PreInspectionModalFloatsOnboard({
                 )}
               </View>
               <Text
-                style={{ color: COLORS.black, fontSize: 16, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
               </Text>
@@ -369,9 +369,9 @@ export default function PreInspectionModalFloatsOnboard({
           }}
         >
           <Text
-            style={{ fontSize: 24, fontWeight: "600", color: COLORS.white }}
+            style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
-            FOB
+            Fuel On Board
           </Text>
         </View>
 
@@ -380,13 +380,13 @@ export default function PreInspectionModalFloatsOnboard({
         >
           <Text
             style={{
-              fontSize: 16,
+              fontSize: 12,
               color: COLORS.black,
               marginBottom: 8,
               fontWeight: "bold",
             }}
           >
-            FOB:
+            Fuel On Board: <Text style={{ color: "red" }}>*</Text>
           </Text>
           <View
             style={{
@@ -401,7 +401,7 @@ export default function PreInspectionModalFloatsOnboard({
             <TextInput
               style={{
                 flex: 1,
-                fontSize: 16,
+                fontSize: 12,
                 color: COLORS.black,
                 padding: 0,
               }}
@@ -412,7 +412,7 @@ export default function PreInspectionModalFloatsOnboard({
               placeholder=""
               placeholderTextColor={COLORS.grayDark}
             />
-            <Text style={{ fontSize: 16, color: COLORS.black, marginLeft: 4 }}>
+            <Text style={{ fontSize: 12, color: COLORS.black, marginLeft: 4 }}>
               %
             </Text>
           </View>

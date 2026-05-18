@@ -7,32 +7,30 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  Alert,
+  TextInput,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Checkbox from "expo-checkbox";
 import Button from "../Button";
-import CheckBox from "../CheckBox";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
+import {
+  addMinutesToDate,
+  estimateInspectionSchedule,
+  formatEstimatedDuration,
+} from "../../utilities/inspectionTiming";
+import { showToast } from "../../utilities/toast";
 
 const { width } = Dimensions.get("window");
-const INSPECTION_NAME_ALIASES = {
-  "TBO Inspection": ["Time Between Overhaul"],
-  "OC Inspection": ["ON CONDITION (OC)"],
-  "OTL Inspection": ["OPERATING TIME LIMIT (OTL)"],
-  "ALF Inspection": ["ALF"],
-  "10 FH Inspection": ["10 FH"],
-  "10 FH - 1 M Inspection": ["10 FH // 1 M"],
-  "12 M Inspection": ["12 M"],
-  "24 M Inspection": ["24 M"],
-  "48 M Inspection": ["48 M"],
-  "150 FH Inspection": ["150 FH"],
-  "150 FH - 12 M Inspection": ["150 FH / 12 M", "150 FH // 12 M"],
-  "750 FH Inspection": ["750 FH"],
-  "750 FH - 24 M Inspection": ["750 FH // 24 M", "750 FH / 24 M"],
-  "1500 FH Inspection": ["1500 FH"],
-  "1500 FH - 48 M Inspection": ["1500 FH // 48 M", "1500 FH / 48 M"],
+const CUSTOM_INSPECTION_ID = "custom-task";
+
+const getNow = () => new Date();
+const getDefaultStartDate = () => addMinutesToDate(getNow(), 5);
+
+const clampToNow = (date) => {
+  const now = getNow();
+  return date < now ? now : date;
 };
 
 const getPickerValue = (event) => {
@@ -43,70 +41,319 @@ const getPickerValue = (event) => {
   return event;
 };
 
-export default function AddTask({ visible, onClose, onAddTask, employees }) {
+const dedupeChecklistItems = (items = []) => {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const key = `${item.taskId || ""}|${item.taskName || ""}|${item.inspectionTypeFull || ""}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+export default function AddTask({
+  visible,
+  onClose,
+  onAddTask,
+  employees = [],
+  initialDraft = null,
+}) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
+  const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
 
-  const [startDate, setStartDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [endDate, setEndDate] = useState(
-    new Date(new Date().getTime() + 60 * 60 * 1000),
-  ); // 1 hour later
-  const [dueDate1, setDueDate1] = useState(
-    new Date(Date.now() + 24 * 60 * 60 * 1000),
-  ); // Tomorrow
+    addMinutesToDate(getDefaultStartDate(), 60),
+  );
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [showDue1Picker, setShowDue1Picker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [androidPickerMode, setAndroidPickerMode] = useState("date");
+  const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
 
   const [checklistItems, setChecklistItems] = useState([]);
-
   const [aircraftOptions, setAircraftOptions] = useState([]);
-
   const [inspectionOptions, setInspectionOptions] = useState([]);
+  const [appliedDraftKey, setAppliedDraftKey] = useState("");
+  const scheduleEstimate = estimateInspectionSchedule(checklistItems);
+  const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
+  const availableEmployees = employees.filter((emp) => !emp.isBusy);
 
-  const fetchInspectionTasks = async (inspection) => {
-    const inspectionNames = [
-      inspection.name,
-      ...(INSPECTION_NAME_ALIASES[inspection.name] || []),
-    ];
+  const draftKey = initialDraft
+    ? JSON.stringify({
+        aircraft: initialDraft.aircraft || "",
+        inspectionName: initialDraft.inspectionName || "",
+        issueTitle: initialDraft.issueTitle || "",
+        manualReference: initialDraft.manualReference || "",
+      })
+    : "";
 
-    for (const inspectionName of inspectionNames) {
-      const response = await fetch(
-        `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspectionName)}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
-      );
+  const buildRectificationChecklistItem = (draft = {}, inspection = {}) => ({
+    inspectionName: inspection.name || draft.inspectionName || "OC Inspection",
+    aircraftModel: inspection.aircraftModel || draft.aircraftModel || "",
+    ata: {
+      chapter: 0,
+      chapterName: "",
+      section: 0,
+      sectionName: "",
+    },
+    taskId: `ai-rectify-${Date.now()}`,
+    taskName: draft.issueTitle || "Rectify maintenance finding",
+    component: draft.component || "",
+    componentModel: "",
+    inspectionType: "Corrective",
+    inspectionTypeFull: draft.manualReference || draft.inspectionName || "",
+    documentation: draft.manualReference || "",
+    description: draft.issueTitle || "",
+    correctiveAction: draft.recommendedAction || "",
+    environmentalCondition: "",
+    engineModel: "",
+    conditions: {
+      modificationStatus: "",
+      modificationNumbers: [],
+      effectivity: [],
+    },
+    interval: {
+      flightHours: 0,
+      calendarMonths: 0,
+      specificInterval: draft.inspectionName || "",
+    },
+  });
 
-      if (!response.ok) {
-        continue;
-      }
+  const buildCustomChecklistItem = (index = checklistItems.length) => ({
+    inspectionName: customTaskTitle || "Custom Task",
+    aircraftModel: selectedInspection?.aircraftModel || "",
+    ata: {
+      chapter: 0,
+      chapterName: "",
+      section: 0,
+      sectionName: "",
+    },
+    taskId: `custom-${Date.now()}-${index + 1}`,
+    taskName: "",
+    component: "",
+    componentModel: "",
+    inspectionType: "Custom",
+    inspectionTypeFull: "Custom Task",
+    documentation: "",
+    description: "",
+    correctiveAction: "",
+    environmentalCondition: "",
+    engineModel: "",
+    conditions: {
+      modificationStatus: "",
+      modificationNumbers: [],
+      effectivity: [],
+    },
+    interval: {
+      flightHours: 0,
+      calendarMonths: 0,
+      specificInterval: "",
+    },
+  });
 
-      const tasks = await response.json();
-
-      if (Array.isArray(tasks) && tasks.length > 0) {
-        return tasks;
-      }
-    }
-
-    return [];
+  const addCustomChecklistItem = () => {
+    setChecklistItems((currentItems) => [
+      ...currentItems,
+      buildCustomChecklistItem(currentItems.length),
+    ]);
   };
 
-  // Update end date when start date changes (keep 1 hour later)
-  useEffect(() => {
-    const newEndDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-    setEndDate(newEndDate);
-  }, [startDate]);
+  const updateChecklistItem = (index, field, value) => {
+    setChecklistItems((currentItems) =>
+      currentItems.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
+
+  const removeChecklistItem = (index) => {
+    setChecklistItems((currentItems) =>
+      currentItems.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
+  const findInspectionForDraft = (draft = {}) => {
+    const wantedName = String(draft.inspectionName || "").toLowerCase();
+    const wantedModel = String(draft.aircraftModel || "").toLowerCase();
+
+    return (
+      inspectionOptions.find(
+        (inspection) =>
+          wantedName &&
+          String(inspection.name || "").toLowerCase() === wantedName &&
+          (!wantedModel ||
+            String(inspection.aircraftModel || "").toLowerCase() ===
+              wantedModel),
+      ) ||
+      inspectionOptions.find(
+        (inspection) =>
+          wantedName &&
+          String(inspection.name || "").toLowerCase() === wantedName,
+      ) ||
+      inspectionOptions.find(
+        (inspection) =>
+          String(inspection.name || "").toLowerCase() === "oc inspection",
+      ) ||
+      null
+    );
+  };
+
+  const getTaskMatchScore = (item = {}, draft = {}) => {
+    const haystack = [
+      item.taskName,
+      item.inspectionTypeFull,
+      item.documentation,
+      item.component,
+      item.description,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const needles = [draft.component, draft.issueTitle, draft.manualReference]
+      .filter(Boolean)
+      .flatMap((value) => String(value).split(/[|,/;-]/))
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length >= 4);
+
+    return needles.reduce(
+      (score, needle) => score + (haystack.includes(needle) ? 1 : 0),
+      0,
+    );
+  };
+
+  const applyDraft = async (draft = {}) => {
+    const matchedInspection = findInspectionForDraft(draft);
+
+    if (draft.aircraft) {
+      setSelectedAircraft(draft.aircraft);
+    }
+
+    if (!matchedInspection) {
+      setChecklistItems([buildRectificationChecklistItem(draft)]);
+      return;
+    }
+
+    setInspectionType(matchedInspection.id);
+    setSelectedInspection(matchedInspection);
+    setEndDateManuallyAdjusted(false);
+
+    try {
+      setLoading(true);
+      const tasks = await fetchInspectionTasks(matchedInspection);
+      const rankedTasks = [...tasks].sort(
+        (left, right) =>
+          getTaskMatchScore(right, draft) - getTaskMatchScore(left, draft),
+      );
+      const bestScore = rankedTasks.length
+        ? getTaskMatchScore(rankedTasks[0], draft)
+        : 0;
+      const rectificationItem = buildRectificationChecklistItem(
+        draft,
+        matchedInspection,
+      );
+
+      setChecklistItems(
+        bestScore > 0
+          ? [rectificationItem, ...rankedTasks]
+          : [rectificationItem, ...tasks],
+      );
+    } catch (error) {
+      console.error("Error applying AI rectification draft:", error);
+      setChecklistItems([
+        buildRectificationChecklistItem(draft, matchedInspection),
+      ]);
+      showToast("Opened task with AI rectification item");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    const nextStart = getDefaultStartDate();
+    setSelectedAircraft("");
+    setSelectedEmployee("");
+    setInspectionType("");
+    setSelectedInspection(null);
+    setStartDate(nextStart);
+    setEndDate(addMinutesToDate(nextStart, 60));
+    setChecklistItems([]);
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setShowAircraftDropdown(false);
+    setShowInspectionDropdown(false);
+    setShowMechanicDropdown(false);
+    setAndroidPickerMode("date");
+    setEndDateManuallyAdjusted(false);
+  };
+
+  const fetchInspectionTasks = async (inspection) => {
+    const response = await fetch(
+      `${API_BASE}/api/inspections/tasks?inspectionName=${encodeURIComponent(inspection.name || "")}&aircraftModel=${encodeURIComponent(inspection.aircraftModel || "")}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch inspection tasks");
+    }
+
+    const tasks = await response.json();
+    const normalizedTasks = Array.isArray(tasks)
+      ? tasks.map((item) => ({
+          ...item,
+          taskId: String(item?.taskId || "").trim(),
+          taskName: String(item?.taskName || "").trim(),
+          inspectionTypeFull: String(item?.inspectionTypeFull || "").trim(),
+        }))
+      : [];
+
+    return dedupeChecklistItems(normalizedTasks).filter(
+      (item) => item.taskName.length > 0,
+    );
+  };
 
   useEffect(() => {
+    if (endDateManuallyAdjusted) {
+      return;
+    }
+
+    setEndDate(addMinutesToDate(startDate, scheduleEstimate.minutes));
+  }, [startDate, scheduleEstimate.minutes, endDateManuallyAdjusted]);
+
+  useEffect(() => {
+    if (initialDraft?.aircraft && selectedAircraft === initialDraft.aircraft) {
+      return;
+    }
+
     setChecklistItems([]);
     setInspectionType("");
     setSelectedInspection(null);
-  }, [selectedAircraft]);
+    setEndDateManuallyAdjusted(false);
+  }, [selectedAircraft, initialDraft?.aircraft]);
+
+  useEffect(() => {
+    if (!visible || !initialDraft || !inspectionOptions.length) {
+      return;
+    }
+
+    if (draftKey && appliedDraftKey === draftKey) {
+      return;
+    }
+
+    setAppliedDraftKey(draftKey);
+    applyDraft(initialDraft);
+  }, [visible, initialDraft, inspectionOptions, draftKey, appliedDraftKey]);
 
   useEffect(() => {
     const fetchAircraft = async () => {
@@ -129,7 +376,9 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
         setAircraftOptions(options);
       } catch (error) {
         console.error("Error fetching aircraft:", error);
-        a;
+        showToast("Failed to fetch aircraft");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -137,9 +386,12 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
   }, []);
 
   useEffect(() => {
-    const fetchInspections = async () => {
-      if (!visible) return;
+    if (!visible) {
+      resetForm();
+      return;
+    }
 
+    const fetchInspections = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${API_BASE}/api/inspections/schedules`);
@@ -164,7 +416,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
         setInspectionOptions(options);
       } catch (error) {
         console.error("Error fetching inspections:", error);
-        Alert.alert("Error", "Failed to fetch inspection schedules");
+        showToast("Failed to fetch inspection schedules");
       } finally {
         setLoading(false);
       }
@@ -174,31 +426,57 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
   }, [visible]);
 
   const confirmAdd = () => {
-    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      Alert.alert(
-        "Missing fields",
-        "Please select an aircraft, inspection, and mechanic.",
-      );
+    const warning = getAddTaskWarning();
+
+    if (warning) {
+      showToast(warning);
       return;
     }
 
-    const filteredChecklist = checklistItems.filter(
-      (item) => item.taskName && item.taskName.trim() !== "",
-    );
+    const selectedInspectionName = isCustomTask
+      ? customTaskTitle.trim() || "Custom Task"
+      : inspectionOptions.find((i) => i.id === inspectionType)?.name || "";
+
+    const filteredChecklist = checklistItems
+      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .map((item, index) => ({
+        ...item,
+        inspectionName: selectedInspectionName,
+        taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
+        inspectionType: isCustomTask ? "Custom" : item.inspectionType,
+        inspectionTypeFull: isCustomTask
+          ? "Custom Task"
+          : item.inspectionTypeFull,
+      }));
+
+    if (isCustomTask && filteredChecklist.length === 0) {
+      showToast("Please add at least one checklist item.");
+      return;
+    }
 
     const newTask = {
       id: Date.now().toString(),
-      title: inspectionOptions.find((i) => i.id === inspectionType)?.name || "",
+      title: selectedInspectionName,
       aircraft: selectedAircraft,
-      dueDate: dueDate1.toISOString(),
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
-      priority: "Normal",
-      maintenanceType: "Inspection",
+      priority:
+        initialDraft?.riskLevel === "Critical" ||
+        initialDraft?.riskLevel === "High"
+          ? "High"
+          : "Normal",
+      maintenanceType: isCustomTask
+        ? "Custom Task"
+        : initialDraft
+          ? "Corrective Maintenance"
+          : "Inspection",
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
+      performance: {
+        estimatedHours: scheduleEstimate.hours,
+      },
       checklistItems:
         filteredChecklist.length > 0
           ? filteredChecklist
@@ -213,7 +491,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                   sectionName: "",
                 },
                 taskId: "custom",
-                taskName: "New checklist item",
+                taskName: "Custom checklist item",
                 component: "",
                 componentModel: "",
                 inspectionType: "",
@@ -235,12 +513,24 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                 },
               },
             ],
+      findings: initialDraft?.issueTitle || "",
+      defects: initialDraft?.component || "",
+      correctiveActionDone: initialDraft?.recommendedAction || "",
+      summary: initialDraft
+        ? {
+            category: "AI Maintenance Finding",
+            severity: initialDraft.riskLevel || "",
+            result: "Pending rectification",
+            remarks: initialDraft.manualReference || "",
+          }
+        : undefined,
     };
 
     onAddTask(newTask);
   };
 
   const confirmDiscard = () => {
+    resetForm();
     onClose();
   };
 
@@ -260,34 +550,130 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     );
   };
 
-  const onStartChange = (event, selectedDate) => {
-    setShowStartPicker(false);
-    if (getPickerValue(event) === null) {
+  const openDateTimePicker = (field) => {
+    if (Platform.OS === "android") {
+      setAndroidPickerMode("date");
+    }
+
+    if (field === "start") {
+      setShowStartPicker(true);
+      setShowEndPicker(false);
+    } else {
+      setShowEndPicker(true);
+      setShowStartPicker(false);
+    }
+  };
+
+  const handleDateTimeChange = (field, event, selectedDate) => {
+    const closePicker = () => {
+      if (field === "start") {
+        setShowStartPicker(false);
+      } else {
+        setShowEndPicker(false);
+      }
+    };
+
+    const currentValue = field === "start" ? startDate : endDate;
+
+    if (event?.type === "dismissed") {
+      closePicker();
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
       return;
     }
-    if (selectedDate) {
-      setStartDate(selectedDate);
+
+    if (!selectedDate) {
+      return;
     }
+
+    if (Platform.OS === "android" && androidPickerMode === "date") {
+      const nextDate = new Date(currentValue);
+      nextDate.setFullYear(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+      );
+
+      const clampedDate = clampToNow(nextDate);
+
+      if (field === "start") {
+        setStartDate(clampedDate);
+        if (endDate <= clampedDate) {
+          setEndDate(addMinutesToDate(clampedDate, 1));
+        }
+      } else {
+        if (clampedDate <= startDate) {
+          showToast("End date/time must be after the start date/time.");
+          setEndDate(addMinutesToDate(startDate, 1));
+        } else {
+          setEndDate(clampedDate);
+        }
+      }
+
+      setAndroidPickerMode("time");
+      return;
+    }
+
+    const nextDate = new Date(currentValue);
+
+    if (Platform.OS === "android") {
+      nextDate.setHours(
+        selectedDate.getHours(),
+        selectedDate.getMinutes(),
+        0,
+        0,
+      );
+    } else {
+      nextDate.setTime(selectedDate.getTime());
+    }
+
+    if (field === "start") {
+      const clampedDate = clampToNow(nextDate);
+      setStartDate(clampedDate);
+      if (endDate <= clampedDate) {
+        setEndDate(addMinutesToDate(clampedDate, 1));
+      }
+    } else {
+      const clampedDate = clampToNow(nextDate);
+      if (clampedDate <= startDate) {
+        showToast("End date/time must be after the start date/time.");
+        setEndDate(addMinutesToDate(startDate, 1));
+      } else {
+        setEndDate(clampedDate);
+      }
+      setEndDateManuallyAdjusted(true);
+    }
+
+    closePicker();
+
+    if (Platform.OS === "android") {
+      setAndroidPickerMode("date");
+    }
+  };
+
+  const onStartChange = (event, selectedDate) => {
+    if (getPickerValue(event) === null) {
+      setShowStartPicker(false);
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
+      return;
+    }
+
+    handleDateTimeChange("start", event, selectedDate);
   };
 
   const onEndChange = (event, selectedDate) => {
-    setShowEndPicker(false);
     if (getPickerValue(event) === null) {
+      setShowEndPicker(false);
+      if (Platform.OS === "android") {
+        setAndroidPickerMode("date");
+      }
       return;
     }
-    if (selectedDate) {
-      setEndDate(selectedDate);
-    }
-  };
 
-  const onDue1Change = (event, selectedDate) => {
-    setShowDue1Picker(false);
-    if (getPickerValue(event) === null) {
-      return;
-    }
-    if (selectedDate) {
-      setDueDate1(selectedDate);
-    }
+    handleDateTimeChange("end", event, selectedDate);
   };
 
   const closeAllDropdowns = () => {
@@ -296,8 +682,41 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     setShowMechanicDropdown(false);
   };
 
+  const getAddTaskWarning = () => {
+    const selectedAvailableEmployee = availableEmployees.find(
+      (emp) => emp.id === selectedEmployee,
+    );
+
+    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
+      return "Select an aircraft, inspection, and available mechanic first.";
+    }
+
+    if (!selectedAvailableEmployee) {
+      return "Select a mechanic who is currently available.";
+    }
+
+    if (isCustomTask && !customTaskTitle.trim()) {
+      return "Enter a custom task name first.";
+    }
+
+    if (isCustomTask && checklistItems.every((item) => !item.taskName?.trim())) {
+      return "Add at least one checklist item first.";
+    }
+
+    if (startDate < getNow() || endDate < getNow()) {
+      return "Start and end date/time must be today or later.";
+    }
+
+    if (endDate <= startDate) {
+      return "End date/time must be after the start date/time.";
+    }
+
+    return "";
+  };
+
   const renderDropdownField = ({
     label,
+    required = false,
     value,
     placeholder,
     options,
@@ -307,8 +726,9 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}>
+      <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
+        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
       </Text>
 
       <TouchableOpacity
@@ -338,15 +758,15 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
           style={{
             flex: 1,
             marginRight: 10,
-            fontSize: 15,
+            fontSize: 12,
             color: value ? COLORS.black : COLORS.grayDark,
           }}
         >
           {value || placeholder}
         </Text>
 
-        <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
-          {visible ? "▲" : "▼"}
+        <Text style={{ color: COLORS.primaryLight, fontSize: 12 }}>
+          {visible ? "^" : "v"}
         </Text>
       </TouchableOpacity>
 
@@ -382,14 +802,27 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                       : COLORS.white,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: COLORS.black,
-                  }}
-                >
-                  {item.label}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  {item.statusColor ? (
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: item.statusColor,
+                        marginRight: 8,
+                      }}
+                    />
+                  ) : null}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: COLORS.black,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -402,10 +835,13 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
   const selectedInspectionLabel =
-    inspectionOptions.find((inspection) => inspection.id === inspectionType)
-      ?.name || "";
+    inspectionType === CUSTOM_INSPECTION_ID
+      ? "Custom Task"
+      : inspectionOptions.find((inspection) => inspection.id === inspectionType)
+          ?.name || "";
   const selectedEmployeeLabel =
-    employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+    availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const addTaskWarning = getAddTaskWarning();
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
@@ -435,9 +871,9 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               Task
             </Text>
 
-            {/* Aircraft Section */}
             {renderDropdownField({
               label: "Aircraft",
+              required: true,
               value: selectedAircraftLabel,
               placeholder: "Tail No.",
               options: aircraftOptions.map((aircraft) => ({
@@ -449,22 +885,32 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               onSelect: setSelectedAircraft,
             })}
 
-            {/* Inspection Section */}
             {renderDropdownField({
               label: "Inspection",
+              required: true,
               value: selectedInspectionLabel,
               placeholder:
                 loading && inspectionOptions.length === 0
                   ? "Loading inspections..."
                   : "Pick Inspection",
-              options: inspectionOptions.map((inspection) => ({
-                label: inspection.name,
-                value: inspection.id,
-              })),
+              options: [
+                { label: "Custom Task", value: CUSTOM_INSPECTION_ID },
+                ...inspectionOptions.map((inspection) => ({
+                  label: inspection.name,
+                  value: inspection.id,
+                })),
+              ],
               visible: showInspectionDropdown,
               onToggle: setShowInspectionDropdown,
               onSelect: async (itemValue) => {
                 setInspectionType(itemValue);
+
+                if (itemValue === CUSTOM_INSPECTION_ID) {
+                  setSelectedInspection(null);
+                  setEndDateManuallyAdjusted(false);
+                  setChecklistItems([buildCustomChecklistItem(0)]);
+                  return;
+                }
 
                 const matchedInspection = inspectionOptions.find(
                   (i) => i.id === itemValue,
@@ -472,6 +918,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
 
                 setSelectedInspection(matchedInspection || null);
                 setChecklistItems([]);
+                setEndDateManuallyAdjusted(false);
 
                 if (!matchedInspection) return;
                 try {
@@ -480,7 +927,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                   setChecklistItems(tasks);
                 } catch (error) {
                   console.error("Error fetching tasks:", error);
-                  Alert.alert("Error", "Failed to fetch inspection tasks");
+                  showToast("Failed to fetch inspection tasks");
                 } finally {
                   setLoading(false);
                 }
@@ -488,25 +935,55 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
               disabled: loading && inspectionOptions.length === 0,
             })}
 
-            {/* Mechanic Section */}
+            {isCustomTask && (
+              <View style={{ marginBottom: 15 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.grayDark,
+                    marginBottom: 5,
+                  }}
+                >
+                  Custom Task Name *
+                </Text>
+                <TextInput
+                  value={customTaskTitle}
+                  onChangeText={setCustomTaskTitle}
+                  placeholder="Enter task name"
+                  placeholderTextColor={COLORS.grayDark}
+                  style={{
+                    minHeight: 48,
+                    backgroundColor: COLORS.grayLight,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    borderRadius: 8,
+                    paddingHorizontal: 14,
+                    color: COLORS.black,
+                  }}
+                />
+              </View>
+            )}
+
             {renderDropdownField({
               label: "Mechanic",
+              required: true,
               value: selectedEmployeeLabel,
               placeholder: "Pick Mechanic",
-              options: employees.map((emp) => ({
+              options: availableEmployees.map((emp) => ({
                 label: emp.name,
                 value: emp.id,
+                statusColor: emp.isOnline ? COLORS.success || "#22c55e" : COLORS.grayDark,
               })),
               visible: showMechanicDropdown,
               onToggle: setShowMechanicDropdown,
               onSelect: setSelectedEmployee,
             })}
 
-            {/* Start Date Section */}
             <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -517,7 +994,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                 padding: 12,
                 marginBottom: 15,
               }}
-              onPress={() => setShowStartPicker(true)}
+              onPress={() => openDateTimePicker("start")}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
@@ -527,17 +1004,18 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
             {showStartPicker && (
               <DateTimePicker
                 value={startDate}
-                mode={Platform.OS === "ios" ? "datetime" : "date"}
+                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onStartChange}
+                minimumDate={getNow()}
               />
             )}
 
-            {/* End Date Section */}
             <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
+              style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
+              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
             </Text>
             <TouchableOpacity
               style={{
@@ -548,60 +1026,51 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                 padding: 12,
                 marginBottom: 20,
               }}
-              onPress={() => setShowEndPicker(true)}
+              onPress={() => openDateTimePicker("end")}
             >
               <Text style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}
               </Text>
             </TouchableOpacity>
 
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.grayDark,
+                marginTop: -10,
+                marginBottom: 20,
+              }}
+            >
+              Estimated duration:{" "}
+              {formatEstimatedDuration(scheduleEstimate.minutes)}
+              {" | "}
+              {scheduleEstimate.itemCount} checklist item
+              {scheduleEstimate.itemCount === 1 ? "" : "s"}
+              {endDateManuallyAdjusted ? " | End time manually adjusted" : ""}
+            </Text>
+
             {showEndPicker && (
               <DateTimePicker
                 value={endDate}
-                mode={Platform.OS === "ios" ? "datetime" : "date"}
+                mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
                 display="default"
                 onChange={onEndChange}
+                minimumDate={getNow()}
               />
             )}
 
-            <Text
-              style={{ fontSize: 14, color: COLORS.grayDark, marginBottom: 5 }}
-            >
-              Due Date
-            </Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: COLORS.grayLight,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 20,
-              }}
-              onPress={() => setShowDue1Picker(true)}
-            >
-              <Text style={{ color: COLORS.grayDark }}>
-                {formatDateTime(dueDate1)}
-              </Text>
-            </TouchableOpacity>
-
-            {showDue1Picker && (
-              <DateTimePicker
-                value={dueDate1}
-                mode={Platform.OS === "ios" ? "datetime" : "date"}
-                display="default"
-                onChange={onDue1Change}
-              />
-            )}
-
-            {/* Checklist Section */}
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 15 }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
               Checklist
             </Text>
 
             {checklistItems.map((item, index) => (
-              <View key={index} style={{ flexDirection: "row", marginTop: 10 }}>
-                <CheckBox value={false} disabled={true} />
+              <View
+                key={item.taskId || index}
+                style={{ flexDirection: "row", marginTop: 10 }}
+              >
+                <View style={{ paddingTop: 2 }}>
+                  <Checkbox value={false} disabled={true} />
+                </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={{ fontSize: 12, color: "#888" }}>
@@ -610,39 +1079,96 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
                       .join(" | ")}
                   </Text>
 
-                  <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
-                    {item.taskName}
-                  </Text>
+                  {isCustomTask ? (
+                    <>
+                      <TextInput
+                        value={item.taskName || ""}
+                        onChangeText={(value) =>
+                          updateChecklistItem(index, "taskName", value)
+                        }
+                        placeholder="Checklist item"
+                        placeholderTextColor={COLORS.grayDark}
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: COLORS.border,
+                          paddingVertical: 6,
+                          color: COLORS.black,
+                        }}
+                      />
+                      <TextInput
+                        value={item.description || ""}
+                        onChangeText={(value) =>
+                          updateChecklistItem(index, "description", value)
+                        }
+                        placeholder="Description / notes"
+                        placeholderTextColor={COLORS.grayDark}
+                        multiline
+                        style={{
+                          minHeight: 42,
+                          marginTop: 6,
+                          borderWidth: 1,
+                          borderColor: COLORS.border,
+                          borderRadius: 8,
+                          padding: 8,
+                          color: COLORS.black,
+                        }}
+                      />
+                      <TouchableOpacity
+                        onPress={() => removeChecklistItem(index)}
+                        style={{ alignSelf: "flex-start", marginTop: 8 }}
+                      >
+                        <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                          Remove
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                      {item.taskName}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
 
-            {/* Add Checklist Button */}
-            {/*<TouchableOpacity
-              onPress={handleAddChecklistItem}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 10,
-                marginBottom: 20,
-              }}
-            >
-              <Text
+            {isCustomTask && (
+              <TouchableOpacity
+                onPress={addCustomChecklistItem}
                 style={{
-                  fontSize: 20,
-                  color: COLORS.primaryLight,
-                  marginRight: 8,
+                  marginTop: 14,
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.primaryLight,
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  alignItems: "center",
                 }}
               >
-                +
+                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                  Add Checklist Item
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {checklistItems.length === 0 && !isCustomTask && (
+              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+                No checklist items were found for this inspection.
               </Text>
-              <Text style={{ color: COLORS.primaryLight, fontSize: 16 }}>
-                Add Checklist
+            )}
+
+            {addTaskWarning ? (
+              <Text
+                style={{
+                  color: COLORS.danger || COLORS.dangerBorder || "#d32f2f",
+                  marginBottom: 8,
+                  fontSize: 12,
+                }}
+              >
+                {addTaskWarning}
               </Text>
-            </TouchableOpacity>*/}
+            ) : null}
           </ScrollView>
 
-          {/* Buttons */}
           <View
             style={{
               flexDirection: "row",
@@ -652,7 +1178,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
             }}
           >
             <Button
-              label="Discard Task"
+              label="Discard"
               onPress={confirmDiscard}
               buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.secondaryAlertBtnTxt}
@@ -660,6 +1186,7 @@ export default function AddTask({ visible, onClose, onAddTask, employees }) {
             <Button
               label="Add Task"
               onPress={confirmAdd}
+              disabled={Boolean(addTaskWarning)}
               buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
               buttonTextStyle={styles.primaryBtnTxt}
             />

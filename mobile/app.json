@@ -9,7 +9,6 @@
     "icon": "./assets/AirMS_mobile.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-
     "splash": {
       "image": "./assets/AirMS_web.png",
       "resizeMode": "contain",
@@ -17,10 +16,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.com.ngcp-aviation-dept.airms"
+      "bundleIdentifier": "com.arckexe.airms"
     },
     "android": {
-      "package": "com.ngcp-aviation-dept.airms",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "googleServicesFile": "./google-services.json",
+      "package": "com.arckexe.airms",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
@@ -32,14 +37,28 @@
       "favicon": "./assets/AirMS_mobile.png"
     },
     "plugins": [
+      "expo-dev-client",
       "@react-native-community/datetimepicker",
       "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/AirMS_mobile.png",
+          "color": "#26866F"
+        }
+      ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
         }
-      ]
-    ]
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
+      }
+    }
   }
 }

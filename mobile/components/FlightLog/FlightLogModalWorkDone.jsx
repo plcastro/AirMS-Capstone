@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Modal,
   Image,
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import SignatureCanvas from "react-native-signature-canvas";
+import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 
 export default function FlightLogModalWorkDone({
   workItems = [],
@@ -18,8 +17,6 @@ export default function FlightLogModalWorkDone({
   isEditable = true,
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
-  const signatureRef = useRef(null);
-  const [tempSignature, setTempSignature] = useState("");
 
   const workTypes = [
     "Discrepancy Correction",
@@ -83,63 +80,19 @@ export default function FlightLogModalWorkDone({
   };
 
   const renderSignatureModal = (itemId, title, onSave, onClose) => (
-    <Modal
+    <PinVerifiedSignatureModal
       visible={showSignatureModal === itemId}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
-        <View style={{ backgroundColor: COLORS.white, borderRadius: 12, width: "90%", height: "50%", overflow: "hidden" }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.grayMedium }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: COLORS.black }}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={COLORS.grayDark} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={{ flex: 1 }}>
-            <SignatureCanvas
-              ref={signatureRef}
-              onOK={(sig) => onSave(itemId, sig)}
-              onEmpty={onClose}
-              webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
-              descriptionText=""
-              clearText="Clear"
-              confirmText="Save"
-              penColor="#000000"
-              backgroundColor="rgba(255,255,255,0)"
-              imageType="image/png"
-              webviewProps={{
-                cacheEnabled: true,
-                androidLayerType: "hardware",
-                style: { backgroundColor: "transparent" }
-              }}
-            />
-          </View>
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between", padding: 16, borderTopWidth: 1, borderTopColor: COLORS.grayMedium }}>
-            <TouchableOpacity
-              onPress={() => signatureRef.current?.clearSignature()}
-              style={{ paddingVertical: 8, paddingHorizontal: 20, backgroundColor: "#D9534F", borderRadius: 6 }}
-            >
-              <Text style={{ color: COLORS.white, fontWeight: "500" }}>Clear</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => signatureRef.current?.readSignature()}
-              style={{ paddingVertical: 8, paddingHorizontal: 20, backgroundColor: COLORS.primaryLight, borderRadius: 6 }}
-            >
-              <Text style={{ color: COLORS.white, fontWeight: "500" }}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      title={title}
+      description="Draw the work-done signature below."
+      confirmDescription="Enter your 6-digit PIN to save this work-done signature."
+      onClose={onClose}
+      onSave={(sig) => onSave(itemId, sig)}
+    />
   );
 
   const renderInput = (itemId, label, fieldKey, placeholder = "", multiline = false) => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
         {label}:
       </Text>
       <TextInput
@@ -149,7 +102,7 @@ export default function FlightLogModalWorkDone({
           height: multiline ? 80 : 42,
           paddingHorizontal: 12,
           paddingVertical: multiline ? 10 : 0,
-          fontSize: 14,
+          fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
           textAlignVertical: multiline ? "top" : "center",
         }}
@@ -167,7 +120,7 @@ export default function FlightLogModalWorkDone({
   if (workItems.length === 0 && isEditable) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
           Work Done
         </Text>
 
@@ -186,7 +139,7 @@ export default function FlightLogModalWorkDone({
           alignItems: "center",
         }}>
           <MaterialCommunityIcons name="tools" size={48} color={COLORS.grayMedium} />
-          <Text style={{ fontSize: 14, color: COLORS.grayDark, marginTop: 12, textAlign: "center" }}>
+          <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 12, textAlign: "center" }}>
             No work items yet
           </Text>
           <TouchableOpacity
@@ -199,7 +152,7 @@ export default function FlightLogModalWorkDone({
               marginTop: 16,
             }}
           >
-            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "500" }}>
+            <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>
               + Add Work Done
             </Text>
           </TouchableOpacity>
@@ -210,7 +163,7 @@ export default function FlightLogModalWorkDone({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: COLORS.grayDark, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Work Done
       </Text>
 
@@ -239,7 +192,7 @@ export default function FlightLogModalWorkDone({
             justifyContent: "space-between",
             alignItems: "center",
           }}>
-            <Text style={{ fontSize: 16, color: COLORS.white, fontWeight: "600" }}>
+            <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
               Work Done {workItems.length > 1 ? `#${index + 1}` : ""}
             </Text>
             {isEditable && workItems.length > 1 && (
@@ -252,7 +205,7 @@ export default function FlightLogModalWorkDone({
           <View style={{ padding: 20 }}>
             {/* Work Done Checkboxes */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>Work Done</Text>
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>Work Done</Text>
               {workTypes.map((type, idx) => (
                 <TouchableOpacity
                   key={idx}
@@ -267,7 +220,7 @@ export default function FlightLogModalWorkDone({
                     borderColor: COLORS.primaryLight,
                     backgroundColor: (item.selectedWorkTypes || []).includes(type) ? COLORS.primaryLight : "transparent",
                   }} />
-                  <Text style={{ fontSize: 14, color: isEditable ? COLORS.black : COLORS.grayDark }}>
+                  <Text style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>
                     {type}
                   </Text>
                 </TouchableOpacity>
@@ -283,7 +236,7 @@ export default function FlightLogModalWorkDone({
 
             {/* Signature */}
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 13, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                 Signature:
               </Text>
               {isEditable ? (
@@ -305,7 +258,7 @@ export default function FlightLogModalWorkDone({
                       style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                     />
                   ) : (
-                    <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+                    <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
                       Tap to sign
                     </Text>
                   )}
@@ -326,7 +279,7 @@ export default function FlightLogModalWorkDone({
                       style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                     />
                   ) : (
-                    <Text style={{ color: COLORS.grayDark, fontSize: 14 }}>
+                    <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
                       No signature
                     </Text>
                   )}
@@ -359,7 +312,7 @@ export default function FlightLogModalWorkDone({
             marginBottom: 20,
           }}
         >
-          <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: "500" }}>+ Add Work Done</Text>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Work Done</Text>
         </TouchableOpacity>
       )}
     </ScrollView>

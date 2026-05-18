@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   pin: { type: String, default: "", select: false },
   signature: { type: String, default: "" },
+  securitySetupCompleted: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
@@ -40,10 +41,50 @@ const userSchema = new mongoose.Schema({
     default: "User",
   },
   tempPasswordExpires: Date,
+  invitationStatus: {
+    type: String,
+    enum: ["pending", "expired", "claimed", "revoked"],
+    default: "pending",
+  },
+  invitationSentAt: { type: Date, default: Date.now },
+  invitationExpiresAt: { type: Date, default: null },
+  invitationClaimedAt: { type: Date, default: null },
   licenseNo: { type: String, unique: true, trim: true },
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
+  isOnline: { type: Boolean, default: false },
+  platform: {
+    type: String,
+    enum: ["web", "mobile", "unknown"],
+    default: "unknown",
+  },
+  lastSeenAt: { type: Date, default: null },
+  mobilePushDevices: {
+    type: [
+      {
+        deviceId: { type: String, required: true },
+        expoPushToken: { type: String, required: true },
+        platform: { type: String, default: "unknown" },
+        lastSeenAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
+  trustedDevices: {
+    type: [
+      {
+        tokenHash: { type: String, required: true },
+        label: { type: String, default: "" },
+        platform: { type: String, default: "unknown" },
+        createdAt: { type: Date, default: Date.now },
+        lastUsedAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true },
+        revokedAt: { type: Date, default: null },
+      },
+    ],
+    default: [],
+  },
 
   // --- PASSWORD RESET ---
   resetPasswordToken: String,
@@ -52,6 +93,11 @@ const userSchema = new mongoose.Schema({
   otpExpires: Date,
   otpAttempts: { type: Number, default: 0 },
   otpLockUntil: Date,
+  loginOtp: String,
+  loginOtpExpires: Date,
+  loginOtpToken: String,
+  loginOtpAttempts: { type: Number, default: 0 },
+  loginOtpLockUntil: Date,
 
   // --- PIN RESET ---
   resetPinToken: String,

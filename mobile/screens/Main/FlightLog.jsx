@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,18 +8,55 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
+import { NotificationContext } from "../../Context/NotificationContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { exportFlightLogPdf } from "../../utilities/pdfExport";
+import { showToast } from "../../utilities/toast";
+import { styles } from "../../stylesheets/styles";
 
-export default function FlightLog() {
+const normalizeFlightLogStatus = (statusValue = "") =>
+  String(statusValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+const getComparableStatus = (statusValue = "") => {
+  const normalized = normalizeFlightLogStatus(statusValue);
+
+  if (normalized === "ongoing" || normalized === "draft") {
+    return "pending_release";
+  }
+  if (normalized === "released") {
+    return "pending_acceptance";
+  }
+
+  return normalized;
+};
+
+const sortNewestFlightLogs = (logs = []) =>
+  [...logs].sort((a, b) => {
+    const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
+    const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
+    return (
+      (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate)
+    );
+  });
+
+const mergeFlightLogs = (logs = []) =>
+  Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
+
+export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
+  const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -33,31 +70,139 @@ export default function FlightLog() {
   const [refreshing, setRefreshing] = useState(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const isOfficerInCharge = userRole === "officer-in-charge";
+
+  const getAuthHeaders = useCallback(async () => {
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    let sessionMeta = {};
+
+    try {
+      sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+    } catch {
+      sessionMeta = {};
+    }
+
+    return {
+      "Content-Type": "application/json",
+      "x-action-confirmed": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "x-platform": "MOBILE",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+    };
+  }, []);
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
-  const fetchFlightLogs = async () => {
+  const fetchFlightLogs = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append("page", "1");
+        params.append("limit", "500");
+        params.append("sortBy", "date");
+        params.append("sortOrder", "desc");
+
+        if (selectedAircraft && selectedAircraft !== "all") {
+          params.append("aircraftRPC", selectedAircraft);
+        }
+        if (selectedStatus && selectedStatus !== "all") {
+          params.append(
+            "status",
+            selectedStatus === "released"
+              ? "pending_acceptance"
+              : selectedStatus,
+          );
+        }
+
+        // console.log(
+        //   "Fetching from:",
+        //   `${API_BASE}/api/flightlogs?${params.toString()}`,
+        // );
+
+        const fetchPage = async (page, extraParams = {}) => {
+          const pageParams = new URLSearchParams(params);
+          pageParams.set("page", String(page));
+          Object.entries(extraParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              pageParams.set(key, value);
+            }
+          });
+
+          const response = await fetch(
+            `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Failed to fetch flight logs");
+          }
+
+          return data;
+        };
+
+        const fetchAllPages = async (extraParams = {}) => {
+          const firstPage = await fetchPage(1, extraParams);
+          const totalPages = Number(firstPage.pagination?.pages || 1);
+          const remainingPages =
+            totalPages > 1
+              ? await Promise.all(
+                  Array.from({ length: totalPages - 1 }, (_, index) =>
+                    fetchPage(index + 2, extraParams),
+                  ),
+                )
+              : [];
+
+          return [firstPage, ...remainingPages].flatMap((page) =>
+            Array.isArray(page.data) ? page.data : [],
+          );
+        };
+
+        const logs = await fetchAllPages();
+        const pendingReleaseLogs =
+          selectedStatus === "all"
+            ? await fetchAllPages({ status: "pending_release" })
+            : [];
+
+        setFlightLogs(
+          sortNewestFlightLogs(
+            mergeFlightLogs([...logs, ...pendingReleaseLogs]),
+          ),
+        );
+      } catch (error) {
+        console.error("Fetch error:", error);
+        showToast(
+          error.message ||
+            "Failed to connect to server. Please check your network.",
+        );
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+        setRefreshing(false);
+      }
+    },
+    [selectedAircraft, selectedStatus],
+  );
+
+  const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
-      setLoading(true);
-
-      // Build query parameters
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "100");
-
-      if (selectedAircraft && selectedAircraft !== "all") {
-        params.append("aircraftRPC", selectedAircraft);
-      }
-      if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", selectedStatus);
-      }
-
-      console.log(
-        "Fetching from:",
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-      );
-
       const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
+        `${API_BASE}/api/flightlogs/${flightLogId}`,
         {
           method: "GET",
           headers: {
@@ -66,27 +211,18 @@ export default function FlightLog() {
         },
       );
 
-      // Read response ONLY ONCE - use json() directly
       const data = await response.json();
-      // console.log("Raw Server Response:", JSON.stringify(data));
 
-      if (response.ok) {
-        setFlightLogs(data.data || []);
-      } else {
-        console.error("Error fetching logs:", data.message);
-        Alert.alert("Error", data.message || "Failed to fetch flight logs");
+      if (!response.ok || !data?.success || !data?.data) {
+        return null;
       }
+
+      return data.data;
     } catch (error) {
-      console.error("Fetch error:", error);
-      Alert.alert(
-        "Error",
-        "Failed to connect to server. Please check your network.",
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      console.error("Fetch flight log by id error:", error);
+      return null;
     }
-  };
+  }, []);
 
   // SEARCH FLIGHT LOGS
   const searchFlightLogs = async (query) => {
@@ -99,7 +235,7 @@ export default function FlightLog() {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=100`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
         {
           method: "GET",
           headers: {
@@ -112,7 +248,7 @@ export default function FlightLog() {
       const data = await response.json();
 
       if (response.ok) {
-        setFlightLogs(data.data || []);
+        setFlightLogs(sortNewestFlightLogs(data.data || []));
       } else {
         console.error("Search error:", data.message);
       }
@@ -124,41 +260,57 @@ export default function FlightLog() {
   };
 
   // CREATE NEW FLIGHT LOG
-  const handleSaveNewEntry = async (newEntry) => {
+  const handleSaveNewEntry = async (
+    newEntry,
+    options = { closeOnSave: true, showToast: true },
+  ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newEntry),
+        headers: authHeaders,
+        body: JSON.stringify({
+          ...newEntry,
+          createdByName:
+            `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+            "Unknown User",
+          createdByUserId: user?.id || null,
+        }),
       });
 
       // Read ONLY ONCE
       const data = await response.json();
 
       if (response.ok) {
-        fetchFlightLogs(); // Refresh the list
-        setShowNewEntryModal(false);
+        fetchFlightLogs();
+        fetchNotifications();
+        if (options.closeOnSave !== false) {
+          setShowNewEntryModal(false);
+        }
+        if (options.showToast) {
+          showToast("Flight log added successfully");
+        }
       } else {
-        Alert.alert("Error", data.message || "Failed to add flight log");
+        showToast(data.message || "Failed to add flight log");
       }
     } catch (error) {
       console.error("Save error:", error);
-      Alert.alert("Error", "Failed to connect to server");
+      showToast("Failed to connect to server");
     }
   };
 
   // UPDATE FLIGHT LOG (NO AUTH)
-  const handleSaveEdit = async (updatedLog) => {
+  const handleSaveEdit = async (
+    updatedLog,
+    options = { closeOnSave: true, showToast: true },
+  ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders,
           body: JSON.stringify(updatedLog),
         },
       );
@@ -166,16 +318,23 @@ export default function FlightLog() {
       const data = await response.json();
 
       if (response.ok) {
-        fetchFlightLogs(); // Refresh the list
-        setShowEditModal(false);
-        setSelectedLog(null);
-        Alert.alert("Success", "Flight log updated successfully");
+        fetchFlightLogs();
+        fetchNotifications();
+        if (options.closeOnSave) {
+          setShowEditModal(false);
+          setSelectedLog(null);
+        } else {
+          setSelectedLog(updatedLog);
+        }
+        if (options.showToast !== false) {
+          showToast("Flight log updated successfully");
+        }
       } else {
-        Alert.alert("Error", data.message || "Failed to update flight log");
+        showToast(data.message || "Failed to update flight log");
       }
     } catch (error) {
       console.error("Update error:", error);
-      Alert.alert("Error", "Failed to connect to server");
+      showToast("Failed to connect to server");
     }
   };
 
@@ -195,7 +354,49 @@ export default function FlightLog() {
   // Fetch when filters change
   useEffect(() => {
     fetchFlightLogs();
-  }, [selectedAircraft, selectedStatus]);
+  }, [fetchFlightLogs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFlightLogs();
+      fetchNotifications();
+    }, [fetchFlightLogs, fetchNotifications]),
+  );
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
+    const stream = new EventSource(`${API_BASE}/api/events/stream`);
+    const onDataChanged = async () => {
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+    };
+
+    stream.addEventListener("data-changed", onDataChanged);
+
+    return () => {
+      stream.removeEventListener("data-changed", onDataChanged);
+      stream.close();
+    };
+  }, [fetchFlightLogs, fetchNotifications]);
+
+  useEffect(() => {
+    if (!route?.params?.refreshAt) {
+      return;
+    }
+
+    fetchFlightLogs();
+    fetchNotifications();
+  }, [fetchFlightLogs, fetchNotifications, route?.params?.refreshAt]);
+
+  useEffect(() => {
+    if (!route?.params?.targetFlightLogId) {
+      return;
+    }
+
+    setSelectedAircraft("");
+    setSelectedStatus(route?.params?.notificationStatus || "all");
+  }, [route?.params?.notificationStatus, route?.params?.targetFlightLogId]);
 
   const aircraftOptions = [
     "all",
@@ -203,10 +404,9 @@ export default function FlightLog() {
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending_release" },
-    { label: "Pending Acceptance", value: "pending_acceptance" },
-    { label: "Released", value: "released" },
+    { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
     { label: "Completed", value: "completed" },
   ];
@@ -224,18 +424,54 @@ export default function FlightLog() {
       log.rpc === selectedAircraft;
 
     const matchesStatus =
-      selectedStatus === "all" || log.status === selectedStatus;
+      selectedStatus === "all" ||
+      getComparableStatus(log.status) === getComparableStatus(selectedStatus);
 
     return matchesSearch && matchesAircraft && matchesStatus;
   });
+
+  useEffect(() => {
+    const openTargetFlightLog = async () => {
+      const targetFlightLogId = route?.params?.targetFlightLogId;
+
+      if (!targetFlightLogId) {
+        return;
+      }
+
+      let matchedLog = flightLogs.find((log) => log._id === targetFlightLogId);
+
+      if (!matchedLog) {
+        matchedLog = await fetchFlightLogById(targetFlightLogId);
+      }
+
+      if (!matchedLog) {
+        return;
+      }
+
+      setSelectedLog(matchedLog);
+      setShowEditModal(true);
+      navigation?.setParams?.({
+        refreshAt: undefined,
+        targetFlightLogId: undefined,
+        notificationStatus: undefined,
+      });
+    };
+
+    openTargetFlightLog();
+  }, [
+    fetchFlightLogById,
+    flightLogs,
+    navigation,
+    route?.params?.targetFlightLogId,
+  ]);
 
   const handleEdit = (log) => {
     setSelectedLog(log);
     setShowEditModal(true);
   };
 
-  const handleExport = (log) => {
-    console.log("Export log:", log);
+  const handleExport = async (log) => {
+    await exportFlightLogPdf(log);
   };
 
   const handleNewEntry = () => {
@@ -255,28 +491,17 @@ export default function FlightLog() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchFlightLogs();
+    fetchNotifications();
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <View style={{ flex: 1, paddingHorizontal: 7 }}>
+      <View style={{ flex: 1, paddingHorizontal: 7, marginTop: 10 }}>
         {/* Search Bar Row with New Entry Button */}
-        <View style={{ flexDirection: "row", marginBottom: 12, gap: 12 }}>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              height: 48,
-              paddingHorizontal: 12,
-            }}
-          >
+        <View style={styles.unifiedControlRow}>
+          <View style={styles.unifiedSearchBox}>
             <MaterialCommunityIcons
               name="magnify"
               size={22}
@@ -285,46 +510,25 @@ export default function FlightLog() {
             <TextInput
               placeholder="Search"
               placeholderTextColor={COLORS.grayDark}
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 16,
-                color: COLORS.black,
-                padding: 0,
-              }}
+              style={styles.unifiedSearchInput}
               value={searchQuery}
               onChangeText={handleSearchChange}
             />
           </View>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 10,
-              height: 48,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={handleNewEntry}
-          >
-            <MaterialCommunityIcons
-              name="plus"
-              size={20}
-              color={COLORS.white}
-            />
-            <Text
-              style={{
-                color: COLORS.white,
-                fontSize: 15,
-                fontWeight: "600",
-                marginLeft: 6,
-              }}
+          {!isOfficerInCharge && (
+            <TouchableOpacity
+              style={styles.unifiedActionButton}
+              onPress={handleNewEntry}
             >
-              New Entry
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color={COLORS.white}
+              />
+              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filters Row */}
@@ -340,30 +544,28 @@ export default function FlightLog() {
           {/* Aircraft Filter Dropdown */}
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
               <Text
-                style={{
-                  fontSize: 15,
-                  color:
-                    selectedAircraft && selectedAircraft !== "all"
-                      ? COLORS.black
-                      : COLORS.grayDark,
-                }}
+                style={[
+                  styles.unifiedFilterButtonText,
+                  {
+                    color:
+                      selectedAircraft && selectedAircraft !== "all"
+                        ? COLORS.black
+                        : COLORS.grayDark,
+                  },
+                ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? `RP-C: ${selectedAircraft}`
                   : "Choose Aircraft"}
               </Text>
               <MaterialCommunityIcons
@@ -374,35 +576,20 @@ export default function FlightLog() {
             </TouchableOpacity>
 
             {showAircraftDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                  maxHeight: 300,
-                }}
-              >
+              <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
                 <ScrollView>
                   {aircraftOptions.map((aircraft, index) => (
                     <TouchableOpacity
                       key={index}
                       style={{
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
+                        ...styles.unifiedDropdownItem,
                         borderBottomWidth:
                           index < aircraftOptions.length - 1 ? 1 : 0,
                         borderBottomColor: COLORS.grayMedium,
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={{ fontSize: 15 }}>
+                      <Text style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
@@ -417,20 +604,16 @@ export default function FlightLog() {
           {/* Status Filter Dropdown */}
           <View style={{ width: 150 }}>
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: COLORS.white,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                height: 48,
-                paddingHorizontal: 12,
-              }}
+              style={styles.unifiedFilterButton}
               onPress={() => setShowStatusDropdown(!showStatusDropdown)}
             >
-              <Text style={{ fontSize: 15, color: COLORS.black }}>
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}
               </Text>
@@ -442,33 +625,21 @@ export default function FlightLog() {
             </TouchableOpacity>
 
             {showStatusDropdown && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  zIndex: 1000,
-                  elevation: 5,
-                }}
-              >
+              <View style={styles.unifiedDropdownMenu}>
                 {statusOptions.map((option, index) => (
                   <TouchableOpacity
                     key={index}
                     style={{
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
+                      ...styles.unifiedDropdownItem,
                       borderBottomWidth:
                         index < statusOptions.length - 1 ? 1 : 0,
                       borderBottomColor: COLORS.grayMedium,
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={{ fontSize: 15 }}>{option.label}</Text>
+                    <Text style={styles.unifiedDropdownItemText}>
+                      {option.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -523,27 +694,29 @@ export default function FlightLog() {
                 <Text
                   style={{
                     marginTop: 10,
-                    fontSize: 16,
+                    fontSize: 12,
                     color: COLORS.grayDark,
                     textAlign: "center",
                   }}
                 >
                   No flight logs found
                 </Text>
-                <TouchableOpacity
-                  onPress={handleNewEntry}
-                  style={{
-                    marginTop: 20,
-                    backgroundColor: COLORS.primaryLight,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Create New Entry
-                  </Text>
-                </TouchableOpacity>
+                {!isOfficerInCharge && (
+                  <TouchableOpacity
+                    onPress={handleNewEntry}
+                    style={{
+                      marginTop: 20,
+                      backgroundColor: COLORS.primaryLight,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                      Create New Entry
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <FlightLogCards
@@ -551,6 +724,7 @@ export default function FlightLog() {
                 onEdit={handleEdit}
                 onExport={handleExport}
                 userRole={userRole}
+                readOnly={isOfficerInCharge}
               />
             )}
           </ScrollView>
@@ -575,6 +749,7 @@ export default function FlightLog() {
         }}
         onSave={handleSaveEdit}
         userRole={userRole}
+        readOnly={isOfficerInCharge}
       />
     </View>
   );

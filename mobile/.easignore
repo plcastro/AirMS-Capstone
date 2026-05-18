@@ -1,0 +1,40 @@
+# Dependencies/cache
+node_modules
+.expo
+.cache
+
+# Native build outputs
+android/.gradle
+android/build
+android/app/build
+android/.cxx
+android/app/.cxx
+android/**/intermediates
+android/**/generated
+android/**/outputs
+android/**/*.apk
+android/**/*.aab
+ios/build
+ios/Pods
+
+# Local env/editor/system files
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# Logs and temp artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+tmp
+temp
+
+# Bundled/exported output
+dist
+web-build
+
+# Local docs/scripts not needed for app build
+docs
+*.md

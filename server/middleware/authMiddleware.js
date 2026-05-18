@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
-// Middleware to verify JWT and attach user info to req.user
+const { updateRequestContext } = require("./requestContext");
+
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -13,6 +14,11 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    updateRequestContext({
+      sessionId: req.headers["x-session-id"] || decoded.sessionId,
+      platform: req.headers["x-platform"] || decoded.platform,
+      base: req.headers["x-base"] || decoded.base,
+    });
     next();
   } catch (err) {
     console.error("JWT verification failed:", err);

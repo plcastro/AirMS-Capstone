@@ -1,65 +1,208 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { CommonActions, useNavigation } from "@react-navigation/native";
-import { View, Image } from "react-native";
+import { View, Image, Text } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { styles } from "../stylesheets/styles";
 import AirMSWeb from "../assets/AirMS_web.png";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import AlertComp from "./AlertComp";
-
 import { AuthContext } from "../Context/AuthContext";
-import { API_BASE } from "../utilities/API_BASE";
 
 const DrawerList = [
   {
-    icon: "book-open-page-variant",
-    label: "Flight Logbook",
-    navigateTo: "Flight Logbook",
-    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
+    label: "GENERAL",
+    jobTitle: [
+      "admin",
+      "maintenance manager",
+      "officer-in-charge",
+      "warehouse department",
+      "mechanic",
+    ],
+    children: [
+      {
+        icon: "chart-areaspline",
+        label: "Reports and Analytics",
+        navigateTo: "Reports and Analytics",
+        jobTitle: ["maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "message-text-outline",
+        label: "Messages",
+        navigateTo: "Messages",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "mechanic",
+          "officer-in-charge",
+          "warehouse department",
+        ],
+      },
+    ],
   },
   {
-    icon: "book-open-page-variant",
-    label: "Pre-Inspection",
-    navigateTo: "Pre-Inspection",
-    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
+    label: "USER MANAGEMENT",
+    jobTitle: ["admin"],
+    children: [
+      {
+        icon: "account-multiple-outline",
+        label: "Manage Users",
+        navigateTo: "Manage Users",
+        jobTitle: ["admin"],
+      },
+      {
+        icon: "history",
+        label: "Activity Logs",
+        navigateTo: "Activity Logs",
+        jobTitle: ["admin"],
+      },
+    ],
   },
   {
-    icon: "book-open-page-variant",
-    label: "Post-Inspection",
-    navigateTo: "Post-Inspection",
-    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
-  },
-  {
-    icon: "clipboard-text",
-    label: "Tasks",
-    navigateTo: "Tasks",
-    jobTitle: ["maintenance manager", "mechanic"],
-  },
-  {
-    icon: "account-group",
-    label: "Mechanic List",
-    navigateTo: "Mechanics",
-    jobTitle: ["maintenance manager"],
-  },
-  {
-    icon: "file-document-outline",
-    label: "Parts Requisition",
-    navigateTo: "Parts Requisition",
-    jobTitle: ["maintenance manager", "engineer", "officer-in-charge"],
-  },
-  {
-    icon: "account-circle",
-    label: "My Profile",
-    navigateTo: "Profile",
+    label: "AIRCRAFT HEALTH LOGBOOK",
     jobTitle: [
       "admin",
       "pilot",
       "maintenance manager",
+      "officer-in-charge",
+      "mechanic",
+    ],
+    children: [
+      {
+        icon: "helicopter",
+        label: "Flight Logs",
+        navigateTo: "Flight Logs",
+        jobTitle: [
+          "admin",
+          "pilot",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+      {
+        icon: "tools",
+        label: "Maintenance Logs",
+        navigateTo: "Maintenance Logs",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+      {
+        icon: "clipboard-check-outline",
+        label: "Pre-Inspection",
+        navigateTo: "Pre-Inspection",
+        jobTitle: [
+          "admin",
+          "pilot",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+      {
+        icon: "clipboard-check-outline",
+        label: "Post-Inspection",
+        navigateTo: "Post-Inspection",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+    ],
+  },
+  {
+    label: "TASK ASSIGNMENT & MONITORING",
+    jobTitle: ["admin", "maintenance manager", "mechanic"],
+    children: [
+      {
+        icon: "calendar-clock",
+        label: "Tasks",
+        navigateTo: "Tasks",
+        jobTitle: ["admin", "maintenance manager", "mechanic"],
+      },
+      {
+        icon: "account-group",
+        label: "Mechanics",
+        navigateTo: "Mechanics",
+        jobTitle: ["maintenance manager"],
+      },
+    ],
+  },
+  {
+    label: "PARTS LIFESPAN & MAINTENANCE TRACKING",
+    jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+    children: [
+      {
+        icon: "view-dashboard-outline",
+        label: "Parts Lifespan Monitoring",
+        navigateTo: "Parts Lifespan Monitoring",
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "radar",
+        label: "Maintenance Tracking",
+        navigateTo: "Maintenance Tracking",
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+      },
+      {
+        icon: "flag-outline",
+        label: "Maintenance Priority Sorting",
+        navigateTo: "Maintenance Priority Sorting",
+        jobTitle: ["admin", "maintenance manager"],
+      },
+    ],
+  },
+  {
+    label: "PARTS REQUISITION",
+    jobTitle: [
+      "admin",
+      "warehouse department",
+      "maintenance manager",
+      "officer-in-charge",
+      "mechanic",
+    ],
+    children: [
+      {
+        icon: "inbox-outline",
+        label: "Parts Requisition Monitoring",
+        navigateTo: "Parts Requisition Monitoring",
+        jobTitle: [
+          "admin",
+          "warehouse department",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
+      },
+    ],
+  },
+  {
+    label: "SETTINGS",
+    jobTitle: [
+      "admin",
+      "maintenance manager",
       "mechanic",
       "officer-in-charge",
+      "warehouse department",
+    ],
+    children: [
+      {
+        icon: "account-circle",
+        label: "Profile",
+        navigateTo: "Profile",
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "mechanic",
+          "officer-in-charge",
+          "warehouse department",
+        ],
+      },
     ],
   },
 ];
@@ -68,70 +211,27 @@ function DrawerContent({ navigation }) {
   const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
-  const [openMenu, setOpenMenu] = useState(null);
 
-  const userjobTitle = user?.jobTitle?.toLowerCase();
+  const userJob = user?.jobTitle?.toLowerCase();
+
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
-  useEffect(() => {
-    DrawerList.forEach((item) => {
-      if (item.children?.some((c) => c.navigateTo === activeRoute)) {
-        setOpenMenu(item.label);
-      }
-    });
-  }, [activeRoute]);
+  const isVisible = (item) => {
+    const roles = item.jobTitle?.map((r) => r.toLowerCase()) || [];
+    return roles.length === 0 || roles.includes(userJob);
+  };
+
+  const getChildren = (item) =>
+    item.children ? item.children.filter(isVisible) : [];
 
   const handleLogout = async () => {
     try {
-      const token = await AsyncStorage.getItem("currentUserToken");
-      if (token) {
-        await fetch(`${API_BASE}/api/user/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-
-      await AsyncStorage.multiRemove(["currentUser", "currentUserToken"]);
-      const rememberMeFlag = await AsyncStorage.getItem("rememberMe");
-      if (!rememberMeFlag || rememberMeFlag === "false") {
-        await AsyncStorage.multiRemove([
-          "rememberedIdentifier",
-          "rememberedPassword",
-        ]);
-        await AsyncStorage.setItem("rememberMe", "false");
-      }
-
-      logoutUser();
+      await logoutUser({ notifyServer: true });
       nav.replace("login");
     } catch (err) {
-      console.error("Error logging out:", err);
+      console.error(err);
     }
-  };
-
-  const isItemVisible = (item) => {
-    const jobTitles = item.jobTitle?.map((p) => p.toLowerCase()) || [];
-    return jobTitles.length === 0 || jobTitles.includes(userjobTitle);
-  };
-
-  const getChildren = (item) => {
-    if (!item.children) return [];
-    return item.children.filter((child) => {
-      switch (userjobTitle) {
-        case "pilot":
-          return child.label === "Flight Logbook";
-        case "maintenance manager":
-        case "officer-in-charge":
-          return ["Flight Logbook", "Maintenance Logbook"].includes(
-            child.label,
-          );
-        default:
-          return true;
-      }
-    });
   };
 
   return (
@@ -140,95 +240,135 @@ function DrawerContent({ navigation }) {
         <Image
           source={AirMSWeb}
           style={{
-            width: 150,
-            height: 50,
+            width: 120,
+            height: 40,
             alignSelf: "center",
             marginBottom: 10,
           }}
         />
 
-        <View style={styles.drawerSection}>
-          {DrawerList.filter(isItemVisible).map((item, index) => {
+        <View>
+          {DrawerList.filter(isVisible).map((item) => {
             const isActive =
               (!item.children && item.navigateTo === activeRoute) ||
               (item.children &&
                 item.children.some((c) => c.navigateTo === activeRoute));
 
+            if (item.children) {
+              return (
+                <View key={item.label} style={{ marginTop: 8 }}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "700",
+                      letterSpacing: 1,
+                      color: "#777",
+                      marginLeft: 18,
+                      marginBottom: 2,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                  {getChildren(item).map((child) => {
+                    const childActive = activeRoute === child.navigateTo;
+
+                    return (
+                      <DrawerItem
+                        key={child.navigateTo}
+                        focused={childActive}
+                        style={{
+                          backgroundColor: childActive
+                            ? "#E6F4F1"
+                            : "transparent",
+                          borderRadius: 10,
+                          borderLeftWidth: childActive ? 4 : 0,
+                          borderLeftColor: "#26866F",
+                        }}
+                        label={() => (
+                          <Text
+                            style={{
+                              color: childActive ? "#26866F" : "#777",
+                              fontSize: 12,
+                              fontWeight: childActive ? "600" : "400",
+                            }}
+                            numberOfLines={2}
+                          >
+                            {child.label}
+                          </Text>
+                        )}
+                        icon={({ size }) => (
+                          <MaterialCommunityIcons
+                            name={child.icon}
+                            size={size}
+                            color={childActive ? "#26866F" : "#777"}
+                          />
+                        )}
+                        onPress={() =>
+                          navigation.dispatch(
+                            CommonActions.navigate({
+                              name: child.navigateTo,
+                            }),
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              );
+            }
+
             return (
-              <View key={index}>
+              <View key={item.label}>
                 <DrawerItem
-                  label={item.label}
                   focused={isActive}
                   style={{
-                    backgroundColor: isActive ? "#26866F" : "transparent",
-                    borderRadius: 0,
+                    backgroundColor: isActive ? "#E6F4F1" : "transparent",
+                    borderRadius: 10,
+                    borderLeftWidth: isActive ? 4 : 0,
+                    borderLeftColor: "#26866F",
                   }}
-                  labelStyle={{ color: isActive ? "#fff" : "#777" }}
-                  icon={({ color, size }) => (
+                  label={() => (
+                    <Text
+                      style={{
+                        color: isActive ? "#26866F" : "#777",
+                        fontSize: 12,
+                        fontWeight: isActive ? "600" : "400",
+                      }}
+                      numberOfLines={2}
+                    >
+                      {item.label}
+                    </Text>
+                  )}
+                  icon={({ size }) => (
                     <MaterialCommunityIcons
-                      name={
-                        item.children
-                          ? openMenu === item.label
-                            ? "chevron-down"
-                            : "chevron-right"
-                          : item.icon
-                      }
-                      color={isActive ? "#fff" : "#777"}
+                      name={item.icon}
                       size={size}
+                      color={isActive ? "#26866F" : "#777"}
                     />
                   )}
                   onPress={() => {
-                    if (item.children) {
-                      setOpenMenu(openMenu === item.label ? null : item.label);
-                    } else {
+                    if (!item.children) {
                       navigation.dispatch(
                         CommonActions.navigate({ name: item.navigateTo }),
                       );
                     }
                   }}
                 />
-
-                {item.children &&
-                  openMenu === item.label &&
-                  getChildren(item).map((child, i) => {
-                    const childActive = activeRoute === child.navigateTo;
-                    return (
-                      <DrawerItem
-                        key={i}
-                        label={child.label}
-                        focused={childActive}
-                        style={{
-                          backgroundColor: childActive
-                            ? "#26866F"
-                            : "transparent",
-                          borderRadius: 0,
-                        }}
-                        labelStyle={{
-                          color: childActive ? "#fff" : "#777",
-                          paddingLeft: 20,
-                        }}
-                        onPress={() =>
-                          navigation.dispatch(
-                            CommonActions.navigate({ name: child.navigateTo }),
-                          )
-                        }
-                      />
-                    );
-                  })}
               </View>
             );
           })}
         </View>
       </DrawerContentScrollView>
 
-      <View style={styles.bottomDrawerSection}>
+      {/* LOGOUT */}
+      <View style={{ padding: 10 }}>
         <DrawerItem
-          style={{ borderRadius: 0 }}
-          icon={({ color, size }) => (
+          icon={({ size, color }) => (
             <MaterialCommunityIcons
               name="exit-to-app"
-              color={color}
               size={size}
+              color={color}
             />
           )}
           label="Log Out"

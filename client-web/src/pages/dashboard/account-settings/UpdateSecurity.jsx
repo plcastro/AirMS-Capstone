@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
+  App,
   Row,
   Col,
   Space,
@@ -7,7 +8,9 @@ import {
   Button,
   Typography,
   Tabs,
-  message,
+  Form,
+  Card,
+  Alert,
 } from "antd";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -15,6 +18,7 @@ import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
+  const { message } = App.useApp();
   const { user, setUser, getValidToken } = useContext(AuthContext);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -212,155 +216,175 @@ export default function UpdateSecurity() {
     }
   };
   const PasswordTab = (
-    <Space orientation="vertical">
-      <Input.Password
-        size="large"
-        placeholder="Current Password"
-        value={currentPassword}
-        onChange={(e) => setCurrentPassword(e.target.value)}
-        required
-        allowClear
-      />
-
-      <Input.Password
-        placeholder="New Password"
-        size="large"
-        value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
-        required
-        allowClear
-      />
-      <Input.Password
-        placeholder="Confirm Password"
-        size="large"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        required
-        allowClear
-      />
-
-      <div style={{ height: "20px" }}>
-        {newPassword && (
-          <Text style={{ color: strength.color }}>{strength.text}</Text>
-        )}
-      </div>
-
-      {validationMessage && (
-        <Text
-          type={
-            validationMessage.includes("successfully") ? "success" : "danger"
-          }
-        >
-          {validationMessage}
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Text type="secondary">
+          Use a strong password with at least 8 characters, uppercase letters,
+          and numbers.
         </Text>
-      )}
+        <Form layout="vertical" requiredMark={false}>
+          <Form.Item label="Current Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
 
-      <Row>
-        <Button
-          type="primary"
-          onClick={savePassword}
-          disabled={!Object.values(passwordErrors).every(Boolean)}
-          style={{ marginRight: 10 }}
-        >
-          Save Password
-        </Button>
-        <Button type="default" onClick={resetAll}>
-          <ClearOutlined />
-        </Button>
-      </Row>
-    </Space>
+          <Form.Item label="New Password" required>
+            <Input.Password
+              size="large"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+            {newPassword && (
+              <Text style={{ color: strength.color }}>{strength.text}</Text>
+            )}
+            {validationMessage && (
+              <Alert
+                type={
+                  validationMessage.includes("successfully")
+                    ? "success"
+                    : "error"
+                }
+                showIcon
+                message={validationMessage}
+              />
+            )}
+          </Space>
+
+          <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
+            <Col>
+              <Button type="default" onClick={resetAll} icon={<ClearOutlined />}>
+                Reset
+              </Button>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                onClick={savePassword}
+                disabled={!Object.values(passwordErrors).every(Boolean)}
+              >
+                Save Password
+              </Button>
+            </Col>
+          </Row>
+        </Form>
+      </Space>
+    </Card>
   );
 
   const PinTab = (
-    <Space orientation="vertical" align="start">
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Form layout="vertical" requiredMark={false}>
       {!forgotPinMode && (
         <>
-          <Text>Current PIN</Text>
-          <Input.OTP
-            length={6}
-            formatter={(str) => str.replace(/\D/g, "")}
-            value={currentPin}
-            onChange={(val) => setCurrentPin(val)}
-            type="password"
-            required
-            allowClear
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
-          >
-            <Button
-              type="link"
-              onClick={() => setForgotPinMode(true)}
-              style={{ alignSelf: "flex-end" }}
-            >
+          <Form.Item label="Current PIN" required>
+            <Input.OTP
+              length={6}
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={currentPin}
+              onChange={(val) => setCurrentPin(val)}
+              type="password"
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button type="link" onClick={() => setForgotPinMode(true)}>
               Forgot PIN?
             </Button>
-          </div>
-          <Text>New PIN</Text>
-          <Input.OTP
-            length={6}
-            type="password"
-            formatter={(str) => str.replace(/\D/g, "")}
-            value={newPin}
-            onChange={(val) => setNewPin(val)}
-            required
-            allowClear
-          />
-          <Text>Confirm PIN</Text>
-          <Input.OTP
-            length={6}
-            type="password"
-            formatter={(str) => str.replace(/\D/g, "")}
-            value={confirmPin}
-            onChange={(val) => setConfirmPin(val)}
-            required
-            allowClear
-          />
-          <Row style={{ display: "flex", flexDirection: "row" }}>
-            <Button
-              type="primary"
-              onClick={savePin}
-              disabled={!Object.values(pinErrors).every(Boolean)}
-              style={{ marginRight: 10 }}
-            >
-              Save PIN
-            </Button>
-            <Button type="default" onClick={resetAll}>
-              <ClearOutlined />
-            </Button>
+          </Form.Item>
+
+          <Form.Item label="New PIN" required>
+            <Input.OTP
+              length={6}
+              type="password"
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={newPin}
+              onChange={(val) => setNewPin(val)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item label="Confirm PIN" required>
+            <Input.OTP
+              length={6}
+              type="password"
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={confirmPin}
+              onChange={(val) => setConfirmPin(val)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Row justify="end" gutter={8}>
+            <Col>
+              <Button
+                type="default"
+                onClick={resetAll}
+                icon={<ClearOutlined />}
+              >
+                Reset
+              </Button>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                onClick={savePin}
+                disabled={!Object.values(pinErrors).every(Boolean)}
+              >
+                Save PIN
+              </Button>
+            </Col>
           </Row>
         </>
       )}
 
-      {/* --- Forgot PIN flow --- */}
       {forgotPinMode && !otpSent && (
         <>
-          <Input.Password
-            size="large"
-            placeholder="Enter your current password"
-            value={passwordForPin}
-            onChange={(e) => setPasswordForPin(e.target.value)}
-            required
-            allowClear
-          />
+          <Form.Item label="Current Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Enter your current password"
+              value={passwordForPin}
+              onChange={(e) => setPasswordForPin(e.target.value)}
+              allowClear
+            />
+          </Form.Item>
+
           {validationMessage && <Text type="danger">{validationMessage}</Text>}
-          <Row style={{ gap: 10 }}>
-            <Col span={24}>
+
+          <Row justify="end" gutter={8}>
+            <Col>
+              <Button type="default" onClick={() => setForgotPinMode(false)}>
+                Cancel
+              </Button>
+            </Col>
+            <Col>
               <Button
                 type="primary"
                 onClick={requestOtpForPin}
                 disabled={!passwordForPin}
-                style={{ marginRight: 10 }}
               >
                 Send OTP to Email
-              </Button>
-
-              <Button type="default" onClick={() => setForgotPinMode(false)}>
-                Cancel
               </Button>
             </Col>
           </Row>
@@ -369,76 +393,91 @@ export default function UpdateSecurity() {
 
       {forgotPinMode && otpSent && !otpVerified && (
         <>
-          <Text>Enter the OTP sent to your email</Text>
-          <Input.OTP
-            length={6}
-            formatter={(str) => str.replace(/\D/g, "")}
-            value={otp}
-            onChange={(val) => setOtp(val)}
-            required
-          />
+          <Form.Item label="OTP" required>
+            <Input.OTP
+              length={6}
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={otp}
+              onChange={(val) => setOtp(val)}
+            />
+          </Form.Item>
+
           {validationMessage && <Text type="danger">{validationMessage}</Text>}
-          <Row style={{ display: "flex", flexDirection: "row" }}>
-            <Button type="primary" onClick={verifyOtp} disabled={!otp}>
-              Verify OTP
-            </Button>
-            <Button
-              type="default"
-              onClick={requestOtpForPin}
-              style={{ marginLeft: 10 }}
-            >
-              Resend OTP
-            </Button>
+
+          <Row justify="end" gutter={8}>
+            <Col>
+              <Button type="default" onClick={requestOtpForPin}>
+                Resend OTP
+              </Button>
+            </Col>
+            <Col>
+              <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+                Verify OTP
+              </Button>
+            </Col>
           </Row>
         </>
       )}
 
       {forgotPinMode && otpVerified && (
         <>
-          <Text>New PIN</Text>
-          <Input.OTP
-            length={6}
-            value={newPin}
-            formatter={(str) => str.replace(/\D/g, "")}
-            onChange={(val) => setNewPin(val)}
-            required
-            allowClear
-          />
-          <Text>Confirm PIN</Text>
-          <Input.OTP
-            length={6}
-            formatter={(str) => str.replace(/\D/g, "")}
-            value={confirmPin}
-            onChange={(val) => setConfirmPin(val)}
-            required
-            allowClear
-          />
-          <Row style={{ display: "flex", flexDirection: "row" }}>
-            <Button
-              type="primary"
-              onClick={resetForgottenPin}
-              disabled={!Object.values(pinErrors).every(Boolean)}
-            >
-              Reset PIN
-            </Button>
-            <Button type="default" onClick={resetAll}>
-              <ClearOutlined />
-            </Button>
+          <Form.Item label="New PIN" required>
+            <Input.OTP
+              length={6}
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={newPin}
+              onChange={(val) => setNewPin(val)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item label="Confirm PIN" required>
+            <Input.OTP
+              length={6}
+              formatter={(str) => str.replace(/\D/g, "")}
+              value={confirmPin}
+              onChange={(val) => setConfirmPin(val)}
+              allowClear
+            />
+          </Form.Item>
+
+          <Row justify="end" gutter={8}>
+            <Col>
+              <Button
+                type="default"
+                onClick={resetAll}
+                icon={<ClearOutlined />}
+              >
+                Reset
+              </Button>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                onClick={resetForgottenPin}
+                disabled={!Object.values(pinErrors).every(Boolean)}
+              >
+                Reset PIN
+              </Button>
+            </Col>
           </Row>
         </>
       )}
-    </Space>
+      </Form>
+    </Card>
   );
 
   return (
-    <Row align={"middle"} justify={"center"}>
-      <Tabs
-        centered
-        items={[
-          { key: "1", label: "Password", children: PasswordTab },
-          { key: "2", label: "PIN", children: PinTab },
-        ]}
-      />
+    <Row justify="center" style={{ marginTop: 4 }}>
+      <Col xs={24}>
+        <Tabs
+          tabBarStyle={{ marginBottom: 12 }}
+          items={[
+            { key: "1", label: "Password", children: PasswordTab },
+            { key: "2", label: "PIN", children: PinTab },
+          ]}
+        />
+      </Col>
     </Row>
   );
 }

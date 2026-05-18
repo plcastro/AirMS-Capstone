@@ -1,0 +1,52 @@
+{
+  "parser": "pdftotext + OCR fallback (Tesseract when installed, otherwise Windows OCR)",
+  "generatedFrom": "user-supplied hydraulic manuals",
+  "summary": {
+    "totalFiles": 8,
+    "filesWithExtractableText": 8,
+    "filesWithoutExtractableText": 0
+  },
+  "files": [
+    {
+      "name": "Hyd Power System Fault Iso.pdf",
+      "extractableTextChars": 2769,
+      "capturedReference": "AMM 29-00-00,1-1"
+    },
+    {
+      "name": "Inspection  Charging  Discharging - Main servocontrol accumulator pressure - General.pdf",
+      "extractableTextChars": 8961,
+      "capturedReference": "AMM 29-00-00,3-7"
+    },
+    {
+      "name": "Check  Charging  Discharging - Load compensator accumulator pressure - General.pdf",
+      "extractableTextChars": 6080,
+      "capturedReference": "AMM 29-00-00,3-5"
+    },
+    {
+      "name": "Cleaning Filters and Strainers Instructions.pdf",
+      "extractableTextChars": 1999,
+      "capturedReference": "AMM 29-00-00,3-2"
+    },
+    {
+      "name": "Draining  Filling  Servicing - Strainer and filter (dual hydraulic system) - General.pdf",
+      "extractableTextChars": 2726,
+      "capturedReference": "AMM 29-00-00,3-6"
+    },
+    {
+      "name": "Draining  Filling  Servicing - Strainer and filter (single hydraulic system) - General.pdf",
+      "extractableTextChars": 2248,
+      "capturedReference": "AMM 29-00-00,3-6"
+    },
+    {
+      "name": "Rinsing and Cleaning of Hydraulic Fluid Reservoirs - General.pdf",
+      "extractableTextChars": 1418,
+      "capturedReference": "AMM 29-00-00,3-4"
+    },
+    {
+      "name": "Filling Draining - Hydraulic System (twin power system) - General.pdf",
+      "extractableTextChars": 2184,
+      "capturedReference": "AMM 29-00-00,3-3"
+    }
+  ],
+  "note": "These rule references are now grounded in OCR-recovered text from the supplied hydraulic manuals. OCR quality is usable but not perfect, so numerical thresholds and manual codes should still be spot-checked when converting more procedure text into executable logic."
+}

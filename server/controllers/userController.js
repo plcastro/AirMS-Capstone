@@ -1,17 +1,214 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const sendEmail = require("../utilities/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const { del } = require("@vercel/blob");
 const UserModel = require("../models/userModel");
+const UserSession = require("../models/userSessionModel");
+const RefreshToken = require("../models/refreshTokenModel");
 const { auditLog } = require("./logsController");
-const generateUniqueUsername = require("../utilities/generateUniqueUsername");
+const generateUniqueUsername = require("../utils/generateUniqueUsername");
+const generateOTP = require("../utils/generateOTP");
+const {
+  normalizePlatform,
+  normalizeBase,
+} = require("../middleware/requestContext");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
 
+const getAuditActorId = (req, fallbackId = null) =>
+  req.user?.id || req.userRecord?._id || fallbackId;
+const withActorId = (req, action, fallbackId = null) => {
+  const actorId = getAuditActorId(req, fallbackId);
+  return {
+    actorId,
+    action: actorId ? `${action} (actorId: ${actorId})` : action,
+  };
+};
+
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
+const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
+const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const hashRefreshToken = (token = "") =>
+  crypto.createHash("sha256").update(String(token)).digest("hex");
+const hashTrustedDeviceToken = (token = "") =>
+  crypto.createHash("sha256").update(String(token)).digest("hex");
+
+const issueRefreshToken = (userId) => {
+  const jti = crypto.randomUUID();
+  const token = jwt.sign(
+    { id: userId, type: "refresh" },
+    process.env.REFRESH_SECRET,
+    {
+      expiresIn: "7d",
+      jwtid: jti,
+    },
+  );
+
+  return { token, jti };
+};
+
+const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
+  const refreshCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "None",
+    secure: true,
+  };
+
+  if (isPersistent) {
+    refreshCookieOptions.maxAge = REFRESH_TOKEN_TTL_MS;
+  }
+
+  res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+};
+
+const storeRefreshToken = async ({
+  userId,
+  refreshToken,
+  jti,
+  isPersistent,
+  req,
+}) => {
+  const tokenHash = hashRefreshToken(refreshToken);
+  return RefreshToken.create({
+    userId,
+    tokenHash,
+    jti,
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    isPersistent: Boolean(isPersistent),
+    ipAddress: req.ip || req.socket?.remoteAddress || "",
+    userAgent: req.headers["user-agent"] || "",
+  });
+};
+
+const revokeRefreshTokenByHash = async (
+  tokenHash,
+  reason,
+  replacedByTokenHash = null,
+) =>
+  RefreshToken.findOneAndUpdate(
+    { tokenHash, revokedAt: null },
+    {
+      revokedAt: new Date(),
+      revokedReason: reason,
+      replacedByTokenHash,
+    },
+    { returnDocument: "after" },
+  );
+
+const revokeAllUserRefreshTokens = async (userId, reason) => {
+  if (!userId) return;
+  await RefreshToken.updateMany(
+    { userId, revokedAt: null },
+    { revokedAt: new Date(), revokedReason: reason },
+  );
+};
+
+const createUserSession = async (req, userId, platform) => {
+  const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
+  const normalizedPlatform =
+    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
+  const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
+
+  await UserSession.create({
+    userId,
+    sessionId,
+    platform: normalizedPlatform,
+    base: normalizedBase,
+    ipAddress: req.ip || req.socket?.remoteAddress || "",
+    userAgent: req.headers["user-agent"] || "",
+    isActive: true,
+  });
+
+  return {
+    sessionId,
+    platform: normalizedPlatform,
+    base: normalizedBase,
+  };
+};
+
+const sendActivationCredentialsEmail = async ({
+  to,
+  firstName,
+  username,
+  tempPassword,
+  jobTitle,
+  isResend = false,
+}) => {
+  const portalUrlWeb = `${WEB_URL}/login`;
+  const portalUrlMobile = `${MOBILE_URL}/login`;
+  const subject = isResend
+    ? "AirMS Account Activation - Resend"
+    : "Welcome to AirMS - Your Account Details";
+
+  await sendEmail({
+    to,
+    subject,
+    html: `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+      <div style="background-color: #26866f; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
+      </div>
+
+      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
+        <p>Hello <strong>${firstName}</strong>,</p>
+        <p>Your AirMS account credentials are ready. Use the temporary credentials below to sign in and finish setup.</p>
+
+        <div style="background: #f8f9fa; border-left: 4px solid #26866f; padding: 15px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
+          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalUrlWeb}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Web</a>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalUrlMobile}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Mobile</a>
+        </div>
+
+        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
+          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>.
+        </p>
+      </div>
+
+      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
+      </p>
+    </div>
+  `,
+  });
+};
+
+const resendActivationForUser = async (user) => {
+  const newTempPassword = Math.random().toString(36).slice(-8);
+  const newExpiry = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
+
+  user.password = await bcrypt.hash(newTempPassword, 12);
+  user.status = "inactive";
+  user.invitationStatus = "pending";
+  user.invitationSentAt = new Date();
+  user.invitationExpiresAt = new Date(newExpiry);
+  user.invitationClaimedAt = null;
+  user.tempPasswordExpires = newExpiry;
+  await user.save();
+
+  await sendActivationCredentialsEmail({
+    to: user.email,
+    firstName: user.firstName,
+    username: user.username,
+    tempPassword: newTempPassword,
+    jobTitle: user.jobTitle,
+    isResend: true,
+  });
+};
 
 const getAllUsers = async (req, res) => {
   try {
@@ -22,9 +219,170 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const getAssignableUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find({
+      status: "active",
+      jobTitle: { $regex: /^mechanic$/i },
+    }).select(
+      "firstName lastName jobTitle status image isOnline online platform",
+    );
+
+    res.status(200).json({ status: "Ok", data: users });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const maskEmail = (email = "") => {
+  const [localPart = "", domain = ""] = String(email).split("@");
+  if (!localPart || !domain) return email;
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}*@${domain}`;
+  }
+  return `${localPart[0]}${"*".repeat(localPart.length - 2)}${localPart.slice(-1)}@${domain}`;
+};
+
+const buildTrustedDeviceToken = () => crypto.randomBytes(48).toString("hex");
+
+const findValidTrustedDevice = (user, rawToken) => {
+  if (!rawToken || !Array.isArray(user?.trustedDevices)) return null;
+  const tokenHash = hashTrustedDeviceToken(rawToken);
+  const now = Date.now();
+  return user.trustedDevices.find(
+    (device) =>
+      device?.tokenHash === tokenHash &&
+      !device?.revokedAt &&
+      new Date(device?.expiresAt || 0).getTime() > now,
+  );
+};
+
+const sendLoginOtpEmail = async (to, otp) => {
+  await sendEmail({
+    to,
+    subject: "Your AirMS Login Verification Code",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; color: #1f2937;">
+        <h2 style="color:#26866f;">AirMS 2FA Verification</h2>
+        <p>Use this one-time code to complete your sign in:</p>
+        <div style="background:#f3f4f6;padding:18px;border-radius:8px;text-align:center;letter-spacing:6px;font-size:30px;font-weight:700;color:#111827;">
+          ${otp}
+        </div>
+        <p style="margin-top:16px;">This code expires in 10 minutes.</p>
+        <p style="font-size:12px;color:#6b7280;">If you did not attempt to log in, please contact your administrator.</p>
+      </div>
+    `,
+  });
+};
+
+const buildLoginSuccessPayload = async ({
+  req,
+  res,
+  user,
+  loginPlatform,
+  rememberMe,
+  loginBase,
+}) => {
+  user.failedLoginAttempts = 0;
+  user.isLocked = false;
+  user.lockUntil = undefined;
+  user.lastLogin = new Date();
+  user.isOnline = true;
+  user.platform = loginPlatform.toLowerCase();
+  user.lastSeenAt = new Date();
+  user.loginOtp = undefined;
+  user.loginOtpExpires = undefined;
+  user.loginOtpToken = undefined;
+  user.loginOtpAttempts = 0;
+  user.loginOtpLockUntil = undefined;
+  await user.save();
+
+  const session = await createUserSession(req, user._id, loginPlatform);
+  const sessionMinutes = 0;
+
+  const token = jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      jobTitle: user.jobTitle,
+      access: user.access,
+      sessionId: session.sessionId,
+      platform: session.platform,
+      base: session.base,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "30m" },
+  );
+
+  const usePersistentRefreshCookie = Boolean(rememberMe);
+  const { token: refreshToken, jti } = issueRefreshToken(user._id.toString());
+  await storeRefreshToken({
+    userId: user._id,
+    refreshToken,
+    jti,
+    isPersistent: usePersistentRefreshCookie,
+    req,
+  });
+  setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
+
+  auditLog(
+    `User log in: ${user.username} (actorId: ${user._id})`,
+    user._id,
+    user.username,
+    {
+      sessionId: session.sessionId,
+      platform: session.platform,
+      base: session.base,
+      ipAddress: req.ip || req.socket?.remoteAddress || "",
+      userAgent: req.headers["user-agent"] || "",
+    },
+  ).catch((logError) => {
+    console.error("Login audit log failed:", logError);
+  });
+
+  return {
+    message: "Login successful",
+    token,
+    refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
+    sessionId: session.sessionId,
+    sessionMinutes,
+    user: {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      jobTitle: user.jobTitle,
+      access: user.access,
+      status: user.status,
+      image: user.image,
+      signature: user.signature,
+      securitySetupCompleted: user.securitySetupCompleted,
+      lastLogin: user.lastLogin,
+      isOnline: user.isOnline,
+      platform: user.platform,
+      base: session.base || loginBase,
+      sessionId: session.sessionId,
+      sessionMinutes,
+      lastSeenAt: user.lastSeenAt,
+    },
+  };
+};
+
 const loginUser = async (req, res) => {
   try {
-    let { identifier, password } = req.body;
+    if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
+      console.error(
+        "Auth configuration error: JWT_SECRET or REFRESH_SECRET is missing",
+      );
+      return res.status(500).json({
+        message: "Server authentication configuration error.",
+      });
+    }
+
+    let { identifier, password, client, rememberMe, trustedDeviceToken } =
+      req.body;
 
     if (typeof identifier !== "string" || typeof password !== "string") {
       return res.status(400).json({
@@ -34,11 +392,25 @@ const loginUser = async (req, res) => {
 
     identifier = identifier.trim();
     password = password.trim();
+    const normalizedClient =
+      typeof client === "string" ? client.trim().toLowerCase() : "";
+    const loginPlatform =
+      normalizedClient === "web"
+        ? "WEB"
+        : normalizedClient === "mobile"
+          ? "MOBILE"
+          : "UNKNOWN";
+    const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
+    }
+    if (loginBase === "UNKNOWN") {
+      return res.status(400).json({
+        message: "Please select where you are logging in from",
+      });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
       return res.status(400).json({ message: "Invalid input" });
@@ -78,7 +450,17 @@ const loginUser = async (req, res) => {
 
     // Handle inactive users separately
     if (user.status === "inactive") {
+      if (user.invitationStatus === "revoked") {
+        return res.status(403).json({
+          message: "Invitation revoked. Contact your administrator.",
+        });
+      }
+
       if (!user.tempPasswordExpires || user.tempPasswordExpires < Date.now()) {
+        if (user.invitationStatus !== "expired") {
+          user.invitationStatus = "expired";
+          await user.save();
+        }
         return res.status(401).json({
           message: "Temporary password expired. Resend activation.",
         });
@@ -103,6 +485,7 @@ const loginUser = async (req, res) => {
         requireSetup: true,
         user: {
           id: user._id,
+          email: user.email,
           status: user.status,
           setupToken,
         },
@@ -122,61 +505,185 @@ const loginUser = async (req, res) => {
         .json({ message: "Invalid username/email or password" });
     }
 
-    // Reset failed login attempts
-    user.failedLoginAttempts = 0;
-    user.isLocked = false;
-    user.lockUntil = undefined;
-    user.lastLogin = new Date();
+    const inboundTrustedDeviceToken =
+      trustedDeviceToken || req.headers["x-trusted-device-token"];
+    const validTrustedDevice = findValidTrustedDevice(
+      user,
+      inboundTrustedDeviceToken,
+    );
+    if (validTrustedDevice) {
+      validTrustedDevice.lastUsedAt = new Date();
+      await user.save();
+
+      const trustedPayload = await buildLoginSuccessPayload({
+        req,
+        res,
+        user,
+        loginPlatform,
+        rememberMe: Boolean(rememberMe),
+        loginBase,
+      });
+
+      return res.status(200).json({
+        ...trustedPayload,
+        trustedDeviceAccepted: true,
+      });
+    }
+
+    const otp = generateOTP();
+    const loginOtpToken = crypto.randomBytes(32).toString("hex");
+    user.loginOtp = await bcrypt.hash(otp, 10);
+    user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
+    user.loginOtpToken = loginOtpToken;
+    user.loginOtpAttempts = 0;
+    user.loginOtpLockUntil = undefined;
     await user.save();
 
-    // Generate JWT
-    const token = jwt.sign(
-      { id: user._id, username: user.username, jobTitle: user.jobTitle },
-      process.env.JWT_SECRET,
-      { expiresIn: "30m" },
-    );
-
-    // Generate Refresh Token
-    const refreshToken = jwt.sign(
-      { id: user._id },
-      process.env.REFRESH_SECRET,
-      { expiresIn: "7d" },
-    );
-
-    // Send refresh token as HttpOnly cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    // console.log(
-    //   `User ${user.username} logged in successfully at ${user.lastLogin.toISOString()} with TOKEN: ${token}`,
-    // );
-
-    await auditLog("User logged in", user._id);
-
-    const responseUser = {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      jobTitle: user.jobTitle,
-      status: user.status,
-      image: user.image,
-      lastLogin: user.lastLogin,
-    };
+    await sendLoginOtpEmail(user.email, otp);
 
     return res.status(200).json({
-      message: "Login successful",
-      token,
-      user: responseUser,
+      requireLoginOtp: true,
+      message: "Verification code sent to your email",
+      verification: {
+        token: loginOtpToken,
+        email: user.email,
+        maskedEmail: maskEmail(user.email),
+        expiresInSeconds: Math.floor(LOGIN_OTP_EXPIRATION_MS / 1000),
+      },
+      loginContext: {
+        loginPlatform,
+        rememberMe: Boolean(rememberMe),
+        base: loginBase,
+      },
     });
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ message: "Login failed" });
+  }
+};
+
+const verifyLoginOtp = async (req, res) => {
+  try {
+    if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
+      return res.status(500).json({ message: "Server configuration error." });
+    }
+
+    const {
+      token,
+      otp,
+      rememberMe,
+      client,
+      base,
+      trustDevice,
+      trustedDeviceLabel,
+    } = req.body;
+    if (!token || !otp) {
+      return res.status(400).json({ message: "Token and OTP are required" });
+    }
+
+    const user = await UserModel.findOne({ loginOtpToken: token }).select(
+      "+loginOtp +loginOtpExpires +loginOtpToken",
+    );
+    if (!user || !user.loginOtp || !user.loginOtpExpires) {
+      return res.status(400).json({ message: "Invalid verification request" });
+    }
+
+    if (user.loginOtpExpires < Date.now()) {
+      return res.status(400).json({ message: "OTP expired. Please log in again." });
+    }
+
+    const valid = await bcrypt.compare(String(otp).trim(), user.loginOtp);
+    if (!valid) {
+      user.loginOtpAttempts = Number(user.loginOtpAttempts || 0) + 1;
+      await user.save();
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    const normalizedClient =
+      typeof client === "string" ? client.trim().toLowerCase() : "";
+    const loginPlatform =
+      normalizedClient === "web"
+        ? "WEB"
+        : normalizedClient === "mobile"
+          ? "MOBILE"
+          : "UNKNOWN";
+    const loginBase = normalizeBase(req.headers["x-base"] || base);
+
+    const payload = await buildLoginSuccessPayload({
+      req,
+      res,
+      user,
+      loginPlatform,
+      rememberMe: Boolean(rememberMe),
+      loginBase,
+    });
+
+    if (trustDevice) {
+      const rawTrustedDeviceToken = buildTrustedDeviceToken();
+      const trustedDeviceTokenHash =
+        hashTrustedDeviceToken(rawTrustedDeviceToken);
+
+      user.trustedDevices = (user.trustedDevices || []).filter(
+        (device) =>
+          !device?.revokedAt && new Date(device?.expiresAt || 0) > new Date(),
+      );
+      user.trustedDevices.push({
+        tokenHash: trustedDeviceTokenHash,
+        label: String(trustedDeviceLabel || "").slice(0, 120),
+        platform: loginPlatform.toLowerCase(),
+        createdAt: new Date(),
+        lastUsedAt: new Date(),
+        expiresAt: new Date(Date.now() + TRUSTED_DEVICE_TTL_MS),
+      });
+      await user.save();
+
+      return res.status(200).json({
+        ...payload,
+        trustedDeviceToken: rawTrustedDeviceToken,
+        trustedDeviceExpiresAt: new Date(
+          Date.now() + TRUSTED_DEVICE_TTL_MS,
+        ).toISOString(),
+      });
+    }
+
+    return res.status(200).json(payload);
+  } catch (err) {
+    console.error("verifyLoginOtp error:", err);
+    return res.status(500).json({ message: "OTP verification failed" });
+  }
+};
+
+const resendLoginOtp = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: "Token is required" });
+
+    const user = await UserModel.findOne({ loginOtpToken: token }).select(
+      "+loginOtpToken",
+    );
+    if (!user) {
+      return res.status(400).json({ message: "Invalid verification request" });
+    }
+
+    const otp = generateOTP();
+    user.loginOtp = await bcrypt.hash(otp, 10);
+    user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
+    user.loginOtpAttempts = 0;
+    await user.save();
+
+    await sendLoginOtpEmail(user.email, otp);
+    return res.status(200).json({
+      message: "A new verification code was sent",
+      verification: {
+        token: user.loginOtpToken,
+        email: user.email,
+        maskedEmail: maskEmail(user.email),
+        expiresInSeconds: Math.floor(LOGIN_OTP_EXPIRATION_MS / 1000),
+      },
+    });
+  } catch (err) {
+    console.error("resendLoginOtp error:", err);
+    return res.status(500).json({ message: "Failed to resend OTP" });
   }
 };
 
@@ -188,16 +695,50 @@ const unlockUser = async (req, res) => {
   user.lockUntil = undefined;
 
   await user.save();
+  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+  await auditLog(audit.action, audit.actorId);
 
   res.json({ message: "Account unlocked successfully" });
 };
 
 const refreshToken = async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken;
-  if (!refreshToken) return res.status(401).json({ message: "No token" });
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body?.refreshToken;
+  if (!incomingRefreshToken) {
+    return res
+      .status(401)
+      .json({ message: "No refresh token provided (cookie or body missing)" });
+  }
 
   try {
-    const payload = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const payload = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_SECRET,
+    );
+    const incomingTokenHash = hashRefreshToken(incomingRefreshToken);
+    const tokenRecord = await RefreshToken.findOne({
+      tokenHash: incomingTokenHash,
+      userId: payload.id,
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.revokedAt ||
+      tokenRecord.expiresAt <= new Date()
+    ) {
+      await revokeAllUserRefreshTokens(
+        payload.id,
+        "Refresh token replay/reuse detected during rotation",
+      );
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "None",
+        secure: true,
+      });
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
     const user = await UserModel.findById(payload.id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -211,22 +752,74 @@ const refreshToken = async (req, res) => {
       {
         id: user._id,
         username: user.username,
+        email: user.email,
         jobTitle: user.jobTitle,
+        access: user.access,
+        sessionId: req.headers["x-session-id"] || payload.sessionId || null,
+        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+        base: req.headers["x-base"] || payload.base || "UNKNOWN",
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
     );
 
-    res.json({ token: newAccessToken });
+    const { token: newRefreshToken, jti } = issueRefreshToken(
+      user._id.toString(),
+    );
+    const newTokenHash = hashRefreshToken(newRefreshToken);
+
+    await revokeRefreshTokenByHash(
+      incomingTokenHash,
+      "Rotated by refresh endpoint",
+      newTokenHash,
+    );
+
+    await storeRefreshToken({
+      userId: user._id,
+      refreshToken: newRefreshToken,
+      jti,
+      isPersistent: tokenRecord.isPersistent,
+      req,
+    });
+
+    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
+    const isMobileClient =
+      String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+    res.json({
+      token: newAccessToken,
+      refreshToken: isMobileClient ? newRefreshToken : undefined,
+    });
   } catch {
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "None",
+      secure: true,
+    });
     res.status(403).json({ message: "Invalid refresh token" });
   }
 };
 
 const logoutUser = async (req, res) => {
   try {
+    const incomingRefreshToken = req.cookies?.refreshToken;
+    if (incomingRefreshToken) {
+      await revokeRefreshTokenByHash(
+        hashRefreshToken(incomingRefreshToken),
+        "User logout",
+      );
+    }
+
     const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token provided" });
+    if (!token) {
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "None",
+        secure: true,
+      });
+      return res.status(200).json({ message: "Logged out successfully" });
+    }
 
     let decoded;
     try {
@@ -235,15 +828,36 @@ const logoutUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
 
+    await UserModel.findByIdAndUpdate(decoded.id, {
+      isOnline: false,
+      lastSeenAt: new Date(),
+    });
+
+    const incomingSessionId = req.headers["x-session-id"];
+    if (incomingSessionId) {
+      await UserSession.findOneAndUpdate(
+        { userId: decoded.id, sessionId: incomingSessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+    } else {
+      await UserSession.findOneAndUpdate(
+        { userId: decoded.id, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+        { sort: { loginAt: -1 } },
+      );
+    }
+
     await auditLog(
-      `User logged out: ${decoded.username || decoded.id}`,
+      `User log out: ${decoded.username || decoded.id} (actorId: ${decoded.id})`,
       decoded.id,
+      decoded.username || null,
     );
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      sameSite: "None",
+      secure: true,
     });
 
     res.status(200).json({ message: "Logged out successfully" });
@@ -251,6 +865,59 @@ const logoutUser = async (req, res) => {
     console.error("Logout error:", err);
     await auditLog("Logout failed", null);
     res.status(500).json({ message: "Logout failed" });
+  }
+};
+
+const registerMobilePushDevice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { deviceId, expoPushToken, platform } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!deviceId || !expoPushToken) {
+      return res
+        .status(400)
+        .json({ message: "deviceId and expoPushToken are required" });
+    }
+
+    await UserModel.updateMany(
+      {
+        $or: [
+          { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.expoPushToken": expoPushToken },
+        ],
+      },
+      {
+        $pull: {
+          mobilePushDevices: {
+            $or: [{ deviceId }, { expoPushToken }],
+          },
+        },
+      },
+    );
+
+    await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $push: {
+          mobilePushDevices: {
+            deviceId,
+            expoPushToken,
+            platform: platform || "unknown",
+            lastSeenAt: new Date(),
+          },
+        },
+      },
+      { returnDocument: "after" },
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("registerMobilePushDevice error:", error);
+    res.status(500).json({ message: "Failed to register push device" });
   }
 };
 
@@ -292,63 +959,32 @@ const createUser = async (req, res) => {
 
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    const tempPasswordExpires = Date.now() + 60 * 60 * 1000;
+    const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
 
-    const portalUrl =
-      jobTitle === "Maintenance Manager" ||
-      jobTitle === "Officer-In-Charge" ||
-      jobTitle === "Admin"
-        ? `${WEB_URL}/login`
-        : `${MOBILE_URL}/login`;
-
-    await sendEmail({
+    await sendActivationCredentialsEmail({
       to: email,
-      subject: "Welcome to AirMS – Your Account Details",
-      html: `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #0056b3; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
-      </div>
-      
-      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your AirMS account has been successfully created. You can now log in using the temporary credentials provided below:</p>
-        
-        <div style="background: #f8f9fa; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
-          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
-        </div>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
-        </div>
-
-        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
-          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>. You will be prompted to set a permanent password upon your first login.
-        </p>
-        
-        <p style="margin-top: 25px;">If you didn't expect this email, please contact your administrator.</p>
-      </div>
-      
-      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
-        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
-      </p>
-    </div>
-  `,
+      firstName,
+      username,
+      tempPassword,
+      jobTitle,
+      isResend: false,
     });
 
     let imagePath = "";
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`;
+      imagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
     }
 
-    let newUserData = {
+    const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
+      invitationStatus: "pending",
+      invitationSentAt: new Date(),
+      invitationExpiresAt: new Date(tempPasswordExpires),
       status: "inactive",
       image: imagePath,
       jobTitle,
@@ -356,12 +992,14 @@ const createUser = async (req, res) => {
       licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
         ? licenseNo
         : null,
-    };
+    });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User created: ${username}, email sent successfully`,
       newUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
       message: "User created successfully",
@@ -422,9 +1060,18 @@ const completeSecuritySetup = async (req, res) => {
 
     user.password = await bcrypt.hash(newPassword, 12);
     user.status = "active";
+    user.securitySetupCompleted = true;
     user.tempPasswordExpires = undefined;
+    user.invitationStatus = "claimed";
+    user.invitationClaimedAt = new Date();
 
     await user.save();
+    const audit = withActorId(
+      req,
+      `Security setup completed for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     return res.status(200).json({
       message: "Security setup completed successfully",
@@ -463,25 +1110,19 @@ const checkUsernameExists = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    let { firstName, lastName, email, username, access, jobTitle } = req.body;
+    let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
+      req.body;
 
-    if (
-      typeof firstName !== "string" ||
-      typeof lastName !== "string" ||
-      typeof email !== "string" ||
-      typeof username !== "string"
-    ) {
-      return res.status(400).json({
-        message: "Invalid input type",
-      });
-    }
+    const parseString = (value) =>
+      typeof value === "string" ? value.trim() : "";
 
-    firstName = firstName.trim();
-    lastName = lastName.trim();
-    email = email.trim();
-    username = username.trim();
-    access = access.trim();
-    jobTitle = jobTitle.trim();
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    username = parseString(username);
+    access = parseString(access);
+    jobTitle = parseString(jobTitle);
+    licenseNo = parseString(licenseNo);
 
     if (
       !firstName ||
@@ -494,8 +1135,54 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Employee information required" });
     }
 
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    if (!allowedAccess.has(access)) {
+      return res.status(400).json({ message: "Invalid access level" });
+    }
+
+    const rolesRequiringLicense = new Set([
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ]);
+    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    if (requiresLicense && !licenseNo) {
+      return res.status(400).json({ message: "License no. is required" });
+    }
+
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const existingEmail = await UserModel.findOne({
+      email,
+      _id: { $ne: id },
+    });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const existingUsername = await UserModel.findOne({
+      username,
+      _id: { $ne: id },
+    });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already taken" });
+    }
+
+    if (requiresLicense && licenseNo) {
+      const existingLicense = await UserModel.findOne({
+        licenseNo,
+        _id: { $ne: id },
+      });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
+    }
 
     const changes = {};
     if (firstName && firstName !== user.firstName)
@@ -510,28 +1197,48 @@ const updateUser = async (req, res) => {
       changes.jobTitle = { old: user.jobTitle, new: jobTitle };
     if (access && access !== user.access)
       changes.access = { old: user.access, new: access };
+    if (requiresLicense && licenseNo !== (user.licenseNo || ""))
+      changes.licenseNo = { old: user.licenseNo || "", new: licenseNo };
+    if (!requiresLicense && user.licenseNo) {
+      changes.licenseNo = { old: user.licenseNo, new: "" };
+    }
 
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      id,
-      { firstName, lastName, email, username, access, jobTitle },
-      { returnDocument: "after" },
-    );
+    const updateData = {
+      firstName,
+      lastName,
+      email,
+      username,
+      access,
+      jobTitle,
+      licenseNo: requiresLicense ? licenseNo : null,
+    };
+
+    const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
+      returnDocument: "after",
+      runValidators: true,
+    });
 
     if (Object.keys(changes).length > 0) {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     } else {
-      await auditLog(
+      const audit = withActorId(
+        req,
         `User update attempted but no changes detected: ${username}`,
         updatedUser._id,
       );
+      await auditLog(audit.action, audit.actorId);
     }
 
-    res
-      .status(200)
-      .json({ message: "User updated successfully", user: updatedUser });
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+      data: updatedUser,
+    });
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
@@ -577,10 +1284,12 @@ const updateUserProfile = async (req, res) => {
       returnDocument: "after",
     });
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User name updated: ${updatedUser.username}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -605,10 +1314,12 @@ const updateUserStatus = async (req, res) => {
       { returnDocument: "after" },
     );
 
-    await auditLog(
+    const audit = withActorId(
+      req,
       `User status updated: ${user.username}. Old: ${user.status}, New: ${status}`,
       updatedUser._id,
     );
+    await auditLog(audit.action, audit.actorId);
 
     res
       .status(200)
@@ -621,11 +1332,17 @@ const updateUserStatus = async (req, res) => {
       .json({ message: err.message || "Failed to update user status" });
   }
 };
-const deleteFile = (filePath) => {
+const deleteFile = async (filePath) => {
   // 1. Exit if the user doesn't have an image (prevents the 'null' deletion crash)
   if (!filePath || typeof filePath !== "string" || filePath === "null") return;
 
   try {
+    if (filePath.startsWith("http")) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+      await del(filePath, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      return;
+    }
+
     // 2. Normalize the path (remove leading slash)
     const cleanPath = filePath.startsWith("/")
       ? filePath.substring(1)
@@ -635,7 +1352,7 @@ const deleteFile = (filePath) => {
     const fullPath = path.resolve(process.cwd(), cleanPath);
 
     if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+      await fs.promises.unlink(fullPath);
       console.log("Successfully deleted old image:", fullPath);
     }
   } catch (err) {
@@ -651,6 +1368,11 @@ const updateUserImage = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let newImagePath = user.image;
+    const shouldRemoveImage =
+      req.method === "DELETE" ||
+      req.body?.removeImage === true ||
+      req.body?.image === null ||
+      req.body?.image === "null";
 
     if (req.file) {
       if (
@@ -658,17 +1380,18 @@ const updateUserImage = async (req, res) => {
         typeof user.image === "string" &&
         user.image !== "null"
       ) {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
 
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
 
       console.log("New image path ready for DB:", newImagePath);
-    } else if (req.body.image === null || req.body.image === "null") {
+    } else if (shouldRemoveImage) {
       if (user.image && typeof user.image === "string") {
-        deleteFile(user.image);
+        await deleteFile(user.image);
       }
-      newImagePath = null;
+      // Keep image as a string field to avoid validation/casting issues.
+      newImagePath = "";
     }
 
     const updatedUser = await UserModel.findByIdAndUpdate(
@@ -676,6 +1399,23 @@ const updateUserImage = async (req, res) => {
       { $set: { image: newImagePath } },
       { returnDocument: "after", runValidators: true },
     );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    try {
+      const audit = withActorId(
+        req,
+        newImagePath
+          ? `User image updated: ${updatedUser.username}`
+          : `User image removed: ${updatedUser.username}`,
+        updatedUser._id,
+      );
+      await auditLog(audit.action, audit.actorId);
+    } catch (auditErr) {
+      console.error("Image update audit log failed:", auditErr);
+    }
 
     res.status(200).json({
       message: newImagePath ? "Avatar updated" : "Avatar removed",
@@ -702,10 +1442,6 @@ const updatePassword = async (req, res) => {
 
     currentPassword = currentPassword.trim();
     newPassword = newPassword.trim();
-
-    if (!id) {
-      return res.status(400).json({ message: "User ID is required." });
-    }
 
     if (!currentPassword || !newPassword) {
       return res
@@ -745,6 +1481,12 @@ const updatePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await UserModel.updateOne({ _id: id }, { password: hashedPassword });
+    const audit = withActorId(
+      req,
+      `Password updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (err) {
@@ -778,7 +1520,44 @@ const updatePIN = async (req, res) => {
     const hashedPIN = await bcrypt.hash(newPin, 12);
 
     await UserModel.updateOne({ _id: req.params.id }, { pin: hashedPIN });
+    const audit = withActorId(
+      req,
+      `PIN updated for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "PIN updated", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const verifyPIN = async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin) {
+      return res.status(400).json({ message: "PIN is required" });
+    }
+
+    const user = await UserModel.findById(req.params.id).select("+pin");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.pin) {
+      return res.status(400).json({ message: "User has no PIN set." });
+    }
+
+    const isMatch = await bcrypt.compare(pin, user.pin);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "PIN is incorrect." });
+    }
+
+    res.status(200).json({ message: "PIN verified" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -787,17 +1566,34 @@ const updatePIN = async (req, res) => {
 
 const updateSignature = async (req, res) => {
   try {
-    const { signature } = req.body;
-    if (!signature)
-      return res.status(400).json({ message: "Signature is required" });
+    const user = await UserModel.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const user = await UserModel.findByIdAndUpdate(
+    if (user.signature) {
+      return res.status(400).json({
+        message: "Signature specimen has already been uploaded.",
+      });
+    }
+
+    const signature = req.file?.savedPath || req.body.signature;
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required" });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
       req.params.id,
       { signature },
       { returnDocument: "after" },
     );
 
-    res.status(200).json({ message: "Signature updated", user });
+    const audit = withActorId(
+      req,
+      `Signature updated for ${updatedUser.username}`,
+      updatedUser._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    res.status(200).json({ message: "Signature updated", user: updatedUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -833,9 +1629,17 @@ const activateUser = async (req, res) => {
     user.pin = await bcrypt.hash(pin, 12);
     user.status = "active";
     user.securitySetupCompleted = true;
+    user.tempPasswordExpires = undefined;
+    user.invitationStatus = "claimed";
+    user.invitationClaimedAt = new Date();
     await user.save();
 
-    await auditLog("User account activated successfully", user._id);
+    const audit = withActorId(
+      req,
+      "User account activated successfully",
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({ message: "Account activated successfully" });
   } catch (err) {
@@ -854,33 +1658,10 @@ const resendActivation = async (req, res) => {
     if (user.status === "active")
       return res.status(400).json({ message: "Account is already active" });
 
-    // Reset temporary password
-    const newTempPassword = Math.random().toString(36).slice(-8);
-    user.password = await bcrypt.hash(newTempPassword, 12);
-    user.tempPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-    await user.save();
+    await resendActivationForUser(user);
 
-    // Portal link just goes to login page
-    const portalLink = [
-      "Admin",
-      "Maintenance Manager",
-      "Officer-In-Charge",
-      "Warehouse Department",
-    ].includes(user.jobTitle)
-      ? `<p>Login via web: <a href="${WEB_URL}/#/login">AirMS Web Login</a></p>`
-      : `<p>Login via mobile app: <a href="${MOBILE_URL}/#/login">AirMS Mobile Login</a></p>`;
-
-    await sendEmail({
-      to: user.email,
-      subject: "AirMS Account Activation – Resend",
-      html: `<p>Hello <strong>${user.firstName}</strong>,</p>
-             <p>Your temporary password has been reset. Use it to log in:</p>
-             <p>Temporary password: <strong>${newTempPassword}</strong></p>
-             ${portalLink}
-             <p><strong>Note:</strong> Temporary password expires in 1 hour. You will be prompted to create a permanent password on first login.</p>`,
-    });
-
-    await auditLog("Activation email resent", user._id);
+    const audit = withActorId(req, "Activation email resent", user._id);
+    await auditLog(audit.action, audit.actorId);
     res.status(200).json({ message: "Activation email resent" });
   } catch (err) {
     console.error(err);
@@ -888,22 +1669,182 @@ const resendActivation = async (req, res) => {
   }
 };
 
+const resendActivationByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await UserModel.findById(id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status === "active")
+      return res.status(400).json({ message: "Account is already active" });
+
+    await resendActivationForUser(user);
+
+    const audit = withActorId(
+      req,
+      `Activation email resent by admin for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({ message: "Activation email resent" });
+  } catch (err) {
+    console.error("resendActivationByAdmin error:", err);
+    return res.status(500).json({ message: "Failed to resend activation" });
+  }
+};
+
+const extendInvitationExpiry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const requestedHours = Number(req.body?.hours);
+    const hours =
+      Number.isFinite(requestedHours) && requestedHours > 0
+        ? requestedHours
+        : 24;
+
+    const user = await UserModel.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status !== "inactive") {
+      return res.status(400).json({
+        message: "Only inactive users can have invitation expiry extended",
+      });
+    }
+
+    const newExpiry = Date.now() + hours * 60 * 60 * 1000;
+    user.tempPasswordExpires = newExpiry;
+    user.invitationExpiresAt = new Date(newExpiry);
+    user.invitationStatus = "pending";
+    await user.save();
+
+    const audit = withActorId(
+      req,
+      `Invitation expiry extended for ${user.username} by ${hours} hour(s)`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({
+      message: "Invitation expiry extended",
+      invitationExpiresAt: user.invitationExpiresAt,
+      invitationStatus: user.invitationStatus,
+    });
+  } catch (err) {
+    console.error("extendInvitationExpiry error:", err);
+    return res
+      .status(500)
+      .json({ message: "Failed to extend invitation expiry" });
+  }
+};
+
+const revokeInvitation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await UserModel.findById(id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.status === "active") {
+      return res.status(400).json({
+        message: "Cannot revoke invitation for an active user",
+      });
+    }
+
+    user.invitationStatus = "revoked";
+    user.tempPasswordExpires = undefined;
+    user.invitationExpiresAt = null;
+    await user.save();
+
+    const audit = withActorId(
+      req,
+      `Invitation revoked for ${user.username}`,
+      user._id,
+    );
+    await auditLog(audit.action, audit.actorId);
+
+    return res.status(200).json({ message: "Invitation revoked" });
+  } catch (err) {
+    console.error("revokeInvitation error:", err);
+    return res.status(500).json({ message: "Failed to revoke invitation" });
+  }
+};
+
+const revokeTrustedDevice = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { token } = req.body;
+    if (!userId || !token) {
+      return res.status(400).json({ message: "User and token are required" });
+    }
+
+    const tokenHash = hashTrustedDeviceToken(token);
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const match = (user.trustedDevices || []).find(
+      (device) => device.tokenHash === tokenHash && !device.revokedAt,
+    );
+    if (!match) {
+      return res
+        .status(404)
+        .json({ message: "Trusted device token not found or already revoked" });
+    }
+
+    match.revokedAt = new Date();
+    await user.save();
+    return res.status(200).json({ message: "Trusted device revoked" });
+  } catch (error) {
+    console.error("revokeTrustedDevice error:", error);
+    return res.status(500).json({ message: "Failed to revoke trusted device" });
+  }
+};
+
+const revokeAllTrustedDevices = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(400).json({ message: "User is required" });
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.trustedDevices = (user.trustedDevices || []).map((device) => ({
+      ...device.toObject(),
+      revokedAt: device.revokedAt || new Date(),
+    }));
+    await user.save();
+    return res.status(200).json({ message: "All trusted devices revoked" });
+  } catch (error) {
+    console.error("revokeAllTrustedDevices error:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to revoke all trusted devices" });
+  }
+};
+
 module.exports = {
   loginUser,
+  verifyLoginOtp,
+  resendLoginOtp,
   refreshToken,
   unlockUser,
   logoutUser,
+  registerMobilePushDevice,
   createUser,
   checkUsernameExists,
   updateUser,
   getAllUsers,
+  getAssignableUsers,
   updateUserStatus,
   updateUserProfile,
   updatePassword,
   updatePIN,
+  verifyPIN,
   updateUserImage,
   updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,
+  resendActivationByAdmin,
+  extendInvitationExpiry,
+  revokeInvitation,
+  revokeTrustedDevice,
+  revokeAllTrustedDevices,
 };

@@ -1,6 +1,7 @@
 export const getDefaultSignature = () => ({
   name: "",
   id: "",
+  signature: "",
   timestamp: "",
 });
 

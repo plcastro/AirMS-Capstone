@@ -13,7 +13,7 @@ const createTechnicalLog = async (req, res) => {
 
     await auditLog(
       `Technical log created for tailNum: ${data.tailNum}`,
-      data.createdBy,
+      req.user?.id || data.createdBy || null,
     );
 
     res.status(201).json({ message: "Technical log created", data: log });
@@ -62,7 +62,7 @@ const updateTechnicalLog = async (req, res) => {
 
     await auditLog(
       `Technical log updated: ${updatedLog.tailNum}`,
-      req.body.createdBy || null,
+      req.user?.id || req.body.createdBy || null,
     );
 
     res
@@ -83,7 +83,7 @@ const deleteTechnicalLog = async (req, res) => {
 
     await auditLog(
       `Technical log deleted: ${deletedLog.tailNum}`,
-      deletedLog.createdBy || null,
+      req.user?.id || deletedLog.createdBy || null,
     );
 
     res

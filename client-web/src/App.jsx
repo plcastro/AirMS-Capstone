@@ -1,8 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React, { Suspense, lazy, useEffect, useContext } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
-import { ConfigProvider, Spin } from "antd";
+import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
 
@@ -35,6 +42,18 @@ const FlightLog = lazy(() => import("./pages/dashboard/logbook/FlightLog"));
 const MaintenanceLog = lazy(
   () => import("./pages/dashboard/logbook/MaintenanceLog"),
 );
+const PreInspection = lazy(
+  () => import("./pages/dashboard/logbook/PreInspection"),
+);
+const PostInspection = lazy(
+  () => import("./pages/dashboard/logbook/PostInspection"),
+);
+const TaskAssignment = lazy(
+  () => import("./pages/dashboard/logbook/TaskAssignment"),
+);
+const MechanicList = lazy(
+  () => import("./pages/dashboard/logbook/MechanicList"),
+);
 const MaintenanceDashboard = lazy(
   () => import("./pages/dashboard/reports/MaintenanceDashboard"),
 );
@@ -51,205 +70,388 @@ const MaintenanceTracking = lazy(
 const MaintenancePriority = lazy(
   () => import("./pages/dashboard/priority-sorting/MaintenancePriority"),
 );
+const Messaging = lazy(() => import("./pages/dashboard/messages/Messaging"));
 const Profile = lazy(
   () => import("./pages/dashboard/account-settings/Profile"),
 );
 const NotFound = lazy(() => import("./pages/NotFound"));
+const WEB_SETTINGS_KEY = "webProfileSettings";
+const WEB_FONT_RECOMMENDED = 1;
+const WEB_FONT_MAX = 1.3;
+
+const clampFontScale = (value) =>
+  Math.min(
+    Math.max(Number(value) || WEB_FONT_RECOMMENDED, WEB_FONT_RECOMMENDED),
+    WEB_FONT_MAX,
+  );
+
+const resolveStoredFontScale = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    const storedFont = stored?.fontSizePreference;
+    if (typeof storedFont === "number") return clampFontScale(storedFont);
+    return (
+      {
+        small: 0.9,
+        medium: 1,
+        large: 1.1,
+      }[storedFont] || WEB_FONT_RECOMMENDED
+    );
+  } catch {
+    return WEB_FONT_RECOMMENDED;
+  }
+};
 
 const AppRouter = () => {
-  const { loading } = useContext(AuthContext);
+  const {
+    loading,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
 
   if (loading) {
     return <LoadingScreen />;
   }
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+    <>
+      <Modal
+        open={showSessionTimeoutWarning}
+        closable={false}
+        mask={{ closable: false }}
+        centered
+        footer={[
+          <Button key="logout" onClick={() => logoutUser()}>
+            Sign out now
+          </Button>,
+          <Button key="continue" type="primary" onClick={continueSession}>
+            Continue session
+          </Button>,
+        ]}
+        title="Session Timeout Warning"
+      >
+        <p style={{ marginBottom: 8 }}>
+          You&apos;ve been inactive for a while. For your security, you&apos;ll
+          be signed out in 2 minutes unless you continue.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
+        </p>
+      </Modal>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Authentication */}
-        <Route element={<RootLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot" element={<ForgotPassword />} />
-          <Route path="/verification" element={<OTP />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/security-setup" element={<SecuritySetup />} />
-        </Route>
+          {/* Authentication */}
+          <Route element={<RootLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot" element={<ForgotPassword />} />
+            <Route path="/verification" element={<OTP />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/security-setup" element={<SecuritySetup />} />
+          </Route>
 
-        {/* Dashboard pages */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
+          {/* Dashboard pages */}
           <Route
-            path="user-management/view-users"
+            path="/dashboard"
             element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <UserManagement />
+              <ProtectedRoute>
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="user-management/activity-logs"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <UserLogs />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="flight-log"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <FlightLog />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-log"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceLog />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="parts-lifespan-monitoring"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <PartsLifespanMonitoring />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-tracking"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceTracking />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route
+              path="user-management/view-users"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UserManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="user-management/activity-logs"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UserLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="flight-log"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
+                >
+                  <FlightLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="pre-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "pilot",
+                    "mechanic",
+                  ]}
+                >
+                  <PreInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="post-inspection"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                  ]}
+                >
+                  <PostInspection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="tasks"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["admin", "maintenance manager", "mechanic"]}
+                >
+                  <TaskAssignment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mechanics"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
+                  <MechanicList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-log"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                  ]}
+                >
+                  <MaintenanceLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="parts-lifespan-monitoring"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
+                >
+                  <PartsLifespanMonitoring />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-tracking"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
+                >
+                  <MaintenanceTracking />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="maintenance-priority"
-            element={
-              <ProtectedRoute allowedRoles={["maintenance manager"]}>
-                <MaintenancePriority />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="maintenance-dashboard"
-            element={
-              <ProtectedRoute
-                allowedRoles={["maintenance manager", "officer-in-charge"]}
-              >
-                <MaintenanceDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="parts-requisition"
-            element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "maintenance manager",
-                  "officer-in-charge",
-                  "warehouse department",
-                ]}
-              >
-                <PartsRequisition />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="profile"
-            element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "admin",
-                  "maintenance manager",
-                  "officer-in-charge",
-                  "warehouse department",
-                ]}
-              >
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="maintenance-priority"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
+                  <MaintenancePriority />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="maintenance-dashboard"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                  ]}
+                >
+                  <MaintenanceDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="parts-requisition"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "mechanic",
+                    "warehouse department",
+                  ]}
+                >
+                  <PartsRequisition />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="messages"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "warehouse department",
+                    "mechanic",
+                  ]}
+                >
+                  <Messaging />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "admin",
+                    "maintenance manager",
+                    "officer-in-charge",
+                    "warehouse department",
+                    "mechanic",
+                  ]}
+                >
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
-        </Route>
-
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   );
 };
 export default function App() {
+  const [fontScale, setFontScale] = useState(() => resolveStoredFontScale());
+
   useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === "rememberMe" && event.newValue === "false") {
-        localStorage.removeItem("currentUser");
-        window.location.href = "/login";
-      }
+    const applyScale = (nextScale) => {
+      const clamped = clampFontScale(nextScale);
+      setFontScale(clamped);
+      document.documentElement.style.fontSize = `${(16 * clamped).toFixed(1)}px`;
     };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+
+    const syncScaleFromSettings = () => applyScale(resolveStoredFontScale());
+
+    syncScaleFromSettings();
+    window.addEventListener("storage", syncScaleFromSettings);
+    window.addEventListener("web-settings-updated", syncScaleFromSettings);
+
+    return () => {
+      window.removeEventListener("storage", syncScaleFromSettings);
+      window.removeEventListener("web-settings-updated", syncScaleFromSettings);
+    };
   }, []);
 
-  return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Table: {
-            headerBg: "#26866f",
-            headerColor: "#fff",
-            headerSortHoverBg: "#1f6654",
-            headerSortActiveBg: "#1f6654",
-            headerFilterHoverBg: "#1f6654",
-            headerBorderRadius: 10,
-            headerBorderColor: "#002019",
-          },
-          Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
-          Menu: {
-            itemBg: "#f5f5f5",
-            itemHoverBg: "#006340",
-            itemHoverColor: "#fff",
-            itemSelectedBg: "#26866f",
-            itemColor: "#002019",
-            itemSelectedColor: "#fff",
-            itemActiveBg: "#26866f",
-            subMenuItemSelectedColor: "#002019",
-          },
-          Tabs: {
-            inkBarColor: "#006340",
-            itemSelectedColor: "#006340",
-            itemHoverColor: "#26866f",
-          },
-          Statistic: {
-            fontSize: "clamp(14px, 16px)",
-          },
+  const scaledTheme = useMemo(
+    () => ({
+      token: {
+        fontSize: Math.round(14 * fontScale),
+        fontSizeSM: Math.round(12 * fontScale),
+        fontSizeLG: Math.round(16 * fontScale),
+      },
+      components: {
+        Table: {
+          headerBg: "#26866f",
+          headerColor: "#fff",
+          headerSortHoverBg: "#1f6654",
+          headerSortActiveBg: "#1f6654",
+          headerFilterHoverBg: "#1f6654",
+          headerBorderRadius: 10,
+          headerBorderColor: "#1f6654",
+          fontSize: Math.round(14 * fontScale),
         },
-      }}
-    >
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRouter />
-        </BrowserRouter>
-      </AuthProvider>
+        Button: { colorPrimary: "#26866f", colorPrimaryHover: "#1f6654" },
+        Menu: {
+          colorBgContainer: "#ffffff",
+          itemBg: "#ffffff",
+          subMenuItemBg: "#ffffff",
+          popupBg: "#ffffff",
+
+          itemColor: "#575757",
+          itemHoverColor: "#006340",
+          itemSelectedColor: "#ffffff",
+
+          itemHoverBg: "#ffffff",
+          itemSelectedBg: "#006340",
+          itemActiveBg: "#ffffff",
+
+          subMenuItemSelectedColor: "#006340",
+        },
+        Tabs: {
+          inkBarColor: "#006340",
+          itemSelectedColor: "#006340",
+          itemHoverColor: "#26866f",
+        },
+        Card: {
+          paddingLG: 16,
+          paddingSM: 12,
+          headerHeight: 44,
+          headerHeightSM: 36,
+        },
+        Statistic: {
+          fontSize: `${Math.round(12 * fontScale)}px`,
+          contentFontSize: `${Math.round(20 * fontScale)}px`,
+        },
+      },
+    }),
+    [fontScale],
+  );
+
+  return (
+    <ConfigProvider theme={scaledTheme}>
+      <AntdApp>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRouter />
+          </BrowserRouter>
+        </AuthProvider>
+      </AntdApp>
     </ConfigProvider>
   );
 }

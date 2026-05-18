@@ -4,12 +4,53 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
+const getDisplayStatusLabel = (status) => {
+  switch (status) {
+    case "To Be Ordered":
+      return "To Be Restocked";
+    case "Ordered":
+      return "Restocked";
+    default:
+      return status;
+  }
+};
+
 const getOverallStatusStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "parts requested":
+      return {
+        borderColor: COLORS.grayMedium,
+        textColor: COLORS.grayDark,
+      };
+    case "to be ordered":
+      return {
+        borderColor: "#F0A64A",
+        textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        borderColor: "#D4A017",
+        textColor: "#A37300",
+      };
+    case "ordered":
+      return {
+        borderColor: "#1565C0",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         borderColor: "#2F8CFF",
         textColor: "#2F8CFF",
+      };
+    case "delivered":
+      return {
+        borderColor: "#2E7D32",
+        textColor: "#2E7D32",
+      };
+    case "cancelled":
+      return {
+        borderColor: "#C62828",
+        textColor: "#C62828",
       };
     default:
       return {
@@ -21,10 +62,50 @@ const getOverallStatusStyle = (status) => {
 
 const getTimelineBadgeStyle = (status) => {
   switch (status?.toLowerCase()) {
+    case "parts requested":
+      return {
+        borderColor: "#B8B8B8",
+        textColor: "#666666",
+      };
+    case "in stock":
+      return {
+        borderColor: "#81C784",
+        textColor: "#2E7D32",
+      };
+    case "out of stock":
+      return {
+        borderColor: "#EF9A9A",
+        textColor: "#C62828",
+      };
+    case "to be ordered":
+      return {
+        borderColor: "#F5C27B",
+        textColor: "#C26A00",
+      };
+    case "availability checked":
+      return {
+        borderColor: "#F2D48D",
+        textColor: "#A37300",
+      };
+    case "ordered":
+      return {
+        borderColor: "#90CAF9",
+        textColor: "#1565C0",
+      };
     case "approved":
       return {
         borderColor: "#69AFFF",
         textColor: "#2F8CFF",
+      };
+    case "delivered":
+      return {
+        borderColor: "#81C784",
+        textColor: "#2E7D32",
+      };
+    case "cancelled":
+      return {
+        borderColor: "#EF9A9A",
+        textColor: "#C62828",
       };
     default:
       return {
@@ -38,9 +119,13 @@ export default function PartsRequisitionDetails({
   visible,
   onClose,
   request,
-  showReviewActions = false,
+  showManagerActions = false,
+  canOrder = false,
+  canApprove = false,
+  orderLabel = "Order",
+  approveLabel = "Approve",
+  onOrder,
   onApprove,
-  onReject,
 }) {
   if (!request) return null;
 
@@ -93,7 +178,7 @@ export default function PartsRequisitionDetails({
           >
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "600",
                 color: COLORS.black,
               }}
@@ -121,7 +206,7 @@ export default function PartsRequisitionDetails({
             <View style={{ alignItems: "center", marginBottom: 18 }}>
               <Text
                 style={{
-                  fontSize: 16,
+                  fontSize: 12,
                   color: COLORS.grayDark,
                   marginBottom: 8,
                 }}
@@ -140,11 +225,11 @@ export default function PartsRequisitionDetails({
                 <Text
                   style={{
                     color: overallStatusStyle.textColor,
-                    fontSize: 18,
+                    fontSize: 12,
                     fontWeight: "500",
                   }}
                 >
-                  {request.overallStatus}
+                  {getDisplayStatusLabel(request.overallStatus)}
                 </Text>
               </View>
             </View>
@@ -160,7 +245,7 @@ export default function PartsRequisitionDetails({
                 <View key={label} style={{ marginBottom: 10 }}>
                   <Text
                     style={{
-                      fontSize: 16,
+                      fontSize: 12,
                       color: COLORS.grayDark,
                       marginBottom: 2,
                     }}
@@ -169,7 +254,7 @@ export default function PartsRequisitionDetails({
                   </Text>
                   <Text
                     style={{
-                      fontSize: 18,
+                      fontSize: 12,
                       color: COLORS.black,
                       fontWeight: "700",
                     }}
@@ -182,7 +267,7 @@ export default function PartsRequisitionDetails({
 
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "700",
                 color: "#333333",
                 marginBottom: 12,
@@ -213,12 +298,12 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Item Name
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -228,12 +313,12 @@ export default function PartsRequisitionDetails({
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Purpose
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -243,12 +328,12 @@ export default function PartsRequisitionDetails({
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 16, color: COLORS.grayDark }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Requested
                       </Text>
                       <Text
                         style={{
-                          fontSize: 18,
+                          fontSize: 12,
                           color: COLORS.black,
                           fontWeight: "700",
                         }}
@@ -260,7 +345,7 @@ export default function PartsRequisitionDetails({
                     <View>
                       <Text
                         style={{
-                          fontSize: 16,
+                          fontSize: 12,
                           color: COLORS.grayDark,
                           marginBottom: 5,
                         }}
@@ -277,13 +362,13 @@ export default function PartsRequisitionDetails({
                           paddingVertical: 4,
                         }}
                       >
-                        <Text
-                          style={{
-                            color: badgeStyle.textColor,
-                            fontSize: 18,
-                          }}
-                        >
-                          {item.status}
+                      <Text
+                        style={{
+                          color: badgeStyle.textColor,
+                          fontSize: 12,
+                        }}
+                      >
+                          {getDisplayStatusLabel(item.status)}
                         </Text>
                       </View>
                     </View>
@@ -294,42 +379,28 @@ export default function PartsRequisitionDetails({
 
             <Text
               style={{
-                fontSize: 24,
-                fontWeight: "700",
-                color: "#333333",
-                marginBottom: 10,
-              }}
-            >
-              Notes
-            </Text>
-            <View
-              style={{
-                backgroundColor: "#F1F1F1",
-                borderRadius: 6,
-                minHeight: 44,
-                paddingHorizontal: 12,
-                paddingVertical: 12,
-                marginBottom: 18,
-              }}
-            >
-              <Text style={{ fontSize: 18, color: COLORS.grayDark }}>
-                {request.notes || ""}
-              </Text>
-            </View>
-
-            <Text
-              style={{
-                fontSize: 24,
+                fontSize: 12,
                 fontWeight: "700",
                 color: "#333333",
                 marginBottom: 12,
               }}
             >
-              Request Timeline
+              Warehouse Flow
             </Text>
 
             {request.timeline.map((entry, index) => {
               const badgeStyle = getTimelineBadgeStyle(entry.status);
+              const iconName = entry.isCompleted
+                ? "check-circle-outline"
+                : entry.isCurrent
+                  ? "clock-outline"
+                  : "circle-outline";
+              const iconColor = entry.isCompleted
+                ? "#2E7D32"
+                : entry.isCurrent
+                  ? COLORS.primaryLight
+                  : COLORS.grayMedium;
+              const contentOpacity = entry.isCompleted || entry.isCurrent ? 1 : 0.55;
 
               return (
                 <View
@@ -341,13 +412,13 @@ export default function PartsRequisitionDetails({
                   }}
                 >
                   <MaterialCommunityIcons
-                    name="check-circle-outline"
+                    name={iconName}
                     size={24}
-                    color={COLORS.primaryLight}
+                    color={iconColor}
                     style={{ marginRight: 10, marginTop: 2 }}
                   />
 
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, opacity: contentOpacity }}>
                     <View
                       style={{
                         alignSelf: "flex-start",
@@ -362,16 +433,16 @@ export default function PartsRequisitionDetails({
                       <Text
                         style={{
                           color: badgeStyle.textColor,
-                          fontSize: 18,
+                          fontSize: 12,
                         }}
                       >
-                        {entry.status}
+                        {getDisplayStatusLabel(entry.status)}
                       </Text>
                     </View>
 
                     <Text
                       style={{
-                        fontSize: 16,
+                        fontSize: 12,
                         color: COLORS.grayDark,
                         marginBottom: 2,
                       }}
@@ -380,7 +451,7 @@ export default function PartsRequisitionDetails({
                     </Text>
                     <Text
                       style={{
-                        fontSize: 18,
+                        fontSize: 12,
                         color: COLORS.black,
                         fontWeight: "700",
                         marginBottom: 2,
@@ -388,7 +459,7 @@ export default function PartsRequisitionDetails({
                     >
                       {entry.by}
                     </Text>
-                    <Text style={{ fontSize: 18, color: COLORS.grayDark }}>
+                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {entry.description}
                     </Text>
                   </View>
@@ -396,7 +467,7 @@ export default function PartsRequisitionDetails({
               );
             })}
 
-            {showReviewActions && (
+            {showManagerActions && (
               <View
                 style={{
                   flexDirection: "row",
@@ -406,12 +477,13 @@ export default function PartsRequisitionDetails({
                 }}
               >
                 <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => onReject?.(request)}
+                  activeOpacity={canOrder ? 0.8 : 1}
+                  onPress={() => onOrder?.(request)}
+                  disabled={!canOrder}
                   style={{
-                    backgroundColor: COLORS.white,
+                    backgroundColor: canOrder ? COLORS.white : "#F1F1F1",
                     borderWidth: 1,
-                    borderColor: "#E85D5D",
+                    borderColor: canOrder ? "#E6A246" : "#D8D8D8",
                     paddingHorizontal: 18,
                     paddingVertical: 12,
                     borderRadius: 6,
@@ -419,20 +491,21 @@ export default function PartsRequisitionDetails({
                 >
                   <Text
                     style={{
-                      color: "#E85D5D",
-                      fontSize: 16,
+                      color: canOrder ? "#C26A00" : "#9E9E9E",
+                      fontSize: 12,
                       fontWeight: "600",
                     }}
                   >
-                    Reject
+                    {getDisplayStatusLabel(orderLabel)}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={canApprove ? 0.8 : 1}
                   onPress={() => onApprove?.(request)}
+                  disabled={!canApprove}
                   style={{
-                    backgroundColor: COLORS.primaryLight,
+                    backgroundColor: canApprove ? COLORS.primaryLight : "#D8D8D8",
                     paddingHorizontal: 18,
                     paddingVertical: 12,
                     borderRadius: 6,
@@ -441,11 +514,11 @@ export default function PartsRequisitionDetails({
                   <Text
                     style={{
                       color: COLORS.white,
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: "600",
                     }}
                   >
-                    Approve
+                    {approveLabel}
                   </Text>
                 </TouchableOpacity>
               </View>

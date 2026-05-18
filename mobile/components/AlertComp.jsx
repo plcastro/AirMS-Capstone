@@ -22,7 +22,7 @@ export default function AlertComp({
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [visible, duration]);
+  }, [visible, duration, onFinish]);
 
   if (!visible) return null;
 
