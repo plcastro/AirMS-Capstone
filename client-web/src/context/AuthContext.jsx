@@ -6,6 +6,7 @@ export const AuthContext = createContext();
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 60 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
+const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
 const AUTH_SYNC_KEY = "authSyncEvent";
 
@@ -35,7 +36,6 @@ export const AuthProvider = ({ children }) => {
     id: userData.id || userData._id || null,
     jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
     access: userData.access ? userData.access.trim().toLowerCase() : null,
-    sessions: Array.isArray(userData.sessions) ? userData.sessions : [],
   });
 
   const publishAuthSync = (payload) => {
@@ -87,9 +87,11 @@ export const AuthProvider = ({ children }) => {
   const clearAuthStorage = () => {
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("token");
+    sessionStorage.removeItem(SESSION_TIMING_KEY);
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
     localStorage.removeItem(SESSION_META_KEY);
+    localStorage.removeItem(SESSION_TIMING_KEY);
     localStorage.setItem(REMEMBER_ME_KEY, "false");
   };
 
@@ -116,6 +118,25 @@ export const AuthProvider = ({ children }) => {
       return payload.exp * 1000;
     } catch {
       return null;
+    }
+  };
+  const persistSessionTiming = (token, source = "unknown") => {
+    const now = Date.now();
+    const expiresAt = getTokenExpiryTime(token);
+    const payload = {
+      source,
+      startedAt: now,
+      expiresAt: expiresAt || null,
+      remainingSeconds: expiresAt
+        ? Math.max(0, Math.floor((expiresAt - now) / 1000))
+        : null,
+      updatedAt: now,
+    };
+    sessionStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
+    if (rememberMePreference) {
+      localStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
+    } else {
+      localStorage.removeItem(SESSION_TIMING_KEY);
     }
   };
 
@@ -160,17 +181,9 @@ export const AuthProvider = ({ children }) => {
   const scheduleInactivityTimers = (elapsed = 0) => {
     clearInactivityTimers();
     if (!user) return;
-    const timeLeft = INACTIVITY_LIMIT_MS - elapsed;
-    if (timeLeft <= 0) return logoutUser();
-    const warningDelay = Math.max(timeLeft - WARNING_DURATION_MS, 0);
-    inactivityWarningTimeoutRef.current = setTimeout(() => {
-      startWarningCountdown(
-        Math.ceil(Math.min(WARNING_DURATION_MS, timeLeft) / 1000),
-      );
-    }, warningDelay);
-    inactivityLogoutTimeoutRef.current = setTimeout(() => {
-      logoutUser();
-    }, timeLeft);
+    // Web should stay signed in while token refresh is valid.
+    // Disable inactivity-based forced logout; rely on token validity/refresh flow.
+    setShowSessionTimeoutWarning(false);
   };
 
   const recordActivity = () => {
@@ -213,6 +226,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       localStorage.removeItem("token");
     }
+    persistSessionTiming(data.token, "refresh");
     publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
     scheduleTokenExpiryLogout(data.token, logoutUser);
     return data.token;
@@ -285,6 +299,7 @@ export const AuthProvider = ({ children }) => {
       platform: "WEB",
     });
     persistAuthState(normalized, token, rememberMe);
+    persistSessionTiming(token, "login");
     publishAuthSync({ type: "LOGIN", token, user: normalized, rememberMe });
     scheduleTokenExpiryLogout(token, logoutUser);
   };
@@ -319,11 +334,19 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(REMEMBER_ME_KEY, "true");
       if (user) localStorage.setItem("currentUser", JSON.stringify(user));
       if (tokenToKeep) localStorage.setItem("token", tokenToKeep);
+      if (tokenToKeep) {
+        localStorage.setItem(
+          SESSION_TIMING_KEY,
+          sessionStorage.getItem(SESSION_TIMING_KEY) || "",
+        );
+      }
     } else {
       localStorage.setItem(REMEMBER_ME_KEY, "false");
       localStorage.removeItem("currentUser");
       localStorage.removeItem("token");
+      localStorage.removeItem(SESSION_TIMING_KEY);
     }
+    if (tokenToKeep) persistSessionTiming(tokenToKeep, "remember-me-update");
     setRememberMePreferenceState(rememberMe);
     publishAuthSync({ type: "REMEMBER_ME_UPDATED", rememberMe });
     return payload;
@@ -344,6 +367,7 @@ export const AuthProvider = ({ children }) => {
           if (rememberMePreference) {
             localStorage.setItem("token", payload.token);
           }
+          persistSessionTiming(payload.token, "sync-refresh");
         }
       };
     }
@@ -363,6 +387,7 @@ export const AuthProvider = ({ children }) => {
           sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
           sessionStorage.setItem("token", payload.token);
           setRememberMePreferenceState(Boolean(payload.rememberMe));
+          persistSessionTiming(payload.token, "sync-login");
           return;
         }
         if (payload.type === "REMEMBER_ME_UPDATED") {
@@ -403,6 +428,7 @@ export const AuthProvider = ({ children }) => {
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
           setUser(normalizeUser(parsedUser));
+          persistSessionTiming(token, "restore");
           scheduleTokenExpiryLogout(token, logoutUser);
           return;
         }
@@ -427,6 +453,7 @@ export const AuthProvider = ({ children }) => {
         if (normalizedFromToken) {
           persistAuthState(normalizeUser(normalizedFromToken), token, remembered);
         }
+        persistSessionTiming(token, "restore-refresh");
         scheduleTokenExpiryLogout(token, logoutUser);
       } catch (err) {
         console.error("Auth load error:", err);

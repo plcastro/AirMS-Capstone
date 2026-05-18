@@ -21,6 +21,7 @@ import {
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
 import { showToast } from "../../utilities/toast";
+import AlertComp from "../AlertComp";
 
 const { width } = Dimensions.get("window");
 const CUSTOM_INSPECTION_ID = "custom-task";
@@ -87,6 +88,7 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const [appliedDraftKey, setAppliedDraftKey] = useState("");
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees.filter((emp) => !emp.isBusy);
@@ -529,11 +531,6 @@ export default function AddTask({
     onAddTask(newTask);
   };
 
-  const confirmDiscard = () => {
-    resetForm();
-    onClose();
-  };
-
   const formatDateTime = (date) => {
     return (
       date.toLocaleDateString("en-US", {
@@ -842,26 +839,46 @@ export default function AddTask({
   const selectedEmployeeLabel =
     availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
   const addTaskWarning = getAddTaskWarning();
+  const hasUnsavedChanges = () =>
+    Boolean(selectedAircraft) ||
+    Boolean(selectedEmployee) ||
+    Boolean(inspectionType) ||
+    checklistItems.length > 0 ||
+    Boolean(isCustomTask && customTaskTitle.trim());
+  const handleCloseWithWarning = () => {
+    if (!hasUnsavedChanges()) {
+      resetForm();
+      onClose?.();
+      return;
+    }
+    setShowDiscardAlert(true);
+  };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.alertOverlay}>
-        <View
-          style={[
-            styles.alertContainer,
-            {
-              width: width > 425 ? 600 : width - 32,
-              maxWidth: "92%",
-              maxHeight: "90%",
-              paddingVertical: 18,
-              paddingHorizontal: 14,
-            },
-          ]}
-        >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+    <>
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCloseWithWarning}
+      >
+        <View style={styles.alertOverlay}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                width: width > 425 ? 600 : width - 32,
+                maxWidth: "92%",
+                maxHeight: "90%",
+                paddingVertical: 18,
+                paddingHorizontal: 14,
+              },
+            ]}
           >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
             <Text
               style={[
                 styles.alertTitle,
@@ -1167,32 +1184,46 @@ export default function AddTask({
                 {addTaskWarning}
               </Text>
             ) : null}
-          </ScrollView>
+            </ScrollView>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 20,
-              gap: 10,
-            }}
-          >
-            <Button
-              label="Discard"
-              onPress={confirmDiscard}
-              buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.secondaryAlertBtnTxt}
-            />
-            <Button
-              label="Add Task"
-              onPress={confirmAdd}
-              disabled={Boolean(addTaskWarning)}
-              buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 20,
+                gap: 10,
+              }}
+            >
+              <Button
+                label="Discard"
+                onPress={handleCloseWithWarning}
+                buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.secondaryAlertBtnTxt}
+              />
+              <Button
+                label="Add Task"
+                onPress={confirmAdd}
+                disabled={Boolean(addTaskWarning)}
+                buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={showDiscardAlert}
+        title="Discard changes?"
+        message="You have unsaved changes. Cancel and discard them?"
+        cancelText="Keep editing"
+        confirmText="Discard"
+        onCancel={() => setShowDiscardAlert(false)}
+        onConfirm={() => {
+          setShowDiscardAlert(false);
+          resetForm();
+          onClose?.();
+        }}
+      />
+    </>
   );
 }

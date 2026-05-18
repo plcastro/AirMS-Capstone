@@ -90,6 +90,7 @@ export default function FlightLog() {
     "engineer",
     "mechanic",
     "maintenance manager",
+    "admin",
     "head of maintenance",
   ].includes(userRole);
 
@@ -908,7 +909,7 @@ export default function FlightLog() {
         key={record._id || record.id}
         hoverable
         style={{ marginBottom: 10, borderRadius: 10 }}
-        bodyStyle={{ padding: 12 }}
+        styles={{ body: { padding: 12 } }}
         onClick={() => handleEdit(record)}
       >
         <div

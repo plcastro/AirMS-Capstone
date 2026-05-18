@@ -93,7 +93,7 @@ export default function TaskAssignment() {
   const [form] = Form.useForm();
 
   const role = user?.jobTitle?.toLowerCase() || "";
-  const isManager = role === "maintenance manager";
+  const isManager = ["maintenance manager", "admin"].includes(role);
   const currentUserId = user?.id || user?._id;
 
   const load = useCallback(async () => {

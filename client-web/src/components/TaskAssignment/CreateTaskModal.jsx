@@ -30,11 +30,27 @@ export default function CreateTaskModal({
   endDateManuallyAdjusted,
 }) {
   const scheduleEstimate = estimateInspectionSchedule(checklistDraftItems);
+  const hasUnsavedChanges =
+    form.isFieldsTouched(true) ||
+    Boolean(selectedInspectionId) ||
+    checklistDraftItems.length > 0 ||
+    Boolean(isCustomTask && customTaskTitle?.trim());
+  const handleCancelWithWarning = () => {
+    if (!hasUnsavedChanges) {
+      onCancel?.();
+      return;
+    }
+    const shouldDiscard = window.confirm(
+      "You have unsaved changes. Cancel and discard them?",
+    );
+    if (!shouldDiscard) return;
+    onCancel?.();
+  };
 
   return (
     <Modal
       open={open}
-      onCancel={onCancel}
+      onCancel={handleCancelWithWarning}
       onOk={onOk}
       title="Create Task"
       okText="Create"

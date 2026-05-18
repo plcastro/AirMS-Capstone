@@ -30,6 +30,7 @@ import MaintenancePerformance from "../../components/reports/MaintenancePerforma
 import MaintenanceHistory from "../../components/reports/MaintenanceHistory";
 import MaintenanceSummary from "../../components/reports/MaintenanceSummary";
 import ComponentUsage from "../../components/reports/ComponentUsage";
+import GeneralReports from "../../components/reports/GeneralReports";
 import {
   FlightLogReport,
   InspectionReport,
@@ -248,7 +249,7 @@ export default function MaintenanceDashboard() {
         .length,
       overdue: tasks.filter((task) => getTaskCategory(task) === "overdue")
         .length,
-      moduleReports: 8,
+      moduleReports: 9,
     }),
     [tasks],
   );
@@ -694,6 +695,14 @@ export default function MaintenanceDashboard() {
         subtitle="Mobile parity for web analytics subreports and charts"
       />
 
+      <GeneralReports
+        tasks={tasks}
+        flightLogs={flightLogs}
+        preInspections={preInspections}
+        postInspections={postInspections}
+        partsRequisitions={partsRequisitions}
+        loading={loading}
+      />
       <MaintenancePerformance tasks={tasks} />
       <MaintenanceHistory tasks={tasks} loading={loading} />
       <MaintenanceSummary tasks={tasks} loading={loading} />

@@ -609,7 +609,7 @@ export default function PartsReqMonitoring() {
 
           <Form.List name="items">
             {(fields, { add, remove }) => (
-              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
                 {fields.map(({ key, name, ...restField }) => (
                   <div
                     key={key}

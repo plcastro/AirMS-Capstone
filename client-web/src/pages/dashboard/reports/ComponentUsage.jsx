@@ -146,10 +146,10 @@ export default function ComponentUsage({ records = [], loading = false }) {
       }}
     >
       <Row gutter={12}>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={24}>
           <Card>
             <Space orientation="vertical">
-              <Title level={3} style={{ margin: 0 }}>
+              <Title level={5} style={{ margin: 0 }}>
                 Most Failure-Prone Components
               </Title>
               <Text type="secondary">{currentMonthYear}</Text>
@@ -157,7 +157,7 @@ export default function ComponentUsage({ records = [], loading = false }) {
             <FailureAnalysisChart data={chartData} />
           </Card>
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={24}>
           <CUsageTable headers={headers} data={data} loading={loading} />
         </Col>
       </Row>

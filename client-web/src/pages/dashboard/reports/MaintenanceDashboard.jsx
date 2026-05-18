@@ -16,6 +16,7 @@ import {
   Segmented,
   Table,
   Tag,
+  Grid,
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
@@ -23,6 +24,7 @@ import MaintenancePerformance from "./MaintenancePerformance";
 import MaintenanceSummary from "./MaintenanceSummary";
 import MaintenanceHistory from "./MaintenanceHistory";
 import ComponentUsage from "./ComponentUsage";
+import GeneralReports from "./GeneralReports";
 import {
   FlightLogReport,
   InspectionReport,
@@ -32,6 +34,7 @@ import { SDMChart } from "../../../components/common/PieChart";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const normalizeReportStatus = (value) =>
   String(value || "Unknown")
@@ -128,6 +131,8 @@ const isRepairedTask = (task = {}) => {
 };
 
 export default function MaintenanceDashboard() {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
@@ -144,6 +149,21 @@ export default function MaintenanceDashboard() {
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
   const [taskDetailView, setTaskDetailView] = useState("dueSoon");
   const [activeKpi, setActiveKpi] = useState("dueSoon");
+  const statTitleStyle = {
+    fontSize: 12,
+    lineHeight: 1.25,
+    whiteSpace: "normal",
+  };
+  const statValueStyle = {
+    fontSize: 24,
+    lineHeight: 1.1,
+    wordBreak: "break-word",
+  };
+  const compactStatValueStyle = {
+    fontSize: 18,
+    lineHeight: 1.15,
+    wordBreak: "break-word",
+  };
 
   const isCompletedTask = (task = {}) => {
     const status = String(task.status || "")
@@ -305,6 +325,22 @@ export default function MaintenanceDashboard() {
 
   const cards = [
     {
+      key: "general-reports",
+      category: "Performance",
+      title: "General Reports",
+      component: (
+        <GeneralReports
+          tasks={tasks}
+          flightLogs={flightLogs}
+          preInspections={preInspections}
+          postInspections={postInspections}
+          partsRequisitions={partsRequisitions}
+          loading={loadingTasks}
+        />
+      ),
+      keywords: ["general", "reports", "overview", "cross-module"],
+    },
+    {
       key: "performance",
       category: "Performance",
       title: "Performance Overview",
@@ -384,16 +420,34 @@ export default function MaintenanceDashboard() {
   ];
 
   const filteredCards = cards
-    .map((card) => ({
-      ...card,
-      relevance: card.keywords.some((kw) =>
-        kw.toLowerCase().includes(searchText.toLowerCase()),
-      )
-        ? 1
-        : 0,
-    }))
-    .sort((a, b) => b.relevance - a.relevance)
-    .filter((card) => searchText === "" || card.relevance > 0);
+    .map((card) => {
+      const query = searchText.trim().toLowerCase();
+      if (!query) return { ...card, relevance: 1 };
+
+      const tokens = query
+        .split(/[\s\-_/]+/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+      const haystack = [
+        card.title,
+        card.category,
+        ...(Array.isArray(card.keywords) ? card.keywords : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      let relevance = 0;
+      tokens.forEach((token) => {
+        if (haystack.includes(token)) relevance += 1;
+      });
+      if (haystack.includes(query)) relevance += 2;
+
+      return { ...card, relevance };
+    })
+    .filter((card) => card.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title));
 
   const groupedFilteredCards = React.useMemo(
     () =>
@@ -414,6 +468,20 @@ export default function MaintenanceDashboard() {
     );
     return [...knownGroups, ...otherGroups];
   }, [groupedFilteredCards]);
+  const topMatchedCard = useMemo(
+    () => (searchText.trim() ? filteredCards[0] || null : null),
+    [searchText, filteredCards],
+  );
+  const hasActiveSearch = searchText.trim().length > 0;
+  const remainingCardsByGroup = useMemo(() => {
+    if (!topMatchedCard) return orderedReportGroups;
+    return orderedReportGroups
+      .map(([category, categoryCards]) => [
+        category,
+        categoryCards.filter((card) => card.key !== topMatchedCard.key),
+      ])
+      .filter(([, categoryCards]) => categoryCards.length > 0);
+  }, [orderedReportGroups, topMatchedCard]);
 
   const taskDetailRows = tasks
     .filter((task) => getTaskDetailCategory(task) === taskDetailView)
@@ -1086,10 +1154,10 @@ export default function MaintenanceDashboard() {
   return (
     <div
       style={{
-        padding: 20,
+        padding: isMobile ? 12 : 20,
         minHeight: "100vh",
-
         height: "100%",
+        overflowX: "hidden",
       }}
     >
       <Card style={{ marginBottom: 10 }}>
@@ -1131,8 +1199,9 @@ export default function MaintenanceDashboard() {
           </Col>
         </Row>
       </Card>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
+      {!hasActiveSearch ? (
+        <>
+          <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
         <Col span={24}>
           <Title level={5} style={{ margin: 0 }}>
             Operations
@@ -1154,7 +1223,10 @@ export default function MaintenanceDashboard() {
             <Statistic
               title="Completed Tasks"
               value={stats.completed}
-              styles={{ content: { color: "#048a25" } }}
+              styles={{
+                title: statTitleStyle,
+                content: { ...statValueStyle, color: "#048a25" },
+              }}
             />
           </Card>
         </Col>
@@ -1174,7 +1246,10 @@ export default function MaintenanceDashboard() {
             <Statistic
               title="Due Soon (next 3 days)"
               value={stats.dueSoon}
-              styles={{ content: { color: "#faad14" } }}
+              styles={{
+                title: statTitleStyle,
+                content: { ...statValueStyle, color: "#faad14" },
+              }}
             />
           </Card>
         </Col>
@@ -1194,7 +1269,10 @@ export default function MaintenanceDashboard() {
             <Statistic
               title="Overdue Tasks"
               value={stats.overdue}
-              styles={{ content: { color: "#cf1322" } }}
+              styles={{
+                title: statTitleStyle,
+                content: { ...statValueStyle, color: "#cf1322" },
+              }}
             />
           </Card>
         </Col>
@@ -1211,13 +1289,16 @@ export default function MaintenanceDashboard() {
             <Statistic
               title="Module Reports"
               value={cards.length}
-              styles={{ content: { color: "#26866f" } }}
+              styles={{
+                title: statTitleStyle,
+                content: { ...statValueStyle, color: "#26866f" },
+              }}
             />
           </Card>
         </Col>
-      </Row>
+          </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
+          <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
         <Col span={24}>
           <Title level={5} style={{ margin: 0 }}>
             Base Health
@@ -1263,69 +1344,27 @@ export default function MaintenanceDashboard() {
             </Text>
           </Card>
         </Col>
-      </Row>
+          </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col span={24}>
-          <Title level={5} style={{ margin: 0 }}>
-            Repair Efficiency
-          </Title>
-        </Col>
-        <Col xs={24} sm={12} lg={12}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => setActiveKpi("avgRectification")}
-            style={{
-              borderColor:
-                activeKpi === "avgRectification" ? "#1890ff" : undefined,
-            }}
-          >
-            <Statistic
-              title="Average Rectification Time"
-              value={baseDamageRepairSummary.averageRectificationHours}
-              suffix="hrs"
-              styles={{ content: { color: "#1890ff" } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={12}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => setActiveKpi("sameDay")}
-            style={{
-              borderColor: activeKpi === "sameDay" ? "#d46b08" : undefined,
-            }}
-          >
-            <Statistic
-              title="Same-Day Repairs"
-              value={baseDamageRepairSummary.sameDayRepairCount}
-              styles={{ content: { color: "#d46b08" } }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
+          <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
         {(activeKpi === "completed" ||
           activeKpi === "dueSoon" ||
           activeKpi === "overdue") && (
           <>
-            <Segmented
-              value={taskDetailView}
-              onChange={(value) => {
-                setTaskDetailView(value);
-                setActiveKpi(value);
-              }}
-              options={[
-                { label: `Completed (${stats.completed})`, value: "completed" },
-                { label: `Due Soon (${stats.dueSoon})`, value: "dueSoon" },
-                { label: `Overdue (${stats.overdue})`, value: "overdue" },
-              ]}
-            />
+            <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+              <Segmented
+                value={taskDetailView}
+                onChange={(value) => {
+                  setTaskDetailView(value);
+                  setActiveKpi(value);
+                }}
+                options={[
+                  { label: `Completed (${stats.completed})`, value: "completed" },
+                  { label: `Due Soon (${stats.dueSoon})`, value: "dueSoon" },
+                  { label: `Overdue (${stats.overdue})`, value: "overdue" },
+                ]}
+              />
+            </div>
             <Text
               type="secondary"
               style={{ display: "block", marginBottom: 12, marginTop: 12 }}
@@ -1343,7 +1382,7 @@ export default function MaintenanceDashboard() {
                 showTotal: (total, range) =>
                   `${range[0]}-${range[1]} of ${total}`,
               }}
-              scroll={{ x: 1300 }}
+              scroll={{ x: isMobile ? 980 : 1300 }}
             />
           </>
         )}
@@ -1426,33 +1465,48 @@ export default function MaintenanceDashboard() {
             pagination={{ pageSize: 8 }}
           />
         )}
-      </Card>
+          </Card>
+        </>
+      ) : null}
 
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 10 }}>
         <Title level={5} style={{ marginBottom: 4 }}>
-          Grouped Analytics Modules
+          {hasActiveSearch ? "Search Results" : "Grouped Analytics Modules"}
         </Title>
         <Text type="secondary">
-          Related tables and charts are grouped by domain for easier review.
+          {hasActiveSearch
+            ? "Showing matched report modules first, then related modules."
+            : "Related tables and charts are grouped by domain for easier review."}
         </Text>
       </div>
 
-      {orderedReportGroups.map(([category, categoryCards]) => (
+      {topMatchedCard ? (
+        <Card
+          size="small"
+          title={`Top Match: ${topMatchedCard.title}`}
+          style={{ marginBottom: 16, borderColor: "#26866f" }}
+          styles={{ body: { padding: isMobile ? 10 : 12 } }}
+        >
+          {topMatchedCard.component}
+        </Card>
+      ) : null}
+
+      {remainingCardsByGroup.map(([category, categoryCards]) => (
         <Card
           key={category}
           size="small"
           title={`${category} Reports`}
           style={{ marginBottom: 16 }}
-          styles={{ body: { paddingTop: 10 } }}
+          styles={{ body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 } }}
         >
-          <Row gutter={[16, 16]}>
+          <Row gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}>
             {categoryCards.map((card) => (
               <Col xs={24} xl={12} key={card.key}>
                 <Card
                   size="small"
                   title={card.title}
                   style={{ height: "100%" }}
-                  styles={{ body: { padding: 12 } }}
+                  styles={{ body: { padding: isMobile ? 10 : 12 } }}
                 >
                   {card.component}
                 </Card>

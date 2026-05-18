@@ -53,7 +53,9 @@ export default function PostInspection() {
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canRelease = role === "mechanic" || role === "maintenance manager";
+  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+    role,
+  );
   const getDisplayStatus = (value) =>
     value === "completed"
       ? "completed"
@@ -184,6 +186,7 @@ export default function PostInspection() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search"
               prefix={<SearchOutlined />}
+              size="large"
             />
           </Col>
           <Col xs={24} md={7}>
@@ -195,6 +198,7 @@ export default function PostInspection() {
                 value,
                 label: value === "all" ? "All Aircraft" : `RP/C: ${value}`,
               }))}
+              size="large"
             />
           </Col>
           <Col xs={24} md={6}>
@@ -206,6 +210,7 @@ export default function PostInspection() {
                 value,
                 label: value === "all" ? "All Status" : value,
               }))}
+              size="large"
             />
           </Col>
         </Row>
@@ -231,7 +236,10 @@ export default function PostInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Button icon={<EditOutlined />} onClick={() => setEditing(record)}>
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => setEditing(record)}
+              >
                 {readOnly ? "View" : "Edit"}
               </Button>
             ),
@@ -294,7 +302,9 @@ export default function PostInspection() {
             />
 
             <Descriptions bordered size="small" column={1}>
-              <Descriptions.Item label="Status">{editing.status}</Descriptions.Item>
+              <Descriptions.Item label="Status">
+                {editing.status}
+              </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
               </Descriptions.Item>
@@ -327,7 +337,10 @@ export default function PostInspection() {
               {canRelease &&
                 editing.status === "released" &&
                 !editing.acceptedBy?.name && (
-                  <Button type="primary" onClick={() => setSignatureMode("complete")}>
+                  <Button
+                    type="primary"
+                    onClick={() => setSignatureMode("complete")}
+                  >
                     Accept / Complete
                   </Button>
                 )}

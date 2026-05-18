@@ -217,7 +217,7 @@ export default function UpdateSecurity() {
   };
   const PasswordTab = (
     <Card size="small" styles={{ body: { padding: 16 } }}>
-      <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      <Space orientation="vertical" size={12} style={{ width: "100%" }}>
         <Text type="secondary">
           Use a strong password with at least 8 characters, uppercase letters,
           and numbers.
@@ -253,7 +253,7 @@ export default function UpdateSecurity() {
             />
           </Form.Item>
 
-          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={6} style={{ width: "100%" }}>
             {newPassword && (
               <Text style={{ color: strength.color }}>{strength.text}</Text>
             )}

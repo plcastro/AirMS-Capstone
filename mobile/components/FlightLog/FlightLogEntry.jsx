@@ -38,7 +38,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    normalizedRole === "mechanic" || normalizedRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(normalizedRole);
 
   const handleAircraftDataLoaded = (data) => {
     setLoadedAircraftData(data);

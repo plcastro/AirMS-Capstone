@@ -260,13 +260,26 @@ export default function UserForm({
       ].includes(jobTitleValue.toLowerCase()),
     [jobTitleValue],
   );
+  const actionLabel = user ? "update" : "create";
+  const hasUnsavedChanges = () => form.isFieldsTouched(true) || Boolean(file);
+  const handleCancelWithWarning = () => {
+    if (loading) return;
+    if (hasUnsavedChanges()) {
+      const shouldDiscard = window.confirm(
+        "You have unsaved changes. Cancel and discard them?",
+      );
+      if (!shouldDiscard) return;
+    }
+    setPreviewOpen(false);
+    onClose();
+  };
 
   return (
     <>
       <Modal
         open={visible}
         title={user ? "Edit User" : "Add User"}
-        onCancel={onClose}
+        onCancel={handleCancelWithWarning}
         width={isMobile ? "96vw" : 760}
         centered
         styles={{
@@ -281,7 +294,7 @@ export default function UserForm({
         footer={[
           <Button
             key="cancel"
-            onClick={onClose}
+            onClick={handleCancelWithWarning}
             style={{ width: isMobile ? "48%" : "auto" }}
           >
             Cancel
@@ -456,11 +469,11 @@ export default function UserForm({
                 </Form.Item>
               </Col>
 
-              {/* <Col xs={24} md={12}>
+              <Col xs={24} md={12}>
                 <Form.Item label="Access Level" name="access">
                   <Input size="large" disabled />
                 </Form.Item>
-              </Col> */}
+              </Col>
 
               {requiresLicense ? (
                 <Col xs={24} md={12}>
@@ -515,6 +528,9 @@ export default function UserForm({
         ]}
       >
         <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+          <Text type="secondary">
+            {`Are you sure you want to ${actionLabel} this user?`}
+          </Text>
           <Row justify="center">
             <Col style={{ textAlign: "center" }}>
               {imageUrl ? (

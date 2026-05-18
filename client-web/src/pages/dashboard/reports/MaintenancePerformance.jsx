@@ -108,7 +108,7 @@ export default function MaintenancePerformance({ tasks = [] }) {
       <Space orientation="vertical" size={8} style={{ width: "100%" }}>
         <Space style={{ justifyContent: "space-between", width: "100%" }}>
           <Space orientation="vertical" size={0}>
-            <Title level={3} style={{ margin: 0 }}>
+            <Title level={5} style={{ margin: 0 }}>
               Maintenance Performance
             </Title>
             <Text type="secondary">{currentMonthYear}</Text>

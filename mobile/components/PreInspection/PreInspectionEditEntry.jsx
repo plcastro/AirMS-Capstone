@@ -39,7 +39,7 @@ export default function PreInspectionEditEntry({
 
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "mechanic" || userRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(userRole);
 
   const tabs = [
     "Basic Information",
