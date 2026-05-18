@@ -2,6 +2,7 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from "re
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
@@ -30,6 +31,18 @@ const referenceFields = [
 ];
 
 const COMPONENT_DISPLAY_LIMIT = 10;
+
+const formatDateInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
+};
+
+const parsePickerDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
 
 const normalizeRef = (referenceData = {}) => ({
   today: referenceData.today
@@ -73,6 +86,7 @@ export default function PartsLifespanMonitoring() {
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
   const [componentPage, setComponentPage] = useState(0);
+  const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const fetchAircraftList = useCallback(async () => {
     try {
@@ -192,6 +206,28 @@ export default function PartsLifespanMonitoring() {
     );
   };
 
+  const openDatePicker = (target) => {
+    if (!canEditParts) return;
+    setDatePickerTarget(target);
+  };
+
+  const handleDatePickerChange = (event, selectedDate) => {
+    const target = datePickerTarget;
+    setDatePickerTarget(null);
+
+    if (event?.type === "dismissed" || !selectedDate || !target) {
+      return;
+    }
+
+    const nextValue = selectedDate.toISOString().slice(0, 10);
+    if (target.type === "ref") {
+      setRefs((current) => ({ ...current, [target.key]: nextValue }));
+      return;
+    }
+
+    updatePartField(target.sourceIndex, target.field, nextValue);
+  };
+
   const saveToDatabase = async () => {
     if (!selectedAircraft) {
       showToast("Select an aircraft before saving.");
@@ -284,23 +320,43 @@ export default function PartsLifespanMonitoring() {
             {referenceFields.map(([key, label]) => (
               <View key={key} style={{ width: "48%" }}>
                 <Text style={moduleStyles.label}>{label}</Text>
-                <TextInput
-                  value={String(refs[key] ?? "")}
-                  editable={canEditParts}
-                  keyboardType={key === "today" ? "default" : "numeric"}
-                  onChangeText={(value) =>
-                    setRefs((current) => ({ ...current, [key]: value }))
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
-                />
+                {key === "today" ? (
+                  <TouchableOpacity
+                    disabled={!canEditParts}
+                    onPress={() => openDatePicker({ type: "ref", key })}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 10,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  >
+                    <Text style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
+                      {formatDateInput(refs[key]) || "Select date"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TextInput
+                    value={String(refs[key] ?? "")}
+                    editable={canEditParts}
+                    keyboardType="numeric"
+                    onChangeText={(value) =>
+                      setRefs((current) => ({ ...current, [key]: value }))
+                    }
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  />
+                )}
               </View>
             ))}
           </View>
@@ -415,27 +471,46 @@ export default function PartsLifespanMonitoring() {
               </View>
               <View style={{ width: "48%" }}>
                 <Text style={moduleStyles.label}>DATE C/W</Text>
-                <TextInput
-                  value={String(part.dateCW ?? "")}
-                  editable={canEditParts}
-                  onChangeText={(value) =>
-                    updatePartField(part.__sourceIndex, "dateCW", value)
+                <TouchableOpacity
+                  disabled={!canEditParts}
+                  onPress={() =>
+                    openDatePicker({
+                      type: "part",
+                      sourceIndex: part.__sourceIndex,
+                      field: "dateCW",
+                    })
                   }
                   style={{
                     borderWidth: 1,
                     borderColor: COLORS.grayMedium,
                     borderRadius: 8,
                     paddingHorizontal: 10,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     marginTop: 5,
                     backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
                   }}
-                />
+                >
+                  <Text style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
+                    {formatDateInput(part.dateCW) || "Select date"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </InfoCard>
         );
       })}
+      {datePickerTarget && (
+        <DateTimePicker
+          value={parsePickerDate(
+            datePickerTarget.type === "ref"
+              ? refs[datePickerTarget.key]
+              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
+          )}
+          mode="date"
+          display="default"
+          onChange={handleDatePickerChange}
+        />
+      )}
       {selectedAircraft && filteredParts.length > COMPONENT_DISPLAY_LIMIT && (
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
           <TouchableOpacity

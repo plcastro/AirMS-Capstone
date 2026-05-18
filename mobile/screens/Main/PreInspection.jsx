@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPreInspectionTemplatePdf,
@@ -44,6 +44,10 @@ export default function PreInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    inspection: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -170,17 +174,7 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    Alert.alert("Export Pre-Inspection", "Choose export format", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "PDF",
-        onPress: () => exportPreInspectionTemplatePdf(inspection),
-      },
-      {
-        text: "Word Template",
-        onPress: () => exportPreInspectionToWord(inspection),
-      },
-    ]);
+    setExportAlert({ visible: true, inspection });
   };
 
   const selectAircraft = (aircraft) => {
@@ -479,6 +473,23 @@ export default function PreInspection({ route }) {
           }
         }}
         userRole={userRole}
+      />
+      <AlertComp
+        visible={exportAlert.visible}
+        title="Export Pre-Inspection"
+        message="Choose export format."
+        confirmText="PDF"
+        cancelText="Word Template"
+        onCancel={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionToWord(inspection);
+        }}
+        onConfirm={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionTemplatePdf(inspection);
+        }}
       />
     </View>
   );

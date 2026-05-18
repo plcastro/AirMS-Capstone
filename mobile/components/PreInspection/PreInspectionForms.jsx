@@ -8,6 +8,7 @@ export const getDefaultSignature = () => ({
 export const getDefaultPreInspectionFormData = (userRole = "") => ({
   aircraftType: "",
   rpc: "",
+  base: "",
   date: new Date().toLocaleDateString("en-US"),
   dateAdded: "",
   createdBy: userRole,

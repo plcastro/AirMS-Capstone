@@ -27,6 +27,7 @@ const createPreInspection = async (req, res) => {
       linkedFromPreFlight: true,
       aircraftType: payload.aircraftType,
       rpc: payload.rpc,
+      base: payload.base || "",
       date: payload.date,
       dateAdded: payload.dateAdded || new Date().toLocaleDateString("en-US"),
       createdBy: payload.createdBy || "",

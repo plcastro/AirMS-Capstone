@@ -18,6 +18,13 @@ const taskSchema = new mongoose.Schema({
     required: true,
   },
 
+  base: {
+    type: String,
+    default: "",
+    trim: true,
+    uppercase: true,
+  },
+
   dueDate: {
     type: String,
     default: "",
