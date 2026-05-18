@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useCallback } from "react";
+import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -68,6 +68,7 @@ export default function FlightLog({ route, navigation }) {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -109,18 +110,6 @@ export default function FlightLog({ route, navigation }) {
         params.append("limit", "500");
         params.append("sortBy", "date");
         params.append("sortOrder", "desc");
-
-        if (selectedAircraft && selectedAircraft !== "all") {
-          params.append("aircraftRPC", selectedAircraft);
-        }
-        if (selectedStatus && selectedStatus !== "all") {
-          params.append(
-            "status",
-            selectedStatus === "released"
-              ? "pending_acceptance"
-              : selectedStatus,
-          );
-        }
 
         // console.log(
         //   "Fetching from:",
@@ -173,10 +162,9 @@ export default function FlightLog({ route, navigation }) {
         };
 
         const logs = await fetchAllPages();
-        const pendingReleaseLogs =
-          selectedStatus === "all"
-            ? await fetchAllPages({ status: "pending_release" })
-            : [];
+        const pendingReleaseLogs = await fetchAllPages({
+          status: "pending_release",
+        });
 
         setFlightLogs(
           sortNewestFlightLogs(
@@ -196,7 +184,7 @@ export default function FlightLog({ route, navigation }) {
         setRefreshing(false);
       }
     },
-    [selectedAircraft, selectedStatus],
+    [],
   );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
@@ -223,41 +211,6 @@ export default function FlightLog({ route, navigation }) {
       return null;
     }
   }, []);
-
-  // SEARCH FLIGHT LOGS
-  const searchFlightLogs = async (query) => {
-    if (!query.trim()) {
-      fetchFlightLogs();
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      // Read ONLY ONCE
-      const data = await response.json();
-
-      if (response.ok) {
-        setFlightLogs(sortNewestFlightLogs(data.data || []));
-      } else {
-        console.error("Search error:", data.message);
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // CREATE NEW FLIGHT LOG
   const handleSaveNewEntry = async (
@@ -341,33 +294,33 @@ export default function FlightLog({ route, navigation }) {
   // Handle search input change with debounce
   const handleSearchChange = (text) => {
     setSearchQuery(text);
-    if (text.trim()) {
-      const timeoutId = setTimeout(() => {
-        searchFlightLogs(text);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else {
-      fetchFlightLogs();
-    }
   };
 
   // Fetch when filters change
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     fetchFlightLogs();
   }, [fetchFlightLogs]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchFlightLogs();
       fetchNotifications();
-    }, [fetchFlightLogs, fetchNotifications]),
+    }, [fetchNotifications]),
   );
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return undefined;
 
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
-    const onDataChanged = async () => {
+    const onDataChanged = async (event) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(event?.data || "{}");
+      } catch {
+        payload = {};
+      }
+      if (!String(payload?.url || "").startsWith("/api/flightlogs")) return;
       await fetchFlightLogs({ silent: true });
       await fetchNotifications();
     };

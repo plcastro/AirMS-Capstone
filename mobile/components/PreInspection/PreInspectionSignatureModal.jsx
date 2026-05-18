@@ -22,7 +22,7 @@ const getUserName = (user) =>
   "Unknown User";
 
 const getUserIdentifier = (user) =>
-  user?.licenseNo || user?.username || user?.id || user?._id || "";
+  user?.licenseNo || user?.licenseNumber || user?.license || "No License No.";
 
 export default function PreInspectionSignatureModal({
   visible,

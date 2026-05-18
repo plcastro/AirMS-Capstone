@@ -77,6 +77,10 @@ export default function PreInspectionEntry({
       showToast("Aircraft Type is required");
       return;
     }
+    if (!formData.base || formData.base.trim() === "") {
+      showToast("Base is required");
+      return;
+    }
     try {
       await persistInspection(formData);
     } catch (error) {
@@ -105,6 +109,11 @@ export default function PreInspectionEntry({
 
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
       showToast("Aircraft Type is required");
+      return false;
+    }
+
+    if (!formData.base || formData.base.trim() === "") {
+      showToast("Base is required");
       return false;
     }
 

@@ -9,6 +9,7 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
+import { BASE_OPTIONS } from "../UserManagement/constants";
 
 export default function PreInspectionModalInfo({
   formData,
@@ -17,6 +18,7 @@ export default function PreInspectionModalInfo({
   rpcOptions = [],
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -259,6 +261,82 @@ export default function PreInspectionModalInfo({
     </View>
   );
 
+  const renderBaseDropdown = () => (
+    <View style={{ zIndex: showBaseDropdown ? 2500 : 900 }}>
+      <TouchableOpacity
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          height: 42,
+          paddingHorizontal: 12,
+        }}
+        onPress={isEditable ? () => setShowBaseDropdown((current) => !current) : null}
+      >
+        <Text
+          style={{
+            fontSize: 12,
+            color: formData.base ? COLORS.black : COLORS.grayDark,
+          }}
+        >
+          {formData.base || "Select Base"}
+        </Text>
+        {isEditable && (
+          <MaterialCommunityIcons
+            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={COLORS.grayDark}
+          />
+        )}
+      </TouchableOpacity>
+
+      {showBaseDropdown && isEditable && (
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            zIndex: 2500,
+            elevation: 5,
+          }}
+        >
+          {BASE_OPTIONS.map((base) => (
+            <TouchableOpacity
+              key={base}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                borderBottomWidth: base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
+                borderBottomColor: COLORS.grayLight,
+                backgroundColor:
+                  formData.base === base ? COLORS.primaryLight + "10" : COLORS.white,
+              }}
+              onPress={() => {
+                updateForm("base", base);
+                setShowBaseDropdown(false);
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: formData.base === base ? COLORS.primaryLight : COLORS.black,
+                }}
+              >
+                {base}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   return (
     <View>
       <Text
@@ -329,6 +407,20 @@ export default function PreInspectionModalInfo({
               Aircraft Type: <Text style={{ color: "red" }}>*</Text>
             </Text>
             {renderAircraftTypeField()}
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
+              Base: <Text style={{ color: "red" }}>*</Text>
+            </Text>
+            {renderBaseDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>

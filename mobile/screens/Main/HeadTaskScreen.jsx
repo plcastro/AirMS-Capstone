@@ -19,7 +19,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
-import { confirmAction } from "../../utilities/confirmAction";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -43,6 +42,38 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const isEmployeeBusy = (employeeId) =>
     tasks.some((task) => {
@@ -241,7 +272,7 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Create Task",
       message: "Submit this new task assignment?",
       confirmText: "Create",
@@ -281,7 +312,7 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Update Task",
       message: "Save changes to this task?",
       confirmText: "Save",
@@ -359,7 +390,7 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Approve Task",
       message: "Confirm approval and submit this task review?",
       confirmText: "Approve",
@@ -415,11 +446,10 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Return Task",
       message: "Return this task to the mechanic for revision?",
       confirmText: "Return",
-      destructive: true,
     });
     if (!confirmed) return;
 
@@ -629,6 +659,16 @@ export default function HeadTaskScreen({
         task={selectedTask}
         onSave={handleEditTask}
         employees={employees}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
 
       <AlertComp

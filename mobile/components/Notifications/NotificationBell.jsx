@@ -63,7 +63,6 @@ export default function NotificationBell({ navigation }) {
   );
 
   const openNotifications = async () => {
-    await fetchNotifications();
     setVisible(true);
   };
 
@@ -341,7 +340,7 @@ export default function NotificationBell({ navigation }) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={fetchNotifications}>
+              <TouchableOpacity onPress={() => fetchNotifications({ force: true })}>
                 <Text
                   style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}
                 >

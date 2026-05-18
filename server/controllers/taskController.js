@@ -1,4 +1,5 @@
 const TaskModel = require("../models/taskModel");
+const AircraftModel = require("../models/aircraftModel");
 const { auditLog } = require("./logsController");
 const { createTaskNotifications } = require("../utils/taskNotificationService");
 const {
@@ -220,16 +221,24 @@ const validateTaskSchedule = (taskData = {}) => {
   return null;
 };
 
-const normalizeBase = (task = {}) =>
-  String(
-    task.base ||
-      task.locationBase ||
-      task.assignedBase ||
-      task.stationBase ||
-      "UNKNOWN",
-  )
-    .trim()
-    .toUpperCase();
+const isKnownBase = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized && !["UNKNOWN", "N/A", "NA", "UNASSIGNED"].includes(normalized);
+};
+
+const firstKnownBase = (...values) => {
+  const match = values.find(isKnownBase);
+  return match ? String(match).trim().toUpperCase() : "";
+};
+
+const normalizeBase = (task = {}, aircraftBaseByTail = new Map()) =>
+  firstKnownBase(
+    task.base,
+    task.locationBase,
+    task.assignedBase,
+    task.stationBase,
+    aircraftBaseByTail.get(String(task.aircraft || "").trim().toUpperCase()),
+  ) || "UNKNOWN";
 
 const getDiscoveredAt = (task = {}) =>
   toValidDate(
@@ -261,7 +270,18 @@ const isSameCalendarDay = (leftDate, rightDate) =>
 
 const getBaseMaintenanceAnalytics = async (req, res) => {
   try {
-    const tasks = await TaskModel.find({});
+    const [tasks, aircraft] = await Promise.all([
+      TaskModel.find({}),
+      AircraftModel.find({}, "tailNum base").lean(),
+    ]);
+    const aircraftBaseByTail = new Map(
+      aircraft
+        .filter((item) => item?.tailNum && isKnownBase(item?.base))
+        .map((item) => [
+          String(item.tailNum).trim().toUpperCase(),
+          String(item.base).trim().toUpperCase(),
+        ]),
+    );
     const byBase = {};
     const totals = {
       damagedCount: 0,
@@ -273,7 +293,7 @@ const getBaseMaintenanceAnalytics = async (req, res) => {
     };
 
     tasks.forEach((task) => {
-      const base = normalizeBase(task);
+      const base = normalizeBase(task, aircraftBaseByTail);
       if (!byBase[base]) {
         byBase[base] = {
           base,

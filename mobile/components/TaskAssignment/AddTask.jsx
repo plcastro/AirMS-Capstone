@@ -22,6 +22,7 @@ import {
 } from "../../utilities/inspectionTiming";
 import { showToast } from "../../utilities/toast";
 import AlertComp from "../AlertComp";
+import { BASE_OPTIONS } from "../UserManagement/constants";
 
 const { width } = Dimensions.get("window");
 const CUSTOM_INSPECTION_ID = "custom-task";
@@ -65,6 +66,7 @@ export default function AddTask({
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [selectedBase, setSelectedBase] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
@@ -78,6 +80,7 @@ export default function AddTask({
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -286,6 +289,7 @@ export default function AddTask({
   const resetForm = () => {
     const nextStart = getDefaultStartDate();
     setSelectedAircraft("");
+    setSelectedBase("");
     setSelectedEmployee("");
     setInspectionType("");
     setSelectedInspection(null);
@@ -295,6 +299,7 @@ export default function AddTask({
     setShowStartPicker(false);
     setShowEndPicker(false);
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
     setAndroidPickerMode("date");
@@ -460,6 +465,7 @@ export default function AddTask({
       id: Date.now().toString(),
       title: selectedInspectionName,
       aircraft: selectedAircraft,
+      base: selectedBase,
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
@@ -675,6 +681,7 @@ export default function AddTask({
 
   const closeAllDropdowns = () => {
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
   };
@@ -684,8 +691,8 @@ export default function AddTask({
       (emp) => emp.id === selectedEmployee,
     );
 
-    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      return "Select an aircraft, inspection, and available mechanic first.";
+    if (!selectedAircraft || !selectedBase || !inspectionType || !selectedEmployee) {
+      return "Select an aircraft, base, inspection, and available mechanic first.";
     }
 
     if (!selectedAvailableEmployee) {
@@ -831,6 +838,7 @@ export default function AddTask({
   const selectedAircraftLabel =
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
+  const selectedBaseLabel = selectedBase || "";
   const selectedInspectionLabel =
     inspectionType === CUSTOM_INSPECTION_ID
       ? "Custom Task"
@@ -900,6 +908,20 @@ export default function AddTask({
               visible: showAircraftDropdown,
               onToggle: setShowAircraftDropdown,
               onSelect: setSelectedAircraft,
+            })}
+
+            {renderDropdownField({
+              label: "Base",
+              required: true,
+              value: selectedBaseLabel,
+              placeholder: "Pick Base",
+              options: BASE_OPTIONS.map((base) => ({
+                label: base,
+                value: base,
+              })),
+              visible: showBaseDropdown,
+              onToggle: setShowBaseDropdown,
+              onSelect: setSelectedBase,
             })}
 
             {renderDropdownField({

@@ -19,7 +19,7 @@ import { showToast } from "../utilities/toast";
 
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
-  if (__DEV_LOG__) console.log("[NotificationContext]", ...args);
+  //if (__DEV_LOG__) console.log("[NotificationContext]", ...args);
 };
 
 const WS_BACKOFF_BASE_MS = 1200;
@@ -225,6 +225,7 @@ export function NotificationProvider({ children }) {
 
   const moduleSnapshotRef = useRef(null);
   const moduleNotifierReadyRef = useRef(false);
+  const loadedNotificationsUserIdRef = useRef("");
 
   const lastRegisteredPushRef = useRef({
     userId: "",
@@ -841,9 +842,14 @@ export function NotificationProvider({ children }) {
       wsRef.current?.close?.();
       wsRef.current = null;
       wsReconnectAttemptsRef.current = 0;
+      loadedNotificationsUserIdRef.current = "";
       return;
     }
 
+    if (loadedNotificationsUserIdRef.current === String(user.id)) {
+      return;
+    }
+    loadedNotificationsUserIdRef.current = String(user.id);
     scheduleRefresh("user-change");
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
@@ -945,7 +951,6 @@ export function NotificationProvider({ children }) {
       appStateRef.current = nextState;
       if (wasBackground && nextState === "active") {
         registerPushTokenWithServer();
-        scheduleRefresh("app-foreground");
       }
     });
 
@@ -1029,7 +1034,11 @@ export function NotificationProvider({ children }) {
       notifications,
       unreadCount,
       loadingNotifications,
-      fetchNotifications: () => scheduleRefresh("manual-fetch"),
+      fetchNotifications: ({ force = false } = {}) => {
+        if (force) {
+          scheduleRefresh("manual-fetch");
+        }
+      },
       markAsRead,
       markAllAsRead,
       openNotificationTarget,

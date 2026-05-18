@@ -531,6 +531,7 @@ const loginUser = async (req, res) => {
     }
 
     const otp = generateOTP();
+    console.log(`[DEV_LOGIN_OTP] ${user.email}: ${otp}`);
     const loginOtpToken = crypto.randomBytes(32).toString("hex");
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
