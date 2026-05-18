@@ -265,10 +265,18 @@ export default function UserForm({
   const handleCancelWithWarning = () => {
     if (loading) return;
     if (hasUnsavedChanges()) {
-      const shouldDiscard = window.confirm(
-        "You have unsaved changes. Cancel and discard them?",
-      );
-      if (!shouldDiscard) return;
+      Modal.confirm({
+        title: "Discard changes?",
+        content: "You have unsaved changes. Cancel and discard them?",
+        okText: "Discard",
+        cancelText: "Keep editing",
+        okButtonProps: { danger: true },
+        onOk: () => {
+          setPreviewOpen(false);
+          onClose();
+        },
+      });
+      return;
     }
     setPreviewOpen(false);
     onClose();

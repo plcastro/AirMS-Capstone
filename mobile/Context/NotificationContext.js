@@ -54,12 +54,12 @@ export const NotificationContext = createContext({
 const getStoredToken = async () => {
   if (Platform.OS === "web") {
     const token = window.localStorage.getItem("currentUserToken");
-    console.log("Fetching stored token:", token);
+    // console.log("Fetching stored token:", token);
     return token;
   }
 
   const token = await AsyncStorage.getItem("currentUserToken");
-  console.log("Fetching stored token:", token);
+  // console.log("Fetching stored token:", token);
   return token;
 };
 

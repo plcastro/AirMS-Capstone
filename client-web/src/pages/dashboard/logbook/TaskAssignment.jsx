@@ -180,6 +180,7 @@ export default function TaskAssignment() {
 
       form.setFieldsValue({
         aircraft: draftAircraft || undefined,
+        base: user?.base || undefined,
         startDateTime: dayjs(start),
         endDateTime: dayjs(end),
         priority:
@@ -311,6 +312,7 @@ export default function TaskAssignment() {
     form.setFieldsValue({
       startDateTime: dayjs(start),
       endDateTime: dayjs(end),
+      base: user?.base || undefined,
       priority: "Normal",
       maintenanceType: "Corrective Maintenance",
     });
@@ -320,7 +322,7 @@ export default function TaskAssignment() {
     setEndDateManuallyAdjusted(false);
 
     initializeCreateModal();
-  }, [createOpen, form]);
+  }, [createOpen, form, user?.base]);
   const scheduleEstimate = useMemo(
     () => estimateInspectionSchedule(checklistDraftItems),
     [checklistDraftItems],
@@ -661,6 +663,7 @@ export default function TaskAssignment() {
           id: `TSK-${Date.now()}`,
           title: selectedInspectionName,
           aircraft: values.aircraft,
+          base: values.base,
           assignedTo: values.assignedTo,
           assignedToName:
             `${selectedMechanic?.firstName || ""} ${selectedMechanic?.lastName || ""}`.trim(),

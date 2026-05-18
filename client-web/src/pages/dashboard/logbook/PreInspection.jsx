@@ -35,6 +35,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
 const isValidDate = (value) =>
   /^\d{2}\/\d{2}\/\d{4}$/.test(String(value || "")) &&
@@ -43,6 +44,7 @@ const isValidDate = (value) =>
 const getDefaultPreInspectionDraft = (user = null) => ({
   aircraftType: "",
   rpc: "",
+  base: user?.base || "",
   date: formatDate(new Date()),
   dateAdded: "",
   createdBy:
@@ -555,8 +557,13 @@ export default function PreInspection() {
   );
 
   const saveCreate = async () => {
-    if (!draft.rpc?.trim() || !draft.aircraftType?.trim() || !draft.date) {
-      message.warning("RP/C, aircraft type, and date are required");
+    if (
+      !draft.rpc?.trim() ||
+      !draft.base?.trim() ||
+      !draft.aircraftType?.trim() ||
+      !draft.date
+    ) {
+      message.warning("RP/C, base, aircraft type, and date are required");
       return;
     }
     if (!isValidDate(draft.date)) {
@@ -837,6 +844,30 @@ export default function PreInspection() {
                     }}
                   >
                     <Row gutter={[12, 12]}>
+                      <Col xs={24} md={12}>
+                        <Text
+                          strong
+                          style={{ display: "block", marginBottom: 6 }}
+                        >
+                          Base
+                        </Text>
+                        <Select
+                          size="large"
+                          style={{ width: "100%" }}
+                          value={draft.base || undefined}
+                          onChange={(value) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              base: value,
+                            }))
+                          }
+                          placeholder="Select Base"
+                          options={BASE_OPTIONS.map((base) => ({
+                            value: base,
+                            label: base,
+                          }))}
+                        />
+                      </Col>
                       <Col xs={24} md={12}>
                         <Text
                           strong

@@ -73,9 +73,13 @@ const buildSafeFileName = (value) =>
 
 const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
 
-const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
+const normalizeBaseValue = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
 
-const isKnownBase = (value) => !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
+const isKnownBase = (value) =>
+  !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
 
 const firstKnownBase = (...values) => {
   const match = values.find(isKnownBase);
@@ -473,7 +477,9 @@ export default function MaintenanceDashboard() {
       return { ...card, relevance };
     })
     .filter((card) => card.relevance > 0)
-    .sort((a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title));
+    .sort(
+      (a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title),
+    );
 
   const groupedFilteredCards = React.useMemo(
     () =>
@@ -486,9 +492,9 @@ export default function MaintenanceDashboard() {
     [filteredCards],
   );
   const orderedReportGroups = React.useMemo(() => {
-    const knownGroups = REPORT_CATEGORY_ORDER
-      .filter((category) => groupedFilteredCards[category]?.length)
-      .map((category) => [category, groupedFilteredCards[category]]);
+    const knownGroups = REPORT_CATEGORY_ORDER.filter(
+      (category) => groupedFilteredCards[category]?.length,
+    ).map((category) => [category, groupedFilteredCards[category]]);
     const otherGroups = Object.entries(groupedFilteredCards).filter(
       ([category]) => !REPORT_CATEGORY_ORDER.includes(category),
     );
@@ -623,19 +629,16 @@ export default function MaintenanceDashboard() {
   ];
 
   const baseDamageRepairSummary = React.useMemo(() => {
-    const hasKnownAnalyticsRows =
-      baseAnalytics?.byBase?.length &&
-      baseAnalytics.byBase.some((row) => isKnownBase(row.base));
-    const hasUnknownAnalyticsRows =
-      baseAnalytics?.byBase?.length &&
-      baseAnalytics.byBase.some((row) => !isKnownBase(row.base));
+    const knownAnalyticsRows = (baseAnalytics?.byBase || []).filter((row) =>
+      isKnownBase(row.base),
+    );
 
-    if (hasKnownAnalyticsRows && !hasUnknownAnalyticsRows) {
-      const rows = baseAnalytics.byBase.map((row) => ({
+    if (knownAnalyticsRows.length > 0) {
+      const rows = knownAnalyticsRows.map((row) => ({
         label: row.base,
         value: row.damagedCount || 0,
       }));
-      const repairedRows = baseAnalytics.byBase.map((row) => ({
+      const repairedRows = knownAnalyticsRows.map((row) => ({
         label: row.base,
         value: row.repairedCount || 0,
       }));
@@ -1190,7 +1193,6 @@ export default function MaintenanceDashboard() {
       style={{
         padding: isMobile ? 12 : 20,
         minHeight: "100vh",
-        height: "100%",
         overflowX: "hidden",
       }}
     >
@@ -1236,276 +1238,293 @@ export default function MaintenanceDashboard() {
       {!hasActiveSearch ? (
         <>
           <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
-        <Col span={24}>
-          <Title level={5} style={{ margin: 0 }}>
-            Operations
-          </Title>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => {
-              setTaskDetailView("completed");
-              setActiveKpi("completed");
-            }}
-            style={{
-              borderColor: activeKpi === "completed" ? "#048a25" : undefined,
-            }}
-          >
-            <Statistic
-              title="Completed Tasks"
-              value={stats.completed}
-              styles={{
-                title: statTitleStyle,
-                content: { ...statValueStyle, color: "#048a25" },
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => {
-              setTaskDetailView("dueSoon");
-              setActiveKpi("dueSoon");
-            }}
-            style={{
-              borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
-            }}
-          >
-            <Statistic
-              title="Due Soon (next 3 days)"
-              value={stats.dueSoon}
-              styles={{
-                title: statTitleStyle,
-                content: { ...statValueStyle, color: "#faad14" },
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => {
-              setTaskDetailView("overdue");
-              setActiveKpi("overdue");
-            }}
-            style={{
-              borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
-            }}
-          >
-            <Statistic
-              title="Overdue Tasks"
-              value={stats.overdue}
-              styles={{
-                title: statTitleStyle,
-                content: { ...statValueStyle, color: "#cf1322" },
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            size="small"
-            styles={{ body: { padding: 12 } }}
-            hoverable
-            onClick={() => setActiveKpi("modules")}
-            style={{
-              borderColor: activeKpi === "modules" ? "#26866f" : undefined,
-            }}
-          >
-            <Statistic
-              title="Module Reports"
-              value={cards.length}
-              styles={{
-                title: statTitleStyle,
-                content: { ...statValueStyle, color: "#26866f" },
-              }}
-            />
-          </Card>
-        </Col>
+            <Col span={24}>
+              <Title level={5} style={{ margin: 0 }}>
+                Operations
+              </Title>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card
+                size="small"
+                styles={{ body: { padding: 12 } }}
+                hoverable
+                onClick={() => {
+                  setTaskDetailView("completed");
+                  setActiveKpi("completed");
+                }}
+                style={{
+                  borderColor:
+                    activeKpi === "completed" ? "#048a25" : undefined,
+                }}
+              >
+                <Statistic
+                  title="Completed Tasks"
+                  value={stats.completed}
+                  styles={{
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#048a25" },
+                  }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card
+                size="small"
+                styles={{ body: { padding: 12 } }}
+                hoverable
+                onClick={() => {
+                  setTaskDetailView("dueSoon");
+                  setActiveKpi("dueSoon");
+                }}
+                style={{
+                  borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
+                }}
+              >
+                <Statistic
+                  title="Due Soon (next 3 days)"
+                  value={stats.dueSoon}
+                  styles={{
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#faad14" },
+                  }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card
+                size="small"
+                styles={{ body: { padding: 12 } }}
+                hoverable
+                onClick={() => {
+                  setTaskDetailView("overdue");
+                  setActiveKpi("overdue");
+                }}
+                style={{
+                  borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
+                }}
+              >
+                <Statistic
+                  title="Overdue Tasks"
+                  value={stats.overdue}
+                  styles={{
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#cf1322" },
+                  }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card
+                size="small"
+                styles={{ body: { padding: 12 } }}
+                hoverable
+                onClick={() => setActiveKpi("modules")}
+                style={{
+                  borderColor: activeKpi === "modules" ? "#26866f" : undefined,
+                }}
+              >
+                <Statistic
+                  title="Module Reports"
+                  value={cards.length}
+                  styles={{
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#26866f" },
+                  }}
+                />
+              </Card>
+            </Col>
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginBottom: 10 }}>
-        <Col span={24}>
-          <Title level={5} style={{ margin: 0 }}>
-            Base Health
-          </Title>
-        </Col>
-        <Col xs={24} sm={12} lg={12}>
-          <Card
-            size="small"
-            title="Base Damage Distribution"
-            styles={{ body: { padding: 10 } }}
-            hoverable
-            onClick={() => setActiveKpi("baseDamage")}
-            style={{
-              borderColor: activeKpi === "baseDamage" ? "#cf1322" : undefined,
-            }}
-          >
-            <SDMChart data={damageBasePieData} height={190} outerRadius={58} />
-            <Text type="secondary">
-              Top: {baseDamageRepairSummary.topDamagedBase.label} (
-              {baseDamageRepairSummary.topDamagedBase.value})
-            </Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={12}>
-          <Card
-            size="small"
-            title="Base Repaired Distribution"
-            styles={{ body: { padding: 10 } }}
-            hoverable
-            onClick={() => setActiveKpi("baseRepair")}
-            style={{
-              borderColor: activeKpi === "baseRepair" ? "#048a25" : undefined,
-            }}
-          >
-            <SDMChart
-              data={repairedBasePieData}
-              height={190}
-              outerRadius={58}
-            />
-            <Text type="secondary">
-              Top: {baseDamageRepairSummary.topRepairedBase.label} (
-              {baseDamageRepairSummary.topRepairedBase.value})
-            </Text>
-          </Card>
-        </Col>
+            <Col span={24}>
+              <Title level={5} style={{ margin: 0 }}>
+                Base Health
+              </Title>
+            </Col>
+            <Col xs={24} sm={12} lg={12}>
+              <Card
+                size="small"
+                title="Base Damage Distribution"
+                styles={{ body: { padding: 10 } }}
+                hoverable
+                onClick={() => setActiveKpi("baseDamage")}
+                style={{
+                  borderColor:
+                    activeKpi === "baseDamage" ? "#cf1322" : undefined,
+                }}
+              >
+                <SDMChart
+                  data={damageBasePieData}
+                  height={190}
+                  outerRadius={58}
+                />
+                <Text type="secondary">
+                  Top: {baseDamageRepairSummary.topDamagedBase.label} (
+                  {baseDamageRepairSummary.topDamagedBase.value})
+                </Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={12}>
+              <Card
+                size="small"
+                title="Base Repaired Distribution"
+                styles={{ body: { padding: 10 } }}
+                hoverable
+                onClick={() => setActiveKpi("baseRepair")}
+                style={{
+                  borderColor:
+                    activeKpi === "baseRepair" ? "#048a25" : undefined,
+                }}
+              >
+                <SDMChart
+                  data={repairedBasePieData}
+                  height={190}
+                  outerRadius={58}
+                />
+                <Text type="secondary">
+                  Top: {baseDamageRepairSummary.topRepairedBase.label} (
+                  {baseDamageRepairSummary.topRepairedBase.value})
+                </Text>
+              </Card>
+            </Col>
           </Row>
 
           <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
-        {(activeKpi === "completed" ||
-          activeKpi === "dueSoon" ||
-          activeKpi === "overdue") && (
-          <>
-            <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-              <Segmented
-                value={taskDetailView}
-                onChange={(value) => {
-                  setTaskDetailView(value);
-                  setActiveKpi(value);
-                }}
-                options={[
-                  { label: `Completed (${stats.completed})`, value: "completed" },
-                  { label: `Due Soon (${stats.dueSoon})`, value: "dueSoon" },
-                  { label: `Overdue (${stats.overdue})`, value: "overdue" },
+            {(activeKpi === "completed" ||
+              activeKpi === "dueSoon" ||
+              activeKpi === "overdue") && (
+              <>
+                <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+                  <Segmented
+                    value={taskDetailView}
+                    onChange={(value) => {
+                      setTaskDetailView(value);
+                      setActiveKpi(value);
+                    }}
+                    options={[
+                      {
+                        label: `Completed (${stats.completed})`,
+                        value: "completed",
+                      },
+                      {
+                        label: `Due Soon (${stats.dueSoon})`,
+                        value: "dueSoon",
+                      },
+                      { label: `Overdue (${stats.overdue})`, value: "overdue" },
+                    ]}
+                  />
+                </div>
+                <Text
+                  type="secondary"
+                  style={{ display: "block", marginBottom: 12, marginTop: 12 }}
+                >
+                  Task records for the selected operational KPI.
+                </Text>
+                <Table
+                  columns={taskDetailColumns}
+                  dataSource={taskDetailRows}
+                  rowKey={(record) => record.key}
+                  loading={loadingTasks}
+                  pagination={{
+                    pageSize: 5,
+                    showSizeChanger: true,
+                    pageSizeOptions: ["5", "10", "15"],
+                    showTotal: (total, range) =>
+                      `${range[0]}-${range[1]} of ${total}`,
+                    position: ["bottomRight"],
+                  }}
+                  scroll={{ x: isMobile ? 980 : 1300 }}
+                />
+              </>
+            )}
+
+            {activeKpi === "baseDamage" && (
+              <Table
+                columns={[
+                  { title: "Base", dataIndex: "label", key: "label" },
+                  { title: "Damage Reports", dataIndex: "value", key: "value" },
                 ]}
+                dataSource={baseDamageRepairSummary.damageRows.map((row) => ({
+                  key: `d-${row.label}`,
+                  ...row,
+                }))}
+                rowKey={(record) => record.key}
+                pagination={{ pageSize: 6 }}
               />
-            </div>
-            <Text
-              type="secondary"
-              style={{ display: "block", marginBottom: 12, marginTop: 12 }}
-            >
-              Task records for the selected operational KPI.
-            </Text>
-            <Table
-              columns={taskDetailColumns}
-              dataSource={taskDetailRows}
-              rowKey={(record) => record.key}
-              loading={loadingTasks}
-              pagination={{
-                pageSize: 5,
-                showSizeChanger: true,
-                pageSizeOptions: ["5", "10", "15"],
-                showTotal: (total, range) =>
-                  `${range[0]}-${range[1]} of ${total}`,
-                position: ["bottomRight"],
-              }}
-              scroll={{ x: isMobile ? 980 : 1300 }}
-            />
-          </>
-        )}
+            )}
 
-        {activeKpi === "baseDamage" && (
-          <Table
-            columns={[
-              { title: "Base", dataIndex: "label", key: "label" },
-              { title: "Damage Reports", dataIndex: "value", key: "value" },
-            ]}
-            dataSource={baseDamageRepairSummary.damageRows.map((row) => ({
-              key: `d-${row.label}`,
-              ...row,
-            }))}
-            rowKey={(record) => record.key}
-            pagination={{ pageSize: 6 }}
-          />
-        )}
+            {activeKpi === "baseRepair" && (
+              <Table
+                columns={[
+                  { title: "Base", dataIndex: "label", key: "label" },
+                  {
+                    title: "Repaired Aircraft",
+                    dataIndex: "value",
+                    key: "value",
+                  },
+                ]}
+                dataSource={baseDamageRepairSummary.repairRows.map((row) => ({
+                  key: `r-${row.label}`,
+                  ...row,
+                }))}
+                rowKey={(record) => record.key}
+                pagination={{ pageSize: 6 }}
+              />
+            )}
 
-        {activeKpi === "baseRepair" && (
-          <Table
-            columns={[
-              { title: "Base", dataIndex: "label", key: "label" },
-              { title: "Repaired Aircraft", dataIndex: "value", key: "value" },
-            ]}
-            dataSource={baseDamageRepairSummary.repairRows.map((row) => ({
-              key: `r-${row.label}`,
-              ...row,
-            }))}
-            rowKey={(record) => record.key}
-            pagination={{ pageSize: 6 }}
-          />
-        )}
+            {activeKpi === "avgRectification" && (
+              <Table
+                columns={[
+                  { title: "Base", dataIndex: "base", key: "base" },
+                  {
+                    title: "Average Rectification (hrs)",
+                    dataIndex: "averageRectificationHours",
+                    key: "averageRectificationHours",
+                  },
+                  {
+                    title: "Repaired Count",
+                    dataIndex: "repairedCount",
+                    key: "repairedCount",
+                  },
+                ]}
+                dataSource={baseByRectificationRows}
+                rowKey={(record) => record.key}
+                pagination={{ pageSize: 6 }}
+              />
+            )}
 
-        {activeKpi === "avgRectification" && (
-          <Table
-            columns={[
-              { title: "Base", dataIndex: "base", key: "base" },
-              {
-                title: "Average Rectification (hrs)",
-                dataIndex: "averageRectificationHours",
-                key: "averageRectificationHours",
-              },
-              {
-                title: "Repaired Count",
-                dataIndex: "repairedCount",
-                key: "repairedCount",
-              },
-            ]}
-            dataSource={baseByRectificationRows}
-            rowKey={(record) => record.key}
-            pagination={{ pageSize: 6 }}
-          />
-        )}
+            {activeKpi === "sameDay" && (
+              <Table
+                columns={[
+                  { title: "Base", dataIndex: "base", key: "base" },
+                  {
+                    title: "Same-Day Repairs",
+                    dataIndex: "sameDayRepairCount",
+                    key: "sameDayRepairCount",
+                  },
+                  {
+                    title: "Total Repaired",
+                    dataIndex: "repairedCount",
+                    key: "repairedCount",
+                  },
+                ]}
+                dataSource={baseBySameDayRows}
+                rowKey={(record) => record.key}
+                pagination={{ pageSize: 6 }}
+              />
+            )}
 
-        {activeKpi === "sameDay" && (
-          <Table
-            columns={[
-              { title: "Base", dataIndex: "base", key: "base" },
-              {
-                title: "Same-Day Repairs",
-                dataIndex: "sameDayRepairCount",
-                key: "sameDayRepairCount",
-              },
-              {
-                title: "Total Repaired",
-                dataIndex: "repairedCount",
-                key: "repairedCount",
-              },
-            ]}
-            dataSource={baseBySameDayRows}
-            rowKey={(record) => record.key}
-            pagination={{ pageSize: 6 }}
-          />
-        )}
-
-        {activeKpi === "modules" && (
-          <Table
-            columns={[
-              { title: "Category", dataIndex: "category", key: "category" },
-              { title: "Report Module", dataIndex: "title", key: "title" },
-            ]}
-            dataSource={moduleRows}
-            rowKey={(record) => record.key}
-            pagination={{ pageSize: 8 }}
-          />
-        )}
+            {activeKpi === "modules" && (
+              <Table
+                columns={[
+                  { title: "Category", dataIndex: "category", key: "category" },
+                  { title: "Report Module", dataIndex: "title", key: "title" },
+                ]}
+                dataSource={moduleRows}
+                rowKey={(record) => record.key}
+                pagination={{ pageSize: 8 }}
+              />
+            )}
           </Card>
         </>
       ) : null}
@@ -1538,7 +1557,9 @@ export default function MaintenanceDashboard() {
           size="small"
           title={`${category} Reports`}
           style={{ marginBottom: 16 }}
-          styles={{ body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 } }}
+          styles={{
+            body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 },
+          }}
         >
           <Row gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}>
             {categoryCards.map((card) => (
