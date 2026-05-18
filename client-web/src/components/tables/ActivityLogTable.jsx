@@ -97,7 +97,7 @@ export default function ActivityLogTable({ data = [], loading }) {
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         showLessItems: isMobile,
         size: isMobile ? "small" : "default",
-        placement: isMobile ? ["bottomCenter"] : ["bottomRight"],
+        position: ["bottomRight"],
       }}
     />
   );

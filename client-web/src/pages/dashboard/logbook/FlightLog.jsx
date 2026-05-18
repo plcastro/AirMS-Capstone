@@ -1090,11 +1090,13 @@ export default function FlightLog() {
           size="small"
         />
       )}
-      <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
-        <Text type="secondary">
-          Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
-        </Text>
-      </Col>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <FlightLogEntry
         visible={entryModalVisible}

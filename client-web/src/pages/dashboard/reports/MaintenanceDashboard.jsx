@@ -1382,6 +1382,7 @@ export default function MaintenanceDashboard() {
                 pageSizeOptions: ["5", "10", "15"],
                 showTotal: (total, range) =>
                   `${range[0]}-${range[1]} of ${total}`,
+                position: ["bottomRight"],
               }}
               scroll={{ x: isMobile ? 980 : 1300 }}
             />

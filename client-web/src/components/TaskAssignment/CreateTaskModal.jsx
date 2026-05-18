@@ -31,7 +31,7 @@ export default function CreateTaskModal({
 }) {
   const scheduleEstimate = estimateInspectionSchedule(checklistDraftItems);
   const hasUnsavedChanges =
-    form.isFieldsTouched(true) ||
+    (open && form?.isFieldsTouched(true)) ||
     Boolean(selectedInspectionId) ||
     checklistDraftItems.length > 0 ||
     Boolean(isCustomTask && customTaskTitle?.trim());
@@ -56,6 +56,7 @@ export default function CreateTaskModal({
       okText="Create"
       width={960}
       confirmLoading={confirmLoading}
+      forceRender
     >
       <Form form={form} layout="vertical">
         <Row gutter={[12, 4]}>
