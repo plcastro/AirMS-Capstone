@@ -8,6 +8,7 @@
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
+    "postinstall": "node scripts/ensure-hermes-executable.js",
     "eas-build-pre-install": "npx node scripts/write-google-services.js",
     "eas-build-post-install": "node scripts/ensure-hermes-executable.js",
     "build:apk": "npx eas-cli build -p android --profile preview --clear-cache",
