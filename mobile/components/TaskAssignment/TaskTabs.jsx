@@ -76,7 +76,11 @@ export default function TaskTabs({
               isPastDue
             );
           case "Completed":
-            return task.status === "Completed" || task.status === "Turned in";
+            return (
+              task.status === "Completed" ||
+              task.status === "Turned in" ||
+              task.status === "Approved"
+            );
           default:
             return false;
         }
@@ -109,7 +113,11 @@ export default function TaskTabs({
             isPastDue
           );
         case "Completed":
-          return task.status === "Completed" || task.status === "Turned in";
+          return (
+            task.status === "Completed" ||
+            task.status === "Turned in" ||
+            task.status === "Approved"
+          );
         default:
           return false;
       }

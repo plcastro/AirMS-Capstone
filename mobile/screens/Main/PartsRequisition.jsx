@@ -297,6 +297,15 @@ const resolveTabForRequest = (request, isManager) => {
     return null;
   }
   if (isManager) {
+    if (request.rawStatus === "To Be Ordered") {
+      return "To Be Restocked";
+    }
+    if (request.rawStatus === "Ordered") {
+      return "Restocked";
+    }
+    if (request.rawStatus === "Approved") {
+      return "Approved";
+    }
     return ["Delivered", "Cancelled"].includes(request.rawStatus)
       ? "Closed"
       : "For Review";
@@ -348,7 +357,7 @@ export default function PartsRequisition({ route, navigation }) {
     "warehouse department",
   ].includes(userRole);
   const tabLabels = isManager
-    ? ["For Review", "Closed"]
+    ? ["For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
     : isWarehouse
       ? [
           "Parts Requested",
@@ -542,7 +551,16 @@ export default function PartsRequisition({ route, navigation }) {
     const sourceData = mappedRequisitions.filter((item) => {
       if (isManager) {
         if (selectedTab === "For Review") {
-          return ["Availability Checked", "Ordered"].includes(item.rawStatus);
+          return item.rawStatus === "Availability Checked";
+        }
+        if (selectedTab === "To Be Restocked") {
+          return item.rawStatus === "To Be Ordered";
+        }
+        if (selectedTab === "Restocked") {
+          return item.rawStatus === "Ordered";
+        }
+        if (selectedTab === "Approved") {
+          return item.rawStatus === "Approved";
         }
         return ["Delivered", "Cancelled"].includes(item.rawStatus);
       }
@@ -591,14 +609,11 @@ export default function PartsRequisition({ route, navigation }) {
   const tabCounts = useMemo(
     () => ({
       "For Review": mappedRequisitions.filter((item) =>
-        ["Availability Checked", "Ordered"].includes(item.rawStatus),
+        ["Availability Checked"].includes(item.rawStatus),
       ).length,
       Pending: mappedRequisitions.filter(
         (item) =>
           !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
-      ).length,
-      Approved: mappedRequisitions.filter(
-        (item) => item.rawStatus === "Approved",
       ).length,
       "Parts Requested": mappedRequisitions.filter(
         (item) => item.rawStatus === "Parts Requested",
@@ -611,6 +626,9 @@ export default function PartsRequisition({ route, navigation }) {
       ).length,
       Restocked: mappedRequisitions.filter((item) => item.rawStatus === "Ordered")
         .length,
+      Approved: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Approved",
+      ).length,
       Closed: mappedRequisitions.filter((item) =>
         ["Delivered", "Cancelled"].includes(item.rawStatus),
       ).length,
@@ -727,6 +745,7 @@ export default function PartsRequisition({ route, navigation }) {
         }
         resetEntryModal();
         await fetchRequisitions();
+        await fetchNotifications();
 
         if (successMessage) {
           showToast(successMessage);
@@ -736,7 +755,7 @@ export default function PartsRequisition({ route, navigation }) {
         showToast(error.message || "Failed to update requisition.");
       }
     },
-    [fetchRequisitions],
+    [fetchNotifications, fetchRequisitions],
   );
 
   const handleCancelRequest = async (item) => {
@@ -882,6 +901,7 @@ export default function PartsRequisition({ route, navigation }) {
       resetEntryModal();
       setSelectedTab(defaultTab);
       await fetchRequisitions();
+      await fetchNotifications();
       showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
       console.error("Error creating requisition:", error);

@@ -24,6 +24,13 @@ const DATE_RANGE_OPTIONS = [
   { label: "Last 90 days", value: "90" },
   { label: "All time", value: "all" },
 ];
+const LOGS_PER_PAGE = 10;
+const HIDDEN_ACTION_KEYWORDS = [
+  "viewed",
+  "succeeded",
+  "successful",
+  "successfully",
+];
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
@@ -76,6 +83,7 @@ export default function ActivityLogs() {
   const [actionType, setActionType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("30");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -147,6 +155,12 @@ export default function ActivityLogs() {
 
   const filteredLogs = useMemo(() => {
     let next = [...logs];
+    next = next.filter((item) => {
+      const actionText = String(item.actionMade || "").toLowerCase();
+      return !HIDDEN_ACTION_KEYWORDS.some((keyword) =>
+        actionText.includes(keyword),
+      );
+    });
     if (dateRangeFilter !== "all") {
       const days = Number(dateRangeFilter);
       if (Number.isFinite(days) && days > 0) {
@@ -187,6 +201,16 @@ export default function ActivityLogs() {
         .includes(query),
     );
   }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * LOGS_PER_PAGE;
+    return filteredLogs.slice(start, start + LOGS_PER_PAGE);
+  }, [currentPage, filteredLogs]);
 
   const actionCounts = useMemo(() => {
     return filteredLogs.reduce(
@@ -341,6 +365,7 @@ export default function ActivityLogs() {
 
       <View style={styles.filtersRow}>
         <View style={styles.filterCard}>
+          <Text style={styles.filterLabel}>Action Type</Text>
           <Picker selectedValue={actionType} onValueChange={setActionType}>
             {ACTION_TYPES.map((type) => (
               <Picker.Item
@@ -357,6 +382,7 @@ export default function ActivityLogs() {
         </View>
 
         <View style={styles.filterCard}>
+          <Text style={styles.filterLabel}>Date Range</Text>
           <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
             {DATE_RANGE_OPTIONS.map((value) => (
               <Picker.Item key={value.value} value={value.value} label={value.label} />
@@ -365,6 +391,7 @@ export default function ActivityLogs() {
         </View>
 
         <View style={styles.filterCard}>
+          <Text style={styles.filterLabel}>Scope</Text>
           <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
             {scopeOptions.map((value) => (
               <Picker.Item
@@ -448,7 +475,7 @@ export default function ActivityLogs() {
             <Text style={styles.emptyText}>No logs found</Text>
           </View>
         ) : (
-          filteredLogs.map((item) => {
+          paginatedLogs.map((item) => {
             const actionCategory = getActionCategory(item.actionMade);
             const actionColors =
               ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
@@ -498,6 +525,35 @@ export default function ActivityLogs() {
             );
           })
         )}
+        {filteredLogs.length > 0 && (
+          <View style={styles.paginationRow}>
+            <Text style={styles.paginationText}>
+              Page {currentPage} of {totalPages}
+            </Text>
+            <View style={styles.paginationButtonsRow}>
+              <Text
+                onPress={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                style={[
+                  styles.paginationButton,
+                  currentPage === 1 && styles.paginationButtonDisabled,
+                ]}
+              >
+                Prev
+              </Text>
+              <Text
+                onPress={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                style={[
+                  styles.paginationButton,
+                  currentPage >= totalPages && styles.paginationButtonDisabled,
+                ]}
+              >
+                Next
+              </Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -544,6 +600,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 1,
+    minHeight: 56,
+    justifyContent: "center",
+  },
+  filterLabel: {
+    fontSize: 10,
+    color: COLORS.grayDark,
+    fontWeight: "700",
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   analyticsCard: {
     backgroundColor: COLORS.white,
@@ -654,4 +719,31 @@ const styles = StyleSheet.create({
   baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
+  paginationRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paginationText: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+  },
+  paginationButtonsRow: {
+    flexDirection: "row",
+    columnGap: 8,
+  },
+  paginationButton: {
+    backgroundColor: COLORS.primaryLight,
+    color: COLORS.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    overflow: "hidden",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  paginationButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+  },
 });

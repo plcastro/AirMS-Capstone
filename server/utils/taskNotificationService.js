@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const { sendPushNotificationToUsers } = require("./mobilePushService");
 
 const ROLE_MANAGER = "maintenance manager";
-const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_MECHANIC = "mechanic";
 
 const uniqueStrings = (values = []) =>
@@ -106,7 +105,7 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         task,
         recipientRoles:
           currentStatus === "Turned in"
-            ? [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE]
+            ? [ROLE_MANAGER]
             : [ROLE_MECHANIC],
         recipientUsers:
           currentStatus === "Approved" && task.assignedTo
@@ -124,7 +123,7 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         title: `Task turned in: ${task.title}`,
         description: `This task has been turned in and needs review.`,
         task,
-        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
+        recipientRoles: [ROLE_MANAGER],
         recipientUsers: [],
         metadata: { notificationType: "task-turned-in" },
       });
@@ -154,7 +153,7 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         title: `Task completed: ${task.title}`,
         description: `This task has been completed.`,
         task,
-        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
+        recipientRoles: [ROLE_MANAGER],
         recipientUsers: task.assignedTo ? [task.assignedTo] : [],
         metadata: { notificationType: "task-completed" },
       });

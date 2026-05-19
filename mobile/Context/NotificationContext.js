@@ -1073,8 +1073,10 @@ export function NotificationProvider({ children }) {
       loadingNotifications,
       fetchNotifications: ({ force = false } = {}) => {
         if (force) {
-          scheduleRefresh("manual-fetch");
+          scheduleRefresh("manual-fetch-force");
+          return;
         }
+        scheduleRefresh("manual-fetch");
       },
       markAsRead,
       markAllAsRead,
