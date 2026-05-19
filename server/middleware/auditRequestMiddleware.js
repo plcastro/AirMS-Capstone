@@ -327,6 +327,15 @@ const auditMutatingRequest = (req, res, next) => {
       return;
     }
 
+    const path = stripQuery(req.originalUrl);
+    const isNoisyAuthSuccess =
+      res.statusCode < 400 &&
+      (/^\/api\/user\/login$/.test(path) ||
+        /^\/api\/user\/refresh-token$/.test(path));
+    if (isNoisyAuthSuccess) {
+      return;
+    }
+
     const status = res.statusCode < 400 ? "succeeded" : "failed";
     const action = `${describeRoute(req)} ${status} (status ${res.statusCode})`;
 

@@ -11,13 +11,13 @@ const userSessionSchema = new mongoose.Schema(
     sessionId: { type: String, required: true, unique: true, index: true },
     platform: {
       type: String,
-      enum: ["WEB", "MOBILE", "UNKNOWN"],
-      default: "UNKNOWN",
+      enum: ["WEB", "MOBILE"],
+      default: null,
     },
     base: {
       type: String,
-      enum: ["MANILA", "CEBU", "CDO", "UNKNOWN"],
-      default: "UNKNOWN",
+      enum: ["MANILA", "CEBU", "CDO"],
+      default: null,
     },
     ipAddress: { type: String, default: "" },
     userAgent: { type: String, default: "" },

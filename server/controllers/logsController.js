@@ -40,10 +40,10 @@ const resolveAuditContext = async (context = {}, userId = null) => {
   resolved.sessionId = resolved.sessionId || session.sessionId || null;
   resolved.platform = isKnownPlatform(resolved.platform)
     ? resolved.platform
-    : session.platform || "UNKNOWN";
+    : session.platform || null;
   resolved.base = isKnownBase(resolved.base)
     ? resolved.base
-    : session.base || "UNKNOWN";
+    : session.base || null;
 
   return resolved;
 };
@@ -115,8 +115,8 @@ const auditLog = async (
       performedBy: userId,
       username,
       sessionId: context.sessionId || null,
-      platform: context.platform || "UNKNOWN",
-      base: context.base || "UNKNOWN",
+      platform: context.platform || null,
+      base: context.base || null,
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
     });
@@ -166,8 +166,8 @@ const createAuditLogFromRequest = async (req, res) => {
     const actorId = userId || req.user?.id || null;
     const log = await auditLog(action.trim(), actorId, username || null, {
       sessionId: req.headers["x-session-id"] || null,
-      platform: req.headers["x-platform"] || "UNKNOWN",
-      base: req.headers["x-base"] || "UNKNOWN",
+      platform: req.headers["x-platform"] || null,
+      base: req.headers["x-base"] || null,
       ipAddress: req.ip || req.socket?.remoteAddress || null,
       userAgent: req.headers["user-agent"] || "",
     });
@@ -253,10 +253,10 @@ const getAllUserLogs = async (req, res) => {
       const session = sessionMap.get(log.sessionId);
       const platform = isKnownPlatform(log.platform)
         ? log.platform
-        : session?.platform || "UNKNOWN";
+        : session?.platform || null;
       const base = isKnownBase(log.base)
         ? log.base
-        : session?.base || "UNKNOWN";
+        : session?.base || null;
 
       return {
         _id: log._id,

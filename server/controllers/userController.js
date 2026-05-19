@@ -115,7 +115,7 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
 const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
-    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
+    normalizePlatform(platform || req.headers["x-platform"]) || null;
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
@@ -399,7 +399,7 @@ const loginUser = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : "UNKNOWN";
+          : null;
     const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
@@ -407,7 +407,7 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (loginBase === "UNKNOWN") {
+    if (!loginBase) {
       return res.status(400).json({
         message: "Please select where you are logging in from",
       });
@@ -609,7 +609,7 @@ const verifyLoginOtp = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : "UNKNOWN";
+          : null;
     const loginBase = normalizeBase(req.headers["x-base"] || base);
 
     const payload = await buildLoginSuccessPayload({
@@ -761,8 +761,10 @@ const refreshToken = async (req, res) => {
         jobTitle: user.jobTitle,
         access: user.access,
         sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
-        base: req.headers["x-base"] || payload.base || "UNKNOWN",
+        platform:
+          normalizePlatform(req.headers["x-platform"] || payload.platform) ||
+          null,
+        base: normalizeBase(req.headers["x-base"] || payload.base) || null,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -911,7 +913,7 @@ const registerMobilePushDevice = async (req, res) => {
           mobilePushDevices: {
             deviceId,
             expoPushToken,
-            platform: platform || "unknown",
+            platform: String(platform || "").toLowerCase() || null,
             lastSeenAt: new Date(),
           },
         },

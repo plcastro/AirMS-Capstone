@@ -96,13 +96,17 @@ function DrawerNav({ navigation }) {
     "pilot",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
-  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessMechanics = ["maintenance manager", "admin"].includes(
+    normalizedRole,
+  );
   const canAccessTasks = ["maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
@@ -111,25 +115,33 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "officer-in-charge",
     "warehouse department",
+    "admin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
+    "admin",
   ].includes(normalizedRole);
-  const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
+  const canAccessMaintenancePriority = [
+    "maintenance manager",
+    "admin",
+  ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
+    "admin",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
   const canAccessMessages = [
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
@@ -137,6 +149,7 @@ function DrawerNav({ navigation }) {
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
@@ -341,7 +354,7 @@ function DrawerNav({ navigation }) {
 
       {canAccessPartsRequisition && (
         <Drawer.Screen
-          name="Parts Requisition Monitoring"
+          name="Parts Requisition"
           component={Screens.PartsRequisitionMonitoring}
           options={navLabel}
         />
