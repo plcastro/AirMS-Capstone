@@ -325,7 +325,7 @@ export default function WRSModal({
             : "All requested quantities are available. You can approve this requisition.",
           buttonText: hasItemsStillOutOfStock
             ? "Mark To Be Ordered"
-            : "Approve Requisition",
+            : "Approve",
           disabled: false,
         };
       }
@@ -369,7 +369,7 @@ export default function WRSModal({
           title: "Final Approval",
           description:
             "Warehouse confirmed restock. You can now approve this requisition.",
-          buttonText: "Approve Requisition",
+          buttonText: "Approve",
           disabled: false,
         };
       }

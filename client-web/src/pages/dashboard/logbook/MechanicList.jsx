@@ -21,7 +21,7 @@ export default function MechanicList() {
       setLoading(true);
       const headers = await getAuthHeader();
       const [usersRes, tasksRes] = await Promise.all([
-        fetch(`${API_BASE}/api/user/get-all-users`, { headers }),
+        fetch(`${API_BASE}/api/user/assignable-users`, { headers }),
         fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
       ]);
       const usersData = await usersRes.json();

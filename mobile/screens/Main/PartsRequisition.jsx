@@ -342,6 +342,11 @@ export default function PartsRequisition({ route, navigation }) {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
+  const canRequestParts = ![
+    "maintenance manager",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(userRole);
   const tabLabels = isManager
     ? ["For Review", "Closed"]
     : isWarehouse
@@ -1149,7 +1154,7 @@ export default function PartsRequisition({ route, navigation }) {
             />
           </View>
 
-          {!isManager && (
+          {canRequestParts && (
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.primaryLight,

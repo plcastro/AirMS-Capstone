@@ -115,7 +115,7 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
 const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
-    normalizePlatform(platform || req.headers["x-platform"]) || null;
+    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
@@ -399,7 +399,7 @@ const loginUser = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : null;
+          : "UNKNOWN";
     const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
@@ -407,7 +407,7 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (!loginBase) {
+    if (loginBase === "UNKNOWN") {
       return res.status(400).json({
         message: "Please select where you are logging in from",
       });
@@ -609,7 +609,7 @@ const verifyLoginOtp = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : null;
+          : "UNKNOWN";
     const loginBase = normalizeBase(req.headers["x-base"] || base);
 
     const payload = await buildLoginSuccessPayload({
@@ -670,7 +670,6 @@ const resendLoginOtp = async (req, res) => {
     }
 
     const otp = generateOTP();
-    console.log("OTP:", otp);
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
     user.loginOtpAttempts = 0;
@@ -761,10 +760,8 @@ const refreshToken = async (req, res) => {
         jobTitle: user.jobTitle,
         access: user.access,
         sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform:
-          normalizePlatform(req.headers["x-platform"] || payload.platform) ||
-          null,
-        base: normalizeBase(req.headers["x-base"] || payload.base) || null,
+        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+        base: req.headers["x-base"] || payload.base || "UNKNOWN",
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -913,7 +910,7 @@ const registerMobilePushDevice = async (req, res) => {
           mobilePushDevices: {
             deviceId,
             expoPushToken,
-            platform: String(platform || "").toLowerCase() || null,
+            platform: platform || "unknown",
             lastSeenAt: new Date(),
           },
         },

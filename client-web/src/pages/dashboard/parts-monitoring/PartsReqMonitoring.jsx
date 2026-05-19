@@ -114,6 +114,11 @@ export default function PartsReqMonitoring() {
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
+  const canRequestParts = ![
+    "maintenance manager",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -139,6 +144,20 @@ export default function PartsReqMonitoring() {
       ).length,
     }),
     [warehouseRequisitions],
+  );
+
+  const tabItems = useMemo(
+    () => [
+      {
+        key: "pending",
+        label: `${userRole === "maintenance manager" ? "For Review" : "Pending"} (${stats.pending})`,
+      },
+      {
+        key: "completed",
+        label: `${userRole === "maintenance manager" ? "Closed" : "Completed"} (${stats.completed})`,
+      },
+    ],
+    [stats, userRole],
   );
 
   const statusFilters = useMemo(() => {
@@ -177,14 +196,46 @@ export default function PartsReqMonitoring() {
         key: "Approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "approved",
+        count: warehouseRequisitions.filter((r) => r.status === "Approved")
+          .length,
+      },
+    ];
+
+    const completedFilters = [
+      {
+        key: "all",
+        title: "All",
+        icon: <FileDoneOutlined />,
+        count: warehouseRequisitions.filter((r) =>
+          ["Delivered", "Completed", "Cancelled"].includes(r.status),
         ).length,
       },
     ];
 
-    return allFilters;
-  }, [warehouseRequisitions]);
+    return activeTab === "completed" ? completedFilters : pendingFilters;
+  }, [activeTab, userRole, warehouseRequisitions]);
+
+  const statusOptions = useMemo(() => {
+    const pendingStatuses = [
+      "Parts Requested",
+      "Availability Checked",
+      "To Be Ordered",
+      "Ordered",
+      "Approved",
+    ];
+    const completedStatuses = ["Delivered", "Completed", "Cancelled"];
+
+    const statusesForTab =
+      activeTab === "completed" ? completedStatuses : pendingStatuses;
+
+    return [
+      { value: "all", label: "All Statuses" },
+      ...statusesForTab.map((status) => ({
+        value: status,
+        label: status === "Ordered" ? "Restocked" : status,
+      })),
+    ];
+  }, [activeTab]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
