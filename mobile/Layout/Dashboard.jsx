@@ -18,14 +18,17 @@ export default function Dashboard({ children, currentRouteName }) {
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
   const showChatFab = canAccessMessages && currentRouteName !== "Messages";
   const isManageUsers = currentRouteName === "Manage Users";
   const baseFabBottom = Math.max(16, insets.bottom + 12);
-  const childFabGap = 52;
-  const chatFabBottomOffset = isManageUsers ? baseFabBottom + 68 : baseFabBottom;
+  const childFabGap = 60;
+  const chatFabBottomOffset = isManageUsers
+    ? baseFabBottom + 80
+    : baseFabBottom;
 
   useEffect(() => {
     setShowFabMenu(false);
@@ -53,9 +56,9 @@ export default function Dashboard({ children, currentRouteName }) {
                     right: 24,
                     bottom: baseFabBottom + childFabGap * 2,
                     backgroundColor: "#1F5FBF",
-                    borderRadius: 22,
-                    width: 44,
-                    height: 44,
+                    borderRadius: 28,
+                    width: 56,
+                    height: 56,
                     alignItems: "center",
                     justifyContent: "center",
                     shadowColor: "#000",
@@ -83,9 +86,9 @@ export default function Dashboard({ children, currentRouteName }) {
                     right: 24,
                     bottom: baseFabBottom + childFabGap,
                     backgroundColor: "#00ad37",
-                    borderRadius: 22,
-                    width: 44,
-                    height: 44,
+                    borderRadius: 28,
+                    width: 56,
+                    height: 56,
                     alignItems: "center",
                     justifyContent: "center",
                     shadowColor: "#000",
@@ -131,8 +134,7 @@ export default function Dashboard({ children, currentRouteName }) {
                 zIndex: 999,
               }}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate("Messages")}
-              onLongPress={() => setShowFabMenu((open) => !open)}
+              onPress={() => setShowFabMenu((open) => !open)}
             >
               <MaterialCommunityIcons
                 name={showFabMenu ? "close" : "dots-grid"}

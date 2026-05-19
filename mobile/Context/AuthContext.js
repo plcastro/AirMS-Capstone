@@ -87,7 +87,8 @@ export const AuthProvider = ({ children }) => {
 
   const refreshSession = useCallback(async () => {
     try {
-      const remembered = (await AsyncStorage.getItem("rememberMe")) === "true";
+      const rememberedPreference = await AsyncStorage.getItem("rememberMe");
+      const remembered = rememberedPreference !== "false";
       const inMemoryRefreshToken = refreshTokenRef.current;
       const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
       const secureRefreshToken = await secureGetItem("refreshToken");
@@ -181,7 +182,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadPersistedAuth = async () => {
       try {
-        const remembered = (await AsyncStorage.getItem("rememberMe")) === "true";
+        const rememberedPreference = await AsyncStorage.getItem("rememberMe");
+        const remembered = rememberedPreference !== "false";
         setRememberMePreference(remembered);
 
         const storedUser = await AsyncStorage.getItem("currentUser");
@@ -218,7 +220,7 @@ export const AuthProvider = ({ children }) => {
     user: userData,
     accessToken,
     refreshToken,
-    rememberMe = false,
+    rememberMe = true,
   }) => {
     try {
       setUser(userData);

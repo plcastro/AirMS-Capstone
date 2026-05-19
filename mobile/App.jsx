@@ -7,6 +7,7 @@ import {
   View,
   Modal,
   Pressable,
+  PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -19,6 +20,7 @@ import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
+import messaging from "@react-native-firebase/messaging";
 import Dashboard from "./Layout/Dashboard";
 
 import DrawerContent from "./components/DrawerContent";
@@ -37,7 +39,7 @@ const withDashboard = (loadScreen) => {
   function DashboardScreen(props) {
     const Screen = loadScreen();
     return (
-      <Dashboard>
+      <Dashboard currentRouteName={props?.route?.name}>
         <Screen {...props} />
       </Dashboard>
     );
@@ -538,6 +540,29 @@ export default function App() {
       },
     },
   };
+
+  useEffect(() => {
+    const requestNotificationPermissionOnFirstOpen = async () => {
+      try {
+        if (Platform.OS === "web") return;
+
+        if (Platform.OS === "ios") {
+          await messaging().requestPermission();
+          return;
+        }
+
+        if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+          await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          );
+        }
+      } catch (error) {
+        console.log("Initial notification permission prompt failed:", error);
+      }
+    };
+
+    requestNotificationPermissionOnFirstOpen();
+  }, []);
 
   return (
     <AuthProvider>

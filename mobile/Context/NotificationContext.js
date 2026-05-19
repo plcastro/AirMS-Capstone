@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, Platform, PermissionsAndroid } from "react-native";
+import { Alert, AppState, Platform, PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
@@ -799,6 +799,27 @@ export function NotificationProvider({ children }) {
     [markAsRead, queueNavigation, user?.id],
   );
 
+  const handleQueuedBackgroundMessages = useCallback(
+    (queuedMessages = []) => {
+      if (!Array.isArray(queuedMessages) || queuedMessages.length === 0) return;
+
+      scheduleRefresh("push-background-queued");
+
+      const latestNavigable = queuedMessages.find(
+        (item) => item?.data && Object.keys(item.data).length > 0,
+      );
+      if (latestNavigable?.data) {
+        const moduleName = String(latestNavigable.data?.module || "").toLowerCase();
+        if (moduleName === "messages") {
+          showToast("You received new chat messages.");
+        } else {
+          showToast("You received new notifications.");
+        }
+      }
+    },
+    [scheduleRefresh],
+  );
+
   useEffect(() => {
     if (!user?.id) {
       setNotifications([]);
@@ -931,34 +952,24 @@ export function NotificationProvider({ children }) {
         registerPushTokenWithServer();
         consumePushInbox().then((queuedMessages) => {
           if (!queuedMessages.length) return;
-          scheduleRefresh("push-background-queued");
-
-          const latestNavigable = queuedMessages.find(
-            (item) => item?.data && Object.keys(item.data).length > 0,
-          );
-          if (latestNavigable?.data) {
-            openNotificationTarget(latestNavigable.data);
-          }
+          handleQueuedBackgroundMessages(queuedMessages);
         });
       }
     });
 
     return () => subscription.remove();
-  }, [openNotificationTarget, registerPushTokenWithServer, scheduleRefresh]);
+  }, [
+    handleQueuedBackgroundMessages,
+    openNotificationTarget,
+    registerPushTokenWithServer,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
 
     consumePushInbox().then((queuedMessages) => {
       if (!queuedMessages.length) return;
-      scheduleRefresh("push-background-queued");
-
-      const latestNavigable = queuedMessages.find(
-        (item) => item?.data && Object.keys(item.data).length > 0,
-      );
-      if (latestNavigable?.data) {
-        openNotificationTarget(latestNavigable.data);
-      }
+      handleQueuedBackgroundMessages(queuedMessages);
     });
 
     const unsubscribeForeground = messaging().onMessage(
@@ -970,9 +981,24 @@ export function NotificationProvider({ children }) {
         const payload = remoteMessage?.data || {};
 
         if (Object.keys(payload).length > 0) {
-          showToast(
-            remoteMessage?.notification?.title || "New notification received",
-          );
+          const moduleName = String(payload?.module || "").toLowerCase();
+          const title =
+            remoteMessage?.notification?.title || "New notification received";
+          const body =
+            remoteMessage?.notification?.body ||
+            "You have a new update. Tap view to open.";
+
+          if (moduleName === "tasks" && payload?.targetTaskId) {
+            Alert.alert(title, body, [
+              { text: "Later", style: "cancel" },
+              {
+                text: "View",
+                onPress: () => openNotificationTarget(payload),
+              },
+            ]);
+          } else {
+            showToast(title);
+          }
         }
       },
     );
@@ -1010,7 +1036,7 @@ export function NotificationProvider({ children }) {
       unsubscribeForeground();
       unsubscribeOpened();
     };
-  }, [openNotificationTarget, scheduleRefresh]);
+  }, [handleQueuedBackgroundMessages, openNotificationTarget]);
 
   useEffect(
     () => () => {

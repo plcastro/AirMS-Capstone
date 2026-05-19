@@ -590,7 +590,9 @@ const verifyLoginOtp = async (req, res) => {
     }
 
     if (user.loginOtpExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP expired. Please log in again." });
+      return res
+        .status(400)
+        .json({ message: "OTP expired. Please log in again." });
     }
 
     const valid = await bcrypt.compare(String(otp).trim(), user.loginOtp);
@@ -621,8 +623,9 @@ const verifyLoginOtp = async (req, res) => {
 
     if (trustDevice) {
       const rawTrustedDeviceToken = buildTrustedDeviceToken();
-      const trustedDeviceTokenHash =
-        hashTrustedDeviceToken(rawTrustedDeviceToken);
+      const trustedDeviceTokenHash = hashTrustedDeviceToken(
+        rawTrustedDeviceToken,
+      );
 
       user.trustedDevices = (user.trustedDevices || []).filter(
         (device) =>
@@ -667,6 +670,7 @@ const resendLoginOtp = async (req, res) => {
     }
 
     const otp = generateOTP();
+    console.log("OTP:", otp);
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
     user.loginOtpAttempts = 0;
