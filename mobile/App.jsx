@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect } from "react";
 import {
   Platform,
   Image,
@@ -7,7 +7,6 @@ import {
   View,
   Modal,
   Pressable,
-  DeviceEventEmitter,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -26,64 +25,20 @@ import Dashboard from "./Layout/Dashboard";
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
+import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
-import { getUserAvatarSource, getUserImageUri, getUserInitials } from "./utilities/avatar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
-const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
-const MOBILE_FONT_RECOMMENDED = 1;
-const MOBILE_FONT_MAX = 1.3;
-const FONT_SCALE_EVENT = "mobile-font-scale-updated";
-
-const clampFontScale = (value) =>
-  Math.min(
-    Math.max(Number(value) || MOBILE_FONT_RECOMMENDED, MOBILE_FONT_RECOMMENDED),
-    MOBILE_FONT_MAX,
-  );
-
-const resolveStoredFontScale = async () => {
-  try {
-    const stored = JSON.parse(
-      (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
-    );
-    const storedFont = stored?.fontSizePreference;
-    if (typeof storedFont === "number") {
-      return clampFontScale(storedFont);
-    }
-    return (
-      {
-        small: 0.9,
-        medium: 1,
-        large: 1.1,
-      }[storedFont] || MOBILE_FONT_RECOMMENDED
-    );
-  } catch {
-    return MOBILE_FONT_RECOMMENDED;
-  }
-};
-
-const scalePaperFonts = (fonts, scale) =>
-  Object.fromEntries(
-    Object.entries(fonts || {}).map(([key, value]) => {
-      if (!value || typeof value !== "object") return [key, value];
-      const next = { ...value };
-      if (typeof next.fontSize === "number") {
-        next.fontSize = Math.round(next.fontSize * scale);
-      }
-      return [key, next];
-    }),
-  );
 
 const withDashboard = (loadScreen) => {
   function DashboardScreen(props) {
     const Screen = loadScreen();
     return (
-      <Dashboard currentRouteName={props?.route?.name}>
+      <Dashboard>
         <Screen {...props} />
       </Dashboard>
     );
@@ -94,11 +49,11 @@ const withDashboard = (loadScreen) => {
 
 const Screens = {
   ReportsAndAnalytics: withDashboard(
-    () => require("./screens/Main/MaintenanceDashboard").default,
+    () => require("./screens/Main/ReportsAndAnalytics").default,
   ),
   Messages: withDashboard(() => require("./screens/Main/Messaging").default),
   ManageUsers: withDashboard(
-    () => require("./screens/Main/UserManagement.jsx").default,
+    () => require("./screens/Main/UserManagement").default,
   ),
   ActivityLogs: withDashboard(
     () => require("./screens/Main/ActivityLogs").default,
@@ -114,9 +69,7 @@ const Screens = {
     () => require("./screens/Main/PostInspection").default,
   ),
   Tasks: withDashboard(() => require("./screens/Main/TaskAssignment").default),
-  Mechanics: withDashboard(
-    () => require("./screens/Main/MechanicList").default,
-  ),
+  Mechanics: withDashboard(() => require("./screens/Main/MechanicList").default),
   PartsLifespanMonitoring: withDashboard(
     () => require("./screens/Main/PartsLifespanMonitoring").default,
   ),
@@ -132,50 +85,40 @@ const Screens = {
   Profile: withDashboard(() => require("./screens/Settings/Profile").default),
 };
 
-function DrawerNav({ navigation, fontScale = 1 }) {
+function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
   const normalizedRole = user?.jobTitle?.toLowerCase() || "";
   const canAccessFlightAndPreInspection = [
-    "admin",
     "maintenance manager",
     "pilot",
     "officer-in-charge",
     "mechanic",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
-    "admin",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
   ].includes(normalizedRole);
-  const canAccessMechanics = ["admin", "maintenance manager"].includes(
-    normalizedRole,
-  );
-  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
+  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessPartsRequisition = [
-    "admin",
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
-    "admin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(normalizedRole);
-  const canAccessMaintenancePriority = ["admin", "maintenance manager"].includes(
-    normalizedRole,
-  );
+  const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
   const canAccessReports = [
-    "admin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
-    "admin",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -196,7 +139,25 @@ function DrawerNav({ navigation, fontScale = 1 }) {
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "admin";
   const canAccessActivityLogs = normalizedRole === "admin";
-
+  const initialDrawerRoute = canAccessReports
+    ? "Reports and Analytics"
+    : canAccessMessages
+      ? "Messages"
+      : canAccessUserManagement
+        ? "Manage Users"
+        : canAccessFlightAndPreInspection
+          ? "Flight Logs"
+          : canAccessTasks
+            ? "Tasks"
+            : canAccessPartsRequisition
+              ? "Parts Requisition Monitoring"
+              : "Profile";
+  const profileImage =
+    user?.image && typeof user.image === "string"
+      ? user.image.startsWith("http")
+        ? user.image
+        : `${API_BASE}${user.image}`
+      : `${API_BASE}/uploads/default_avatar.jpg`;
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
 
@@ -208,13 +169,14 @@ function DrawerNav({ navigation, fontScale = 1 }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 12 * fontScale,
+      fontSize: 14,
       fontWeight: 200,
     },
   };
 
   return (
     <Drawer.Navigator
+      initialRouteName={initialDrawerRoute}
       backBehavior="history"
       detachInactiveScreens
       drawerContent={(props) => <DrawerContent {...props} />}
@@ -241,39 +203,23 @@ function DrawerNav({ navigation, fontScale = 1 }) {
               }}
               onPress={() => navigation.navigate("Profile")}
             >
-              {getUserImageUri(user?.image) ? (
-                <Image
-                  source={getUserAvatarSource(user?.image)}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    marginRight: 5,
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    marginRight: 5,
-                    backgroundColor: "#E9F4F1",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ color: "#26866F", fontWeight: "700", fontSize: 13 }}>
-                    {getUserInitials(user?.firstName, user?.lastName)}
-                  </Text>
-                </View>
-              )}
+              <Image
+                source={{
+                  uri: profileImage,
+                }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  marginRight: 5,
+                }}
+              />
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14 * fontScale, fontWeight: "600" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </Text>
-                  <Text style={{ fontSize: 12 * fontScale, color: "#777" }}>
+                  <Text style={{ fontSize: 12, color: "#777" }}>
                     {user?.jobTitle || ""}
                   </Text>
                 </View>
@@ -419,18 +365,18 @@ function LoginWrapper({ navigation, ...props }) {
     if (user.status === "deactivated") {
       return;
     }
+    if (user.jobTitle === "Admin") {
+      return;
+    }
 
     if (user.status === "inactive") {
       console.log(user.setupToken);
       navigation.navigate("securitySetup", {
-        setupToken: user.setupToken,
+        setupToken: user.token,
         email: user.email,
       });
 
       return;
-    }
-    if (user) {
-      navigation.replace("dashboard");
     }
   }, [user, loading, navigation]);
 
@@ -442,8 +388,8 @@ function LoginWrapper({ navigation, ...props }) {
 }
 
 // --- Stack navigator ---
-function StackNavWrapper({ fontScale = 1 }) {
-  const { loading, token } = useContext(AuthContext);
+function StackNavWrapper() {
+  const { loading } = useContext(AuthContext);
 
   if (loading) return null;
 
@@ -455,70 +401,135 @@ function StackNavWrapper({ fontScale = 1 }) {
       }}
     >
       <Stack.Screen name="login" component={LoginWrapper} />
-      <Stack.Screen name="dashboard">
-        {(props) => <DrawerNav {...props} fontScale={fontScale} />}
-      </Stack.Screen>
       <Stack.Screen name="otpScreen" component={OTP} />
       <Stack.Screen name="securitySetup" component={SecuritySetup} />
-
+      <Stack.Screen
+        name="dashboard"
+        component={DrawerNav}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="forgotPassword" component={ForgotPassword} />
       <Stack.Screen name="resetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
 }
 
+function AppShell({ linking }) {
+  const {
+    recordActivity,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
+
+  return (
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        recordActivity?.();
+        return false;
+      }}
+    >
+      <NavigationContainer
+        linking={linking}
+        ref={navigationRef}
+        onStateChange={() => recordActivity?.()}
+      >
+        <StackNavWrapper />
+      </NavigationContainer>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showSessionTimeoutWarning}
+        onRequestClose={() => continueSession?.()}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 18,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
+              Session Timeout Warning
+            </Text>
+            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
+              You&apos;ve been inactive for a while. For your security,
+              you&apos;ll be signed out in 2 minutes unless you continue.
+            </Text>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
+              Auto sign-out in {warningSecondsRemaining} seconds.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Pressable
+                onPress={() => logoutUser?.()}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#d9d9d9",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: "#333" }}>Sign out now</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => continueSession?.()}
+                style={{
+                  backgroundColor: "#26866F",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  marginLeft: 8,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  Continue session
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 export default function App() {
   const linking = LinkingConfig;
-  const [fontScale, setFontScale] = useState(MOBILE_FONT_RECOMMENDED);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadScale = async () => {
-      const next = await resolveStoredFontScale();
-      if (mounted) {
-        setFontScale(next);
-      }
-    };
-
-    loadScale();
-    const subscription = DeviceEventEmitter.addListener(FONT_SCALE_EVENT, (nextScale) => {
-      setFontScale(clampFontScale(nextScale));
-    });
-
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
-
-  const theme = useMemo(
-    () => ({
-      ...DefaultTheme,
-      colors: {
-        ...DefaultTheme.colors,
-        text: "#000000",
-        primary: "#26866F",
+  const theme = {
+    ...DefaultTheme,
+    colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
+    icons: {
+      ...DefaultTheme.icons,
+      icon: (props) => {
+        if (!props.name) return null; // skip rendering if no name
+        return <MaterialCommunityIcons {...props} />;
       },
-      fonts: scalePaperFonts(DefaultTheme.fonts, fontScale),
-      icons: {
-        ...DefaultTheme.icons,
-        icon: (props) => {
-          if (!props.name) return null;
-          return <MaterialCommunityIcons {...props} />;
-        },
-      },
-    }),
-    [fontScale],
-  );
+    },
+  };
 
   return (
     <AuthProvider>
       <NotificationProvider>
         <PaperProvider theme={theme}>
-          <NavigationContainer linking={linking} ref={navigationRef}>
-            <StackNavWrapper fontScale={fontScale} />
-          </NavigationContainer>
+          <AppShell linking={linking} />
         </PaperProvider>
       </NotificationProvider>
     </AuthProvider>
