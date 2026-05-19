@@ -365,7 +365,6 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
-            expoPushToken: fcmToken,
             fcmToken,
             platform: Platform.OS,
           }),
@@ -909,7 +908,13 @@ export function NotificationProvider({ children }) {
 
         ws.onerror = () => {
           log("ws:error");
-          ws.close();
+          // Let onclose handle reconnect backoff. Avoid redundant closes.
+          if (
+            ws.readyState === WebSocket.OPEN ||
+            ws.readyState === WebSocket.CONNECTING
+          ) {
+            ws.close();
+          }
         };
       } catch (error) {
         console.error("WebSocket connect error:", error);

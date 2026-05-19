@@ -875,29 +875,30 @@ const logoutUser = async (req, res) => {
 const registerMobilePushDevice = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { deviceId, expoPushToken, platform } = req.body;
+    const { deviceId, fcmToken, platform } = req.body;
+    const pushToken = fcmToken;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!deviceId || !expoPushToken) {
+    if (!deviceId || !pushToken) {
       return res
         .status(400)
-        .json({ message: "deviceId and expoPushToken are required" });
+        .json({ message: "deviceId and push token are required" });
     }
 
     await UserModel.updateMany(
       {
         $or: [
           { "mobilePushDevices.deviceId": deviceId },
-          { "mobilePushDevices.expoPushToken": expoPushToken },
+          { "mobilePushDevices.expoPushToken": pushToken },
         ],
       },
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { expoPushToken }],
+            $or: [{ deviceId }, { expoPushToken: pushToken }],
           },
         },
       },
@@ -909,7 +910,7 @@ const registerMobilePushDevice = async (req, res) => {
         $push: {
           mobilePushDevices: {
             deviceId,
-            expoPushToken,
+            expoPushToken: pushToken,
             platform: platform || "unknown",
             lastSeenAt: new Date(),
           },
