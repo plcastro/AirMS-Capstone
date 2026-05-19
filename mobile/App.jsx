@@ -7,7 +7,6 @@ import {
   View,
   Modal,
   Pressable,
-  PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -16,12 +15,10 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
-import { showToast } from "./utilities/toast";
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
-import messaging from "@react-native-firebase/messaging";
 import Dashboard from "./Layout/Dashboard";
 
 import DrawerContent from "./components/DrawerContent";
@@ -541,59 +538,7 @@ export default function App() {
       },
     },
   };
-  const requestPermission = async () => {
-    try {
-      if (Platform.OS === "web") return;
 
-      if (Platform.OS === "ios") {
-        const authStatus = await messaging().requestPermission();
-        const granted =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-        if (granted) {
-          showToast("Notification permission granted");
-          await requestToken();
-        } else {
-          showToast("Notification permission denied");
-        }
-        return;
-      }
-
-      // Android 13+ requires POST_NOTIFICATIONS runtime permission.
-      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
-        const result = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-        );
-        if (result === PermissionsAndroid.RESULTS.GRANTED) {
-          showToast("Notification permission granted");
-          await requestToken();
-        } else {
-          showToast("Notification permission denied");
-        }
-        return;
-      }
-
-      // Android 12 and below grant notifications at install time.
-      await requestToken();
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  useEffect(() => {
-    requestPermission();
-  }, []);
-
-  const requestToken = async () => {
-    try {
-      await messaging().registerDeviceForRemoteMessages();
-      const token = await messaging().getToken();
-      console.log("Device token:", token);
-    } catch (error) {
-      console.log(error);
-    }
-  };
   return (
     <AuthProvider>
       <NotificationProvider>
