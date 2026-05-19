@@ -102,9 +102,11 @@ export default function PartsRequisition() {
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const canRequestParts = !["maintenance manager", "officer-in-charge"].includes(
-    userRole,
-  );
+  const canRequestParts = ![
+    "maintenance manager",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -127,21 +129,21 @@ export default function PartsRequisition() {
     () => [
       {
         key: "pending",
-        label: `Pending (${stats.pending})`,
+        label: `${userRole === "maintenance manager" ? "For Review" : "Pending"} (${stats.pending})`,
       },
       {
         key: "completed",
-        label: `Completed (${stats.completed})`,
+        label: `${userRole === "maintenance manager" ? "Closed" : "Completed"} (${stats.completed})`,
       },
     ],
-    [stats],
+    [stats, userRole],
   );
 
   const statusFilters = useMemo(() => {
     const pendingFilters = [
       {
         key: "all",
-        title: "All Pending",
+        title: "All",
         icon: <InboxOutlined />,
         count: warehouseRequisitions.filter(
           (r) => !["Delivered", "Completed", "Cancelled"].includes(r.status),
@@ -189,7 +191,7 @@ export default function PartsRequisition() {
     const completedFilters = [
       {
         key: "all",
-        title: "All Completed",
+        title: "All",
         icon: <FileDoneOutlined />,
         count: warehouseRequisitions.filter((r) =>
           ["Delivered", "Completed", "Cancelled"].includes(r.status),
@@ -212,7 +214,7 @@ export default function PartsRequisition() {
     ];
 
     return activeTab === "completed" ? completedFilters : pendingFilters;
-  }, [activeTab, warehouseRequisitions]);
+  }, [activeTab, userRole, warehouseRequisitions]);
 
   const statusOptions = useMemo(() => {
     const pendingStatuses = [

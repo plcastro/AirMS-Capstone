@@ -180,24 +180,31 @@ export default function TaskAssignment() {
     try {
       setLoading(true);
       const headers = await getAuthHeader();
-      const [taskResponse, userResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
-        fetch(`${API_BASE}/api/user/assignable-users`, { headers }),
-      ]);
+      const taskResponse = await fetch(`${API_BASE}/api/tasks/getAll`, {
+        headers,
+      });
       const taskData = await taskResponse.json();
-      const userData = await userResponse.json();
       if (!taskResponse.ok)
         throw new Error(taskData.message || "Failed to load tasks");
-      if (!userResponse.ok)
-        throw new Error(userData.message || "Failed to load users");
       setTasks(Array.isArray(taskData.data) ? taskData.data : []);
-      setUsers(Array.isArray(userData.data) ? userData.data : []);
+
+      if (isManager) {
+        const userResponse = await fetch(`${API_BASE}/api/user/assignable-users`, {
+          headers,
+        });
+        const userData = await userResponse.json();
+        if (!userResponse.ok)
+          throw new Error(userData.message || "Failed to load users");
+        setUsers(Array.isArray(userData.data) ? userData.data : []);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
       message.error(error.message || "Failed to load tasks");
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader]);
+  }, [getAuthHeader, isManager]);
 
   useEffect(() => {
     load();
@@ -775,34 +782,37 @@ export default function TaskAssignment() {
             render: (_, record) =>
               formatDisplayDateTime(record.endDateTime || record.dueDate),
           },
-          {
-            title: "Actions",
-            render: (_, record) => {
-              const canEditDelete =
-                isManager &&
-                activeTab === "assigned" &&
-                normalizeStatus(record.status) === "pending";
-              if (!canEditDelete) return null;
-              return (
-                <Space onClick={(event) => event.stopPropagation()}>
-                  <Button
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => openEditTask(record)}
-                  />
-                  <Popconfirm
-                    title="Delete task?"
-                    description="This task assignment will be removed permanently."
-                    okText="Delete"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => deleteTask(record)}
-                  >
-                    <Button size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                </Space>
-              );
-            },
-          },
+          ...(isManager
+            ? [
+                {
+                  title: "Actions",
+                  render: (_, record) => {
+                    const canEditDelete =
+                      activeTab === "assigned" &&
+                      normalizeStatus(record.status) === "pending";
+                    if (!canEditDelete) return null;
+                    return (
+                      <Space onClick={(event) => event.stopPropagation()}>
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => openEditTask(record)}
+                        />
+                        <Popconfirm
+                          title="Delete task?"
+                          description="This task assignment will be removed permanently."
+                          okText="Delete"
+                          okButtonProps={{ danger: true }}
+                          onConfirm={() => deleteTask(record)}
+                        >
+                          <Button size="small" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                      </Space>
+                    );
+                  },
+                },
+              ]
+            : []),
         ]}
       />
 

@@ -119,7 +119,7 @@ router.get(
   "/assignable-users",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.TASKS_CREATE),
+  requirePermission(permissions.MECHANICS_READ),
   getAssignableUsers,
 );
 
