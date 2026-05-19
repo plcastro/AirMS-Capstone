@@ -90,6 +90,7 @@ export default function FlightLog() {
     "engineer",
     "mechanic",
     "maintenance manager",
+    "admin",
     "head of maintenance",
   ].includes(userRole);
 
@@ -908,7 +909,7 @@ export default function FlightLog() {
         key={record._id || record.id}
         hoverable
         style={{ marginBottom: 10, borderRadius: 10 }}
-        bodyStyle={{ padding: 12 }}
+        styles={{ body: { padding: 12 } }}
         onClick={() => handleEdit(record)}
       >
         <div
@@ -1089,11 +1090,13 @@ export default function FlightLog() {
           size="small"
         />
       )}
-      <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
-        <Text type="secondary">
-          Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
-        </Text>
-      </Col>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <FlightLogEntry
         visible={entryModalVisible}

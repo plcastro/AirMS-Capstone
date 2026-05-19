@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -8,12 +8,14 @@ export default function PreInspectionCards({
   onExport,
   userRole,
 }) {
-  const getDisplayStatus = (status) =>
-    status === "completed"
+  const getDisplayStatus = (status) => {
+    const normalizedStatus = String(status || "").toLowerCase();
+    return normalizedStatus === "completed"
       ? "completed"
-      : status === "released"
+      : normalizedStatus === "released"
         ? "released"
         : "pending";
+  };
 
   const getStatusStyle = (status) => {
     switch (getDisplayStatus(status)) {
@@ -66,6 +68,13 @@ export default function PreInspectionCards({
     <>
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
+        const isOfficerInCharge = userRole === "officer-in-charge";
+        const displayStatus = getDisplayStatus(inspection.status);
+        const isViewOnly =
+          displayStatus === "released" ||
+          displayStatus === "completed" ||
+          isOfficerInCharge;
+
         return (
           <TouchableOpacity
             key={inspection._id}
@@ -165,9 +174,9 @@ export default function PreInspectionCards({
                 }}
               >
                 <MaterialCommunityIcons
-                  name="eye-outline"
+                  name={isViewOnly ? "eye-outline" : "pencil"}
                   size={18}
-                  color={COLORS.primaryLight}
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
                 />
               </View>
             </View>

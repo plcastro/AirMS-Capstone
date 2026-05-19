@@ -194,7 +194,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       ? `${topSameDay.name} has the highest same-day repair share (${((topSameDay.value / totalSameDay) * 100).toFixed(1)}%). Click a slice to filter the table.`
       : "No same-day repair activity was recorded in the last 30 days.";
 
-  const rectificationHourValues = tasksWithMeta
+  const rectificationHourValues = recentTasks
     .map((entry) => entry.rectificationHours)
     .filter((value) => Number.isFinite(value));
   const averageCompletionHours =
@@ -204,7 +204,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       : null;
   const artInterpretation =
     averageCompletionHours !== null
-      ? `Average rectification time is ${averageCompletionHours.toFixed(1)} hour(s) across ${rectificationHourValues.length} rectification record(s). Click a slice to filter the table.`
+      ? `Average rectification time (last 30 days) is ${averageCompletionHours.toFixed(1)} hour(s) across ${rectificationHourValues.length} rectification record(s). Click a slice to filter the table.`
       : "No rectification duration data is available.";
 
   const filterInterpretation =

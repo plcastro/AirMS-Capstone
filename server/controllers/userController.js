@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+﻿const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
@@ -59,7 +59,8 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   const refreshCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "Strict",
+    sameSite: "None",
+    secure: true,
   };
 
   if (isPersistent) {
@@ -114,7 +115,7 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
 const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
-    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
+    normalizePlatform(platform || req.headers["x-platform"]) || null;
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
@@ -134,14 +135,6 @@ const createUserSession = async (req, userId, platform) => {
   };
 };
 
-const getPortalUrlByJobTitle = (jobTitle) =>
-  jobTitle === "Maintenance Manager" ||
-  jobTitle === "Officer-In-Charge" ||
-  jobTitle === "Admin" ||
-  jobTitle === "Mechanic"
-    ? `${WEB_URL}/login`
-    : `${MOBILE_URL}/login`;
-
 const sendActivationCredentialsEmail = async ({
   to,
   firstName,
@@ -150,7 +143,8 @@ const sendActivationCredentialsEmail = async ({
   jobTitle,
   isResend = false,
 }) => {
-  const portalUrl = getPortalUrlByJobTitle(jobTitle);
+  const portalUrlWeb = `${WEB_URL}/login`;
+  const portalUrlMobile = `${MOBILE_URL}/login`;
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";
@@ -174,7 +168,10 @@ const sendActivationCredentialsEmail = async ({
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrl}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal</a>
+          <a href="${portalUrlWeb}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Web</a>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${portalUrlMobile}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Mobile</a>
         </div>
 
         <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
@@ -211,6 +208,30 @@ const resendActivationForUser = async (user) => {
     jobTitle: user.jobTitle,
     isResend: true,
   });
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find({});
+    res.status(200).json({ status: "Ok", data: users });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getAssignableUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find({
+      status: "active",
+      jobTitle: { $regex: /^mechanic$/i },
+    }).select(
+      "firstName lastName jobTitle status image isOnline online platform",
+    );
+
+    res.status(200).json({ status: "Ok", data: users });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 const maskEmail = (email = "") => {
@@ -277,6 +298,7 @@ const buildLoginSuccessPayload = async ({
   await user.save();
 
   const session = await createUserSession(req, user._id, loginPlatform);
+  const sessionMinutes = 0;
 
   const token = jwt.sign(
     {
@@ -322,8 +344,9 @@ const buildLoginSuccessPayload = async ({
   return {
     message: "Login successful",
     token,
-    refreshToken,
+    refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
     sessionId: session.sessionId,
+    sessionMinutes,
     user: {
       id: user._id,
       username: user.username,
@@ -332,7 +355,6 @@ const buildLoginSuccessPayload = async ({
       lastName: user.lastName,
       jobTitle: user.jobTitle,
       access: user.access,
-      licenseNo: user.licenseNo,
       status: user.status,
       image: user.image,
       signature: user.signature,
@@ -340,35 +362,12 @@ const buildLoginSuccessPayload = async ({
       lastLogin: user.lastLogin,
       isOnline: user.isOnline,
       platform: user.platform,
-      base: session.base,
+      base: session.base || loginBase,
       sessionId: session.sessionId,
+      sessionMinutes,
       lastSeenAt: user.lastSeenAt,
     },
   };
-};
-
-const getAllUsers = async (req, res) => {
-  try {
-    const users = await UserModel.find({});
-    res.status(200).json({ status: "Ok", data: users });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-const getAssignableUsers = async (req, res) => {
-  try {
-    const users = await UserModel.find({
-      status: "active",
-      jobTitle: { $regex: /^mechanic$/i },
-    }).select(
-      "firstName lastName jobTitle status image isOnline online platform",
-    );
-
-    res.status(200).json({ status: "Ok", data: users });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
 };
 
 const loginUser = async (req, res) => {
@@ -400,7 +399,7 @@ const loginUser = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : "UNKNOWN";
+          : null;
     const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
@@ -408,7 +407,7 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (loginBase === "UNKNOWN") {
+    if (!loginBase) {
       return res.status(400).json({
         message: "Please select where you are logging in from",
       });
@@ -514,6 +513,8 @@ const loginUser = async (req, res) => {
     );
     if (validTrustedDevice) {
       validTrustedDevice.lastUsedAt = new Date();
+      await user.save();
+
       const trustedPayload = await buildLoginSuccessPayload({
         req,
         res,
@@ -530,6 +531,7 @@ const loginUser = async (req, res) => {
     }
 
     const otp = generateOTP();
+    console.log(`[DEV_LOGIN_OTP] ${user.email}: ${otp}`);
     const loginOtpToken = crypto.randomBytes(32).toString("hex");
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
@@ -607,7 +609,7 @@ const verifyLoginOtp = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : "UNKNOWN";
+          : null;
     const loginBase = normalizeBase(req.headers["x-base"] || base);
 
     const payload = await buildLoginSuccessPayload({
@@ -621,8 +623,9 @@ const verifyLoginOtp = async (req, res) => {
 
     if (trustDevice) {
       const rawTrustedDeviceToken = buildTrustedDeviceToken();
-      const trustedDeviceTokenHash =
-        hashTrustedDeviceToken(rawTrustedDeviceToken);
+      const trustedDeviceTokenHash = hashTrustedDeviceToken(
+        rawTrustedDeviceToken,
+      );
 
       user.trustedDevices = (user.trustedDevices || []).filter(
         (device) =>
@@ -667,6 +670,7 @@ const resendLoginOtp = async (req, res) => {
     }
 
     const otp = generateOTP();
+    console.log("OTP:", otp);
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
     user.loginOtpAttempts = 0;
@@ -703,9 +707,12 @@ const unlockUser = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
-  const incomingRefreshToken = req.cookies?.refreshToken;
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body?.refreshToken;
   if (!incomingRefreshToken) {
-    return res.status(401).json({ message: "No token" });
+    return res
+      .status(401)
+      .json({ message: "No refresh token provided (cookie or body missing)" });
   }
 
   try {
@@ -731,7 +738,8 @@ const refreshToken = async (req, res) => {
       res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "None",
+        secure: true,
       });
       return res.status(403).json({ message: "Invalid refresh token" });
     }
@@ -753,8 +761,10 @@ const refreshToken = async (req, res) => {
         jobTitle: user.jobTitle,
         access: user.access,
         sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
-        base: req.headers["x-base"] || payload.base || "UNKNOWN",
+        platform:
+          normalizePlatform(req.headers["x-platform"] || payload.platform) ||
+          null,
+        base: normalizeBase(req.headers["x-base"] || payload.base) || null,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -780,12 +790,18 @@ const refreshToken = async (req, res) => {
     });
 
     setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
-    res.json({ token: newAccessToken });
+    const isMobileClient =
+      String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+    res.json({
+      token: newAccessToken,
+      refreshToken: isMobileClient ? newRefreshToken : undefined,
+    });
   } catch {
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      sameSite: "None",
+      secure: true,
     });
     res.status(403).json({ message: "Invalid refresh token" });
   }
@@ -806,7 +822,8 @@ const logoutUser = async (req, res) => {
       res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
+        sameSite: "None",
+        secure: true,
       });
       return res.status(200).json({ message: "Logged out successfully" });
     }
@@ -846,7 +863,8 @@ const logoutUser = async (req, res) => {
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
+      sameSite: "None",
+      secure: true,
     });
 
     res.status(200).json({ message: "Logged out successfully" });
@@ -895,7 +913,7 @@ const registerMobilePushDevice = async (req, res) => {
           mobilePushDevices: {
             deviceId,
             expoPushToken,
-            platform: platform || "unknown",
+            platform: String(platform || "").toLowerCase() || null,
             lastSeenAt: new Date(),
           },
         },

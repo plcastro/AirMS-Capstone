@@ -48,7 +48,7 @@ export default function PostInspectionEditEntry({
 
   const isPilot = userRole === "pilot";
   const canReleasePostInspection =
-    userRole === "mechanic" || userRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(userRole);
   const tabs = [
     "Basic Information",
     "Station 1",
@@ -404,7 +404,7 @@ export default function PostInspectionEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {userRole === "maintenance manager"
+                      {["maintenance manager", "admin"].includes((userRole || "").toLowerCase())
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </Text>

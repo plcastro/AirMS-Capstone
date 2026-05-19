@@ -17,6 +17,12 @@ const maintenanceLogSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please enter the aircraft model."],
   },
+  base: {
+    type: String,
+    default: "",
+    trim: true,
+    uppercase: true,
+  },
   defects: {
     type: String,
   },

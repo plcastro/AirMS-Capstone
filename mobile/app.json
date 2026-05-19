@@ -2,13 +2,9 @@
   "expo": {
     "name": "AirMS",
     "slug": "AirMS",
-    "owner": "kikobuddha",
+    "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -21,14 +17,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.airms"
+      "bundleIdentifier": "com.arckexe.airms"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
-      "package": "com.airms",
+      "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
@@ -41,15 +39,10 @@
       "favicon": "./assets/AirMS_mobile.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
       "@react-native-community/datetimepicker",
       "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/AirMS_mobile.png",
-          "color": "#26866F"
-        }
-      ],
+
       [
         "expo-image-picker",
         {
@@ -59,7 +52,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "da1fb019-e4e9-4be0-b593-d58faac70084"
+        "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
       }
     }
   }

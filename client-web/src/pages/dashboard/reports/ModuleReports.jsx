@@ -213,7 +213,7 @@ const buildAircraftData = (records, getAircraft) =>
 const ReportSection = ({ title, subtitle, children }) => (
   <Space orientation="vertical" size={12} style={{ width: "100%" }}>
     <Space orientation="vertical" size={0}>
-      <Title level={4} style={{ margin: 0 }}>
+      <Title level={5} style={{ margin: 0 }}>
         {title}
       </Title>
       {subtitle && <Text type="secondary">{subtitle}</Text>}

@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useContext,
   useMemo,
@@ -8,36 +8,42 @@ import React, {
 import {
   Alert,
   Button,
-  Card,
   Col,
   Form,
   Input,
   InputNumber,
+  message,
   Modal,
   Row,
   Select,
   Space,
-  Tabs,
   Typography,
 } from "antd";
 import {
   CheckCircleOutlined,
-  CloseCircleOutlined,
   DeleteOutlined,
-  FileDoneOutlined,
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
   ShoppingCartOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { confirmAction } from "../../../utils/confirmAction";
 
 const { Text } = Typography;
-const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
+
+const normalizeStatus = (value) => {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "pending") return "parts requested";
+  if (raw === "completed") return "delivered";
+  return raw;
+};
 
 const parseRequestedDate = (dateValue) => {
   const [month, day, year] = String(dateValue || "")
@@ -81,162 +87,104 @@ const normalizeRequisitionRecord = (record) =>
     },
   });
 
-export default function PartsRequisition() {
+export default function PartsReqMonitoring() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
-  const [form] = Form.useForm();
   const [searchText, setSearchText] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
-  const [submittingRequest, setSubmittingRequest] = useState(false);
   const [error, setError] = useState(false);
   const [requisitions, setRequisitions] = useState([]);
+  const [targetRecord, setTargetRecord] = useState(null);
   const [aircraftOptions, setAircraftOptions] = useState([]);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
+  const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const allowedRoles = [
+    "admin",
     "warehouse department",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const canRequestParts = ![
-    "maintenance manager",
-    "officer-in-charge",
-    "warehouse department",
-  ].includes(userRole);
+  const isManager = ["maintenance manager", "officer-in-charge"].includes(
+    userRole,
+  );
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
   const stats = useMemo(
     () => ({
       total: warehouseRequisitions.length,
-      pending: warehouseRequisitions.filter((record) => {
-        const status = String(record.status || "");
-        return !["Delivered", "Completed", "Cancelled"].includes(status);
-      }).length,
-      completed: warehouseRequisitions.filter((record) => {
-        const status = String(record.status || "");
-        return ["Delivered", "Completed", "Cancelled"].includes(status);
-      }).length,
+      pending: warehouseRequisitions.filter(
+        (record) =>
+          !["approved", "delivered", "cancelled"].includes(
+            normalizeStatus(record.status),
+          ),
+      ).length,
+      approved: warehouseRequisitions.filter((record) =>
+        ["approved"].includes(normalizeStatus(record.status)),
+      ).length,
+      forReview: warehouseRequisitions.filter((record) =>
+        ["availability checked", "ordered"].includes(
+          normalizeStatus(record.status),
+        ),
+      ).length,
+      closed: warehouseRequisitions.filter((record) =>
+        ["delivered", "cancelled"].includes(normalizeStatus(record.status)),
+      ).length,
     }),
     [warehouseRequisitions],
   );
 
-  const tabItems = useMemo(
-    () => [
-      {
-        key: "pending",
-        label: `${userRole === "maintenance manager" ? "For Review" : "Pending"} (${stats.pending})`,
-      },
-      {
-        key: "completed",
-        label: `${userRole === "maintenance manager" ? "Closed" : "Completed"} (${stats.completed})`,
-      },
-    ],
-    [stats, userRole],
-  );
-
   const statusFilters = useMemo(() => {
-    const pendingFilters = [
+    const allFilters = [
       {
         key: "all",
         title: "All",
         icon: <InboxOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => !["Delivered", "Completed", "Cancelled"].includes(r.status),
-        ).length,
-      },
-      {
-        key: "Parts Requested",
-        title: "Parts Requested",
-        icon: <InboxOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => r.status === "Parts Requested",
-        ).length,
+        count: warehouseRequisitions.length,
       },
       {
         key: "To Be Ordered",
         title: "To Be Ordered",
         icon: <ShoppingCartOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "To Be Ordered")
-          .length,
+        count: warehouseRequisitions.filter(
+          (r) => normalizeStatus(r.status) === "to be ordered",
+        ).length,
       },
       {
         key: "Availability Checked",
         title: "Availability Checked",
         icon: <SyncOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => r.status === "Availability Checked",
+          (r) => normalizeStatus(r.status) === "availability checked",
         ).length,
       },
       {
         key: "Ordered",
         title: "Restocked",
         icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Ordered")
-          .length,
+        count: warehouseRequisitions.filter(
+          (r) => normalizeStatus(r.status) === "ordered",
+        ).length,
       },
       {
         key: "Approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Approved")
-          .length,
-      },
-    ];
-
-    const completedFilters = [
-      {
-        key: "all",
-        title: "All",
-        icon: <FileDoneOutlined />,
-        count: warehouseRequisitions.filter((r) =>
-          ["Delivered", "Completed", "Cancelled"].includes(r.status),
+        count: warehouseRequisitions.filter(
+          (r) => normalizeStatus(r.status) === "approved",
         ).length,
       },
-      {
-        key: "Delivered",
-        title: "Delivered",
-        icon: <FileDoneOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Delivered")
-          .length,
-      },
-      {
-        key: "Cancelled",
-        title: "Cancelled",
-        icon: <CloseCircleOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Cancelled")
-          .length,
-      },
     ];
 
-    return activeTab === "completed" ? completedFilters : pendingFilters;
-  }, [activeTab, userRole, warehouseRequisitions]);
-
-  const statusOptions = useMemo(() => {
-    const pendingStatuses = [
-      "Parts Requested",
-      "Availability Checked",
-      "To Be Ordered",
-      "Ordered",
-      "Approved",
-    ];
-    const completedStatuses = ["Delivered", "Completed", "Cancelled"];
-
-    const statusesForTab =
-      activeTab === "completed" ? completedStatuses : pendingStatuses;
-
-    return [
-      { value: "all", label: "All Statuses" },
-      ...statusesForTab.map((status) => ({
-        value: status,
-        label: status === "Ordered" ? "Restocked" : status,
-      })),
-    ];
-  }, [activeTab]);
+    return allFilters;
+  }, [warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
@@ -252,23 +200,11 @@ export default function PartsRequisition() {
       );
     }
 
-    if (activeTab === "completed") {
-      data = data.filter((record) =>
-        ["Delivered", "Completed", "Cancelled"].includes(
-          String(record.status || ""),
-        ),
-      );
-    } else {
+    if (selectedStatus !== "all") {
       data = data.filter(
         (record) =>
-          !["Delivered", "Completed", "Cancelled"].includes(
-            String(record.status || ""),
-          ),
+          normalizeStatus(record.status) === normalizeStatus(selectedStatus),
       );
-    }
-
-    if (selectedStatus !== "all") {
-      data = data.filter((record) => record.status === selectedStatus);
     }
 
     return [...data].sort((first, second) => {
@@ -279,17 +215,21 @@ export default function PartsRequisition() {
         ? firstDate - secondDate
         : secondDate - firstDate;
     });
-  }, [
-    activeTab,
-    dateSortOrder,
-    searchText,
-    selectedStatus,
-    warehouseRequisitions,
-  ]);
+  }, [dateSortOrder, searchText, selectedStatus, warehouseRequisitions]);
 
   useEffect(() => {
-    setSelectedStatus("all");
-  }, [activeTab]);
+    const params = new URLSearchParams(location.search);
+    const targetRequestId = params.get("targetRequestId");
+    if (!targetRequestId || !warehouseRequisitions.length) return;
+
+    const matched = warehouseRequisitions.find(
+      (record) => String(record._id) === String(targetRequestId),
+    );
+    if (!matched) return;
+
+    setTargetRecord(matched);
+    navigate("/dashboard/parts-requisition", { replace: true });
+  }, [location.search, navigate, warehouseRequisitions]);
 
   const handleAllRequisitions = useCallback(async () => {
     if (!canAccessPartsRequisition) return;
@@ -324,26 +264,35 @@ export default function PartsRequisition() {
     }
   }, [canAccessPartsRequisition, getAuthHeader]);
 
-  const handleAircraftOptions = useCallback(async () => {
-    if (!canAccessPartsRequisition) return;
-
+  const handleFetchAircraftOptions = useCallback(async () => {
     try {
       const response = await fetch(
         `${API_BASE}/api/parts-monitoring/aircraft-list`,
       );
-      const data = await response.json();
-      if (response.ok && Array.isArray(data.data)) {
-        setAircraftOptions(data.data.filter(Boolean));
+      if (!response.ok) {
+        throw new Error("Failed to fetch aircraft options");
       }
-    } catch {
+
+      const data = await response.json();
+      setAircraftOptions(
+        (data.data || []).map((aircraft) => ({
+          label: aircraft,
+          value: aircraft,
+        })),
+      );
+    } catch (err) {
+      console.error("Aircraft options error:", err);
       setAircraftOptions([]);
     }
-  }, [canAccessPartsRequisition]);
+  }, []);
 
   useEffect(() => {
     handleAllRequisitions();
-    handleAircraftOptions();
-  }, [handleAircraftOptions, handleAllRequisitions]);
+  }, [handleAllRequisitions]);
+
+  useEffect(() => {
+    handleFetchAircraftOptions();
+  }, [handleFetchAircraftOptions]);
 
   useEffect(() => {
     if (!canAccessPartsRequisition) {
@@ -361,39 +310,54 @@ export default function PartsRequisition() {
     return <Navigate to="/dashboard/profile" replace />;
   }
 
-  const openRequestModal = () => {
-    form.setFieldsValue({
+  const openAddRequisitionModal = () => {
+    entryForm.setFieldsValue({
       aircraft: undefined,
-      items: [{ particular: "", quantity: 1, unit: "pcs", purpose: "" }],
+      items: [{ particular: "", quantity: null, unit: "pcs", purpose: "" }],
     });
-    setRequestModalOpen(true);
+    setIsEntryModalOpen(true);
   };
 
-  const buildRequestItemsPayload = (items) =>
+  const closeAddRequisitionModal = () => {
+    setIsEntryModalOpen(false);
+    entryForm.resetFields();
+  };
+
+  const buildRequestItemsPayload = (items = []) =>
     items.map((item, index) => ({
       itemNo: index + 1,
       particular: String(item.particular || "").trim(),
-      quantity: Number(item.quantity),
+      quantity: Number(item.quantity) || 0,
       unitOfMeasure: item.unit || "pcs",
       purpose: String(item.purpose || "").trim(),
       availableQty: 0,
       stockStatus: "Parts Requested",
     }));
 
-  const handleSubmitRequest = async () => {
+  const handleAddRequisition = async () => {
     try {
-      const values = await form.validateFields();
-      const highestSlipNumber = requisitions.reduce((highest, item) => {
-        const numericPart = Number(item.wrsNo?.replace("WRS-", "")) || 0;
-        return numericPart > highest ? numericPart : highest;
-      }, 0);
-      const nextSlipNo = `WRS-${String(highestSlipNumber + 1).padStart(3, "0")}`;
+      const values = await entryForm.validateFields();
       const fullName =
         `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-        user?.username ||
         "Unknown User";
+      const highestSlipNumber = warehouseRequisitions.reduce(
+        (highest, item) => {
+          const numericPart =
+            Number(String(item.wrsNo || "").replace("WRS-", "")) || 0;
+          return numericPart > highest ? numericPart : highest;
+        },
+        0,
+      );
+      const nextSlipNo = `WRS-${String(highestSlipNumber + 1).padStart(3, "0")}`;
+      const confirmedCreate = await confirmAction({
+        title: "Submit Requisition",
+        content: `Submit new requisition ${nextSlipNo}?`,
+        okText: "Submit",
+      });
 
-      setSubmittingRequest(true);
+      if (!confirmedCreate) return;
+
+      setIsSubmittingEntry(true);
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
         {
@@ -403,6 +367,7 @@ export default function PartsRequisition() {
             ...(await getAuthHeader()),
           },
           body: JSON.stringify({
+            confirmAction: true,
             wrsNo: nextSlipNo,
             aircraft: values.aircraft,
             staff: {
@@ -413,32 +378,27 @@ export default function PartsRequisition() {
               warehouseBy: "",
               deliveredBy: "",
             },
-            items: buildRequestItemsPayload(values.items || []),
+            items: buildRequestItemsPayload(values.items),
             dateRequested: new Date().toISOString(),
             status: "Parts Requested",
-            confirmAction: true,
           }),
         },
       );
+
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || "Failed to create requisition");
+        throw new Error(data?.message || "Failed to create requisition");
       }
 
-      setRequestModalOpen(false);
-      form.resetFields();
-      setActiveTab("pending");
-      setSelectedStatus("all");
+      message.success(`${nextSlipNo} added successfully.`);
+      closeAddRequisitionModal();
       await handleAllRequisitions();
-      Modal.success({ title: `${nextSlipNo} added successfully.` });
     } catch (err) {
       if (err?.errorFields) return;
-      Modal.error({
-        title: "Failed to create requisition",
-        content: err.message || "Please try again.",
-      });
+      console.error("Create requisition error:", err);
+      message.error(err.message || "Failed to create requisition.");
     } finally {
-      setSubmittingRequest(false);
+      setIsSubmittingEntry(false);
     }
   };
 
@@ -476,32 +436,21 @@ export default function PartsRequisition() {
             ]}
           />
         </Col>
-        {canRequestParts && (
-          <Col xs={24} md={4} lg={3}>
+        {!isManager && (
+          <Col xs={24} md={10} lg={12} style={{ textAlign: "right" }}>
             <Button
-              type="primary"
               size="large"
+              type="primary"
               icon={<PlusOutlined />}
-              onClick={openRequestModal}
-              block
+              onClick={openAddRequisitionModal}
             >
-              Request
+              Add Requisition
             </Button>
           </Col>
         )}
       </Row>
 
-      <Row style={{ marginTop: 10, marginBottom: 10 }}>
-        <Col span={24}>
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={tabItems}
-          />
-        </Col>
-      </Row>
-
-      <Row style={{ marginBottom: 10 }}>
+      <Row style={{ marginBottom: 10, marginTop: 20 }}>
         <Col span={24}>
           <Space size={[8, 8]} wrap>
             {statusFilters.map((filter) => {
@@ -513,6 +462,8 @@ export default function PartsRequisition() {
                   type={isSelected ? "primary" : "default"}
                   icon={filter.icon}
                   onClick={() => setSelectedStatus(filter.key)}
+                  style={{ fontWeight: 600 }}
+                  size="large"
                 >
                   {filter.title} ({filter.count})
                 </Button>
@@ -522,7 +473,7 @@ export default function PartsRequisition() {
         </Col>
       </Row>
 
-      <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
             Showing <Text strong>{filteredRequisitions.length}</Text>{" "}
@@ -539,119 +490,125 @@ export default function PartsRequisition() {
         />
       )}
       <PRMTable
+        key={targetRecord?._id || "prm-table"}
         data={filteredRequisitions}
         loading={loading}
         onUpdated={handleAllRequisitions}
+        initialSelectedRecord={targetRecord}
       />
 
       <Modal
-        open={requestModalOpen}
-        onCancel={() => setRequestModalOpen(false)}
-        onOk={handleSubmitRequest}
+        title="Add Requisition"
+        open={isEntryModalOpen}
+        onCancel={closeAddRequisitionModal}
+        onOk={handleAddRequisition}
+        confirmLoading={isSubmittingEntry}
         okText="Submit"
-        confirmLoading={submittingRequest}
-        title="New Entry"
-        width={820}
+        width={900}
+        destroyOnHidden
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{
-            items: [{ particular: "", quantity: 1, unit: "pcs", purpose: "" }],
-          }}
-        >
+        <Form form={entryForm} layout="vertical">
           <Form.Item
-            label="Choose Aircraft"
+            label="Aircraft"
             name="aircraft"
-            rules={[{ required: true, message: "Please choose an aircraft" }]}
+            rules={[{ required: true, message: "Please choose an aircraft." }]}
           >
             <Select
               placeholder="Choose Aircraft"
-              showSearch
-              optionFilterProp="label"
-              options={aircraftOptions.map((aircraft) => ({
-                value: aircraft,
-                label: aircraft,
-              }))}
+              options={aircraftOptions}
+              showSearch={{ optionFilterProp: "label" }}
             />
           </Form.Item>
 
           <Form.List name="items">
             {(fields, { add, remove }) => (
-              <Space direction="vertical" style={{ width: "100%" }} size={12}>
-                {fields.map((field, index) => (
-                  <Card
-                    key={field.key}
-                    size="small"
-                    title={`Item ${index + 1}`}
-                    extra={
-                      fields.length > 1 ? (
-                        <Button
-                          type="text"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => remove(field.name)}
-                        />
-                      ) : null
-                    }
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+                {fields.map(({ key, name, ...restField }) => (
+                  <div
+                    key={key}
+                    style={{
+                      border: "1px solid #f0f0f0",
+                      borderRadius: 8,
+                      padding: 12,
+                    }}
                   >
-                    <Row gutter={[12, 0]}>
-                      <Col xs={24} md={10}>
+                    <Row gutter={12} align="middle">
+                      <Col xs={24} md={9}>
                         <Form.Item
-                          {...field}
+                          {...restField}
                           label="Particular"
-                          name={[field.name, "particular"]}
-                          rules={[
-                            { required: true, message: "Particular is required" },
-                          ]}
+                          name={[name, "particular"]}
+                          rules={[{ required: true, message: "Required" }]}
+                          style={{ marginBottom: 8 }}
                         >
-                          <Input placeholder="-" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={14} md={6}>
-                        <Form.Item
-                          {...field}
-                          label="Quantity"
-                          name={[field.name, "quantity"]}
-                          rules={[
-                            { required: true, message: "Quantity is required" },
-                          ]}
-                        >
-                          <InputNumber min={1} style={{ width: "100%" }} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={10} md={4}>
-                        <Form.Item
-                          {...field}
-                          label="Unit"
-                          name={[field.name, "unit"]}
-                          rules={[{ required: true, message: "Unit is required" }]}
-                        >
-                          <Select
-                            options={UNIT_OPTIONS.map((unit) => ({
-                              value: unit,
-                              label: unit,
-                            }))}
-                          />
+                          <Input placeholder="Particular" />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={4}>
                         <Form.Item
-                          {...field}
-                          label="Purpose"
-                          name={[field.name, "purpose"]}
+                          {...restField}
+                          label="Quantity"
+                          name={[name, "quantity"]}
+                          rules={[
+                            { required: true, message: "Required" },
+                            { type: "number", min: 1, message: "Min 1" },
+                          ]}
+                          style={{ marginBottom: 8 }}
                         >
-                          <Input placeholder="-" />
+                          <InputNumber style={{ width: "100%" }} min={1} />
                         </Form.Item>
                       </Col>
+                      <Col xs={24} md={4}>
+                        <Form.Item
+                          {...restField}
+                          label="Unit"
+                          name={[name, "unit"]}
+                          initialValue="pcs"
+                          style={{ marginBottom: 8 }}
+                        >
+                          <Select
+                            options={[
+                              { label: "pcs", value: "pcs" },
+                              { label: "kg", value: "kg" },
+                              { label: "ft", value: "ft" },
+                              { label: "L", value: "L" },
+                            ]}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={6}>
+                        <Form.Item
+                          {...restField}
+                          label="Purpose"
+                          name={[name, "purpose"]}
+                          style={{ marginBottom: 8 }}
+                        >
+                          <Input placeholder="Optional" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={1} style={{ textAlign: "right" }}>
+                        {fields.length > 1 && (
+                          <Button
+                            danger
+                            type="text"
+                            icon={<DeleteOutlined />}
+                            onClick={() => remove(name)}
+                          />
+                        )}
+                      </Col>
                     </Row>
-                  </Card>
+                  </div>
                 ))}
-
                 <Button
+                  type="dashed"
                   icon={<PlusOutlined />}
                   onClick={() =>
-                    add({ particular: "", quantity: 1, unit: "pcs", purpose: "" })
+                    add({
+                      particular: "",
+                      quantity: null,
+                      unit: "pcs",
+                      purpose: "",
+                    })
                   }
                 >
                   Add Another Item

@@ -484,7 +484,7 @@ export default function EditTask({
               </Text>
               <TextInput
                 value={taskTitle}
-                onChangeText={setTaskTitle}
+                editable={false}
                 placeholder="Maintenance Task"
                 placeholderTextColor={COLORS.grayDark}
                 style={{

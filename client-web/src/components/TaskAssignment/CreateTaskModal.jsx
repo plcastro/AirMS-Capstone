@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 const { Text, Title } = Typography;
 
 const CUSTOM_INSPECTION_ID = "custom-task";
+const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 
 export default function CreateTaskModal({
   open,
@@ -30,16 +31,36 @@ export default function CreateTaskModal({
   endDateManuallyAdjusted,
 }) {
   const scheduleEstimate = estimateInspectionSchedule(checklistDraftItems);
+  const hasUnsavedChanges =
+    (open && form?.isFieldsTouched(true)) ||
+    Boolean(selectedInspectionId) ||
+    checklistDraftItems.length > 0 ||
+    Boolean(isCustomTask && customTaskTitle?.trim());
+  const handleCancelWithWarning = () => {
+    if (!hasUnsavedChanges) {
+      onCancel?.();
+      return;
+    }
+    Modal.confirm({
+      title: "Discard changes?",
+      content: "You have unsaved changes. Cancel and discard them?",
+      okText: "Discard",
+      cancelText: "Keep editing",
+      okButtonProps: { danger: true },
+      onOk: () => onCancel?.(),
+    });
+  };
 
   return (
     <Modal
       open={open}
-      onCancel={onCancel}
+      onCancel={handleCancelWithWarning}
       onOk={onOk}
       title="Create Task"
       okText="Create"
       width={960}
       confirmLoading={confirmLoading}
+      forceRender
     >
       <Form form={form} layout="vertical">
         <Row gutter={[12, 4]}>
@@ -111,6 +132,17 @@ export default function CreateTaskModal({
               </Form.Item>
             </Col>
           )}
+          <Col xs={24} md={12}>
+            <Form.Item label="Base" name="base" rules={[{ required: true, message: "Base is required" }]}>
+              <Select
+                size="large"
+                options={BASE_OPTIONS.map((base) => ({
+                  value: base,
+                  label: base,
+                }))}
+              />
+            </Form.Item>
+          </Col>
           <Col xs={24} md={12}>
             <Form.Item label="Assign Mechanic" name="assignedTo" rules={[{ required: true, message: "Assignee is required" }]}>
               <Select

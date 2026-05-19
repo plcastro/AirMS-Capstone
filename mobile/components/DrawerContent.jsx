@@ -23,7 +23,7 @@ const DrawerList = [
         icon: "chart-areaspline",
         label: "Reports and Analytics",
         navigateTo: "Reports and Analytics",
-        jobTitle: ["maintenance manager", "officer-in-charge"],
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
       },
       {
         icon: "message-text-outline",
@@ -33,6 +33,7 @@ const DrawerList = [
           "admin",
           "maintenance manager",
           "mechanic",
+          "pilot",
           "officer-in-charge",
           "warehouse department",
         ],
@@ -129,7 +130,7 @@ const DrawerList = [
         icon: "account-group",
         label: "Mechanics",
         navigateTo: "Mechanics",
-        jobTitle: ["maintenance manager"],
+        jobTitle: ["admin", "maintenance manager"],
       },
     ],
   },
@@ -170,7 +171,7 @@ const DrawerList = [
       {
         icon: "inbox-outline",
         label: "Parts Requisition Monitoring",
-        navigateTo: "Parts Requisition Monitoring",
+        navigateTo: "Parts Requisition",
         jobTitle: [
           "admin",
           "warehouse department",

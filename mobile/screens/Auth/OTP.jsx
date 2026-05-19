@@ -98,7 +98,7 @@ export default function OTP() {
         body: JSON.stringify({
           token,
           otp: code,
-          rememberMe: Boolean(route.params?.rememberMe),
+          rememberMe: true,
           base: route.params?.base,
           client: route.params?.client || "mobile",
           trustDevice,
@@ -128,22 +128,20 @@ export default function OTP() {
 
       await AsyncStorage.setItem(
         "rememberMe",
-        route.params?.rememberMe ? "true" : "false",
+        "true",
       );
 
-      if (route.params?.rememberMe) {
-        await AsyncStorage.setItem(
-          "rememberedIdentifier",
-          route.params?.identifier || user?.email || "",
-        );
-        await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
-      }
+      await AsyncStorage.setItem(
+        "rememberedIdentifier",
+        route.params?.identifier || user?.email || "",
+      );
+      await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
 
       await loginUser({
         user,
         accessToken,
         refreshToken,
-        rememberMe: Boolean(route.params?.rememberMe),
+        rememberMe: true,
       });
 
       const pendingRedirect = await readPendingRedirect();

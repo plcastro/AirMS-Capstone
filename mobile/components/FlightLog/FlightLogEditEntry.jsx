@@ -9,6 +9,7 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogModalInfo from "./FlightLogModalInfo";
@@ -98,7 +99,7 @@ export default function FlightLogEditEntry({
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    normalizedRole === "mechanic" || normalizedRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -381,6 +382,7 @@ export default function FlightLogEditEntry({
       };
 
       const url = `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`;
+      const token = await AsyncStorage.getItem("currentUserToken");
 
       console.log("🔗 Complete PUT URL:", url);
       console.log("📦 Payload:", payload);
@@ -390,8 +392,13 @@ export default function FlightLogEditEntry({
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          "x-action-confirmed": "true",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          confirmAction: true,
+        }),
       });
 
       const text = await response.text();
@@ -826,7 +833,7 @@ export default function FlightLogEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {userRole === "maintenance manager"
+                      {["maintenance manager", "admin"].includes((userRole || "").toLowerCase())
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </Text>

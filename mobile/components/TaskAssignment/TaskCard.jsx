@@ -125,9 +125,11 @@ export default function TaskCard({
             {status}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
-          <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
-        </TouchableOpacity>
+        {showEditDelete && (
+          <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
+            <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* BODY INFO */}

@@ -7,6 +7,8 @@ import {
   Image,
   Alert,
   Platform,
+  PermissionsAndroid,
+  Linking,
 } from "react-native";
 import {
   Card,
@@ -19,7 +21,8 @@ import {
 } from "react-native-paper";
 import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
-import * as Notifications from "expo-notifications";
+import messaging from "@react-native-firebase/messaging";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -35,8 +38,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [notificationPermission, setNotificationPermission] =
-    useState("undetermined");
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
@@ -75,7 +76,9 @@ export default function Profile() {
             medium: 1,
             large: 1.1,
           };
-          setFontScalePreference(legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED);
+          setFontScalePreference(
+            legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED,
+          );
         }
         setNotificationsEnabled(
           typeof stored.notificationsEnabled === "boolean"
@@ -84,10 +87,6 @@ export default function Profile() {
         );
       } catch {}
 
-      try {
-        const permissionStatus = await Notifications.getPermissionsAsync();
-        setNotificationPermission(permissionStatus.status || "undetermined");
-      } catch {}
     };
 
     loadSettings();
@@ -105,6 +104,52 @@ export default function Profile() {
           : notificationsEnabled,
     };
     await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
+  };
+
+  const requestNotificationPermission = async () => {
+    try {
+      if (Platform.OS === "web") {
+        showToast("Notifications are not configured for web.");
+        return false;
+      }
+
+      if (Platform.OS === "ios") {
+        const authStatus = await messaging().requestPermission();
+        const granted =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        if (granted) {
+          await messaging().registerDeviceForRemoteMessages();
+          await messaging().getToken();
+          showToast("Notification permission granted.");
+          return true;
+        }
+        showToast("Notification permission denied.");
+        return false;
+      }
+
+      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const result = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (result === PermissionsAndroid.RESULTS.GRANTED) {
+          await messaging().registerDeviceForRemoteMessages();
+          await messaging().getToken();
+          showToast("Notification permission granted.");
+          return true;
+        }
+        showToast("Notification permission denied.");
+        return false;
+      }
+
+      await messaging().registerDeviceForRemoteMessages();
+      await messaging().getToken();
+      showToast("Notifications are enabled.");
+      return true;
+    } catch (error) {
+      showToast("Could not update notification permission.");
+      return false;
+    }
   };
 
   // --- IMAGE PICKER HANDLER ---
@@ -178,8 +223,7 @@ export default function Profile() {
         ...data.user,
         id: data?.user?.id || data?.user?._id || prev?.id,
       }));
-      const uploadedImagePath =
-        getUserImageUri(data?.user?.image) || null;
+      const uploadedImagePath = getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
       setFile(null);
       showToast("Image updated!");
@@ -370,7 +414,8 @@ export default function Profile() {
               Font Size
             </Text>
             <Text style={styles.settingSub}>
-              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max ({MOBILE_FONT_MAX.toFixed(2)}x)
+              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
+              ({MOBILE_FONT_MAX.toFixed(2)}x)
             </Text>
             <Slider
               minimumValue={MOBILE_FONT_RECOMMENDED}
@@ -397,31 +442,50 @@ export default function Profile() {
                 >
                   Enable Notifications
                 </Text>
-                <Text style={styles.settingSub}>
-                  Permission: {notificationPermission}
-                </Text>
+                <Text style={styles.settingSub}>Managed by device settings.</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
                 onValueChange={async (value) => {
                   if (value) {
-                    const permissionRequest =
-                      await Notifications.requestPermissionsAsync();
-                    const status = permissionRequest.status || "undetermined";
-                    setNotificationPermission(status);
-                    if (status !== "granted") {
-                      setNotificationsEnabled(false);
-                      await saveSettings({ notificationsEnabled: false });
-                      showToast("Notification permission not granted.");
-                      return;
-                    }
+                    const granted = await requestNotificationPermission();
+                    setNotificationsEnabled(granted);
+                    await saveSettings({ notificationsEnabled: granted });
+                    return;
                   }
-                  setNotificationsEnabled(value);
-                  await saveSettings({ notificationsEnabled: value });
-                  showToast("Notification preference saved.");
+
+                  setNotificationsEnabled(false);
+                  await saveSettings({ notificationsEnabled: false });
+                  showToast(
+                    "Notifications toggled off in app. You can re-enable from device settings.",
+                  );
                 }}
               />
             </View>
+            <Button
+              mode="outlined"
+              style={styles.fullWidthButton}
+              onPress={async () => {
+                const granted = await requestNotificationPermission();
+                setNotificationsEnabled(granted);
+                await saveSettings({ notificationsEnabled: granted });
+                if (!granted) {
+                  Alert.alert(
+                    "Permission required",
+                    "Please enable notifications in your device settings.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Open Settings",
+                        onPress: () => Linking.openSettings(),
+                      },
+                    ],
+                  );
+                }
+              }}
+            >
+              Request Notification Permission
+            </Button>
           </Card.Content>
         </Card>
       )}
@@ -448,7 +512,7 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#eee",
   },
-  userName: { marginTop: 12, fontSize: 14, fontWeight: "600"},
+  userName: { marginTop: 12, fontSize: 14, fontWeight: "600" },
   userRole: { fontSize: 12, color: "#666", marginTop: 4 },
   segmented: { marginTop: 10 },
   input: { marginBottom: 16, backgroundColor: "#fff" },
@@ -471,7 +535,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600"},
+  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   settingsTitle: {
     fontWeight: "700",
     marginBottom: 14,

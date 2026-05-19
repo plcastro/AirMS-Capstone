@@ -1,10 +1,13 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
+import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import {
   EmptyState,
   FieldRow,
@@ -29,6 +32,18 @@ const referenceFields = [
 
 const COMPONENT_DISPLAY_LIMIT = 10;
 
+const formatDateInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
+};
+
+const parsePickerDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
 const normalizeRef = (referenceData = {}) => ({
   today: referenceData.today
     ? new Date(referenceData.today).toISOString().slice(0, 10)
@@ -40,15 +55,6 @@ const normalizeRef = (referenceData = {}) => ({
   landings: referenceData.landings ?? 0,
   referenceCells: referenceData.referenceCells || {},
 });
-
-const normalizeDateText = (value) => {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isNaN(date.getTime())) {
-    return date.toISOString().slice(0, 10);
-  }
-  return String(value);
-};
 
 const getPartStatus = (part = {}) => {
   const dueText = String(part.due || "").toLowerCase();
@@ -68,8 +74,8 @@ const getPartStatus = (part = {}) => {
 
 export default function PartsLifespanMonitoring() {
   const { user } = useContext(AuthContext);
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
+  const canEditParts = ["maintenance manager", "admin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [search, setSearch] = useState("");
@@ -80,6 +86,7 @@ export default function PartsLifespanMonitoring() {
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
   const [componentPage, setComponentPage] = useState(0);
+  const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const fetchAircraftList = useCallback(async () => {
     try {
@@ -142,7 +149,9 @@ export default function PartsLifespanMonitoring() {
 
   const filteredParts = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const cleanParts = parts.filter((part) => part.rowType !== "header");
+    const cleanParts = parts
+      .map((part, index) => ({ ...part, __sourceIndex: index }))
+      .filter((part) => part.rowType !== "header");
     if (!needle) return cleanParts;
     return cleanParts.filter((part) =>
       [
@@ -189,27 +198,64 @@ export default function PartsLifespanMonitoring() {
     setComponentPage(0);
   }, [search, selectedAircraft]);
 
+  const updatePartField = (sourceIndex, field, value) => {
+    setParts((currentParts) =>
+      currentParts.map((part, index) =>
+        index === sourceIndex ? { ...part, [field]: value } : part,
+      ),
+    );
+  };
+
+  const openDatePicker = (target) => {
+    if (!canEditParts) return;
+    setDatePickerTarget(target);
+  };
+
+  const handleDatePickerChange = (event, selectedDate) => {
+    const target = datePickerTarget;
+    setDatePickerTarget(null);
+
+    if (event?.type === "dismissed" || !selectedDate || !target) {
+      return;
+    }
+
+    const nextValue = selectedDate.toISOString().slice(0, 10);
+    if (target.type === "ref") {
+      setRefs((current) => ({ ...current, [target.key]: nextValue }));
+      return;
+    }
+
+    updatePartField(target.sourceIndex, target.field, nextValue);
+  };
+
   const saveToDatabase = async () => {
     if (!selectedAircraft) {
       showToast("Select an aircraft before saving.");
       return;
     }
 
+    const confirmed = await confirmAction({
+      title: "Save Parts Lifespan Data",
+      message: `Save current parts lifespan values for ${selectedAircraft}?`,
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       setSaving(true);
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({
+          "x-action-confirmed": "true",
+        }),
         body: JSON.stringify({
           aircraft: selectedAircraft,
-          dateManufactured: aircraftDetails.dateManufactured || null,
-          aircraftType: aircraftDetails.aircraftType || "",
-          creepDamage: aircraftDetails.creepDamage || "",
           referenceData: {
             ...refs,
             today: new Date(refs.today),
           },
           parts,
+          confirmAction: true,
           updatedBy: user
             ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
             : "mobile user",
@@ -227,43 +273,6 @@ export default function PartsLifespanMonitoring() {
       setSaving(false);
     }
   };
-
-  const updateAircraftDetail = (field, value) => {
-    setAircraftDetails((current) => ({ ...current, [field]: value }));
-  };
-
-  const updatePartField = (partIndex, field, value) => {
-    setParts((currentParts) =>
-      currentParts.map((part) =>
-        part.rowType !== "header" && part._id === partIndex
-          ? { ...part, [field]: value }
-          : part,
-      ),
-    );
-  };
-
-  const renderEditableDate = ({ label, value, onChangeText }) => (
-    <View style={{ width: "48%", marginBottom: 8 }}>
-      <Text style={moduleStyles.label}>{label}</Text>
-      <TextInput
-        value={value || ""}
-        editable={!isOfficerInCharge}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor={COLORS.grayDark}
-        onChangeText={onChangeText}
-        style={{
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          marginTop: 5,
-          backgroundColor: isOfficerInCharge ? COLORS.grayLight : COLORS.white,
-          color: COLORS.black,
-        }}
-      />
-    </View>
-  );
 
   return (
     <ModuleContainer>
@@ -295,12 +304,7 @@ export default function PartsLifespanMonitoring() {
       {!!selectedAircraft && (
         <InfoCard title={selectedAircraft} subtitle={aircraftDetails.aircraftType || "Aircraft details"}>
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {renderEditableDate({
-              label: "Date Manufactured",
-              value: normalizeDateText(aircraftDetails.dateManufactured),
-              onChangeText: (value) =>
-                updateAircraftDetail("dateManufactured", value),
-            })}
+            <FieldRow label="Date Manufactured" value={formatDate(aircraftDetails.dateManufactured)} />
             <FieldRow label="Serial Number" value={aircraftDetails.serialNumber} />
             <FieldRow label="Creep Damage" value={aircraftDetails.creepDamage ? `${aircraftDetails.creepDamage}%` : "N/A"} />
             <FieldRow label="Tracked Components" value={summary.total} />
@@ -316,27 +320,47 @@ export default function PartsLifespanMonitoring() {
             {referenceFields.map(([key, label]) => (
               <View key={key} style={{ width: "48%" }}>
                 <Text style={moduleStyles.label}>{label}</Text>
-                <TextInput
-                  value={String(refs[key] ?? "")}
-                  editable={!isOfficerInCharge}
-                  keyboardType={key === "today" ? "default" : "numeric"}
-                  onChangeText={(value) =>
-                    setRefs((current) => ({ ...current, [key]: value }))
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: isOfficerInCharge ? COLORS.grayLight : COLORS.white,
-                  }}
-                />
+                {key === "today" ? (
+                  <TouchableOpacity
+                    disabled={!canEditParts}
+                    onPress={() => openDatePicker({ type: "ref", key })}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 10,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  >
+                    <Text style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
+                      {formatDateInput(refs[key]) || "Select date"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TextInput
+                    value={String(refs[key] ?? "")}
+                    editable={canEditParts}
+                    keyboardType="numeric"
+                    onChangeText={(value) =>
+                      setRefs((current) => ({ ...current, [key]: value }))
+                    }
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  />
+                )}
               </View>
             ))}
           </View>
-          {!isOfficerInCharge && (
+          {canEditParts && (
             <TouchableOpacity
               style={[moduleStyles.button, { marginTop: 12 }]}
               onPress={saveToDatabase}
@@ -383,23 +407,110 @@ export default function PartsLifespanMonitoring() {
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
               <FieldRow label="Days Remaining" value={part.daysRemaining} />
               <FieldRow label="Time Remaining" value={part.timeRemaining} />
-              {renderEditableDate({
-                label: "Date C/W",
-                value: part.dateCW || "",
-                onChangeText: (value) => updatePartField(part._id, "dateCW", value),
-              })}
-              {renderEditableDate({
-                label: "Date Due",
-                value: part.dateDue || "",
-                onChangeText: (value) => updatePartField(part._id, "dateDue", value),
-              })}
+              <FieldRow label="Date Due" value={part.dateDue} />
               <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
-              <FieldRow label="HRS C/W" value={part.hoursCW} />
-              <FieldRow label="Total Time Since New" value={part.totalTimeSinceNew} />
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>HRS C/W</Text>
+                <TextInput
+                  value={String(part.hoursCW ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "hoursCW", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>TIME SINCE INSTALLATION</Text>
+                <TextInput
+                  value={String(part.timeSinceInstall ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "timeSinceInstall", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>TOTAL TIME SINCE NEW</Text>
+                <TextInput
+                  value={String(part.totalTimeSinceNew ?? "")}
+                  editable={canEditParts}
+                  keyboardType="numeric"
+                  onChangeText={(value) =>
+                    updatePartField(part.__sourceIndex, "totalTimeSinceNew", value)
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                />
+              </View>
+              <View style={{ width: "48%" }}>
+                <Text style={moduleStyles.label}>DATE C/W</Text>
+                <TouchableOpacity
+                  disabled={!canEditParts}
+                  onPress={() =>
+                    openDatePicker({
+                      type: "part",
+                      sourceIndex: part.__sourceIndex,
+                      field: "dateCW",
+                    })
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.grayMedium,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 10,
+                    marginTop: 5,
+                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                  }}
+                >
+                  <Text style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
+                    {formatDateInput(part.dateCW) || "Select date"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </InfoCard>
         );
       })}
+      {datePickerTarget && (
+        <DateTimePicker
+          value={parsePickerDate(
+            datePickerTarget.type === "ref"
+              ? refs[datePickerTarget.key]
+              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
+          )}
+          mode="date"
+          display="default"
+          onChange={handleDatePickerChange}
+        />
+      )}
       {selectedAircraft && filteredParts.length > COMPONENT_DISPLAY_LIMIT && (
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
           <TouchableOpacity

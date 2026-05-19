@@ -7,7 +7,7 @@ const normalizePlatform = (value = "") => {
   if (normalized === "WEB" || normalized === "MOBILE") {
     return normalized;
   }
-  return "UNKNOWN";
+  return null;
 };
 
 const normalizeBase = (value = "") => {
@@ -15,7 +15,7 @@ const normalizeBase = (value = "") => {
   if (["MANILA", "CEBU", "CDO"].includes(normalized)) {
     return normalized;
   }
-  return "UNKNOWN";
+  return null;
 };
 
 const requestContextMiddleware = (req, _res, next) => {
@@ -44,11 +44,11 @@ const updateRequestContext = (updates = {}) => {
   }
   if (Object.prototype.hasOwnProperty.call(updates, "platform")) {
     const platform = normalizePlatform(updates.platform);
-    store.platform = platform === "UNKNOWN" ? store.platform : platform;
+    store.platform = platform || store.platform || null;
   }
   if (Object.prototype.hasOwnProperty.call(updates, "base")) {
     const base = normalizeBase(updates.base);
-    store.base = base === "UNKNOWN" ? store.base : base;
+    store.base = base || store.base || null;
   }
 };
 

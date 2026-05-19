@@ -19,6 +19,7 @@ import {
   ROLE_MAP,
   ROLES_REQUIRING_LICENSE,
 } from "./constants";
+import AlertComp from "../AlertComp";
 
 const buildUsername = ({ firstName, lastName, users = [], currentUserId = "" }) => {
   const safeFirst = String(firstName || "").trim();
@@ -72,6 +73,7 @@ export default function UserFormModal({
   const [imageUri, setImageUri] = useState("");
   const [pickedImageAsset, setPickedImageAsset] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -114,6 +116,31 @@ export default function UserFormModal({
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+  const hasUnsavedChanges = () => {
+    const baseline = isEdit
+      ? {
+          firstName: userToEdit?.firstName || "",
+          lastName: userToEdit?.lastName || "",
+          email: userToEdit?.email || "",
+          username: userToEdit?.username || "",
+          jobTitle: userToEdit?.jobTitle || "",
+          base: userToEdit?.base || "",
+          access: userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
+          licenseNo: userToEdit?.licenseNo || "",
+        }
+      : emptyForm;
+    const formChanged = JSON.stringify(form) !== JSON.stringify(baseline);
+    const imageChanged = Boolean(pickedImageAsset?.uri);
+    return formChanged || imageChanged;
+  };
+  const handleCancelWithWarning = () => {
+    if (saving) return;
+    if (!hasUnsavedChanges()) {
+      onClose?.();
+      return;
+    }
+    setShowDiscardAlert(true);
   };
 
   const validateAndSubmit = () => {
@@ -203,11 +230,12 @@ export default function UserFormModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{isEdit ? "Edit User" : "Add User"}</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
+    <>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancelWithWarning}>
+        <View style={styles.backdrop}>
+          <View style={styles.card}>
+            <Text style={styles.title}>{isEdit ? "Edit User" : "Add User"}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.label}>Profile Image</Text>
             <View style={styles.imageRow}>
               <View style={styles.imagePreviewWrap}>
@@ -317,19 +345,32 @@ export default function UserFormModal({
             ) : null}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
-          </ScrollView>
+            </ScrollView>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.btn, styles.secondary]} onPress={onClose} disabled={saving}>
-              <Text style={styles.secondaryTxt}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.primary]} onPress={validateAndSubmit} disabled={saving}>
-              <Text style={styles.primaryTxt}>{saving ? "Saving..." : isEdit ? "Save" : "Create"}</Text>
-            </TouchableOpacity>
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.btn, styles.secondary]} onPress={handleCancelWithWarning} disabled={saving}>
+                <Text style={styles.secondaryTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, styles.primary]} onPress={validateAndSubmit} disabled={saving}>
+                <Text style={styles.primaryTxt}>{saving ? "Saving..." : isEdit ? "Save" : "Create"}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={showDiscardAlert}
+        title="Discard changes?"
+        message="You have unsaved changes. Cancel and discard them?"
+        cancelText="Keep editing"
+        confirmText="Discard"
+        onCancel={() => setShowDiscardAlert(false)}
+        onConfirm={() => {
+          setShowDiscardAlert(false);
+          onClose?.();
+        }}
+      />
+    </>
   );
 }
 
