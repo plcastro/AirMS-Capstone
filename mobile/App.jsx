@@ -107,7 +107,7 @@ function DrawerNav({ navigation }) {
   const canAccessMechanics = ["maintenance manager", "admin"].includes(
     normalizedRole,
   );
-  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
+  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessPartsRequisition = [
