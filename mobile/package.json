@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "set NODE_ENV=development&& expo start",
-    "android": "set NODE_ENV=development&& expo run:android",
-    "ios": "set NODE_ENV=development&& expo run:ios",
-    "web": "set NODE_ENV=development&& expo start --web",
-    "eas-build-pre-install": "node scripts/write-google-services.js",
-    "build:apk": "set NODE_ENV=production&& npx eas-cli build -p android --profile preview",
-    "build:aab": "set NODE_ENV=production&& npx eas-cli build -p android --profile production"
+    "start": "npx expo start",
+    "android": "npx expo run:android",
+    "ios": "npx expo run:ios",
+    "web": "npx expo start --web",
+    "eas-build-pre-install": "npx node scripts/write-google-services.js",
+    "build:apk": "npx eas-cli build -p android --profile preview",
+    "build:aab": "npx eas-cli build -p android --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
