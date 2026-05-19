@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "npx expo start --dev-client",
+    "start": "npx expo start --dev-client --scheme airms",
     "start:go": "npx expo start",
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
