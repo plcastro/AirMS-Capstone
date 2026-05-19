@@ -1,6 +1,23 @@
 const fs = require("fs");
 const path = require("path");
 
+const gradlePropertiesPath = path.join(
+  process.cwd(),
+  "android",
+  "gradle.properties",
+);
+
+if (fs.existsSync(gradlePropertiesPath)) {
+  const current = fs.readFileSync(gradlePropertiesPath, "utf8");
+  const next = current.includes("hermesEnabled=")
+    ? current.replace(/^hermesEnabled=.*$/m, "hermesEnabled=true")
+    : `${current.trimEnd()}\nhermesEnabled=true\n`;
+  fs.writeFileSync(gradlePropertiesPath, next);
+  console.log("Forced android/gradle.properties hermesEnabled=true");
+} else {
+  console.log("android/gradle.properties not found yet; Expo prebuild will generate it.");
+}
+
 const hermescPath = path.join(
   process.cwd(),
   "node_modules",
