@@ -534,6 +534,8 @@ export default function App() {
       const result = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
       );
+      console.log("Result: " + result);
+      console.log("Result2: " + PermissionsAndroid.RESULTS.GRANTED);
       if (result === PermissionsAndroid.RESULTS.GRANTED) {
         //request for device token
         showToast("Notification permission granted");
