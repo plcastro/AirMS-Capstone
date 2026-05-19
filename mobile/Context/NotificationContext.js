@@ -365,6 +365,7 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
+            expoPushToken: fcmToken,
             fcmToken,
             platform: Platform.OS,
           }),
