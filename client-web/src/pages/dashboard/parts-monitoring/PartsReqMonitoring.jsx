@@ -6,13 +6,13 @@
   useEffect,
 } from "react";
 import {
+  App as AntdApp,
   Alert,
   Button,
   Col,
   Form,
   Input,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
@@ -88,6 +88,7 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
+  const { message } = AntdApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -146,22 +147,8 @@ export default function PartsReqMonitoring() {
     [warehouseRequisitions],
   );
 
-  const tabItems = useMemo(
-    () => [
-      {
-        key: "pending",
-        label: `${userRole === "maintenance manager" ? "For Review" : "Pending"} (${stats.pending})`,
-      },
-      {
-        key: "completed",
-        label: `${userRole === "maintenance manager" ? "Closed" : "Completed"} (${stats.completed})`,
-      },
-    ],
-    [stats, userRole],
-  );
-
   const statusFilters = useMemo(() => {
-    const allFilters = [
+    const pendingFilters = [
       {
         key: "all",
         title: "All",
@@ -201,41 +188,8 @@ export default function PartsReqMonitoring() {
       },
     ];
 
-    const completedFilters = [
-      {
-        key: "all",
-        title: "All",
-        icon: <FileDoneOutlined />,
-        count: warehouseRequisitions.filter((r) =>
-          ["Delivered", "Completed", "Cancelled"].includes(r.status),
-        ).length,
-      },
-    ];
-
-    return activeTab === "completed" ? completedFilters : pendingFilters;
-  }, [activeTab, userRole, warehouseRequisitions]);
-
-  const statusOptions = useMemo(() => {
-    const pendingStatuses = [
-      "Parts Requested",
-      "Availability Checked",
-      "To Be Ordered",
-      "Ordered",
-      "Approved",
-    ];
-    const completedStatuses = ["Delivered", "Completed", "Cancelled"];
-
-    const statusesForTab =
-      activeTab === "completed" ? completedStatuses : pendingStatuses;
-
-    return [
-      { value: "all", label: "All Statuses" },
-      ...statusesForTab.map((status) => ({
-        value: status,
-        label: status === "Ordered" ? "Restocked" : status,
-      })),
-    ];
-  }, [activeTab]);
+    return pendingFilters;
+  }, [warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
