@@ -7,13 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState, Platform, PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate, navigationRef } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
 import { showToast } from "../utilities/toast";
+import { consumePushInbox } from "../utilities/pushInbox";
 import messaging from "@react-native-firebase/messaging";
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
@@ -230,6 +231,7 @@ export function NotificationProvider({ children }) {
     deviceId: "",
     fcmToken: "",
   });
+  const pushRegistrationInFlightRef = useRef(false);
 
   // const isExpoGo = Constants?.appOwnership === "expo";
 
@@ -308,25 +310,38 @@ export function NotificationProvider({ children }) {
 
   const registerPushTokenWithServer = useCallback(async () => {
     if (Platform.OS === "web" || !user?.id) return;
+    if (pushRegistrationInFlightRef.current) return;
 
     try {
+      pushRegistrationInFlightRef.current = true;
       const authToken = await getStoredToken();
       if (!authToken) return;
 
       await messaging().registerDeviceForRemoteMessages();
 
-      const authorizationStatus = await messaging().requestPermission();
+      let enabled = true;
 
-      const enabled =
-        authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      if (Platform.OS === "ios") {
+        const authorizationStatus = await messaging().requestPermission();
+        enabled =
+          authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      } else if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const result = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        enabled = result === true;
+      }
 
       if (!enabled) {
-        console.log("Push permission denied");
+        console.log("Push permission denied or not granted yet");
         return;
       }
 
       const fcmToken = await messaging().getToken();
+      if (!fcmToken) {
+        throw new Error("Empty FCM token returned by messaging().getToken()");
+      }
       console.log("FCM Token:", fcmToken);
       const deviceId = await getDeviceInstallationId();
 
@@ -357,7 +372,10 @@ export function NotificationProvider({ children }) {
       );
 
       if (!response.ok) {
-        throw new Error("Push registration failed");
+        const errorBody = await response.text().catch(() => "");
+        throw new Error(
+          `Push registration failed (${response.status}) ${errorBody}`,
+        );
       }
 
       lastRegisteredPushRef.current = {
@@ -369,6 +387,8 @@ export function NotificationProvider({ children }) {
       console.log("FCM registration success");
     } catch (error) {
       console.error("FCM registration error:", error);
+    } finally {
+      pushRegistrationInFlightRef.current = false;
     }
   }, [getDeviceInstallationId, user?.id]);
 
@@ -908,14 +928,37 @@ export function NotificationProvider({ children }) {
       appStateRef.current = nextState;
       if (wasBackground && nextState === "active") {
         registerPushTokenWithServer();
+        consumePushInbox().then((queuedMessages) => {
+          if (!queuedMessages.length) return;
+          scheduleRefresh("push-background-queued");
+
+          const latestNavigable = queuedMessages.find(
+            (item) => item?.data && Object.keys(item.data).length > 0,
+          );
+          if (latestNavigable?.data) {
+            openNotificationTarget(latestNavigable.data);
+          }
+        });
       }
     });
 
     return () => subscription.remove();
-  }, [registerPushTokenWithServer, scheduleRefresh]);
+  }, [openNotificationTarget, registerPushTokenWithServer, scheduleRefresh]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
+
+    consumePushInbox().then((queuedMessages) => {
+      if (!queuedMessages.length) return;
+      scheduleRefresh("push-background-queued");
+
+      const latestNavigable = queuedMessages.find(
+        (item) => item?.data && Object.keys(item.data).length > 0,
+      );
+      if (latestNavigable?.data) {
+        openNotificationTarget(latestNavigable.data);
+      }
+    });
 
     const unsubscribeForeground = messaging().onMessage(
       async (remoteMessage) => {

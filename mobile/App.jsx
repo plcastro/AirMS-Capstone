@@ -7,7 +7,6 @@ import {
   View,
   Modal,
   Pressable,
-  Alert,
   PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -544,20 +543,39 @@ export default function App() {
   };
   const requestPermission = async () => {
     try {
-      const result = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-      );
-      console.log("Result: " + result);
-      console.log("Result2: " + PermissionsAndroid.RESULTS.GRANTED);
-      if (result === PermissionsAndroid.RESULTS.GRANTED) {
-        //request for device token
-        showToast("Notification permission granted");
-        console.log("Notification permission granted");
-        requestToken();
-      } else {
-        showToast("Notification permission denied");
-        console.log("Notification permission denied");
+      if (Platform.OS === "web") return;
+
+      if (Platform.OS === "ios") {
+        const authStatus = await messaging().requestPermission();
+        const granted =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (granted) {
+          showToast("Notification permission granted");
+          await requestToken();
+        } else {
+          showToast("Notification permission denied");
+        }
+        return;
       }
+
+      // Android 13+ requires POST_NOTIFICATIONS runtime permission.
+      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const result = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (result === PermissionsAndroid.RESULTS.GRANTED) {
+          showToast("Notification permission granted");
+          await requestToken();
+        } else {
+          showToast("Notification permission denied");
+        }
+        return;
+      }
+
+      // Android 12 and below grant notifications at install time.
+      await requestToken();
     } catch (error) {
       console.log(error);
     }
