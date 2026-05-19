@@ -18,7 +18,7 @@ const otpRequestLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
   handler: (req, res) => {
     res.status(429).json({
       message: "Too many OTP requests, please try again later.",

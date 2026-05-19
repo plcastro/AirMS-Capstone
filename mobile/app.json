@@ -2,8 +2,13 @@
   "expo": {
     "name": "AirMS",
     "slug": "AirMS",
+    "owner": "kikobuddha",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -16,15 +21,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arckexe.airms"
+      "bundleIdentifier": "com.airms"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECORD_AUDIO"
       ],
-      "googleServicesFile": "./google-services.json",
-      "package": "com.arckexe.airms",
+      "package": "com.airms",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
@@ -37,7 +42,7 @@
       "favicon": "./assets/AirMS_mobile.png"
     },
     "plugins": [
-      "expo-dev-client",
+      "@react-native-firebase/app",
       "@react-native-community/datetimepicker",
       "expo-font",
       [
@@ -52,12 +57,11 @@
         {
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
         }
-      ],
-      "expo-secure-store"
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
+        "projectId": "da1fb019-e4e9-4be0-b593-d58faac70084"
       }
     }
   }
