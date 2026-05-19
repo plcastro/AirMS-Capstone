@@ -164,7 +164,7 @@ export default function TaskAssignment() {
     mode: null,
   });
   const role = user?.jobTitle?.toLowerCase() || "";
-  const isManager = role === "maintenance manager";
+  const isManager = ["maintenance manager", "admin"].includes(role);
   const watchedInspectionType = Form.useWatch("inspectionType", form);
   const rawChecklistItems = Form.useWatch("checklistItems", form);
   const watchedChecklistItems = useMemo(
