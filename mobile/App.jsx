@@ -421,32 +421,44 @@ function StackNavWrapper() {
 
 function AppShell({ linking }) {
   const {
+    user,
     recordActivity,
     showSessionTimeoutWarning,
     warningSecondsRemaining,
     continueSession,
     logoutUser,
   } = useContext(AuthContext);
+  const shouldShowSessionWarning =
+    Boolean(user) &&
+    showSessionTimeoutWarning === true &&
+    Number.isFinite(warningSecondsRemaining) &&
+    warningSecondsRemaining > 0;
 
   return (
     <View
       style={{ flex: 1 }}
       onStartShouldSetResponderCapture={() => {
-        recordActivity?.();
+        if (user) {
+          recordActivity?.();
+        }
         return false;
       }}
     >
       <NavigationContainer
         linking={linking}
         ref={navigationRef}
-        onStateChange={() => recordActivity?.()}
+        onStateChange={() => {
+          if (user) {
+            recordActivity?.();
+          }
+        }}
       >
         <StackNavWrapper />
       </NavigationContainer>
       <Modal
         transparent
         animationType="fade"
-        visible={showSessionTimeoutWarning}
+        visible={shouldShowSessionWarning}
         onRequestClose={() => continueSession?.()}
       >
         <View
@@ -475,7 +487,8 @@ function AppShell({ linking }) {
               you&apos;ll be signed out in 2 minutes unless you continue.
             </Text>
             <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
-              Auto sign-out in {warningSecondsRemaining} seconds.
+              Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
+              seconds.
             </Text>
             <View
               style={{
