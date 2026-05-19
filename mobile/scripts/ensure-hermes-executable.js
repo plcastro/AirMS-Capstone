@@ -18,6 +18,31 @@ if (fs.existsSync(gradlePropertiesPath)) {
   console.log("android/gradle.properties not found yet; Expo prebuild will generate it.");
 }
 
+const workletsBuildGradlePath = path.join(
+  process.cwd(),
+  "node_modules",
+  "react-native-worklets",
+  "android",
+  "build.gradle",
+);
+
+if (fs.existsSync(workletsBuildGradlePath)) {
+  const current = fs.readFileSync(workletsBuildGradlePath, "utf8");
+  const next = current.replace(
+    /def JS_RUNTIME = \{[\s\S]*?\}\.call\(\)/,
+    'def JS_RUNTIME = "hermes"',
+  );
+
+  if (next !== current) {
+    fs.writeFileSync(workletsBuildGradlePath, next);
+    console.log("Forced react-native-worklets JS_RUNTIME=hermes");
+  } else {
+    console.log("react-native-worklets JS_RUNTIME already forced or block not found.");
+  }
+} else {
+  console.log("react-native-worklets build.gradle not found; skipping runtime patch.");
+}
+
 const hermescPath = path.join(
   process.cwd(),
   "node_modules",
