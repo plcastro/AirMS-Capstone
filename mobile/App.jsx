@@ -22,7 +22,7 @@ import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
-
+import messaging from "@react-native-firebase/messaging";
 import Dashboard from "./Layout/Dashboard";
 
 import DrawerContent from "./components/DrawerContent";
@@ -540,6 +540,7 @@ export default function App() {
         //request for device token
         showToast("Notification permission granted");
         console.log("Notification permission granted");
+        requestToken();
       } else {
         showToast("Notification permission denied");
         console.log("Notification permission denied");
@@ -553,6 +554,15 @@ export default function App() {
     requestPermission();
   }, []);
 
+  const requestToken = async () => {
+    try {
+      await messaging().registerDeviceForRemoteMessages();
+      const token = await messaging().getToken();
+      console.log("Device token:", token);
+    } catch (error) {
+      console.log(error);
+    }
+  };
   return (
     <AuthProvider>
       <NotificationProvider>
