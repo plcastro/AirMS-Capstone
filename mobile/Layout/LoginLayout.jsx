@@ -23,7 +23,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
   });
 
   return (
-    <View style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       {/* HERO (NOT SCROLLABLE) */}
       <View style={[styles.imageContainer, { height: heroHeight }]}>
         <Animated.Image
@@ -73,11 +73,16 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 
         {children}
       </Animated.ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#ffffff00",
+  },
+
   imageContainer: {
     width: "100%",
     position: "relative",
