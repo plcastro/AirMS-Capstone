@@ -19,7 +19,7 @@ import {
 } from "react-native-paper";
 import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
-import * as Notifications from "expo-notifications";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -35,8 +35,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [notificationPermission, setNotificationPermission] =
-    useState("undetermined");
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
@@ -75,7 +73,9 @@ export default function Profile() {
             medium: 1,
             large: 1.1,
           };
-          setFontScalePreference(legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED);
+          setFontScalePreference(
+            legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED,
+          );
         }
         setNotificationsEnabled(
           typeof stored.notificationsEnabled === "boolean"
@@ -84,10 +84,6 @@ export default function Profile() {
         );
       } catch {}
 
-      try {
-        const permissionStatus = await Notifications.getPermissionsAsync();
-        setNotificationPermission(permissionStatus.status || "undetermined");
-      } catch {}
     };
 
     loadSettings();
@@ -178,8 +174,7 @@ export default function Profile() {
         ...data.user,
         id: data?.user?.id || data?.user?._id || prev?.id,
       }));
-      const uploadedImagePath =
-        getUserImageUri(data?.user?.image) || null;
+      const uploadedImagePath = getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
       setFile(null);
       showToast("Image updated!");
@@ -370,7 +365,8 @@ export default function Profile() {
               Font Size
             </Text>
             <Text style={styles.settingSub}>
-              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max ({MOBILE_FONT_MAX.toFixed(2)}x)
+              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
+              ({MOBILE_FONT_MAX.toFixed(2)}x)
             </Text>
             <Slider
               minimumValue={MOBILE_FONT_RECOMMENDED}
@@ -397,25 +393,11 @@ export default function Profile() {
                 >
                   Enable Notifications
                 </Text>
-                <Text style={styles.settingSub}>
-                  Permission: {notificationPermission}
-                </Text>
+                <Text style={styles.settingSub}>Managed by device settings.</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
                 onValueChange={async (value) => {
-                  if (value) {
-                    const permissionRequest =
-                      await Notifications.requestPermissionsAsync();
-                    const status = permissionRequest.status || "undetermined";
-                    setNotificationPermission(status);
-                    if (status !== "granted") {
-                      setNotificationsEnabled(false);
-                      await saveSettings({ notificationsEnabled: false });
-                      showToast("Notification permission not granted.");
-                      return;
-                    }
-                  }
                   setNotificationsEnabled(value);
                   await saveSettings({ notificationsEnabled: value });
                   showToast("Notification preference saved.");
@@ -448,7 +430,7 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#eee",
   },
-  userName: { marginTop: 12, fontSize: 14, fontWeight: "600"},
+  userName: { marginTop: 12, fontSize: 14, fontWeight: "600" },
   userRole: { fontSize: 12, color: "#666", marginTop: 4 },
   segmented: { marginTop: 10 },
   input: { marginBottom: 16, backgroundColor: "#fff" },
@@ -471,7 +453,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600"},
+  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   settingsTitle: {
     fontWeight: "700",
     marginBottom: 14,

@@ -17,7 +17,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.airms"
+      "bundleIdentifier": "com.arckexe.airms"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -25,7 +25,7 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.airms",
+      "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/AirMS_mobile.png",
@@ -41,13 +41,7 @@
       "@react-native-firebase/app",
       "@react-native-community/datetimepicker",
       "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/AirMS_mobile.png",
-          "color": "#26866F"
-        }
-      ],
+
       [
         "expo-image-picker",
         {

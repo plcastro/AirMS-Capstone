@@ -7,6 +7,8 @@ import {
   View,
   Modal,
   Pressable,
+  Alert,
+  PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -15,6 +17,7 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
+import { showToast } from "./utilities/toast";
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
@@ -69,7 +72,9 @@ const Screens = {
     () => require("./screens/Main/PostInspection").default,
   ),
   Tasks: withDashboard(() => require("./screens/Main/TaskAssignment").default),
-  Mechanics: withDashboard(() => require("./screens/Main/MechanicList").default),
+  Mechanics: withDashboard(
+    () => require("./screens/Main/MechanicList").default,
+  ),
   PartsLifespanMonitoring: withDashboard(
     () => require("./screens/Main/PartsLifespanMonitoring").default,
   ),
@@ -524,6 +529,27 @@ export default function App() {
       },
     },
   };
+  const requestPermission = async () => {
+    try {
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+      if (result === PermissionsAndroid.RESULTS.GRANTED) {
+        //request for device token
+        showToast("Notification permission granted");
+        console.log("Notification permission granted");
+      } else {
+        showToast("Notification permission denied");
+        console.log("Notification permission denied");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    requestPermission();
+  }, []);
 
   return (
     <AuthProvider>

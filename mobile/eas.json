@@ -7,6 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "NODE_ENV": "development",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
@@ -24,6 +25,7 @@
     },
     "preview": {
       "env": {
+        "NODE_ENV": "preview",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
@@ -41,6 +43,7 @@
     },
     "production": {
       "env": {
+        "NODE_ENV": "production",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
         "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",

@@ -9,8 +9,6 @@ import React, {
 } from "react";
 import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// import Constants from "expo-constants";
-// import * as Device from "expo-device";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate, navigationRef } from "../utilities/navigationRef";
