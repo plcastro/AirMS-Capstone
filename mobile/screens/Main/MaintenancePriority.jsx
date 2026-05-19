@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
-import { formatDate } from "../../utilities/mobileApi";
+import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { confirmAction } from "../../utilities/confirmAction";
 import {
   EmptyState,
   FieldRow,
@@ -155,14 +156,26 @@ export default function MaintenancePriority() {
   }, [search]);
 
   const saveRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Save Priority Rules",
+      message: "Save these maintenance priority thresholds as default rules?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       setSaving(true);
       const response = await fetch(
         `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draftRules),
+          headers: await getAuthHeaders({
+            "x-action-confirmed": "true",
+          }),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
@@ -183,6 +196,13 @@ export default function MaintenancePriority() {
   };
 
   const applyRules = async () => {
+    const confirmed = await confirmAction({
+      title: "Apply Priority Rules",
+      message: "Apply these rule thresholds now?",
+      confirmText: "Apply",
+    });
+    if (!confirmed) return;
+
     try {
       setLoading(true);
       setRules(draftRules);

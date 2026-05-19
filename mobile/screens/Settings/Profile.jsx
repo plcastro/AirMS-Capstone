@@ -7,6 +7,8 @@ import {
   Image,
   Alert,
   Platform,
+  PermissionsAndroid,
+  Linking,
 } from "react-native";
 import {
   Card,
@@ -15,36 +17,32 @@ import {
   TextInput,
   Avatar,
   Text,
+  Switch,
 } from "react-native-paper";
+import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
+import messaging from "@react-native-firebase/messaging";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DefaultAvatar from "../../assets/images/default_avatar.jpg";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import { showToast } from "../../utilities/toast";
+import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
 
   const [activeTab, setActiveTab] = useState("info");
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "" });
   const [previewUri, setPreviewUri] = useState(null);
   const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
+  const [fontScalePreference, setFontScalePreference] = useState(1);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
-  // --- VALIDATION LOGIC ---
-  const hasNumbers = (text) => /\d/.test(text);
-  const hasChanges =
-    formData.firstName !== user?.firstName ||
-    formData.lastName !== user?.lastName;
-
-  const isSaveDisabled =
-    hasNumbers(formData.firstName) ||
-    hasNumbers(formData.lastName) ||
-    formData.firstName.trim() === "" ||
-    formData.lastName.trim() === "" ||
-    !hasChanges;
+  const MOBILE_FONT_RECOMMENDED = 1;
+  const MOBILE_FONT_MAX = 1.3;
+  const fontScale = Number(fontScalePreference) || 1;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -59,16 +57,100 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-      });
-      const imgPath = user.image?.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image || DefaultAvatar}`;
-      setPreviewUri(imgPath);
+      setPreviewUri(getUserImageUri(user.image));
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const stored = JSON.parse(
+          (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
+        );
+        const storedFont = stored.fontSizePreference;
+        if (typeof storedFont === "number") {
+          setFontScalePreference(storedFont);
+        } else {
+          const legacyMap = {
+            small: 0.9,
+            medium: 1,
+            large: 1.1,
+          };
+          setFontScalePreference(
+            legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED,
+          );
+        }
+        setNotificationsEnabled(
+          typeof stored.notificationsEnabled === "boolean"
+            ? stored.notificationsEnabled
+            : true,
+        );
+      } catch {}
+
+    };
+
+    loadSettings();
+  }, []);
+
+  const saveSettings = async (next = {}) => {
+    const payload = {
+      fontSizePreference:
+        typeof next.fontSizePreference === "number"
+          ? next.fontSizePreference
+          : fontScalePreference,
+      notificationsEnabled:
+        typeof next.notificationsEnabled === "boolean"
+          ? next.notificationsEnabled
+          : notificationsEnabled,
+    };
+    await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
+  };
+
+  const requestNotificationPermission = async () => {
+    try {
+      if (Platform.OS === "web") {
+        showToast("Notifications are not configured for web.");
+        return false;
+      }
+
+      if (Platform.OS === "ios") {
+        const authStatus = await messaging().requestPermission();
+        const granted =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        if (granted) {
+          await messaging().registerDeviceForRemoteMessages();
+          await messaging().getToken();
+          showToast("Notification permission granted.");
+          return true;
+        }
+        showToast("Notification permission denied.");
+        return false;
+      }
+
+      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const result = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (result === PermissionsAndroid.RESULTS.GRANTED) {
+          await messaging().registerDeviceForRemoteMessages();
+          await messaging().getToken();
+          showToast("Notification permission granted.");
+          return true;
+        }
+        showToast("Notification permission denied.");
+        return false;
+      }
+
+      await messaging().registerDeviceForRemoteMessages();
+      await messaging().getToken();
+      showToast("Notifications are enabled.");
+      return true;
+    } catch (error) {
+      showToast("Could not update notification permission.");
+      return false;
+    }
+  };
 
   // --- IMAGE PICKER HANDLER ---
   const handleImagePick = async () => {
@@ -107,35 +189,6 @@ export default function Profile() {
       setPreviewUri(selectedFile.uri);
     }
   };
-  // --- HANDLERS ---
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("currentUserToken");
-      const res = await fetch(
-        `${API_BASE}/api/user/update-user-profile/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(formData),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Update failed");
-
-      setUser({ ...user, ...formData });
-      setIsEditing(false);
-      showToast("Profile updated!");
-    } catch (err) {
-      showToast(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveImage = async () => {
     if (!file || !file.uri) return;
     setLoading(true);
@@ -170,10 +223,7 @@ export default function Profile() {
         ...data.user,
         id: data?.user?.id || data?.user?._id || prev?.id,
       }));
-      const uploadedImagePath =
-        data?.user?.image && data.user.image.startsWith("http")
-          ? data.user.image
-          : `${API_BASE}${data?.user?.image || ""}`;
+      const uploadedImagePath = getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
       setFile(null);
       showToast("Image updated!");
@@ -230,11 +280,19 @@ export default function Profile() {
       <Card style={styles.headerCard}>
         <Card.Content style={styles.avatarContainer}>
           <TouchableOpacity onPress={handleImagePick}>
-            <Avatar.Image
-              size={120}
-              source={previewUri ? { uri: previewUri } : DefaultAvatar}
-              style={styles.avatar}
-            />
+            {previewUri ? (
+              <Avatar.Image
+                size={120}
+                source={{ uri: previewUri }}
+                style={styles.avatar}
+              />
+            ) : (
+              <Avatar.Text
+                size={120}
+                label={getUserInitials(user?.firstName, user?.lastName)}
+                style={styles.avatar}
+              />
+            )}
             <View style={styles.editBadge}>
               <Text style={styles.editBadgeText}>{file ? "New" : "Edit"}</Text>
             </View>
@@ -285,6 +343,11 @@ export default function Profile() {
                 label: "Security",
                 icon: "shield-check-outline",
               },
+              {
+                value: "settings",
+                label: "Settings",
+                icon: "cog-outline",
+              },
             ]}
             style={styles.segmented}
           />
@@ -295,30 +358,20 @@ export default function Profile() {
         <Card style={styles.formCard}>
           <Card.Content>
             <TextInput
-              label="First Name *"
+              label="First Name"
               mode="outlined"
-              value={formData.firstName}
-              onChangeText={(t) => setFormData({ ...formData, firstName: t })}
-              editable={isEditing}
-              error={isEditing && hasNumbers(formData.firstName)}
+              value={user?.firstName || ""}
+              editable={false}
               style={styles.input}
             />
-            {isEditing && hasNumbers(formData.firstName) && (
-              <Text style={styles.errorText}>Numbers are not allowed.</Text>
-            )}
 
             <TextInput
-              label="Last Name *"
+              label="Last Name"
               mode="outlined"
-              value={formData.lastName}
-              onChangeText={(t) => setFormData({ ...formData, lastName: t })}
-              editable={isEditing}
-              error={isEditing && hasNumbers(formData.lastName)}
+              value={user?.lastName || ""}
+              editable={false}
               style={styles.input}
             />
-            {isEditing && hasNumbers(formData.lastName) && (
-              <Text style={styles.errorText}>Numbers are not allowed.</Text>
-            )}
 
             <TextInput
               label="Username"
@@ -342,47 +395,99 @@ export default function Profile() {
               style={styles.input}
             />
 
-            <View style={styles.buttonRow}>
-              {isEditing ? (
-                <>
-                  <Button
-                    mode="contained"
-                    onPress={handleSaveProfile}
-                    disabled={isSaveDisabled}
-                    loading={loading}
-                    style={styles.actionButton}
-                  >
-                    Save Changes
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    onPress={() => {
-                      setIsEditing(false);
-                      setFormData({
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                      });
-                    }}
-                    style={styles.actionButton}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  icon="pencil"
-                  mode="contained"
-                  onPress={() => setIsEditing(true)}
-                  style={styles.fullWidthButton}
-                >
-                  Edit User Information
-                </Button>
-              )}
-            </View>
+            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+              Name editing is disabled. Contact an administrator to update your
+              legal profile name.
+            </Text>
           </Card.Content>
         </Card>
-      ) : (
+      ) : activeTab === "security" ? (
         <UpdateSecurity />
+      ) : (
+        <Card style={styles.formCard}>
+          <Card.Content>
+            <Text style={[styles.settingsTitle, { fontSize: 16 * fontScale }]}>
+              App Settings
+            </Text>
+
+            <Text style={[styles.settingLabel, { fontSize: 14 * fontScale }]}>
+              Font Size
+            </Text>
+            <Text style={styles.settingSub}>
+              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
+              ({MOBILE_FONT_MAX.toFixed(2)}x)
+            </Text>
+            <Slider
+              minimumValue={MOBILE_FONT_RECOMMENDED}
+              maximumValue={MOBILE_FONT_MAX}
+              step={0.05}
+              value={fontScalePreference}
+              minimumTrackTintColor="#26866F"
+              maximumTrackTintColor="#CFE7E0"
+              thumbTintColor="#26866F"
+              onValueChange={(value) => setFontScalePreference(value)}
+              onSlidingComplete={async (value) => {
+                await saveSettings({ fontSizePreference: value });
+                showToast("Font size preference saved.");
+              }}
+            />
+            <Text style={[styles.settingSub, { marginBottom: 14 }]}>
+              Current: {fontScalePreference.toFixed(2)}x
+            </Text>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text
+                  style={[styles.settingLabel, { fontSize: 14 * fontScale }]}
+                >
+                  Enable Notifications
+                </Text>
+                <Text style={styles.settingSub}>Managed by device settings.</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={async (value) => {
+                  if (value) {
+                    const granted = await requestNotificationPermission();
+                    setNotificationsEnabled(granted);
+                    await saveSettings({ notificationsEnabled: granted });
+                    return;
+                  }
+
+                  setNotificationsEnabled(false);
+                  await saveSettings({ notificationsEnabled: false });
+                  showToast(
+                    "Notifications toggled off in app. You can re-enable from device settings.",
+                  );
+                }}
+              />
+            </View>
+            <Button
+              mode="outlined"
+              style={styles.fullWidthButton}
+              onPress={async () => {
+                const granted = await requestNotificationPermission();
+                setNotificationsEnabled(granted);
+                await saveSettings({ notificationsEnabled: granted });
+                if (!granted) {
+                  Alert.alert(
+                    "Permission required",
+                    "Please enable notifications in your device settings.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Open Settings",
+                        onPress: () => Linking.openSettings(),
+                      },
+                    ],
+                  );
+                }
+              }}
+            >
+              Request Notification Permission
+            </Button>
+          </Card.Content>
+        </Card>
       )}
     </ScrollView>
   );
@@ -407,7 +512,7 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#eee",
   },
-  userName: { marginTop: 12, fontSize: 14, fontWeight: "600"},
+  userName: { marginTop: 12, fontSize: 14, fontWeight: "600" },
   userRole: { fontSize: 12, color: "#666", marginTop: 4 },
   segmented: { marginTop: 10 },
   input: { marginBottom: 16, backgroundColor: "#fff" },
@@ -430,5 +535,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600"},
+  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  settingsTitle: {
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  settingLabel: {
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  settingSub: {
+    color: "#6b7280",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  settingRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 });

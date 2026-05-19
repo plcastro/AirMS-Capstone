@@ -1,4 +1,5 @@
 const UserModel = require("../models/userModel");
+const { sendToUsers } = require("./realtimeEvents");
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const ROLE_TO_JOB_TITLE = {
@@ -55,6 +56,13 @@ const sendPushNotificationToUsers = async ({
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
     const userIds = uniqueValues([...recipientUsers, ...roleUserIds]);
     const expoPushTokens = await getPushTokensForUsers(userIds);
+
+    sendToUsers(userIds, "notification-created", {
+      title,
+      description: body,
+      data,
+      createdAt: new Date().toISOString(),
+    });
 
     if (expoPushTokens.length === 0) {
       return;

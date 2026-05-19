@@ -64,8 +64,10 @@ const authenticateWebSocket = (req) => {
   }
 };
 
-const getDecodedUserId = (decoded = {}) =>
-  decoded.id || decoded._id || decoded.userId || decoded.sub || null;
+const getDecodedUserId = (decoded) => {
+  if (!decoded || typeof decoded !== "object") return null;
+  return decoded.id || decoded._id || decoded.userId || decoded.sub || null;
+};
 
 /* =========================
    SSE (Server-Sent Events)
@@ -164,6 +166,16 @@ const publishEvent = (event, data) => {
   bus.emit(event, data);
 };
 
+const publishTypedEvent = (event, data = {}) => {
+  if (!event) return;
+  broadcast(event, data);
+};
+
+const publishTypedForUsers = (userIds = [], event, data = {}) => {
+  if (!event) return;
+  sendToUsers(userIds, event, data);
+};
+
 bus.on("airms:data-changed", (data) => {
   broadcast("data-changed", data);
 });
@@ -171,6 +183,8 @@ bus.on("airms:data-changed", (data) => {
 module.exports = {
   subscribeSSE,
   publishEvent,
+  publishTypedEvent,
+  publishTypedForUsers,
   initWebSocket,
   sendToUsers,
 };

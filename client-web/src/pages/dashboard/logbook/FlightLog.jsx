@@ -17,6 +17,7 @@ import {
   Typography,
   Select,
   Card,
+  Grid,
 } from "antd";
 import {
   PlusOutlined,
@@ -34,8 +35,10 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import "./flightlog.css";
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function FlightLog() {
+  const screens = useBreakpoint();
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
 
@@ -87,6 +90,7 @@ export default function FlightLog() {
     "engineer",
     "mechanic",
     "maintenance manager",
+    "admin",
     "head of maintenance",
   ].includes(userRole);
 
@@ -317,11 +321,14 @@ export default function FlightLog() {
   const handleSaveNew = async (newEntry) => {
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
+          ...authHeader,
         },
         body: JSON.stringify({
           ...newEntry,
@@ -359,6 +366,7 @@ export default function FlightLog() {
 
     try {
       setSaving(true);
+      const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${selectedLog._id}`,
@@ -366,6 +374,8 @@ export default function FlightLog() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
+            ...authHeader,
           },
           body: JSON.stringify({
             ...selectedLog,
@@ -489,7 +499,11 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/release`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json", ...authHeader },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...authHeader,
+            },
             body: JSON.stringify({
               name: getUserDisplayName(),
               signature,
@@ -508,7 +522,11 @@ export default function FlightLog() {
           `${API_BASE}/api/flightlogs/${log._id}/accept`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json", ...authHeader },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...authHeader,
+            },
             body: JSON.stringify({
               name: getUserDisplayName(),
               signature,
@@ -551,6 +569,7 @@ export default function FlightLog() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(getAuthHeader ? await getAuthHeader() : {}),
           },
           body: JSON.stringify({
@@ -582,7 +601,11 @@ export default function FlightLog() {
           `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
             body: JSON.stringify({
               acftTT: Number(toDateData.airframe) || 0,
               n1Cycles: Number(toDateData.cycleN1) || 0,
@@ -605,6 +628,7 @@ export default function FlightLog() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              "x-action-confirmed": "true",
               ...(getAuthHeader ? await getAuthHeader() : {}),
             },
           },
@@ -662,14 +686,18 @@ export default function FlightLog() {
     const params = new URLSearchParams(location.search);
     const targetFlightLogId = params.get("targetFlightLogId");
     const notificationStatus = params.get("notificationStatus");
+    const refreshAt = params.get("refreshAt");
 
-    if (!targetFlightLogId) {
+    if (!targetFlightLogId && !refreshAt) {
       return;
     }
 
     setSelectedAircraft("");
-    setSelectedStatus(normalizeStatusFilterValue(notificationStatus || "all"));
-  }, [location.search, normalizeStatusFilterValue]);
+    if (notificationStatus) {
+      setSelectedStatus(normalizeStatusFilterValue(notificationStatus || "all"));
+    }
+    fetchFlightLogs();
+  }, [fetchFlightLogs, location.search, normalizeStatusFilterValue]);
 
   const aircraftOptions = useMemo(
     () => ["all", ...new Set(flightLogs.map((log) => log.rpc).filter(Boolean))],
@@ -874,6 +902,113 @@ export default function FlightLog() {
     },
   ];
 
+  const renderCard = (record) => {
+    const statusMeta = getStatusMeta(record);
+    return (
+      <Card
+        key={record._id || record.id}
+        hoverable
+        style={{ marginBottom: 10, borderRadius: 10 }}
+        styles={{ body: { padding: 12 } }}
+        onClick={() => handleEdit(record)}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 10,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{record.rpc || "N/A"}</div>
+            <div style={{ color: "#667085", fontSize: 12 }}>
+              {formatDisplayDate(record.date)}
+            </div>
+          </div>
+          <span className={`fl-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+        </div>
+
+        <div style={{ marginTop: 8, color: "#475467", fontSize: 12 }}>
+          Aircraft: {record.aircraftType || "N/A"}
+        </div>
+        <div style={{ color: "#475467", fontSize: 12 }}>
+          Control: {record.controlNo || record.control || "N/A"}
+        </div>
+
+        <Space size={4} wrap style={{ marginTop: 10 }}>
+          <Button
+            type={isOfficerInCharge ? "default" : "primary"}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(record);
+            }}
+            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
+          >
+            {isOfficerInCharge ? "View" : "Edit"}
+          </Button>
+          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
+            <Button
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                openWorkflowModal("release", record);
+              }}
+            >
+              Release
+            </Button>
+          )}
+          {isPilot && isPilotAcceptableStatus(record.status) && (
+            <Button
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                openWorkflowModal("accept", record);
+              }}
+            >
+              Accept
+            </Button>
+          )}
+          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
+            <Button
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                openWorkflowModal("notify", record);
+              }}
+            >
+              Notify
+            </Button>
+          )}
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "accepted" &&
+            record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openWorkflowModal("complete", record);
+                }}
+              >
+                Complete
+              </Button>
+            )}
+          <Button
+            type="text"
+            size="small"
+            icon={<ExportOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExport(record);
+            }}
+          />
+        </Space>
+      </Card>
+    );
+  };
+
   return (
     <div className="fl-page">
       <Card style={{ marginBottom: 10 }}>
@@ -928,26 +1063,40 @@ export default function FlightLog() {
         </Row>
       </Card>
 
-      <Table
-        columns={columns}
-        dataSource={filteredLogs}
-        loading={loading}
-        rowKey={(record) => record._id || record.id}
-        pagination={{ pageSize: 10, showSizeChanger: false }}
-        scroll={{ x: 1100 }}
-        locale={{
-          emptyText:
-            searchQuery || selectedAircraft || selectedStatus !== "all"
-              ? "No flight logs found"
-              : "No flight logs yet",
-        }}
-        size="small"
-      />
-      <Col span={24} style={{ textAlign: "left", margin: "16px 0" }}>
-        <Text type="secondary">
-          Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
-        </Text>
-      </Col>
+      {screens.xs ? (
+        <div>
+          {filteredLogs.length ? (
+            filteredLogs.map(renderCard)
+          ) : (
+            <Card style={{ borderRadius: 10 }}>
+              <Text type="secondary">No flight logs found</Text>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={filteredLogs}
+          loading={loading}
+          rowKey={(record) => record._id || record.id}
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          scroll={{ x: 1100 }}
+          locale={{
+            emptyText:
+              searchQuery || selectedAircraft || selectedStatus !== "all"
+                ? "No flight logs found"
+                : "No flight logs yet",
+          }}
+          size="small"
+        />
+      )}
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <FlightLogEntry
         visible={entryModalVisible}

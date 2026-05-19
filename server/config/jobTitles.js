@@ -6,6 +6,7 @@ const jobTitles = {
     permissions.TASKS_READ_OWN,
     permissions.TASKS_UPDATE_OWN,
     permissions.MAINTENANCELOG_CREATE,
+    permissions.PROFILE_READ,
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
   ],
@@ -13,6 +14,7 @@ const jobTitles = {
   pilot: [
     permissions.FLIGHTLOG_CREATE,
     permissions.FLIGHTLOG_READ,
+    permissions.PROFILE_READ,
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
   ],
@@ -48,6 +50,7 @@ const jobTitles = {
 
     permissions.MECHANICS_READ,
     permissions.MECHANICS_ASSIGN,
+    permissions.PROFILE_READ,
 
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,

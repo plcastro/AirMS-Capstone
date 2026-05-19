@@ -18,7 +18,8 @@ import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
-const { Title } = Typography;
+import { confirmAction } from "../../../utils/confirmAction";
+const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const accessLevelData = [
@@ -265,6 +266,13 @@ export default function UserManagement() {
 
   const handleDeactivateUser = async (user) => {
     if (user._id === currentUserId) return;
+    const confirmed = await confirmAction({
+      title: "Deactivate User",
+      content: `Are you sure you want to deactivate ${user.username || user.fullname}?`,
+      okText: "Deactivate",
+      okType: "danger",
+    });
+    if (!confirmed) return;
     try {
       const token = await getValidToken();
       const response = await fetch(
@@ -274,8 +282,9 @@ export default function UserManagement() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify({ status: "deactivated" }),
+          body: JSON.stringify({ status: "deactivated", confirmAction: true }),
         },
       );
       const data = await response.json().catch(() => ({}));
@@ -298,8 +307,12 @@ export default function UserManagement() {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        "x-action-confirmed": "true",
       },
-      body: payload ? JSON.stringify(payload) : undefined,
+      body: JSON.stringify({
+        ...(payload || {}),
+        confirmAction: true,
+      }),
     });
 
     const data = await response.json().catch(() => ({}));
@@ -311,6 +324,12 @@ export default function UserManagement() {
   };
 
   const handleResendInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Resend Activation Invite",
+      content: `Resend activation email to ${user.email}?`,
+      okText: "Resend",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/resend-activation/${user._id}`, "POST");
       message.success(`Activation email resent to ${user.email}`);
@@ -321,6 +340,12 @@ export default function UserManagement() {
   };
 
   const handleExtendInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Extend Invitation",
+      content: `Extend invitation expiry for ${user.email} by 24 hours?`,
+      okText: "Extend",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(
         `/api/user/extend-invitation-expiry/${user._id}`,
@@ -337,6 +362,13 @@ export default function UserManagement() {
   };
 
   const handleRevokeInvite = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Revoke Invitation",
+      content: `Revoke invitation for ${user.email}?`,
+      okText: "Revoke",
+      okType: "danger",
+    });
+    if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/revoke-invitation/${user._id}`, "PUT");
       message.success("Invitation revoked");
@@ -347,6 +379,12 @@ export default function UserManagement() {
   };
 
   const handleReactivateUser = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Reactivate User",
+      content: `Reactivate ${user.username || user.fullname}?`,
+      okText: "Reactivate",
+    });
+    if (!confirmed) return;
     try {
       const token = await getValidToken();
       const response = await fetch(
@@ -356,8 +394,9 @@ export default function UserManagement() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify({ status: "active" }),
+          body: JSON.stringify({ status: "active", confirmAction: true }),
         },
       );
       const data = await response.json().catch(() => ({}));
@@ -401,7 +440,9 @@ export default function UserManagement() {
   return (
     <div
       style={{
-        padding: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingLeft: isMobile ? 12 : 20,
         maxWidth: "100%",
         paddingBottom: 24,
       }}
@@ -530,9 +571,14 @@ export default function UserManagement() {
         loading={loading}
       />
 
-      <div style={{ marginTop: 15 }}>
-        Showing {filteredUsers.length} of {allUsers.length} users
-      </div>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredUsers.length}</Text> of{" "}
+            <Text strong>{allUsers.length}</Text> users
+          </Text>
+        </Col>
+      </Row>
 
       {showModal && (
         <UserForm

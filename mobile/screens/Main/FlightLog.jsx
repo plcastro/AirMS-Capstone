@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useCallback } from "react";
+import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -45,7 +46,9 @@ const sortNewestFlightLogs = (logs = []) =>
   [...logs].sort((a, b) => {
     const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
     const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
-    return (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate);
+    return (
+      (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate)
+    );
   });
 
 const mergeFlightLogs = (logs = []) =>
@@ -65,101 +68,124 @@ export default function FlightLog({ route, navigation }) {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
 
-  /// FETCH ALL FLIGHT LOGS (NO AUTH)
-  const fetchFlightLogs = useCallback(async ({ silent = false } = {}) => {
+  const getAuthHeaders = useCallback(async () => {
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    let sessionMeta = {};
+
     try {
-      if (!silent) {
-        setLoading(true);
-      }
+      sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+    } catch {
+      sessionMeta = {};
+    }
 
-      // Build query parameters
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "500");
-      params.append("sortBy", "date");
-      params.append("sortOrder", "desc");
+    return {
+      "Content-Type": "application/json",
+      "x-action-confirmed": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "x-platform": "MOBILE",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...(sessionMeta.sessionId
+        ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+    };
+  }, []);
 
-      if (selectedAircraft && selectedAircraft !== "all") {
-        params.append("aircraftRPC", selectedAircraft);
-      }
-      if (selectedStatus && selectedStatus !== "all") {
-        params.append(
-          "status",
-          selectedStatus === "released" ? "pending_acceptance" : selectedStatus,
-        );
-      }
-
-      // console.log(
-      //   "Fetching from:",
-      //   `${API_BASE}/api/flightlogs?${params.toString()}`,
-      // );
-
-      const fetchPage = async (page, extraParams = {}) => {
-        const pageParams = new URLSearchParams(params);
-        pageParams.set("page", String(page));
-        Object.entries(extraParams).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== "") {
-            pageParams.set(key, value);
-          }
-        });
-
-        const response = await fetch(
-          `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch flight logs");
+  /// FETCH ALL FLIGHT LOGS (NO AUTH)
+  const fetchFlightLogs = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (!silent) {
+          setLoading(true);
         }
 
-        return data;
-      };
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append("page", "1");
+        params.append("limit", "500");
+        params.append("sortBy", "date");
+        params.append("sortOrder", "desc");
 
-      const fetchAllPages = async (extraParams = {}) => {
-        const firstPage = await fetchPage(1, extraParams);
-        const totalPages = Number(firstPage.pagination?.pages || 1);
-        const remainingPages =
-          totalPages > 1
-            ? await Promise.all(
-                Array.from({ length: totalPages - 1 }, (_, index) =>
-                  fetchPage(index + 2, extraParams),
-                ),
-              )
-            : [];
+        // console.log(
+        //   "Fetching from:",
+        //   `${API_BASE}/api/flightlogs?${params.toString()}`,
+        // );
 
-        return [firstPage, ...remainingPages].flatMap((page) =>
-          Array.isArray(page.data) ? page.data : [],
+        const fetchPage = async (page, extraParams = {}) => {
+          const pageParams = new URLSearchParams(params);
+          pageParams.set("page", String(page));
+          Object.entries(extraParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              pageParams.set(key, value);
+            }
+          });
+
+          const response = await fetch(
+            `${API_BASE}/api/flightlogs?${pageParams.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Failed to fetch flight logs");
+          }
+
+          return data;
+        };
+
+        const fetchAllPages = async (extraParams = {}) => {
+          const firstPage = await fetchPage(1, extraParams);
+          const totalPages = Number(firstPage.pagination?.pages || 1);
+          const remainingPages =
+            totalPages > 1
+              ? await Promise.all(
+                  Array.from({ length: totalPages - 1 }, (_, index) =>
+                    fetchPage(index + 2, extraParams),
+                  ),
+                )
+              : [];
+
+          return [firstPage, ...remainingPages].flatMap((page) =>
+            Array.isArray(page.data) ? page.data : [],
+          );
+        };
+
+        const logs = await fetchAllPages();
+        const pendingReleaseLogs = await fetchAllPages({
+          status: "pending_release",
+        });
+
+        setFlightLogs(
+          sortNewestFlightLogs(
+            mergeFlightLogs([...logs, ...pendingReleaseLogs]),
+          ),
         );
-      };
-
-      const logs = await fetchAllPages();
-      const pendingReleaseLogs =
-        selectedStatus === "all"
-          ? await fetchAllPages({ status: "pending_release" })
-          : [];
-
-      setFlightLogs(sortNewestFlightLogs(mergeFlightLogs([...logs, ...pendingReleaseLogs])));
-    } catch (error) {
-      console.error("Fetch error:", error);
-      showToast(error.message || "Failed to connect to server. Please check your network.");
-    } finally {
-      if (!silent) {
-        setLoading(false);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        showToast(
+          error.message ||
+            "Failed to connect to server. Please check your network.",
+        );
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+        setRefreshing(false);
       }
-      setRefreshing(false);
-    }
-  }, [selectedAircraft, selectedStatus]);
+    },
+    [],
+  );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
     try {
@@ -186,52 +212,16 @@ export default function FlightLog({ route, navigation }) {
     }
   }, []);
 
-  // SEARCH FLIGHT LOGS
-  const searchFlightLogs = async (query) => {
-    if (!query.trim()) {
-      fetchFlightLogs();
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      // Read ONLY ONCE
-      const data = await response.json();
-
-      if (response.ok) {
-        setFlightLogs(sortNewestFlightLogs(data.data || []));
-      } else {
-        console.error("Search error:", data.message);
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // CREATE NEW FLIGHT LOG
   const handleSaveNewEntry = async (
     newEntry,
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           ...newEntry,
           createdByName:
@@ -268,13 +258,12 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders,
           body: JSON.stringify(updatedLog),
         },
       );
@@ -305,33 +294,33 @@ export default function FlightLog({ route, navigation }) {
   // Handle search input change with debounce
   const handleSearchChange = (text) => {
     setSearchQuery(text);
-    if (text.trim()) {
-      const timeoutId = setTimeout(() => {
-        searchFlightLogs(text);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else {
-      fetchFlightLogs();
-    }
   };
 
   // Fetch when filters change
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     fetchFlightLogs();
   }, [fetchFlightLogs]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchFlightLogs();
       fetchNotifications();
-    }, [fetchFlightLogs, fetchNotifications]),
+    }, [fetchNotifications]),
   );
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return undefined;
 
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
-    const onDataChanged = async () => {
+    const onDataChanged = async (event) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(event?.data || "{}");
+      } catch {
+        payload = {};
+      }
+      if (!String(payload?.url || "").startsWith("/api/flightlogs")) return;
       await fetchFlightLogs({ silent: true });
       await fetchNotifications();
     };
@@ -368,7 +357,7 @@ export default function FlightLog({ route, navigation }) {
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
@@ -511,6 +500,12 @@ export default function FlightLog({ route, navigation }) {
               style={styles.unifiedFilterButton}
               onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
               <Text
                 style={[
                   styles.unifiedFilterButtonText,
@@ -565,6 +560,12 @@ export default function FlightLog({ route, navigation }) {
               style={styles.unifiedFilterButton}
               onPress={() => setShowStatusDropdown(!showStatusDropdown)}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
               <Text style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}

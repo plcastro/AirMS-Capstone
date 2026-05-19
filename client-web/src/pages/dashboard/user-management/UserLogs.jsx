@@ -17,6 +17,12 @@ import {
 } from "recharts";
 import ActivityLogTable from "../../../components/tables/ActivityLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../../utils/auditActions";
 import { Input, DatePicker, Space, Grid, message, Select, Card } from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
@@ -27,7 +33,7 @@ const { useBreakpoint } = Grid;
 export default function UserLogs() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getValidToken } = useContext(AuthContext);
+  const { getAuthHeader } = useContext(AuthContext);
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -37,6 +43,8 @@ export default function UserLogs() {
   ]);
   const [loading, setLoading] = useState(false);
   const [selectedActionType, setSelectedActionType] = useState("all");
+  const [selectedScope, setSelectedScope] = useState("all");
+  const [selectedScopeValue, setSelectedScopeValue] = useState("all");
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -45,7 +53,7 @@ export default function UserLogs() {
         setLoading(true);
       }
       try {
-        const token = await getValidToken();
+        const authHeader = getAuthHeader ? await getAuthHeader() : {};
         const params = new URLSearchParams({
           page: "1",
           limit: "1000",
@@ -58,7 +66,7 @@ export default function UserLogs() {
 
         const response = await fetch(url, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...authHeader,
           },
         });
         const json = await response.json();
@@ -84,6 +92,8 @@ export default function UserLogs() {
             : "N/A",
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
+          platform: log.platform || "UNKNOWN",
+          base: log.base || "UNKNOWN",
         }));
 
         setAllUserLogs(mappedLogs);
@@ -96,7 +106,7 @@ export default function UserLogs() {
         }
       }
     },
-    [getValidToken],
+    [getAuthHeader],
   );
 
   const handleSearchChange = (text) => {
@@ -108,36 +118,6 @@ export default function UserLogs() {
     if (!dates || !dates[0] || !dates[1]) {
       message.info("Date range cleared. Showing all available logs.");
     }
-  };
-  const getActionCategory = (actionText = "") => {
-    const text = actionText.toLowerCase();
-
-    if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
-      return "create";
-    if (
-      ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
-    )
-      return "update";
-    if (
-      ["deleted", "removed", "destroyed", "erased"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "delete";
-    if (
-      ["log in", "logged in", "login", "signed in"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "login";
-    if (
-      ["log out", "logged out", "logout", "signed out"].some((k) =>
-        text.includes(k),
-      )
-    )
-      return "logout";
-
-    return "other";
   };
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
@@ -154,12 +134,51 @@ export default function UserLogs() {
 
     if (selectedActionType !== "all") {
       filtered = filtered.filter(
-        (log) => getActionCategory(log.actionMade) === selectedActionType,
+        (log) => getAuditActionCategory(log.actionMade) === selectedActionType,
+      );
+    }
+
+    if (selectedScope !== "all" && selectedScopeValue !== "all") {
+      filtered = filtered.filter((log) =>
+        selectedScope === "base"
+          ? String(log.base || "UNKNOWN").toUpperCase() === selectedScopeValue
+          : String(log.platform || "UNKNOWN").toUpperCase() ===
+            selectedScopeValue,
       );
     }
 
     return filtered;
-  }, [allUserLogs, searchQuery, selectedActionType]);
+  }, [allUserLogs, searchQuery, selectedActionType, selectedScope, selectedScopeValue]);
+
+  const scopeValueOptions = useMemo(() => {
+    if (selectedScope === "base") {
+      const values = Array.from(
+        new Set(
+          allUserLogs.map((log) => String(log.base || "UNKNOWN").toUpperCase()),
+        ),
+      ).sort();
+      return [
+        { label: "All Base", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+
+    if (selectedScope === "platform") {
+      const values = Array.from(
+        new Set(
+          allUserLogs.map((log) =>
+            String(log.platform || "UNKNOWN").toUpperCase(),
+          ),
+        ),
+      ).sort();
+      return [
+        { label: "All Platform", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+
+    return [{ label: "All Scope", value: "all" }];
+  }, [allUserLogs, selectedScope]);
 
   useEffect(() => {
     setFilteredUsers(filteredLogs);
@@ -182,14 +201,7 @@ export default function UserLogs() {
       stream.close();
     };
   }, [dateRange, fetchUserLogs]);
-  const actionTypeOptions = [
-    { label: "All Actions", value: "all" },
-    { label: "Create", value: "create" },
-    { label: "Update", value: "update" },
-    { label: "Delete", value: "delete" },
-    { label: "Log In", value: "login" },
-    { label: "Log Out", value: "logout" },
-  ];
+  const actionTypeOptions = getAuditActionCategoryOptions();
 
   const actionTrendData = useMemo(() => {
     const dailyStats = {};
@@ -204,19 +216,12 @@ export default function UserLogs() {
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = {
           date: dateKey,
-          create: 0,
-          update: 0,
-          delete: 0,
-          login: 0,
-          logout: 0,
+          ...buildEmptyAuditCategoryCounts(),
         };
       }
 
-      const category = getActionCategory(log.actionMade);
-
-      if (category !== "other") {
-        dailyStats[dateKey][category]++;
-      }
+      const category = getAuditActionCategory(log.actionMade);
+      dailyStats[dateKey][category]++;
     });
 
     const sortedDates = Object.keys(dailyStats).sort((a, b) =>
@@ -249,11 +254,7 @@ export default function UserLogs() {
       filledData.push(
         dailyStats[dateKey] || {
           date: dateKey,
-          create: 0,
-          update: 0,
-          delete: 0,
-          login: 0,
-          logout: 0,
+          ...buildEmptyAuditCategoryCounts(),
         },
       );
       cursor = cursor.add(1, "day");
@@ -264,7 +265,9 @@ export default function UserLogs() {
   return (
     <div
       style={{
-        padding: isMobile ? 12 : 20,
+        paddingTop: isMobile ? 12 : 20,
+        paddingRight: isMobile ? 12 : 20,
+        paddingLeft: isMobile ? 12 : 20,
         maxWidth: "100%",
         paddingBottom: 24,
       }}
@@ -298,6 +301,29 @@ export default function UserLogs() {
           size="large"
           style={{ width: isMobile ? "100%" : 180 }}
         />
+        <Select
+          value={selectedScope}
+          onChange={(value) => {
+            setSelectedScope(value);
+            setSelectedScopeValue("all");
+          }}
+          options={[
+            { label: "All Scope", value: "all" },
+            { label: "Base", value: "base" },
+            { label: "Platform", value: "platform" },
+          ]}
+          size="large"
+          style={{ width: isMobile ? "100%" : 180 }}
+        />
+        {selectedScope !== "all" && (
+          <Select
+            value={selectedScopeValue}
+            onChange={setSelectedScopeValue}
+            options={scopeValueOptions}
+            size="large"
+            style={{ width: isMobile ? "100%" : 180 }}
+          />
+        )}
       </Space>
       <div style={{ marginBottom: 20 }}>
         <Card title="Activity Trends" size="small" loading={loading}>
@@ -318,46 +344,21 @@ export default function UserLogs() {
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
 
-              <Line
-                type="monotone"
-                dataKey="create"
-                stroke="#52c41a"
-                name="Create"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="update"
-                stroke="#1890ff"
-                name="Update"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="delete"
-                stroke="#f5222d"
-                name="Delete"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="login"
-                stroke="#722ed1"
-                name="Log In"
-                strokeWidth={1.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="logout"
-                stroke="#fa8c16"
-                name="Log Out"
-                strokeWidth={1.5}
-                dot={false}
-              />
+              {AUDIT_ACTION_CHART_CATEGORIES.filter(
+                (category) =>
+                  selectedActionType === "all" ||
+                  selectedActionType === category.value,
+              ).map((category) => (
+                <Line
+                  key={category.value}
+                  type="monotone"
+                  dataKey={category.value}
+                  stroke={category.color}
+                  name={category.label}
+                  strokeWidth={1.5}
+                  dot={false}
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </Card>

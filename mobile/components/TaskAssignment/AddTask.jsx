@@ -21,6 +21,8 @@ import {
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
 import { showToast } from "../../utilities/toast";
+import AlertComp from "../AlertComp";
+import { BASE_OPTIONS } from "../UserManagement/constants";
 
 const { width } = Dimensions.get("window");
 const CUSTOM_INSPECTION_ID = "custom-task";
@@ -64,6 +66,7 @@ export default function AddTask({
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [selectedBase, setSelectedBase] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
@@ -77,6 +80,7 @@ export default function AddTask({
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,6 +91,7 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const [appliedDraftKey, setAppliedDraftKey] = useState("");
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees.filter((emp) => !emp.isBusy);
@@ -284,6 +289,7 @@ export default function AddTask({
   const resetForm = () => {
     const nextStart = getDefaultStartDate();
     setSelectedAircraft("");
+    setSelectedBase("");
     setSelectedEmployee("");
     setInspectionType("");
     setSelectedInspection(null);
@@ -293,6 +299,7 @@ export default function AddTask({
     setShowStartPicker(false);
     setShowEndPicker(false);
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
     setAndroidPickerMode("date");
@@ -458,6 +465,7 @@ export default function AddTask({
       id: Date.now().toString(),
       title: selectedInspectionName,
       aircraft: selectedAircraft,
+      base: selectedBase,
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
@@ -527,11 +535,6 @@ export default function AddTask({
     };
 
     onAddTask(newTask);
-  };
-
-  const confirmDiscard = () => {
-    resetForm();
-    onClose();
   };
 
   const formatDateTime = (date) => {
@@ -678,6 +681,7 @@ export default function AddTask({
 
   const closeAllDropdowns = () => {
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
   };
@@ -687,8 +691,8 @@ export default function AddTask({
       (emp) => emp.id === selectedEmployee,
     );
 
-    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      return "Select an aircraft, inspection, and available mechanic first.";
+    if (!selectedAircraft || !selectedBase || !inspectionType || !selectedEmployee) {
+      return "Select an aircraft, base, inspection, and available mechanic first.";
     }
 
     if (!selectedAvailableEmployee) {
@@ -834,6 +838,7 @@ export default function AddTask({
   const selectedAircraftLabel =
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
+  const selectedBaseLabel = selectedBase || "";
   const selectedInspectionLabel =
     inspectionType === CUSTOM_INSPECTION_ID
       ? "Custom Task"
@@ -842,26 +847,46 @@ export default function AddTask({
   const selectedEmployeeLabel =
     availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
   const addTaskWarning = getAddTaskWarning();
+  const hasUnsavedChanges = () =>
+    Boolean(selectedAircraft) ||
+    Boolean(selectedEmployee) ||
+    Boolean(inspectionType) ||
+    checklistItems.length > 0 ||
+    Boolean(isCustomTask && customTaskTitle.trim());
+  const handleCloseWithWarning = () => {
+    if (!hasUnsavedChanges()) {
+      resetForm();
+      onClose?.();
+      return;
+    }
+    setShowDiscardAlert(true);
+  };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.alertOverlay}>
-        <View
-          style={[
-            styles.alertContainer,
-            {
-              width: width > 425 ? 600 : width - 32,
-              maxWidth: "92%",
-              maxHeight: "90%",
-              paddingVertical: 18,
-              paddingHorizontal: 14,
-            },
-          ]}
-        >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+    <>
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCloseWithWarning}
+      >
+        <View style={styles.alertOverlay}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                width: width > 425 ? 600 : width - 32,
+                maxWidth: "92%",
+                maxHeight: "90%",
+                paddingVertical: 18,
+                paddingHorizontal: 14,
+              },
+            ]}
           >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
             <Text
               style={[
                 styles.alertTitle,
@@ -883,6 +908,20 @@ export default function AddTask({
               visible: showAircraftDropdown,
               onToggle: setShowAircraftDropdown,
               onSelect: setSelectedAircraft,
+            })}
+
+            {renderDropdownField({
+              label: "Base",
+              required: true,
+              value: selectedBaseLabel,
+              placeholder: "Pick Base",
+              options: BASE_OPTIONS.map((base) => ({
+                label: base,
+                value: base,
+              })),
+              visible: showBaseDropdown,
+              onToggle: setShowBaseDropdown,
+              onSelect: setSelectedBase,
             })}
 
             {renderDropdownField({
@@ -1167,32 +1206,46 @@ export default function AddTask({
                 {addTaskWarning}
               </Text>
             ) : null}
-          </ScrollView>
+            </ScrollView>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 20,
-              gap: 10,
-            }}
-          >
-            <Button
-              label="Discard"
-              onPress={confirmDiscard}
-              buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.secondaryAlertBtnTxt}
-            />
-            <Button
-              label="Add Task"
-              onPress={confirmAdd}
-              disabled={Boolean(addTaskWarning)}
-              buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 20,
+                gap: 10,
+              }}
+            >
+              <Button
+                label="Discard"
+                onPress={handleCloseWithWarning}
+                buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.secondaryAlertBtnTxt}
+              />
+              <Button
+                label="Add Task"
+                onPress={confirmAdd}
+                disabled={Boolean(addTaskWarning)}
+                buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={showDiscardAlert}
+        title="Discard changes?"
+        message="You have unsaved changes. Cancel and discard them?"
+        cancelText="Keep editing"
+        confirmText="Discard"
+        onCancel={() => setShowDiscardAlert(false)}
+        onConfirm={() => {
+          setShowDiscardAlert(false);
+          resetForm();
+          onClose?.();
+        }}
+      />
+    </>
   );
 }

@@ -60,11 +60,32 @@ export default function MechanicList() {
     })
     .filter((item) => !query.trim() || item.name.toLowerCase().includes(query.trim().toLowerCase())), [query, tasks, users]);
 
-  const selectedTasks = useMemo(() => {
+  const assignedTasksForSelectedMechanic = useMemo(() => {
     if (!selectedMechanic) return [];
-    const assigned = tasks.filter((task) => String(task.assignedTo) === String(selectedMechanic.id));
-    return assigned.filter((task) => (tab === "completed" ? isCompletedTask(task) : !isCompletedTask(task)));
-  }, [selectedMechanic, tab, tasks]);
+    return tasks.filter(
+      (task) => String(task.assignedTo) === String(selectedMechanic.id),
+    );
+  }, [selectedMechanic, tasks]);
+
+  const selectedTasks = useMemo(
+    () =>
+      assignedTasksForSelectedMechanic.filter((task) =>
+        tab === "completed" ? isCompletedTask(task) : !isCompletedTask(task),
+      ),
+    [assignedTasksForSelectedMechanic, tab],
+  );
+
+  const selectedTaskCounts = useMemo(
+    () => ({
+      ongoing: assignedTasksForSelectedMechanic.filter(
+        (task) => !isCompletedTask(task),
+      ).length,
+      completed: assignedTasksForSelectedMechanic.filter((task) =>
+        isCompletedTask(task),
+      ).length,
+    }),
+    [assignedTasksForSelectedMechanic],
+  );
 
   if (selectedMechanic) {
     return (
@@ -80,8 +101,8 @@ export default function MechanicList() {
           activeKey={tab}
           onChange={setTab}
           items={[
-            { key: "ongoing", label: `Ongoing (${selectedTasks.filter((task) => !isCompletedTask(task)).length})` },
-            { key: "completed", label: `Completed (${selectedTasks.filter((task) => isCompletedTask(task)).length})` },
+            { key: "ongoing", label: `Ongoing (${selectedTaskCounts.ongoing})` },
+            { key: "completed", label: `Completed (${selectedTaskCounts.completed})` },
           ]}
         />
 

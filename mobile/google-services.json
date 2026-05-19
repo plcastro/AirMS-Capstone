@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "215064194890",
+    "project_id": "airms-app-85b0f",
+    "storage_bucket": "airms-app-85b0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215064194890:android:a340cd815b3800fbda9bb3",
+        "android_client_info": {
+          "package_name": "com.arckexe.airms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

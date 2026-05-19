@@ -1,103 +1,163 @@
-import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import React, { useRef } from "react";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Animated,
+  useWindowDimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
+  const { width, height } = useWindowDimensions();
+  const isSmall = width < 390;
+  const heroHeight = Math.max(220, Math.min(340, Math.round(height * 0.38)));
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const parallaxTranslate = scrollY.interpolate({
+    inputRange: [0, heroHeight],
+    outputRange: [0, heroHeight * 0.3],
+    extrapolate: "clamp",
+  });
+
   return (
-    <View style={styles.container}>
-      <View style={styles.imageContainer}>
-        <Image
+    <SafeAreaView style={styles.safeArea}>
+      {/* HERO (NOT SCROLLABLE) */}
+      <View style={[styles.imageContainer, { height: heroHeight }]}>
+        <Animated.Image
           source={require("../assets/mobile_hero.png")}
-          style={styles.topImage}
+          style={[
+            styles.topImage,
+            {
+              transform: [{ translateY: parallaxTranslate }],
+            },
+          ]}
           resizeMode="cover"
         />
 
         <View style={styles.overlay}>
           <Image
             source={require("../assets/airmslogo_dark.png")}
-            style={styles.logo}
+            style={[styles.logo, { width: isSmall ? 180 : 230 }]}
           />
 
-          <Text style={styles.title}>
+          <Text style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
             Aircraft Maintenance Made{" "}
             <Text style={styles.highlight}>Smarter</Text>
           </Text>
         </View>
       </View>
 
-      <View style={styles.card}>
+      {/* ONLY CARD IS SCROLLABLE */}
+      <Animated.ScrollView
+        style={styles.cardScroll}
+        contentContainerStyle={[
+          styles.card,
+          { paddingHorizontal: isSmall ? 16 : 25 },
+        ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
+        bounces={false}
+      >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{cardTitle}</Text>
+          <Text style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
+            {cardTitle}
+          </Text>
           <Text style={styles.cardSubTitle}>{cardsubTitle}</Text>
         </View>
 
         {children}
-      </View>
-    </View>
+      </Animated.ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: "#fff",
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#ffffff00",
   },
-  cardHeader: {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
+
   imageContainer: {
+    width: "100%",
     position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#000",
   },
 
   topImage: {
     width: "100%",
-    height: 300,
+    height: "100%",
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
 
   overlay: {
     position: "absolute",
-    top: "25%",
-    width: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 40,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 20,
   },
 
   logo: {
-    width: 250,
-    height: 120,
-    marginBottom: -25,
+    width: 230,
+    height: 100,
   },
 
   title: {
     textAlign: "center",
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
   },
+
   highlight: {
     color: "#0ef3ae",
-    fontWeight: "bold",
   },
+
+  cardScroll: {
+    flex: 1,
+    marginTop: -50,
+  },
+
   card: {
-    paddingTop: 40,
-    padding: 20,
-    marginTop: -30,
+    paddingTop: 30,
     backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+    paddingBottom: 40,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+
+  cardHeader: {
+    alignItems: "center",
+    marginBottom: 25,
   },
 
   cardTitle: {
-    fontSize: 21,
+    fontSize: 24,
     fontWeight: "bold",
+    color: "#1a1a1a",
   },
 
   cardSubTitle: {
     fontSize: 14,
-    color: "#565656",
-    marginBottom: 7,
+    color: "#666",
+    marginTop: 5,
+    textAlign: "center",
   },
 });

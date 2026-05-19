@@ -4,6 +4,7 @@ const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
+    licenseNo: { type: String, default: "" },
     signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
@@ -14,6 +15,7 @@ const preInspectionSchema = new mongoose.Schema(
   {
     aircraftType: { type: String, required: true, trim: true },
     rpc: { type: String, required: true, trim: true },
+    base: { type: String, default: "", trim: true, uppercase: true },
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Table, Button, Modal } from "antd";
-import "../common/PaginationFix.css";
+
 export default function FLogTable({
   headers = [],
   data = [],
@@ -90,6 +90,7 @@ export default function FLogTable({
         onShowSizeChange: handlePageChange,
         showQuickJumper: true,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+        position: ["bottomRight"],
       }}
       scroll={{ x: "max-content" }}
     />

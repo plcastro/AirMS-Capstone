@@ -20,7 +20,11 @@ export default function TaskAssignment({ route }) {
         }
       : null;
 
-  if (user?.jobTitle?.toLowerCase() === "maintenance manager") {
+  if (
+    ["maintenance manager", "admin"].includes(
+      user?.jobTitle?.toLowerCase() || "",
+    )
+  ) {
     return (
       <HeadTaskScreen
         targetTaskId={targetTaskId}

@@ -82,10 +82,9 @@ export default function TaskChecklist({
     setChecklistState(updated);
   };
 
-  const handleStartTask = () => {
+  const handleStartTask = async () => {
     if (isHeadView) return;
-    setIsStarted(true);
-    onStartTask?.(task);
+    await onStartTask?.(task);
   };
 
   const handleSave = async () => {

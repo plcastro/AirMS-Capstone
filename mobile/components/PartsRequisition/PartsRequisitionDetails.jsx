@@ -1,5 +1,13 @@
-import React from "react";
-import { Modal, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Modal,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
@@ -120,16 +128,142 @@ export default function PartsRequisitionDetails({
   onClose,
   request,
   showManagerActions = false,
+  showWarehouseActions = false,
   canOrder = false,
   canApprove = false,
   orderLabel = "Order",
   approveLabel = "Approve",
   onOrder,
   onApprove,
+  getItemStockStatus,
+  onSubmitStockReview,
+  onSaveRestock,
+  onMarkRestocked,
+  onMarkDelivered,
 }) {
+  const [availableQtyMap, setAvailableQtyMap] = useState({});
+  const [persistedQtyMap, setPersistedQtyMap] = useState({});
+
+  useEffect(() => {
+    if (!request) return;
+
+    const nextMap = {};
+    (request.rawRecord?.items || []).forEach((item) => {
+      nextMap[item._id] = item.availableQty ?? "";
+    });
+    setAvailableQtyMap(nextMap);
+    setPersistedQtyMap(nextMap);
+  }, [request]);
+
+  const overallStatusStyle = getOverallStatusStyle(request?.overallStatus);
+  const rawItems = request?.rawRecord?.items || [];
+  const currentStatus = request?.overallStatus;
+  const allQuantitiesFilled =
+    rawItems.length > 0 &&
+    rawItems.every((item) => {
+      const value = availableQtyMap[item._id];
+      return value !== undefined && value !== null && value !== "";
+    });
+  const hasUnsavedStockChanges = rawItems.some(
+    (item) => Number(availableQtyMap[item._id] ?? 0) !== Number(persistedQtyMap[item._id] ?? 0),
+  );
+  const allRestockItemsReady = rawItems
+    .filter((item) => item.stockStatus === "To Be Ordered")
+    .every((item) => Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0));
+  const canEditStock =
+    showWarehouseActions &&
+    ["Parts Requested", "To Be Ordered"].includes(currentStatus);
+  const stockAction = useMemo(() => {
+    if (!showWarehouseActions) return null;
+    if (currentStatus === "Parts Requested") {
+      return {
+        title: "Stock Review",
+        label: "Submit Stock Review",
+        disabled: !allQuantitiesFilled,
+        onPress: "submitReview",
+      };
+    }
+    if (currentStatus === "To Be Ordered") {
+      if (hasUnsavedStockChanges) {
+        return {
+          title: "Save Stock",
+          label: "Save Stock",
+          disabled: !allQuantitiesFilled,
+          onPress: "saveRestock",
+        };
+      }
+      return {
+        title: "Confirm Restock",
+        label: "Mark as Restocked",
+        disabled: !allRestockItemsReady,
+        onPress: "markRestocked",
+      };
+    }
+    if (currentStatus === "Approved") {
+      return {
+        title: "Delivery",
+        label: "Mark Delivered",
+        disabled: false,
+        onPress: "markDelivered",
+      };
+    }
+    if (currentStatus === "Availability Checked") {
+      return {
+        title: "Awaiting Maintenance Review",
+        label: "Waiting",
+        disabled: true,
+        onPress: null,
+      };
+    }
+    if (currentStatus === "Ordered") {
+      return {
+        title: "Awaiting Approval",
+        label: "Waiting",
+        disabled: true,
+        onPress: null,
+      };
+    }
+    return {
+      title: "Completed",
+      label: "Done",
+      disabled: true,
+      onPress: null,
+    };
+  }, [
+    allQuantitiesFilled,
+    allRestockItemsReady,
+    currentStatus,
+    hasUnsavedStockChanges,
+    showWarehouseActions,
+  ]);
+
   if (!request) return null;
 
-  const overallStatusStyle = getOverallStatusStyle(request.overallStatus);
+  const buildUpdatedItems = () =>
+    rawItems.map((item) => {
+      const availableQty = Number(availableQtyMap[item._id] ?? item.availableQty ?? 0);
+      return {
+        ...item,
+        availableQty,
+        stockStatus: getItemStockStatus?.(item, availableQty) || item.stockStatus,
+      };
+    });
+
+  const handleWarehouseAction = () => {
+    if (!stockAction?.onPress) return;
+    const updatedItems = buildUpdatedItems();
+
+    if (stockAction.onPress === "submitReview") {
+      onSubmitStockReview?.(request, updatedItems);
+    } else if (stockAction.onPress === "saveRestock") {
+      onSaveRestock?.(request, updatedItems);
+      setPersistedQtyMap({ ...availableQtyMap });
+    } else if (stockAction.onPress === "markRestocked") {
+      onMarkRestocked?.(request, updatedItems);
+    } else if (stockAction.onPress === "markDelivered") {
+      onMarkDelivered?.(request);
+    }
+  };
 
   return (
     <Modal
@@ -288,6 +422,7 @@ export default function PartsRequisitionDetails({
             >
               {request.requestItems.map((item, index) => {
                 const badgeStyle = getTimelineBadgeStyle(item.status);
+                const rawItem = rawItems[index] || {};
 
                 return (
                   <View
@@ -340,6 +475,46 @@ export default function PartsRequisitionDetails({
                       >
                         {item.requested}
                       </Text>
+                    </View>
+
+                    <View style={{ marginBottom: 8 }}>
+                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                        Available Qty
+                      </Text>
+                      {canEditStock ? (
+                        <TextInput
+                          keyboardType="numeric"
+                          value={String(availableQtyMap[rawItem._id] ?? "")}
+                          onChangeText={(value) =>
+                            setAvailableQtyMap((current) => ({
+                              ...current,
+                              [rawItem._id]: value.replace(/[^0-9]/g, ""),
+                            }))
+                          }
+                          placeholder="0"
+                          placeholderTextColor={COLORS.grayDark}
+                          style={{
+                            borderWidth: 1,
+                            borderColor: "#D8D8D8",
+                            borderRadius: 6,
+                            paddingHorizontal: 10,
+                            paddingVertical: 8,
+                            fontSize: 12,
+                            color: COLORS.black,
+                            marginTop: 4,
+                          }}
+                        />
+                      ) : (
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.black,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {item.availableQty || rawItem.availableQty || "0"}
+                        </Text>
+                      )}
                     </View>
 
                     <View>
@@ -466,6 +641,76 @@ export default function PartsRequisitionDetails({
                 </View>
               );
             })}
+
+            {showWarehouseActions && stockAction && (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E4E4E4",
+                  borderRadius: 8,
+                  padding: 12,
+                  marginTop: 4,
+                  marginBottom: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.black,
+                    fontWeight: "700",
+                    marginBottom: 4,
+                  }}
+                >
+                  {stockAction.title}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.grayDark,
+                    marginBottom: 10,
+                  }}
+                >
+                  {currentStatus === "Parts Requested" &&
+                    "Enter available quantities for all requested items."}
+                  {currentStatus === "To Be Ordered" &&
+                    (hasUnsavedStockChanges
+                      ? "Save the updated stock quantities first."
+                      : "Confirm restocked items when all requested quantities are available.")}
+                  {currentStatus === "Approved" &&
+                    "Approved requisition is ready for warehouse delivery."}
+                  {currentStatus === "Availability Checked" &&
+                    "Stock review submitted. Waiting for maintenance review."}
+                  {currentStatus === "Ordered" &&
+                    "Restock confirmed. Waiting for maintenance approval."}
+                  {["Delivered", "Cancelled"].includes(currentStatus) &&
+                    "No further warehouse action is needed."}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={stockAction.disabled ? 1 : 0.8}
+                  disabled={stockAction.disabled}
+                  onPress={handleWarehouseAction}
+                  style={{
+                    alignSelf: "flex-end",
+                    backgroundColor: stockAction.disabled
+                      ? "#D8D8D8"
+                      : COLORS.primaryLight,
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: COLORS.white,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {stockAction.label}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {showManagerActions && (
               <View

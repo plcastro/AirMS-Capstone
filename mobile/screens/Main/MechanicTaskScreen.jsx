@@ -8,6 +8,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
+import AlertComp from "../../components/AlertComp";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -22,7 +23,39 @@ export default function MechanicTaskScreen({
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
   const currentUserId = user?.id || user?._id || "";
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -182,6 +215,13 @@ export default function MechanicTaskScreen({
   };
 
   const handleStartTask = async (task) => {
+    const confirmed = await confirmWithAlert({
+      title: "Start Task",
+      message: "Start this task now?",
+      confirmText: "Start",
+    });
+    if (!confirmed) return;
+
     const now = new Date();
 
     const updatedTask = {
@@ -197,9 +237,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -212,6 +256,7 @@ export default function MechanicTaskScreen({
           ...savedTask,
           findings: savedTask.findings || "",
         });
+        showToast("Task started successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to start task");
@@ -223,6 +268,13 @@ export default function MechanicTaskScreen({
   };
 
   const handleSaveDraft = async (task, checklistState, findings) => {
+    const confirmed = await confirmWithAlert({
+      title: "Save Task Draft",
+      message: "Save current checklist progress and findings?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     const updatedTask = {
       ...task,
       checklistState: checklistState,
@@ -239,9 +291,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -254,6 +310,7 @@ export default function MechanicTaskScreen({
           ...(prev || {}),
           ...savedTask,
         }));
+        showToast("Task draft saved successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to save draft");
@@ -265,6 +322,15 @@ export default function MechanicTaskScreen({
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
+    const confirmed = await confirmWithAlert({
+      title: options.undo ? "Undo Turn In" : "Turn In Task",
+      message: options.undo
+        ? "Revert this task back to Ongoing?"
+        : "Submit this task for review?",
+      confirmText: options.undo ? "Undo" : "Turn In",
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
 
     const updatedTask = {
@@ -287,9 +353,13 @@ export default function MechanicTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -299,6 +369,11 @@ export default function MechanicTaskScreen({
         );
         setTasks(updatedTasks);
         setSelectedTask(savedTask);
+        showToast(
+          options.undo
+            ? "Task turn-in reverted successfully."
+            : "Task turned in successfully.",
+        );
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to turn in task");
@@ -389,6 +464,15 @@ export default function MechanicTaskScreen({
         onStartTask={handleStartTask}
         onSaveDraft={handleSaveDraft}
         onTurnIn={handleTurnIn}
+      />
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
     </View>
   );

@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPreInspectionTemplatePdf,
@@ -30,6 +30,9 @@ const getDisplayStatus = (status) =>
       ? "released"
       : "pending";
 
+const isCompletedInspection = (inspection) =>
+  String(inspection?.status || "").toLowerCase() === "completed";
+
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
   const targetPreInspectionId = route?.params?.targetPreInspectionId;
@@ -44,6 +47,10 @@ export default function PreInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    inspection: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -137,7 +144,7 @@ export default function PreInspection({ route }) {
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
@@ -170,17 +177,7 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    Alert.alert("Export Pre-Inspection", "Choose export format", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "PDF",
-        onPress: () => exportPreInspectionTemplatePdf(inspection),
-      },
-      {
-        text: "Word Template",
-        onPress: () => exportPreInspectionToWord(inspection),
-      },
-    ]);
+    setExportAlert({ visible: true, inspection });
   };
 
   const selectAircraft = (aircraft) => {
@@ -403,9 +400,13 @@ export default function PreInspection({ route }) {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveNewEntry(newEntry)),
+                body: JSON.stringify({
+                  ...handleSaveNewEntry(newEntry),
+                  confirmAction: true,
+                }),
               },
             );
 
@@ -438,6 +439,13 @@ export default function PreInspection({ route }) {
         }}
         onSave={async (updatedInspection) => {
           try {
+            if (isCompletedInspection(selectedInspection)) {
+              showToast("Completed pre-inspections are view-only.");
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              return;
+            }
+
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
               `${API_BASE}/api/pre-inspections/updatePreInspectionById/${updatedInspection._id}`,
@@ -445,9 +453,13 @@ export default function PreInspection({ route }) {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 
@@ -471,6 +483,24 @@ export default function PreInspection({ route }) {
           }
         }}
         userRole={userRole}
+        readOnly={isCompletedInspection(selectedInspection)}
+      />
+      <AlertComp
+        visible={exportAlert.visible}
+        title="Export Pre-Inspection"
+        message="Choose export format."
+        confirmText="PDF"
+        cancelText="Word Template"
+        onCancel={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionToWord(inspection);
+        }}
+        onConfirm={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionTemplatePdf(inspection);
+        }}
       />
     </View>
   );

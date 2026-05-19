@@ -36,6 +36,7 @@ const {
   initWebSocket,
 } = require("./utils/realtimeEvents");
 const { requestContextMiddleware } = require("./middleware/requestContext");
+const { auditMutatingRequest } = require("./middleware/auditRequestMiddleware");
 const app = express();
 
 const allowedOrigins = [
@@ -44,7 +45,8 @@ const allowedOrigins = [
   "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online", // Expo / Metro bundler origin
-  "http://10.0.2.2:3000", // Android emulator (if using different port)
+  "http://10.0.2.2:3000",
+  "http://10.0.2.2:8081", // Android emulator (if using different port)
 ];
 
 app.use(
@@ -57,7 +59,7 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -77,10 +79,47 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 app.use(requestContextMiddleware);
+app.use(auditMutatingRequest);
 
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        imgSrc: ["'self'", "data:"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        connectSrc: [
+          "'self'",
+          "http://localhost:8000",
+          "https://airms.online",
+          "https://www.airms.online",
+          "https://api.airms.online",
+          "ws:",
+          "wss:",
+        ],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    frameguard: { action: "sameorigin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    permissionsPolicy: {
+      features: {
+        camera: [],
+        microphone: [],
+        geolocation: [],
+        payment: [],
+        usb: [],
+        bluetooth: [],
+        gyroscope: [],
+        magnetometer: [],
+        midi: [],
+      },
+    },
   }),
 );
 
@@ -149,6 +188,7 @@ app.use("/api/admin-activity", adminActivityRoutes);
 app.use("/api/admin-security-alerts", adminSecurityAlertRoutes);
 app.use("/api/parts-monitoring", partsMonitoringRoutes);
 app.use("/api/parts-requisition", partsRequisitionRoutes);
+app.use("/api/requisitions", partsRequisitionRoutes);
 app.use("/api/maintenance-logs", maintenanceLogRoutes);
 
 app.use("/api/approve-technical-logs", approveTechnicalLogRoutes);

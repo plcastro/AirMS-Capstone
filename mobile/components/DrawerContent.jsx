@@ -23,7 +23,7 @@ const DrawerList = [
         icon: "chart-areaspline",
         label: "Reports and Analytics",
         navigateTo: "Reports and Analytics",
-        jobTitle: ["maintenance manager", "officer-in-charge"],
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
       },
       {
         icon: "message-text-outline",
@@ -33,6 +33,7 @@ const DrawerList = [
           "admin",
           "maintenance manager",
           "mechanic",
+          "pilot",
           "officer-in-charge",
           "warehouse department",
         ],
@@ -59,13 +60,20 @@ const DrawerList = [
   },
   {
     label: "AIRCRAFT HEALTH LOGBOOK",
-    jobTitle: ["pilot", "maintenance manager", "officer-in-charge", "mechanic"],
+    jobTitle: [
+      "admin",
+      "pilot",
+      "maintenance manager",
+      "officer-in-charge",
+      "mechanic",
+    ],
     children: [
       {
         icon: "helicopter",
         label: "Flight Logs",
         navigateTo: "Flight Logs",
         jobTitle: [
+          "admin",
           "pilot",
           "maintenance manager",
           "officer-in-charge",
@@ -76,13 +84,19 @@ const DrawerList = [
         icon: "tools",
         label: "Maintenance Logs",
         navigateTo: "Maintenance Logs",
-        jobTitle: ["maintenance manager", "officer-in-charge", "mechanic"],
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
       },
       {
         icon: "clipboard-check-outline",
         label: "Pre-Inspection",
         navigateTo: "Pre-Inspection",
         jobTitle: [
+          "admin",
           "pilot",
           "maintenance manager",
           "officer-in-charge",
@@ -93,55 +107,61 @@ const DrawerList = [
         icon: "clipboard-check-outline",
         label: "Post-Inspection",
         navigateTo: "Post-Inspection",
-        jobTitle: ["maintenance manager", "officer-in-charge", "mechanic"],
+        jobTitle: [
+          "admin",
+          "maintenance manager",
+          "officer-in-charge",
+          "mechanic",
+        ],
       },
     ],
   },
   {
     label: "TASK ASSIGNMENT & MONITORING",
-    jobTitle: ["maintenance manager", "mechanic"],
+    jobTitle: ["admin", "maintenance manager", "mechanic"],
     children: [
       {
         icon: "calendar-clock",
         label: "Tasks",
         navigateTo: "Tasks",
-        jobTitle: ["maintenance manager", "mechanic"],
+        jobTitle: ["admin", "maintenance manager", "mechanic"],
       },
       {
         icon: "account-group",
         label: "Mechanics",
         navigateTo: "Mechanics",
-        jobTitle: ["maintenance manager"],
+        jobTitle: ["admin", "maintenance manager"],
       },
     ],
   },
   {
     label: "PARTS LIFESPAN & MAINTENANCE TRACKING",
-    jobTitle: ["maintenance manager", "officer-in-charge"],
+    jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
     children: [
       {
         icon: "view-dashboard-outline",
         label: "Parts Lifespan Monitoring",
         navigateTo: "Parts Lifespan Monitoring",
-        jobTitle: ["maintenance manager", "officer-in-charge"],
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
       },
       {
         icon: "radar",
         label: "Maintenance Tracking",
         navigateTo: "Maintenance Tracking",
-        jobTitle: ["maintenance manager", "officer-in-charge"],
+        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
       },
       {
         icon: "flag-outline",
         label: "Maintenance Priority Sorting",
         navigateTo: "Maintenance Priority Sorting",
-        jobTitle: ["maintenance manager"],
+        jobTitle: ["admin", "maintenance manager"],
       },
     ],
   },
   {
     label: "PARTS REQUISITION",
     jobTitle: [
+      "admin",
       "warehouse department",
       "maintenance manager",
       "officer-in-charge",
@@ -151,8 +171,9 @@ const DrawerList = [
       {
         icon: "inbox-outline",
         label: "Parts Requisition Monitoring",
-        navigateTo: "Parts Requisition Monitoring",
+        navigateTo: "Parts Requisition",
         jobTitle: [
+          "admin",
           "warehouse department",
           "maintenance manager",
           "officer-in-charge",

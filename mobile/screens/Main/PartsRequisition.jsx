@@ -3,10 +3,11 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
-  Alert,
+  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -23,6 +24,7 @@ import { NotificationContext } from "../../Context/NotificationContext";
 import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequisitionCards";
 import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 const formatDate = (dateValue) => {
@@ -109,6 +111,24 @@ const isItemAvailableForApproval = (status) =>
   ["In Stock", "Ordered", "Approved", "Delivered"].includes(
     normalizeItemStatus(status),
   );
+
+const getItemStockStatus = (item, availableQty) => {
+  const currentStatus = normalizeItemStatus(item.stockStatus);
+
+  if (["Approved", "Delivered", "Cancelled"].includes(currentStatus)) {
+    return currentStatus;
+  }
+
+  if (["To Be Ordered", "Ordered"].includes(currentStatus)) {
+    return Number(availableQty) >= Number(item.quantity || 0)
+      ? "Ordered"
+      : "To Be Ordered";
+  }
+
+  return Number(availableQty) >= Number(item.quantity || 0)
+    ? "In Stock"
+    : "Out of Stock";
+};
 
 const getItemParticular = (item = {}) =>
   item.particular ||
@@ -306,19 +326,82 @@ export default function PartsRequisition({ route, navigation }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase();
+  const isWarehouse = userRole === "warehouse department";
   const isManager = ["maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
   const tabLabels = isManager
     ? ["For Review", "Closed"]
-    : ["Pending", "Approved", "Closed"];
-  const defaultTab = isManager ? "For Review" : "Pending";
+    : isWarehouse
+      ? [
+          "Parts Requested",
+          "Availability Checked",
+          "To Be Restocked",
+          "Restocked",
+          "Approved",
+          "Closed",
+        ]
+      : ["Pending", "Approved", "Closed"];
+  const defaultTab = isManager
+    ? "For Review"
+    : isWarehouse
+      ? "Parts Requested"
+      : "Pending";
 
   useEffect(() => {
     setSelectedTab(defaultTab);
   }, [defaultTab]);
+
+  const closeAlert = () => {
+    setAlertConfig((current) => ({ ...current, visible: false }));
+  };
+
+  const showAlert = ({ title, message, confirmText = "OK" }) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      confirmText,
+      cancelText: "Cancel",
+      onConfirm: closeAlert,
+      onCancel: null,
+    });
+  };
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -394,6 +477,8 @@ export default function PartsRequisition({ route, navigation }) {
   }, []);
 
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     fetchRequisitions();
     fetchAircraftOptions();
   }, [fetchAircraftOptions, fetchRequisitions]);
@@ -402,7 +487,20 @@ export default function PartsRequisition({ route, navigation }) {
     if (typeof EventSource === "undefined") return undefined;
 
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
-    const onDataChanged = async () => {
+    const onDataChanged = async (event) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(event?.data || "{}");
+      } catch {
+        payload = {};
+      }
+      const url = String(payload?.url || "");
+      if (
+        !url.startsWith("/api/parts-requisition") &&
+        !url.startsWith("/api/requisitions")
+      ) {
+        return;
+      }
       await fetchRequisitions({ silent: true });
       await fetchNotifications();
     };
@@ -417,9 +515,8 @@ export default function PartsRequisition({ route, navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      fetchRequisitions();
       fetchNotifications();
-    }, [fetchNotifications, fetchRequisitions]),
+    }, [fetchNotifications]),
   );
 
   useEffect(() => {
@@ -445,6 +542,25 @@ export default function PartsRequisition({ route, navigation }) {
         return ["Delivered", "Cancelled"].includes(item.rawStatus);
       }
 
+      if (isWarehouse) {
+        if (selectedTab === "Parts Requested") {
+          return item.rawStatus === "Parts Requested";
+        }
+        if (selectedTab === "Availability Checked") {
+          return item.rawStatus === "Availability Checked";
+        }
+        if (selectedTab === "To Be Restocked") {
+          return item.rawStatus === "To Be Ordered";
+        }
+        if (selectedTab === "Restocked") {
+          return item.rawStatus === "Ordered";
+        }
+        if (selectedTab === "Approved") {
+          return item.rawStatus === "Approved";
+        }
+        return ["Delivered", "Cancelled"].includes(item.rawStatus);
+      }
+
       if (selectedTab === "Pending") {
         return !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus);
       }
@@ -465,7 +581,7 @@ export default function PartsRequisition({ route, navigation }) {
 
       return matchesSearch;
     });
-  }, [isManager, mappedRequisitions, searchQuery, selectedTab]);
+  }, [isManager, isWarehouse, mappedRequisitions, searchQuery, selectedTab]);
 
   const tabCounts = useMemo(
     () => ({
@@ -479,6 +595,17 @@ export default function PartsRequisition({ route, navigation }) {
       Approved: mappedRequisitions.filter(
         (item) => item.rawStatus === "Approved",
       ).length,
+      "Parts Requested": mappedRequisitions.filter(
+        (item) => item.rawStatus === "Parts Requested",
+      ).length,
+      "Availability Checked": mappedRequisitions.filter(
+        (item) => item.rawStatus === "Availability Checked",
+      ).length,
+      "To Be Restocked": mappedRequisitions.filter(
+        (item) => item.rawStatus === "To Be Ordered",
+      ).length,
+      Restocked: mappedRequisitions.filter((item) => item.rawStatus === "Ordered")
+        .length,
       Closed: mappedRequisitions.filter((item) =>
         ["Delivered", "Cancelled"].includes(item.rawStatus),
       ).length,
@@ -557,7 +684,7 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const submitRequisitionUpdate = useCallback(
-    async (requestId, payload, successMessage) => {
+    async (requestId, payload, successMessage, { closeDetails = true } = {}) => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
@@ -566,13 +693,17 @@ export default function PartsRequisition({ route, navigation }) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-action-confirmed": "true",
               ...(token
                 ? {
                     Authorization: `Bearer ${token}`,
                   }
                 : {}),
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({
+              ...payload,
+              confirmAction: true,
+            }),
           },
         );
 
@@ -581,7 +712,14 @@ export default function PartsRequisition({ route, navigation }) {
           throw new Error(errorData?.message || "Failed to update requisition");
         }
 
-        setShowDetailsModal(false);
+        const updatedRecord = await parseJsonSafely(response);
+        if (updatedRecord?._id) {
+          setSelectedRequest(mapRequisitionToCard(updatedRecord).requestDetails);
+        }
+
+        if (closeDetails) {
+          setShowDetailsModal(false);
+        }
         resetEntryModal();
         await fetchRequisitions();
 
@@ -614,24 +752,34 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleDelete = (item) => {
-    Alert.alert("Cancel Requisition", `Cancel ${item.slipNo}?`, [
-      { text: "No", style: "cancel" },
-      {
-        text: "Yes",
-        style: "destructive",
-        onPress: () => handleCancelRequest(item),
+    setAlertConfig({
+      visible: true,
+      title: "Cancel Requisition",
+      message: `Cancel ${item.slipNo}?`,
+      confirmText: "Yes",
+      cancelText: "No",
+      onCancel: closeAlert,
+      onConfirm: async () => {
+        closeAlert();
+        await handleCancelRequest(item);
       },
-    ]);
+    });
   };
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
     if (!aircraft) {
-      showToast("Please choose an aircraft.");
+      showAlert({
+        title: "Missing Aircraft",
+        message: "Please choose an aircraft.",
+      });
       return;
     }
 
     if (!items?.length) {
-      showToast("Please add at least one item.");
+      showAlert({
+        title: "Missing Items",
+        message: "Please add at least one item.",
+      });
       return;
     }
 
@@ -643,7 +791,10 @@ export default function PartsRequisition({ route, navigation }) {
           Number(item.quantity) <= 0,
       )
     ) {
-      showToast("Particular, and quantity are required for each item.");
+      showAlert({
+        title: "Incomplete Item",
+        message: "Particular and quantity are required for each item.",
+      });
       return;
     }
 
@@ -654,6 +805,13 @@ export default function PartsRequisition({ route, navigation }) {
 
     try {
       if (editingRequest) {
+        const confirmedEdit = await confirmWithAlert({
+          title: "Update Requisition",
+          message: `Save changes to ${editingRequest.slipNo}?`,
+          confirmText: "Save",
+        });
+        if (!confirmedEdit) return;
+
         await submitRequisitionUpdate(
           editingRequest.id,
           {
@@ -671,6 +829,13 @@ export default function PartsRequisition({ route, navigation }) {
       }, 0);
       const nextSlipNumber = highestSlipNumber + 1;
       const nextSlipNo = `WRS-${String(nextSlipNumber).padStart(3, "0")}`;
+      const confirmedCreate = await confirmWithAlert({
+        title: "Submit Requisition",
+        message: `Submit new requisition ${nextSlipNo}?`,
+        confirmText: "Submit",
+      });
+      if (!confirmedCreate) return;
+
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
@@ -678,6 +843,7 @@ export default function PartsRequisition({ route, navigation }) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
             ...(token
               ? {
                   Authorization: `Bearer ${token}`,
@@ -687,6 +853,7 @@ export default function PartsRequisition({ route, navigation }) {
           body: JSON.stringify({
             wrsNo: nextSlipNo,
             aircraft,
+            confirmAction: true,
             staff: {
               requisitioner: fullName,
               approvedBy: "",
@@ -718,6 +885,13 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleOrderRequest = async (request) => {
+    const confirmed = await confirmWithAlert({
+      title: "Mark for Restock",
+      message: `Mark ${request.requestId} as to be restocked?`,
+      confirmText: "Confirm",
+    });
+    if (!confirmed) return;
+
     const updatedItems = (request.rawRecord.items || []).map((item) => ({
       ...item,
       stockStatus:
@@ -738,6 +912,13 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleApproveRequest = async (request) => {
+    const confirmed = await confirmWithAlert({
+      title: "Approve Requisition",
+      message: `Approve ${request.requestId}?`,
+      confirmText: "Approve",
+    });
+    if (!confirmed) return;
+
     const fullName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       "Unknown User";
@@ -755,6 +936,93 @@ export default function PartsRequisition({ route, navigation }) {
         items: updatedItems,
       },
       `${request.requestId} approved successfully.`,
+    );
+  };
+
+  const getCurrentUserName = (fallback) =>
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || fallback;
+
+  const handleSubmitStockReview = async (request, updatedItems) => {
+    const hasPartialOrZeroStock = updatedItems.some(
+      (item) => Number(item.availableQty) < Number(item.quantity),
+    );
+
+    if (hasPartialOrZeroStock) {
+      const confirmed = await confirmWithAlert({
+        title: "Submit Stock Review",
+        message:
+          "Some items have partial or zero available quantity. Submit stock review anyway?",
+        confirmText: "Submit",
+      });
+      if (!confirmed) return;
+    }
+
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        dateWarehouseReviewed: new Date().toISOString(),
+        warehouseBy: getCurrentUserName("Warehouse Department"),
+        items: updatedItems,
+      },
+      "Warehouse stock review submitted successfully.",
+    );
+  };
+
+  const handleSaveRestock = async (request, updatedItems) => {
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "To Be Ordered",
+        warehouseBy: getCurrentUserName("Warehouse Department"),
+        items: updatedItems,
+      },
+      "Stock quantities saved.",
+      { closeDetails: false },
+    );
+  };
+
+  const handleMarkRestocked = async (request, updatedItems) => {
+    const confirmed = await confirmWithAlert({
+      title: "Mark as Restocked",
+      message: `Mark ${request.requestId} as restocked?`,
+      confirmText: "Restocked",
+    });
+    if (!confirmed) return;
+
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "Ordered",
+        dateOrdered: new Date().toISOString(),
+        warehouseBy: getCurrentUserName("Warehouse Department"),
+        items: updatedItems,
+      },
+      "Requisition marked as restocked.",
+    );
+  };
+
+  const handleMarkDelivered = async (request) => {
+    const confirmed = await confirmWithAlert({
+      title: "Mark Delivered",
+      message: `Mark ${request.requestId} as delivered?`,
+      confirmText: "Delivered",
+    });
+    if (!confirmed) return;
+
+    await submitRequisitionUpdate(
+      request.id,
+      {
+        status: "Delivered",
+        dateDelivered: new Date().toISOString(),
+        dateReceived: new Date().toISOString(),
+        deliveredBy: getCurrentUserName("Warehouse Department"),
+        warehouseBy: getCurrentUserName("Warehouse Department"),
+        items: (request.rawRecord.items || []).map((item) => ({
+          ...item,
+          stockStatus: "Delivered",
+        })),
+      },
+      "Requisition marked as delivered.",
     );
   };
 
@@ -917,6 +1185,7 @@ export default function PartsRequisition({ route, navigation }) {
         <View
           style={{
             flexDirection: "row",
+            flexWrap: "wrap",
             gap: 3,
             marginBottom: 20,
           }}
@@ -927,13 +1196,23 @@ export default function PartsRequisition({ route, navigation }) {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => {
+                fetchRequisitions();
+                fetchNotifications();
+              }}
+              colors={[COLORS.primaryLight]}
+            />
+          }
         >
           <PartsRequisitionCards
             requisitions={filteredRequisitions}
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            showActions={!isManager}
+            showActions={!isManager && !isWarehouse}
             actionsDisabled={!isManager && selectedTab !== "Pending"}
             loading={loading}
           />
@@ -960,12 +1239,28 @@ export default function PartsRequisition({ route, navigation }) {
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
         showManagerActions={isManager && selectedTab === "For Review"}
+        showWarehouseActions={isWarehouse}
         canOrder={canOrder}
         canApprove={canApprove}
         orderLabel={orderLabel}
         approveLabel="Approve"
         onOrder={handleOrderRequest}
         onApprove={handleApproveRequest}
+        getItemStockStatus={getItemStockStatus}
+        onSubmitStockReview={handleSubmitStockReview}
+        onSaveRestock={handleSaveRestock}
+        onMarkRestocked={handleMarkRestocked}
+        onMarkDelivered={handleMarkDelivered}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
     </View>
   );

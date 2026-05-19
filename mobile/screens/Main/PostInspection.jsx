@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -14,6 +13,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPostInspectionTemplatePdf,
@@ -41,6 +41,10 @@ export default function PostInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    inspection: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -130,7 +134,7 @@ export default function PostInspection({ route }) {
   ];
 
   const statusOptions = [
-    { label: "All", value: "all" },
+    { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
@@ -163,17 +167,7 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    Alert.alert("Export Post-Inspection", "Choose export format", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "PDF",
-        onPress: () => exportPostInspectionTemplatePdf(inspection),
-      },
-      {
-        text: "Word Template",
-        onPress: () => exportPostInspectionToWord(inspection),
-      },
-    ]);
+    setExportAlert({ visible: true, inspection });
   };
 
   const selectAircraft = (aircraft) => {
@@ -368,9 +362,13 @@ export default function PostInspection({ route }) {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
+                  "x-action-confirmed": "true",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(handleSaveEdit(updatedInspection)),
+                body: JSON.stringify({
+                  ...handleSaveEdit(updatedInspection),
+                  confirmAction: true,
+                }),
               },
             );
 
@@ -399,6 +397,23 @@ export default function PostInspection({ route }) {
         }}
         userRole={userRole}
         readOnly={isOfficerInCharge}
+      />
+      <AlertComp
+        visible={exportAlert.visible}
+        title="Export Post-Inspection"
+        message="Choose export format."
+        confirmText="PDF"
+        cancelText="Word Template"
+        onCancel={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPostInspectionToWord(inspection);
+        }}
+        onConfirm={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPostInspectionTemplatePdf(inspection);
+        }}
       />
     </View>
   );

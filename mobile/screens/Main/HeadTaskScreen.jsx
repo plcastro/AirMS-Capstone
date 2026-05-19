@@ -42,10 +42,44 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const isEmployeeBusy = (employeeId) =>
     tasks.some((task) => {
-      const status = String(task?.status || "").trim().toLowerCase();
+      const status = String(task?.status || "")
+        .trim()
+        .toLowerCase();
       return (
         String(task?.assignedTo || "") === String(employeeId) &&
         OPEN_TASK_STATUSES.has(status)
@@ -238,21 +272,33 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
+    const confirmed = await confirmWithAlert({
+      title: "Create Task",
+      message: "Submit this new task assignment?",
+      confirmText: "Create",
+    });
+    if (!confirmed) return;
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newTask),
+        body: JSON.stringify({
+          ...newTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
         console.log("Task added:", data.data);
         setTasks([...tasks, data.data]);
         setAddModalVisible(false);
+        showToast("Task created successfully.");
         await fetchTasks({ silent: true });
       } else {
         const errorData = await response.json();
@@ -266,15 +312,26 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
+    const confirmed = await confirmWithAlert({
+      title: "Update Task",
+      message: "Save changes to this task?",
+      confirmText: "Save",
+    });
+    if (!confirmed) return;
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/${updatedTask.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -283,6 +340,7 @@ export default function HeadTaskScreen({
         );
         setTasks(updatedTasks);
         setEditModalVisible(false);
+        showToast("Task updated successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to update task");
@@ -299,12 +357,14 @@ export default function HeadTaskScreen({
       const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "DELETE",
         headers: {
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {
         const updatedTasks = tasks.filter((t) => t.id !== taskId);
         setTasks(updatedTasks);
+        showToast("Task deleted successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to delete task");
@@ -330,6 +390,13 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
+    const confirmed = await confirmWithAlert({
+      title: "Approve Task",
+      message: "Confirm approval and submit this task review?",
+      confirmText: "Approve",
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
     const approverName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -352,9 +419,13 @@ export default function HeadTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -362,6 +433,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        showToast("Task approved successfully.");
         await fetchTasks({ silent: true });
       } else {
         const data = await response.json().catch(() => ({}));
@@ -374,6 +446,13 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
+    const confirmed = await confirmWithAlert({
+      title: "Return Task",
+      message: "Return this task to the mechanic for revision?",
+      confirmText: "Return",
+    });
+    if (!confirmed) return;
+
     const now = new Date().toISOString();
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
       ? returnData.itemsToUncheck
@@ -405,9 +484,13 @@ export default function HeadTaskScreen({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask),
+        body: JSON.stringify({
+          ...updatedTask,
+          confirmAction: true,
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -415,6 +498,7 @@ export default function HeadTaskScreen({
           t.id === task.id ? data.data : t,
         );
         setTasks(updatedTasks);
+        showToast("Task returned successfully.");
         await fetchTasks({ silent: true });
       } else {
         showToast("Failed to return task");
@@ -495,12 +579,11 @@ export default function HeadTaskScreen({
             styles.unifiedActionButton,
             { marginLeft: 5, width: 100 },
           ]}
-          buttonTextStyle={styles.primaryBtnTxt}
+          buttonTextStyle={[styles.unifiedActionButtonText, { fontSize: 14 }]}
         />
       </View>
       <View style={styles.maintenanceSearchDivider} />
 
-      {/* Tabs and Add Task Button */}
       <View
         style={{
           flexDirection: "row",
@@ -522,7 +605,9 @@ export default function HeadTaskScreen({
                 : { minWidth: 120, paddingHorizontal: 8 },
             ]}
             buttonTextStyle={[
-              activeTab === tab ? styles.primaryBtnTxt : styles.secondaryBtnTxt,
+              activeTab === tab
+                ? styles.primaryBtnTxt
+                : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
               { fontSize: 12 },
             ]}
           />
@@ -574,6 +659,16 @@ export default function HeadTaskScreen({
         task={selectedTask}
         onSave={handleEditTask}
         employees={employees}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
 
       <AlertComp

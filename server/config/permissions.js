@@ -1,86 +1,57 @@
+const defineModulePermissions = (moduleKey, actions) => {
+  const keyPrefix = moduleKey.replace(/-/g, "").toUpperCase();
+
+  return actions.reduce((acc, action) => {
+    const actionKey = action.replace(/\./g, "_").toUpperCase();
+    acc[`${keyPrefix}_${actionKey}`] = `${moduleKey}.${action}`;
+    return acc;
+  }, {});
+};
+
+const MODULE_ACTIONS = {
+  reports: ["read", "export"],
+  message: ["read", "send"],
+  users: ["read", "create", "update", "delete"],
+  activitylogs: ["read"],
+  flightlog: ["read", "create", "update", "delete"],
+  maintenancelog: ["read", "create", "update", "delete"],
+  preinspection: ["read", "create", "update"],
+  postinspection: ["read", "create", "update"],
+  tasks: [
+    "read",
+    "read.own",
+    "read.all",
+    "create",
+    "update",
+    "update.own",
+    "update.all",
+    "delete",
+  ],
+  mechanics: ["read", "assign"],
+  lifespanmonitoring: ["read", "update", "export"],
+  maintenancetracking: ["read", "create", "update"],
+  maintenancepriority: ["read", "update"],
+  partsrequisition: ["read", "create", "update", "cancel"],
+  profile: ["read", "update"],
+  admin: ["panel"],
+};
+
+const generatedPermissions = Object.entries(MODULE_ACTIONS).reduce(
+  (acc, [moduleKey, actions]) => ({
+    ...acc,
+    ...defineModulePermissions(moduleKey, actions),
+  }),
+  {},
+);
+
 const permissions = {
-  // ===== REPORTS AND ANALYTICS =====
-  REPORTS_READ: "reports.read",
-  REPORTS_EXPORT: "reports.export",
+  ...generatedPermissions,
 
-  // ===== MESSAGES =====
-  MESSAGE_READ: "message.read",
-  MESSAGE_SEND: "message.send",
-
-  // ===== USER MANAGEMENT =====
-  USERS_READ: "users.read",
-  USERS_CREATE: "users.create",
-  USERS_UPDATE: "users.update",
-  USERS_DELETE: "users.delete",
-
-  // ===== ACTIVITY LOGS =====
-  ACTIVITYLOGS_READ: "activitylogs.read",
-
-  // ===== FLIGHT LOGS =====
-  FLIGHTLOG_READ: "flightlog.read",
-  FLIGHTLOG_CREATE: "flightlog.create",
-  FLIGHTLOG_UPDATE: "flightlog.update",
-  FLIGHTLOG_DELETE: "flightlog.delete",
-
-  // ===== MAINTENANCE LOGS =====
-  MAINTENANCELOG_READ: "maintenancelog.read",
-  MAINTENANCELOG_CREATE: "maintenancelog.create",
-  MAINTENANCELOG_UPDATE: "maintenancelog.update",
-  MAINTENANCELOG_DELETE: "maintenancelog.delete",
-
-  // ===== PRE INSPECTION =====
-  PREINSPECTION_READ: "preinspection.read",
-  PREINSPECTION_CREATE: "preinspection.create",
-  PREINSPECTION_UPDATE: "preinspection.update",
-
-  // ===== POST INSPECTION =====
-  POSTINSPECTION_READ: "postinspection.read",
-  POSTINSPECTION_CREATE: "postinspection.create",
-  POSTINSPECTION_UPDATE: "postinspection.update",
-
-  // ===== TASKS =====
-  TASKS_READ: "tasks.read",
-  TASKS_READ_OWN: "tasks.read.own",
-  TASKS_READ_ALL: "tasks.read.all",
-
-  TASKS_CREATE: "tasks.create",
-
-  TASKS_UPDATE: "tasks.update",
-  TASKS_UPDATE_OWN: "tasks.update.own",
-  TASKS_UPDATE_ALL: "tasks.update.all",
-
-  TASKS_DELETE: "tasks.delete",
-
-  // ===== MECHANICS =====
-  MECHANICS_READ: "mechanics.read",
-  MECHANICS_ASSIGN: "mechanics.assign",
-
-  // ===== PARTS LIFESPAN MONITORING =====
-  LIFESPANMONITORING_READ: "lifespanmonitoring.read",
-  LIFESPANMONITORING_UPDATE: "lifespanmonitoring.update",
-  LIFESPANMONITORING_EXPORT: "lifespanmonitoring.export",
-
-  // ===== MAINTENANCE TRACKING =====
-  MAINTENANCETRACKING_READ: "maintenancetracking.read",
-  MAINTENANCETRACKING_CREATE: "maintenancetracking.create",
-  MAINTENANCETRACKING_UPDATE: "maintenancetracking.update",
-
-  // ===== MAINTENANCE PRIORITY SORTING =====
-  MAINTENANCEPRIORITY_READ: "maintenancepriority.read",
-  MAINTENANCEPRIORITY_UPDATE: "maintenancepriority.update",
-
-  // ===== PARTS REQUISITION =====
-  PARTSREQUISITION_READ: "partsrequisition.read",
-  PARTSREQUISITION_CREATE: "partsrequisition.create",
-  PARTSREQUISITION_UPDATE: "partsrequisition.update",
-  PARTSREQUISITION_CANCEL: "partsrequisition.cancel",
-
-  // ===== PROFILE =====
-  PROFILE_READ: "profile.read",
-  PROFILE_UPDATE: "profile.update",
-
-  // ===== ADMIN =====
-  ADMIN_PANEL: "admin.panel",
+  // Backward-compatible aliases for existing role config terms.
+  WAREHOUSE_READ: generatedPermissions.PARTSREQUISITION_READ,
+  WAREHOUSE_CREATE: generatedPermissions.PARTSREQUISITION_CREATE,
+  WAREHOUSE_UPDATE: generatedPermissions.PARTSREQUISITION_UPDATE,
+  WAREHOUSE_CANCEL: generatedPermissions.PARTSREQUISITION_CANCEL,
 };
 
 module.exports = permissions;

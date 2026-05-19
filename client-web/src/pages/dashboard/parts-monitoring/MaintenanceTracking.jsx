@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
+  App,
   Alert,
   Button,
   Card,
@@ -12,11 +13,11 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { confirmAction } from "../../../utils/confirmAction";
 
 const { Title, Text } = Typography;
 
@@ -149,6 +150,7 @@ const getTaskScheduleState = (task = {}) => {
 };
 
 export default function MaintenanceTracking() {
+  const { message } = App.useApp();
   const { user, getAuthHeader } = useContext(AuthContext);
   const isOfficerInCharge =
     user?.jobTitle?.toLowerCase() === "officer-in-charge";
@@ -278,6 +280,14 @@ export default function MaintenanceTracking() {
   }, []);
 
   const fetchLlmSummaries = async () => {
+    const confirmed = await confirmAction({
+      title: "Regenerate AI Insights",
+      content:
+        "Regenerate maintenance summaries now? This may consume OpenAI quota.",
+      okText: "Regenerate",
+    });
+    if (!confirmed) return;
+
     const currentHealth = await refreshLlmHealth();
 
     if (currentHealth && currentHealth.configured === false) {
@@ -398,9 +408,13 @@ export default function MaintenanceTracking() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-action-confirmed": "true",
           ...authHeader,
         },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          confirmAction: true,
+        }),
       },
     );
     const result = await response.json().catch(() => ({}));
@@ -746,229 +760,202 @@ export default function MaintenanceTracking() {
   return (
     <div
       style={{
-        padding: 20,
+        padding: 24,
         display: "flex",
         flexDirection: "column",
-        gap: 16,
+        gap: 20,
         height: "calc(100vh - 64px)",
         overflowY: "auto",
-        paddingBottom: 32,
       }}
     >
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
-            <Statistic
-              title="Aircraft Assessed"
-              value={summary.totalAircraft}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
-            <Statistic
-              title="Critical + High"
-              value={(summary.critical || 0) + (summary.high || 0)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
-            <Statistic
-              title="Medium + Low"
-              value={(summary.medium || 0) + (summary.low || 0)}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={4}>
-          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
-            <Statistic
-              title="OpenAI Summaries"
-              value={summarySourceCounts.llm}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={5}>
-          <Card variant="borderless" styles={{ body: { padding: 12 } }}>
-            <Statistic
-              title="Rule Fallbacks"
-              value={summarySourceCounts.fallback}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Card>
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} lg={16}>
-            <Space orientation="vertical" size={4}>
-              <Title level={4} style={{ margin: 0 }}>
-                AI Maintenance Tracking
-              </Title>
-              <Space wrap>
-                {!isOfficerInCharge && (
-                  <Button
-                    type="primary"
-                    onClick={fetchLlmSummaries}
-                    loading={summaryLoading}
-                    disabled={
-                      !llmHealth?.configured || llmHealth?.cooldown?.active
-                    }
-                  >
-                    {llmHealth?.cooldown?.active
-                      ? `OpenAI cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
-                      : "Regenerate OpenAI Summaries"}
-                  </Button>
-                )}
-                <Text type="secondary">
-                  Rule-engine results load first. Use Regenerate to request
-                  OpenAI enrichment for detected issues. When OpenAI enriches a
-                  finding, AirMS selects the recommendation and reference from
-                  the matched rules.
-                  {!isOfficerInCharge &&
-                    " Use the button to retry or refresh all detected maintenance issues."}
-                </Text>
-              </Space>
-            </Space>
+      {/* ================= HEADER STATUS ================= */}
+      <Card
+        style={{
+          borderRadius: 12,
+        }}
+      >
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} md={12}>
+            <Title level={3} style={{ margin: 0 }}>
+              AI Maintenance Dashboard
+            </Title>
+            <Text type="secondary">
+              Rule-based engine with optional AI enhancement layer
+            </Text>
           </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-              <Text strong>Aircraft Filter</Text>
-              <Select
-                value={selectedAircraftFilter}
-                onChange={setSelectedAircraftFilter}
-                style={{ width: "100%" }}
-                showSearch
-                optionFilterProp="label"
-                options={[
-                  { label: "All Aircraft", value: "all" },
-                  ...aircraftFilterOptions.map((aircraft) => ({
-                    label: aircraft,
-                    value: aircraft,
-                  })),
-                ]}
-              />
+
+          <Col xs={24} md={12}>
+            <Space style={{ float: "right" }}>
+              {!isOfficerInCharge && (
+                <Button
+                  type="primary"
+                  onClick={fetchLlmSummaries}
+                  loading={summaryLoading}
+                  disabled={
+                    !llmHealth?.configured || llmHealth?.cooldown?.active
+                  }
+                >
+                  {llmHealth?.cooldown?.active
+                    ? `Cooldown (${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s)`
+                    : "Regenerate AI Insights"}
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>
       </Card>
 
-      {meta && (
-        <Alert
-          type="info"
-          showIcon
-          title="AI implementation mode"
-          description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "OpenAI summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current OpenAI request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
-        />
-      )}
+      {/* ================= KPI ROW ================= */}
+      <Row gutter={16}>
+        {[
+          {
+            title: "Aircraft",
+            value: summary.totalAircraft,
+          },
+          {
+            title: "Critical + High",
+            value: (summary.critical || 0) + (summary.high || 0),
+          },
+          {
+            title: "Medium + Low",
+            value: (summary.medium || 0) + (summary.low || 0),
+          },
+          {
+            title: "AI Summaries",
+            value: summarySourceCounts.llm,
+          },
+          {
+            title: "Fallback",
+            value: summarySourceCounts.fallback,
+          },
+        ].map((item) => (
+          <Col xs={12} md={4} key={item.title}>
+            <Card
+              style={{
+                borderRadius: 10,
+                textAlign: "center",
+              }}
+            >
+              <Statistic title={item.title} value={item.value} />
+            </Card>
+          </Col>
+        ))}
+      </Row>
 
-      {llmHealth && (
-        <Alert
-          type={
-            llmHealth.reachable
-              ? "success"
-              : llmHealth.configured
-                ? "warning"
-                : "error"
-          }
-          showIcon
-          title="OpenAI health"
-          description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
-        />
-      )}
+      {/* ================= AI STATUS PANEL ================= */}
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          {meta && (
+            <Alert
+              type="info"
+              showIcon
+              title="AI Mode"
+              description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "OpenAI summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current OpenAI request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
+            />
+          )}
+        </Col>
 
-      <Card>
-        <Space orientation="vertical" size={6}>
-          <Title level={4} style={{ margin: 0 }}>
-            Maintenance Tracking Insights
-          </Title>
+        <Col xs={24} md={12}>
+          {llmHealth && (
+            <Alert
+              type={
+                llmHealth.reachable
+                  ? "success"
+                  : llmHealth.configured
+                    ? "warning"
+                    : "error"
+              }
+              showIcon
+              title="OpenAI health"
+              description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
+            />
+          )}
+        </Col>
+      </Row>
+
+      {/* ================= INSIGHTS ================= */}
+      <Card title="Maintenance Insights" style={{ borderRadius: 12 }}>
+        <Space orientation="vertical">
           {maintenanceTrackingInsights.map((insight) => (
             <Text key={insight} type="secondary">
-              {insight}
+              • {insight}
             </Text>
           ))}
         </Space>
       </Card>
 
-      <Row gutter={24}>
-        <Col span={24}>
-          <h2>Condensed AI Findings for Maintenance Tracking</h2>
-        </Col>
-        <Col span={24}>
-          <MTrackingTable
-            headers={columnHeader}
-            data={tableData}
-            loading={loading || summaryLoading}
-            onRectifyFinding={confirmFindingRectified}
-          />
-        </Col>
-      </Row>
-      <Card>
-        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-          <Row gutter={[16, 16]} align="middle">
-            <Col xs={24} md={12}>
-              <Space orientation="vertical" size={2}>
-                <Title level={4} style={{ margin: 0 }}>
-                  Scheduled Tasks from Task Assignment
-                </Title>
-              </Space>
-            </Col>
-            <Col xs={12} sm={6} md={3}>
-              <Statistic title="Total" value={scheduledTaskStats.total} />
-            </Col>
-            <Col xs={12} sm={6} md={3}>
-              <Statistic
-                title="Scheduled"
-                value={scheduledTaskStats.scheduled}
-              />
-            </Col>
-            <Col xs={12} sm={6} md={3}>
-              <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
-            </Col>
-            <Col xs={12} sm={6} md={3}>
-              <Statistic
-                title="Completed"
-                value={scheduledTaskStats.completed}
-              />
-            </Col>
-          </Row>
-          <Table
-            columns={scheduledTaskColumns}
-            dataSource={scheduledTaskRows}
-            loading={loading}
-            size="small"
-            rowKey={(record) => record.key || record.id}
-            pagination={{ pageSize: 5, showSizeChanger: true }}
-            scroll={{ x: 1100 }}
-            locale={{ emptyText: "No scheduled tasks found." }}
-          />
-        </Space>
+      {/* ================= MAIN TABLE ================= */}
+      <Card
+        title="Condensed AI Findings"
+        style={{ borderRadius: 12 }}
+        styles={{ body: { padding: 12 } }}
+      >
+        <MTrackingTable
+          headers={columnHeader}
+          data={tableData}
+          loading={loading || summaryLoading}
+          onRectifyFinding={confirmFindingRectified}
+        />
       </Card>
 
-      <Card>
-        <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-          <Space orientation="vertical" size={2}>
-            <Title level={4} style={{ margin: 0 }}>
-              Remaining Flight Hours by Inspection
-            </Title>
-            <Text type="secondary">
-              Each aircraft is matched against the configured inspection
-              schedules and parts lifespan rows.
-            </Text>
-          </Space>
-          <Table
-            columns={inspectionRemainingColumns}
-            dataSource={filteredInspectionRemainingRows}
-            loading={loading || inspectionRemainingLoading}
-            size="small"
-            rowKey={(record) =>
-              `${record.aircraft}-${record.inspectionKey || record.inspectionName}`
-            }
-            pagination={{ pageSize: 8, showSizeChanger: true }}
-            scroll={{ x: 1120 }}
-            locale={{ emptyText: "No inspection remaining-hours data found." }}
-          />
-        </Space>
+      {/* ================= SCHEDULED TASKS ================= */}
+      <Card title="Scheduled Tasks" style={{ borderRadius: 12 }}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col span={24}>
+            <Row gutter={16}>
+              <Col span={6}>
+                <Statistic title="Total" value={scheduledTaskStats.total} />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title="Scheduled"
+                  value={scheduledTaskStats.scheduled}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Overdue" value={scheduledTaskStats.overdue} />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title="Completed"
+                  value={scheduledTaskStats.completed}
+                />
+              </Col>
+            </Row>
+          </Col>
+
+          <Col span={24}>
+            <Table
+              columns={scheduledTaskColumns}
+              dataSource={scheduledTaskRows}
+              rowKey={(record) => record.id || record.key}
+              loading={loading}
+              size="small"
+              pagination={{ pageSize: 5 }}
+              scroll={{ x: 1000 }}
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      {/* ================= INSPECTION TABLE ================= */}
+      <Card title="Inspection Remaining Hours" style={{ borderRadius: 12 }}>
+        <Text type="secondary">
+          Aircraft inspection lifecycle tracking and parts lifespan monitoring
+        </Text>
+
+        <Table
+          style={{ marginTop: 12 }}
+          columns={inspectionRemainingColumns}
+          dataSource={filteredInspectionRemainingRows}
+          rowKey={(record) =>
+            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}`
+          }
+          loading={loading || inspectionRemainingLoading}
+          size="small"
+          pagination={{ pageSize: 8 }}
+          scroll={{ x: 1100 }}
+        />
       </Card>
     </div>
   );

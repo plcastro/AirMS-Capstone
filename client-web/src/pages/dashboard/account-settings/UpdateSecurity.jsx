@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
+  App,
   Row,
   Col,
   Space,
@@ -8,7 +9,8 @@ import {
   Typography,
   Tabs,
   Form,
-  message,
+  Card,
+  Alert,
 } from "antd";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -16,6 +18,7 @@ import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
+  const { message } = App.useApp();
   const { user, setUser, getValidToken } = useContext(AuthContext);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -213,250 +216,270 @@ export default function UpdateSecurity() {
     }
   };
   const PasswordTab = (
-    <Form layout="vertical">
-      <Form.Item label="Current Password" required>
-        <Input.Password
-          size="large"
-          placeholder="Current Password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
-
-      <Form.Item label="New Password" required>
-        <Input.Password
-          size="large"
-          placeholder="New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
-
-      <Form.Item label="Confirm Password" required>
-        <Input.Password
-          size="large"
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          allowClear
-        />
-      </Form.Item>
-
-      <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-        {newPassword && (
-          <Text style={{ color: strength.color }}>{strength.text}</Text>
-        )}
-        {validationMessage && (
-          <Text
-            type={
-              validationMessage.includes("successfully") ? "success" : "danger"
-            }
-          >
-            {validationMessage}
-          </Text>
-        )}
-      </Space>
-
-      <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
-        <Col>
-          <Button type="default" onClick={resetAll} icon={<ClearOutlined />}>
-            Reset
-          </Button>
-        </Col>
-        <Col>
-          <Button
-            type="primary"
-            onClick={savePassword}
-            disabled={!Object.values(passwordErrors).every(Boolean)}
-          >
-            Save Password
-          </Button>
-        </Col>
-      </Row>
-    </Form>
-  );
-
-  const PinTab = (
-    <Form layout="vertical">
-      {!forgotPinMode && (
-        <>
-          <Form.Item label="Current PIN" required>
-            <Input.OTP
-              length={6}
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={currentPin}
-              onChange={(val) => setCurrentPin(val)}
-              type="password"
-              allowClear
-            />
-          </Form.Item>
-
-          <Form.Item>
-            <Button type="link" onClick={() => setForgotPinMode(true)}>
-              Forgot PIN?
-            </Button>
-          </Form.Item>
-
-          <Form.Item label="New PIN" required>
-            <Input.OTP
-              length={6}
-              type="password"
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={newPin}
-              onChange={(val) => setNewPin(val)}
-              allowClear
-            />
-          </Form.Item>
-
-          <Form.Item label="Confirm PIN" required>
-            <Input.OTP
-              length={6}
-              type="password"
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={confirmPin}
-              onChange={(val) => setConfirmPin(val)}
-              allowClear
-            />
-          </Form.Item>
-
-          <Row justify="end" gutter={8}>
-            <Col>
-              <Button
-                type="default"
-                onClick={resetAll}
-                icon={<ClearOutlined />}
-              >
-                Reset
-              </Button>
-            </Col>
-            <Col>
-              <Button
-                type="primary"
-                onClick={savePin}
-                disabled={!Object.values(pinErrors).every(Boolean)}
-              >
-                Save PIN
-              </Button>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {forgotPinMode && !otpSent && (
-        <>
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+        <Text type="secondary">
+          Use a strong password with at least 8 characters, uppercase letters,
+          and numbers.
+        </Text>
+        <Form layout="vertical" requiredMark={false}>
           <Form.Item label="Current Password" required>
             <Input.Password
               size="large"
-              placeholder="Enter your current password"
-              value={passwordForPin}
-              onChange={(e) => setPasswordForPin(e.target.value)}
+              placeholder="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
               allowClear
             />
           </Form.Item>
 
-          {validationMessage && <Text type="danger">{validationMessage}</Text>}
-
-          <Row justify="end" gutter={8}>
-            <Col>
-              <Button type="default" onClick={() => setForgotPinMode(false)}>
-                Cancel
-              </Button>
-            </Col>
-            <Col>
-              <Button
-                type="primary"
-                onClick={requestOtpForPin}
-                disabled={!passwordForPin}
-              >
-                Send OTP to Email
-              </Button>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {forgotPinMode && otpSent && !otpVerified && (
-        <>
-          <Form.Item label="OTP" required>
-            <Input.OTP
-              length={6}
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={otp}
-              onChange={(val) => setOtp(val)}
-            />
-          </Form.Item>
-
-          {validationMessage && <Text type="danger">{validationMessage}</Text>}
-
-          <Row justify="end" gutter={8}>
-            <Col>
-              <Button type="default" onClick={requestOtpForPin}>
-                Resend OTP
-              </Button>
-            </Col>
-            <Col>
-              <Button type="primary" onClick={verifyOtp} disabled={!otp}>
-                Verify OTP
-              </Button>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {forgotPinMode && otpVerified && (
-        <>
-          <Form.Item label="New PIN" required>
-            <Input.OTP
-              length={6}
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={newPin}
-              onChange={(val) => setNewPin(val)}
+          <Form.Item label="New Password" required>
+            <Input.Password
+              size="large"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               allowClear
             />
           </Form.Item>
 
-          <Form.Item label="Confirm PIN" required>
-            <Input.OTP
-              length={6}
-              formatter={(str) => str.replace(/\D/g, "")}
-              value={confirmPin}
-              onChange={(val) => setConfirmPin(val)}
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
+              size="large"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               allowClear
             />
           </Form.Item>
 
-          <Row justify="end" gutter={8}>
+          <Space orientation="vertical" size={6} style={{ width: "100%" }}>
+            {newPassword && (
+              <Text style={{ color: strength.color }}>{strength.text}</Text>
+            )}
+            {validationMessage && (
+              <Alert
+                type={
+                  validationMessage.includes("successfully")
+                    ? "success"
+                    : "error"
+                }
+                showIcon
+                title={validationMessage}
+              />
+            )}
+          </Space>
+
+          <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
             <Col>
               <Button
                 type="default"
                 onClick={resetAll}
                 icon={<ClearOutlined />}
               >
-                Reset
+                Clear
               </Button>
             </Col>
             <Col>
               <Button
                 type="primary"
-                onClick={resetForgottenPin}
-                disabled={!Object.values(pinErrors).every(Boolean)}
+                onClick={savePassword}
+                disabled={!Object.values(passwordErrors).every(Boolean)}
               >
-                Reset PIN
+                Save Password
               </Button>
             </Col>
           </Row>
-        </>
-      )}
-    </Form>
+        </Form>
+      </Space>
+    </Card>
+  );
+
+  const PinTab = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Form layout="vertical" requiredMark={false}>
+        {!forgotPinMode && (
+          <>
+            <Form.Item label="Current PIN" required>
+              <Input.OTP
+                length={6}
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={currentPin}
+                onChange={(val) => setCurrentPin(val)}
+                type="password"
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item>
+              <Button type="link" onClick={() => setForgotPinMode(true)}>
+                Forgot PIN?
+              </Button>
+            </Form.Item>
+
+            <Form.Item label="New PIN" required>
+              <Input.OTP
+                length={6}
+                type="password"
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={newPin}
+                onChange={(val) => setNewPin(val)}
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item label="Confirm PIN" required>
+              <Input.OTP
+                length={6}
+                type="password"
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={confirmPin}
+                onChange={(val) => setConfirmPin(val)}
+                allowClear
+              />
+            </Form.Item>
+
+            <Row justify="end" gutter={8}>
+              <Col>
+                <Button
+                  type="default"
+                  onClick={resetAll}
+                  icon={<ClearOutlined />}
+                >
+                  Clear
+                </Button>
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  onClick={savePin}
+                  disabled={!Object.values(pinErrors).every(Boolean)}
+                >
+                  Save PIN
+                </Button>
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {forgotPinMode && !otpSent && (
+          <>
+            <Form.Item label="Current Password" required>
+              <Input.Password
+                size="large"
+                placeholder="Enter your current password"
+                value={passwordForPin}
+                onChange={(e) => setPasswordForPin(e.target.value)}
+                allowClear
+              />
+            </Form.Item>
+
+            {validationMessage && (
+              <Text type="danger">{validationMessage}</Text>
+            )}
+
+            <Row justify="end" gutter={8}>
+              <Col>
+                <Button type="default" onClick={() => setForgotPinMode(false)}>
+                  Cancel
+                </Button>
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  onClick={requestOtpForPin}
+                  disabled={!passwordForPin}
+                >
+                  Send OTP to Email
+                </Button>
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {forgotPinMode && otpSent && !otpVerified && (
+          <>
+            <Form.Item label="OTP" required>
+              <Input.OTP
+                length={6}
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={otp}
+                onChange={(val) => setOtp(val)}
+              />
+            </Form.Item>
+
+            {validationMessage && (
+              <Text type="danger">{validationMessage}</Text>
+            )}
+
+            <Row justify="end" gutter={8}>
+              <Col>
+                <Button type="default" onClick={requestOtpForPin}>
+                  Resend OTP
+                </Button>
+              </Col>
+              <Col>
+                <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+                  Verify OTP
+                </Button>
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {forgotPinMode && otpVerified && (
+          <>
+            <Form.Item label="New PIN" required>
+              <Input.OTP
+                length={6}
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={newPin}
+                onChange={(val) => setNewPin(val)}
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item label="Confirm PIN" required>
+              <Input.OTP
+                length={6}
+                formatter={(str) => str.replace(/\D/g, "")}
+                value={confirmPin}
+                onChange={(val) => setConfirmPin(val)}
+                allowClear
+              />
+            </Form.Item>
+
+            <Row justify="end" gutter={8}>
+              <Col>
+                <Button
+                  type="default"
+                  onClick={resetAll}
+                  icon={<ClearOutlined />}
+                >
+                  Clear
+                </Button>
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  onClick={resetForgottenPin}
+                  disabled={!Object.values(pinErrors).every(Boolean)}
+                >
+                  Reset PIN
+                </Button>
+              </Col>
+            </Row>
+          </>
+        )}
+      </Form>
+    </Card>
   );
 
   return (
-    <Row justify="center">
+    <Row justify="center" style={{ marginTop: 4 }}>
       <Col xs={24}>
         <Tabs
-          centered
+          tabBarStyle={{ marginBottom: 12 }}
           items={[
             { key: "1", label: "Password", children: PasswordTab },
             { key: "2", label: "PIN", children: PinTab },

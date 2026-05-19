@@ -5,16 +5,18 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-
+import { secureGetItem } from "../../utilities/secureStorage";
+import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
+import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import LoadingScreen from "../LoadingScreen";
-
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
@@ -26,140 +28,144 @@ export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
 
-  const [formData, setFormData] = useState({
-    identifier: "",
-    password: "",
-  });
-
-  const [rememberMe, setRememberMe] = useState(false);
-  const [message, setMessage] = useState("");
+  const [formData, setFormData] = useState({ identifier: "", password: "" });
+  const [selectedBase, setSelectedBase] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [getMessage, setMessage] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // =========================
-  // LOAD REMEMBERED DATA
-  // =========================
+  const [showPassword, setShowPassword] = useState(false);
+  // Load saved credentials on mount
   useEffect(() => {
-    const load = async () => {
-      const saved = await AsyncStorage.getItem("rememberMe");
+    const loadSavedCredentials = async () => {
+      try {
+        const savedRememberMe = await AsyncStorage.getItem("rememberMe");
+        if (savedRememberMe === "true") {
+          const savedIdentifier = await AsyncStorage.getItem(
+            "rememberedIdentifier",
+          );
 
-      if (saved === "true") {
-        const identifier = await AsyncStorage.getItem("rememberedIdentifier");
-
-        setFormData((prev) => ({
-          ...prev,
-          identifier: identifier || "",
-        }));
-
-        setRememberMe(true);
+          setFormData({
+            identifier: savedIdentifier || "",
+            password: "",
+          });
+          setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
+          setRememberMe(true);
+        }
+      } catch (err) {
+        console.error(err);
       }
     };
-
-    load();
+    loadSavedCredentials();
   }, []);
 
   const changeHandler = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // =========================
-  // VALIDATION
-  // =========================
   const validate = () => {
     const { identifier, password } = formData;
-
-    if (!identifier.trim() && !password.trim()) {
-      setMessage("Enter username/email and password");
-      return;
-    }
-
-    if (!identifier.trim()) {
-      setMessage("Enter username or email");
-      return;
-    }
-
-    if (!password.trim()) {
-      setMessage("Enter password");
-      return;
+    if (!identifier.trim() && !password.trim())
+      return setMessage("Please enter your username/email and password");
+    if (!identifier.trim())
+      return setMessage("Please enter your username or email");
+    if (!password.trim()) return setMessage("Please enter your password");
+    if (!selectedBase) {
+      return setMessage("Please select where you are logging in from");
     }
 
     login();
   };
 
-  // =========================
-  // LOGIN REQUEST
-  // =========================
   const login = async () => {
     setLoading(true);
     setMessage("");
 
     try {
+      const trustedDeviceToken =
+        (await secureGetItem("trustedDeviceToken")) ||
+        (await AsyncStorage.getItem("trustedDeviceToken")) ||
+        "";
+
+      const parseResponse = async (res) => {
+        const text = await res.text();
+        try {
+          return text ? JSON.parse(text) : {};
+        } catch {
+          return { message: text || "Unexpected server response" };
+        }
+      };
+
       const res = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-base": selectedBase,
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
           client: "mobile",
+          rememberMe: true,
+          base: selectedBase,
+          trustedDeviceToken,
         }),
       });
 
-      const data = await res.json();
+      const data = await parseResponse(res);
 
       if (!res.ok) {
         setMessage(data.message || "Login failed");
         return;
       }
 
-      const user = data.user;
-      const accessToken = data.token || data.accessToken;
-
-      if (!user || !accessToken) {
-        setMessage("Invalid server response");
+      if (data.requireSetup) {
+        nav.replace("securitySetup", {
+          email: data.user?.email,
+          setupToken: data.user?.setupToken,
+        });
         return;
       }
 
-      const role = (user.jobTitle || "").toLowerCase();
-
-      const allowed = [
-        "maintenance manager",
-        "pilot",
-        "officer-in-charge",
-        "mechanic",
-      ];
-
-      // =========================
-      // ACCOUNT CHECKS
-      // =========================
-      if (user.status === "deactivated") {
-        setMessage("Account deactivated");
+      if (data.requireLoginOtp && data.verification?.token) {
+        nav.replace("otpScreen", {
+          mode: "login-2fa",
+          token: data.verification.token,
+          email: data.verification.email,
+          maskedEmail: data.verification.maskedEmail,
+          identifier: formData.identifier.trim(),
+          rememberMe: true,
+          base: selectedBase,
+          client: "mobile",
+        });
         return;
       }
 
-      if (!allowed.includes(role)) {
-        setMessage("Web portal only account");
+      const { user, token, refreshToken } = data;
+      if (!user || !token) {
+        setMessage(data.message || "Invalid login response");
         return;
       }
 
-      // =========================
-      // REMEMBER ME
-      // =========================
-      if (rememberMe) {
-        await AsyncStorage.setItem("rememberMe", "true");
-        await AsyncStorage.setItem(
-          "rememberedIdentifier",
-          formData.identifier.trim(),
-        );
-      } else {
-        await AsyncStorage.setItem("rememberMe", "false");
-        await AsyncStorage.removeItem("rememberedIdentifier");
+      if (user?.status === "deactivated") {
+        setMessage("This account is deactivated. Please contact support");
+        return;
       }
 
-      // =========================
-      // SECURITY SETUP
-      // =========================
-      if (user.status === "inactive" || user.setupToken) {
+      // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
+      await AsyncStorage.setItem("currentUserToken", String(token));
+
+      // remember me
+      await AsyncStorage.setItem("rememberMe", "true");
+
+      await AsyncStorage.setItem(
+        "rememberedIdentifier",
+        formData.identifier.trim(),
+      );
+      await AsyncStorage.setItem("rememberedBase", selectedBase);
+
+      // security redirect
+      if (user?.status === "inactive" || user?.setupToken) {
         nav.replace("securitySetup", {
           email: user.email,
           setupToken: user.setupToken,
@@ -167,27 +173,25 @@ export default function Login() {
         return;
       }
 
-      // =========================
-      // AUTH STORE
-      // =========================
+      setLoginSuccess(true);
+
       await loginUser({
         user,
-        accessToken,
-        refreshToken: data.refreshToken || null,
+        accessToken: token,
+        refreshToken,
+        rememberMe: true,
       });
 
-      // =========================
-      // REDIRECT HANDLING
-      // =========================
-      const redirect = await readPendingRedirect();
+      const pendingRedirect = await readPendingRedirect();
 
-      if (redirect?.screen) {
+      if (pendingRedirect && pendingRedirect.screen) {
         await clearPendingRedirect();
 
         nav.replace("dashboard", {
-          screen: redirect.screen,
-          params: redirect.params || {},
+          screen: pendingRedirect.screen,
+          params: pendingRedirect.params || {},
         });
+
         return;
       }
 
@@ -209,40 +213,87 @@ export default function Login() {
   };
 
   if (loading) {
-    return <LoadingScreen message="Signing you in..." />;
+    return <LoadingScreen message="Signing you in..." showLogo />;
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <LoginLayout cardTitle="Login" cardsubTitle="Sign in to AirMS">
-          <Text style={styles.label}>Username or Email</Text>
-
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <LoginLayout
+          cardTitle="Login"
+          cardsubTitle="Sign in to access your AirMS account"
+        >
+          <Text style={[styles.label, { textAlign: "left" }]}>
+            Username or Email
+          </Text>
           <TextInput
             style={styles.formInput}
+            maxLength={256}
             placeholder="Username or Email"
-            value={formData.identifier}
-            onChangeText={(t) => changeHandler("identifier", t)}
+            placeholderTextColor="gray"
             autoCapitalize="none"
+            keyboardType="default"
+            value={formData.identifier}
+            onChangeText={(text) => changeHandler("identifier", text)}
           />
-
           <Text style={styles.label}>Password</Text>
-
-          <TextInput
-            style={styles.formInput}
-            placeholder="Password"
-            secureTextEntry
-            value={formData.password}
-            onChangeText={(t) => changeHandler("password", t)}
-          />
-
-          {!!message && <Text style={styles.error}>{message}</Text>}
-
+          <View style={{ position: "relative", justifyContent: "center" }}>
+            <TextInput
+              style={[styles.formInput, { paddingRight: 50 }]}
+              maxLength={256}
+              placeholder="Password"
+              placeholderTextColor="gray"
+              autoCapitalize="none"
+              secureTextEntry={!showPassword} // Toggle based on state
+              keyboardType="default"
+              value={formData.password}
+              onChangeText={(t) => changeHandler("password", t)}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: 10,
+                height: "100%",
+                justifyContent: "center",
+                paddingHorizontal: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? "eye-off" : "eye"}
+                size={21}
+                color="#059670" // Matching your theme color
+              />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.label}>Logging in from</Text>
+          <View style={styles.loginPickerContainer}>
+            <Picker
+              selectedValue={selectedBase}
+              onValueChange={setSelectedBase}
+              style={styles.loginPicker}
+            >
+              <Picker.Item label="Select base" value="" />
+              <Picker.Item label="Manila" value="MANILA" />
+              <Picker.Item label="Cebu" value="CEBU" />
+              <Picker.Item label="CDO" value="CDO" />
+            </Picker>
+          </View>
+          {getMessage && !loginSuccess && (
+            <Text style={styles.error}>{getMessage}</Text>
+          )}
           <View style={styles.loginHelper}>
             <CheckBox
-              title="Remember me"
-              value={rememberMe}
-              onValueChange={setRememberMe}
+              title="Stay signed in"
+              checkboxStyle={styles.checkBox}
+              value
+              onValueChange={() => {}}
             />
             <View style={styles.forgotPassLink}>
               <Button

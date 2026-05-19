@@ -7,6 +7,7 @@ import {
   View,
   Modal,
   Pressable,
+  PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -19,7 +20,7 @@ import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
 import SecuritySetup from "./screens/Auth/SecuritySetup";
-
+import messaging from "@react-native-firebase/messaging";
 import Dashboard from "./Layout/Dashboard";
 
 import DrawerContent from "./components/DrawerContent";
@@ -38,7 +39,7 @@ const withDashboard = (loadScreen) => {
   function DashboardScreen(props) {
     const Screen = loadScreen();
     return (
-      <Dashboard>
+      <Dashboard currentRouteName={props?.route?.name}>
         <Screen {...props} />
       </Dashboard>
     );
@@ -49,7 +50,7 @@ const withDashboard = (loadScreen) => {
 
 const Screens = {
   ReportsAndAnalytics: withDashboard(
-    () => require("./screens/Main/MaintenanceDashboard").default,
+    () => require("./screens/Main/ReportsAndAnalytics").default,
   ),
   Messages: withDashboard(() => require("./screens/Main/Messaging").default),
   ManageUsers: withDashboard(
@@ -95,13 +96,17 @@ function DrawerNav({ navigation }) {
     "pilot",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
-  const canAccessMechanics = normalizedRole === "maintenance manager";
+  const canAccessMechanics = ["maintenance manager", "admin"].includes(
+    normalizedRole,
+  );
   const canAccessTasks = ["maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
@@ -110,25 +115,33 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "officer-in-charge",
     "warehouse department",
+    "admin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
+    "admin",
   ].includes(normalizedRole);
-  const canAccessMaintenancePriority = normalizedRole === "maintenance manager";
+  const canAccessMaintenancePriority = [
+    "maintenance manager",
+    "admin",
+  ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
+    "admin",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "admin",
   ].includes(normalizedRole);
   const canAccessMessages = [
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
@@ -136,11 +149,25 @@ function DrawerNav({ navigation }) {
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "admin";
   const canAccessActivityLogs = normalizedRole === "admin";
+  const initialDrawerRoute = canAccessReports
+    ? "Reports and Analytics"
+    : canAccessMessages
+      ? "Messages"
+      : canAccessUserManagement
+        ? "Manage Users"
+        : canAccessFlightAndPreInspection
+          ? "Flight Logs"
+          : canAccessTasks
+            ? "Tasks"
+            : canAccessPartsRequisition
+              ? "Parts Requisition Monitoring"
+              : "Profile";
   const profileImage =
     user?.image && typeof user.image === "string"
       ? user.image.startsWith("http")
@@ -158,13 +185,14 @@ function DrawerNav({ navigation }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: 200,
     },
   };
 
   return (
     <Drawer.Navigator
+      initialRouteName={initialDrawerRoute}
       backBehavior="history"
       detachInactiveScreens
       drawerContent={(props) => <DrawerContent {...props} />}
@@ -326,7 +354,7 @@ function DrawerNav({ navigation }) {
 
       {canAccessPartsRequisition && (
         <Drawer.Screen
-          name="Parts Requisition Monitoring"
+          name="Parts Requisition"
           component={Screens.PartsRequisitionMonitoring}
           options={navLabel}
         />
@@ -402,32 +430,158 @@ function StackNavWrapper() {
   );
 }
 
+function AppShell({ linking }) {
+  const {
+    user,
+    recordActivity,
+    showSessionTimeoutWarning,
+    warningSecondsRemaining,
+    continueSession,
+    logoutUser,
+  } = useContext(AuthContext);
+  const shouldShowSessionWarning =
+    Boolean(user) &&
+    showSessionTimeoutWarning === true &&
+    Number.isFinite(warningSecondsRemaining) &&
+    warningSecondsRemaining > 0;
+
+  return (
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        if (user) {
+          recordActivity?.();
+        }
+        return false;
+      }}
+    >
+      <NavigationContainer
+        linking={linking}
+        ref={navigationRef}
+        onStateChange={() => {
+          if (user) {
+            recordActivity?.();
+          }
+        }}
+      >
+        <StackNavWrapper />
+      </NavigationContainer>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={shouldShowSessionWarning}
+        onRequestClose={() => continueSession?.()}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 18,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
+              Session Timeout Warning
+            </Text>
+            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
+              You&apos;ve been inactive for a while. For your security,
+              you&apos;ll be signed out in 2 minutes unless you continue.
+            </Text>
+            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
+              Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
+              seconds.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Pressable
+                onPress={() => logoutUser?.()}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#d9d9d9",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: "#333" }}>Sign out now</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => continueSession?.()}
+                style={{
+                  backgroundColor: "#26866F",
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  marginLeft: 8,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  Continue session
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 export default function App() {
   const linking = LinkingConfig;
-
   const theme = {
     ...DefaultTheme,
-    colors: {
-      ...DefaultTheme.colors,
-      text: "#000000",
-      primary: "#26866F",
-    },
+    colors: { ...DefaultTheme.colors, text: "#000000", primary: "#26866F" },
     icons: {
       ...DefaultTheme.icons,
       icon: (props) => {
-        if (!props.name) return null;
+        if (!props.name) return null; // skip rendering if no name
         return <MaterialCommunityIcons {...props} />;
       },
     },
   };
 
+  useEffect(() => {
+    const requestNotificationPermissionOnFirstOpen = async () => {
+      try {
+        if (Platform.OS === "web") return;
+
+        if (Platform.OS === "ios") {
+          await messaging().requestPermission();
+          return;
+        }
+
+        if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+          await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          );
+        }
+      } catch (error) {
+        console.log("Initial notification permission prompt failed:", error);
+      }
+    };
+
+    requestNotificationPermissionOnFirstOpen();
+  }, []);
+
   return (
     <AuthProvider>
       <NotificationProvider>
         <PaperProvider theme={theme}>
-          <NavigationContainer linking={linking} ref={navigationRef}>
-            <StackNavWrapper />
-          </NavigationContainer>
+          <AppShell linking={linking} />
         </PaperProvider>
       </NotificationProvider>
     </AuthProvider>

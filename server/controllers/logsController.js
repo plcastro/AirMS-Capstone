@@ -1,6 +1,52 @@
 const UserModel = require("../models/userModel");
 const UserLog = require("../models/logsModel");
-const { getRequestContext } = require("../middleware/requestContext");
+const UserSession = require("../models/userSessionModel");
+const {
+  getRequestContext,
+  markAuditLogged,
+} = require("../middleware/requestContext");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
+
+const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
+const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
+
+const resolveAuditContext = async (context = {}, userId = null) => {
+  const resolved = { ...context };
+
+  if (
+    isKnownPlatform(resolved.platform) &&
+    isKnownBase(resolved.base) &&
+    resolved.sessionId
+  ) {
+    return resolved;
+  }
+
+  if (!userId && !resolved.sessionId) {
+    return resolved;
+  }
+
+  const sessionFilter = resolved.sessionId
+    ? { sessionId: resolved.sessionId }
+    : { userId };
+
+  const session = await UserSession.findOne(sessionFilter)
+    .sort({ isActive: -1, lastActivityAt: -1, loginAt: -1, createdAt: -1 })
+    .lean();
+
+  if (!session) {
+    return resolved;
+  }
+
+  resolved.sessionId = resolved.sessionId || session.sessionId || null;
+  resolved.platform = isKnownPlatform(resolved.platform)
+    ? resolved.platform
+    : session.platform || null;
+  resolved.base = isKnownBase(resolved.base)
+    ? resolved.base
+    : session.base || null;
+
+  return resolved;
+};
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -22,6 +68,12 @@ const sanitizeActionText = (rawAction, username) => {
     );
   }
 
+  // Remove API endpoint fragments from stored audit messages.
+  action = action
+    .replace(/\b(?:GET|POST|PUT|PATCH|DELETE)\s+\/api\/[^\s)]+/gi, "")
+    .replace(/\b\/api\/[^\s)]+/gi, "")
+    .replace(/\s{2,}/g, " ");
+
   action = action
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.;:])/g, "$1")
@@ -37,6 +89,8 @@ const auditLog = async (
   requestMeta = {},
 ) => {
   try {
+    markAuditLogged();
+
     let username = usernameSnapshot || "System";
     if (userId) {
       if (!usernameSnapshot) {
@@ -51,22 +105,53 @@ const auditLog = async (
 
     const sanitizedAction = sanitizeActionText(action, username);
 
-    const context = { ...getRequestContext(), ...requestMeta };
+    const context = await resolveAuditContext(
+      { ...getRequestContext(), ...requestMeta },
+      userId,
+    );
 
     const newLog = await UserLog.create({
       action: sanitizedAction,
       performedBy: userId,
       username,
       sessionId: context.sessionId || null,
-      platform: context.platform || "UNKNOWN",
-      base: context.base || "UNKNOWN",
+      platform: context.platform || null,
+      base: context.base || null,
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
+    });
+    publishTypedEvent("logs:new", {
+      logId: String(newLog._id),
+      at: newLog.dateTime || new Date().toISOString(),
+      action: sanitizedAction,
     });
 
     return newLog;
   } catch (err) {
     console.error("Audit log failed:", err);
+  }
+};
+
+const getLatestLog = async (req, res) => {
+  try {
+    const latestLog = await UserLog.findOne({})
+      .sort({ dateTime: -1, createdAt: -1 })
+      .lean();
+
+    if (!latestLog) {
+      return res.status(200).json({});
+    }
+
+    return res.status(200).json({
+      _id: latestLog._id,
+      id: latestLog._id,
+      dateTime: latestLog.dateTime,
+      actionMade: latestLog.action,
+      username: latestLog.username || "Unknown",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Failed to fetch latest log" });
   }
 };
 
@@ -81,8 +166,8 @@ const createAuditLogFromRequest = async (req, res) => {
     const actorId = userId || req.user?.id || null;
     const log = await auditLog(action.trim(), actorId, username || null, {
       sessionId: req.headers["x-session-id"] || null,
-      platform: req.headers["x-platform"] || "UNKNOWN",
-      base: req.headers["x-base"] || "UNKNOWN",
+      platform: req.headers["x-platform"] || null,
+      base: req.headers["x-base"] || null,
       ipAddress: req.ip || req.socket?.remoteAddress || null,
       userAgent: req.headers["user-agent"] || "",
     });
@@ -133,21 +218,58 @@ const getAllUserLogs = async (req, res) => {
     }
 
     const [logs, total] = await Promise.all([
-      UserLog.find(filter).sort({ dateTime: -1 }).skip(skip).limit(safeLimit),
+      UserLog.find(filter)
+        .sort({ dateTime: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean(),
       UserLog.countDocuments(filter),
     ]);
 
-    const data = logs.map((log) => ({
-      _id: log._id,
-      dateTime: log.dateTime,
-      actionMade: log.action,
-      username: log.username || "Unknown",
-      platform: log.platform || "UNKNOWN",
-      base: log.base || "UNKNOWN",
-      sessionId: log.sessionId || null,
-      ipAddress: log.ipAddress || "",
-      userAgent: log.userAgent || "",
-    }));
+    const sessionIds = [
+      ...new Set(
+        logs
+          .filter(
+            (log) =>
+              log.sessionId &&
+              (!isKnownPlatform(log.platform) || !isKnownBase(log.base)),
+          )
+          .map((log) => log.sessionId),
+      ),
+    ];
+
+    const sessionMap =
+      sessionIds.length > 0
+        ? new Map(
+            (
+              await UserSession.find({ sessionId: { $in: sessionIds } })
+                .select("sessionId platform base")
+                .lean()
+            ).map((session) => [session.sessionId, session]),
+          )
+        : new Map();
+
+    const data = logs.map((log) => {
+      const session = sessionMap.get(log.sessionId);
+      const platform = isKnownPlatform(log.platform)
+        ? log.platform
+        : session?.platform || null;
+      const base = isKnownBase(log.base)
+        ? log.base
+        : session?.base || null;
+
+      return {
+        _id: log._id,
+        dateTime: log.dateTime,
+        actionMade: log.action,
+        username: log.username || "Unknown",
+        platform,
+        base,
+        sessionId: log.sessionId || null,
+        ipAddress: log.ipAddress || "",
+        userAgent: log.userAgent || "",
+      };
+    });
 
     res.status(200).json({
       status: "Ok",
@@ -169,4 +291,5 @@ module.exports = {
   auditLog,
   createAuditLogFromRequest,
   getAllUserLogs,
+  getLatestLog,
 };

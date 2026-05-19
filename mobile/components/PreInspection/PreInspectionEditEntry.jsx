@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ export default function PreInspectionEditEntry({
 
   const isPilot = userRole === "pilot";
   const isMechanic =
-    userRole === "mechanic" || userRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(userRole);
 
   const tabs = [
     "Basic Information",
@@ -53,6 +53,10 @@ export default function PreInspectionEditEntry({
   const [formData, setFormData] = useState(
     getDefaultPreInspectionFormData(userRole),
   );
+  const isCompletedInspection = [
+    inspectionData?.status,
+    formData.status,
+  ].some((status) => String(status || "").toLowerCase() === "completed");
 
   useEffect(() => {
     if (visible && inspectionData) {
@@ -85,7 +89,8 @@ export default function PreInspectionEditEntry({
   const hasAnySignature = Boolean(
     formData.releasedBy?.name || formData.acceptedBy?.name,
   );
-  const isFormEditable = !readOnly && !isPilot && !hasAnySignature;
+  const isViewOnly = readOnly || isCompletedInspection;
+  const isFormEditable = !isViewOnly && !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
     if (!String(formData.fob || "").trim()) {
@@ -171,6 +176,10 @@ export default function PreInspectionEditEntry({
       showToast("Aircraft RPC is required");
       return;
     }
+    if (isCompletedInspection) {
+      onClose();
+      return;
+    }
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
       showToast("Aircraft Type is required");
       return;
@@ -241,21 +250,20 @@ export default function PreInspectionEditEntry({
   // Determine which action button to show on last page
   const showReleaseButton =
     isMechanic &&
-    !readOnly &&
+    !isViewOnly &&
     formData.status === "pending" &&
     !formData.releasedBy?.name &&
     !isSubmitting;
   const showAcceptButton =
     isPilot &&
-    !readOnly &&
+    !isViewOnly &&
     formData.status === "released" &&
     !formData.acceptedBy?.name &&
     !isSubmitting;
 
   const footerActionLabel =
-    readOnly ||
+    isViewOnly ||
     isPilot ||
-    formData.status === "completed" ||
     (!isFormEditable && !showAcceptButton && !showReleaseButton)
       ? "Close"
       : "Save";
@@ -294,7 +302,7 @@ export default function PreInspectionEditEntry({
           >
             <View>
               <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Pre-Inspection
+                {isViewOnly ? "View Entry" : "Edit Entry"} - Pre-Inspection
               </Text>
               <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
