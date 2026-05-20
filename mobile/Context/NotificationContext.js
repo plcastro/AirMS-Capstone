@@ -328,10 +328,16 @@ export function NotificationProvider({ children }) {
           authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
           authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
       } else if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
-        const result = await PermissionsAndroid.check(
+        let granted = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
-        enabled = result === true;
+        if (!granted) {
+          const requestResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          );
+          granted = requestResult === PermissionsAndroid.RESULTS.GRANTED;
+        }
+        enabled = granted === true;
       }
 
       if (!enabled) {
