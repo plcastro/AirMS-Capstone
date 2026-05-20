@@ -47,7 +47,9 @@ const getRefreshTokenTtlMs = (isPersistent) =>
 
 const issueRefreshToken = (userId, isPersistent = false) => {
   const jti = crypto.randomUUID();
-  const expiresInSeconds = Math.floor(getRefreshTokenTtlMs(isPersistent) / 1000);
+  const expiresInSeconds = Math.floor(
+    getRefreshTokenTtlMs(isPersistent) / 1000,
+  );
   const token = jwt.sign(
     { id: userId, type: "refresh" },
     process.env.REFRESH_SECRET,
@@ -87,7 +89,9 @@ const storeRefreshToken = async ({
     userId,
     tokenHash,
     jti,
-    expiresAt: new Date(Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent))),
+    expiresAt: new Date(
+      Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent)),
+    ),
     isPersistent: Boolean(isPersistent),
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
@@ -317,7 +321,7 @@ const buildLoginSuccessPayload = async ({
       base: session.base,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "30m" },
+    { expiresIn: "15m" },
   );
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
