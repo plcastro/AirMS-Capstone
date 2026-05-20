@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Alert,
   Platform,
   PermissionsAndroid,
@@ -40,7 +39,6 @@ export default function Profile() {
 
   const [activeTab, setActiveTab] = useState("info");
   const [previewUri, setPreviewUri] = useState(null);
-  const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
@@ -188,17 +186,18 @@ export default function Profile() {
         selectedFile.fileName || `profile_${user.id || user._id}.jpg`;
       const fileType = selectedFile.mimeType || "image/jpeg";
 
-      setFile({
+      const normalizedFile = {
         uri: selectedFile.uri,
         type: fileType,
         name: fileName,
-      });
+      };
 
       setPreviewUri(selectedFile.uri);
+      await handleSaveImage(normalizedFile);
     }
   };
-  const handleSaveImage = async () => {
-    if (!file || !file.uri) return;
+  const handleSaveImage = async (file) => {
+    if (!file?.uri) return;
     setLoading(true);
 
     const uploadData = new FormData();
@@ -233,7 +232,6 @@ export default function Profile() {
       }));
       const uploadedImagePath = getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
-      setFile(null);
       showToast("Image updated!");
     } catch (err) {
       showToast(err.message);
@@ -272,7 +270,6 @@ export default function Profile() {
 
               setUser((prev) => ({ ...prev, image: null }));
               setPreviewUri(null); // Will fallback to DefaultAvatar in render
-              setFile(null);
               showToast("Profile picture removed!");
             } catch (err) {
               showToast(err.message || "Image removal failed");
@@ -302,7 +299,9 @@ export default function Profile() {
               />
             )}
             <View style={styles.editBadge}>
-              <Text style={styles.editBadgeText}>{file ? "New" : "Edit"}</Text>
+              <Text style={styles.editBadgeText}>
+                {loading ? "..." : "Edit"}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -320,22 +319,11 @@ export default function Profile() {
           </Text>
 
           <View style={[styles.buttonRow, { marginTop: 15 }]}>
-            {file && (
-              <Button
-                mode="contained"
-                onPress={handleSaveImage}
-                loading={loading}
-                style={styles.actionButton}
-                labelStyle={{ fontSize: scaled(13) }}
-              >
-                Save Picture
-              </Button>
-            )}
             <Button
               icon="delete"
               textColor="red"
               onPress={handleRemoveImage}
-              disabled={!user?.image && !file}
+              disabled={!user?.image && !previewUri}
               style={styles.actionButton}
               labelStyle={{ fontSize: scaled(13) }}
             >

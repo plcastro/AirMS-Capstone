@@ -9,10 +9,12 @@ import { View,
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Avatar } from "react-native-paper";
 import AirMSWeb from "../assets/AirMS_web.png";
 import AlertComp from "./AlertComp";
 import { AuthContext } from "../Context/AuthContext";
 import { useFontScale } from "../Context/FontScaleContext";
+import { getUserImageUri, getUserInitials } from "../utilities/avatar";
 
 const DrawerList = [
   {
@@ -254,6 +256,28 @@ function DrawerContent({ navigation }) {
             marginBottom: 10,
           }}
         />
+        <View style={{ alignItems: "center", marginBottom: 8 }}>
+          {getUserImageUri(user?.image) ? (
+            <Avatar.Image
+              size={62}
+              source={{ uri: getUserImageUri(user?.image) }}
+              style={{ backgroundColor: "#eee" }}
+            />
+          ) : (
+            <Avatar.Text
+              size={62}
+              label={getUserInitials(user?.firstName, user?.lastName)}
+              style={{ backgroundColor: "#E6F4F1" }}
+              labelStyle={{ color: "#26866F", fontWeight: "700" }}
+            />
+          )}
+          <AppText style={{ marginTop: 8, fontSize: scale(12), fontWeight: "700" }}>
+            {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "User"}
+          </AppText>
+          <AppText style={{ fontSize: scale(10), color: "#777" }}>
+            {user?.jobTitle || ""}
+          </AppText>
+        </View>
 
         <View>
           {DrawerList.filter(isVisible).map((item) => {

@@ -6,7 +6,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  View
+  View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
@@ -206,7 +206,10 @@ export default function ActivityLogs() {
     setCurrentPage(1);
   }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLogs.length / LOGS_PER_PAGE),
+  );
   const paginatedLogs = useMemo(() => {
     const start = (currentPage - 1) * LOGS_PER_PAGE;
     return filteredLogs.slice(start, start + LOGS_PER_PAGE);
@@ -272,18 +275,17 @@ export default function ActivityLogs() {
       const userKey = String(item.username || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
-      const module =
-        actionText.includes("task")
-          ? "tasks"
-          : actionText.includes("flight")
-            ? "flight logs"
-            : actionText.includes("inspection")
-              ? "inspections"
-              : actionText.includes("requisition")
-                ? "requisitions"
-                : actionText.includes("user")
-                  ? "users"
-                  : "other";
+      const module = actionText.includes("task")
+        ? "tasks"
+        : actionText.includes("flight")
+          ? "flight logs"
+          : actionText.includes("inspection")
+            ? "inspections"
+            : actionText.includes("requisition")
+              ? "requisitions"
+              : actionText.includes("user")
+                ? "users"
+                : "other";
       byModule[module] = (byModule[module] || 0) + 1;
     });
     const topUsers = Object.entries(byUser)
@@ -383,9 +385,16 @@ export default function ActivityLogs() {
 
         <View style={styles.filterCard}>
           <AppText style={styles.filterLabel}>Date Range</AppText>
-          <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
+          <Picker
+            selectedValue={dateRangeFilter}
+            onValueChange={setDateRangeFilter}
+          >
             {DATE_RANGE_OPTIONS.map((value) => (
-              <Picker.Item key={value.value} value={value.value} label={value.label} />
+              <Picker.Item
+                key={value.value}
+                value={value.value}
+                label={value.label}
+              />
             ))}
           </Picker>
         </View>
@@ -443,7 +452,9 @@ export default function ActivityLogs() {
               {name}: {count}
             </AppText>
           ))}
-          <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</AppText>
+          <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>
+            Top Modules
+          </AppText>
           {groupedSummary.topModules.map(([name, count]) => (
             <AppText key={name} style={styles.groupSummaryText}>
               {name}: {count}
@@ -560,7 +571,12 @@ export default function ActivityLogs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.grayLight, padding: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.grayLight,
+    padding: 10,
+    height: "100%",
+  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",

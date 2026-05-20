@@ -30,7 +30,7 @@ export default function Login() {
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [selectedBase, setSelectedBase] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,6 +51,8 @@ export default function Login() {
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
           setRememberMe(true);
+        } else if (savedRememberMe === "false") {
+          setRememberMe(false);
         }
       } catch (err) {
         console.error(err);
@@ -106,7 +108,7 @@ export default function Login() {
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
           client: "mobile",
-          rememberMe: true,
+          rememberMe,
           base: selectedBase,
           trustedDeviceToken,
         }),
@@ -134,7 +136,7 @@ export default function Login() {
           email: data.verification.email,
           maskedEmail: data.verification.maskedEmail,
           identifier: formData.identifier.trim(),
-          rememberMe: true,
+          rememberMe,
           base: selectedBase,
           client: "mobile",
         });
@@ -156,13 +158,17 @@ export default function Login() {
       await AsyncStorage.setItem("currentUserToken", String(token));
 
       // remember me
-      await AsyncStorage.setItem("rememberMe", "true");
-
-      await AsyncStorage.setItem(
-        "rememberedIdentifier",
-        formData.identifier.trim(),
-      );
-      await AsyncStorage.setItem("rememberedBase", selectedBase);
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+      if (rememberMe) {
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          formData.identifier.trim(),
+        );
+        await AsyncStorage.setItem("rememberedBase", selectedBase);
+      } else {
+        await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedBase");
+      }
 
       // security redirect
       if (user?.status === "inactive" || user?.setupToken) {
@@ -179,7 +185,7 @@ export default function Login() {
         user,
         accessToken: token,
         refreshToken,
-        rememberMe: true,
+        rememberMe,
       });
 
       const pendingRedirect = await readPendingRedirect();
@@ -292,8 +298,8 @@ export default function Login() {
             <CheckBox
               title="Stay signed in"
               checkboxStyle={styles.checkBox}
-              value
-              onValueChange={() => {}}
+              value={rememberMe}
+              onValueChange={setRememberMe}
             />
             <View style={styles.forgotPassLink}>
               <Button
