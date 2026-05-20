@@ -35,6 +35,7 @@ import {
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 
 const { Text } = Typography;
@@ -495,6 +496,13 @@ export default function TaskAssignment() {
 
   const handleStart = async () => {
     if (!selectedTask) return;
+    const confirmed = await confirmAction({
+      title: "Start Task",
+      content: "Start this task now?",
+      okText: "Start",
+    });
+    if (!confirmed) return;
+
     const now = new Date();
     const next = {
       ...selectedTask,
@@ -535,6 +543,17 @@ export default function TaskAssignment() {
       }
     }
 
+    if (turnIn || options.undo) {
+      const confirmed = await confirmAction({
+        title: options.undo ? "Undo Turn In" : "Turn In Task",
+        content: options.undo
+          ? "Move this task back to ongoing?"
+          : "Turn in this completed task for review?",
+        okText: options.undo ? "Undo" : "Turn In",
+      });
+      if (!confirmed) return;
+    }
+
     try {
       await upsertTask(next);
       message.success(options.undo ? "Turn in undone" : turnIn ? "Task turned in" : "Draft saved");
@@ -548,8 +567,20 @@ export default function TaskAssignment() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
+      const confirmed = await confirmAction({
+        title: editingTask ? "Save Task" : "Create Task",
+        content: editingTask
+          ? "Save changes to this task assignment?"
+          : "Create this task assignment?",
+        okText: editingTask ? "Save" : "Create",
+      });
+      if (!confirmed) return;
+
       const selectedMechanic = mechanics.find(
         (item) => String(item.id) === String(values.assignedTo),
+      );
+      const selectedInspection = inspectionOptions.find(
+        (item) => String(item.id) === String(values.inspectionType),
       );
       const checklistItems = Array.isArray(values.checklistItems)
         ? values.checklistItems
@@ -572,9 +603,17 @@ export default function TaskAssignment() {
                   : item.inspectionTypeFull,
             }))
         : [];
+      const taskTitle = String(
+        values.title ||
+          selectedInspection?.name ||
+          checklistItems[0]?.inspectionName ||
+          checklistItems[0]?.inspectionTypeFull ||
+          values.maintenanceType ||
+          "Maintenance Task",
+      ).trim();
       const payload = {
         id: editingTask?.id || editingTask?._id || Date.now().toString(),
-        title: values.title,
+        title: taskTitle,
         aircraft: values.aircraft,
         assignedTo: values.assignedTo,
         assignedToName: selectedMechanic?.name || "",
@@ -627,6 +666,14 @@ export default function TaskAssignment() {
       message.error("Return remarks are required");
       return;
     }
+
+    const confirmed = await confirmAction({
+      title: "Return Task",
+      content: "Return this task to the mechanic with the selected checklist changes?",
+      okText: "Return",
+      okButtonProps: { danger: true },
+    });
+    if (!confirmed) return;
 
     const nextChecklist = Array.isArray(selectedTask.checklistState)
       ? [...selectedTask.checklistState]
@@ -683,6 +730,15 @@ export default function TaskAssignment() {
     }
   };
 
+  const requestApprove = async () => {
+    const confirmed = await confirmAction({
+      title: "Approve Task",
+      content: "Approve this turned-in task?",
+      okText: "Approve",
+    });
+    if (confirmed) setSignatureState({ open: true, mode: "approve" });
+  };
+
   const tabs = isManager
     ? [
         { key: "assigned", label: `Assigned (${counts.assigned})` },
@@ -714,7 +770,7 @@ export default function TaskAssignment() {
                 icon={<PlusOutlined />}
                 onClick={openCreateTask}
               >
-                + Task
+                Task
               </Button>
             </Col>
           )}
@@ -1219,9 +1275,7 @@ export default function TaskAssignment() {
                     </Button>
                     <Button
                       type="primary"
-                      onClick={() =>
-                        setSignatureState({ open: true, mode: "approve" })
-                      }
+                      onClick={requestApprove}
                     >
                       Approve
                     </Button>

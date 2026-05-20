@@ -33,6 +33,7 @@ import {
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -401,6 +402,12 @@ const CHECKLIST_GROUPS = {
   ],
 };
 
+const RELEASE_CHECK_FIELDS = Object.values(CHECKLIST_GROUPS).flatMap((groups) =>
+  groups.flatMap((group) => group.fields),
+);
+const areAllReleaseChecksComplete = (record = {}) =>
+  RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
+
 const signaturePayload = (user, signature) => ({
   name:
     `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -572,8 +579,12 @@ export default function PreInspection() {
   );
   const editingReadOnly = editing ? isRecordReadOnly(editing) : readOnly;
   const editingCanAccept = editing ? isAcceptableByPilot(editing) : false;
+  const allDraftReleaseChecksComplete = useMemo(
+    () => areAllReleaseChecksComplete(draft),
+    [draft],
+  );
 
-  const saveCreate = async () => {
+  const saveCreate = async (releaseSignature = "") => {
     if (
       !draft.rpc?.trim() ||
       !draft.base?.trim() ||
@@ -590,6 +601,7 @@ export default function PreInspection() {
 
     try {
       setCreating(true);
+      const releasedBy = signaturePayload(user, releaseSignature);
       const response = await fetch(
         `${API_BASE}/api/pre-inspections/createPreInspection`,
         {
@@ -600,7 +612,8 @@ export default function PreInspection() {
           },
           body: JSON.stringify({
             ...draft,
-            status: "pending",
+            status: "released",
+            releasedBy,
             createdBy:
               `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
             confirmAction: true,
@@ -609,15 +622,15 @@ export default function PreInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to create pre-inspection");
-      message.success("Pre-inspection created");
+        throw new Error(data.message || "Failed to release pre-inspection");
+      message.success("Pre-inspection released");
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
       setCreateSelectAllState({});
       await load();
     } catch (error) {
       setCreating(false);
-      message.error(error.message || "Failed to create pre-inspection");
+      message.error(error.message || "Failed to release pre-inspection");
     }
   };
 
@@ -658,7 +671,51 @@ export default function PreInspection() {
     }
   };
 
+  const requestCreateRelease = async () => {
+    if (!allDraftReleaseChecksComplete) {
+      message.warning("Please check all pre-inspection items before release");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Release Pre-Inspection",
+      content:
+        "This will create and release the pre-inspection log. Continue?",
+      okText: "Release",
+    });
+    if (confirmed) setSignatureMode("create-release");
+  };
+
+  const requestEditRelease = async () => {
+    if (!editing) return;
+    if (!areAllReleaseChecksComplete(editing)) {
+      message.warning("Please check all pre-inspection items before release");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Release Pre-Inspection",
+      content: "Release this pre-inspection log?",
+      okText: "Release",
+    });
+    if (confirmed) setSignatureMode("release");
+  };
+
+  const requestAccept = async () => {
+    const confirmed = await confirmAction({
+      title: "Accept Pre-Inspection",
+      content: "Accept and complete this pre-inspection log?",
+      okText: "Accept",
+    });
+    if (confirmed) setSignatureMode("accept");
+  };
+
   const handleSignedAction = async (signature) => {
+    if (signatureMode === "create-release") {
+      await saveCreate(signature);
+      setSignatureMode(null);
+      return;
+    }
     if (!editing) return;
     if (signatureMode === "release") {
       await saveEdit({
@@ -847,9 +904,10 @@ export default function PreInspection() {
           setDraft(getDefaultPreInspectionDraft(user));
           setCreateSelectAllState({});
         }}
-        onOk={saveCreate}
-        title="Create Pre-Inspection"
-        okText="Create"
+        onOk={requestCreateRelease}
+        title="Release Pre-Inspection"
+        okText="Release"
+        okButtonProps={{ disabled: !allDraftReleaseChecksComplete }}
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         styles={{
@@ -1160,7 +1218,7 @@ export default function PreInspection() {
                 !editingReadOnly && (
                   <Button
                     type="primary"
-                    onClick={() => setSignatureMode("release")}
+                    onClick={requestEditRelease}
                   >
                     Release
                   </Button>
@@ -1170,7 +1228,7 @@ export default function PreInspection() {
                 !editing.acceptedBy?.name && (
                   <Button
                     type="primary"
-                    onClick={() => setSignatureMode("accept")}
+                    onClick={requestAccept}
                   >
                     Accept / Complete
                   </Button>
@@ -1187,12 +1245,12 @@ export default function PreInspection() {
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title={
-          signatureMode === "release"
+          signatureMode === "release" || signatureMode === "create-release"
             ? "Release Pre-Inspection"
             : "Accept Pre-Inspection"
         }
         description={
-          signatureMode === "release"
+          signatureMode === "release" || signatureMode === "create-release"
             ? "Draw your release signature."
             : "Draw your acceptance signature."
         }
