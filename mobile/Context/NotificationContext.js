@@ -26,6 +26,7 @@ const WS_BACKOFF_MAX_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 250;
 const NAV_QUEUE_RETRY_MS = 150;
 const NAV_QUEUE_MAX_ATTEMPTS = 40;
+const ACTIVE_NOTIFICATION_POLL_MS = 10000;
 
 const VALID_MODULES = new Set([
   "flight-logs",
@@ -365,7 +366,6 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
-            expoPushToken: fcmToken,
             fcmToken,
             platform: Platform.OS,
           }),
@@ -773,8 +773,13 @@ export function NotificationProvider({ children }) {
       log("notification-open", getModuleName(notificationPayload));
 
       if (user?.id) {
-        if (notificationPayload?._id) {
-          await markAsRead(notificationPayload._id);
+        const notificationId =
+          notificationPayload?._id ||
+          notificationPayload?.notificationId ||
+          notificationPayload?.data?.notificationId;
+
+        if (notificationId) {
+          await markAsRead(notificationId);
         }
 
         const params = {
@@ -933,6 +938,18 @@ export function NotificationProvider({ children }) {
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const interval = setInterval(() => {
+      if (appStateRef.current === "active") {
+        scheduleRefresh("active-poll");
+      }
+    }, ACTIVE_NOTIFICATION_POLL_MS);
+
+    return () => clearInterval(interval);
+  }, [scheduleRefresh, user?.id]);
+
+  useEffect(() => {
     const unsubscribe = messaging().onTokenRefresh(async (token) => {
       console.log("FCM token refreshed:", token);
 
@@ -956,6 +973,7 @@ export function NotificationProvider({ children }) {
       appStateRef.current = nextState;
       if (wasBackground && nextState === "active") {
         registerPushTokenWithServer();
+        scheduleRefresh("app-active");
         consumePushInbox().then((queuedMessages) => {
           if (!queuedMessages.length) return;
           handleQueuedBackgroundMessages(queuedMessages);

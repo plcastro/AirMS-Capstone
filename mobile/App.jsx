@@ -13,7 +13,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
 import { FontScaleProvider, useFontScale } from "./Context/FontScaleContext";

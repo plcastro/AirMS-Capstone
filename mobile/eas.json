@@ -28,6 +28,7 @@
         "NODE_ENV": "preview",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
+        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",

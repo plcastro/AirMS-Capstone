@@ -97,6 +97,15 @@ export default function Profile() {
     await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
   };
 
+  const prepareMessagingForNotifications = async () => {
+    try {
+      await messaging().registerDeviceForRemoteMessages();
+      await messaging().getToken();
+    } catch (error) {
+      console.warn("Notification token refresh skipped:", error);
+    }
+  };
+
   const requestNotificationPermission = async () => {
     try {
       if (Platform.OS === "web") {
@@ -110,8 +119,7 @@ export default function Profile() {
           authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
           authStatus === messaging.AuthorizationStatus.PROVISIONAL;
         if (granted) {
-          await messaging().registerDeviceForRemoteMessages();
-          await messaging().getToken();
+          await prepareMessagingForNotifications();
           showToast("Notification permission granted.");
           return true;
         }
@@ -120,24 +128,39 @@ export default function Profile() {
       }
 
       if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const alreadyGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (alreadyGranted) {
+          await prepareMessagingForNotifications();
+          showToast("Notifications are enabled.");
+          return true;
+        }
+
         const result = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
         if (result === PermissionsAndroid.RESULTS.GRANTED) {
-          await messaging().registerDeviceForRemoteMessages();
-          await messaging().getToken();
+          await prepareMessagingForNotifications();
           showToast("Notification permission granted.");
           return true;
         }
-        showToast("Notification permission denied.");
+        showToast(
+          result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
+            ? "Enable notifications from Android app settings."
+            : "Notification permission denied.",
+        );
+        if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+          Linking.openSettings();
+        }
         return false;
       }
 
-      await messaging().registerDeviceForRemoteMessages();
-      await messaging().getToken();
+      await prepareMessagingForNotifications();
       showToast("Notifications are enabled.");
       return true;
     } catch (error) {
+      console.error("Notification permission update failed:", error);
       showToast("Could not update notification permission.");
       return false;
     }
