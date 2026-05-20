@@ -7,6 +7,16 @@ const androidEmulatorUrl = "http://10.0.2.2:8000";
 const envBackendUrl =
   process.env.EXPO_PUBLIC_BACKEND_URL || process.env.BACKEND_URL;
 
+const isLocalOrEmulatorHost = (url) => {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return ["localhost", "127.0.0.1", "10.0.2.2"].includes(hostname);
+  } catch {
+    return false;
+  }
+};
+
 const normalizeAndroidDevUrl = (url) => {
   if (!url) return androidEmulatorUrl;
 
@@ -33,23 +43,25 @@ const fallbackBaseByPlatform = Platform.select({
 
 const resolvedEnvBase = trimTrailingSlash(envBackendUrl);
 const resolvedFallbackBase = trimTrailingSlash(fallbackBaseByPlatform);
-const resolvedBaseByPlatform = Platform.select({
-  ios: resolvedEnvBase || (__DEV__ ? localUrl : ""),
-  android: resolvedEnvBase
-    ? __DEV__
-      ? normalizeAndroidDevUrl(resolvedEnvBase)
-      : resolvedEnvBase
-    : __DEV__
-      ? androidEmulatorUrl
-      : "",
-  default: resolvedEnvBase || (__DEV__ ? resolvedFallbackBase : ""),
-});
+const releaseBase =
+  resolvedEnvBase && !isLocalOrEmulatorHost(resolvedEnvBase)
+    ? resolvedEnvBase
+    : "";
+const resolvedBaseByPlatform = __DEV__
+  ? Platform.select({
+      ios: resolvedEnvBase || localUrl,
+      android: resolvedEnvBase
+        ? normalizeAndroidDevUrl(resolvedEnvBase)
+        : androidEmulatorUrl,
+      default: resolvedEnvBase || resolvedFallbackBase,
+    })
+  : releaseBase;
 
 export const API_BASE = trimTrailingSlash(resolvedBaseByPlatform);
 
 if (!API_BASE) {
   console.error(
-    "[API_BASE] Missing EXPO_PUBLIC_BACKEND_URL. Set it in mobile/.env for release builds.",
+    "[API_BASE] Release builds require EXPO_PUBLIC_BACKEND_URL to be a real backend URL (not localhost/10.0.2.2).",
   );
 }
 
