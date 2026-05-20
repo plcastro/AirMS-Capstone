@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+﻿const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
@@ -531,6 +531,7 @@ const loginUser = async (req, res) => {
     }
 
     const otp = generateOTP();
+    console.log(`[DEV_LOGIN_OTP] ${user.email}: ${otp}`);
     const loginOtpToken = crypto.randomBytes(32).toString("hex");
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
@@ -589,7 +590,9 @@ const verifyLoginOtp = async (req, res) => {
     }
 
     if (user.loginOtpExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP expired. Please log in again." });
+      return res
+        .status(400)
+        .json({ message: "OTP expired. Please log in again." });
     }
 
     const valid = await bcrypt.compare(String(otp).trim(), user.loginOtp);
@@ -620,8 +623,9 @@ const verifyLoginOtp = async (req, res) => {
 
     if (trustDevice) {
       const rawTrustedDeviceToken = buildTrustedDeviceToken();
-      const trustedDeviceTokenHash =
-        hashTrustedDeviceToken(rawTrustedDeviceToken);
+      const trustedDeviceTokenHash = hashTrustedDeviceToken(
+        rawTrustedDeviceToken,
+      );
 
       user.trustedDevices = (user.trustedDevices || []).filter(
         (device) =>
@@ -871,29 +875,30 @@ const logoutUser = async (req, res) => {
 const registerMobilePushDevice = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { deviceId, expoPushToken, platform } = req.body;
+    const { deviceId, fcmToken, platform } = req.body;
+    const pushToken = fcmToken;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!deviceId || !expoPushToken) {
+    if (!deviceId || !pushToken) {
       return res
         .status(400)
-        .json({ message: "deviceId and expoPushToken are required" });
+        .json({ message: "deviceId and push token are required" });
     }
 
     await UserModel.updateMany(
       {
         $or: [
           { "mobilePushDevices.deviceId": deviceId },
-          { "mobilePushDevices.expoPushToken": expoPushToken },
+          { "mobilePushDevices.expoPushToken": pushToken },
         ],
       },
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { expoPushToken }],
+            $or: [{ deviceId }, { expoPushToken: pushToken }],
           },
         },
       },
@@ -905,7 +910,7 @@ const registerMobilePushDevice = async (req, res) => {
         $push: {
           mobilePushDevices: {
             deviceId,
-            expoPushToken,
+            expoPushToken: pushToken,
             platform: platform || "unknown",
             lastSeenAt: new Date(),
           },

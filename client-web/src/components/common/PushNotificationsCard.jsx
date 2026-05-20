@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Modal,
   Avatar,
@@ -9,6 +16,7 @@ import {
   Empty,
   Spin,
   message,
+  notification as antdNotification,
 } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
@@ -17,9 +25,11 @@ import { API_BASE } from "../../utils/API_BASE";
 const { Text } = Typography;
 
 export default function PushNotificationsCard({ open, onClose }) {
-  const { getAuthHeader, user } = useContext(AuthContext);
+  const { getAuthHeader, getValidToken, user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const reconnectTimeoutRef = useRef(null);
+  const websocketRef = useRef(null);
 
   const formatTimeAgo = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -50,14 +60,16 @@ export default function PushNotificationsCard({ open, onClose }) {
     });
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async ({ silent = false } = {}) => {
     if (!user?.id) {
       setNotifications([]);
       return;
     }
 
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const response = await fetch(`${API_BASE}/api/notifications`, {
         headers: await getAuthHeader(),
       });
@@ -71,11 +83,15 @@ export default function PushNotificationsCard({ open, onClose }) {
     } catch (error) {
       console.error("Error fetching notifications:", error);
       setNotifications([]);
-      message.error("Failed to load notifications");
+      if (!silent) {
+        message.error("Failed to load notifications");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [getAuthHeader, user?.id]);
 
   const sortedNotifications = useMemo(
     () =>
@@ -90,7 +106,79 @@ export default function PushNotificationsCard({ open, onClose }) {
     if (open) {
       fetchNotifications();
     }
-  }, [open]);
+  }, [fetchNotifications, open]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const getWebSocketUrl = (token) => {
+      const apiUrl = new URL(API_BASE);
+      apiUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+      apiUrl.searchParams.set("token", token);
+      return apiUrl.toString();
+    };
+
+    const connect = async () => {
+      try {
+        const token = await getValidToken();
+
+        if (!token || !isMounted) {
+          return;
+        }
+
+        const socket = new WebSocket(getWebSocketUrl(token));
+        websocketRef.current = socket;
+
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+
+            if (payload?.event !== "notification-created") {
+              return;
+            }
+
+            fetchNotifications({ silent: true });
+
+            const notification = payload.data || {};
+            antdNotification.info({
+              message: notification.title || "New notification",
+              description:
+                notification.description || "You have a new AirMS notification.",
+              placement: "topRight",
+            });
+          } catch (error) {
+            console.error("Notification websocket parse error:", error);
+          }
+        };
+
+        socket.onclose = () => {
+          if (!isMounted) {
+            return;
+          }
+
+          reconnectTimeoutRef.current = setTimeout(connect, 5000);
+        };
+      } catch (error) {
+        console.error("Notification websocket error:", error);
+        if (isMounted) {
+          reconnectTimeoutRef.current = setTimeout(connect, 5000);
+        }
+      }
+    };
+
+    fetchNotifications({ silent: true });
+    connect();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(reconnectTimeoutRef.current);
+      websocketRef.current?.close?.();
+    };
+  }, [fetchNotifications, getValidToken, user?.id]);
 
   const markNotificationRead = async (notificationId) => {
     try {
@@ -147,10 +235,7 @@ export default function PushNotificationsCard({ open, onClose }) {
     await markNotificationRead(notification._id);
     onClose?.();
 
-    const moduleName =
-      notification?.module ||
-      notification?.metadata?.module ||
-      notification?.data?.module;
+    const moduleName = notification?.module || notification?.metadata?.module;
 
     if (moduleName === "flight-logs") {
       const status = notification?.metadata?.status || "";
@@ -171,6 +256,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         targetPreInspectionId: String(notification.entityId || ""),
         ...(status ? { notificationStatus: status } : {}),
       });
+
       window.location.assign(`/dashboard/pre-inspection?${params.toString()}`);
       return;
     }
@@ -182,6 +268,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         targetPostInspectionId: String(notification.entityId || ""),
         ...(status ? { notificationStatus: status } : {}),
       });
+
       window.location.assign(`/dashboard/post-inspection?${params.toString()}`);
       return;
     }
@@ -193,6 +280,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         targetTaskId: String(notification.entityId || ""),
         ...(status ? { notificationStatus: status } : {}),
       });
+
       window.location.assign(`/dashboard/tasks?${params.toString()}`);
       return;
     }
@@ -223,63 +311,36 @@ export default function PushNotificationsCard({ open, onClose }) {
     }
 
     return (
-      <div style={{ paddingRight: 2 }}>
+      <div>
         {sortedNotifications.map((item) => (
           <div
             key={item._id}
             onClick={() => handleNotificationClick(item)}
             style={{
-              padding: "12px",
-              background: item.read ? "#FFFFFF" : "#F6FFED",
-              borderRadius: 12,
-              marginBottom: 10,
+              padding: "12px 16px",
+              background: item.read ? "#fff" : "#f6ffed",
+              borderRadius: 8,
+              marginBottom: 8,
               cursor: "pointer",
-              border: `1px solid ${item.read ? "#E4E4E4" : "#CDECCB"}`,
-              transition: "0.2s ease",
+              transition: "0.2s",
             }}
           >
             <Space align="start" size={12} style={{ width: "100%" }}>
               <Avatar
                 icon={<BellOutlined />}
                 style={{
-                  backgroundColor: item.read ? "#D9D9D9" : "#52C41A",
-                  color: "#FFFFFF",
+                  backgroundColor: item.read ? "#d9d9d9" : "#52c41a",
                 }}
               />
               <div style={{ flex: 1 }}>
-                <Space size={6} wrap>
-                  <Text
-                    style={{
-                      color: "#101828",
-                      fontWeight: item.read ? 600 : 700,
-                      fontSize: 14,
-                      lineHeight: "20px",
-                    }}
-                  >
-                    {item.title}
-                  </Text>
-                  {!item.read && (
-                    <Tag
-                      style={{
-                        marginInlineEnd: 0,
-                        borderRadius: 999,
-                        border: "none",
-                        background: "#52C41A",
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        paddingInline: 8,
-                      }}
-                    >
-                      New
-                    </Tag>
-                  )}
+                <Space>
+                  <Text strong={!item.read}>{item.title}</Text>
+                  {!item.read && <Tag color="green">New</Tag>}
                 </Space>
-                <div style={{ marginTop: 4 }}>
-                  <Text style={{ color: "#667085", fontSize: 13 }}>
-                    {item.description}
-                  </Text>
+                <div>
+                  <Text type="secondary">{item.description}</Text>
                 </div>
-                <Text style={{ color: "#98A2B3", fontSize: 12, marginTop: 6 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
                   {formatTimeAgo(item.createdAt)}
                 </Text>
               </div>
@@ -300,17 +361,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         <Space>
           <BellOutlined />
           Notifications
-          <Tag
-            style={{
-              borderRadius: 999,
-              border: "none",
-              background: "#E9F4F1",
-              color: "#26866F",
-              fontWeight: 600,
-            }}
-          >
-            {unreadCount} Unread
-          </Tag>
+          <Tag color="blue">{unreadCount} Unread</Tag>
         </Space>
       }
     >

@@ -584,7 +584,16 @@ exports.updateAircraftTotals = async (req, res) => {
 // Save or update parts monitoring data
 exports.savePartsMonitoring = async (req, res) => {
   try {
-    const { aircraft, referenceData, parts, updatedBy, dateManufactured, aircraftType, creepDamage } = req.body;
+    const {
+      aircraft,
+      referenceData,
+      parts,
+      updatedBy,
+      dateManufactured,
+      aircraftType,
+      creepDamage,
+      serialNumber,
+    } = req.body;
 
     if (!aircraft) {
       return res.status(400).json({ success: false, message: "Aircraft is required" });
@@ -598,6 +607,18 @@ exports.savePartsMonitoring = async (req, res) => {
     if (existingData) {
       existingData.referenceData = referenceData || existingData.referenceData;
       existingData.parts = parts;
+      if (dateManufactured !== undefined) {
+        existingData.dateManufactured = dateManufactured || null;
+      }
+      if (aircraftType !== undefined) {
+        existingData.aircraftType = aircraftType || existingData.aircraftType || "";
+      }
+      if (creepDamage !== undefined) {
+        existingData.creepDamage = creepDamage || "";
+      }
+      if (serialNumber !== undefined) {
+        existingData.serialNumber = serialNumber || "";
+      }
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
@@ -608,6 +629,7 @@ exports.savePartsMonitoring = async (req, res) => {
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
         creepDamage: creepDamage || "",
+        serialNumber: serialNumber || "",
         referenceData,
         parts,
         updatedBy: updatedBy || "system",

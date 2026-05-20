@@ -1,5 +1,8 @@
 import React from "react";
-import { Text, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View
+} from "react-native";
 import { InfoCard } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -7,7 +10,7 @@ export function SimpleRowsTable({ title, subtitle, rows = [], columns = [] }) {
   return (
     <InfoCard title={title} subtitle={subtitle}>
       {rows.length === 0 ? (
-        <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</Text>
+        <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</AppText>
       ) : (
         rows.slice(0, 20).map((row, index) => (
           <View
@@ -20,10 +23,10 @@ export function SimpleRowsTable({ title, subtitle, rows = [], columns = [] }) {
             }}
           >
             {columns.map((column) => (
-              <Text key={column.key} style={{ color: COLORS.black, fontSize: 12 }}>
-                <Text style={{ fontWeight: "700" }}>{column.label}: </Text>
+              <AppText key={column.key} style={{ color: COLORS.black, fontSize: 12 }}>
+                <AppText style={{ fontWeight: "700" }}>{column.label}: </AppText>
                 {row[column.key] ?? "N/A"}
-              </Text>
+              </AppText>
             ))}
           </View>
         ))

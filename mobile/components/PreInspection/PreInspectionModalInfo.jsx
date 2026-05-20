@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
+import { BASE_OPTIONS } from "../UserManagement/constants";
 
 export default function PreInspectionModalInfo({
   formData,
@@ -17,6 +18,7 @@ export default function PreInspectionModalInfo({
   rpcOptions = [],
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -150,7 +152,7 @@ export default function PreInspectionModalInfo({
 
   const renderAircraftTypeField = () => (
     <View>
-      <TextInput
+      <AppInput
         style={{
           backgroundColor: "#E8E8E8",
           borderRadius: 6,
@@ -183,14 +185,14 @@ export default function PreInspectionModalInfo({
         }}
         onPress={isEditable ? toggleRPCDropdown : null}
       >
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             color: formData.rpc ? COLORS.black : COLORS.grayDark,
           }}
         >
           {formData.rpc || "Select RP/C"}
-        </Text>
+        </AppText>
         {isEditable && (
           <MaterialCommunityIcons
             name={showRPCDropdown ? "chevron-up" : "chevron-down"}
@@ -242,7 +244,7 @@ export default function PreInspectionModalInfo({
                   setShowRPCDropdown(false);
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color:
@@ -250,7 +252,7 @@ export default function PreInspectionModalInfo({
                   }}
                 >
                   {rpc}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -259,9 +261,85 @@ export default function PreInspectionModalInfo({
     </View>
   );
 
+  const renderBaseDropdown = () => (
+    <View style={{ zIndex: showBaseDropdown ? 2500 : 900 }}>
+      <TouchableOpacity
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          height: 42,
+          paddingHorizontal: 12,
+        }}
+        onPress={isEditable ? () => setShowBaseDropdown((current) => !current) : null}
+      >
+        <AppText
+          style={{
+            fontSize: 12,
+            color: formData.base ? COLORS.black : COLORS.grayDark,
+          }}
+        >
+          {formData.base || "Select Base"}
+        </AppText>
+        {isEditable && (
+          <MaterialCommunityIcons
+            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={COLORS.grayDark}
+          />
+        )}
+      </TouchableOpacity>
+
+      {showBaseDropdown && isEditable && (
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            zIndex: 2500,
+            elevation: 5,
+          }}
+        >
+          {BASE_OPTIONS.map((base) => (
+            <TouchableOpacity
+              key={base}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                borderBottomWidth: base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
+                borderBottomColor: COLORS.grayLight,
+                backgroundColor:
+                  formData.base === base ? COLORS.primaryLight + "10" : COLORS.white,
+              }}
+              onPress={() => {
+                updateForm("base", base);
+                setShowBaseDropdown(false);
+              }}
+            >
+              <AppText
+                style={{
+                  fontSize: 12,
+                  color: formData.base === base ? COLORS.primaryLight : COLORS.black,
+                }}
+              >
+                {base}
+              </AppText>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   return (
     <View>
-      <Text
+      <AppText
         style={{
           fontSize: 14,
           fontWeight: "600",
@@ -270,7 +348,7 @@ export default function PreInspectionModalInfo({
         }}
       >
         Basic Information
-      </Text>
+      </AppText>
 
       <View
         style={{
@@ -295,16 +373,16 @@ export default function PreInspectionModalInfo({
             borderTopRightRadius: 12,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
             Rotary Winged Aircraft - Single Engine
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -312,13 +390,13 @@ export default function PreInspectionModalInfo({
                 fontWeight: "500",
               }}
             >
-              RP-C: <Text style={{ color: "red" }}>*</Text>
-            </Text>
+              RP-C: <AppText style={{ color: "red" }}>*</AppText>
+            </AppText>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -326,13 +404,27 @@ export default function PreInspectionModalInfo({
                 fontWeight: "500",
               }}
             >
-              Aircraft Type: <Text style={{ color: "red" }}>*</Text>
-            </Text>
+              Aircraft Type: <AppText style={{ color: "red" }}>*</AppText>
+            </AppText>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
+              Base: <AppText style={{ color: "red" }}>*</AppText>
+            </AppText>
+            {renderBaseDropdown()}
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -341,7 +433,7 @@ export default function PreInspectionModalInfo({
               }}
             >
               Date:
-            </Text>
+            </AppText>
             <View
               style={{
                 flexDirection: "row",
@@ -353,9 +445,9 @@ export default function PreInspectionModalInfo({
                 paddingHorizontal: 12,
               }}
             >
-              <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name="calendar-blank"
                 size={18}

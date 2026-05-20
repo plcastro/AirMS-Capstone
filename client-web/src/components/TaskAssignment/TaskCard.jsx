@@ -55,7 +55,7 @@ export default function TaskCard({ task, onOpen, highlighted = false }) {
     <Card
       hoverable
       onClick={() => onOpen(task)}
-      bodyStyle={{ padding: 14 }}
+      styles={{ body: { padding: 14 } }}
       style={{
         borderRadius: 12,
         border: highlighted ? "1px solid #26866F" : "1px solid #E4E7EC",

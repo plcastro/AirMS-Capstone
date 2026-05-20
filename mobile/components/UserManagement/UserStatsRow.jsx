@@ -1,5 +1,10 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 const STAT_ITEMS = [
@@ -21,12 +26,12 @@ export default function UserStatsRow({ counts, statusFilter = "all", onStatusPre
             activeOpacity={0.85}
             onPress={() => onStatusPress?.(item.key)}
           >
-            <Text style={[styles.statLabel, isActive && styles.statLabelActive]}>
+            <AppText style={[styles.statLabel, isActive && styles.statLabelActive]}>
               {item.label}
-            </Text>
-            <Text style={[styles.statValue, isActive && styles.statValueActive]}>
+            </AppText>
+            <AppText style={[styles.statValue, isActive && styles.statValueActive]}>
               {counts[item.valueKey] ?? 0}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         );
       })}

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Conversation = require("../models/conversationModel");
 const Message = require("../models/messageModel");
+const NotificationModel = require("../models/notificationModel");
 const User = require("../models/userModel");
 const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
@@ -99,6 +100,48 @@ const notifyUnreadMessageSummary = async (recipientIds = []) => {
       });
     }),
   );
+};
+
+const buildMessagePreview = (message) => {
+  const text = String(message || "").trim();
+  if (!text) return "Sent an attachment";
+  return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+};
+
+const createChatNotifications = async ({
+  senderName,
+  messageBody,
+  messageId,
+  recipientUserIds = [],
+  conversationId = null,
+  conversationName = "",
+  isGroup = false,
+}) => {
+  const recipients = [...new Set(recipientUserIds.map(String).filter(Boolean))]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  if (!recipients.length || !mongoose.Types.ObjectId.isValid(String(messageId))) {
+    return;
+  }
+
+  const title = isGroup
+    ? `${senderName} in ${conversationName || "Group Chat"}`
+    : `New message from ${senderName}`;
+
+  await NotificationModel.create({
+    title,
+    description: buildMessagePreview(messageBody),
+    module: "messages",
+    entityType: "message",
+    entityId: messageId,
+    recipientUsers: recipients,
+    metadata: {
+      notificationType: isGroup ? "group-message" : "direct-message",
+      senderName,
+      conversationId: conversationId ? String(conversationId) : null,
+      conversationName: conversationName || null,
+    },
+  });
 };
 
 const getMessageUsers = async (req, res) => {
@@ -387,6 +430,17 @@ const sendMessage = async (req, res) => {
       });
 
       const payload = mapMessage(message.toObject());
+      const senderUser = await User.findById(senderId)
+        .select("firstName lastName username")
+        .lean();
+      const senderName =
+        `${senderUser?.firstName || ""} ${senderUser?.lastName || ""}`.trim() ||
+        senderUser?.username ||
+        "Someone";
+      const recipientMemberIds = conversation.members.filter(
+        (memberId) => !isSameId(memberId, senderId),
+      );
+
       sendToUsers(conversation.members, "chat:message", payload);
       publishTypedForUsers(conversation.members, "message:new", {
         messageId: String(message._id),
@@ -394,8 +448,19 @@ const sendMessage = async (req, res) => {
         senderId: String(senderId),
         createdAt: message.createdAt,
       });
+      createChatNotifications({
+        senderName,
+        messageBody: bodyState.value,
+        messageId: message._id,
+        recipientUserIds: recipientMemberIds,
+        conversationId,
+        conversationName: conversation.name,
+        isGroup: true,
+      }).catch((error) => {
+        console.error("Group chat notification creation failed:", error);
+      });
       notifyUnreadMessageSummary(
-        conversation.members.filter((memberId) => !isSameId(memberId, senderId)),
+        recipientMemberIds,
       ).catch((error) => {
         console.error("Message push notification failed:", error);
       });
@@ -431,6 +496,14 @@ const sendMessage = async (req, res) => {
       attachments,
     });
 
+    const senderUser = await User.findById(senderId)
+      .select("firstName lastName username")
+      .lean();
+    const senderName =
+      `${senderUser?.firstName || ""} ${senderUser?.lastName || ""}`.trim() ||
+      senderUser?.username ||
+      "Someone";
+
     const payload = mapMessage(message.toObject());
     sendToUsers([senderId, recipientId], "chat:message", payload);
     publishTypedForUsers([senderId, recipientId], "message:new", {
@@ -438,6 +511,15 @@ const sendMessage = async (req, res) => {
       senderId: String(senderId),
       recipientId: String(recipientId),
       createdAt: message.createdAt,
+    });
+    createChatNotifications({
+      senderName,
+      messageBody: bodyState.value,
+      messageId: message._id,
+      recipientUserIds: [recipientId],
+      isGroup: false,
+    }).catch((error) => {
+      console.error("Direct chat notification creation failed:", error);
     });
     notifyUnreadMessageSummary([recipientId]).catch((error) => {
       console.error("Message push notification failed:", error);

@@ -1,5 +1,9 @@
 import React from "react";
-import { Image, Text, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  Image,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserInitials } from "../../utilities/avatar";
@@ -48,7 +52,7 @@ export default function MessagingAvatar({ item, size = 42, getImageUrl }) {
         backgroundColor: "#E9F4F1",
       }}
     >
-      <Text
+      <AppText
         style={{
           color: COLORS.primaryLight,
           fontWeight: "700",
@@ -56,7 +60,7 @@ export default function MessagingAvatar({ item, size = 42, getImageUrl }) {
         }}
       >
         {getUserInitials(fallbackUser?.firstName, fallbackUser?.lastName)}
-      </Text>
+      </AppText>
     </View>
   );
 }

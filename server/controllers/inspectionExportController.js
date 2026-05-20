@@ -23,7 +23,7 @@ const exportPreInspectionDocument = async (req, res) => {
     }
 
     // Generate document
-    const documentBuffer = getPreInspectionDocument(inspection);
+    const documentBuffer = await getPreInspectionDocument(inspection);
 
     // Set response headers for download
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -58,7 +58,7 @@ const exportPostInspectionDocument = async (req, res) => {
     }
 
     // Generate document
-    const documentBuffer = getPostInspectionDocument(inspection);
+    const documentBuffer = await getPostInspectionDocument(inspection);
 
     // Set response headers for download
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");

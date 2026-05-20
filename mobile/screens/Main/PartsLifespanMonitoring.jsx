@@ -1,7 +1,13 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+﻿import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
@@ -30,6 +36,18 @@ const referenceFields = [
 ];
 
 const COMPONENT_DISPLAY_LIMIT = 10;
+
+const formatDateInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().slice(0, 10);
+};
+
+const parsePickerDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
 
 const normalizeRef = (referenceData = {}) => ({
   today: referenceData.today
@@ -73,6 +91,7 @@ export default function PartsLifespanMonitoring() {
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
   const [componentPage, setComponentPage] = useState(0);
+  const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const fetchAircraftList = useCallback(async () => {
     try {
@@ -192,6 +211,28 @@ export default function PartsLifespanMonitoring() {
     );
   };
 
+  const openDatePicker = (target) => {
+    if (!canEditParts) return;
+    setDatePickerTarget(target);
+  };
+
+  const handleDatePickerChange = (event, selectedDate) => {
+    const target = datePickerTarget;
+    setDatePickerTarget(null);
+
+    if (event?.type === "dismissed" || !selectedDate || !target) {
+      return;
+    }
+
+    const nextValue = selectedDate.toISOString().slice(0, 10);
+    if (target.type === "ref") {
+      setRefs((current) => ({ ...current, [target.key]: nextValue }));
+      return;
+    }
+
+    updatePartField(target.sourceIndex, target.field, nextValue);
+  };
+
   const saveToDatabase = async () => {
     if (!selectedAircraft) {
       showToast("Select an aircraft before saving.");
@@ -283,24 +324,44 @@ export default function PartsLifespanMonitoring() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {referenceFields.map(([key, label]) => (
               <View key={key} style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>{label}</Text>
-                <TextInput
-                  value={String(refs[key] ?? "")}
-                  editable={canEditParts}
-                  keyboardType={key === "today" ? "default" : "numeric"}
-                  onChangeText={(value) =>
-                    setRefs((current) => ({ ...current, [key]: value }))
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
-                />
+                <AppText style={moduleStyles.label}>{label}</AppText>
+                {key === "today" ? (
+                  <TouchableOpacity
+                    disabled={!canEditParts}
+                    onPress={() => openDatePicker({ type: "ref", key })}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 10,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  >
+                    <AppText style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
+                      {formatDateInput(refs[key]) || "Select date"}
+                    </AppText>
+                  </TouchableOpacity>
+                ) : (
+                  <AppInput
+                    value={String(refs[key] ?? "")}
+                    editable={canEditParts}
+                    keyboardType="numeric"
+                    onChangeText={(value) =>
+                      setRefs((current) => ({ ...current, [key]: value }))
+                    }
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      marginTop: 5,
+                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
+                    }}
+                  />
+                )}
               </View>
             ))}
           </View>
@@ -311,9 +372,9 @@ export default function PartsLifespanMonitoring() {
               disabled={saving}
             >
               <MaterialCommunityIcons name="content-save" size={18} color={COLORS.white} />
-              <Text style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+              <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
                 {saving ? "Saving..." : "Save to Database"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </InfoCard>
@@ -354,8 +415,8 @@ export default function PartsLifespanMonitoring() {
               <FieldRow label="Date Due" value={part.dateDue} />
               <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>HRS C/W</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>HRS C/W</AppText>
+                <AppInput
                   value={String(part.hoursCW ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -374,8 +435,8 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>TIME SINCE INSTALLATION</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>TIME SINCE INSTALLATION</AppText>
+                <AppInput
                   value={String(part.timeSinceInstall ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -394,8 +455,8 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>TOTAL TIME SINCE NEW</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>TOTAL TIME SINCE NEW</AppText>
+                <AppInput
                   value={String(part.totalTimeSinceNew ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -414,28 +475,47 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>DATE C/W</Text>
-                <TextInput
-                  value={String(part.dateCW ?? "")}
-                  editable={canEditParts}
-                  onChangeText={(value) =>
-                    updatePartField(part.__sourceIndex, "dateCW", value)
+                <AppText style={moduleStyles.label}>DATE C/W</AppText>
+                <TouchableOpacity
+                  disabled={!canEditParts}
+                  onPress={() =>
+                    openDatePicker({
+                      type: "part",
+                      sourceIndex: part.__sourceIndex,
+                      field: "dateCW",
+                    })
                   }
                   style={{
                     borderWidth: 1,
                     borderColor: COLORS.grayMedium,
                     borderRadius: 8,
                     paddingHorizontal: 10,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     marginTop: 5,
                     backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
                   }}
-                />
+                >
+                  <AppText style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
+                    {formatDateInput(part.dateCW) || "Select date"}
+                  </AppText>
+                </TouchableOpacity>
               </View>
             </View>
           </InfoCard>
         );
       })}
+      {datePickerTarget && (
+        <DateTimePicker
+          value={parsePickerDate(
+            datePickerTarget.type === "ref"
+              ? refs[datePickerTarget.key]
+              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
+          )}
+          mode="date"
+          display="default"
+          onChange={handleDatePickerChange}
+        />
+      )}
       {selectedAircraft && filteredParts.length > COMPONENT_DISPLAY_LIMIT && (
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
           <TouchableOpacity
@@ -455,9 +535,9 @@ export default function PartsLifespanMonitoring() {
               size={18}
               color={COLORS.white}
             />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <View
             style={[
@@ -471,9 +551,9 @@ export default function PartsLifespanMonitoring() {
               },
             ]}
           >
-            <Text style={{ color: COLORS.primary, fontWeight: "800" }}>
+            <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
               {componentPage + 1}/{totalComponentPages}
-            </Text>
+            </AppText>
           </View>
           <TouchableOpacity
             style={[
@@ -493,9 +573,9 @@ export default function PartsLifespanMonitoring() {
               )
             }
           >
-            <Text style={[moduleStyles.buttonText, { marginRight: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginRight: 4 }]}>
               Next
-            </Text>
+            </AppText>
             <MaterialCommunityIcons
               name="chevron-right"
               size={18}

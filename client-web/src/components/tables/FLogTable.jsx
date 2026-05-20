@@ -90,6 +90,7 @@ export default function FLogTable({
         onShowSizeChange: handlePageChange,
         showQuickJumper: true,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+        position: ["bottomRight"],
       }}
       scroll={{ x: "max-content" }}
     />

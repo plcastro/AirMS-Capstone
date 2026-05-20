@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text, TextInput } from "react-native";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
+import {
+  View
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function PostInspectionModalNotes({
@@ -9,13 +13,13 @@ export default function PostInspectionModalNotes({
 }) {
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+      <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
         Notes
-      </Text>
-      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+      </AppText>
+      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
         These notes are included in AI maintenance tracking interpretations.
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         value={formData.notes || ""}
         onChangeText={(value) => updateForm("notes", value)}
         editable={isEditable}

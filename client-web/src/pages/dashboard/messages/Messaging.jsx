@@ -156,6 +156,7 @@ export default function Messaging() {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
+  const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -223,6 +224,26 @@ export default function Messaging() {
 
     await fetchConversations();
   }, [fetchConversations, fetchThread]);
+
+  const notifyIncomingChat = useCallback(
+    (messagePayload) => {
+      const messageId = String(messagePayload?._id || "");
+      if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
+      notifiedMessageIdsRef.current.add(messageId);
+
+      const senderId = String(getEntityId(messagePayload?.sender));
+      if (!senderId || senderId === String(currentUserId)) return;
+
+      const senderUser = usersById.get(senderId) || {};
+      const senderName = getDisplayFirstName(senderUser);
+      const preview =
+        String(messagePayload?.body || "").trim() ||
+        getAttachmentLabel(messagePayload?.attachments || []) ||
+        "sent a message";
+      antdMessage.info(`${senderName}: ${preview}`);
+    },
+    [currentUserId, usersById],
+  );
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -336,6 +357,7 @@ export default function Messaging() {
           if (payload.event !== "chat:message") return;
 
           const nextMessage = withSentStatus(payload.data);
+          notifyIncomingChat(nextMessage);
           const conversationId = nextMessage.conversation
             ? String(getEntityId(nextMessage.conversation))
             : String(getEntityId(nextMessage.sender)) === String(currentUserId)
@@ -392,7 +414,7 @@ export default function Messaging() {
       }
       wsRef.current?.close();
     };
-  }, [currentUserId, fetchConversations, fetchThread]);
+  }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -514,6 +536,7 @@ export default function Messaging() {
       setMobileView("chat");
     }
   };
+
 
   const handleSend = async () => {
     const body = draft.trim();

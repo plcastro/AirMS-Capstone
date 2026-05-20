@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { TouchableOpacity, View, Text } from "react-native";
+import AppText from "./AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { InfoCard } from "./MobileModule";
 import { COLORS } from "../../stylesheets/colors";
@@ -49,9 +53,9 @@ export default function ExportFile({ title = "Reports and Analytics", sections =
       }}
     >
       <MaterialCommunityIcons name={icon} size={16} color={COLORS.white} />
-      <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "700", marginLeft: 6 }}>
+      <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700", marginLeft: 6 }}>
         {exporting ? "Exporting..." : label}
-      </Text>
+      </AppText>
     </TouchableOpacity>
   );
 

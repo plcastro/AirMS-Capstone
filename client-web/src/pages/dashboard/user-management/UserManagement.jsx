@@ -19,7 +19,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const accessLevelData = [
@@ -571,9 +571,14 @@ export default function UserManagement() {
         loading={loading}
       />
 
-      <div style={{ marginTop: 15 }}>
-        Showing {filteredUsers.length} of {allUsers.length} users
-      </div>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filteredUsers.length}</Text> of{" "}
+            <Text strong>{allUsers.length}</Text> users
+          </Text>
+        </Col>
+      </Row>
 
       {showModal && (
         <UserForm

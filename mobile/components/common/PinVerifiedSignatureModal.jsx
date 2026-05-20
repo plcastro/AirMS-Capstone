@@ -1,11 +1,11 @@
 import React, { useContext, useRef, useState } from "react";
+import AppText from "./AppText";
 import {
   ActivityIndicator,
   Image,
   Modal,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -143,11 +143,11 @@ export default function PinVerifiedSignatureModal({
               marginBottom: 12,
             }}
           >
-            <Text
+            <AppText
               style={{ fontSize: 14, fontWeight: "600", color: COLORS.black }}
             >
               {title}
-            </Text>
+            </AppText>
             <TouchableOpacity onPress={handleClose} disabled={submitting}>
               <MaterialCommunityIcons
                 name="close"
@@ -157,11 +157,11 @@ export default function PinVerifiedSignatureModal({
             </TouchableOpacity>
           </View>
 
-          <Text
+          <AppText
             style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 16 }}
           >
             {step === "signature" ? description : confirmDescription}
-          </Text>
+          </AppText>
 
           {step === "signature" ? (
             <>
@@ -210,9 +210,9 @@ export default function PinVerifiedSignatureModal({
                     borderColor: COLORS.grayMedium,
                   }}
                 >
-                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
                     Cancel
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -226,9 +226,9 @@ export default function PinVerifiedSignatureModal({
                     backgroundColor: "#D9534F",
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                     Clear
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </>
@@ -292,9 +292,9 @@ export default function PinVerifiedSignatureModal({
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
                   Cancel
-                </Text>
+                </AppText>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -308,13 +308,13 @@ export default function PinVerifiedSignatureModal({
                 opacity: submitting ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+              <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                 {submitting
                   ? "Please wait..."
                   : step === "signature"
                     ? "Continue"
                     : saveLabel}
-              </Text>
+              </AppText>
             </TouchableOpacity>
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
           </View>

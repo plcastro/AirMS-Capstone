@@ -1,5 +1,9 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+﻿import React from "react";
+import AppText from "../common/AppText";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 export default function PreInspectionCards({
@@ -8,12 +12,14 @@ export default function PreInspectionCards({
   onExport,
   userRole,
 }) {
-  const getDisplayStatus = (status) =>
-    status === "completed"
+  const getDisplayStatus = (status) => {
+    const normalizedStatus = String(status || "").toLowerCase();
+    return normalizedStatus === "completed"
       ? "completed"
-      : status === "released"
+      : normalizedStatus === "released"
         ? "released"
         : "pending";
+  };
 
   const getStatusStyle = (status) => {
     switch (getDisplayStatus(status)) {
@@ -55,9 +61,9 @@ export default function PreInspectionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No pre-inspections found
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -67,6 +73,11 @@ export default function PreInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const displayStatus = getDisplayStatus(inspection.status);
+        const isViewOnly =
+          displayStatus === "released" ||
+          displayStatus === "completed" ||
+          isOfficerInCharge;
 
         return (
           <TouchableOpacity
@@ -97,13 +108,13 @@ export default function PreInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                  <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
-                  </Text>
+                  </AppText>
 
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -118,7 +129,7 @@ export default function PreInspectionCards({
                       borderRadius: 12,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 9,
@@ -126,7 +137,7 @@ export default function PreInspectionCards({
                       }}
                     >
                       {statusStyle.label}
-                    </Text>
+                    </AppText>
                   </View>
 
                   {/* EXPORT */}
@@ -147,15 +158,15 @@ export default function PreInspectionCards({
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Aircraft:</AppText>{" "}
                   {inspection.aircraftType || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Fuel:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Fuel:</AppText>{" "}
                   {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
-                </Text>
+                </AppText>
               </View>
 
               {/* ACTION ICON (bottom-right compact style) */}
@@ -167,17 +178,9 @@ export default function PreInspectionCards({
                 }}
               >
                 <MaterialCommunityIcons
-                  name={
-                    inspection.status === "released" || isOfficerInCharge
-                      ? "eye-outline"
-                      : "pencil"
-                  }
+                  name={isViewOnly ? "eye-outline" : "pencil"}
                   size={18}
-                  color={
-                    inspection.status === "released" || isOfficerInCharge
-                      ? COLORS.primaryLight
-                      : "#777"
-                  }
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
                 />
               </View>
             </View>

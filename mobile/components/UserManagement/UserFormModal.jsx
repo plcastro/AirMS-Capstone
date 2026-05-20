@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   Modal,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
@@ -19,6 +19,7 @@ import {
   ROLE_MAP,
   ROLES_REQUIRING_LICENSE,
 } from "./constants";
+import AlertComp from "../AlertComp";
 
 const buildUsername = ({ firstName, lastName, users = [], currentUserId = "" }) => {
   const safeFirst = String(firstName || "").trim();
@@ -72,6 +73,7 @@ export default function UserFormModal({
   const [imageUri, setImageUri] = useState("");
   const [pickedImageAsset, setPickedImageAsset] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -114,6 +116,31 @@ export default function UserFormModal({
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+  const hasUnsavedChanges = () => {
+    const baseline = isEdit
+      ? {
+          firstName: userToEdit?.firstName || "",
+          lastName: userToEdit?.lastName || "",
+          email: userToEdit?.email || "",
+          username: userToEdit?.username || "",
+          jobTitle: userToEdit?.jobTitle || "",
+          base: userToEdit?.base || "",
+          access: userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
+          licenseNo: userToEdit?.licenseNo || "",
+        }
+      : emptyForm;
+    const formChanged = JSON.stringify(form) !== JSON.stringify(baseline);
+    const imageChanged = Boolean(pickedImageAsset?.uri);
+    return formChanged || imageChanged;
+  };
+  const handleCancelWithWarning = () => {
+    if (saving) return;
+    if (!hasUnsavedChanges()) {
+      onClose?.();
+      return;
+    }
+    setShowDiscardAlert(true);
   };
 
   const validateAndSubmit = () => {
@@ -203,18 +230,19 @@ export default function UserFormModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{isEdit ? "Edit User" : "Add User"}</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>Profile Image</Text>
+    <>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancelWithWarning}>
+        <View style={styles.backdrop}>
+          <View style={styles.card}>
+            <AppText style={styles.title}>{isEdit ? "Edit User" : "Add User"}</AppText>
+            <ScrollView showsVerticalScrollIndicator={false}>
+            <AppText style={styles.label}>Profile Image</AppText>
             <View style={styles.imageRow}>
               <View style={styles.imagePreviewWrap}>
                 {imageUri ? (
                   <Image source={{ uri: imageUri }} style={styles.imagePreview} />
                 ) : (
-                  <Text style={styles.imagePlaceholder}>No image</Text>
+                  <AppText style={styles.imagePlaceholder}>No image</AppText>
                 )}
               </View>
               <View style={{ flex: 1, gap: 8 }}>
@@ -223,20 +251,20 @@ export default function UserFormModal({
                   onPress={() => pickImage(false)}
                   disabled={imageLoading}
                 >
-                  <Text style={styles.imageBtnTxt}>Choose from Gallery</Text>
+                  <AppText style={styles.imageBtnTxt}>Choose from Gallery</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
                   onPress={() => pickImage(true)}
                   disabled={imageLoading}
                 >
-                  <Text style={styles.imageBtnTxt}>Take Photo</Text>
+                  <AppText style={styles.imageBtnTxt}>Take Photo</AppText>
                 </TouchableOpacity>
                 {imageLoading ? <ActivityIndicator color={COLORS.primaryLight} /> : null}
               </View>
             </View>
-            <Text style={styles.label}>First Name</Text>
-            <TextInput
+            <AppText style={styles.label}>First Name</AppText>
+            <AppInput
               style={styles.input}
               value={form.firstName}
               onChangeText={(value) =>
@@ -244,8 +272,8 @@ export default function UserFormModal({
               }
               placeholder="Enter first name"
             />
-            <Text style={styles.label}>Last Name</Text>
-            <TextInput
+            <AppText style={styles.label}>Last Name</AppText>
+            <AppInput
               style={styles.input}
               value={form.lastName}
               onChangeText={(value) =>
@@ -253,8 +281,8 @@ export default function UserFormModal({
               }
               placeholder="Enter last name"
             />
-            <Text style={styles.label}>Email</Text>
-            <TextInput
+            <AppText style={styles.label}>Email</AppText>
+            <AppInput
               style={styles.input}
               value={form.email}
               onChangeText={(value) => updateField("email", value)}
@@ -262,8 +290,8 @@ export default function UserFormModal({
               keyboardType="email-address"
               placeholder="Enter email"
             />
-            <Text style={styles.label}>Username</Text>
-            <TextInput
+            <AppText style={styles.label}>Username</AppText>
+            <AppInput
               style={[styles.input, styles.disabledInput]}
               value={form.username}
               onChangeText={(value) => updateField("username", value)}
@@ -271,7 +299,7 @@ export default function UserFormModal({
               placeholder="Auto-generated"
             />
 
-            <Text style={styles.label}>Job Title</Text>
+            <AppText style={styles.label}>Job Title</AppText>
             <View style={styles.pickerWrap}>
               <Picker
                 selectedValue={form.jobTitle}
@@ -290,7 +318,7 @@ export default function UserFormModal({
               </Picker>
             </View>
 
-            <Text style={styles.label}>Base</Text>
+            <AppText style={styles.label}>Base</AppText>
             <View style={styles.pickerWrap}>
               <Picker selectedValue={form.base} onValueChange={(value) => updateField("base", value)}>
                 <Picker.Item label="Select base" value="" />
@@ -300,13 +328,13 @@ export default function UserFormModal({
               </Picker>
             </View>
 
-            <Text style={styles.label}>Access</Text>
-            <TextInput style={[styles.input, styles.disabledInput]} value={form.access} editable={false} />
+            <AppText style={styles.label}>Access</AppText>
+            <AppInput style={[styles.input, styles.disabledInput]} value={form.access} editable={false} />
 
             {requiresLicense ? (
               <>
-                <Text style={styles.label}>License No. (6 digits)</Text>
-                <TextInput
+                <AppText style={styles.label}>License No. (6 digits)</AppText>
+                <AppInput
                   style={styles.input}
                   value={form.licenseNo}
                   onChangeText={(value) => updateField("licenseNo", value.replace(/\D/g, "").slice(0, 6))}
@@ -316,20 +344,33 @@ export default function UserFormModal({
               </>
             ) : null}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </ScrollView>
+            {error ? <AppText style={styles.error}>{error}</AppText> : null}
+            </ScrollView>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.btn, styles.secondary]} onPress={onClose} disabled={saving}>
-              <Text style={styles.secondaryTxt}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.primary]} onPress={validateAndSubmit} disabled={saving}>
-              <Text style={styles.primaryTxt}>{saving ? "Saving..." : isEdit ? "Save" : "Create"}</Text>
-            </TouchableOpacity>
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.btn, styles.secondary]} onPress={handleCancelWithWarning} disabled={saving}>
+                <AppText style={styles.secondaryTxt}>Cancel</AppText>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, styles.primary]} onPress={validateAndSubmit} disabled={saving}>
+                <AppText style={styles.primaryTxt}>{saving ? "Saving..." : isEdit ? "Save" : "Create"}</AppText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={showDiscardAlert}
+        title="Discard changes?"
+        message="You have unsaved changes. Cancel and discard them?"
+        cancelText="Keep editing"
+        confirmText="Discard"
+        onCancel={() => setShowDiscardAlert(false)}
+        onConfirm={() => {
+          setShowDiscardAlert(false);
+          onClose?.();
+        }}
+      />
+    </>
   );
 }
 

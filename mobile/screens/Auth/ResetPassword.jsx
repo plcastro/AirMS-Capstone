@@ -1,11 +1,11 @@
 ﻿import React, { useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   ScrollView,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { styles } from "../../stylesheets/styles";
@@ -125,10 +125,10 @@ export default function ResetPassword() {
         >
           {/* PASSWORD FIELDS */}
           <View style={{ marginBottom: 20 }}>
-            <Text style={styles.label}>
-              New Password <Text style={{ color: "red" }}>*</Text>
-            </Text>
-            <TextInput
+            <AppText style={styles.label}>
+              New Password <AppText style={{ color: "red" }}>*</AppText>
+            </AppText>
+            <AppInput
               style={styles.formInput}
               placeholder="New Password"
               secureTextEntry
@@ -139,10 +139,10 @@ export default function ResetPassword() {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={styles.label}>
-              Confirm Password <Text style={{ color: "red" }}>*</Text>
-            </Text>
-            <TextInput
+            <AppText style={styles.label}>
+              Confirm Password <AppText style={{ color: "red" }}>*</AppText>
+            </AppText>
+            <AppInput
               style={styles.formInput}
               placeholder="Confirm Password"
               secureTextEntry
@@ -154,35 +154,35 @@ export default function ResetPassword() {
 
           {/* REQUIREMENTS BOX */}
           <View style={{ marginTop: 10, marginBottom: 15 }}>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+            <AppText style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
               Password Requirements:
-            </Text>
+            </AppText>
 
-            <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+            <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
               {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
               characters
-            </Text>
+            </AppText>
 
-            <Text
+            <AppText
               style={getRequirementStyle(passwordRequirements.hasUppercase)}
             >
               {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
               letter
-            </Text>
+            </AppText>
 
-            <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
               {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
-            </Text>
+            </AppText>
           </View>
 
           {/* ERROR / SUCCESS */}
           <View style={{ marginBottom: 10 }}>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <AppText style={styles.error}>{error}</AppText> : null}
 
             {successMessage ? (
-              <Text style={{ color: "green", marginTop: 5 }}>
+              <AppText style={{ color: "green", marginTop: 5 }}>
                 {successMessage}
-              </Text>
+              </AppText>
             ) : null}
           </View>
 
@@ -203,13 +203,13 @@ export default function ResetPassword() {
             activeOpacity={0.8}
             style={{ marginTop: 25, alignItems: "center" }}
           >
-            <Text style={{ color: "#374151", textAlign: "center" }}>
+            <AppText style={{ color: "#374151", textAlign: "center" }}>
               Remember your password?
-              <Text style={{ color: "#059670", fontWeight: "bold" }}>
+              <AppText style={{ color: "#059670", fontWeight: "bold" }}>
                 {" "}
                 Sign In
-              </Text>
-            </Text>
+              </AppText>
+            </AppText>
           </TouchableOpacity>
         </LoginLayout>
       </ScrollView>

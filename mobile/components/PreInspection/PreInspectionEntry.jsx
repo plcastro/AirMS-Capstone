@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
+  StatusBar
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -46,7 +46,7 @@ export default function PreInspectionEntry({
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMechanic =
-    userRole === "mechanic" || userRole === "maintenance manager";
+    ["mechanic", "maintenance manager", "admin"].includes(userRole);
 
   useEffect(() => {
     if (visible) {
@@ -77,6 +77,10 @@ export default function PreInspectionEntry({
       showToast("Aircraft Type is required");
       return;
     }
+    if (!formData.base || formData.base.trim() === "") {
+      showToast("Base is required");
+      return;
+    }
     try {
       await persistInspection(formData);
     } catch (error) {
@@ -105,6 +109,11 @@ export default function PreInspectionEntry({
 
     if (!formData.aircraftType || formData.aircraftType.trim() === "") {
       showToast("Aircraft Type is required");
+      return false;
+    }
+
+    if (!formData.base || formData.base.trim() === "") {
+      showToast("Base is required");
       return false;
     }
 
@@ -217,12 +226,12 @@ export default function PreInspectionEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
                 New Entry - Pre-Inspection
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -263,7 +272,7 @@ export default function PreInspectionEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -272,7 +281,7 @@ export default function PreInspectionEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -314,7 +323,7 @@ export default function PreInspectionEntry({
                   opacity: isSubmitting ? 0.6 : 1,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: COLORS.white,
                     fontWeight: "600",
@@ -322,7 +331,7 @@ export default function PreInspectionEntry({
                   }}
                 >
                   Release
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           )}
@@ -354,9 +363,9 @@ export default function PreInspectionEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View
@@ -367,11 +376,11 @@ export default function PreInspectionEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           {!isLastPage && (
@@ -385,11 +394,11 @@ export default function PreInspectionEntry({
                 opacity: 1,
               }}
             >
-              <Text
+              <AppText
                 style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
               >
                 Next
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>

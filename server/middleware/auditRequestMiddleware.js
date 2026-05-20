@@ -327,14 +327,17 @@ const auditMutatingRequest = (req, res, next) => {
       return;
     }
 
-    const status = res.statusCode < 400 ? "succeeded" : "failed";
     const path = stripQuery(req.originalUrl);
-    const action = [
-      `${describeRoute(req)} ${status}:`,
-      req.method,
-      path,
-      `(status ${res.statusCode})`,
-    ].join(" ");
+    const isNoisyAuthSuccess =
+      res.statusCode < 400 &&
+      (/^\/api\/user\/login$/.test(path) ||
+        /^\/api\/user\/refresh-token$/.test(path));
+    if (isNoisyAuthSuccess) {
+      return;
+    }
+
+    const status = res.statusCode < 400 ? "succeeded" : "failed";
+    const action = `${describeRoute(req)} ${status} (status ${res.statusCode})`;
 
     auditLog(action, getActorId(req)).catch((error) => {
       console.error("Automatic audit log failed:", error);

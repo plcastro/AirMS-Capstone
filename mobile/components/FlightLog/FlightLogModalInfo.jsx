@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -126,7 +126,7 @@ export default function FlightLogModalInfo({
 
   const renderAircraftType = () => (
     <View>
-      <TextInput
+      <AppInput
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
@@ -159,14 +159,14 @@ export default function FlightLogModalInfo({
         }}
         onPress={canEditRPC ? toggleRPCDropdown : null}
       >
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             color: formData.rpc ? COLORS.black : COLORS.grayDark,
           }}
         >
           {formData.rpc || "Select RP-C"}
-        </Text>
+        </AppText>
         {canEditRPC && (
           <MaterialCommunityIcons
             name={showRPCDropdown ? "chevron-up" : "chevron-down"}
@@ -199,9 +199,9 @@ export default function FlightLogModalInfo({
           >
             {availableAircraftOptions.length === 0 && (
               <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
-                <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                   No available aircraft
-                </Text>
+                </AppText>
               </View>
             )}
             {availableAircraftOptions.map((rpc, index) => (
@@ -242,7 +242,7 @@ export default function FlightLogModalInfo({
                   fetchAircraftType();
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color:
@@ -250,7 +250,7 @@ export default function FlightLogModalInfo({
                   }}
                 >
                   {rpc}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -261,7 +261,7 @@ export default function FlightLogModalInfo({
 
   return (
     <View>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           fontWeight: "700",
@@ -270,7 +270,7 @@ export default function FlightLogModalInfo({
         }}
       >
         Basic Information
-      </Text>
+      </AppText>
 
       <View
         style={{
@@ -293,16 +293,16 @@ export default function FlightLogModalInfo({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
             Rotary Winged Aircraft - Single Engine
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -311,12 +311,12 @@ export default function FlightLogModalInfo({
               }}
             >
               RP-C: *
-            </Text>
+            </AppText>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -325,12 +325,12 @@ export default function FlightLogModalInfo({
               }}
             >
               Aircraft Type: *
-            </Text>
+            </AppText>
             {renderAircraftType()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -339,7 +339,7 @@ export default function FlightLogModalInfo({
               }}
             >
               Date: *
-            </Text>
+            </AppText>
             <View
               style={{
                 flexDirection: "row",
@@ -351,9 +351,9 @@ export default function FlightLogModalInfo({
                 paddingHorizontal: 12,
               }}
             >
-              <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name="calendar-blank"
                 size={18}
@@ -363,7 +363,7 @@ export default function FlightLogModalInfo({
           </View>
 
           <View style={{ marginBottom: 8 }}>
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.black,
@@ -372,8 +372,8 @@ export default function FlightLogModalInfo({
               }}
             >
               Control No.: *
-            </Text>
-            <TextInput
+            </AppText>
+            <AppInput
               style={{
                 backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
                 borderRadius: 6,

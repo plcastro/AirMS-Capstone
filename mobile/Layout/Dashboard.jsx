@@ -2,12 +2,14 @@ import React, { useCallback, useContext, useEffect, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuthContext } from "../Context/AuthContext";
 import { COLORS } from "../stylesheets/colors";
 
 export default function Dashboard({ children, currentRouteName }) {
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [showFabMenu, setShowFabMenu] = useState(false);
   if (!user) return null;
 
@@ -16,12 +18,17 @@ export default function Dashboard({ children, currentRouteName }) {
     "admin",
     "maintenance manager",
     "mechanic",
+    "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
   const showChatFab = canAccessMessages && currentRouteName !== "Messages";
   const isManageUsers = currentRouteName === "Manage Users";
-  const chatFabBottomOffset = isManageUsers ? 86 : 18;
+  const baseFabBottom = Math.max(16, insets.bottom + 12);
+  const childFabGap = 60;
+  const chatFabBottomOffset = isManageUsers
+    ? baseFabBottom + 80
+    : baseFabBottom;
 
   useEffect(() => {
     setShowFabMenu(false);
@@ -47,11 +54,11 @@ export default function Dashboard({ children, currentRouteName }) {
                   style={{
                     position: "absolute",
                     right: 24,
-                    bottom: 162,
+                    bottom: baseFabBottom + childFabGap * 2,
                     backgroundColor: "#1F5FBF",
-                    borderRadius: 22,
-                    width: 44,
-                    height: 44,
+                    borderRadius: 28,
+                    width: 56,
+                    height: 56,
                     alignItems: "center",
                     justifyContent: "center",
                     shadowColor: "#000",
@@ -77,11 +84,11 @@ export default function Dashboard({ children, currentRouteName }) {
                   style={{
                     position: "absolute",
                     right: 24,
-                    bottom: 110,
+                    bottom: baseFabBottom + childFabGap,
                     backgroundColor: "#00ad37",
-                    borderRadius: 22,
-                    width: 44,
-                    height: 44,
+                    borderRadius: 28,
+                    width: 56,
+                    height: 56,
                     alignItems: "center",
                     justifyContent: "center",
                     shadowColor: "#000",
@@ -112,7 +119,7 @@ export default function Dashboard({ children, currentRouteName }) {
               style={{
                 position: "absolute",
                 right: 18,
-                bottom: 18,
+                bottom: baseFabBottom,
                 backgroundColor: COLORS.primaryLight,
                 borderRadius: 28,
                 width: 56,
@@ -127,8 +134,7 @@ export default function Dashboard({ children, currentRouteName }) {
                 zIndex: 999,
               }}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate("Messages")}
-              onLongPress={() => setShowFabMenu((open) => !open)}
+              onPress={() => setShowFabMenu((open) => !open)}
             >
               <MaterialCommunityIcons
                 name={showFabMenu ? "close" : "dots-grid"}

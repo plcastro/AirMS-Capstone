@@ -1,8 +1,8 @@
 import React, { useState } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -222,14 +222,14 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
     
     return (
       <View key={item.key} style={{ marginBottom: 20 }}>
-        <Text style={{ 
+        <AppText style={{ 
           fontSize: 12, 
           fontWeight: "bold", 
           color: COLORS.black, 
           marginBottom: 10 
         }}>
           {index + 1}. {item.title}
-        </Text>
+        </AppText>
         
         {item.checks.map((check) => {
           const fieldKey = `${item.key}_${check.subKey}`;
@@ -265,14 +265,14 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ 
+              <AppText style={{ 
                 fontSize: 12, 
                 color: COLORS.grayDark,
                 flex: 1,
                 flexWrap: "wrap",
               }}>
                 {check.label}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           );
         })}
@@ -299,9 +299,9 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
+          <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Engine and Engine Bay
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -332,9 +332,9 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
+              <AppText style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}
@@ -361,9 +361,9 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
+          <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}>
             Station 3
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -394,9 +394,9 @@ export default function PostInspectionModalEngine({ formData, updateForm, isEdit
                   <MaterialCommunityIcons name="check" size={14} color={COLORS.white} />
                 )}
               </View>
-              <Text style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
+              <AppText style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}>
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}

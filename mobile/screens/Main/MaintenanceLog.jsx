@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import {
@@ -34,6 +39,13 @@ const normalizeLog = (entry) => {
     ...entry,
     id: entry.sourceTaskId || entry._id,
     sn: String(entry.aircraft || "").replace(/[^\d]/g, "") || "N/A",
+    base:
+      entry.base ||
+      entry.locationBase ||
+      entry.assignedBase ||
+      entry.stationBase ||
+      entry.sourceBase ||
+      "UNKNOWN",
     type: "Task Assignment",
     workDetails,
   };
@@ -45,6 +57,7 @@ export default function MaintenanceLog() {
   const [loading, setLoading] = useState(true);
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
+  const [selectedBase, setSelectedBase] = useState("all");
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -72,23 +85,44 @@ export default function MaintenanceLog() {
     fetchLogs();
   }, [fetchLogs]);
 
+  const baseOptions = useMemo(
+    () => [
+      "all",
+      ...new Set(
+        entries
+          .map((entry) => String(entry.base || "").trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ],
+    [entries],
+  );
+
   const filteredEntries = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return entries;
+    const baseFiltered =
+      selectedBase === "all"
+        ? entries
+        : entries.filter(
+            (entry) =>
+              String(entry.base || "").trim().toUpperCase() === selectedBase,
+          );
 
-    return entries.filter((entry) =>
+    if (!needle) return baseFiltered;
+
+    return baseFiltered.filter((entry) =>
       [
         entry.aircraft,
         entry.taskTitle,
         entry.defects,
         entry.correctiveActionDone,
         entry.reportedBy,
+        entry.base,
         entry.sourceTaskId,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle)),
     );
-  }, [entries, search]);
+  }, [entries, search, selectedBase]);
 
   const aircraftGroups = useMemo(() => {
     const map = new Map();
@@ -112,9 +146,9 @@ export default function MaintenanceLog() {
           onPress={() => setSelectedWorkOrder(null)}
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <Text style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
             Back to work orders
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         <InfoCard
@@ -124,6 +158,7 @@ export default function MaintenanceLog() {
         >
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Aircraft" value={selectedWorkOrder.aircraft} />
+            <FieldRow label="Base" value={selectedWorkOrder.base} />
             <FieldRow label="Reported By" value={selectedWorkOrder.reportedBy} />
             <FieldRow
               label="Rectified"
@@ -137,9 +172,9 @@ export default function MaintenanceLog() {
         <SectionTitle title="Description of Work" />
         {(selectedWorkOrder.workDetails || []).map((detail, index) => (
           <InfoCard key={`${index}-${detail.description || detail}`}>
-            <Text style={{ color: COLORS.black, fontSize: 13, lineHeight: 19 }}>
+            <AppText style={{ color: COLORS.black, fontSize: 13, lineHeight: 19 }}>
               {index + 1}. {detail.description || detail || "N/A"}
-            </Text>
+            </AppText>
           </InfoCard>
         ))}
       </ModuleContainer>
@@ -154,14 +189,15 @@ export default function MaintenanceLog() {
           onPress={() => setSelectedAircraft(null)}
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <Text style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
             Back to aircraft
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         <InfoCard title={selectedAircraft.aircraft} subtitle="Maintenance snapshot">
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Reported By" value={selectedAircraft.sample?.reportedBy} />
+            <FieldRow label="Base" value={selectedAircraft.sample?.base} />
             <FieldRow label="ACFT S/N" value={selectedAircraft.sample?.sn} />
             <FieldRow label="Work Orders" value={selectedAircraft.rows.length} />
             <FieldRow label="Source" value="Task Assignment" />
@@ -182,6 +218,7 @@ export default function MaintenanceLog() {
                 label="Rectified"
                 value={formatDate(entry.dateDefectRectified)}
               />
+              <FieldRow label="Base" value={entry.base} />
               <FieldRow label="Status" value={entry.status} />
             </View>
           </InfoCard>
@@ -197,6 +234,26 @@ export default function MaintenanceLog() {
         onChangeText={setSearch}
         placeholder="Search maintenance logs"
       />
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          borderRadius: 8,
+          marginBottom: 12,
+          overflow: "hidden",
+          backgroundColor: COLORS.white,
+        }}
+      >
+        <Picker selectedValue={selectedBase} onValueChange={setSelectedBase}>
+          {baseOptions.map((base) => (
+            <Picker.Item
+              key={base}
+              label={base === "all" ? "All Bases" : base}
+              value={base}
+            />
+          ))}
+        </Picker>
+      </View>
       {loading && <LoadingState />}
       {!loading && aircraftGroups.length === 0 && (
         <EmptyState text="No maintenance logs found yet." />
@@ -211,6 +268,7 @@ export default function MaintenanceLog() {
         >
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Source" value="Task Assignment" />
+            <FieldRow label="Base" value={group.sample?.base} />
             <FieldRow label="Latest" value={formatDate(group.sample?.dateDefectRectified)} />
           </View>
         </InfoCard>

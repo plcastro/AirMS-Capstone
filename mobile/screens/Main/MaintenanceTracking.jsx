@@ -1,12 +1,16 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDateTime, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
-import { confirmAction } from "../../utilities/confirmAction";
+import AlertComp from "../../components/AlertComp";
 import {
   EmptyState,
   FieldRow,
@@ -61,6 +65,38 @@ export default function MaintenanceTracking() {
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const loadTracking = useCallback(async () => {
     try {
@@ -197,7 +233,7 @@ export default function MaintenanceTracking() {
       return;
     }
 
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Regenerate AI Summaries",
       message:
         "Regenerate maintenance summaries now? This may consume OpenAI quota.",
@@ -226,68 +262,62 @@ export default function MaintenanceTracking() {
     }
   };
 
-  const markRectified = (item) => {
-    Alert.alert(
-      "Mark finding rectified?",
-      `This will clear the active maintenance issue for ${item.aircraft}.`,
-      [
-        { text: "Cancel", style: "cancel" },
+  const markRectified = async (item) => {
+    const confirmed = await confirmWithAlert({
+      title: "Mark finding rectified?",
+      message: `This will clear the active maintenance issue for ${item.aircraft}.`,
+      confirmText: "Mark Rectified",
+    });
+    if (!confirmed) return;
+
+    try {
+      const payload = {
+        aircraft: item.aircraft,
+        aircraftModel: item.aircraftModel || "AS350 B3",
+        issueTitle: item.issueTitle,
+        component: item.component,
+        riskLevel: item.riskLevel,
+        recommendedAction: item.recommendedAction || "",
+        recommendedActions: item.recommendedActions || [],
+        procedureReference: item.procedureReference || "",
+        procedureTitle: item.procedureTitle || "",
+        procedureSummary: item.procedureSummary || "",
+        manualReference: (item.manualReferences || []).join(" | "),
+        matchedRuleCodes: (item.matchedRules || [])
+          .map((rule) => rule.ruleCode)
+          .filter(Boolean),
+        inspectionName: item.procedureTitle || "OC Inspection",
+      };
+      const response = await fetch(
+        `${API_BASE}/api/ai-insights/rectification-task`,
         {
-          text: "Mark Rectified",
-          onPress: async () => {
-            try {
-              const payload = {
-                aircraft: item.aircraft,
-                aircraftModel: item.aircraftModel || "AS350 B3",
-                issueTitle: item.issueTitle,
-                component: item.component,
-                riskLevel: item.riskLevel,
-                recommendedAction: item.recommendedAction || "",
-                recommendedActions: item.recommendedActions || [],
-                procedureReference: item.procedureReference || "",
-                procedureTitle: item.procedureTitle || "",
-                procedureSummary: item.procedureSummary || "",
-                manualReference: (item.manualReferences || []).join(" | "),
-                matchedRuleCodes: (item.matchedRules || [])
-                  .map((rule) => rule.ruleCode)
-                  .filter(Boolean),
-                inspectionName: item.procedureTitle || "OC Inspection",
-              };
-              const response = await fetch(
-                `${API_BASE}/api/ai-insights/rectification-task`,
-                {
-                  method: "POST",
-                  headers: await getAuthHeaders({
-                    "Content-Type": "application/json",
-                    "x-action-confirmed": "true",
-                  }),
-                  body: JSON.stringify({
-                    ...payload,
-                    confirmAction: true,
-                  }),
-                },
-              );
-              const result = await response.json();
-              if (!response.ok || !result.success) {
-                throw new Error(result.message || "Failed to mark rectified");
-              }
-              setInsights((current) =>
-                current.map((entry) =>
-                  entry.aircraft === item.aircraft &&
-                  entry.issueTitle === item.issueTitle
-                    ? buildClearedInsight(entry)
-                    : entry,
-                ),
-              );
-              showToast("Maintenance finding marked rectified.");
-            } catch (error) {
-              console.error("Rectify finding failed:", error);
-              showToast(error.message || "Failed to mark rectified.");
-            }
-          },
+          method: "POST",
+          headers: await getAuthHeaders({
+            "Content-Type": "application/json",
+            "x-action-confirmed": "true",
+          }),
+          body: JSON.stringify({
+            ...payload,
+            confirmAction: true,
+          }),
         },
-      ],
-    );
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to mark rectified");
+      }
+      setInsights((current) =>
+        current.map((entry) =>
+          entry.aircraft === item.aircraft && entry.issueTitle === item.issueTitle
+            ? buildClearedInsight(entry)
+            : entry,
+        ),
+      );
+      showToast("Maintenance finding marked rectified.");
+    } catch (error) {
+      console.error("Rectify finding failed:", error);
+      showToast(error.message || "Failed to mark rectified.");
+    }
   };
 
   return (
@@ -316,20 +346,20 @@ export default function MaintenanceTracking() {
             disabled={summaryLoading || health?.cooldown?.active}
           >
             <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
               {summaryLoading ? "Refreshing..." : "Regenerate OpenAI Summaries"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         )}
         {!!health && (
-          <Text style={[moduleStyles.subtitle, { marginTop: 10 }]}>
+          <AppText style={[moduleStyles.subtitle, { marginTop: 10 }]}>
             OpenAI: {health.configured ? "Configured" : "Not configured"} |{" "}
             {health.reachable ? "Reachable" : "Unavailable"}
             {health.model ? ` | Model: ${health.model}` : ""}
             {health?.cooldown?.active
               ? ` | Cooldown: ${cooldownRemaining || health.cooldown.retryAfterSeconds || 0}s`
               : ""}
-          </Text>
+          </AppText>
         )}
       </InfoCard>
 
@@ -356,25 +386,25 @@ export default function MaintenanceTracking() {
             />
           }
         >
-          <Text style={[moduleStyles.subtitle, { color: COLORS.black }]}>
+          <AppText style={[moduleStyles.subtitle, { color: COLORS.black }]}>
             {item.managerSummary || item.shortFinding || "No finding summary available."}
-          </Text>
+          </AppText>
           {!!item.recommendedAction && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 8 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 8 }]}>
               Action: {item.recommendedAction}
-            </Text>
+            </AppText>
           )}
           {!!item.manualReferences?.length && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 6 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 6 }]}>
               Ref: {item.manualReferences.join(" | ")}
-            </Text>
+            </AppText>
           )}
           {!isOfficerInCharge && (item.matchedRules || []).length > 0 && (
             <TouchableOpacity
               style={[moduleStyles.button, { marginTop: 12 }]}
               onPress={() => markRectified(item)}
             >
-              <Text style={moduleStyles.buttonText}>Mark Rectified</Text>
+              <AppText style={moduleStyles.buttonText}>Mark Rectified</AppText>
             </TouchableOpacity>
           )}
         </InfoCard>
@@ -421,6 +451,15 @@ export default function MaintenanceTracking() {
           </InfoCard>
         );
       })}
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
+      />
     </ModuleContainer>
   );
 }

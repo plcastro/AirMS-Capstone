@@ -24,7 +24,9 @@ const toComparableFlightLog = (flightLog) => {
 
 const isReleasedFlightLogStatus = (status = "") =>
   ["pending_acceptance", "released", "accepted", "completed"].includes(
-    String(status || "").trim().toLowerCase(),
+    String(status || "")
+      .trim()
+      .toLowerCase(),
   );
 
 const ONGOING_FLIGHT_LOG_STATUSES = [
@@ -57,7 +59,9 @@ const findOngoingFlightLogForAircraft = async (rpc, excludedId = null) => {
     query._id = { $ne: excludedId };
   }
 
-  return FlightLog.findOne(query).select("_id rpc status controlNo date").lean();
+  return FlightLog.findOne(query)
+    .select("_id rpc status controlNo date")
+    .lean();
 };
 
 const normalizeFlightLogStatusFilter = (status = "") => {
@@ -82,13 +86,14 @@ const normalizeFlightLogStatusFilter = (status = "") => {
 
 const hasDestinationInfo = (flightLog = {}) =>
   Array.isArray(flightLog.legs) &&
-  flightLog.legs.some((leg) =>
-    Array.isArray(leg?.stations) &&
-    leg.stations.some(
-      (station) =>
-        String(station?.from || "").trim() &&
-        String(station?.to || "").trim(),
-    ),
+  flightLog.legs.some(
+    (leg) =>
+      Array.isArray(leg?.stations) &&
+      leg.stations.some(
+        (station) =>
+          String(station?.from || "").trim() &&
+          String(station?.to || "").trim(),
+      ),
   );
 
 // @desc    Create a new flight log
@@ -268,7 +273,7 @@ const getFlightLogs = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
-    console.log("Query params:", req.query);
+    // console.log("Query params:", req.query);
     const safePage = Math.max(parseInt(page, 10) || 1, 1);
     const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 500);
     const allowedSortFields = new Set([

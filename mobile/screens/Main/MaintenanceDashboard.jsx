@@ -2,10 +2,15 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useContext,
 } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   formatDate,
@@ -30,6 +35,7 @@ import MaintenancePerformance from "../../components/reports/MaintenancePerforma
 import MaintenanceHistory from "../../components/reports/MaintenanceHistory";
 import MaintenanceSummary from "../../components/reports/MaintenanceSummary";
 import ComponentUsage from "../../components/reports/ComponentUsage";
+import GeneralReports from "../../components/reports/GeneralReports";
 import {
   FlightLogReport,
   InspectionReport,
@@ -112,16 +118,35 @@ const getTaskCategory = (task = {}) => {
   return "other";
 };
 
-const inferTaskBase = (task = {}) =>
-  String(
-    task.base ||
-      task.locationBase ||
-      task.assignedBase ||
-      task.stationBase ||
-      "UNKNOWN",
-  )
-    .trim()
-    .toUpperCase();
+const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
+
+const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
+
+const isKnownBase = (value) => !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
+
+const firstKnownBase = (...values) => {
+  const match = values.find(isKnownBase);
+  return match ? normalizeBaseValue(match) : "";
+};
+
+const buildAircraftBaseLookup = (records = []) =>
+  records.reduce((lookup, aircraft) => {
+    const tailNum = normalizeBaseValue(aircraft?.tailNum || aircraft?.aircraft);
+    const base = normalizeBaseValue(aircraft?.base);
+    if (tailNum && isKnownBase(base)) {
+      lookup[tailNum] = base;
+    }
+    return lookup;
+  }, {});
+
+const inferTaskBase = (task = {}, aircraftBaseByTail = {}) =>
+  firstKnownBase(
+    task.base,
+    task.locationBase,
+    task.assignedBase,
+    task.stationBase,
+    aircraftBaseByTail[normalizeBaseValue(task.aircraft)],
+  ) || "UNKNOWN";
 
 const isDamageRelatedTask = (task = {}) => {
   const text = [
@@ -170,7 +195,9 @@ export default function MaintenanceDashboard() {
   const [postInspections, setPostInspections] = useState([]);
   const [partsRequisitions, setPartsRequisitions] = useState([]);
   const [baseAnalytics, setBaseAnalytics] = useState(null);
+  const [aircraftBaseByTail, setAircraftBaseByTail] = useState({});
   const { user } = useContext(AuthContext);
+  const loadedUserIdRef = useRef(null);
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -179,6 +206,9 @@ export default function MaintenanceDashboard() {
       const requests = {
         tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
         baseAnalytics: fetch(`${API_BASE}/api/tasks/analytics/base-maintenance`, {
+          headers,
+        }),
+        aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, {
           headers,
         }),
         parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
@@ -222,6 +252,7 @@ export default function MaintenanceDashboard() {
 
       setTasks(getArrayData(resultMap.tasks));
       setBaseAnalytics(resultMap.baseAnalytics?.data || null);
+      setAircraftBaseByTail(buildAircraftBaseLookup(getArrayData(resultMap.aircraftBases)));
       setPartsRecords(getArrayData(resultMap.parts));
       setFlightLogs(getArrayData(resultMap.flightLogs));
       setPreInspections(getArrayData(resultMap.preInspections));
@@ -236,10 +267,10 @@ export default function MaintenanceDashboard() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchReportData();
-    }
-  }, [user, fetchReportData]);
+    if (!user?.id || loadedUserIdRef.current === user.id) return;
+    loadedUserIdRef.current = user.id;
+    fetchReportData();
+  }, [user?.id, fetchReportData]);
 
   const stats = useMemo(
     () => ({
@@ -248,7 +279,7 @@ export default function MaintenanceDashboard() {
         .length,
       overdue: tasks.filter((task) => getTaskCategory(task) === "overdue")
         .length,
-      moduleReports: 8,
+      moduleReports: 9,
     }),
     [tasks],
   );
@@ -279,7 +310,14 @@ export default function MaintenanceDashboard() {
   }, [search, taskView, tasks]);
 
   const baseDamageRepairSummary = useMemo(() => {
-    if (baseAnalytics?.byBase?.length) {
+    const hasKnownAnalyticsRows =
+      baseAnalytics?.byBase?.length &&
+      baseAnalytics.byBase.some((row) => isKnownBase(row.base));
+    const hasUnknownAnalyticsRows =
+      baseAnalytics?.byBase?.length &&
+      baseAnalytics.byBase.some((row) => !isKnownBase(row.base));
+
+    if (hasKnownAnalyticsRows && !hasUnknownAnalyticsRows) {
       const damageRows = baseAnalytics.byBase
         .map((row) => ({ label: row.base, value: row.damagedCount || 0 }))
         .sort((a, b) => b.value - a.value);
@@ -312,7 +350,7 @@ export default function MaintenanceDashboard() {
     const repairCounts = {};
 
     tasks.forEach((task) => {
-      const base = inferTaskBase(task);
+      const base = inferTaskBase(task, aircraftBaseByTail);
       if (isDamageRelatedTask(task)) {
         damageCounts[base] = (damageCounts[base] || 0) + 1;
       }
@@ -329,10 +367,11 @@ export default function MaintenanceDashboard() {
       topRepairedBase: repairRows[0] || { label: "N/A", value: 0 },
       damageRows,
       repairRows,
-      averageRectificationHours: 0,
-      sameDayRepairCount: 0,
+      averageRectificationHours:
+        baseAnalytics?.totals?.averageRectificationHours || 0,
+      sameDayRepairCount: baseAnalytics?.totals?.sameDayRepairCount || 0,
     };
-  }, [tasks, baseAnalytics]);
+  }, [tasks, baseAnalytics, aircraftBaseByTail]);
 
   const exportSections = useMemo(() => {
     const completedTasks = tasks.filter((task) => isCompletedTask(task)).length;
@@ -640,7 +679,7 @@ export default function MaintenanceDashboard() {
                   alignItems: "center",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: selected ? COLORS.white : COLORS.grayDark,
                     fontSize: 11,
@@ -649,7 +688,7 @@ export default function MaintenanceDashboard() {
                   numberOfLines={2}
                 >
                   {label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -694,6 +733,14 @@ export default function MaintenanceDashboard() {
         subtitle="Mobile parity for web analytics subreports and charts"
       />
 
+      <GeneralReports
+        tasks={tasks}
+        flightLogs={flightLogs}
+        preInspections={preInspections}
+        postInspections={postInspections}
+        partsRequisitions={partsRequisitions}
+        loading={loading}
+      />
       <MaintenancePerformance tasks={tasks} />
       <MaintenanceHistory tasks={tasks} loading={loading} />
       <MaintenanceSummary tasks={tasks} loading={loading} />

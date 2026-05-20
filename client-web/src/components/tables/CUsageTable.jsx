@@ -30,7 +30,7 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
         onChange: handlePageChange,
         onShowSizeChange: handlePageChange,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-        placement: "bottomEnd",
+        position: ["bottomRight"],
       }}
     />
   );

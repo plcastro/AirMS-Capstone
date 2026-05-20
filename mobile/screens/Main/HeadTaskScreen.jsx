@@ -1,11 +1,11 @@
 import React, { useContext, useState, useEffect } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  TextInput,
   FlatList,
-  Text,
   Dimensions,
-  RefreshControl,
+  RefreshControl
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
@@ -19,7 +19,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
-import { confirmAction } from "../../utilities/confirmAction";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -43,6 +42,38 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const isEmployeeBusy = (employeeId) =>
     tasks.some((task) => {
@@ -241,7 +272,7 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Create Task",
       message: "Submit this new task assignment?",
       confirmText: "Create",
@@ -281,7 +312,7 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Update Task",
       message: "Save changes to this task?",
       confirmText: "Save",
@@ -359,7 +390,7 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Approve Task",
       message: "Confirm approval and submit this task review?",
       confirmText: "Approve",
@@ -415,11 +446,10 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Return Task",
       message: "Return this task to the mechanic for revision?",
       confirmText: "Return",
-      destructive: true,
     });
     if (!confirmed) return;
 
@@ -493,9 +523,9 @@ export default function HeadTaskScreen({
             borderTopRightRadius: 4,
           }}
         >
-          <Text style={{ fontWeight: "600", fontSize: 16 }}>
+          <AppText style={{ fontWeight: "600", fontSize: 16 }}>
             {formatDisplayDate(item.endDateTime || item.dueDate)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Task Card */}
@@ -525,7 +555,7 @@ export default function HeadTaskScreen({
       <View
         style={[styles.searchRow, { marginBottom: 10, flexWrap: "nowrap" }]}
       >
-        <TextInput
+        <AppInput
           placeholder="Search tasks"
           placeholderTextColor={COLORS.grayDark}
           style={[
@@ -594,13 +624,13 @@ export default function HeadTaskScreen({
             <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
           }
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 20 }}>
+            <AppText style={{ textAlign: "center", marginTop: 20 }}>
               {activeTab === "Assigned"
                 ? "No tasks assigned in this tab"
                 : activeTab === "For Review"
                   ? "No tasks for review in this tab"
                   : "No tasks reviewed in this tab"}
-            </Text>
+            </AppText>
           }
         />
       </View>
@@ -629,6 +659,16 @@ export default function HeadTaskScreen({
         task={selectedTask}
         onSave={handleEditTask}
         employees={employees}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
 
       <AlertComp

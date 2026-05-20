@@ -158,6 +158,7 @@ export default function WRSModal({
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const isWarehouseDepartment = userRole === "warehouse department";
   const isMaintenanceReviewer = [
+    "admin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
@@ -325,7 +326,7 @@ export default function WRSModal({
             : "All requested quantities are available. You can approve this requisition.",
           buttonText: hasItemsStillOutOfStock
             ? "Mark To Be Ordered"
-            : "Approve Requisition",
+            : "Approve",
           disabled: false,
         };
       }
@@ -369,7 +370,7 @@ export default function WRSModal({
           title: "Final Approval",
           description:
             "Warehouse confirmed restock. You can now approve this requisition.",
-          buttonText: "Approve Requisition",
+          buttonText: "Approve",
           disabled: false,
         };
       }
@@ -452,6 +453,22 @@ export default function WRSModal({
       return;
     }
 
+    const confirmSubmit = (content) =>
+      new Promise((resolve) => {
+        Modal.confirm({
+          title: nextAction.buttonText || "Confirm Action",
+          content:
+            content ||
+            nextAction.description ||
+            "Are you sure you want to continue?",
+          okText: nextAction.buttonText || "Confirm",
+          cancelText: "Cancel",
+          centered: true,
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
+
     const warehouseName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       "Warehouse Department";
@@ -463,6 +480,12 @@ export default function WRSModal({
       const nextReviewerStatus = hasItemsStillOutOfStock
         ? "To Be Ordered"
         : "Approved";
+      const confirmed = await confirmSubmit(
+        nextReviewerStatus === "Approved"
+          ? "Approve this requisition?"
+          : "Mark this requisition as to be ordered?",
+      );
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: nextReviewerStatus,
@@ -480,6 +503,8 @@ export default function WRSModal({
     }
 
     if (isMaintenanceReviewer && currentStatus === "Ordered") {
+      const confirmed = await confirmSubmit("Approve this restocked requisition?");
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: "Approved",
@@ -496,6 +521,10 @@ export default function WRSModal({
         return;
       }
 
+      const confirmed = await confirmSubmit(
+        "Mark this approved requisition as delivered?",
+      );
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: "Delivered",
@@ -529,6 +558,10 @@ export default function WRSModal({
         return;
       }
 
+      const confirmed = await confirmSubmit(
+        "Save the updated stock quantities for this requisition?",
+      );
+      if (!confirmed) return;
       const savedItems = (selectedRecord.items || []).map((item) => ({
         ...item,
         availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
@@ -580,7 +613,19 @@ export default function WRSModal({
         if (!proceed) {
           return;
         }
+      } else {
+        const confirmed = await confirmSubmit(
+          "Submit this warehouse stock review?",
+        );
+        if (!confirmed) return;
       }
+    } else {
+      const confirmed = await confirmSubmit(
+        currentStatus === "To Be Ordered"
+          ? "Mark this requisition as restocked?"
+          : undefined,
+      );
+      if (!confirmed) return;
     }
 
     await updateRequisition(

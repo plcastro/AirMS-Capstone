@@ -1,12 +1,11 @@
 import React, { useState, useContext, useEffect } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-  Alert,
+  StatusBar
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -14,6 +13,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPostInspectionTemplatePdf,
@@ -41,6 +41,10 @@ export default function PostInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    inspection: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -163,17 +167,7 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    Alert.alert("Export Post-Inspection", "Choose export format", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "PDF",
-        onPress: () => exportPostInspectionTemplatePdf(inspection),
-      },
-      {
-        text: "Word Template",
-        onPress: () => exportPostInspectionToWord(inspection),
-      },
-    ]);
+    setExportAlert({ visible: true, inspection });
   };
 
   const selectAircraft = (aircraft) => {
@@ -199,7 +193,7 @@ export default function PostInspection({ route }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={styles.unifiedSearchInput}
@@ -219,7 +213,7 @@ export default function PostInspection({ route }) {
                 setShowStatusDropdown(false);
               }}
             >
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -233,7 +227,7 @@ export default function PostInspection({ route }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP/C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -255,11 +249,11 @@ export default function PostInspection({ route }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -275,10 +269,10 @@ export default function PostInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -299,9 +293,9 @@ export default function PostInspection({ route }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -328,7 +322,7 @@ export default function PostInspection({ route }) {
                 size={60}
                 color={COLORS.grayMedium}
               />
-              <Text
+              <AppText
                 style={{
                   marginTop: 10,
                   fontSize: 12,
@@ -337,7 +331,7 @@ export default function PostInspection({ route }) {
                 }}
               >
                 No post-inspections found
-              </Text>
+              </AppText>
             </View>
           ) : (
             <PostInspectionCards
@@ -403,6 +397,23 @@ export default function PostInspection({ route }) {
         }}
         userRole={userRole}
         readOnly={isOfficerInCharge}
+      />
+      <AlertComp
+        visible={exportAlert.visible}
+        title="Export Post-Inspection"
+        message="Choose export format."
+        confirmText="PDF"
+        cancelText="Word Template"
+        onCancel={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPostInspectionToWord(inspection);
+        }}
+        onConfirm={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPostInspectionTemplatePdf(inspection);
+        }}
       />
     </View>
   );

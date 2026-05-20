@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput } from "react-native";
+import AppInput from "../../components/common/AppInput";
+import {
+  View
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -8,7 +11,7 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
-import { confirmAction } from "../../utilities/confirmAction";
+import AlertComp from "../../components/AlertComp";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -23,7 +26,39 @@ export default function MechanicTaskScreen({
   const [aircraftOptions, setAircraftOptions] = useState([
     { id: "all", name: "All Aircraft" },
   ]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
   const currentUserId = user?.id || user?._id || "";
+
+  const confirmWithAlert = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   const parseJsonSafely = async (response) => {
     const text = await response.text();
@@ -183,7 +218,7 @@ export default function MechanicTaskScreen({
   };
 
   const handleStartTask = async (task) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Start Task",
       message: "Start this task now?",
       confirmText: "Start",
@@ -236,7 +271,7 @@ export default function MechanicTaskScreen({
   };
 
   const handleSaveDraft = async (task, checklistState, findings) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: "Save Task Draft",
       message: "Save current checklist progress and findings?",
       confirmText: "Save",
@@ -290,7 +325,7 @@ export default function MechanicTaskScreen({
   };
 
   const handleTurnIn = async (task, checklistState, findings, options = {}) => {
-    const confirmed = await confirmAction({
+    const confirmed = await confirmWithAlert({
       title: options.undo ? "Undo Turn In" : "Turn In Task",
       message: options.undo
         ? "Revert this task back to Ongoing?"
@@ -369,7 +404,7 @@ export default function MechanicTaskScreen({
         ]}
       >
         <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
-          <TextInput
+          <AppInput
             placeholder="Search tasks"
             placeholderTextColor="#666"
             style={styles.unifiedSearchInput}
@@ -432,6 +467,15 @@ export default function MechanicTaskScreen({
         onStartTask={handleStartTask}
         onSaveDraft={handleSaveDraft}
         onTurnIn={handleTurnIn}
+      />
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel}
       />
     </View>
   );

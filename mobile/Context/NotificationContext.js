@@ -7,19 +7,18 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, Platform } from "react-native";
+import { Alert, AppState, Platform, PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
 import { navigate, navigationRef } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
 import { showToast } from "../utilities/toast";
-
+import { consumePushInbox } from "../utilities/pushInbox";
+import messaging from "@react-native-firebase/messaging";
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
-  if (__DEV_LOG__) console.log("[NotificationContext]", ...args);
+  //if (__DEV_LOG__) console.log("[NotificationContext]", ...args);
 };
 
 const WS_BACKOFF_BASE_MS = 1200;
@@ -27,8 +26,6 @@ const WS_BACKOFF_MAX_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 250;
 const NAV_QUEUE_RETRY_MS = 150;
 const NAV_QUEUE_MAX_ATTEMPTS = 40;
-
-let notificationHandlerInitialized = false;
 
 const VALID_MODULES = new Set([
   "flight-logs",
@@ -53,9 +50,14 @@ export const NotificationContext = createContext({
 
 const getStoredToken = async () => {
   if (Platform.OS === "web") {
-    return window.localStorage.getItem("currentUserToken");
+    const token = window.localStorage.getItem("currentUserToken");
+    // console.log("Fetching stored token:", token);
+    return token;
   }
-  return AsyncStorage.getItem("currentUserToken");
+
+  const token = await AsyncStorage.getItem("currentUserToken");
+  // console.log("Fetching stored token:", token);
+  return token;
 };
 
 const buildWsUrl = (token) => {
@@ -205,7 +207,6 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-  const notificationsModuleRef = useRef(null);
   const wsRef = useRef(null);
   const wsReconnectTimeoutRef = useRef(null);
   const wsReconnectAttemptsRef = useRef(0);
@@ -217,22 +218,22 @@ export function NotificationProvider({ children }) {
   const refreshDebounceRef = useRef(null);
   const pendingRefreshReasonRef = useRef(new Set());
 
-  const notificationResponseListenerRef = useRef(null);
-  const notificationReceivedListenerRef = useRef(null);
   const lastHandledNotificationRef = useRef("");
   const pendingNavQueueRef = useRef([]);
   const navQueueTimerRef = useRef(null);
 
   const moduleSnapshotRef = useRef(null);
   const moduleNotifierReadyRef = useRef(false);
+  const loadedNotificationsUserIdRef = useRef("");
 
   const lastRegisteredPushRef = useRef({
     userId: "",
     deviceId: "",
-    expoPushToken: "",
+    fcmToken: "",
   });
+  const pushRegistrationInFlightRef = useRef(false);
 
-  const isExpoGo = Constants?.appOwnership === "expo";
+  // const isExpoGo = Constants?.appOwnership === "expo";
 
   const clearReconnectTimer = useCallback(() => {
     if (wsReconnectTimeoutRef.current) {
@@ -298,33 +299,6 @@ export function NotificationProvider({ children }) {
     [clearNavigationQueueTimer, drainNavigationQueue],
   );
 
-  const ensureNotificationsModule = useCallback(async () => {
-    if (Platform.OS === "web" || isExpoGo) {
-      return null;
-    }
-
-    if (notificationsModuleRef.current) {
-      return notificationsModuleRef.current;
-    }
-
-    const Notifications = await import("expo-notifications");
-    if (!notificationHandlerInitialized) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-      notificationHandlerInitialized = true;
-      log("push-handler:initialized-once");
-    }
-    notificationsModuleRef.current = Notifications;
-    return Notifications;
-  }, [isExpoGo]);
-
   const getDeviceInstallationId = useCallback(async () => {
     const storageKey = "deviceInstallationId";
     const existingId = await AsyncStorage.getItem(storageKey);
@@ -336,56 +310,48 @@ export function NotificationProvider({ children }) {
 
   const registerPushTokenWithServer = useCallback(async () => {
     if (Platform.OS === "web" || !user?.id) return;
+    if (pushRegistrationInFlightRef.current) return;
 
     try {
-      const Notifications = await ensureNotificationsModule();
-      if (!Notifications) return;
-
-      if (!Device.isDevice) {
-        log("push-register:skipped-not-device");
-        return;
-      }
-
-      if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync("default", {
-          name: "default",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: "#239479",
-        });
-      }
-
-      const projectId =
-        Constants?.expoConfig?.extra?.eas?.projectId ||
-        Constants?.easConfig?.projectId;
-
+      pushRegistrationInFlightRef.current = true;
       const authToken = await getStoredToken();
       if (!authToken) return;
 
-      const permissions = await Notifications.getPermissionsAsync();
-      let finalStatus = permissions.status;
-      if (finalStatus !== "granted") {
-        const requestPermissions =
-          await Notifications.requestPermissionsAsync();
-        finalStatus = requestPermissions.status;
+      await messaging().registerDeviceForRemoteMessages();
+
+      let enabled = true;
+
+      if (Platform.OS === "ios") {
+        const authorizationStatus = await messaging().requestPermission();
+        enabled =
+          authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      } else if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const result = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        enabled = result === true;
       }
-      if (finalStatus !== "granted") {
-        log("push-register:permission-denied");
+
+      if (!enabled) {
+        console.log("Push permission denied or not granted yet");
         return;
       }
 
-      const expoPushToken = projectId
-        ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
-        : (await Notifications.getExpoPushTokenAsync()).data;
+      const fcmToken = await messaging().getToken();
+      if (!fcmToken) {
+        throw new Error("Empty FCM token returned by messaging().getToken()");
+      }
+      console.log("FCM Token:", fcmToken);
       const deviceId = await getDeviceInstallationId();
 
       const cached = lastRegisteredPushRef.current;
+
       if (
         cached.userId === String(user.id) &&
         cached.deviceId === deviceId &&
-        cached.expoPushToken === expoPushToken
+        cached.fcmToken === fcmToken
       ) {
-        log("push-register:dedup-hit");
         return;
       }
 
@@ -399,30 +365,33 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
-            expoPushToken,
+            expoPushToken: fcmToken,
+            fcmToken,
             platform: Platform.OS,
           }),
         },
       );
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
+        const errorBody = await response.text().catch(() => "");
         throw new Error(
-          errorBody?.message ||
-            `Failed push registration (${response.status || "unknown"})`,
+          `Push registration failed (${response.status}) ${errorBody}`,
         );
       }
 
       lastRegisteredPushRef.current = {
         userId: String(user.id),
         deviceId,
-        expoPushToken,
+        fcmToken,
       };
-      log("push-register:success");
+
+      console.log("FCM registration success");
     } catch (error) {
-      console.error("Error registering push token:", error);
+      console.error("FCM registration error:", error);
+    } finally {
+      pushRegistrationInFlightRef.current = false;
     }
-  }, [ensureNotificationsModule, getDeviceInstallationId, user?.id]);
+  }, [getDeviceInstallationId, user?.id]);
 
   const fetchNotifications = useCallback(
     async ({ signal } = {}) => {
@@ -830,6 +799,27 @@ export function NotificationProvider({ children }) {
     [markAsRead, queueNavigation, user?.id],
   );
 
+  const handleQueuedBackgroundMessages = useCallback(
+    (queuedMessages = []) => {
+      if (!Array.isArray(queuedMessages) || queuedMessages.length === 0) return;
+
+      scheduleRefresh("push-background-queued");
+
+      const latestNavigable = queuedMessages.find(
+        (item) => item?.data && Object.keys(item.data).length > 0,
+      );
+      if (latestNavigable?.data) {
+        const moduleName = String(latestNavigable.data?.module || "").toLowerCase();
+        if (moduleName === "messages") {
+          showToast("You received new chat messages.");
+        } else {
+          showToast("You received new notifications.");
+        }
+      }
+    },
+    [scheduleRefresh],
+  );
+
   useEffect(() => {
     if (!user?.id) {
       setNotifications([]);
@@ -841,9 +831,14 @@ export function NotificationProvider({ children }) {
       wsRef.current?.close?.();
       wsRef.current = null;
       wsReconnectAttemptsRef.current = 0;
+      loadedNotificationsUserIdRef.current = "";
       return;
     }
 
+    if (loadedNotificationsUserIdRef.current === String(user.id)) {
+      return;
+    }
+    loadedNotificationsUserIdRef.current = String(user.id);
     scheduleRefresh("user-change");
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
@@ -914,7 +909,13 @@ export function NotificationProvider({ children }) {
 
         ws.onerror = () => {
           log("ws:error");
-          ws.close();
+          // Let onclose handle reconnect backoff. Avoid redundant closes.
+          if (
+            ws.readyState === WebSocket.OPEN ||
+            ws.readyState === WebSocket.CONNECTING
+          ) {
+            ws.close();
+          }
         };
       } catch (error) {
         console.error("WebSocket connect error:", error);
@@ -932,6 +933,16 @@ export function NotificationProvider({ children }) {
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
   useEffect(() => {
+    const unsubscribe = messaging().onTokenRefresh(async (token) => {
+      console.log("FCM token refreshed:", token);
+
+      await registerPushTokenWithServer();
+    });
+
+    return unsubscribe;
+  }, [registerPushTokenWithServer]);
+
+  useEffect(() => {
     registerPushTokenWithServer();
   }, [registerPushTokenWithServer]);
 
@@ -945,62 +956,93 @@ export function NotificationProvider({ children }) {
       appStateRef.current = nextState;
       if (wasBackground && nextState === "active") {
         registerPushTokenWithServer();
-        scheduleRefresh("app-foreground");
+        consumePushInbox().then((queuedMessages) => {
+          if (!queuedMessages.length) return;
+          handleQueuedBackgroundMessages(queuedMessages);
+        });
       }
     });
 
     return () => subscription.remove();
-  }, [registerPushTokenWithServer, scheduleRefresh]);
+  }, [
+    handleQueuedBackgroundMessages,
+    openNotificationTarget,
+    registerPushTokenWithServer,
+  ]);
 
   useEffect(() => {
-    if (Platform.OS === "web") return undefined;
+    if (Platform.OS === "web") return;
 
-    let mounted = true;
-    ensureNotificationsModule().then((Notifications) => {
-      if (!Notifications || !mounted) return;
+    consumePushInbox().then((queuedMessages) => {
+      if (!queuedMessages.length) return;
+      handleQueuedBackgroundMessages(queuedMessages);
+    });
 
-      Notifications.getLastNotificationResponse().then((response) => {
-        const payload = response?.notification?.request?.content?.data || null;
-        const responseId =
-          response?.notification?.request?.identifier ||
-          response?.notification?.date ||
-          "";
-        if (
-          payload &&
-          responseId &&
-          responseId !== lastHandledNotificationRef.current
-        ) {
-          lastHandledNotificationRef.current = responseId;
+    const unsubscribeForeground = messaging().onMessage(
+      async (remoteMessage) => {
+        console.log("Foreground message:", remoteMessage);
+
+        scheduleRefresh("push-foreground");
+
+        const payload = remoteMessage?.data || {};
+
+        if (Object.keys(payload).length > 0) {
+          const moduleName = String(payload?.module || "").toLowerCase();
+          const title =
+            remoteMessage?.notification?.title || "New notification received";
+          const body =
+            remoteMessage?.notification?.body ||
+            "You have a new update. Tap view to open.";
+
+          if (moduleName === "tasks" && payload?.targetTaskId) {
+            Alert.alert(title, body, [
+              { text: "Later", style: "cancel" },
+              {
+                text: "View",
+                onPress: () => openNotificationTarget(payload),
+              },
+            ]);
+          } else {
+            showToast(title);
+          }
+        }
+      },
+    );
+
+    const unsubscribeOpened = messaging().onNotificationOpenedApp(
+      (remoteMessage) => {
+        console.log("Notification caused app open:", remoteMessage);
+
+        const payload = remoteMessage?.data || {};
+
+        if (Object.keys(payload).length > 0) {
           openNotificationTarget(payload);
+        }
+      },
+    );
+
+    messaging()
+      .getInitialNotification()
+      .then((remoteMessage) => {
+        if (remoteMessage) {
+          console.log(
+            "Notification caused app open from quit state:",
+            remoteMessage,
+          );
+
+          const payload = remoteMessage?.data || {};
+
+          if (Object.keys(payload).length > 0) {
+            openNotificationTarget(payload);
+          }
         }
       });
 
-      notificationReceivedListenerRef.current =
-        Notifications.addNotificationReceivedListener(() => {
-          scheduleRefresh("push-foreground");
-        });
-
-      notificationResponseListenerRef.current =
-        Notifications.addNotificationResponseReceivedListener((response) => {
-          const payload = response?.notification?.request?.content?.data || {};
-          const responseId =
-            response?.notification?.request?.identifier ||
-            response?.notification?.date ||
-            "";
-          if (responseId && responseId === lastHandledNotificationRef.current) {
-            return;
-          }
-          lastHandledNotificationRef.current = responseId;
-          openNotificationTarget(payload);
-        });
-    });
-
     return () => {
-      mounted = false;
-      notificationReceivedListenerRef.current?.remove?.();
-      notificationResponseListenerRef.current?.remove?.();
+      unsubscribeForeground();
+      unsubscribeOpened();
     };
-  }, [ensureNotificationsModule, openNotificationTarget, scheduleRefresh]);
+  }, [handleQueuedBackgroundMessages, openNotificationTarget]);
 
   useEffect(
     () => () => {
@@ -1029,7 +1071,13 @@ export function NotificationProvider({ children }) {
       notifications,
       unreadCount,
       loadingNotifications,
-      fetchNotifications: () => scheduleRefresh("manual-fetch"),
+      fetchNotifications: ({ force = false } = {}) => {
+        if (force) {
+          scheduleRefresh("manual-fetch-force");
+          return;
+        }
+        scheduleRefresh("manual-fetch");
+      },
       markAsRead,
       markAllAsRead,
       openNotificationTarget,

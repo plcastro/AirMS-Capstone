@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, ScrollView, TouchableOpacity } from "react-native";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
+import {
+  View,
+  ScrollView,
+  TouchableOpacity
+} from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
@@ -31,9 +37,9 @@ export default function FlightLogModalThisFlight({
 
     return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
-      </Text>
+      </AppText>
       {isNextDueDateField ? (
         <>
           <TouchableOpacity
@@ -49,14 +55,14 @@ export default function FlightLogModalThisFlight({
               justifyContent: "space-between",
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: componentData[field] ? COLORS.black : COLORS.grayDark,
               }}
             >
               {componentData[field] || "Select date"}
-            </Text>
+            </AppText>
             <MaterialCommunityIcons
               name="calendar-blank"
               size={18}
@@ -77,7 +83,7 @@ export default function FlightLogModalThisFlight({
           )}
         </>
       ) : (
-        <TextInput
+        <AppInput
           style={{
             backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
             borderRadius: 4,
@@ -120,9 +126,9 @@ export default function FlightLogModalThisFlight({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             This Flight
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>

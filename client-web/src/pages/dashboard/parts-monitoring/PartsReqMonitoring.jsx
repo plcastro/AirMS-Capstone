@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useContext,
   useMemo,
@@ -6,18 +6,17 @@ import React, {
   useEffect,
 } from "react";
 import {
+  App as AntdApp,
   Alert,
   Button,
   Col,
   Form,
   Input,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
   Space,
-  Tabs,
   Typography,
 } from "antd";
 import {
@@ -26,8 +25,6 @@ import {
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
-  ShoppingCartOutlined,
-  SyncOutlined,
 } from "@ant-design/icons";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
@@ -36,6 +33,46 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 
 const { Text } = Typography;
+
+const normalizeStatus = (value) => {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "pending") return "parts requested";
+  if (raw === "completed") return "delivered";
+  return raw;
+};
+
+const getEffectiveStatus = (record) => {
+  const normalized = normalizeStatus(record?.status);
+  if (normalized === "parts requested" && record?.dateWarehouseReviewed) {
+    return "availability checked";
+  }
+  return normalized;
+};
+
+const getStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (normalized === "approved") return "approved";
+  if (["delivered", "cancelled"].includes(normalized)) return "closed";
+  return "pending";
+};
+
+const getManagerStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (["availability checked", "ordered"].includes(normalized)) {
+    return "for_review";
+  }
+  if (["approved", "delivered", "cancelled"].includes(normalized)) {
+    return "closed";
+  }
+  return "pending";
+};
+
+const getWarehouseStatusBucket = (record) =>
+  ["delivered", "cancelled"].includes(getEffectiveStatus(record))
+    ? "completed"
+    : "pending";
 
 const parseRequestedDate = (dateValue) => {
   const [month, day, year] = String(dateValue || "")
@@ -80,11 +117,11 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
+  const { message } = AntdApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
@@ -104,9 +141,18 @@ export default function PartsReqMonitoring() {
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const isManager = ["maintenance manager", "officer-in-charge"].includes(
-    userRole,
-  );
+  const isManager = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(userRole);
+  const isWarehouseDepartment = userRole === "warehouse department";
+  const canRequestParts = ![
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -115,44 +161,81 @@ export default function PartsReqMonitoring() {
       total: warehouseRequisitions.length,
       pending: warehouseRequisitions.filter(
         (record) =>
-          !["Approved", "Delivered", "Completed", "Cancelled"].includes(
-            String(record.status || ""),
+          !["approved", "delivered", "cancelled"].includes(
+            normalizeStatus(record.status),
           ),
       ).length,
       approved: warehouseRequisitions.filter((record) =>
-        ["Approved"].includes(String(record.status || "")),
+        ["approved"].includes(normalizeStatus(record.status)),
       ).length,
       forReview: warehouseRequisitions.filter((record) =>
-        ["Availability Checked", "Ordered"].includes(
-          String(record.status || ""),
+        ["availability checked", "ordered"].includes(
+          normalizeStatus(record.status),
         ),
       ).length,
       closed: warehouseRequisitions.filter((record) =>
-        ["Delivered", "Completed", "Cancelled"].includes(
-          String(record.status || ""),
-        ),
+        ["delivered", "cancelled"].includes(normalizeStatus(record.status)),
       ).length,
     }),
     [warehouseRequisitions],
   );
 
-  const tabItems = useMemo(
-    () =>
-      isManager
-        ? [
-            { key: "for_review", label: `For Review (${stats.forReview})` },
-            { key: "closed", label: `Closed (${stats.closed})` },
-          ]
-        : [
-            { key: "pending", label: `Pending (${stats.pending})` },
-            { key: "approved", label: `Approved (${stats.approved})` },
-            { key: "closed", label: `Closed (${stats.closed})` },
-          ],
-    [isManager, stats],
-  );
-
   const statusFilters = useMemo(() => {
-    const allFilters = [
+    if (isManager) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "for_review",
+          title: "For Review",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "for_review",
+          ).length,
+        },
+        {
+          key: "closed",
+          title: "Closed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "closed",
+          ).length,
+        },
+      ];
+    }
+
+    if (isWarehouseDepartment) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "pending",
+          title: "Pending",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "pending",
+          ).length,
+        },
+        {
+          key: "completed",
+          title: "Completed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "completed",
+          ).length,
+        },
+      ];
+    }
+
+    return [
       {
         key: "all",
         title: "All",
@@ -160,46 +243,31 @@ export default function PartsReqMonitoring() {
         count: warehouseRequisitions.length,
       },
       {
-        key: "Parts Requested",
-        title: "Parts Requested",
+        key: "pending",
+        title: "Pending",
         icon: <InboxOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => r.status === "Parts Requested",
+          (record) => getStatusBucket(record) === "pending",
         ).length,
       },
       {
-        key: "To Be Ordered",
-        title: "To Be Ordered",
-        icon: <ShoppingCartOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "To Be Ordered")
-          .length,
-      },
-      {
-        key: "Availability Checked",
-        title: "Availability Checked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => r.status === "Availability Checked",
-        ).length,
-      },
-      {
-        key: "Ordered",
-        title: "Restocked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Ordered")
-          .length,
-      },
-      {
-        key: "Approved",
+        key: "approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter((r) => r.status === "Approved")
-          .length,
+        count: warehouseRequisitions.filter(
+          (record) => getStatusBucket(record) === "approved",
+        ).length,
+      },
+      {
+        key: "closed",
+        title: "Closed",
+        icon: <CheckCircleOutlined />,
+        count: warehouseRequisitions.filter(
+          (record) => getStatusBucket(record) === "closed",
+        ).length,
       },
     ];
-
-    return allFilters;
-  }, [warehouseRequisitions]);
+  }, [isManager, isWarehouseDepartment, warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
@@ -215,41 +283,23 @@ export default function PartsReqMonitoring() {
       );
     }
 
-    if (isManager) {
-      if (activeTab === "for_review") {
-        data = data.filter((record) =>
-          ["Availability Checked", "Ordered"].includes(
-            String(record.status || ""),
-          ),
-        );
-      } else {
-        data = data.filter((record) =>
-          ["Delivered", "Completed", "Cancelled"].includes(
-            String(record.status || ""),
-          ),
-        );
-      }
-    } else if (activeTab === "pending") {
-      data = data.filter(
-        (record) =>
-          !["Approved", "Delivered", "Completed", "Cancelled"].includes(
-            String(record.status || ""),
-          ),
-      );
-    } else if (activeTab === "approved") {
-      data = data.filter(
-        (record) => String(record.status || "") === "Approved",
-      );
-    } else {
-      data = data.filter((record) =>
-        ["Delivered", "Completed", "Cancelled"].includes(
-          String(record.status || ""),
-        ),
-      );
-    }
-
     if (selectedStatus !== "all") {
-      data = data.filter((record) => record.status === selectedStatus);
+      const normalizedSelectedStatus = normalizeStatus(selectedStatus);
+      data = data.filter((record) => {
+        if (normalizedSelectedStatus === "for_review") {
+          return getManagerStatusBucket(record) === "for_review";
+        }
+        if (normalizedSelectedStatus === "completed") {
+          return getWarehouseStatusBucket(record) === "completed";
+        }
+        if (isWarehouseDepartment && normalizedSelectedStatus === "pending") {
+          return getWarehouseStatusBucket(record) === "pending";
+        }
+        if (["pending", "approved", "closed"].includes(normalizedSelectedStatus)) {
+          return getStatusBucket(record) === normalizedSelectedStatus;
+        }
+        return getEffectiveStatus(record) === normalizedSelectedStatus;
+      });
     }
 
     return [...data].sort((first, second) => {
@@ -261,17 +311,18 @@ export default function PartsReqMonitoring() {
         : secondDate - firstDate;
     });
   }, [
-    activeTab,
-    isManager,
     dateSortOrder,
+    isWarehouseDepartment,
     searchText,
     selectedStatus,
     warehouseRequisitions,
   ]);
 
   useEffect(() => {
-    setSelectedStatus("all");
-  }, [activeTab]);
+    if (!statusFilters.some((filter) => filter.key === selectedStatus)) {
+      setSelectedStatus(statusFilters[0]?.key || "all");
+    }
+  }, [selectedStatus, statusFilters]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -283,29 +334,9 @@ export default function PartsReqMonitoring() {
     );
     if (!matched) return;
 
-    if (isManager) {
-      setActiveTab(
-        ["Delivered", "Completed", "Cancelled"].includes(
-          String(matched.status || ""),
-        )
-          ? "closed"
-          : "for_review",
-      );
-    } else if (
-      ["Delivered", "Completed", "Cancelled"].includes(
-        String(matched.status || ""),
-      )
-    ) {
-      setActiveTab("closed");
-    } else if (String(matched.status || "") === "Approved") {
-      setActiveTab("approved");
-    } else {
-      setActiveTab("pending");
-    }
-
     setTargetRecord(matched);
     navigate("/dashboard/parts-requisition", { replace: true });
-  }, [isManager, location.search, navigate, warehouseRequisitions]);
+  }, [location.search, navigate, warehouseRequisitions]);
 
   const handleAllRequisitions = useCallback(async () => {
     if (!canAccessPartsRequisition) return;
@@ -526,17 +557,7 @@ export default function PartsReqMonitoring() {
         )}
       </Row>
 
-      <Row style={{ marginTop: 10, marginBottom: 10 }}>
-        <Col span={24}>
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={tabItems}
-          />
-        </Col>
-      </Row>
-
-      <Row style={{ marginBottom: 10 }}>
+      <Row style={{ marginBottom: 10, marginTop: 20 }}>
         <Col span={24}>
           <Space size={[8, 8]} wrap>
             {statusFilters.map((filter) => {
@@ -559,7 +580,7 @@ export default function PartsReqMonitoring() {
         </Col>
       </Row>
 
-      <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
             Showing <Text strong>{filteredRequisitions.length}</Text>{" "}
@@ -602,14 +623,13 @@ export default function PartsReqMonitoring() {
             <Select
               placeholder="Choose Aircraft"
               options={aircraftOptions}
-              showSearch
-              optionFilterProp="label"
+              showSearch={{ optionFilterProp: "label" }}
             />
           </Form.Item>
 
           <Form.List name="items">
             {(fields, { add, remove }) => (
-              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
                 {fields.map(({ key, name, ...restField }) => (
                   <div
                     key={key}

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
-  Platform,
-  TextInput,
+  Platform
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -21,6 +21,8 @@ import {
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
 import { showToast } from "../../utilities/toast";
+import AlertComp from "../AlertComp";
+import { BASE_OPTIONS } from "../UserManagement/constants";
 
 const { width } = Dimensions.get("window");
 const CUSTOM_INSPECTION_ID = "custom-task";
@@ -64,6 +66,7 @@ export default function AddTask({
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [selectedBase, setSelectedBase] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
@@ -77,6 +80,7 @@ export default function AddTask({
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,6 +91,7 @@ export default function AddTask({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const [appliedDraftKey, setAppliedDraftKey] = useState("");
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees.filter((emp) => !emp.isBusy);
@@ -284,6 +289,7 @@ export default function AddTask({
   const resetForm = () => {
     const nextStart = getDefaultStartDate();
     setSelectedAircraft("");
+    setSelectedBase("");
     setSelectedEmployee("");
     setInspectionType("");
     setSelectedInspection(null);
@@ -293,6 +299,7 @@ export default function AddTask({
     setShowStartPicker(false);
     setShowEndPicker(false);
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
     setAndroidPickerMode("date");
@@ -458,6 +465,7 @@ export default function AddTask({
       id: Date.now().toString(),
       title: selectedInspectionName,
       aircraft: selectedAircraft,
+      base: selectedBase,
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
@@ -527,11 +535,6 @@ export default function AddTask({
     };
 
     onAddTask(newTask);
-  };
-
-  const confirmDiscard = () => {
-    resetForm();
-    onClose();
   };
 
   const formatDateTime = (date) => {
@@ -678,6 +681,7 @@ export default function AddTask({
 
   const closeAllDropdowns = () => {
     setShowAircraftDropdown(false);
+    setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
   };
@@ -687,8 +691,8 @@ export default function AddTask({
       (emp) => emp.id === selectedEmployee,
     );
 
-    if (!selectedAircraft || !inspectionType || !selectedEmployee) {
-      return "Select an aircraft, inspection, and available mechanic first.";
+    if (!selectedAircraft || !selectedBase || !inspectionType || !selectedEmployee) {
+      return "Select an aircraft, base, inspection, and available mechanic first.";
     }
 
     if (!selectedAvailableEmployee) {
@@ -726,10 +730,10 @@ export default function AddTask({
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
-        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
-      </Text>
+        {required && <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>}
+      </AppText>
 
       <TouchableOpacity
         activeOpacity={0.8}
@@ -753,7 +757,7 @@ export default function AddTask({
           justifyContent: "space-between",
         }}
       >
-        <Text
+        <AppText
           numberOfLines={1}
           style={{
             flex: 1,
@@ -763,11 +767,11 @@ export default function AddTask({
           }}
         >
           {value || placeholder}
-        </Text>
+        </AppText>
 
-        <Text style={{ color: COLORS.primaryLight, fontSize: 12 }}>
+        <AppText style={{ color: COLORS.primaryLight, fontSize: 12 }}>
           {visible ? "^" : "v"}
-        </Text>
+        </AppText>
       </TouchableOpacity>
 
       {visible && !disabled && (
@@ -814,14 +818,14 @@ export default function AddTask({
                       }}
                     />
                   ) : null}
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: COLORS.black,
                     }}
                   >
                     {item.label}
-                  </Text>
+                  </AppText>
                 </View>
               </TouchableOpacity>
             ))}
@@ -834,6 +838,7 @@ export default function AddTask({
   const selectedAircraftLabel =
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
+  const selectedBaseLabel = selectedBase || "";
   const selectedInspectionLabel =
     inspectionType === CUSTOM_INSPECTION_ID
       ? "Custom Task"
@@ -842,34 +847,54 @@ export default function AddTask({
   const selectedEmployeeLabel =
     availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
   const addTaskWarning = getAddTaskWarning();
+  const hasUnsavedChanges = () =>
+    Boolean(selectedAircraft) ||
+    Boolean(selectedEmployee) ||
+    Boolean(inspectionType) ||
+    checklistItems.length > 0 ||
+    Boolean(isCustomTask && customTaskTitle.trim());
+  const handleCloseWithWarning = () => {
+    if (!hasUnsavedChanges()) {
+      resetForm();
+      onClose?.();
+      return;
+    }
+    setShowDiscardAlert(true);
+  };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.alertOverlay}>
-        <View
-          style={[
-            styles.alertContainer,
-            {
-              width: width > 425 ? 600 : width - 32,
-              maxWidth: "92%",
-              maxHeight: "90%",
-              paddingVertical: 18,
-              paddingHorizontal: 14,
-            },
-          ]}
-        >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+    <>
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCloseWithWarning}
+      >
+        <View style={styles.alertOverlay}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                width: width > 425 ? 600 : width - 32,
+                maxWidth: "92%",
+                maxHeight: "90%",
+                paddingVertical: 18,
+                paddingHorizontal: 14,
+              },
+            ]}
           >
-            <Text
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+            <AppText
               style={[
                 styles.alertTitle,
                 { textAlign: "left", marginBottom: 15 },
               ]}
             >
               Task
-            </Text>
+            </AppText>
 
             {renderDropdownField({
               label: "Aircraft",
@@ -883,6 +908,20 @@ export default function AddTask({
               visible: showAircraftDropdown,
               onToggle: setShowAircraftDropdown,
               onSelect: setSelectedAircraft,
+            })}
+
+            {renderDropdownField({
+              label: "Base",
+              required: true,
+              value: selectedBaseLabel,
+              placeholder: "Pick Base",
+              options: BASE_OPTIONS.map((base) => ({
+                label: base,
+                value: base,
+              })),
+              visible: showBaseDropdown,
+              onToggle: setShowBaseDropdown,
+              onSelect: setSelectedBase,
             })}
 
             {renderDropdownField({
@@ -937,7 +976,7 @@ export default function AddTask({
 
             {isCustomTask && (
               <View style={{ marginBottom: 15 }}>
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color: COLORS.grayDark,
@@ -945,8 +984,8 @@ export default function AddTask({
                   }}
                 >
                   Custom Task Name *
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   value={customTaskTitle}
                   onChangeText={setCustomTaskTitle}
                   placeholder="Enter task name"
@@ -979,12 +1018,12 @@ export default function AddTask({
               onSelect: setSelectedEmployee,
             })}
 
-            <Text
+            <AppText
               style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
+              <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+            </AppText>
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.grayLight,
@@ -996,9 +1035,9 @@ export default function AddTask({
               }}
               onPress={() => openDateTimePicker("start")}
             >
-              <Text style={{ color: COLORS.grayDark }}>
+              <AppText style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
             {showStartPicker && (
@@ -1011,12 +1050,12 @@ export default function AddTask({
               />
             )}
 
-            <Text
+            <AppText
               style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
+              <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+            </AppText>
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.grayLight,
@@ -1028,12 +1067,12 @@ export default function AddTask({
               }}
               onPress={() => openDateTimePicker("end")}
             >
-              <Text style={{ color: COLORS.grayDark }}>
+              <AppText style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.grayDark,
@@ -1047,7 +1086,7 @@ export default function AddTask({
               {scheduleEstimate.itemCount} checklist item
               {scheduleEstimate.itemCount === 1 ? "" : "s"}
               {endDateManuallyAdjusted ? " | End time manually adjusted" : ""}
-            </Text>
+            </AppText>
 
             {showEndPicker && (
               <DateTimePicker
@@ -1059,9 +1098,9 @@ export default function AddTask({
               />
             )}
 
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
+            <AppText style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
               Checklist
-            </Text>
+            </AppText>
 
             {checklistItems.map((item, index) => (
               <View
@@ -1073,15 +1112,15 @@ export default function AddTask({
                 </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={{ fontSize: 12, color: "#888" }}>
+                  <AppText style={{ fontSize: 12, color: "#888" }}>
                     {[item.taskId, item.inspectionTypeFull]
                       .filter(Boolean)
                       .join(" | ")}
-                  </Text>
+                  </AppText>
 
                   {isCustomTask ? (
                     <>
-                      <TextInput
+                      <AppInput
                         value={item.taskName || ""}
                         onChangeText={(value) =>
                           updateChecklistItem(index, "taskName", value)
@@ -1095,7 +1134,7 @@ export default function AddTask({
                           color: COLORS.black,
                         }}
                       />
-                      <TextInput
+                      <AppInput
                         value={item.description || ""}
                         onChangeText={(value) =>
                           updateChecklistItem(index, "description", value)
@@ -1117,15 +1156,15 @@ export default function AddTask({
                         onPress={() => removeChecklistItem(index)}
                         style={{ alignSelf: "flex-start", marginTop: 8 }}
                       >
-                        <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                        <AppText style={{ color: COLORS.danger || "#d32f2f" }}>
                           Remove
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                    <AppText style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
                       {item.taskName}
-                    </Text>
+                    </AppText>
                   )}
                 </View>
               </View>
@@ -1144,20 +1183,20 @@ export default function AddTask({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
                   Add Checklist Item
-                </Text>
+                </AppText>
               </TouchableOpacity>
             )}
 
             {checklistItems.length === 0 && !isCustomTask && (
-              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+              <AppText style={{ color: COLORS.grayDark, marginBottom: 20 }}>
                 No checklist items were found for this inspection.
-              </Text>
+              </AppText>
             )}
 
             {addTaskWarning ? (
-              <Text
+              <AppText
                 style={{
                   color: COLORS.danger || COLORS.dangerBorder || "#d32f2f",
                   marginBottom: 8,
@@ -1165,34 +1204,48 @@ export default function AddTask({
                 }}
               >
                 {addTaskWarning}
-              </Text>
+              </AppText>
             ) : null}
-          </ScrollView>
+            </ScrollView>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 20,
-              gap: 10,
-            }}
-          >
-            <Button
-              label="Discard"
-              onPress={confirmDiscard}
-              buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.secondaryAlertBtnTxt}
-            />
-            <Button
-              label="Add Task"
-              onPress={confirmAdd}
-              disabled={Boolean(addTaskWarning)}
-              buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
-              buttonTextStyle={styles.primaryBtnTxt}
-            />
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 20,
+                gap: 10,
+              }}
+            >
+              <Button
+                label="Discard"
+                onPress={handleCloseWithWarning}
+                buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.secondaryAlertBtnTxt}
+              />
+              <Button
+                label="Add Task"
+                onPress={confirmAdd}
+                disabled={Boolean(addTaskWarning)}
+                buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AlertComp
+        visible={showDiscardAlert}
+        title="Discard changes?"
+        message="You have unsaved changes. Cancel and discard them?"
+        cancelText="Keep editing"
+        confirmText="Discard"
+        onCancel={() => setShowDiscardAlert(false)}
+        onConfirm={() => {
+          setShowDiscardAlert(false);
+          resetForm();
+          onClose?.();
+        }}
+      />
+    </>
   );
 }

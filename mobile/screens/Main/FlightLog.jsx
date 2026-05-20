@@ -1,13 +1,13 @@
-import React, { useState, useContext, useEffect, useCallback } from "react";
+import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -68,6 +68,7 @@ export default function FlightLog({ route, navigation }) {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -109,18 +110,6 @@ export default function FlightLog({ route, navigation }) {
         params.append("limit", "500");
         params.append("sortBy", "date");
         params.append("sortOrder", "desc");
-
-        if (selectedAircraft && selectedAircraft !== "all") {
-          params.append("aircraftRPC", selectedAircraft);
-        }
-        if (selectedStatus && selectedStatus !== "all") {
-          params.append(
-            "status",
-            selectedStatus === "released"
-              ? "pending_acceptance"
-              : selectedStatus,
-          );
-        }
 
         // console.log(
         //   "Fetching from:",
@@ -173,10 +162,9 @@ export default function FlightLog({ route, navigation }) {
         };
 
         const logs = await fetchAllPages();
-        const pendingReleaseLogs =
-          selectedStatus === "all"
-            ? await fetchAllPages({ status: "pending_release" })
-            : [];
+        const pendingReleaseLogs = await fetchAllPages({
+          status: "pending_release",
+        });
 
         setFlightLogs(
           sortNewestFlightLogs(
@@ -196,7 +184,7 @@ export default function FlightLog({ route, navigation }) {
         setRefreshing(false);
       }
     },
-    [selectedAircraft, selectedStatus],
+    [],
   );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
@@ -223,41 +211,6 @@ export default function FlightLog({ route, navigation }) {
       return null;
     }
   }, []);
-
-  // SEARCH FLIGHT LOGS
-  const searchFlightLogs = async (query) => {
-    if (!query.trim()) {
-      fetchFlightLogs();
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      // Read ONLY ONCE
-      const data = await response.json();
-
-      if (response.ok) {
-        setFlightLogs(sortNewestFlightLogs(data.data || []));
-      } else {
-        console.error("Search error:", data.message);
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // CREATE NEW FLIGHT LOG
   const handleSaveNewEntry = async (
@@ -341,33 +294,33 @@ export default function FlightLog({ route, navigation }) {
   // Handle search input change with debounce
   const handleSearchChange = (text) => {
     setSearchQuery(text);
-    if (text.trim()) {
-      const timeoutId = setTimeout(() => {
-        searchFlightLogs(text);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else {
-      fetchFlightLogs();
-    }
   };
 
   // Fetch when filters change
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     fetchFlightLogs();
   }, [fetchFlightLogs]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchFlightLogs();
       fetchNotifications();
-    }, [fetchFlightLogs, fetchNotifications]),
+    }, [fetchNotifications]),
   );
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return undefined;
 
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
-    const onDataChanged = async () => {
+    const onDataChanged = async (event) => {
+      let payload = {};
+      try {
+        payload = JSON.parse(event?.data || "{}");
+      } catch {
+        payload = {};
+      }
+      if (!String(payload?.url || "").startsWith("/api/flightlogs")) return;
       await fetchFlightLogs({ silent: true });
       await fetchNotifications();
     };
@@ -507,7 +460,7 @@ export default function FlightLog({ route, navigation }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search"
               placeholderTextColor={COLORS.grayDark}
               style={styles.unifiedSearchInput}
@@ -526,7 +479,7 @@ export default function FlightLog({ route, navigation }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -553,7 +506,7 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -567,7 +520,7 @@ export default function FlightLog({ route, navigation }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP-C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -589,11 +542,11 @@ export default function FlightLog({ route, navigation }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -613,10 +566,10 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -637,9 +590,9 @@ export default function FlightLog({ route, navigation }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -658,9 +611,9 @@ export default function FlightLog({ route, navigation }) {
             }}
           >
             <ActivityIndicator size="large" color={COLORS.primaryLight} />
-            <Text style={{ marginTop: 10, color: COLORS.grayDark }}>
+            <AppText style={{ marginTop: 10, color: COLORS.grayDark }}>
               Loading flight logs...
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -691,7 +644,7 @@ export default function FlightLog({ route, navigation }) {
                   size={60}
                   color={COLORS.grayMedium}
                 />
-                <Text
+                <AppText
                   style={{
                     marginTop: 10,
                     fontSize: 12,
@@ -700,7 +653,7 @@ export default function FlightLog({ route, navigation }) {
                   }}
                 >
                   No flight logs found
-                </Text>
+                </AppText>
                 {!isOfficerInCharge && (
                   <TouchableOpacity
                     onPress={handleNewEntry}
@@ -712,9 +665,9 @@ export default function FlightLog({ route, navigation }) {
                       borderRadius: 8,
                     }}
                   >
-                    <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                       Create New Entry
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 )}
               </View>

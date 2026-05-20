@@ -1,4 +1,5 @@
 const UserModel = require("../models/userModel");
+const { sendToUsers } = require("./realtimeEvents");
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const ROLE_TO_JOB_TITLE = {
@@ -10,7 +11,9 @@ const ROLE_TO_JOB_TITLE = {
   admin: "Admin",
 };
 
-const uniqueValues = (values = []) => [...new Set(values.map(String).filter(Boolean))];
+const uniqueValues = (values = []) => [
+  ...new Set(values.map(String).filter(Boolean)),
+];
 
 const getUserIdsForRoles = async (roles = []) => {
   if (!roles.length) {
@@ -34,12 +37,12 @@ const getPushTokensForUsers = async (userIds = []) => {
   }
 
   const users = await UserModel.find({ _id: { $in: userIds } }).select(
-    "mobilePushDevices.expoPushToken",
+    "mobilePushDevices.fcmToken",
   );
 
   return uniqueValues(
     users.flatMap((user) =>
-      (user.mobilePushDevices || []).map((device) => device.expoPushToken),
+      (user.mobilePushDevices || []).map((device) => device.fcmToken),
     ),
   );
 };
@@ -54,9 +57,16 @@ const sendPushNotificationToUsers = async ({
   try {
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
     const userIds = uniqueValues([...recipientUsers, ...roleUserIds]);
-    const expoPushTokens = await getPushTokensForUsers(userIds);
+    const fcmToken = await getPushTokensForUsers(userIds);
 
-    if (expoPushTokens.length === 0) {
+    sendToUsers(userIds, "notification-created", {
+      title,
+      description: body,
+      data,
+      createdAt: new Date().toISOString(),
+    });
+
+    if (fcmToken.length === 0) {
       return;
     }
 
@@ -66,7 +76,7 @@ const sendPushNotificationToUsers = async ({
         "Content-Type": "application/json",
       },
       body: JSON.stringify(
-        expoPushTokens.map((to) => ({
+        fcmToken.map((to) => ({
           to,
           sound: "default",
           title,

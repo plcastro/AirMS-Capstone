@@ -5,7 +5,7 @@ export const confirmAction = ({
   content = "Are you sure you want to continue?",
   okText = "Confirm",
   cancelText = "Cancel",
-  okType = "primary",
+  okButtonProps,
 } = {}) =>
   new Promise((resolve) => {
     Modal.confirm({
@@ -13,7 +13,8 @@ export const confirmAction = ({
       content,
       okText,
       cancelText,
-      okType,
+      okButtonProps,
+      centered: true,
       onOk: () => resolve(true),
       onCancel: () => resolve(false),
     });

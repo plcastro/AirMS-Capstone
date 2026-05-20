@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   Modal,
   Platform,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
@@ -72,7 +72,7 @@ export default function PartsRequisitionEntry({
 
   const renderInput = (label, value, onChangeText, extraInputStyle = {}) => (
     <View style={{ marginBottom: 16 }}>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           color: "#3E3E3E",
@@ -81,8 +81,8 @@ export default function PartsRequisitionEntry({
         }}
       >
         {label}
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         value={value}
         onChangeText={onChangeText}
         placeholder="-"
@@ -147,7 +147,7 @@ export default function PartsRequisitionEntry({
               borderBottomColor: "#E8E8E8",
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "600",
@@ -155,7 +155,7 @@ export default function PartsRequisitionEntry({
               }}
             >
               {title}
-            </Text>
+            </AppText>
 
             <TouchableOpacity
               onPress={onClose}
@@ -195,7 +195,7 @@ export default function PartsRequisitionEntry({
                 borderColor: "#EEEEEE",
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   fontWeight: "700",
@@ -204,7 +204,7 @@ export default function PartsRequisitionEntry({
                 }}
               >
                 Choose Aircraft *
-              </Text>
+              </AppText>
 
               <View
                 style={{
@@ -267,7 +267,7 @@ export default function PartsRequisitionEntry({
                     marginBottom: 18,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       fontWeight: "700",
@@ -275,7 +275,7 @@ export default function PartsRequisitionEntry({
                     }}
                   >
                     Item {index + 1}
-                  </Text>
+                  </AppText>
 
                   {items.length > 1 && (
                     <TouchableOpacity
@@ -297,7 +297,7 @@ export default function PartsRequisitionEntry({
                 )}
 
                 <View style={{ marginBottom: 16 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: "#3E3E3E",
@@ -306,7 +306,7 @@ export default function PartsRequisitionEntry({
                     }}
                   >
                     Quantity: *
-                  </Text>
+                  </AppText>
                   <View
                     style={{
                       flexDirection: "row",
@@ -317,7 +317,7 @@ export default function PartsRequisitionEntry({
                       minHeight: 44,
                     }}
                   >
-                    <TextInput
+                    <AppInput
                       value={item.quantity}
                       onChangeText={(value) =>
                         updateItem(item.id, "quantity", value)
@@ -387,7 +387,7 @@ export default function PartsRequisitionEntry({
                       size={16}
                       color={COLORS.white}
                     />
-                    <Text
+                    <AppText
                       style={{
                         color: COLORS.white,
                         fontSize: 12,
@@ -396,7 +396,7 @@ export default function PartsRequisitionEntry({
                       }}
                     >
                       Add Another Item
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -413,7 +413,7 @@ export default function PartsRequisitionEntry({
                   borderRadius: 4,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: COLORS.white,
                     fontSize: 12,
@@ -421,7 +421,7 @@ export default function PartsRequisitionEntry({
                   }}
                 >
                   {submitLabel}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           </ScrollView>

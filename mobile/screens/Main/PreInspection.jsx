@@ -1,12 +1,11 @@
 import React, { useState, useContext, useEffect } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-  Alert,
+  StatusBar
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPreInspectionTemplatePdf,
@@ -30,6 +30,9 @@ const getDisplayStatus = (status) =>
       ? "released"
       : "pending";
 
+const isCompletedInspection = (inspection) =>
+  String(inspection?.status || "").toLowerCase() === "completed";
+
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
   const targetPreInspectionId = route?.params?.targetPreInspectionId;
@@ -44,6 +47,10 @@ export default function PreInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    inspection: null,
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -170,17 +177,7 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    Alert.alert("Export Pre-Inspection", "Choose export format", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "PDF",
-        onPress: () => exportPreInspectionTemplatePdf(inspection),
-      },
-      {
-        text: "Word Template",
-        onPress: () => exportPreInspectionToWord(inspection),
-      },
-    ]);
+    setExportAlert({ visible: true, inspection });
   };
 
   const selectAircraft = (aircraft) => {
@@ -206,7 +203,7 @@ export default function PreInspection({ route }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={styles.unifiedSearchInput}
@@ -226,7 +223,7 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -241,7 +238,7 @@ export default function PreInspection({ route }) {
                 setShowStatusDropdown(false);
               }}
             >
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -255,7 +252,7 @@ export default function PreInspection({ route }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP/C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -277,11 +274,11 @@ export default function PreInspection({ route }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -297,10 +294,10 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -321,9 +318,9 @@ export default function PreInspection({ route }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -350,7 +347,7 @@ export default function PreInspection({ route }) {
                 size={60}
                 color={COLORS.grayMedium}
               />
-              <Text
+              <AppText
                 style={{
                   marginTop: 10,
                   fontSize: 12,
@@ -359,7 +356,7 @@ export default function PreInspection({ route }) {
                 }}
               >
                 No pre-inspections found
-              </Text>
+              </AppText>
               {/* Only show Create New Entry button for non-pilot roles */}
               {userRole !== "pilot" && !isOfficerInCharge && (
                 <TouchableOpacity
@@ -372,9 +369,9 @@ export default function PreInspection({ route }) {
                     borderRadius: 8,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                     Create New Entry
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
             </View>
@@ -442,6 +439,13 @@ export default function PreInspection({ route }) {
         }}
         onSave={async (updatedInspection) => {
           try {
+            if (isCompletedInspection(selectedInspection)) {
+              showToast("Completed pre-inspections are view-only.");
+              setShowEditModal(false);
+              setSelectedInspection(null);
+              return;
+            }
+
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
               `${API_BASE}/api/pre-inspections/updatePreInspectionById/${updatedInspection._id}`,
@@ -479,6 +483,24 @@ export default function PreInspection({ route }) {
           }
         }}
         userRole={userRole}
+        readOnly={isCompletedInspection(selectedInspection)}
+      />
+      <AlertComp
+        visible={exportAlert.visible}
+        title="Export Pre-Inspection"
+        message="Choose export format."
+        confirmText="PDF"
+        cancelText="Word Template"
+        onCancel={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionToWord(inspection);
+        }}
+        onConfirm={() => {
+          const inspection = exportAlert.inspection;
+          setExportAlert({ visible: false, inspection: null });
+          if (inspection) exportPreInspectionTemplatePdf(inspection);
+        }}
       />
     </View>
   );

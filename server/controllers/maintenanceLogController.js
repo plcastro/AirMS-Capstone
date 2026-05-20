@@ -1,13 +1,64 @@
 const MaintenanceLog = require("../models/maintenanceLogModel");
+const AircraftModel = require("../models/aircraftModel");
 const { auditLog } = require("./logsController"); // optional for logging
 const {
   rewriteChecklistItemsWithAI,
 } = require("../services/maintenanceLogTerminologyService");
 
 const COMPLETED_TASK_STATUSES = new Set(["completed", "turned in", "approved"]);
+const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
 
 const normalizeTaskCompletionStatus = (status) =>
   String(status || "").trim().toLowerCase();
+
+const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
+
+const isKnownBase = (value) => !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
+
+const firstKnownBase = (...values) => {
+  const match = values.find(isKnownBase);
+  return match ? normalizeBaseValue(match) : "";
+};
+
+const buildAircraftBaseMap = async () => {
+  const aircraft = await AircraftModel.find({}, "tailNum base").lean();
+  return new Map(
+    aircraft
+      .filter((item) => item?.tailNum && isKnownBase(item?.base))
+      .map((item) => [
+        String(item.tailNum).trim().toUpperCase(),
+        normalizeBaseValue(item.base),
+      ]),
+  );
+};
+
+const resolveAircraftBase = async (aircraft) => {
+  const tailNum = String(aircraft || "").trim();
+  if (!tailNum) return "";
+
+  const match = await AircraftModel.findOne(
+    { tailNum: tailNum.toUpperCase() },
+    "base",
+  ).lean();
+  return isKnownBase(match?.base) ? normalizeBaseValue(match.base) : "";
+};
+
+const resolveLogBase = (log = {}, aircraftBaseByTail = new Map()) =>
+  firstKnownBase(
+    log.base,
+    log.locationBase,
+    log.assignedBase,
+    log.stationBase,
+    aircraftBaseByTail.get(String(log.aircraft || "").trim().toUpperCase()),
+  ) || "UNKNOWN";
+
+const serializeMaintenanceLog = (log, aircraftBaseByTail = new Map()) => {
+  const plainLog = typeof log?.toObject === "function" ? log.toObject() : { ...log };
+  return {
+    ...plainLog,
+    base: resolveLogBase(plainLog, aircraftBaseByTail),
+  };
+};
 
 const normalizeText = (value = "") =>
   String(value || "")
@@ -342,12 +393,21 @@ const buildMaintenanceLogFromTask = async (task = {}) => {
     task.approvedAt ||
     new Date().toISOString();
   const workDetails = await buildWorkDetailsFromTask(task);
+  const aircraftBase = await resolveAircraftBase(task.aircraft);
 
   return {
     sourceTaskId,
     taskTitle: task.title || "",
     sourceTaskStatus: task.status || "",
     aircraft: task.aircraft || "Unknown aircraft",
+    base:
+      firstKnownBase(
+        task.base,
+        task.locationBase,
+        task.assignedBase,
+        task.stationBase,
+        aircraftBase,
+      ) || "UNKNOWN",
     defects: buildDefectStatement(task),
     dateDefectDiscovered: discoveredAt,
     correctiveActionDone: buildCorrectiveActionSummary(task),
@@ -405,6 +465,7 @@ const createMaintenanceLog = async (req, res) => {
   try {
     const {
       aircraft,
+      base,
       defects,
       dateDefectDiscovered,
       correctiveActionDone,
@@ -419,9 +480,13 @@ const createMaintenanceLog = async (req, res) => {
         message: "Aircraft and reportedBy are required fields.",
       });
     }
+    const resolvedBase =
+      firstKnownBase(base, req.headers["x-base"], await resolveAircraftBase(aircraft)) ||
+      "UNKNOWN";
 
     const newLog = await MaintenanceLog.create({
       aircraft,
+      base: resolvedBase,
       defects,
       dateDefectDiscovered,
       correctiveActionDone,
@@ -455,7 +520,11 @@ const createMaintenanceLog = async (req, res) => {
 const getAllMaintenanceLogs = async (req, res) => {
   try {
     const logs = await MaintenanceLog.find().sort({ dateDefectDiscovered: -1 });
-    res.status(200).json({ status: "Ok", data: logs });
+    const aircraftBaseByTail = await buildAircraftBaseMap();
+    res.status(200).json({
+      status: "Ok",
+      data: logs.map((log) => serializeMaintenanceLog(log, aircraftBaseByTail)),
+    });
   } catch (err) {
     console.error("Error fetching maintenance logs:", err);
     res.status(500).json({ message: "Failed to fetch maintenance logs" });
@@ -469,7 +538,11 @@ const getMaintenanceLogById = async (req, res) => {
     if (!log)
       return res.status(404).json({ message: "Maintenance log not found" });
 
-    res.status(200).json({ status: "Ok", data: log });
+    const aircraftBaseByTail = await buildAircraftBaseMap();
+    res.status(200).json({
+      status: "Ok",
+      data: serializeMaintenanceLog(log, aircraftBaseByTail),
+    });
   } catch (err) {
     console.error("Error fetching maintenance log:", err);
     res.status(500).json({ message: "Failed to fetch maintenance log" });
@@ -481,6 +554,7 @@ const updateMaintenanceLog = async (req, res) => {
   try {
     const {
       aircraft,
+      base,
       defects,
       dateDefectDiscovered,
       correctiveActionDone,
@@ -512,11 +586,19 @@ const updateMaintenanceLog = async (req, res) => {
           description: String(item?.description || "").trim(),
         }))
       : existingLog.workDetails;
+    const resolvedBase =
+      firstKnownBase(
+        base,
+        existingLog.base,
+        req.headers["x-base"],
+        await resolveAircraftBase(aircraft || existingLog.aircraft),
+      ) || "UNKNOWN";
 
     const updatedLog = await MaintenanceLog.findByIdAndUpdate(
       req.params.id,
       {
         aircraft,
+        base: resolvedBase,
         defects,
         dateDefectDiscovered,
         correctiveActionDone,
@@ -549,7 +631,7 @@ const updateMaintenanceLog = async (req, res) => {
       .status(200)
       .json({
         message: "Maintenance log updated successfully",
-        data: updatedLog,
+        data: serializeMaintenanceLog(updatedLog),
       });
   } catch (err) {
     console.error("Error updating maintenance log:", err);

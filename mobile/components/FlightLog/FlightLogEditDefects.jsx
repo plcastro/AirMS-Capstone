@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   Modal,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { styles } from "../../stylesheets/styles";
 //import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
@@ -126,7 +126,7 @@ export default function FlightLogEditDefects({
       <Modal transparent visible={visible} animationType="fade">
         <View style={styles.newEntryOverlay}>
           <View style={[styles.newEntryCard, { maxWidth: 700 }]}>
-            <Text style={styles.newEntryTitle}>Edit Defect Entry</Text>
+            <AppText style={styles.newEntryTitle}>Edit Defect Entry</AppText>
 
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -134,8 +134,8 @@ export default function FlightLogEditDefects({
             >
               {/* Aircraft Selection - Read Only */}
               <View style={styles.newEntryField}>
-                <Text style={styles.newEntryLabel}>Aircraft</Text>
-                <TextInput
+                <AppText style={styles.newEntryLabel}>Aircraft</AppText>
+                <AppInput
                   style={[styles.newEntryInput, { backgroundColor: "#f0f0f0" }]}
                   value={formData.aircraft}
                   editable={false}
@@ -144,8 +144,8 @@ export default function FlightLogEditDefects({
 
               {/* Date - Read Only */}
               <View style={styles.newEntryField}>
-                <Text style={styles.newEntryLabel}>Date</Text>
-                <TextInput
+                <AppText style={styles.newEntryLabel}>Date</AppText>
+                <AppInput
                   style={[styles.newEntryInput, { backgroundColor: "#f0f0f0" }]}
                   value={formData.date}
                   editable={false}
@@ -154,8 +154,8 @@ export default function FlightLogEditDefects({
 
               {/* Reported By - Read Only */}
               <View style={styles.newEntryField}>
-                <Text style={styles.newEntryLabel}>Reported By</Text>
-                <TextInput
+                <AppText style={styles.newEntryLabel}>Reported By</AppText>
+                <AppInput
                   style={[styles.newEntryInput, { backgroundColor: "#f0f0f0" }]}
                   value={formData.reportedBy}
                   editable={false}
@@ -164,8 +164,8 @@ export default function FlightLogEditDefects({
 
               {/* Description - Editable */}
               <View style={styles.newEntryField}>
-                <Text style={styles.newEntryLabel}>Description *</Text>
-                <TextInput
+                <AppText style={styles.newEntryLabel}>Description *</AppText>
+                <AppInput
                   style={[
                     styles.newEntryTextArea,
                     validationErrors.description && { borderColor: "#dc3545" },
@@ -177,18 +177,18 @@ export default function FlightLogEditDefects({
                   numberOfLines={4}
                 />
                 {validationErrors.description && (
-                  <Text
+                  <AppText
                     style={{ color: "#dc3545", fontSize: 12, marginTop: 4 }}
                   >
                     {validationErrors.description}
-                  </Text>
+                  </AppText>
                 )}
               </View>
 
               {/* Action - Editable */}
               <View style={styles.newEntryField}>
-                <Text style={styles.newEntryLabel}>Action *</Text>
-                <TextInput
+                <AppText style={styles.newEntryLabel}>Action *</AppText>
+                <AppInput
                   style={[
                     styles.newEntryTextArea,
                     validationErrors.action && { borderColor: "#dc3545" },
@@ -200,11 +200,11 @@ export default function FlightLogEditDefects({
                   numberOfLines={4}
                 />
                 {validationErrors.action && (
-                  <Text
+                  <AppText
                     style={{ color: "#dc3545", fontSize: 12, marginTop: 4 }}
                   >
                     {validationErrors.action}
-                  </Text>
+                  </AppText>
                 )}
               </View>
 
@@ -213,14 +213,14 @@ export default function FlightLogEditDefects({
                   style={styles.primaryAlertBtn}
                   onPress={handleSave}
                 >
-                  <Text style={styles.secondaryBtnTxt}>Update</Text>
+                  <AppText style={styles.secondaryBtnTxt}>Update</AppText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.secondaryBtn}
                   onPress={handleDiscard}
                 >
-                  <Text style={styles.secondaryBtnTxt}>Cancel</Text>
+                  <AppText style={styles.secondaryBtnTxt}>Cancel</AppText>
                 </TouchableOpacity>
               </View>
             </ScrollView>
