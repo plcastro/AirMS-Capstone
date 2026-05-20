@@ -5,6 +5,7 @@
   "scripts": {
     "start": "npx expo start --dev-client --scheme airms",
     "start:go": "npx expo start",
+    "android:release": "cd android && gradlew.bat assembleRelease && adb install -r app/build/outputs/apk/release/app-release.apk",
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
