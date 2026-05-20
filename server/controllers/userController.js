@@ -307,7 +307,6 @@ const buildLoginSuccessPayload = async ({
   await user.save();
 
   const session = await createUserSession(req, user._id, loginPlatform);
-  const sessionMinutes = 0;
 
   const token = jwt.sign(
     {
@@ -358,7 +357,6 @@ const buildLoginSuccessPayload = async ({
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
     sessionId: session.sessionId,
-    sessionMinutes,
     user: {
       id: user._id,
       username: user.username,
@@ -376,7 +374,6 @@ const buildLoginSuccessPayload = async ({
       platform: user.platform,
       base: session.base || loginBase,
       sessionId: session.sessionId,
-      sessionMinutes,
       lastSeenAt: user.lastSeenAt,
     },
   };
