@@ -1,11 +1,7 @@
 import React, { useState, useContext } from "react";
 import AppText from "./common/AppText";
-import {
-  CommonActions,
-  useNavigation } from "@react-navigation/native";
-import { View,
-  Image
-} from "react-native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -256,28 +252,6 @@ function DrawerContent({ navigation }) {
             marginBottom: 10,
           }}
         />
-        <View style={{ alignItems: "center", marginBottom: 8 }}>
-          {getUserImageUri(user?.image) ? (
-            <Avatar.Image
-              size={62}
-              source={{ uri: getUserImageUri(user?.image) }}
-              style={{ backgroundColor: "#eee" }}
-            />
-          ) : (
-            <Avatar.Text
-              size={62}
-              label={getUserInitials(user?.firstName, user?.lastName)}
-              style={{ backgroundColor: "#E6F4F1" }}
-              labelStyle={{ color: "#26866F", fontWeight: "700" }}
-            />
-          )}
-          <AppText style={{ marginTop: 8, fontSize: scale(12), fontWeight: "700" }}>
-            {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "User"}
-          </AppText>
-          <AppText style={{ fontSize: scale(10), color: "#777" }}>
-            {user?.jobTitle || ""}
-          </AppText>
-        </View>
 
         <View>
           {DrawerList.filter(isVisible).map((item) => {
