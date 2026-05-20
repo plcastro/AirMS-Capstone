@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema({
     type: [
       {
         deviceId: { type: String, required: true },
-        expoPushToken: { type: String, required: true },
+        fcmToken: { type: String, required: true },
         platform: { type: String, default: "unknown" },
         lastSeenAt: { type: Date, default: Date.now },
       },

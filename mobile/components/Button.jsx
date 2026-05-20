@@ -4,7 +4,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons"; // adjust to your icon lib
+import { MaterialIcons as Icon } from "@expo/vector-icons";
 
 export default function Button({
   iconName,

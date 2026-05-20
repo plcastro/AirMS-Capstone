@@ -875,8 +875,8 @@ const logoutUser = async (req, res) => {
 const registerMobilePushDevice = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { deviceId, fcmToken, platform } = req.body;
-    const pushToken = fcmToken;
+    const { deviceId, expoPushToken, fcmToken, platform } = req.body;
+    const pushToken = fcmToken || expoPushToken;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -892,13 +892,14 @@ const registerMobilePushDevice = async (req, res) => {
       {
         $or: [
           { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.fcmToken": pushToken },
           { "mobilePushDevices.expoPushToken": pushToken },
         ],
       },
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { expoPushToken: pushToken }],
+            $or: [{ deviceId }, { fcmToken: pushToken }, { expoPushToken: pushToken }],
           },
         },
       },
@@ -910,7 +911,7 @@ const registerMobilePushDevice = async (req, res) => {
         $push: {
           mobilePushDevices: {
             deviceId,
-            expoPushToken: pushToken,
+            fcmToken: pushToken,
             platform: platform || "unknown",
             lastSeenAt: new Date(),
           },
