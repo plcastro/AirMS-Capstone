@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -56,9 +60,9 @@ export default function PostInspectionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No post-inspections found
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -98,13 +102,13 @@ export default function PostInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                  <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
-                  </Text>
+                  </AppText>
 
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -119,7 +123,7 @@ export default function PostInspectionCards({
                       borderRadius: 12,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 9,
@@ -127,7 +131,7 @@ export default function PostInspectionCards({
                       }}
                     >
                       {statusStyle.label}
-                    </Text>
+                    </AppText>
                   </View>
 
                   {/* Export */}
@@ -148,15 +152,15 @@ export default function PostInspectionCards({
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Aircraft:</AppText>{" "}
                   {inspection.aircraftType || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Released By:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Released By:</AppText>{" "}
                   {inspection?.releasedBy?.name || "N/A"}
-                </Text>
+                </AppText>
               </View>
 
               {/* ICON (bottom-right like logs style) */}

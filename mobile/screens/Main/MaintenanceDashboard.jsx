@@ -6,7 +6,11 @@ import React, {
   useState,
   useContext,
 } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   formatDate,
@@ -675,7 +679,7 @@ export default function MaintenanceDashboard() {
                   alignItems: "center",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: selected ? COLORS.white : COLORS.grayDark,
                     fontSize: 11,
@@ -684,7 +688,7 @@ export default function MaintenanceDashboard() {
                   numberOfLines={2}
                 >
                   {label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}

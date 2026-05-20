@@ -1,11 +1,11 @@
 import React, { useRef } from "react";
+import AppText from "../components/common/AppText";
 import {
   View,
-  Text,
   Image,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -43,10 +43,10 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
             style={[styles.logo, { width: isSmall ? 180 : 230 }]}
           />
 
-          <Text style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
+          <AppText style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
             Aircraft Maintenance Made{" "}
-            <Text style={styles.highlight}>Smarter</Text>
-          </Text>
+            <AppText style={styles.highlight}>Smarter</AppText>
+          </AppText>
         </View>
       </View>
 
@@ -65,10 +65,10 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         bounces={false}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
+          <AppText style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
             {cardTitle}
-          </Text>
-          <Text style={styles.cardSubTitle}>{cardsubTitle}</Text>
+          </AppText>
+          <AppText style={styles.cardSubTitle}>{cardsubTitle}</AppText>
         </View>
 
         {children}

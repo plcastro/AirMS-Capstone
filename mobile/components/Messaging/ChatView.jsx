@@ -1,15 +1,15 @@
 import React, { useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   Linking,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
-  Platform,
+  Platform
 } from "react-native";
 
 import {
@@ -107,18 +107,18 @@ export default function ChatView({
               }}
               style={{ flex: 1, marginLeft: 10, minWidth: 0 }}
             >
-              <Text
+              <AppText
                 numberOfLines={1}
                 style={{ fontSize: 15, fontWeight: "800", color: COLORS.black }}
               >
                 {selectedConversationDetails?.title || "Conversation"}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 numberOfLines={1}
                 style={{ fontSize: 11, color: COLORS.grayDark }}
               >
                 {selectedConversationDetails?.subtitle || "Conversation"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
             {selectedConversationDetails?.type === "group" && (
@@ -179,7 +179,7 @@ export default function ChatView({
                     }}
                   >
                     {item.body ? (
-                      <Text
+                      <AppText
                         style={{
                           color: mine ? COLORS.white : COLORS.black,
                           fontSize: 14,
@@ -187,7 +187,7 @@ export default function ChatView({
                         }}
                       >
                         {item.body}
-                      </Text>
+                      </AppText>
                     ) : null}
                     {(item.attachments || []).map((attachment) => {
                       const url = getAttachmentUrl(attachment.url);
@@ -238,7 +238,7 @@ export default function ChatView({
                                 size={20}
                                 color={mine ? COLORS.white : COLORS.black}
                               />
-                              <Text
+                              <AppText
                                 numberOfLines={1}
                                 style={{
                                   marginLeft: 8,
@@ -249,7 +249,7 @@ export default function ChatView({
                                 }}
                               >
                                 {attachment.name || "Attachment"}
-                              </Text>
+                              </AppText>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -258,7 +258,7 @@ export default function ChatView({
                   </View>
 
                   {/* --- RESTORED TIME AND STATUS --- */}
-                  <Text
+                  <AppText
                     style={{
                       marginTop: 3,
                       paddingRight: mine ? 4 : 0,
@@ -277,7 +277,7 @@ export default function ChatView({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                  </Text>
+                  </AppText>
                 </View>
               );
             })}
@@ -340,7 +340,7 @@ export default function ChatView({
                       size={17}
                       color={COLORS.black}
                     />
-                    <Text
+                    <AppText
                       numberOfLines={1}
                       style={{
                         maxWidth: 190,
@@ -350,7 +350,7 @@ export default function ChatView({
                       }}
                     >
                       {file.name}
-                    </Text>
+                    </AppText>
                     <TouchableOpacity
                       onPress={() => removeAttachment(index)}
                       style={{
@@ -410,7 +410,7 @@ export default function ChatView({
                 color={COLORS.black}
               />
             </TouchableOpacity>
-            <TextInput
+            <AppInput
               value={draft}
               onChangeText={setDraft}
               placeholder="Message"

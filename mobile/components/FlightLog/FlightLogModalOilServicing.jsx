@@ -1,11 +1,11 @@
 import React, { useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
+  Image
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
@@ -44,10 +44,10 @@ export default function FlightLogModalOilServicing({
 
   const renderInput = (legIndex, label, fieldKey, placeholder = "", keyboardType = "default") => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
         {label}:
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
@@ -80,9 +80,9 @@ export default function FlightLogModalOilServicing({
   if (!legs || legs.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+        <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
           Oil Servicing
-        </Text>
+        </AppText>
         <View style={{
           backgroundColor: COLORS.white,
           borderRadius: 12,
@@ -91,7 +91,7 @@ export default function FlightLogModalOilServicing({
           padding: 40,
           alignItems: "center",
         }}>
-          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No legs available</Text>
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No legs available</AppText>
         </View>
       </ScrollView>
     );
@@ -99,9 +99,9 @@ export default function FlightLogModalOilServicing({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Oil Servicing
-      </Text>
+      </AppText>
 
       {legs.map((leg, legIndex) => {
         const legNumber = legIndex + 1;
@@ -126,40 +126,40 @@ export default function FlightLogModalOilServicing({
             }}
           >
             <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+              <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
                 {legNumber}{suffix} Leg
-              </Text>
+              </AppText>
             </View>
 
             <View style={{ padding: 20 }}>
               {renderInput(legIndex, "Date", "date", "MM/DD/YYYY")}
 
-              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 Engine
-              </Text>
+              </AppText>
               {renderInput(legIndex, "Engine (REM)", "engineRem", "Remaining", "numeric")}
               {renderInput(legIndex, "Engine (ADD)", "engineAdd", "Added", "numeric")}
               {renderInput(legIndex, "Engine (TOT)", "engineTot", "Total", "numeric")}
 
-              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 M/R G/Box
-              </Text>
+              </AppText>
               {renderInput(legIndex, "M/R G/Box (REM)", "mrGboxRem", "Remaining", "numeric")}
               {renderInput(legIndex, "M/R G/Box (ADD)", "mrGboxAdd", "Added", "numeric")}
               {renderInput(legIndex, "M/R G/Box (TOT)", "mrGboxTot", "Total", "numeric")}
 
-              <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 T/R G/Box
-              </Text>
+              </AppText>
               {renderInput(legIndex, "T/R G/Box (REM)", "trGboxRem", "Remaining", "numeric")}
               {renderInput(legIndex, "T/R G/Box (ADD)", "trGboxAdd", "Added", "numeric")}
               {renderInput(legIndex, "T/R G/Box (TOT)", "trGboxTot", "Total", "numeric")}
 
               <View style={{ marginBottom: 16, marginTop: 8 }}>
-                <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Remarks:
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={{
                     backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
                     borderRadius: 6,
@@ -181,9 +181,9 @@ export default function FlightLogModalOilServicing({
               </View>
 
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Sign:
-                </Text>
+                </AppText>
                 {isEditable ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
@@ -203,7 +203,7 @@ export default function FlightLogModalOilServicing({
                         style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                       />
                     ) : (
-                      <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>Tap to sign</Text>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>Tap to sign</AppText>
                     )}
                   </TouchableOpacity>
                 ) : (
@@ -222,13 +222,13 @@ export default function FlightLogModalOilServicing({
                         style={{ width: "100%", height: "100%", resizeMode: "contain" }}
                       />
                     ) : (
-                      <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No signature</Text>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No signature</AppText>
                     )}
                   </View>
                 )}
                 {isEditable && oilData.signature && (
                   <TouchableOpacity onPress={() => handleClearSignature(legIndex)} style={{ alignSelf: "flex-end", marginTop: 8 }}>
-                    <Text style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</Text>
+                    <AppText style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</AppText>
                   </TouchableOpacity>
                 )}
               </View>

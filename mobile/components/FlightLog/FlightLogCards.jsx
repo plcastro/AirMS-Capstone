@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -78,7 +82,7 @@ export default function FlightLogCards({
   if (!logs || logs.length === 0) {
     return (
       <View style={{ padding: 30, alignItems: "center" }}>
-        <Text>No flight logs found</Text>
+        <AppText>No flight logs found</AppText>
       </View>
     );
   }
@@ -117,12 +121,12 @@ export default function FlightLogCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                  <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {log.rpc || "N/A"}
-                  </Text>
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  </AppText>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {formatDate(log.dateAdded || log.date)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -137,7 +141,7 @@ export default function FlightLogCards({
                       borderRadius: 12,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 9,
@@ -145,7 +149,7 @@ export default function FlightLogCards({
                       }}
                     >
                       {statusStyle.label}
-                    </Text>
+                    </AppText>
                   </View>
 
                   <TouchableOpacity onPress={() => onExport?.(log)}>
@@ -165,14 +169,14 @@ export default function FlightLogCards({
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Aircraft:</AppText>{" "}
                   {log.aircraftType || "N/A"}
-                </Text>
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Control:</Text>{" "}
+                </AppText>
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Control:</AppText>{" "}
                   {log.control || "N/A"}
-                </Text>
+                </AppText>
               </View>
 
               {/* Icon */}

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useContext } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   ScrollView,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { secureGetItem } from "../../utilities/secureStorage";
@@ -229,10 +229,10 @@ export default function Login() {
           cardTitle="Login"
           cardsubTitle="Sign in to access your AirMS account"
         >
-          <Text style={[styles.label, { textAlign: "left" }]}>
+          <AppText style={[styles.label, { textAlign: "left" }]}>
             Username or Email
-          </Text>
-          <TextInput
+          </AppText>
+          <AppInput
             style={styles.formInput}
             maxLength={256}
             placeholder="Username or Email"
@@ -242,9 +242,9 @@ export default function Login() {
             value={formData.identifier}
             onChangeText={(text) => changeHandler("identifier", text)}
           />
-          <Text style={styles.label}>Password</Text>
+          <AppText style={styles.label}>Password</AppText>
           <View style={{ position: "relative", justifyContent: "center" }}>
-            <TextInput
+            <AppInput
               style={[styles.formInput, { paddingRight: 50 }]}
               maxLength={256}
               placeholder="Password"
@@ -272,7 +272,7 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.label}>Logging in from</Text>
+          <AppText style={styles.label}>Logging in from</AppText>
           <View style={styles.loginPickerContainer}>
             <Picker
               selectedValue={selectedBase}
@@ -286,7 +286,7 @@ export default function Login() {
             </Picker>
           </View>
           {getMessage && !loginSuccess && (
-            <Text style={styles.error}>{getMessage}</Text>
+            <AppText style={styles.error}>{getMessage}</AppText>
           )}
           <View style={styles.loginHelper}>
             <CheckBox

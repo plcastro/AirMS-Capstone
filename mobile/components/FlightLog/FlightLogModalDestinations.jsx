@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -106,10 +106,10 @@ export default function FlightLogModalDestinations({
 
   const renderInput = (legIdx, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 4,
@@ -142,9 +142,9 @@ export default function FlightLogModalDestinations({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Destination/s
-      </Text>
+      </AppText>
 
       {legs.map((leg, legIdx) => {
         const legNumber = legIdx + 1;
@@ -172,9 +172,9 @@ export default function FlightLogModalDestinations({
               justifyContent: "space-between",
               alignItems: "center",
             }}>
-              <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+              <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
                 {legNumber}{suffix} Leg
-              </Text>
+              </AppText>
               {isEditable && legs.length > 1 && (
                 <TouchableOpacity onPress={() => removeLeg(legIdx)}>
                   <MaterialCommunityIcons name="close" size={20} color={COLORS.white} />
@@ -183,14 +183,14 @@ export default function FlightLogModalDestinations({
             </View>
 
             <View style={{ padding: 20 }}>
-              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
+              <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
                 Station *
-              </Text>
+              </AppText>
 
               {/* Stations List */}
               {leg.stations.map((station, stationIdx) => (
                 <View key={stationIdx} style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                  <TextInput
+                  <AppInput
                     style={{
                       flex: 1,
                       backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
@@ -206,8 +206,8 @@ export default function FlightLogModalDestinations({
                     placeholderTextColor={COLORS.grayDark}
                     editable={isEditable}
                   />
-                  <Text style={{ marginHorizontal: 8, fontSize: 12, color: COLORS.black }}>-</Text>
-                  <TextInput
+                  <AppText style={{ marginHorizontal: 8, fontSize: 12, color: COLORS.black }}>-</AppText>
+                  <AppInput
                     style={{
                       flex: 1,
                       backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
@@ -254,14 +254,14 @@ export default function FlightLogModalDestinations({
                     marginBottom: 20,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Station</Text>
+                  <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Station</AppText>
                 </TouchableOpacity>
               )}
 
               <View style={{ marginTop: 10 }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12}}>
+                <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12}}>
                   Time Information
-                </Text>
+                </AppText>
                 {renderInput(legIdx, "Block Time (ON)", "blockTimeOn")}
                 {renderInput(legIdx, "Block Time (OFF)", "blockTimeOff")}
                 {renderInput(legIdx, "Flight Time (ON)", "flightTimeOn")}
@@ -291,7 +291,7 @@ export default function FlightLogModalDestinations({
             marginBottom: 20,
           }}
         >
-          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Leg</Text>
+          <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Leg</AppText>
         </TouchableOpacity>
       )}
     </ScrollView>

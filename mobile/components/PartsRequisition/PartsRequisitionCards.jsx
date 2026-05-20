@@ -1,5 +1,9 @@
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -94,9 +98,9 @@ export default function PartsRequisitionCards({
           size={56}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
           Loading parts requisitions...
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -118,9 +122,9 @@ export default function PartsRequisitionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No parts requisitions found
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -168,17 +172,17 @@ export default function PartsRequisitionCards({
                 }}
               >
                 <View>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 13,
                       fontWeight: "600",
                     }}
                   >
                     Warehouse Slip
-                  </Text>
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  </AppText>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {item.dateRequested}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -189,7 +193,7 @@ export default function PartsRequisitionCards({
                     borderRadius: 12,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: statusStyle.textColor,
                       fontSize: 10,
@@ -197,7 +201,7 @@ export default function PartsRequisitionCards({
                     }}
                   >
                     {statusStyle.label}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 
@@ -208,20 +212,20 @@ export default function PartsRequisitionCards({
                   paddingBottom: 12,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Slip No:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Slip No:</AppText>{" "}
                   {item.slipNo || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Items:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Items:</AppText>{" "}
                   {item.itemSummary || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Purpose:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Purpose:</AppText>{" "}
                   {item.purpose || "N/A"}
-                </Text>
+                </AppText>
               </View>
 
               {/* ✅ ACTIONS (aligned right like you asked earlier) */}

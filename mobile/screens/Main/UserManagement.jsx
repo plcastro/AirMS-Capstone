@@ -5,15 +5,15 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -402,7 +402,7 @@ export default function UserManagement() {
           size={20}
           color={COLORS.grayDark}
         />
-        <TextInput
+        <AppInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search name, email, role, or base..."
@@ -443,9 +443,9 @@ export default function UserManagement() {
               size={60}
               color={COLORS.grayMedium}
             />
-            <Text style={{ color: COLORS.grayDark }}>
+            <AppText style={{ color: COLORS.grayDark }}>
               No users matched your criteria
-            </Text>
+            </AppText>
           </View>
         ) : (
           filteredUsers.map((item) => (

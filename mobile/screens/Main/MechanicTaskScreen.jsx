@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput } from "react-native";
+import AppInput from "../../components/common/AppInput";
+import {
+  View
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -401,7 +404,7 @@ export default function MechanicTaskScreen({
         ]}
       >
         <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
-          <TextInput
+          <AppInput
             placeholder="Search tasks"
             placeholderTextColor="#666"
             style={styles.unifiedSearchInput}

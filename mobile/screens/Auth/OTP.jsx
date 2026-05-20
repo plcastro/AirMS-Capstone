@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from "react";
+import AppText from "../../components/common/AppText";
 import {
-  Text,
   KeyboardAvoidingView,
   ScrollView,
   View,
-  Pressable,
+  Pressable
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -256,9 +256,9 @@ export default function OTP() {
                 justifyContent: "space-between",
               }}
             >
-              <Text style={{ color: "#1f2937", fontWeight: "600" }}>
+              <AppText style={{ color: "#1f2937", fontWeight: "600" }}>
                 Trust this device for 30 days
-              </Text>
+              </AppText>
               <Pressable
                 onPress={() => setTrustDevice((prev) => !prev)}
                 accessibilityRole="checkbox"
@@ -275,9 +275,9 @@ export default function OTP() {
                 }}
               >
                 {trustDevice && (
-                  <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+                  <AppText style={{ color: "#ffffff", fontWeight: "700" }}>
                     ✓
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             </View>
@@ -292,9 +292,9 @@ export default function OTP() {
             buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
             buttonTextStyle={styles.secondaryBtnTxt}
           />
-          <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+          <AppText style={{ color: "red", marginTop: 10, textAlign: "left" }}>
             {pinReady ? message : ""}
-          </Text>
+          </AppText>
         </LoginLayout>
       </ScrollView>
     </KeyboardAvoidingView>

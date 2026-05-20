@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   Modal,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -310,7 +310,7 @@ export default function PartsRequisitionDetails({
               borderBottomColor: "#E8E8E8",
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "600",
@@ -318,7 +318,7 @@ export default function PartsRequisitionDetails({
               }}
             >
               Request Details
-            </Text>
+            </AppText>
 
             <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
               <MaterialCommunityIcons
@@ -338,7 +338,7 @@ export default function PartsRequisitionDetails({
             }}
           >
             <View style={{ alignItems: "center", marginBottom: 18 }}>
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -346,7 +346,7 @@ export default function PartsRequisitionDetails({
                 }}
               >
                 Overall Request Status:
-              </Text>
+              </AppText>
               <View
                 style={{
                   borderWidth: 1,
@@ -356,7 +356,7 @@ export default function PartsRequisitionDetails({
                   paddingVertical: 6,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: overallStatusStyle.textColor,
                     fontSize: 12,
@@ -364,7 +364,7 @@ export default function PartsRequisitionDetails({
                   }}
                 >
                   {getDisplayStatusLabel(request.overallStatus)}
-                </Text>
+                </AppText>
               </View>
             </View>
 
@@ -377,7 +377,7 @@ export default function PartsRequisitionDetails({
                 ["Total Quantity", request.totalQuantity],
               ].map(([label, value]) => (
                 <View key={label} style={{ marginBottom: 10 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: COLORS.grayDark,
@@ -385,8 +385,8 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     {label}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: COLORS.black,
@@ -394,12 +394,12 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     {value}
-                  </Text>
+                  </AppText>
                 </View>
               ))}
             </View>
 
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "700",
@@ -408,7 +408,7 @@ export default function PartsRequisitionDetails({
               }}
             >
               Request Items
-            </Text>
+            </AppText>
 
             <View
               style={{
@@ -433,10 +433,10 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Item Name
-                      </Text>
-                      <Text
+                      </AppText>
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: COLORS.black,
@@ -444,14 +444,14 @@ export default function PartsRequisitionDetails({
                         }}
                       >
                         {item.itemName}
-                      </Text>
+                      </AppText>
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Purpose
-                      </Text>
-                      <Text
+                      </AppText>
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: COLORS.black,
@@ -459,14 +459,14 @@ export default function PartsRequisitionDetails({
                         }}
                       >
                         {item.purpose}
-                      </Text>
+                      </AppText>
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Requested
-                      </Text>
-                      <Text
+                      </AppText>
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: COLORS.black,
@@ -474,15 +474,15 @@ export default function PartsRequisitionDetails({
                         }}
                       >
                         {item.requested}
-                      </Text>
+                      </AppText>
                     </View>
 
                     <View style={{ marginBottom: 8 }}>
-                      <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                         Available Qty
-                      </Text>
+                      </AppText>
                       {canEditStock ? (
-                        <TextInput
+                        <AppInput
                           keyboardType="numeric"
                           value={String(availableQtyMap[rawItem._id] ?? "")}
                           onChangeText={(value) =>
@@ -505,7 +505,7 @@ export default function PartsRequisitionDetails({
                           }}
                         />
                       ) : (
-                        <Text
+                        <AppText
                           style={{
                             fontSize: 12,
                             color: COLORS.black,
@@ -513,12 +513,12 @@ export default function PartsRequisitionDetails({
                           }}
                         >
                           {item.availableQty || rawItem.availableQty || "0"}
-                        </Text>
+                        </AppText>
                       )}
                     </View>
 
                     <View>
-                      <Text
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: COLORS.grayDark,
@@ -526,7 +526,7 @@ export default function PartsRequisitionDetails({
                         }}
                       >
                         Status
-                      </Text>
+                      </AppText>
                       <View
                         style={{
                           alignSelf: "flex-start",
@@ -537,14 +537,14 @@ export default function PartsRequisitionDetails({
                           paddingVertical: 4,
                         }}
                       >
-                      <Text
+                      <AppText
                         style={{
                           color: badgeStyle.textColor,
                           fontSize: 12,
                         }}
                       >
                           {getDisplayStatusLabel(item.status)}
-                        </Text>
+                        </AppText>
                       </View>
                     </View>
                   </View>
@@ -552,7 +552,7 @@ export default function PartsRequisitionDetails({
               })}
             </View>
 
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "700",
@@ -561,7 +561,7 @@ export default function PartsRequisitionDetails({
               }}
             >
               Warehouse Flow
-            </Text>
+            </AppText>
 
             {request.timeline.map((entry, index) => {
               const badgeStyle = getTimelineBadgeStyle(entry.status);
@@ -605,17 +605,17 @@ export default function PartsRequisitionDetails({
                         marginBottom: 8,
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           color: badgeStyle.textColor,
                           fontSize: 12,
                         }}
                       >
                         {getDisplayStatusLabel(entry.status)}
-                      </Text>
+                      </AppText>
                     </View>
 
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -623,8 +623,8 @@ export default function PartsRequisitionDetails({
                       }}
                     >
                       {entry.dateTime}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -633,10 +633,10 @@ export default function PartsRequisitionDetails({
                       }}
                     >
                       {entry.by}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                    </AppText>
+                    <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {entry.description}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
               );
@@ -653,7 +653,7 @@ export default function PartsRequisitionDetails({
                   marginBottom: 16,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color: COLORS.black,
@@ -662,8 +662,8 @@ export default function PartsRequisitionDetails({
                   }}
                 >
                   {stockAction.title}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{
                     fontSize: 12,
                     color: COLORS.grayDark,
@@ -684,7 +684,7 @@ export default function PartsRequisitionDetails({
                     "Restock confirmed. Waiting for maintenance approval."}
                   {["Delivered", "Cancelled"].includes(currentStatus) &&
                     "No further warehouse action is needed."}
-                </Text>
+                </AppText>
                 <TouchableOpacity
                   activeOpacity={stockAction.disabled ? 1 : 0.8}
                   disabled={stockAction.disabled}
@@ -699,7 +699,7 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontSize: 12,
@@ -707,7 +707,7 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     {stockAction.label}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             )}
@@ -734,7 +734,7 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: canOrder ? "#C26A00" : "#9E9E9E",
                       fontSize: 12,
@@ -742,7 +742,7 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     {getDisplayStatusLabel(orderLabel)}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -756,7 +756,7 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontSize: 12,
@@ -764,7 +764,7 @@ export default function PartsRequisitionDetails({
                     }}
                   >
                     {approveLabel}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             )}

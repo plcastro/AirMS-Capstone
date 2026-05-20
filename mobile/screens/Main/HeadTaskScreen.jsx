@@ -1,11 +1,11 @@
 import React, { useContext, useState, useEffect } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  TextInput,
   FlatList,
-  Text,
   Dimensions,
-  RefreshControl,
+  RefreshControl
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
@@ -523,9 +523,9 @@ export default function HeadTaskScreen({
             borderTopRightRadius: 4,
           }}
         >
-          <Text style={{ fontWeight: "600", fontSize: 16 }}>
+          <AppText style={{ fontWeight: "600", fontSize: 16 }}>
             {formatDisplayDate(item.endDateTime || item.dueDate)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Task Card */}
@@ -555,7 +555,7 @@ export default function HeadTaskScreen({
       <View
         style={[styles.searchRow, { marginBottom: 10, flexWrap: "nowrap" }]}
       >
-        <TextInput
+        <AppInput
           placeholder="Search tasks"
           placeholderTextColor={COLORS.grayDark}
           style={[
@@ -624,13 +624,13 @@ export default function HeadTaskScreen({
             <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
           }
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 20 }}>
+            <AppText style={{ textAlign: "center", marginTop: 20 }}>
               {activeTab === "Assigned"
                 ? "No tasks assigned in this tab"
                 : activeTab === "For Review"
                   ? "No tasks for review in this tab"
                   : "No tasks reviewed in this tab"}
-            </Text>
+            </AppText>
           }
         />
       </View>

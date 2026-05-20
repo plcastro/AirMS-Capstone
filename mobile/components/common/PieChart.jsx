@@ -1,5 +1,8 @@
 import React from "react";
-import { View, Text } from "react-native";
+import AppText from "./AppText";
+import {
+  View
+} from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -13,7 +16,7 @@ export default function PieChart({ data = [], size = 160 }) {
   const total = safeData.reduce((sum, item) => sum + Number(item.value || 0), 0);
 
   if (!total) {
-    return <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No chart data</Text>;
+    return <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No chart data</AppText>;
   }
 
   let cumulative = 0;
@@ -47,7 +50,7 @@ export default function PieChart({ data = [], size = 160 }) {
           );
         })}
       </Svg>
-      <Text style={{ marginTop: -10, color: COLORS.grayDark, fontSize: 12 }}>{`Total: ${total}`}</Text>
+      <AppText style={{ marginTop: -10, color: COLORS.grayDark, fontSize: 12 }}>{`Total: ${total}`}</AppText>
     </View>
   );
 }

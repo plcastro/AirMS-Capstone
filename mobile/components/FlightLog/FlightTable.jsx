@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Dimensions } from "react-native";
+import AppText from "../common/AppText";`r`nimport { View, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
 import Button from "../Button";
 import AlertComp from "../AlertComp";
@@ -212,14 +212,14 @@ export default function FlightTable({
                 }
               }}
             >
-              <Text style={styles.tableHeaderText}>
+              <AppText style={styles.tableHeaderText}>
                 {header.label}
                 {sortColumn === header.key && (
-                  <Text style={{ fontSize: 12 }}>
+                  <AppText style={{ fontSize: 12 }}>
                     {sortDirection === "asc" ? " ↑" : " ↓"}
-                  </Text>
+                  </AppText>
                 )}
-              </Text>
+              </AppText>
             </DataTable.Title>
           ))}
         </DataTable.Header>
@@ -234,7 +234,7 @@ export default function FlightTable({
                 justifyContent: "center",
               }}
             >
-              <Text
+              <AppText
                 style={{
                   textAlign: "center",
                   color: "#666",
@@ -242,7 +242,7 @@ export default function FlightTable({
                 }}
               >
                 No data available
-              </Text>
+              </AppText>
             </DataTable.Cell>
           </DataTable.Row>
         ) : (
@@ -277,7 +277,7 @@ export default function FlightTable({
                     {isActionColumn ? (
                       renderActions(row)
                     ) : (
-                      <Text
+                      <AppText
                         style={[
                           styles.tableCell,
                           {
@@ -296,7 +296,7 @@ export default function FlightTable({
                         ellipsizeMode="tail"
                       >
                         {row[header.key] ?? "-"}
-                      </Text>
+                      </AppText>
                     )}
                   </DataTable.Cell>
                 );

@@ -1,11 +1,11 @@
 import React, { useContext, useRef, useState } from "react";
+import AppText from "../common/AppText";
 import {
   ActivityIndicator,
   Image,
   Modal,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -154,11 +154,11 @@ export default function PreInspectionSignatureModal({
               marginBottom: 12,
             }}
           >
-            <Text
+            <AppText
               style={{ fontSize: 14, fontWeight: "600", color: COLORS.black }}
             >
               {title}
-            </Text>
+            </AppText>
             <TouchableOpacity onPress={handleClose}>
               <MaterialCommunityIcons
                 name="close"
@@ -168,13 +168,13 @@ export default function PreInspectionSignatureModal({
             </TouchableOpacity>
           </View>
 
-          <Text
+          <AppText
             style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 16 }}
           >
             {step === "signature"
               ? `Draw your signature below to ${actionLabel} the pre-flight inspection for RP-C ${aircraftRPC || "N/A"}.`
               : `Enter your 6-digit PIN to confirm that you want to ${actionLabel} this pre-flight inspection.`}
-          </Text>
+          </AppText>
 
           {step === "signature" ? (
             <>
@@ -224,9 +224,9 @@ export default function PreInspectionSignatureModal({
                     opacity: submitting ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
                     Cancel
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -240,9 +240,9 @@ export default function PreInspectionSignatureModal({
                     backgroundColor: "#D9534F",
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                     Clear
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </>
@@ -306,9 +306,9 @@ export default function PreInspectionSignatureModal({
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
                   Cancel
-                </Text>
+                </AppText>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -322,13 +322,13 @@ export default function PreInspectionSignatureModal({
                 opacity: submitting ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+              <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                 {submitting
                   ? "Please wait..."
                   : step === "signature"
                     ? "Continue"
                     : "Sign and Confirm"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
           </View>

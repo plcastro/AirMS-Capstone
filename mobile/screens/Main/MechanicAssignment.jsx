@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, FlatList, TouchableOpacity } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  View,
+  FlatList,
+  TouchableOpacity
+} from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -112,7 +117,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             marginBottom: 8,
           }}
         >
-          <Text
+          <AppText
             style={{
               fontWeight: "bold",
               fontSize: 12,
@@ -122,7 +127,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             }}
           >
             {item.title} - {item.maintenanceType || "Corrective Maintenance"}
-          </Text>
+          </AppText>
 
           {item.status === "Returned" && (
             <View
@@ -133,11 +138,11 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 borderRadius: 4,
               }}
             >
-              <Text
+              <AppText
                 style={{ color: "#c62828", fontWeight: "500", fontSize: 12 }}
               >
                 Returned
-              </Text>
+              </AppText>
             </View>
           )}
 
@@ -150,26 +155,26 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 borderRadius: 4,
               }}
             >
-              <Text
+              <AppText
                 style={{ color: "#2e7d32", fontWeight: "500", fontSize: 12 }}
               >
                 Turned in
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
 
-        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
+        <AppText style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Aircraft: {item.aircraft}
-        </Text>
-        <Text style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
+        </AppText>
+        <AppText style={{ color: "#666", fontSize: 12, marginBottom: 4 }}>
           Due: {formatDateTime(deadlineValue)}
-        </Text>
+        </AppText>
 
         {wasLate && (
-          <Text style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4 }}>
+          <AppText style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4 }}>
             {overdueText} | Due at {dueTime}
-          </Text>
+          </AppText>
         )}
       </TouchableOpacity>
     );
@@ -196,9 +201,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
           onPress={onBack}
           style={{ marginRight: 15, padding: 5 }}
         >
-          <Text style={{ fontSize: 12, color: COLORS.primaryLight }}>
+          <AppText style={{ fontSize: 12, color: COLORS.primaryLight }}>
             {"<"}
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         <View
@@ -212,13 +217,13 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
+          <AppText style={{ color: "#fff", fontSize: 14, fontWeight: "600"}}>
             {mechanic.name.charAt(0)}
-          </Text>
+          </AppText>
         </View>
 
         <View>
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               fontWeight: "bold",
@@ -227,10 +232,10 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             }}
           >
             {mechanic.name}
-          </Text>
-          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+          </AppText>
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
             {mechanic.jobTitle || "Mechanic"}
-          </Text>
+          </AppText>
           <View
             style={{
               flexDirection: "row",
@@ -247,9 +252,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 backgroundColor: isOnline ? "#22c55e" : "#9ca3af",
               }}
             />
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               {isOnline ? "Online" : "Offline"} • {activePlatform}
-            </Text>
+            </AppText>
           </View>
         </View>
       </View>
@@ -271,7 +276,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 activeTab === tab ? COLORS.primaryLight : COLORS.border,
             }}
           >
-            <Text
+            <AppText
               style={{
                 color: activeTab === tab ? "#fff" : COLORS.grayDark,
                 fontWeight: "600",
@@ -282,7 +287,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
                 ? completedTasks.length
                 : ongoingTasks.length}
               )
-            </Text>
+            </AppText>
           </TouchableOpacity>
         ))}
       </View>
@@ -294,9 +299,9 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               No {activeTab.toLowerCase()} tasks assigned to this mechanic
-            </Text>
+            </AppText>
           </View>
         }
       />

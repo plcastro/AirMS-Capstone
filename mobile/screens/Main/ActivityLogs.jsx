@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
-  View,
+  View
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
@@ -354,7 +354,7 @@ export default function ActivityLogs() {
           size={20}
           color={COLORS.grayDark}
         />
-        <TextInput
+        <AppInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search logs"
@@ -365,7 +365,7 @@ export default function ActivityLogs() {
 
       <View style={styles.filtersRow}>
         <View style={styles.filterCard}>
-          <Text style={styles.filterLabel}>Action Type</Text>
+          <AppText style={styles.filterLabel}>Action Type</AppText>
           <Picker selectedValue={actionType} onValueChange={setActionType}>
             {ACTION_TYPES.map((type) => (
               <Picker.Item
@@ -382,7 +382,7 @@ export default function ActivityLogs() {
         </View>
 
         <View style={styles.filterCard}>
-          <Text style={styles.filterLabel}>Date Range</Text>
+          <AppText style={styles.filterLabel}>Date Range</AppText>
           <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
             {DATE_RANGE_OPTIONS.map((value) => (
               <Picker.Item key={value.value} value={value.value} label={value.label} />
@@ -391,7 +391,7 @@ export default function ActivityLogs() {
         </View>
 
         <View style={styles.filterCard}>
-          <Text style={styles.filterLabel}>Scope</Text>
+          <AppText style={styles.filterLabel}>Scope</AppText>
           <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
             {scopeOptions.map((value) => (
               <Picker.Item
@@ -405,49 +405,49 @@ export default function ActivityLogs() {
       </View>
 
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsTitle}>Activity Trends</Text>
+        <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
         <AreaChart data={trendSeries} height={130} />
         <View style={styles.trendLabelsRow}>
           {trendSeries.map((point) => (
-            <Text key={point.date} style={styles.trendLabel}>
+            <AppText key={point.date} style={styles.trendLabel}>
               {point.label}
-            </Text>
+            </AppText>
           ))}
         </View>
         <View style={styles.kpiRow}>
           <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Create</Text>
-            <Text style={styles.kpiValue}>{actionCounts.create}</Text>
+            <AppText style={styles.kpiLabel}>Create</AppText>
+            <AppText style={styles.kpiValue}>{actionCounts.create}</AppText>
           </View>
           <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Update</Text>
-            <Text style={styles.kpiValue}>{actionCounts.update}</Text>
+            <AppText style={styles.kpiLabel}>Update</AppText>
+            <AppText style={styles.kpiValue}>{actionCounts.update}</AppText>
           </View>
           <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Delete</Text>
-            <Text style={styles.kpiValue}>{actionCounts.delete}</Text>
+            <AppText style={styles.kpiLabel}>Delete</AppText>
+            <AppText style={styles.kpiValue}>{actionCounts.delete}</AppText>
           </View>
           <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Login</Text>
-            <Text style={styles.kpiValue}>{actionCounts.login}</Text>
+            <AppText style={styles.kpiLabel}>Login</AppText>
+            <AppText style={styles.kpiValue}>{actionCounts.login}</AppText>
           </View>
           <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Logout</Text>
-            <Text style={styles.kpiValue}>{actionCounts.logout}</Text>
+            <AppText style={styles.kpiLabel}>Logout</AppText>
+            <AppText style={styles.kpiValue}>{actionCounts.logout}</AppText>
           </View>
         </View>
         <View style={styles.groupSummaryWrap}>
-          <Text style={styles.groupSummaryTitle}>Top Users</Text>
+          <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
           {groupedSummary.topUsers.map(([name, count]) => (
-            <Text key={name} style={styles.groupSummaryText}>
+            <AppText key={name} style={styles.groupSummaryText}>
               {name}: {count}
-            </Text>
+            </AppText>
           ))}
-          <Text style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</Text>
+          <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</AppText>
           {groupedSummary.topModules.map(([name, count]) => (
-            <Text key={name} style={styles.groupSummaryText}>
+            <AppText key={name} style={styles.groupSummaryText}>
               {name}: {count}
-            </Text>
+            </AppText>
           ))}
         </View>
       </View>
@@ -472,7 +472,7 @@ export default function ActivityLogs() {
               size={44}
               color={COLORS.grayMedium}
             />
-            <Text style={styles.emptyText}>No logs found</Text>
+            <AppText style={styles.emptyText}>No logs found</AppText>
           </View>
         ) : (
           paginatedLogs.map((item) => {
@@ -482,9 +482,9 @@ export default function ActivityLogs() {
             return (
               <View key={String(item._id)} style={styles.logCard}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>
+                  <AppText style={styles.cardTitle}>
                     {item.actionMade || "N/A"}
-                  </Text>
+                  </AppText>
                   <View
                     style={[
                       styles.tag,
@@ -494,31 +494,31 @@ export default function ActivityLogs() {
                       },
                     ]}
                   >
-                    <Text
+                    <AppText
                       style={[styles.tagText, { color: actionColors.text }]}
                     >
                       {actionCategory.toUpperCase()}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 
-                <Text style={styles.userText}>
+                <AppText style={styles.userText}>
                   User: {item.username || "Unknown"}
-                </Text>
-                <Text style={styles.dateText}>
+                </AppText>
+                <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
-                </Text>
+                </AppText>
 
                 <View style={styles.metaTagsRow}>
                   <View style={[styles.tag, styles.baseTag]}>
-                    <Text style={[styles.tagText, styles.baseTagText]}>
+                    <AppText style={[styles.tagText, styles.baseTagText]}>
                       BASE: {item.base || "UNKNOWN"}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={[styles.tag, styles.platformTag]}>
-                    <Text style={[styles.tagText, styles.platformTagText]}>
+                    <AppText style={[styles.tagText, styles.platformTagText]}>
                       {String(item.platform || "unknown").toUpperCase()}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
               </View>
@@ -527,11 +527,11 @@ export default function ActivityLogs() {
         )}
         {filteredLogs.length > 0 && (
           <View style={styles.paginationRow}>
-            <Text style={styles.paginationText}>
+            <AppText style={styles.paginationText}>
               Page {currentPage} of {totalPages}
-            </Text>
+            </AppText>
             <View style={styles.paginationButtonsRow}>
-              <Text
+              <AppText
                 onPress={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 style={[
                   styles.paginationButton,
@@ -539,8 +539,8 @@ export default function ActivityLogs() {
                 ]}
               >
                 Prev
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 onPress={() =>
                   setCurrentPage((page) => Math.min(totalPages, page + 1))
                 }
@@ -550,7 +550,7 @@ export default function ActivityLogs() {
                 ]}
               >
                 Next
-              </Text>
+              </AppText>
             </View>
           </View>
         )}

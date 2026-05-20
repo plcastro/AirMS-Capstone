@@ -1,9 +1,9 @@
 import React, { useContext, useEffect } from "react";
+import AppText from "./components/common/AppText";
 import {
   Platform,
   Image,
   TouchableOpacity,
-  Text,
   View,
   Modal,
   Pressable,
@@ -16,6 +16,7 @@ import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
+import { FontScaleProvider, useFontScale } from "./Context/FontScaleContext";
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
@@ -90,6 +91,7 @@ const Screens = {
 
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
+  const { scale } = useFontScale();
   const normalizedRole = user?.jobTitle?.toLowerCase() || "";
   const canAccessFlightAndPreInspection = [
     "maintenance manager",
@@ -185,7 +187,7 @@ function DrawerNav({ navigation }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 14,
+      fontSize: scale(14),
       fontWeight: 200,
     },
   };
@@ -232,12 +234,12 @@ function DrawerNav({ navigation }) {
               />
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
+                  <AppText style={{ fontSize: scale(14), fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#777" }}>
+                  </AppText>
+                  <AppText style={{ fontSize: scale(12), color: "#777" }}>
                     {user?.jobTitle || ""}
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </TouchableOpacity>
@@ -439,6 +441,7 @@ function AppShell({ linking }) {
     continueSession,
     logoutUser,
   } = useContext(AuthContext);
+  const { scale } = useFontScale();
   const shouldShowSessionWarning =
     Boolean(user) &&
     showSessionTimeoutWarning === true &&
@@ -490,17 +493,23 @@ function AppShell({ linking }) {
               padding: 18,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
+            <AppText
+              style={{
+                fontSize: scale(14),
+                fontWeight: "600",
+                marginBottom: 10,
+              }}
+            >
               Session Timeout Warning
-            </Text>
-            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
+            </AppText>
+            <AppText style={{ fontSize: scale(12), color: "#333", marginBottom: 8 }}>
               You&apos;ve been inactive for a while. For your security,
               you&apos;ll be signed out in 2 minutes unless you continue.
-            </Text>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
+            </AppText>
+            <AppText style={{ fontSize: scale(12), color: "#666", marginBottom: 16 }}>
               Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
               seconds.
-            </Text>
+            </AppText>
             <View
               style={{
                 flexDirection: "row",
@@ -517,7 +526,9 @@ function AppShell({ linking }) {
                   paddingVertical: 8,
                 }}
               >
-                <Text style={{ color: "#333" }}>Sign out now</Text>
+                <AppText style={{ color: "#333", fontSize: scale(12) }}>
+                  Sign out now
+                </AppText>
               </Pressable>
               <Pressable
                 onPress={() => continueSession?.()}
@@ -529,9 +540,9 @@ function AppShell({ linking }) {
                   marginLeft: 8,
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                <AppText style={{ color: "#fff", fontWeight: "600", fontSize: scale(12) }}>
                   Continue session
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -540,7 +551,7 @@ function AppShell({ linking }) {
     </View>
   );
 }
-export default function App() {
+function AppProviders() {
   const linking = LinkingConfig;
   const theme = {
     ...DefaultTheme,
@@ -578,12 +589,20 @@ export default function App() {
   }, []);
 
   return (
+    <NotificationProvider>
+      <PaperProvider theme={theme}>
+        <AppShell linking={linking} />
+      </PaperProvider>
+    </NotificationProvider>
+  );
+}
+
+export default function App() {
+  return (
     <AuthProvider>
-      <NotificationProvider>
-        <PaperProvider theme={theme}>
-          <AppShell linking={linking} />
-        </PaperProvider>
-      </NotificationProvider>
+      <FontScaleProvider>
+        <AppProviders />
+      </FontScaleProvider>
     </AuthProvider>
   );
 }

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -88,7 +88,7 @@ export default function PostInspectionModalInfo({
 
   const renderAircraftTypeField = () => (
     <View>
-      <TextInput
+      <AppInput
         style={{
           backgroundColor: "#E8E8E8",
           borderRadius: 6,
@@ -121,12 +121,12 @@ export default function PostInspectionModalInfo({
         }}
         onPress={isEditable ? toggleRPCDropdown : null}
       >
-        <Text style={{ 
+        <AppText style={{ 
           fontSize: 12, 
           color: formData.rpc ? COLORS.black : COLORS.grayDark 
         }}>
           {formData.rpc || "Select RP/C"}
-        </Text>
+        </AppText>
         {isEditable && (
           <MaterialCommunityIcons 
             name={showRPCDropdown ? "chevron-up" : "chevron-down"} 
@@ -168,12 +168,12 @@ export default function PostInspectionModalInfo({
                   setShowRPCDropdown(false);
                 }}
               >
-                <Text style={{ 
+                <AppText style={{ 
                   fontSize: 12,
                   color: formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
                 }}>
                   {rpc}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -184,9 +184,9 @@ export default function PostInspectionModalInfo({
 
   return (
     <View>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Basic Information
-      </Text>
+      </AppText>
 
       <View style={{
         backgroundColor: COLORS.white,
@@ -201,30 +201,30 @@ export default function PostInspectionModalInfo({
         overflow: "visible",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Rotary Winged Aircraft - Single Engine
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               RP-C: *
-            </Text>
+            </AppText>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Aircraft Type: *
-            </Text>
+            </AppText>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Date:
-            </Text>
+            </AppText>
             <View style={{
               flexDirection: "row",
               alignItems: "center",
@@ -234,9 +234,9 @@ export default function PostInspectionModalInfo({
               height: 42,
               paddingHorizontal: 12,
             }}>
-              <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons name="calendar-blank" size={18} color={COLORS.grayDark} />
             </View>
           </View>

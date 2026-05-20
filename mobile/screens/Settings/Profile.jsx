@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
+import AppPaperInput from "../../components/common/AppPaperInput";
 import {
   View,
   ScrollView,
@@ -9,15 +10,14 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
-} from "react-native";
+  } from "react-native";
 import {
   Card,
   Button,
   SegmentedButtons,
-  TextInput,
   Avatar,
   Text,
-  Switch,
+  Switch
 } from "react-native-paper";
 import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
@@ -29,20 +29,24 @@ import { API_BASE } from "../../utilities/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import { showToast } from "../../utilities/toast";
 import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
+import { useFontScale } from "../../Context/FontScaleContext";
 export default function Profile() {
   const { user, setUser } = useContext(AuthContext);
+  const {
+    fontScalePreference,
+    setFontScalePreference,
+    scale: scaled,
+  } = useFontScale();
 
   const [activeTab, setActiveTab] = useState("info");
   const [previewUri, setPreviewUri] = useState(null);
   const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
-  const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
   const MOBILE_FONT_MAX = 1.3;
-  const fontScale = Number(fontScalePreference) || 1;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -67,19 +71,6 @@ export default function Profile() {
         const stored = JSON.parse(
           (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
         );
-        const storedFont = stored.fontSizePreference;
-        if (typeof storedFont === "number") {
-          setFontScalePreference(storedFont);
-        } else {
-          const legacyMap = {
-            small: 0.9,
-            medium: 1,
-            large: 1.1,
-          };
-          setFontScalePreference(
-            legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED,
-          );
-        }
         setNotificationsEnabled(
           typeof stored.notificationsEnabled === "boolean"
             ? stored.notificationsEnabled
@@ -152,16 +143,33 @@ export default function Profile() {
     }
   };
 
+  const requestImagePickerPermission = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (permission.granted) {
+      return true;
+    }
+
+    const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (requested.granted) {
+      return true;
+    }
+
+    Alert.alert(
+      "Permission Denied",
+      "Enable photo library access in your device settings to change your profile image.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => Linking.openSettings() },
+      ],
+    );
+    return false;
+  };
+
   // --- IMAGE PICKER HANDLER ---
   const handleImagePick = async () => {
     // 1. Ask for permission
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Enable permissions in settings to change your photo.",
-      );
+    const hasPermission = await requestImagePickerPermission();
+    if (!hasPermission) {
       return;
     }
 
@@ -298,10 +306,16 @@ export default function Profile() {
             </View>
           </TouchableOpacity>
 
-          <Text variant="titleLarge" style={styles.userName}>
+          <Text
+            variant="titleLarge"
+            style={[styles.userName, { fontSize: scaled(20) }]}
+          >
             {`${user?.firstName || ""} ${user?.lastName || ""}`}
           </Text>
-          <Text variant="bodyMedium" style={styles.userRole}>
+          <Text
+            variant="bodyMedium"
+            style={[styles.userRole, { fontSize: scaled(12) }]}
+          >
             {user?.jobTitle}
           </Text>
 
@@ -312,6 +326,7 @@ export default function Profile() {
                 onPress={handleSaveImage}
                 loading={loading}
                 style={styles.actionButton}
+                labelStyle={{ fontSize: scaled(13) }}
               >
                 Save Picture
               </Button>
@@ -322,6 +337,7 @@ export default function Profile() {
               onPress={handleRemoveImage}
               disabled={!user?.image && !file}
               style={styles.actionButton}
+              labelStyle={{ fontSize: scaled(13) }}
             >
               Remove Image
             </Button>
@@ -337,16 +353,19 @@ export default function Profile() {
                 value: "info",
                 label: "Information",
                 icon: "account-details-outline",
+                labelStyle: { fontSize: scaled(12) },
               },
               {
                 value: "security",
                 label: "Security",
                 icon: "shield-check-outline",
+                labelStyle: { fontSize: scaled(12) },
               },
               {
                 value: "settings",
                 label: "Settings",
                 icon: "cog-outline",
+                labelStyle: { fontSize: scaled(12) },
               },
             ]}
             style={styles.segmented}
@@ -357,45 +376,50 @@ export default function Profile() {
       {activeTab === "info" ? (
         <Card style={styles.formCard}>
           <Card.Content>
-            <TextInput
+            <AppPaperInput
               label="First Name"
               mode="outlined"
               value={user?.firstName || ""}
               editable={false}
               style={styles.input}
+              contentStyle={{ fontSize: scaled(14) }}
             />
 
-            <TextInput
+            <AppPaperInput
               label="Last Name"
               mode="outlined"
               value={user?.lastName || ""}
               editable={false}
               style={styles.input}
+              contentStyle={{ fontSize: scaled(14) }}
             />
 
-            <TextInput
+            <AppPaperInput
               label="Username"
               mode="outlined"
               value={user?.username}
               editable={false}
               style={styles.input}
+              contentStyle={{ fontSize: scaled(14) }}
             />
-            <TextInput
+            <AppPaperInput
               label="Email Address"
               mode="outlined"
               value={user?.email}
               editable={false}
               style={styles.input}
+              contentStyle={{ fontSize: scaled(14) }}
             />
-            <TextInput
+            <AppPaperInput
               label="Last Login"
               mode="outlined"
               value={formatDate(user?.lastLogin)}
               editable={false}
               style={styles.input}
+              contentStyle={{ fontSize: scaled(14) }}
             />
 
-            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+            <Text style={{ color: "#6b7280", fontSize: scaled(12) }}>
               Name editing is disabled. Contact an administrator to update your
               legal profile name.
             </Text>
@@ -406,14 +430,14 @@ export default function Profile() {
       ) : (
         <Card style={styles.formCard}>
           <Card.Content>
-            <Text style={[styles.settingsTitle, { fontSize: 16 * fontScale }]}>
+            <Text style={[styles.settingsTitle, { fontSize: scaled(16) }]}>
               App Settings
             </Text>
 
-            <Text style={[styles.settingLabel, { fontSize: 14 * fontScale }]}>
+            <Text style={[styles.settingLabel, { fontSize: scaled(14) }]}>
               Font Size
             </Text>
-            <Text style={styles.settingSub}>
+            <Text style={[styles.settingSub, { fontSize: scaled(12) }]}>
               Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
               ({MOBILE_FONT_MAX.toFixed(2)}x)
             </Text>
@@ -425,24 +449,34 @@ export default function Profile() {
               minimumTrackTintColor="#26866F"
               maximumTrackTintColor="#CFE7E0"
               thumbTintColor="#26866F"
-              onValueChange={(value) => setFontScalePreference(value)}
+              onValueChange={(value) =>
+                setFontScalePreference(value, { persist: false })
+              }
               onSlidingComplete={async (value) => {
+                await setFontScalePreference(value);
                 await saveSettings({ fontSizePreference: value });
                 showToast("Font size preference saved.");
               }}
             />
-            <Text style={[styles.settingSub, { marginBottom: 14 }]}>
+            <Text
+              style={[
+                styles.settingSub,
+                { marginBottom: 14, fontSize: scaled(12) },
+              ]}
+            >
               Current: {fontScalePreference.toFixed(2)}x
             </Text>
 
             <View style={styles.settingRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text
-                  style={[styles.settingLabel, { fontSize: 14 * fontScale }]}
+                  style={[styles.settingLabel, { fontSize: scaled(14) }]}
                 >
                   Enable Notifications
                 </Text>
-                <Text style={styles.settingSub}>Managed by device settings.</Text>
+                <Text style={[styles.settingSub, { fontSize: scaled(12) }]}>
+                  Managed by device settings.
+                </Text>
               </View>
               <Switch
                 value={notificationsEnabled}
@@ -462,30 +496,6 @@ export default function Profile() {
                 }}
               />
             </View>
-            <Button
-              mode="outlined"
-              style={styles.fullWidthButton}
-              onPress={async () => {
-                const granted = await requestNotificationPermission();
-                setNotificationsEnabled(granted);
-                await saveSettings({ notificationsEnabled: granted });
-                if (!granted) {
-                  Alert.alert(
-                    "Permission required",
-                    "Please enable notifications in your device settings.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Open Settings",
-                        onPress: () => Linking.openSettings(),
-                      },
-                    ],
-                  );
-                }
-              }}
-            >
-              Request Notification Permission
-            </Button>
           </Card.Content>
         </Card>
       )}
@@ -512,7 +522,7 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: "#eee",
   },
-  userName: { marginTop: 12, fontSize: 14, fontWeight: "600" },
+  userName: { marginTop: 12, fontWeight: "600" },
   userRole: { fontSize: 12, color: "#666", marginTop: 4 },
   segmented: { marginTop: 10 },
   input: { marginBottom: 16, backgroundColor: "#fff" },
@@ -522,7 +532,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   actionButton: { flex: 1, minWidth: 140, marginTop: 8 },
-  fullWidthButton: { width: "100%", marginTop: 8 },
   errorText: { color: "#b00020", fontSize: 12, marginBottom: 12 },
   editBadge: {
     position: "absolute",

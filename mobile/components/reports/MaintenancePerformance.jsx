@@ -1,5 +1,8 @@
 import React, { useMemo } from "react";
-import { View, Text } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View
+} from "react-native";
 import { InfoCard, FieldRow } from "../common/MobileModule";
 import RepairFrequencyChart from "../common/RepairFrequencyChart";
 import { COLORS } from "../../stylesheets/colors";
@@ -35,9 +38,9 @@ export default function MaintenancePerformance({ tasks = [] }) {
       <View style={{ marginTop: 8 }}>
         <RepairFrequencyChart data={trendData} />
       </View>
-      <Text style={{ color: COLORS.grayDark, fontSize: 11, marginTop: 6 }}>
+      <AppText style={{ color: COLORS.grayDark, fontSize: 11, marginTop: 6 }}>
         Displays count of task activity over recent months.
-      </Text>
+      </AppText>
     </InfoCard>
   );
 }

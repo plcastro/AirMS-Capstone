@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
+import AppPaperInput from "../../components/common/AppPaperInput";
 import {
   View,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-} from "react-native";
+  } from "react-native";
 import {
   Button,
   SegmentedButtons,
-  TextInput,
   Card,
-  Text,
+  Text
 } from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
@@ -261,7 +261,7 @@ export default function UpdateSecurity() {
 
             {activeTab === "password" && (
               <View style={styles.section}>
-                <TextInput
+                <AppPaperInput
                   label="Current Password *"
                   mode="outlined"
                   secureTextEntry
@@ -269,7 +269,7 @@ export default function UpdateSecurity() {
                   onChangeText={setCurrentPassword}
                   style={styles.input}
                 />
-                <TextInput
+                <AppPaperInput
                   label="New Password *"
                   mode="outlined"
                   secureTextEntry
@@ -282,7 +282,7 @@ export default function UpdateSecurity() {
                     {strength.text}
                   </Text>
                 ) : null}
-                <TextInput
+                <AppPaperInput
                   label="Confirm Password *"
                   mode="outlined"
                   secureTextEntry
@@ -357,7 +357,7 @@ export default function UpdateSecurity() {
 
                 {forgotPinMode && !otpSent && (
                   <View style={styles.section}>
-                    <TextInput
+                    <AppPaperInput
                       label="Current Password *"
                       mode="outlined"
                       secureTextEntry

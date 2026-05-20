@@ -1,4 +1,8 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
+import AppText from "./common/AppText";
 import React from "react";
 import Checkbox from "expo-checkbox";
 
@@ -26,7 +30,7 @@ export default function CheckBox({
       />
       {title !== undefined && title !== null
         ? (typeof title === "string" ? (
-            <Text style={[{ marginLeft: 8, flexShrink: 1 }, textStyle]}>{title}</Text>
+            <AppText style={[{ marginLeft: 8, flexShrink: 1 }, textStyle]}>{title}</AppText>
           ) : (
             <View style={{ flex: 1, marginLeft: 8 }}>{title}</View>
           ))

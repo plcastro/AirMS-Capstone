@@ -6,14 +6,14 @@ import React, {
   useRef,
   useState,
 } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   RefreshControl,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -1076,7 +1076,7 @@ export default function PartsRequisition({ route, navigation }) {
           },
         ]}
       >
-        <Text
+        <AppText
           style={[
             {
               textAlign: "center",
@@ -1088,7 +1088,7 @@ export default function PartsRequisition({ route, navigation }) {
           ]}
         >
           {`${label} (${count})`}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     );
   };
@@ -1159,7 +1159,7 @@ export default function PartsRequisition({ route, navigation }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search by WRS#"
               placeholderTextColor={COLORS.grayDark}
               style={{
@@ -1193,7 +1193,7 @@ export default function PartsRequisition({ route, navigation }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text
+              <AppText
                 style={{
                   color: COLORS.white,
                   fontSize: 12,
@@ -1202,7 +1202,7 @@ export default function PartsRequisition({ route, navigation }) {
                 }}
               >
                 Request
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>

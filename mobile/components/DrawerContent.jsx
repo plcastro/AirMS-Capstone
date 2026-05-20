@@ -1,12 +1,18 @@
 import React, { useState, useContext } from "react";
-import { CommonActions, useNavigation } from "@react-navigation/native";
-import { View, Image, Text } from "react-native";
+import AppText from "./common/AppText";
+import {
+  CommonActions,
+  useNavigation } from "@react-navigation/native";
+import { View,
+  Image
+} from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AirMSWeb from "../assets/AirMS_web.png";
 import AlertComp from "./AlertComp";
 import { AuthContext } from "../Context/AuthContext";
+import { useFontScale } from "../Context/FontScaleContext";
 
 const DrawerList = [
   {
@@ -211,6 +217,7 @@ const DrawerList = [
 function DrawerContent({ navigation }) {
   const nav = useNavigation();
   const { user, logoutUser } = useContext(AuthContext);
+  const { scale } = useFontScale();
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
   const userJob = user?.jobTitle?.toLowerCase();
@@ -258,9 +265,9 @@ function DrawerContent({ navigation }) {
             if (item.children) {
               return (
                 <View key={item.label} style={{ marginTop: 8 }}>
-                  <Text
+                  <AppText
                     style={{
-                      fontSize: 10,
+                      fontSize: scale(10),
                       fontWeight: "700",
                       letterSpacing: 1,
                       color: "#777",
@@ -270,7 +277,7 @@ function DrawerContent({ navigation }) {
                     }}
                   >
                     {item.label}
-                  </Text>
+                  </AppText>
                   {getChildren(item).map((child) => {
                     const childActive = activeRoute === child.navigateTo;
 
@@ -287,16 +294,16 @@ function DrawerContent({ navigation }) {
                           borderLeftColor: "#26866F",
                         }}
                         label={() => (
-                          <Text
+                          <AppText
                             style={{
                               color: childActive ? "#26866F" : "#777",
-                              fontSize: 12,
+                              fontSize: scale(12),
                               fontWeight: childActive ? "600" : "400",
                             }}
                             numberOfLines={2}
                           >
                             {child.label}
-                          </Text>
+                          </AppText>
                         )}
                         icon={({ size }) => (
                           <MaterialCommunityIcons
@@ -330,16 +337,16 @@ function DrawerContent({ navigation }) {
                     borderLeftColor: "#26866F",
                   }}
                   label={() => (
-                    <Text
+                    <AppText
                       style={{
                         color: isActive ? "#26866F" : "#777",
-                        fontSize: 12,
+                        fontSize: scale(12),
                         fontWeight: isActive ? "600" : "400",
                       }}
                       numberOfLines={2}
                     >
                       {item.label}
-                    </Text>
+                    </AppText>
                   )}
                   icon={({ size }) => (
                     <MaterialCommunityIcons
