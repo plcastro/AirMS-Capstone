@@ -32,7 +32,8 @@ const withActorId = (req, action, fallbackId = null) => {
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
+const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -41,13 +42,17 @@ const hashRefreshToken = (token = "") =>
 const hashTrustedDeviceToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 
-const issueRefreshToken = (userId) => {
+const getRefreshTokenTtlMs = (isPersistent) =>
+  isPersistent ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS : REFRESH_TOKEN_TTL_MS;
+
+const issueRefreshToken = (userId, isPersistent = false) => {
   const jti = crypto.randomUUID();
+  const expiresInSeconds = Math.floor(getRefreshTokenTtlMs(isPersistent) / 1000);
   const token = jwt.sign(
     { id: userId, type: "refresh" },
     process.env.REFRESH_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: expiresInSeconds,
       jwtid: jti,
     },
   );
@@ -64,7 +69,7 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   };
 
   if (isPersistent) {
-    refreshCookieOptions.maxAge = REFRESH_TOKEN_TTL_MS;
+    refreshCookieOptions.maxAge = getRefreshTokenTtlMs(true);
   }
 
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
@@ -82,7 +87,7 @@ const storeRefreshToken = async ({
     userId,
     tokenHash,
     jti,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    expiresAt: new Date(Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent))),
     isPersistent: Boolean(isPersistent),
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
@@ -316,7 +321,10 @@ const buildLoginSuccessPayload = async ({
   );
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
-  const { token: refreshToken, jti } = issueRefreshToken(user._id.toString());
+  const { token: refreshToken, jti } = issueRefreshToken(
+    user._id.toString(),
+    usePersistentRefreshCookie,
+  );
   await storeRefreshToken({
     userId: user._id,
     refreshToken,
@@ -540,7 +548,15 @@ const loginUser = async (req, res) => {
     user.loginOtpLockUntil = undefined;
     await user.save();
 
-    await sendLoginOtpEmail(user.email, otp);
+    try {
+      await sendLoginOtpEmail(user.email, otp);
+    } catch (otpError) {
+      console.error("sendLoginOtpEmail error:", otpError);
+      return res.status(503).json({
+        message:
+          "Unable to send verification code email. Please contact support.",
+      });
+    }
 
     return res.status(200).json({
       requireLoginOtp: true,
@@ -559,7 +575,12 @@ const loginUser = async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({ message: "Login failed" });
+    const isDev =
+      String(process.env.NODE_ENV || "").toLowerCase() === "development";
+    return res.status(500).json({
+      message:
+        isDev && err?.message ? `Login failed: ${err.message}` : "Login failed",
+    });
   }
 };
 
@@ -769,6 +790,7 @@ const refreshToken = async (req, res) => {
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
+      Boolean(tokenRecord.isPersistent),
     );
     const newTokenHash = hashRefreshToken(newRefreshToken);
 
@@ -899,7 +921,11 @@ const registerMobilePushDevice = async (req, res) => {
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { fcmToken: pushToken }, { expoPushToken: pushToken }],
+            $or: [
+              { deviceId },
+              { fcmToken: pushToken },
+              { expoPushToken: pushToken },
+            ],
           },
         },
       },

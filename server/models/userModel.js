@@ -113,4 +113,17 @@ const userSchema = new mongoose.Schema({
   isLocked: { type: Boolean, default: false },
 });
 
+userSchema.pre("validate", function sanitizeMobilePushDevices() {
+  if (!Array.isArray(this.mobilePushDevices)) {
+    return;
+  }
+
+  this.mobilePushDevices = this.mobilePushDevices.filter((device) => {
+    const hasDeviceId = Boolean(String(device?.deviceId || "").trim());
+    const hasFcmToken = Boolean(String(device?.fcmToken || "").trim());
+    return hasDeviceId && hasFcmToken;
+  });
+
+});
+
 module.exports = mongoose.model("User", userSchema);
