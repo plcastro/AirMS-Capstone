@@ -215,8 +215,28 @@ export default function Profile() {
         name: fileName,
       };
 
+      const previousPreviewUri = previewUri;
       setPreviewUri(selectedFile.uri);
-      await handleSaveImage(normalizedFile);
+
+      Alert.alert(
+        "Save Profile Image",
+        "Use this photo as your profile image?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              setPreviewUri(previousPreviewUri);
+            },
+          },
+          {
+            text: "Save",
+            onPress: async () => {
+              await handleSaveImage(normalizedFile);
+            },
+          },
+        ],
+      );
     }
   };
   const handleSaveImage = async (file) => {
