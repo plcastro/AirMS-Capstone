@@ -26,8 +26,9 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
         onChange: handlePageChange,
         onShowSizeChange: handlePageChange,
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-        position: ["bottomRight"],
+        placement: "bottomEnd",
       }}
     />
   );
 }
+

@@ -274,7 +274,7 @@ export default function UserLogs() {
     >
       <Space
         style={{ marginBottom: 16, width: "100%" }}
-        orientation={isMobile ? "vertical" : "horizontal"}
+        orientation={isMobile ? "vertical" : undefined}
         size={isMobile ? 10 : 8}
         wrap
       >
@@ -369,3 +369,4 @@ export default function UserLogs() {
     </div>
   );
 }
+

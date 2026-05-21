@@ -10,6 +10,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
+import { subscribeRealtime } from "../../utils/realtimeSocket";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
@@ -20,14 +21,6 @@ const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
   return initials || fallback;
 };
 
-const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
-};
-
 const DashboardLayout = () => {
   const [api, contextHolder] = notification.useNotification();
   const screens = useBreakpoint();
@@ -35,8 +28,6 @@ const DashboardLayout = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const seenNotificationIdsRef = useRef(new Set());
-  const wsRef = useRef(null);
-  const wsReconnectTimeoutRef = useRef(null);
   const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
   const location = useLocation();
@@ -117,52 +108,20 @@ const DashboardLayout = () => {
 
     syncNotifications();
 
-    let closedByEffect = false;
-
-    const connect = () => {
-      const token = localStorage.getItem("currentUserToken");
-      if (!token || !user?.id) return;
-
-      const ws = new WebSocket(buildWsUrl(token));
-      wsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data || "{}");
-          const nextEvent = String(payload?.event || "");
-
-          if (
-            nextEvent === "data-changed" ||
-            nextEvent === "chat:message" ||
-            nextEvent === "chat:conversation"
-          ) {
-            syncNotifications();
-          }
-        } catch (error) {
-          console.error("Notification websocket parse error:", error);
-        }
-      };
-
-      ws.onclose = () => {
-        if (!closedByEffect) {
-          wsReconnectTimeoutRef.current = setTimeout(connect, 1500);
-        }
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    };
-
-    connect();
+    const unsubscribeRealtime = subscribeRealtime((payload) => {
+      const nextEvent = String(payload?.event || "");
+      if (
+        nextEvent === "data-changed" ||
+        nextEvent === "chat:message" ||
+        nextEvent === "chat:conversation"
+      ) {
+        syncNotifications();
+      }
+    });
 
     return () => {
-      closedByEffect = true;
       isMounted = false;
-      if (wsReconnectTimeoutRef.current) {
-        clearTimeout(wsReconnectTimeoutRef.current);
-      }
-      wsRef.current?.close?.();
+      unsubscribeRealtime();
     };
   }, [user?.id, getAuthHeader, api]);
 
