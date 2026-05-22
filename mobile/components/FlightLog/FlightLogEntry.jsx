@@ -35,10 +35,19 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
     closeOnFinish: false,
   });
   const scrollViewRef = useRef(null);
-  const normalizedRole = (userRole || "").toLowerCase();
+  const normalizedRole = String(userRole || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(normalizedRole);
+    [
+      "mechanic",
+      "engineer",
+      "maintenance manager",
+      "head of maintenance",
+      "admin",
+    ].includes(normalizedRole);
 
   const handleAircraftDataLoaded = (data) => {
     setLoadedAircraftData(data);

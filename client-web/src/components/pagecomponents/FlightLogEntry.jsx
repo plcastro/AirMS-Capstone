@@ -19,12 +19,18 @@ import FlightLogDiscrepancyRemarks from "./FlightLogModalDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 
 const resolveRole = (role = "") => {
-  const r = role.toLowerCase();
+  const r = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
   if (r === "pilot") return "pilot";
   if (
+    r === "mechanic" ||
     r === "engineer" ||
     r === "maintenance manager" ||
-    r === "officer-in-charge"
+    r === "head of maintenance" ||
+    r === "admin" ||
+    r === "officer in charge"
   )
     return "mechanic";
   return "pilot";
