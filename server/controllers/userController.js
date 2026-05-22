@@ -36,6 +36,8 @@ const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
+  15 * 60 * 1000;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -769,6 +771,38 @@ const refreshToken = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    const sessionId = req.headers["x-session-id"] || null;
+    if (!sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+
+    const activeSession = await UserSession.findOne({
+      userId: user._id,
+      sessionId,
+      isActive: true,
+    });
+
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const now = Date.now();
+    const lastActivityAt = new Date(
+      activeSession.lastActivityAt || activeSession.loginAt || now,
+    ).getTime();
+    if (now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+      return res.status(401).json({ message: "Session timed out due to inactivity" });
+    }
+
+    await UserSession.findOneAndUpdate(
+      { userId: user._id, sessionId, isActive: true },
+      { lastActivityAt: new Date() },
+    );
 
     if (user.status === "deactivated") {
       return res.status(403).json({ message: "Account deactivated" });
