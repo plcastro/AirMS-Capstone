@@ -127,6 +127,12 @@ const buildMessagePreview = (message) => {
   return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 };
 
+const extractFirstName = (name) => {
+  const text = String(name || "").trim();
+  if (!text) return "Someone";
+  return text.split(/\s+/)[0] || "Someone";
+};
+
 const createChatNotifications = async ({
   senderName,
   messageBody,
@@ -143,13 +149,13 @@ const createChatNotifications = async ({
     return;
   }
 
-  const title = isGroup
-    ? `${senderName} in ${conversationName || "Group Chat"}`
-    : `New message from ${senderName}`;
+  const preview = buildMessagePreview(messageBody);
+  const firstName = extractFirstName(senderName);
+  const title = `${firstName}: ${preview}`;
 
   const notification = await NotificationModel.create({
     title,
-    description: buildMessagePreview(messageBody),
+    description: preview,
     module: "messages",
     entityType: "message",
     entityId: messageId,
@@ -157,6 +163,7 @@ const createChatNotifications = async ({
     metadata: {
       notificationType: isGroup ? "group-message" : "direct-message",
       senderName,
+      senderFirstName: firstName,
       conversationId: conversationId ? String(conversationId) : null,
       conversationName: conversationName || null,
     },
@@ -164,7 +171,7 @@ const createChatNotifications = async ({
 
   await sendPushNotificationToUsers({
     title,
-    body: buildMessagePreview(messageBody),
+    body: preview,
     recipientUsers: recipients,
     data: {
       _id: String(notification._id),
