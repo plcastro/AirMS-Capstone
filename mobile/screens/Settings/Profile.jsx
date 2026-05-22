@@ -9,7 +9,8 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
-  } from "react-native";
+  KeyboardAvoidingView,
+} from "react-native";
 import {
   Card,
   Button,
@@ -29,8 +30,9 @@ import UpdateSecurity from "./UpdateSecurity";
 import { showToast } from "../../utilities/toast";
 import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
 import { useFontScale } from "../../Context/FontScaleContext";
+import { COLORS } from "../../stylesheets/colors";
 export default function Profile() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, updateUser } = useContext(AuthContext);
   const {
     fontScalePreference,
     setFontScalePreference,
@@ -259,6 +261,7 @@ export default function Profile() {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
             // Note: Content-Type must be omitted for FormData in RN
           },
           body: uploadData,
@@ -268,7 +271,7 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to upload");
 
-      setUser((prev) => ({
+      updateUser((prev) => ({
         ...prev,
         ...data.user,
         id: data?.user?.id || data?.user?._id || prev?.id,
@@ -302,8 +305,9 @@ export default function Profile() {
                   headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
+                    "x-action-confirmed": "true",
                   },
-                  body: JSON.stringify({ image: null }),
+                  body: JSON.stringify({ image: null, confirmAction: true }),
                 },
               );
 
@@ -311,7 +315,7 @@ export default function Profile() {
               if (!res.ok)
                 throw new Error(data.message || "Failed to remove image");
 
-              setUser((prev) => ({ ...prev, image: null }));
+              updateUser((prev) => ({ ...prev, image: null }));
               setPreviewUri(null); // Will fallback to DefaultAvatar in render
               showToast("Profile picture removed!");
             } catch (err) {
@@ -324,10 +328,19 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 8}
+    >
+    <ScrollView
+      style={styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+    >
       <Card style={styles.headerCard}>
         <Card.Content style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleImagePick}>
+          <TouchableOpacity onPress={handleImagePick} style={styles.avatarTapTarget}>
             {previewUri ? (
               <Avatar.Image
                 size={120}
@@ -348,10 +361,7 @@ export default function Profile() {
             </View>
           </TouchableOpacity>
 
-          <Text
-            variant="titleLarge"
-            style={[styles.userName, { fontSize: scaled(20) }]}
-          >
+          <Text variant="titleLarge" style={[styles.userName, { fontSize: scaled(20) }]}>
             {`${user?.firstName || ""} ${user?.lastName || ""}`}
           </Text>
           <Text
@@ -361,13 +371,28 @@ export default function Profile() {
             {user?.jobTitle}
           </Text>
 
-          <View style={[styles.buttonRow, { marginTop: 15 }]}>
+          <Text style={[styles.helperText, { fontSize: scaled(12) }]}>
+            Tap photo to update profile image
+          </Text>
+
+          <View style={[styles.buttonRow, { marginTop: 14 }]}>
             <Button
+              mode="contained-tonal"
+              icon="camera-outline"
+              onPress={handleImagePick}
+              disabled={loading}
+              style={styles.actionButton}
+              labelStyle={{ fontSize: scaled(13) }}
+            >
+              Change Photo
+            </Button>
+            <Button
+              mode="outlined"
               icon="delete"
-              textColor="red"
+              textColor={COLORS.dangerBorder}
               onPress={handleRemoveImage}
               disabled={!user?.image && !previewUri}
-              style={styles.actionButton}
+              style={[styles.actionButton, styles.removeButton]}
               labelStyle={{ fontSize: scaled(13) }}
             >
               Remove Image
@@ -375,7 +400,7 @@ export default function Profile() {
           </View>
         </Card.Content>
 
-        <Card.Content>
+        <Card.Content style={styles.segmentWrap}>
           <SegmentedButtons
             value={activeTab}
             onValueChange={setActiveTab}
@@ -407,6 +432,9 @@ export default function Profile() {
       {activeTab === "info" ? (
         <Card style={styles.formCard}>
           <Card.Content>
+            <Text style={[styles.sectionTitle, { fontSize: scaled(16) }]}>
+              Account Information
+            </Text>
             <AppPaperInput
               label="First Name"
               mode="outlined"
@@ -450,7 +478,7 @@ export default function Profile() {
               contentStyle={{ fontSize: scaled(14) }}
             />
 
-            <Text style={{ color: "#6b7280", fontSize: scaled(12) }}>
+            <Text style={{ color: COLORS.grayDark, fontSize: scaled(12) }}>
               Name editing is disabled. Contact an administrator to update your
               legal profile name.
             </Text>
@@ -477,9 +505,9 @@ export default function Profile() {
               maximumValue={MOBILE_FONT_MAX}
               step={0.05}
               value={fontScalePreference}
-              minimumTrackTintColor="#26866F"
-              maximumTrackTintColor="#CFE7E0"
-              thumbTintColor="#26866F"
+              minimumTrackTintColor={COLORS.primaryLight}
+              maximumTrackTintColor={COLORS.grayMedium}
+              thumbTintColor={COLORS.primaryLight}
               onValueChange={(value) =>
                 setFontScalePreference(value, { persist: false })
               }
@@ -492,13 +520,14 @@ export default function Profile() {
             <Text
               style={[
                 styles.settingSub,
-                { marginBottom: 14, fontSize: scaled(12) },
+                { marginBottom: 16, fontSize: scaled(12) },
               ]}
             >
               Current: {fontScalePreference.toFixed(2)}x
             </Text>
 
-            <View style={styles.settingRow}>
+            <View style={styles.settingRowCard}>
+              <View style={styles.settingRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text
                   style={[styles.settingLabel, { fontSize: scaled(14) }]}
@@ -526,71 +555,89 @@ export default function Profile() {
                   );
                 }}
               />
+              </View>
             </View>
           </Card.Content>
         </Card>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: COLORS.grayLight },
   headerCard: {
-    margin: 15,
-    borderRadius: 12,
+    marginHorizontal: 14,
+    marginTop: 14,
+    marginBottom: 10,
+    borderRadius: 14,
     elevation: 2,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
   formCard: {
-    marginHorizontal: 15,
+    marginHorizontal: 14,
     marginBottom: 24,
-    borderRadius: 12,
+    borderRadius: 14,
     elevation: 2,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
-  avatarContainer: { alignItems: "center", padding: 16 },
+  avatarContainer: { alignItems: "center", paddingTop: 18, paddingHorizontal: 16, paddingBottom: 8 },
+  avatarTapTarget: { position: "relative" },
   avatar: {
-    backgroundColor: "#eee",
+    backgroundColor: COLORS.grayMedium,
   },
-  userName: { marginTop: 12, fontWeight: "600" },
-  userRole: { fontSize: 12, color: "#666", marginTop: 4 },
-  segmented: { marginTop: 10 },
-  input: { marginBottom: 16, backgroundColor: "#fff" },
+  userName: { marginTop: 12, fontWeight: "700", color: COLORS.black },
+  userRole: { fontSize: 12, color: COLORS.grayDark, marginTop: 4, textTransform: "capitalize" },
+  helperText: { color: COLORS.grayDark, marginTop: 6 },
+  segmentWrap: { paddingTop: 6, paddingBottom: 14 },
+  segmented: { marginTop: 0 },
+  sectionTitle: { fontWeight: "700", color: COLORS.black, marginBottom: 14 },
+  input: { marginBottom: 16, backgroundColor: COLORS.white },
   buttonRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     flexWrap: "wrap",
+    gap: 8,
   },
-  actionButton: { flex: 1, minWidth: 140, marginTop: 8 },
+  actionButton: { minWidth: 140, marginTop: 8, borderRadius: 10 },
+  removeButton: { borderColor: COLORS.dangerBorder },
   errorText: { color: "#b00020", fontSize: 12, marginBottom: 12 },
   editBadge: {
     position: "absolute",
     bottom: 5,
     right: 5,
-    backgroundColor: "#23a08b",
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: COLORS.white,
   },
-  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  editBadgeText: { color: COLORS.white, fontSize: 14, fontWeight: "600" },
   settingsTitle: {
     fontWeight: "700",
-    marginBottom: 14,
+    marginBottom: 12,
+    color: COLORS.black,
   },
   settingLabel: {
     fontWeight: "600",
-    color: "#1f2937",
+    color: COLORS.black,
   },
   settingSub: {
-    color: "#6b7280",
+    color: COLORS.grayDark,
     fontSize: 12,
     marginTop: 4,
   },
+  settingRowCard: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
+  },
   settingRow: {
-    marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

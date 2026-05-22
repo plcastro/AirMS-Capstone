@@ -156,6 +156,12 @@ function DrawerContent({ navigation }) {
 
   const getChildren = (item) =>
     item.children ? item.children.filter(isVisible) : [];
+  const visibleDrawerItems = DrawerList.filter((item) => {
+    if (item.children) {
+      return getChildren(item).length > 0;
+    }
+    return isVisible(item);
+  });
 
   const handleLogout = async () => {
     try {
@@ -180,7 +186,7 @@ function DrawerContent({ navigation }) {
         />
 
         <View>
-          {DrawerList.filter(isVisible).map((item) => {
+          {visibleDrawerItems.map((item) => {
             const isActive =
               (!item.children && item.navigateTo === activeRoute) ||
               (item.children &&

@@ -37,6 +37,7 @@ export default function EditTask({
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState("Normal");
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -45,6 +46,7 @@ export default function EditTask({
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [androidPickerMode, setAndroidPickerMode] = useState("date");
 
   const [checklistItems, setChecklistItems] = useState([]);
@@ -131,6 +133,7 @@ export default function EditTask({
       setTaskTitle(task.title || "");
       setSelectedAircraft(task.aircraft || "");
       setSelectedEmployee(task.assignedTo || "");
+      setSelectedPriority(task.priority || "Normal");
 
       if (task.startDateTime) {
         setStartDate(new Date(task.startDateTime));
@@ -179,6 +182,7 @@ export default function EditTask({
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       assignedTo: selectedEmployee,
+      priority: selectedPriority || "Normal",
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name ||
         task.assignedToName,
@@ -331,6 +335,7 @@ export default function EditTask({
   const closeAllDropdowns = () => {
     setShowAircraftDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
   };
 
   const renderDropdownField = ({
@@ -443,6 +448,7 @@ export default function EditTask({
       ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const selectedPriorityLabel = selectedPriority || "";
 
   return (
     <>
@@ -526,6 +532,20 @@ export default function EditTask({
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,
                 onSelect: setSelectedEmployee,
+              })}
+
+              {renderDropdownField({
+                label: "Priority",
+                required: true,
+                value: selectedPriorityLabel,
+                placeholder: "Pick Priority",
+                options: ["Low", "Normal", "High"].map((level) => ({
+                  label: level,
+                  value: level,
+                })),
+                visible: showPriorityDropdown,
+                onToggle: setShowPriorityDropdown,
+                onSelect: setSelectedPriority,
               })}
 
               <AppText

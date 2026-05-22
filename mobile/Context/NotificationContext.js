@@ -227,6 +227,29 @@ export function NotificationProvider({ children }) {
   const moduleNotifierReadyRef = useRef(false);
   const loadedNotificationsUserIdRef = useRef("");
 
+  const pushInAppNotification = useCallback(
+    ({ title, description, module = "parts-requisition", entityType = "system" }) => {
+      const syntheticId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const nowIso = new Date().toISOString();
+
+      setNotifications((current) => [
+        {
+          _id: syntheticId,
+          title: String(title || "New notification"),
+          description: String(description || ""),
+          module,
+          entityType,
+          read: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          localOnly: true,
+        },
+        ...current,
+      ]);
+    },
+    [],
+  );
+
   const lastRegisteredPushRef = useRef({
     userId: "",
     deviceId: "",
@@ -653,13 +676,13 @@ export function NotificationProvider({ children }) {
           showToast("You have new task updates.");
         }
 
-        if (
-          nextSnapshot.latestLogId &&
-          previousSnapshot.latestLogId &&
-          nextSnapshot.latestLogId !== previousSnapshot.latestLogId
-        ) {
-          showToast("New activity logs were added.");
-        }
+        // if (
+        //   nextSnapshot.latestLogId &&
+        //   previousSnapshot.latestLogId &&
+        //   nextSnapshot.latestLogId !== previousSnapshot.latestLogId
+        // ) {
+        //   showToast("New activity logs were added.");
+        // }
 
         if (
           nextSnapshot.requisitionCount > previousSnapshot.requisitionCount ||
@@ -667,7 +690,12 @@ export function NotificationProvider({ children }) {
             nextSnapshot.latestRequisitionUpdatedAt !==
               previousSnapshot.latestRequisitionUpdatedAt)
         ) {
-          showToast("You have new requisition updates.");
+          pushInAppNotification({
+            title: "Parts requisition updated",
+            description: "You have new requisition updates.",
+            module: "parts-requisition",
+            entityType: "requisition",
+          });
         }
       } catch (error) {
         if (error?.name !== "AbortError") {
@@ -677,7 +705,7 @@ export function NotificationProvider({ children }) {
         checkInFlightRef.current = false;
       }
     },
-    [fetchModuleSnapshot],
+    [fetchModuleSnapshot, pushInAppNotification],
   );
 
   const scheduleRefresh = useCallback(
@@ -820,7 +848,9 @@ export function NotificationProvider({ children }) {
         (item) => item?.data && Object.keys(item.data).length > 0,
       );
       if (latestNavigable?.data) {
-        const moduleName = String(latestNavigable.data?.module || "").toLowerCase();
+        const moduleName = String(
+          latestNavigable.data?.module || "",
+        ).toLowerCase();
         if (moduleName === "messages") {
           showToast("You received new chat messages.");
         } else {

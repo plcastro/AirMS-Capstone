@@ -2,6 +2,8 @@ import React from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   TouchableOpacity,
   View
@@ -31,7 +33,10 @@ export default function ConversationListView({
   getDisplayName,
 }) {
   return (
-    <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View
         style={{
           paddingHorizontal: 16,
@@ -82,6 +87,8 @@ export default function ConversationListView({
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         {conversationItems.length === 0 ? (
           <View
@@ -250,6 +257,6 @@ export default function ConversationListView({
         renderAvatar={renderAvatar}
         getDisplayName={getDisplayName}
       />
-    </>
+    </KeyboardAvoidingView>
   );
 }
