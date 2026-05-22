@@ -334,8 +334,10 @@ export default function Profile() {
     >
       <ScrollView
         style={styles.container}
+        contentContainerStyle={{ paddingBottom: 20 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        automaticallyAdjustKeyboardInsets
       >
         <Card style={styles.headerCard}>
           <Card.Content style={styles.avatarContainer}>

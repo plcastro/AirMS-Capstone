@@ -18,7 +18,6 @@ export default function UpdateSecurity() {
   const scrollRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("password");
-  const [needScrollHeight, setNeedScrollHeight] = useState(0);
 
   // --- Password States ---
   const [currentPassword, setCurrentPassword] = useState("");
@@ -232,13 +231,15 @@ export default function UpdateSecurity() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 16}
     >
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        automaticallyAdjustKeyboardInsets
       >
         <Card style={styles.card}>
           <Card.Content>
@@ -458,7 +459,6 @@ export default function UpdateSecurity() {
           </Card.Content>
         </Card>
 
-        <View style={{ height: needScrollHeight }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

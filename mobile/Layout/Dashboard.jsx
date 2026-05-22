@@ -25,6 +25,7 @@ export default function Dashboard({ children, currentRouteName }) {
   const showChatFab = canAccessMessages && currentRouteName !== "Messages";
   const isManageUsers = currentRouteName === "Manage Users";
   const baseFabBottom = Math.max(16, insets.bottom + 12);
+  const contentBottomInset = Math.max(90, insets.bottom + 74);
   const childFabGap = 60;
   const chatFabBottomOffset = isManageUsers
     ? baseFabBottom + 80
@@ -44,7 +45,7 @@ export default function Dashboard({ children, currentRouteName }) {
 
   return (
     <View style={{ flex: 1 }}>
-      {children}
+      <View style={{ flex: 1, paddingBottom: contentBottomInset }}>{children}</View>
       {showChatFab &&
         (isManageUsers ? (
           <>
