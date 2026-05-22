@@ -6,17 +6,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  } from "react-native";
-import {
-  Button,
-  SegmentedButtons,
-  Card,
-  Text
-} from "react-native-paper";
+} from "react-native";
+import { Button, SegmentedButtons, Card, Text } from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { COLORS } from "../../stylesheets/colors";
 export default function UpdateSecurity() {
   const { user, setUser } = useContext(AuthContext);
   const scrollRef = useRef(null);
@@ -253,8 +249,20 @@ export default function UpdateSecurity() {
                 resetAll();
               }}
               buttons={[
-                { value: "password", label: "Password" },
-                { value: "pin", label: "PIN" },
+                {
+                  value: "password",
+                  label: "Password",
+                  style: styles.tabButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+                {
+                  value: "pin",
+                  label: "PIN",
+                  style: styles.tabButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
               ]}
               style={styles.tabs}
             />
@@ -458,8 +466,20 @@ export default function UpdateSecurity() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1 },
-  card: { borderRadius: 12, margin: 16, elevation: 2, backgroundColor: "#fff" },
-  tabs: { marginBottom: 20 },
+  card: { backgroundColor: "#fff" },
+  tabs: {
+    marginBottom: 20,
+    borderRadius: 0,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  tabButton: {
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    backgroundColor: COLORS.white,
+  },
   section: { marginBottom: 16 },
   input: { marginBottom: 12, backgroundColor: "#fff" },
   mainBtn: { marginTop: 15 },

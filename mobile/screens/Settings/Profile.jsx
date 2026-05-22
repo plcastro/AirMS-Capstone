@@ -13,11 +13,11 @@ import {
 } from "react-native";
 import {
   Card,
-  Button,
+  IconButton,
   SegmentedButtons,
   Avatar,
   Text,
-  Switch
+  Switch,
 } from "react-native-paper";
 import Slider from "@react-native-community/slider";
 import * as ImagePicker from "expo-image-picker";
@@ -77,7 +77,6 @@ export default function Profile() {
             : true,
         );
       } catch {}
-
     };
 
     loadSettings();
@@ -333,234 +332,244 @@ export default function Profile() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 8}
     >
-    <ScrollView
-      style={styles.container}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-    >
-      <Card style={styles.headerCard}>
-        <Card.Content style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleImagePick} style={styles.avatarTapTarget}>
-            {previewUri ? (
-              <Avatar.Image
-                size={120}
-                source={{ uri: previewUri }}
-                style={styles.avatar}
-              />
-            ) : (
-              <Avatar.Text
-                size={120}
-                label={getUserInitials(user?.firstName, user?.lastName)}
-                style={styles.avatar}
-              />
-            )}
-            <View style={styles.editBadge}>
-              <Text style={styles.editBadgeText}>
-                {loading ? "..." : "Edit"}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <Text variant="titleLarge" style={[styles.userName, { fontSize: scaled(20) }]}>
-            {`${user?.firstName || ""} ${user?.lastName || ""}`}
-          </Text>
-          <Text
-            variant="bodyMedium"
-            style={[styles.userRole, { fontSize: scaled(12) }]}
-          >
-            {user?.jobTitle}
-          </Text>
-
-          <Text style={[styles.helperText, { fontSize: scaled(12) }]}>
-            Tap photo to update profile image
-          </Text>
-
-          <View style={[styles.buttonRow, { marginTop: 14 }]}>
-            <Button
-              mode="contained-tonal"
-              icon="camera-outline"
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      >
+        <Card style={styles.headerCard}>
+          <Card.Content style={styles.avatarContainer}>
+            <TouchableOpacity
               onPress={handleImagePick}
-              disabled={loading}
-              style={styles.actionButton}
-              labelStyle={{ fontSize: scaled(13) }}
+              style={styles.avatarTapTarget}
             >
-              Change Photo
-            </Button>
-            <Button
-              mode="outlined"
-              icon="delete"
-              textColor={COLORS.dangerBorder}
-              onPress={handleRemoveImage}
-              disabled={!user?.image && !previewUri}
-              style={[styles.actionButton, styles.removeButton]}
-              labelStyle={{ fontSize: scaled(13) }}
-            >
-              Remove Image
-            </Button>
-          </View>
-        </Card.Content>
+              {previewUri ? (
+                <Avatar.Image
+                  size={120}
+                  source={{ uri: previewUri }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Avatar.Text
+                  size={120}
+                  label={getUserInitials(user?.firstName, user?.lastName)}
+                  style={styles.avatar}
+                />
+              )}
+            </TouchableOpacity>
 
-        <Card.Content style={styles.segmentWrap}>
-          <SegmentedButtons
-            value={activeTab}
-            onValueChange={setActiveTab}
-            buttons={[
-              {
-                value: "info",
-                label: "Information",
-                icon: "account-details-outline",
-                labelStyle: { fontSize: scaled(12) },
-              },
-              {
-                value: "security",
-                label: "Security",
-                icon: "shield-check-outline",
-                labelStyle: { fontSize: scaled(12) },
-              },
-              {
-                value: "settings",
-                label: "Settings",
-                icon: "cog-outline",
-                labelStyle: { fontSize: scaled(12) },
-              },
-            ]}
-            style={styles.segmented}
-          />
-        </Card.Content>
-      </Card>
-
-      {activeTab === "info" ? (
-        <Card style={styles.formCard}>
-          <Card.Content>
-            <Text style={[styles.sectionTitle, { fontSize: scaled(16) }]}>
-              Account Information
-            </Text>
-            <AppPaperInput
-              label="First Name"
-              mode="outlined"
-              value={user?.firstName || ""}
-              editable={false}
-              style={styles.input}
-              contentStyle={{ fontSize: scaled(14) }}
-            />
-
-            <AppPaperInput
-              label="Last Name"
-              mode="outlined"
-              value={user?.lastName || ""}
-              editable={false}
-              style={styles.input}
-              contentStyle={{ fontSize: scaled(14) }}
-            />
-
-            <AppPaperInput
-              label="Username"
-              mode="outlined"
-              value={user?.username}
-              editable={false}
-              style={styles.input}
-              contentStyle={{ fontSize: scaled(14) }}
-            />
-            <AppPaperInput
-              label="Email Address"
-              mode="outlined"
-              value={user?.email}
-              editable={false}
-              style={styles.input}
-              contentStyle={{ fontSize: scaled(14) }}
-            />
-            <AppPaperInput
-              label="Last Login"
-              mode="outlined"
-              value={formatDate(user?.lastLogin)}
-              editable={false}
-              style={styles.input}
-              contentStyle={{ fontSize: scaled(14) }}
-            />
-
-            <Text style={{ color: COLORS.grayDark, fontSize: scaled(12) }}>
-              Name editing is disabled. Contact an administrator to update your
-              legal profile name.
-            </Text>
-          </Card.Content>
-        </Card>
-      ) : activeTab === "security" ? (
-        <UpdateSecurity />
-      ) : (
-        <Card style={styles.formCard}>
-          <Card.Content>
-            <Text style={[styles.settingsTitle, { fontSize: scaled(16) }]}>
-              App Settings
-            </Text>
-
-            <Text style={[styles.settingLabel, { fontSize: scaled(14) }]}>
-              Font Size
-            </Text>
-            <Text style={[styles.settingSub, { fontSize: scaled(12) }]}>
-              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
-              ({MOBILE_FONT_MAX.toFixed(2)}x)
-            </Text>
-            <Slider
-              minimumValue={MOBILE_FONT_RECOMMENDED}
-              maximumValue={MOBILE_FONT_MAX}
-              step={0.05}
-              value={fontScalePreference}
-              minimumTrackTintColor={COLORS.primaryLight}
-              maximumTrackTintColor={COLORS.grayMedium}
-              thumbTintColor={COLORS.primaryLight}
-              onValueChange={(value) =>
-                setFontScalePreference(value, { persist: false })
-              }
-              onSlidingComplete={async (value) => {
-                await setFontScalePreference(value);
-                await saveSettings({ fontSizePreference: value });
-                showToast("Font size preference saved.");
-              }}
-            />
             <Text
-              style={[
-                styles.settingSub,
-                { marginBottom: 16, fontSize: scaled(12) },
-              ]}
+              variant="titleLarge"
+              style={[styles.userName, { fontSize: scaled(20) }]}
             >
-              Current: {fontScalePreference.toFixed(2)}x
+              {`${user?.firstName || ""} ${user?.lastName || ""}`}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={[styles.userRole, { fontSize: scaled(12) }]}
+            >
+              {user?.jobTitle}
             </Text>
 
-            <View style={styles.settingRowCard}>
-              <View style={styles.settingRow}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text
-                  style={[styles.settingLabel, { fontSize: scaled(14) }]}
-                >
-                  Enable Notifications
+            <Text style={[styles.helperText, { fontSize: scaled(12) }]}>
+              Tap photo to update profile image
+            </Text>
+
+            <View style={[styles.buttonRow, { marginTop: 14 }]}>
+              <IconButton
+                icon="pencil-outline"
+                size={20}
+                iconColor={COLORS.primaryLight}
+                containerColor={COLORS.white}
+                style={styles.iconActionButton}
+                onPress={handleImagePick}
+                disabled={loading}
+                accessibilityLabel="Edit profile image"
+              />
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                iconColor={COLORS.dangerBorder}
+                containerColor={COLORS.white}
+                style={[styles.iconActionButton, styles.removeIconActionButton]}
+                onPress={handleRemoveImage}
+                disabled={!user?.image && !previewUri}
+                accessibilityLabel="Remove profile image"
+              />
+            </View>
+          </Card.Content>
+
+          <Card.Content>
+            <SegmentedButtons
+              value={activeTab}
+              onValueChange={setActiveTab}
+              buttons={[
+                {
+                  value: "info",
+                  label: "Information",
+                  icon: "account-details-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+                {
+                  value: "security",
+                  label: "Security",
+                  icon: "shield-check-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+                {
+                  value: "settings",
+                  label: "Settings",
+                  icon: "cog-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+              ]}
+              style={styles.segmented}
+            />
+          </Card.Content>
+          {activeTab === "info" ? (
+            <Card style={styles.formCard}>
+              <Card.Content>
+                <Text style={[styles.sectionTitle, { fontSize: scaled(16) }]}>
+                  Account Information
+                </Text>
+                <AppPaperInput
+                  label="First Name"
+                  mode="outlined"
+                  value={user?.firstName || ""}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+
+                <AppPaperInput
+                  label="Last Name"
+                  mode="outlined"
+                  value={user?.lastName || ""}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+
+                <AppPaperInput
+                  label="Username"
+                  mode="outlined"
+                  value={user?.username}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+                <AppPaperInput
+                  label="Email Address"
+                  mode="outlined"
+                  value={user?.email}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+                <AppPaperInput
+                  label="Last Login"
+                  mode="outlined"
+                  value={formatDate(user?.lastLogin)}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+
+                <Text style={{ color: COLORS.grayDark, fontSize: scaled(12) }}>
+                  Name editing is disabled. Contact an administrator to update
+                  your legal profile name.
+                </Text>
+              </Card.Content>
+            </Card>
+          ) : activeTab === "security" ? (
+            <UpdateSecurity />
+          ) : (
+            <Card style={styles.formCard}>
+              <Card.Content>
+                <Text style={[styles.settingsTitle, { fontSize: scaled(16) }]}>
+                  App Settings
+                </Text>
+
+                <Text style={[styles.settingLabel, { fontSize: scaled(14) }]}>
+                  Font Size
                 </Text>
                 <Text style={[styles.settingSub, { fontSize: scaled(12) }]}>
-                  Managed by device settings.
+                  Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to
+                  Max ({MOBILE_FONT_MAX.toFixed(2)}x)
                 </Text>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={async (value) => {
-                  if (value) {
-                    const granted = await requestNotificationPermission();
-                    setNotificationsEnabled(granted);
-                    await saveSettings({ notificationsEnabled: granted });
-                    return;
+                <Slider
+                  minimumValue={MOBILE_FONT_RECOMMENDED}
+                  maximumValue={MOBILE_FONT_MAX}
+                  step={0.05}
+                  value={fontScalePreference}
+                  minimumTrackTintColor={COLORS.primaryLight}
+                  maximumTrackTintColor={COLORS.grayMedium}
+                  thumbTintColor={COLORS.primaryLight}
+                  onValueChange={(value) =>
+                    setFontScalePreference(value, { persist: false })
                   }
+                  onSlidingComplete={async (value) => {
+                    await setFontScalePreference(value);
+                    await saveSettings({ fontSizePreference: value });
+                    showToast("Font size preference saved.");
+                  }}
+                />
+                <Text
+                  style={[
+                    styles.settingSub,
+                    { marginBottom: 16, fontSize: scaled(12) },
+                  ]}
+                >
+                  Current: {fontScalePreference.toFixed(2)}x
+                </Text>
 
-                  setNotificationsEnabled(false);
-                  await saveSettings({ notificationsEnabled: false });
-                  showToast(
-                    "Notifications toggled off in app. You can re-enable from device settings.",
-                  );
-                }}
-              />
-              </View>
-            </View>
-          </Card.Content>
+                <View style={styles.settingRowCard}>
+                  <View style={styles.settingRow}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={[styles.settingLabel, { fontSize: scaled(14) }]}
+                      >
+                        Enable Notifications
+                      </Text>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Managed by device settings.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={notificationsEnabled}
+                      onValueChange={async (value) => {
+                        if (value) {
+                          const granted = await requestNotificationPermission();
+                          setNotificationsEnabled(granted);
+                          await saveSettings({ notificationsEnabled: granted });
+                          return;
+                        }
+
+                        setNotificationsEnabled(false);
+                        await saveSettings({ notificationsEnabled: false });
+                        showToast(
+                          "Notifications toggled off in app. You can re-enable from device settings.",
+                        );
+                      }}
+                    />
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
         </Card>
-      )}
-    </ScrollView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -576,22 +585,41 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   formCard: {
-    marginHorizontal: 14,
-    marginBottom: 24,
-    borderRadius: 14,
-    elevation: 2,
+    // elevation: 2,
     backgroundColor: COLORS.white,
   },
-  avatarContainer: { alignItems: "center", paddingTop: 18, paddingHorizontal: 16, paddingBottom: 8 },
+  avatarContainer: {
+    alignItems: "center",
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   avatarTapTarget: { position: "relative" },
   avatar: {
     backgroundColor: COLORS.grayMedium,
   },
   userName: { marginTop: 12, fontWeight: "700", color: COLORS.black },
-  userRole: { fontSize: 12, color: COLORS.grayDark, marginTop: 4, textTransform: "capitalize" },
+  userRole: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 4,
+    textTransform: "capitalize",
+  },
   helperText: { color: COLORS.grayDark, marginTop: 6 },
-  segmentWrap: { paddingTop: 6, paddingBottom: 14 },
-  segmented: { marginTop: 0 },
+
+  segmented: {
+    marginTop: 0,
+    borderRadius: 0,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  segmentButton: {
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    backgroundColor: COLORS.white,
+  },
   sectionTitle: { fontWeight: "700", color: COLORS.black, marginBottom: 14 },
   input: { marginBottom: 16, backgroundColor: COLORS.white },
   buttonRow: {
@@ -600,21 +628,15 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
-  actionButton: { minWidth: 140, marginTop: 8, borderRadius: 10 },
-  removeButton: { borderColor: COLORS.dangerBorder },
-  errorText: { color: "#b00020", fontSize: 12, marginBottom: 12 },
-  editBadge: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.white,
+  iconActionButton: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
   },
-  editBadgeText: { color: COLORS.white, fontSize: 14, fontWeight: "600" },
+  removeIconActionButton: { borderColor: COLORS.dangerBorder },
+  errorText: { color: "#b00020", fontSize: 12, marginBottom: 12 },
   settingsTitle: {
     fontWeight: "700",
     marginBottom: 12,
