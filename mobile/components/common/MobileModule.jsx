@@ -1,11 +1,11 @@
 import React from "react";
+import AppText from "./AppText";
+import AppInput from "./AppInput";
 import {
   ActivityIndicator,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
@@ -107,7 +107,7 @@ export function SearchBar({ value, onChangeText, placeholder = "Search" }) {
       }}
     >
       <MaterialCommunityIcons name="magnify" size={21} color={COLORS.grayDark} />
-      <TextInput
+      <AppInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -129,8 +129,8 @@ export function InfoCard({ title, subtitle, right, children, onPress }) {
     >
       <View style={[moduleStyles.row, { justifyContent: "space-between" }]}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          {!!title && <Text style={moduleStyles.title}>{title}</Text>}
-          {!!subtitle && <Text style={moduleStyles.subtitle}>{subtitle}</Text>}
+          {!!title && <AppText style={moduleStyles.title}>{title}</AppText>}
+          {!!subtitle && <AppText style={moduleStyles.subtitle}>{subtitle}</AppText>}
         </View>
         {right}
       </View>
@@ -142,8 +142,8 @@ export function InfoCard({ title, subtitle, right, children, onPress }) {
 export function FieldRow({ label, value }) {
   return (
     <View style={{ flex: 1, minWidth: "45%", marginTop: 10, paddingRight: 8 }}>
-      <Text style={moduleStyles.label}>{label}</Text>
-      <Text style={moduleStyles.value}>{value ?? "N/A"}</Text>
+      <AppText style={moduleStyles.label}>{label}</AppText>
+      <AppText style={moduleStyles.value}>{value ?? "N/A"}</AppText>
     </View>
   );
 }
@@ -156,9 +156,9 @@ export function EmptyState({ text = "No records found." }) {
         size={30}
         color={COLORS.grayDark}
       />
-      <Text style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
+      <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
         {text}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -167,9 +167,9 @@ export function LoadingState({ text = "Loading records..." }) {
   return (
     <View style={[moduleStyles.card, { alignItems: "center", padding: 22 }]}>
       <ActivityIndicator color={COLORS.primaryLight} />
-      <Text style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
+      <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
         {text}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -188,10 +188,10 @@ export function StatCard({
         compact ? { padding: 9, marginBottom: 8 } : null,
       ]}
     >
-      <Text style={[moduleStyles.label, compact ? { fontSize: 10 } : null]}>
+      <AppText style={[moduleStyles.label, compact ? { fontSize: 10 } : null]}>
         {label}
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{
           color: tone,
           fontSize: compact ? 16 : 22,
@@ -200,7 +200,7 @@ export function StatCard({
         }}
       >
         {value ?? 0}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -208,7 +208,7 @@ export function StatCard({
 export function StatusChip({ label, color = COLORS.primaryLight }) {
   return (
     <View style={[moduleStyles.chip, { backgroundColor: `${color}18` }]}>
-      <Text style={[moduleStyles.chipText, { color }]}>{label || "N/A"}</Text>
+      <AppText style={[moduleStyles.chipText, { color }]}>{label || "N/A"}</AppText>
     </View>
   );
 }
@@ -216,8 +216,8 @@ export function StatusChip({ label, color = COLORS.primaryLight }) {
 export function SectionTitle({ title, subtitle }) {
   return (
     <View style={{ marginBottom: 10 }}>
-      <Text style={moduleStyles.title}>{title}</Text>
-      {!!subtitle && <Text style={moduleStyles.subtitle}>{subtitle}</Text>}
+      <AppText style={moduleStyles.title}>{title}</AppText>
+      {!!subtitle && <AppText style={moduleStyles.subtitle}>{subtitle}</AppText>}
     </View>
   );
 }

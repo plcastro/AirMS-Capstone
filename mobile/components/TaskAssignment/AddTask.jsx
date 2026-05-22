@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
-  Platform,
-  TextInput,
+  Platform
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -58,6 +58,47 @@ const dedupeChecklistItems = (items = []) => {
   });
 };
 
+const PRIORITY_OPTIONS = ["Low", "Normal", "High"];
+const RISK_PRIORITY_POINTS = {
+  Critical: 70,
+  High: 45,
+  Medium: 25,
+  Low: 10,
+};
+
+const computePriorityScore = ({
+  riskLevel = "",
+  maintenanceType = "",
+  checklistCount = 0,
+  startDate = null,
+}) => {
+  let score = 0;
+  score += RISK_PRIORITY_POINTS[String(riskLevel || "").trim()] || 0;
+
+  const normalizedType = String(maintenanceType || "").toLowerCase();
+  if (normalizedType.includes("corrective")) score += 20;
+  if (normalizedType.includes("custom")) score += 10;
+
+  if (checklistCount >= 12) score += 15;
+  else if (checklistCount >= 6) score += 10;
+  else if (checklistCount >= 3) score += 5;
+
+  if (startDate instanceof Date) {
+    const hoursUntilStart = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntilStart <= 6) score += 20;
+    else if (hoursUntilStart <= 24) score += 12;
+    else if (hoursUntilStart <= 72) score += 6;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+};
+
+const scoreToPriority = (score = 0) => {
+  if (score >= 60) return "High";
+  if (score >= 30) return "Normal";
+  return "Low";
+};
+
 export default function AddTask({
   visible,
   onClose,
@@ -83,6 +124,8 @@ export default function AddTask({
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [selectedPriority, setSelectedPriority] = useState("Normal");
   const [loading, setLoading] = useState(false);
   const [androidPickerMode, setAndroidPickerMode] = useState("date");
   const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
@@ -95,6 +138,18 @@ export default function AddTask({
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees.filter((emp) => !emp.isBusy);
+  const derivedMaintenanceType = isCustomTask
+    ? "Custom Task"
+    : initialDraft
+      ? "Corrective Maintenance"
+      : "Inspection";
+  const suggestedPriorityScore = computePriorityScore({
+    riskLevel: initialDraft?.riskLevel,
+    maintenanceType: derivedMaintenanceType,
+    checklistCount: checklistItems.length,
+    startDate,
+  });
+  const suggestedPriority = scoreToPriority(suggestedPriorityScore);
 
   const draftKey = initialDraft
     ? JSON.stringify({
@@ -240,6 +295,16 @@ export default function AddTask({
   };
 
   const applyDraft = async (draft = {}) => {
+    setSelectedPriority(
+      scoreToPriority(
+        computePriorityScore({
+          riskLevel: draft?.riskLevel,
+          maintenanceType: "Corrective Maintenance",
+          checklistCount: checklistItems.length,
+          startDate,
+        }),
+      ),
+    );
     const matchedInspection = findInspectionForDraft(draft);
 
     if (draft.aircraft) {
@@ -302,8 +367,10 @@ export default function AddTask({
     setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
     setAndroidPickerMode("date");
     setEndDateManuallyAdjusted(false);
+    setSelectedPriority("Normal");
   };
 
   const fetchInspectionTasks = async (inspection) => {
@@ -469,16 +536,8 @@ export default function AddTask({
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
-      priority:
-        initialDraft?.riskLevel === "Critical" ||
-        initialDraft?.riskLevel === "High"
-          ? "High"
-          : "Normal",
-      maintenanceType: isCustomTask
-        ? "Custom Task"
-        : initialDraft
-          ? "Corrective Maintenance"
-          : "Inspection",
+      priority: selectedPriority || suggestedPriority,
+      maintenanceType: derivedMaintenanceType,
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
@@ -684,6 +743,7 @@ export default function AddTask({
     setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
   };
 
   const getAddTaskWarning = () => {
@@ -730,10 +790,10 @@ export default function AddTask({
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
-        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
-      </Text>
+        {required && <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>}
+      </AppText>
 
       <TouchableOpacity
         activeOpacity={0.8}
@@ -757,7 +817,7 @@ export default function AddTask({
           justifyContent: "space-between",
         }}
       >
-        <Text
+        <AppText
           numberOfLines={1}
           style={{
             flex: 1,
@@ -767,11 +827,11 @@ export default function AddTask({
           }}
         >
           {value || placeholder}
-        </Text>
+        </AppText>
 
-        <Text style={{ color: COLORS.primaryLight, fontSize: 12 }}>
+        <AppText style={{ color: COLORS.primaryLight, fontSize: 12 }}>
           {visible ? "^" : "v"}
-        </Text>
+        </AppText>
       </TouchableOpacity>
 
       {visible && !disabled && (
@@ -818,14 +878,14 @@ export default function AddTask({
                       }}
                     />
                   ) : null}
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: COLORS.black,
                     }}
                   >
                     {item.label}
-                  </Text>
+                  </AppText>
                 </View>
               </TouchableOpacity>
             ))}
@@ -846,6 +906,7 @@ export default function AddTask({
           ?.name || "";
   const selectedEmployeeLabel =
     availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const selectedPriorityLabel = selectedPriority || "";
   const addTaskWarning = getAddTaskWarning();
   const hasUnsavedChanges = () =>
     Boolean(selectedAircraft) ||
@@ -887,14 +948,14 @@ export default function AddTask({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-            <Text
+            <AppText
               style={[
                 styles.alertTitle,
                 { textAlign: "left", marginBottom: 15 },
               ]}
             >
               Task
-            </Text>
+            </AppText>
 
             {renderDropdownField({
               label: "Aircraft",
@@ -976,7 +1037,7 @@ export default function AddTask({
 
             {isCustomTask && (
               <View style={{ marginBottom: 15 }}>
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color: COLORS.grayDark,
@@ -984,8 +1045,8 @@ export default function AddTask({
                   }}
                 >
                   Custom Task Name *
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   value={customTaskTitle}
                   onChangeText={setCustomTaskTitle}
                   placeholder="Enter task name"
@@ -1018,12 +1079,37 @@ export default function AddTask({
               onSelect: setSelectedEmployee,
             })}
 
-            <Text
+            {renderDropdownField({
+              label: "Priority",
+              required: true,
+              value: selectedPriorityLabel,
+              placeholder: "Pick Priority",
+              options: PRIORITY_OPTIONS.map((level) => ({
+                label: level,
+                value: level,
+              })),
+              visible: showPriorityDropdown,
+              onToggle: setShowPriorityDropdown,
+              onSelect: setSelectedPriority,
+            })}
+
+            <AppText
+              style={{
+                fontSize: 11,
+                color: COLORS.grayDark,
+                marginTop: -8,
+                marginBottom: 14,
+              }}
+            >
+              Suggested: {suggestedPriority} (score {suggestedPriorityScore}/100)
+            </AppText>
+
+            <AppText
               style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               Start Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
+              <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+            </AppText>
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.grayLight,
@@ -1035,9 +1121,9 @@ export default function AddTask({
               }}
               onPress={() => openDateTimePicker("start")}
             >
-              <Text style={{ color: COLORS.grayDark }}>
+              <AppText style={{ color: COLORS.grayDark }}>
                 {formatDateTime(startDate)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
             {showStartPicker && (
@@ -1050,12 +1136,12 @@ export default function AddTask({
               />
             )}
 
-            <Text
+            <AppText
               style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
             >
               End Date and Time
-              <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-            </Text>
+              <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+            </AppText>
             <TouchableOpacity
               style={{
                 backgroundColor: COLORS.grayLight,
@@ -1067,12 +1153,12 @@ export default function AddTask({
               }}
               onPress={() => openDateTimePicker("end")}
             >
-              <Text style={{ color: COLORS.grayDark }}>
+              <AppText style={{ color: COLORS.grayDark }}>
                 {formatDateTime(endDate)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 color: COLORS.grayDark,
@@ -1086,7 +1172,7 @@ export default function AddTask({
               {scheduleEstimate.itemCount} checklist item
               {scheduleEstimate.itemCount === 1 ? "" : "s"}
               {endDateManuallyAdjusted ? " | End time manually adjusted" : ""}
-            </Text>
+            </AppText>
 
             {showEndPicker && (
               <DateTimePicker
@@ -1098,9 +1184,9 @@ export default function AddTask({
               />
             )}
 
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
+            <AppText style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}>
               Checklist
-            </Text>
+            </AppText>
 
             {checklistItems.map((item, index) => (
               <View
@@ -1112,15 +1198,15 @@ export default function AddTask({
                 </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={{ fontSize: 12, color: "#888" }}>
+                  <AppText style={{ fontSize: 12, color: "#888" }}>
                     {[item.taskId, item.inspectionTypeFull]
                       .filter(Boolean)
                       .join(" | ")}
-                  </Text>
+                  </AppText>
 
                   {isCustomTask ? (
                     <>
-                      <TextInput
+                      <AppInput
                         value={item.taskName || ""}
                         onChangeText={(value) =>
                           updateChecklistItem(index, "taskName", value)
@@ -1134,7 +1220,7 @@ export default function AddTask({
                           color: COLORS.black,
                         }}
                       />
-                      <TextInput
+                      <AppInput
                         value={item.description || ""}
                         onChangeText={(value) =>
                           updateChecklistItem(index, "description", value)
@@ -1156,15 +1242,15 @@ export default function AddTask({
                         onPress={() => removeChecklistItem(index)}
                         style={{ alignSelf: "flex-start", marginTop: 8 }}
                       >
-                        <Text style={{ color: COLORS.danger || "#d32f2f" }}>
+                        <AppText style={{ color: COLORS.danger || "#d32f2f" }}>
                           Remove
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <Text style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
+                    <AppText style={{ borderBottomWidth: 1, paddingVertical: 6 }}>
                       {item.taskName}
-                    </Text>
+                    </AppText>
                   )}
                 </View>
               </View>
@@ -1183,20 +1269,20 @@ export default function AddTask({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
                   Add Checklist Item
-                </Text>
+                </AppText>
               </TouchableOpacity>
             )}
 
             {checklistItems.length === 0 && !isCustomTask && (
-              <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+              <AppText style={{ color: COLORS.grayDark, marginBottom: 20 }}>
                 No checklist items were found for this inspection.
-              </Text>
+              </AppText>
             )}
 
             {addTaskWarning ? (
-              <Text
+              <AppText
                 style={{
                   color: COLORS.danger || COLORS.dangerBorder || "#d32f2f",
                   marginBottom: 8,
@@ -1204,7 +1290,7 @@ export default function AddTask({
                 }}
               >
                 {addTaskWarning}
-              </Text>
+              </AppText>
             ) : null}
             </ScrollView>
 

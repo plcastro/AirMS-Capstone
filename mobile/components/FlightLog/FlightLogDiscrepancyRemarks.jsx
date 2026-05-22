@@ -1,9 +1,9 @@
 import React from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -16,9 +16,9 @@ export default function FlightLogDiscrepancyRemarks({
 }) {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
         Discrepancy/Remarks
-      </Text>
+      </AppText>
 
       <View style={{
         backgroundColor: COLORS.white,
@@ -33,17 +33,17 @@ export default function FlightLogDiscrepancyRemarks({
         overflow: "hidden",
       }}>
         <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Discrepancy/Remarks
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Discrepancy/Remarks
-            </Text>
-            <TextInput
+            </AppText>
+            <AppInput
               style={{
                 backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
                 borderRadius: 6,
@@ -65,10 +65,10 @@ export default function FlightLogDiscrepancyRemarks({
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
               Sling
-            </Text>
-            <TextInput
+            </AppText>
+            <AppInput
               style={{
                 backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
                 borderRadius: 6,

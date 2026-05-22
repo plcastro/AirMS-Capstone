@@ -1,12 +1,12 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Image,
+  Image
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -301,12 +301,12 @@ export default function PreInspectionEditEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
                 {isViewOnly ? "View Entry" : "Edit Entry"} - Pre-Inspection
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -347,7 +347,7 @@ export default function PreInspectionEditEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -356,7 +356,7 @@ export default function PreInspectionEditEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -399,7 +399,7 @@ export default function PreInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -407,7 +407,7 @@ export default function PreInspectionEditEntry({
                     }}
                   >
                     Release
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -426,7 +426,7 @@ export default function PreInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -434,7 +434,7 @@ export default function PreInspectionEditEntry({
                     }}
                   >
                     Accept
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -457,7 +457,7 @@ export default function PreInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -465,10 +465,10 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       RELEASED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -477,8 +477,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formData.releasedBy.name} / {formData.releasedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -486,8 +486,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       MECHANIC
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -495,7 +495,7 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.releasedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.releasedBy.signature && (
                       <Image
                         source={{ uri: formData.releasedBy.signature }}
@@ -531,7 +531,7 @@ export default function PreInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -539,10 +539,10 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       ACCEPTED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -551,8 +551,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formData.acceptedBy.name} / {formData.acceptedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -560,8 +560,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       PILOT
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -569,7 +569,7 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.acceptedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.acceptedBy.signature && (
                       <Image
                         source={{ uri: formData.acceptedBy.signature }}
@@ -615,9 +615,9 @@ export default function PreInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View
@@ -628,11 +628,11 @@ export default function PreInspectionEditEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           <TouchableOpacity
@@ -646,11 +646,11 @@ export default function PreInspectionEditEntry({
               opacity: isSubmitting ? 0.6 : 1,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
               {isLastPage ? footerActionLabel : "Next"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
 

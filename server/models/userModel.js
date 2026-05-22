@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema({
     type: [
       {
         deviceId: { type: String, required: true },
-        expoPushToken: { type: String, required: true },
+        fcmToken: { type: String, required: true },
         platform: { type: String, default: "unknown" },
         lastSeenAt: { type: Date, default: Date.now },
       },
@@ -111,6 +111,19 @@ const userSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: Date,
   isLocked: { type: Boolean, default: false },
+});
+
+userSchema.pre("validate", function sanitizeMobilePushDevices() {
+  if (!Array.isArray(this.mobilePushDevices)) {
+    return;
+  }
+
+  this.mobilePushDevices = this.mobilePushDevices.filter((device) => {
+    const hasDeviceId = Boolean(String(device?.deviceId || "").trim());
+    const hasFcmToken = Boolean(String(device?.fcmToken || "").trim());
+    return hasDeviceId && hasFcmToken;
+  });
+
 });
 
 module.exports = mongoose.model("User", userSchema);

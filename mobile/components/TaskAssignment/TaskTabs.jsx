@@ -1,4 +1,9 @@
-import { View, ScrollView, Text, RefreshControl } from "react-native";
+import {
+  View,
+  ScrollView,
+  RefreshControl
+} from "react-native";
+import AppText from "../common/AppText";
 import React, { useState, useContext } from "react";
 import TaskCard from "./TaskCard";
 import Button from "../Button";
@@ -76,7 +81,11 @@ export default function TaskTabs({
               isPastDue
             );
           case "Completed":
-            return task.status === "Completed" || task.status === "Turned in";
+            return (
+              task.status === "Completed" ||
+              task.status === "Turned in" ||
+              task.status === "Approved"
+            );
           default:
             return false;
         }
@@ -109,7 +118,11 @@ export default function TaskTabs({
             isPastDue
           );
         case "Completed":
-          return task.status === "Completed" || task.status === "Turned in";
+          return (
+            task.status === "Completed" ||
+            task.status === "Turned in" ||
+            task.status === "Approved"
+          );
         default:
           return false;
       }
@@ -228,14 +241,14 @@ export default function TaskTabs({
                       borderTopRightRadius: 4,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontWeight: "700",
                         fontSize: 12,
                       }}
                     >
                       {section.title}
-                    </Text>
+                    </AppText>
                   </View>
 
                   {section.data.map((task) => (
@@ -264,9 +277,9 @@ export default function TaskTabs({
               ))}
 
           {tasksToRender.length === 0 && (
-            <Text style={{ textAlign: "center", marginTop: 20 }}>
+            <AppText style={{ textAlign: "center", marginTop: 20 }}>
               No tasks available
-            </Text>
+            </AppText>
           )}
         </ScrollView>
       </View>

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
-  Platform,
-  TextInput,
+  Platform
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
@@ -37,6 +37,7 @@ export default function EditTask({
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState("Normal");
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -45,6 +46,7 @@ export default function EditTask({
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [androidPickerMode, setAndroidPickerMode] = useState("date");
 
   const [checklistItems, setChecklistItems] = useState([]);
@@ -131,6 +133,7 @@ export default function EditTask({
       setTaskTitle(task.title || "");
       setSelectedAircraft(task.aircraft || "");
       setSelectedEmployee(task.assignedTo || "");
+      setSelectedPriority(task.priority || "Normal");
 
       if (task.startDateTime) {
         setStartDate(new Date(task.startDateTime));
@@ -179,6 +182,7 @@ export default function EditTask({
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       assignedTo: selectedEmployee,
+      priority: selectedPriority || "Normal",
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name ||
         task.assignedToName,
@@ -331,6 +335,7 @@ export default function EditTask({
   const closeAllDropdowns = () => {
     setShowAircraftDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
   };
 
   const renderDropdownField = ({
@@ -345,10 +350,10 @@ export default function EditTask({
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <Text style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
         {label}
-        {required && <Text style={{ color: COLORS.dangerBorder }}> *</Text>}
-      </Text>
+        {required && <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>}
+      </AppText>
 
       <TouchableOpacity
         activeOpacity={0.8}
@@ -371,7 +376,7 @@ export default function EditTask({
           justifyContent: "space-between",
         }}
       >
-        <Text
+        <AppText
           numberOfLines={1}
           style={{
             flex: 1,
@@ -381,12 +386,12 @@ export default function EditTask({
           }}
         >
           {value || placeholder}
-        </Text>
+        </AppText>
 
         {!disabled && (
-          <Text style={{ color: COLORS.primaryLight, fontSize: 12 }}>
+          <AppText style={{ color: COLORS.primaryLight, fontSize: 12 }}>
             {visible ? "^" : "v"}
-          </Text>
+          </AppText>
         )}
       </TouchableOpacity>
 
@@ -422,14 +427,14 @@ export default function EditTask({
                       : COLORS.white,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     color: COLORS.black,
                   }}
                 >
                   {item.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -443,6 +448,7 @@ export default function EditTask({
       ?.name || "";
   const selectedEmployeeLabel =
     employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const selectedPriorityLabel = selectedPriority || "";
 
   return (
     <>
@@ -464,16 +470,16 @@ export default function EditTask({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              <Text
+              <AppText
                 style={[
                   styles.alertTitle,
                   { textAlign: "left", marginBottom: 15 },
                 ]}
               >
                 Task
-              </Text>
+              </AppText>
 
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -481,8 +487,8 @@ export default function EditTask({
                 }}
               >
                 Task Name
-              </Text>
-              <TextInput
+              </AppText>
+              <AppInput
                 value={taskTitle}
                 editable={false}
                 placeholder="Maintenance Task"
@@ -528,7 +534,21 @@ export default function EditTask({
                 onSelect: setSelectedEmployee,
               })}
 
-              <Text
+              {renderDropdownField({
+                label: "Priority",
+                required: true,
+                value: selectedPriorityLabel,
+                placeholder: "Pick Priority",
+                options: ["Low", "Normal", "High"].map((level) => ({
+                  label: level,
+                  value: level,
+                })),
+                visible: showPriorityDropdown,
+                onToggle: setShowPriorityDropdown,
+                onSelect: setSelectedPriority,
+              })}
+
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -536,8 +556,8 @@ export default function EditTask({
                 }}
               >
                 Start Date and Time
-                <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-              </Text>
+                <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+              </AppText>
               <TouchableOpacity
                 style={{
                   backgroundColor: COLORS.grayLight,
@@ -549,9 +569,9 @@ export default function EditTask({
                 }}
                 onPress={() => openDateTimePicker("start")}
               >
-                <Text style={{ color: COLORS.grayDark }}>
+                <AppText style={{ color: COLORS.grayDark }}>
                   {formatDateTime(startDate)}
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               {showStartPicker && (
@@ -564,7 +584,7 @@ export default function EditTask({
                 />
               )}
 
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -572,8 +592,8 @@ export default function EditTask({
                 }}
               >
                 End Date and Time
-                <Text style={{ color: COLORS.dangerBorder }}> *</Text>
-              </Text>
+                <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+              </AppText>
               <TouchableOpacity
                 style={{
                   backgroundColor: COLORS.grayLight,
@@ -585,9 +605,9 @@ export default function EditTask({
                 }}
                 onPress={() => openDateTimePicker("end")}
               >
-                <Text style={{ color: COLORS.grayDark }}>
+                <AppText style={{ color: COLORS.grayDark }}>
                   {formatDateTime(endDate)}
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               {showEndPicker && (
@@ -600,11 +620,11 @@ export default function EditTask({
                 />
               )}
 
-              <Text
+              <AppText
                 style={{ fontSize: 14, fontWeight: "600", marginBottom: 15 }}
               >
                 Checklist
-              </Text>
+              </AppText>
 
               {checklistItems.map((item, index) => (
                 <View
@@ -616,12 +636,12 @@ export default function EditTask({
                   </View>
 
                   <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+                    <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                       {[item.taskId, item.inspectionTypeFull]
                         .filter(Boolean)
                         .join(" | ")}
-                    </Text>
-                    <TextInput
+                    </AppText>
+                    <AppInput
                       value={item.taskName || ""}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "taskName", value)
@@ -635,7 +655,7 @@ export default function EditTask({
                         fontSize: 12,
                       }}
                     />
-                    <TextInput
+                    <AppInput
                       value={item.description || ""}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "description", value)
@@ -657,9 +677,9 @@ export default function EditTask({
                       onPress={() => removeChecklistItem(index)}
                       style={{ alignSelf: "flex-start", marginTop: 8 }}
                     >
-                      <Text style={{ color: COLORS.dangerBg || "#d32f2f" }}>
+                      <AppText style={{ color: COLORS.dangerBg || "#d32f2f" }}>
                         Remove
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -677,15 +697,15 @@ export default function EditTask({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
                   Add Checklist Item
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               {checklistItems.length === 0 && (
-                <Text style={{ color: COLORS.grayDark, marginBottom: 20 }}>
+                <AppText style={{ color: COLORS.grayDark, marginBottom: 20 }}>
                   No checklist items attached to this task.
-                </Text>
+                </AppText>
               )}
             </ScrollView>
 

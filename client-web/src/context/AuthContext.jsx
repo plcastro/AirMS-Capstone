@@ -183,9 +183,25 @@ export const AuthProvider = ({ children }) => {
   const scheduleInactivityTimers = (elapsed = 0) => {
     clearInactivityTimers();
     if (!user) return;
-    // Web should stay signed in while token refresh is valid.
-    // Disable inactivity-based forced logout; rely on token validity/refresh flow.
-    setShowSessionTimeoutWarning(false);
+
+    const safeElapsed = Math.max(0, Number(elapsed) || 0);
+    const warningLeadTimeMs = WARNING_DURATION_MS;
+    const warningStartAfterMs =
+      INACTIVITY_LIMIT_MS - warningLeadTimeMs - safeElapsed;
+    const autoLogoutAfterMs = INACTIVITY_LIMIT_MS - safeElapsed;
+
+    const triggerWarning = (remainingMs) => {
+      const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+      startWarningCountdown(remainingSeconds);
+    };
+
+    if (warningStartAfterMs <= 0) {
+      triggerWarning(Math.max(1000, autoLogoutAfterMs));
+    } else {
+      inactivityWarningTimeoutRef.current = setTimeout(() => {
+        triggerWarning(warningLeadTimeMs);
+      }, warningStartAfterMs);
+    }
   };
 
   const recordActivity = () => {

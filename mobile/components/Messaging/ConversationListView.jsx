@@ -1,10 +1,12 @@
 import React from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -31,7 +33,10 @@ export default function ConversationListView({
   getDisplayName,
 }) {
   return (
-    <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View
         style={{
           paddingHorizontal: 16,
@@ -55,7 +60,7 @@ export default function ConversationListView({
             size={20}
             color={COLORS.grayDark}
           />
-          <TextInput
+          <AppInput
             value={searchText}
             onChangeText={setSearchText}
             placeholder="Search users or groups"
@@ -82,6 +87,8 @@ export default function ConversationListView({
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         {conversationItems.length === 0 ? (
           <View
@@ -96,7 +103,7 @@ export default function ConversationListView({
               size={42}
               color="#B7C6C2"
             />
-            <Text
+            <AppText
               style={{
                 marginTop: 10,
                 fontSize: 14,
@@ -105,7 +112,7 @@ export default function ConversationListView({
               }}
             >
               No conversations
-            </Text>
+            </AppText>
           </View>
         ) : (
           conversationItems.map((item) => {
@@ -148,7 +155,7 @@ export default function ConversationListView({
                         borderColor: COLORS.white,
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           color: COLORS.white,
                           fontSize: 9,
@@ -156,13 +163,13 @@ export default function ConversationListView({
                         }}
                       >
                         {unreadCount}
-                      </Text>
+                      </AppText>
                     </View>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, marginLeft: 12, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text
+                    <AppText
                       numberOfLines={1}
                       style={{
                         flex: 1,
@@ -172,9 +179,9 @@ export default function ConversationListView({
                       }}
                     >
                       {item.title}
-                    </Text>
+                    </AppText>
                     {preview?.time ? (
-                      <Text
+                      <AppText
                         style={{
                           marginLeft: 8,
                           fontSize: 11,
@@ -182,10 +189,10 @@ export default function ConversationListView({
                         }}
                       >
                         {preview.time}
-                      </Text>
+                      </AppText>
                     ) : null}
                   </View>
-                  <Text
+                  <AppText
                     numberOfLines={1}
                     style={{
                       marginTop: 0,
@@ -195,8 +202,8 @@ export default function ConversationListView({
                     }}
                   >
                     {item.subtitle}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     numberOfLines={1}
                     style={{
                       marginTop: 5,
@@ -206,7 +213,7 @@ export default function ConversationListView({
                     }}
                   >
                     {preview?.text || "Tap to start a conversation"}
-                  </Text>
+                  </AppText>
                 </View>
               </TouchableOpacity>
             );
@@ -250,6 +257,6 @@ export default function ConversationListView({
         renderAvatar={renderAvatar}
         getDisplayName={getDisplayName}
       />
-    </>
+    </KeyboardAvoidingView>
   );
 }

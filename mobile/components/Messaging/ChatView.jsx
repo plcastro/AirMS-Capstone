@@ -1,15 +1,16 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   Linking,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from "react-native";
 
 import {
@@ -51,7 +52,24 @@ export default function ChatView({
       scrollRef.current?.scrollToEnd({ animated: false });
     }, 50);
   }, [messages]);
+  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return undefined;
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setAndroidKeyboardHeight(event?.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setAndroidKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <SafeAreaView
@@ -60,8 +78,8 @@ export default function ChatView({
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <View style={{ flex: 1 }}>
           <View
@@ -107,18 +125,18 @@ export default function ChatView({
               }}
               style={{ flex: 1, marginLeft: 10, minWidth: 0 }}
             >
-              <Text
+              <AppText
                 numberOfLines={1}
                 style={{ fontSize: 15, fontWeight: "800", color: COLORS.black }}
               >
                 {selectedConversationDetails?.title || "Conversation"}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 numberOfLines={1}
                 style={{ fontSize: 11, color: COLORS.grayDark }}
               >
                 {selectedConversationDetails?.subtitle || "Conversation"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
 
             {selectedConversationDetails?.type === "group" && (
@@ -150,6 +168,7 @@ export default function ChatView({
               paddingBottom: 10,
             }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               scrollRef.current?.scrollToEnd({ animated: true });
@@ -179,7 +198,7 @@ export default function ChatView({
                     }}
                   >
                     {item.body ? (
-                      <Text
+                      <AppText
                         style={{
                           color: mine ? COLORS.white : COLORS.black,
                           fontSize: 14,
@@ -187,7 +206,7 @@ export default function ChatView({
                         }}
                       >
                         {item.body}
-                      </Text>
+                      </AppText>
                     ) : null}
                     {(item.attachments || []).map((attachment) => {
                       const url = getAttachmentUrl(attachment.url);
@@ -238,7 +257,7 @@ export default function ChatView({
                                 size={20}
                                 color={mine ? COLORS.white : COLORS.black}
                               />
-                              <Text
+                              <AppText
                                 numberOfLines={1}
                                 style={{
                                   marginLeft: 8,
@@ -249,7 +268,7 @@ export default function ChatView({
                                 }}
                               >
                                 {attachment.name || "Attachment"}
-                              </Text>
+                              </AppText>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -258,7 +277,7 @@ export default function ChatView({
                   </View>
 
                   {/* --- RESTORED TIME AND STATUS --- */}
-                  <Text
+                  <AppText
                     style={{
                       marginTop: 3,
                       paddingRight: mine ? 4 : 0,
@@ -277,7 +296,7 @@ export default function ChatView({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                  </Text>
+                  </AppText>
                 </View>
               );
             })}
@@ -295,6 +314,7 @@ export default function ChatView({
               borderTopColor: "#ECEFEE",
               paddingBottom:
                 Platform.OS === "ios" ? Math.max(insets.bottom, 8) : 8,
+              marginBottom: Platform.OS === "android" ? androidKeyboardHeight : 0,
             }}
           >
             {attachments?.length ? (
@@ -340,7 +360,7 @@ export default function ChatView({
                       size={17}
                       color={COLORS.black}
                     />
-                    <Text
+                    <AppText
                       numberOfLines={1}
                       style={{
                         maxWidth: 190,
@@ -350,7 +370,7 @@ export default function ChatView({
                       }}
                     >
                       {file.name}
-                    </Text>
+                    </AppText>
                     <TouchableOpacity
                       onPress={() => removeAttachment(index)}
                       style={{
@@ -410,7 +430,7 @@ export default function ChatView({
                 color={COLORS.black}
               />
             </TouchableOpacity>
-            <TextInput
+            <AppInput
               value={draft}
               onChangeText={setDraft}
               placeholder="Message"

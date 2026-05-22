@@ -39,6 +39,7 @@ const { useBreakpoint } = Grid;
 
 export default function FlightLog() {
   const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
 
@@ -68,6 +69,7 @@ export default function FlightLog() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [entryModalVisible, setEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -741,6 +743,10 @@ export default function FlightLog() {
   );
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedAircraft, selectedStatus]);
+
+  useEffect(() => {
     const openTargetFlightLog = async () => {
       const params = new URLSearchParams(location.search);
       const targetFlightLogId = params.get("targetFlightLogId");
@@ -1079,15 +1085,24 @@ export default function FlightLog() {
           dataSource={filteredLogs}
           loading={loading}
           rowKey={(record) => record._id || record.id}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          scroll={{ x: 1100 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50"],
+            current: currentPage,
+            onChange: (page) => setCurrentPage(page),
+            showLessItems: isMobile,
+            size: isMobile ? "small" : "default",
+            placement: isMobile ? "bottom" : "bottomEnd",
+          }}
+          scroll={{ x: "max-content" }}
           locale={{
             emptyText:
               searchQuery || selectedAircraft || selectedStatus !== "all"
                 ? "No flight logs found"
                 : "No flight logs yet",
           }}
-          size="small"
+          size={isMobile ? "small" : "middle"}
         />
       )}
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>

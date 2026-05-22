@@ -1,6 +1,10 @@
 import React from "react";
-import { TouchableOpacity, Text, View } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons"; // adjust to your icon lib
+import AppText from "./common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
+import { MaterialIcons as Icon } from "@expo/vector-icons";
 
 export default function Button({
   iconName,
@@ -33,7 +37,7 @@ export default function Button({
           style={[{ marginRight: 4 }, iconStyle]}
         />
       )}
-      <Text style={[{ textAlign: "center" }, buttonTextStyle]}>{label}</Text>
+      <AppText style={[{ textAlign: "center" }, buttonTextStyle]}>{label}</AppText>
     </TouchableOpacity>
   );
 }

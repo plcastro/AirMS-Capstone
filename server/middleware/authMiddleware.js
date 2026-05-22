@@ -1,9 +1,13 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
+const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const verifyToken = (req, res, next) => {
+const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
+  15 * 60 * 1000;
+
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided" });
@@ -13,9 +17,43 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.id;
+    const sessionId = req.headers["x-session-id"] || decoded?.sessionId || null;
+
+    if (!userId || !sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+
+    const session = await UserSession.findOne({
+      userId,
+      sessionId,
+      isActive: true,
+    });
+
+    if (!session) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const now = Date.now();
+    const lastActivityAt = new Date(session.lastActivityAt || session.loginAt || now).getTime();
+    const inactiveForMs = now - lastActivityAt;
+
+    if (inactiveForMs > SESSION_IDLE_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+      return res.status(401).json({ message: "Session timed out due to inactivity" });
+    }
+
+    await UserSession.findOneAndUpdate(
+      { userId, sessionId, isActive: true },
+      { lastActivityAt: new Date() },
+    );
+
     req.user = decoded;
     updateRequestContext({
-      sessionId: req.headers["x-session-id"] || decoded.sessionId,
+      sessionId,
       platform: req.headers["x-platform"] || decoded.platform,
       base: req.headers["x-base"] || decoded.base,
     });

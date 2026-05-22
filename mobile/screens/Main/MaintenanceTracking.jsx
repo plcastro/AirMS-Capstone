@@ -1,5 +1,9 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -342,20 +346,20 @@ export default function MaintenanceTracking() {
             disabled={summaryLoading || health?.cooldown?.active}
           >
             <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
               {summaryLoading ? "Refreshing..." : "Regenerate OpenAI Summaries"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         )}
         {!!health && (
-          <Text style={[moduleStyles.subtitle, { marginTop: 10 }]}>
+          <AppText style={[moduleStyles.subtitle, { marginTop: 10 }]}>
             OpenAI: {health.configured ? "Configured" : "Not configured"} |{" "}
             {health.reachable ? "Reachable" : "Unavailable"}
             {health.model ? ` | Model: ${health.model}` : ""}
             {health?.cooldown?.active
               ? ` | Cooldown: ${cooldownRemaining || health.cooldown.retryAfterSeconds || 0}s`
               : ""}
-          </Text>
+          </AppText>
         )}
       </InfoCard>
 
@@ -382,25 +386,25 @@ export default function MaintenanceTracking() {
             />
           }
         >
-          <Text style={[moduleStyles.subtitle, { color: COLORS.black }]}>
+          <AppText style={[moduleStyles.subtitle, { color: COLORS.black }]}>
             {item.managerSummary || item.shortFinding || "No finding summary available."}
-          </Text>
+          </AppText>
           {!!item.recommendedAction && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 8 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 8 }]}>
               Action: {item.recommendedAction}
-            </Text>
+            </AppText>
           )}
           {!!item.manualReferences?.length && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 6 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 6 }]}>
               Ref: {item.manualReferences.join(" | ")}
-            </Text>
+            </AppText>
           )}
           {!isOfficerInCharge && (item.matchedRules || []).length > 0 && (
             <TouchableOpacity
               style={[moduleStyles.button, { marginTop: 12 }]}
               onPress={() => markRectified(item)}
             >
-              <Text style={moduleStyles.buttonText}>Mark Rectified</Text>
+              <AppText style={moduleStyles.buttonText}>Mark Rectified</AppText>
             </TouchableOpacity>
           )}
         </InfoCard>

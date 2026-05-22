@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
+  StatusBar
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
@@ -203,7 +203,7 @@ export default function PreInspection({ route }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search aircraft"
               placeholderTextColor={COLORS.grayDark}
               style={styles.unifiedSearchInput}
@@ -223,7 +223,7 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -238,7 +238,7 @@ export default function PreInspection({ route }) {
                 setShowStatusDropdown(false);
               }}
             >
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -252,7 +252,7 @@ export default function PreInspection({ route }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP/C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -274,11 +274,11 @@ export default function PreInspection({ route }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -294,10 +294,10 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -318,9 +318,9 @@ export default function PreInspection({ route }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -347,7 +347,7 @@ export default function PreInspection({ route }) {
                 size={60}
                 color={COLORS.grayMedium}
               />
-              <Text
+              <AppText
                 style={{
                   marginTop: 10,
                   fontSize: 12,
@@ -356,7 +356,7 @@ export default function PreInspection({ route }) {
                 }}
               >
                 No pre-inspections found
-              </Text>
+              </AppText>
               {/* Only show Create New Entry button for non-pilot roles */}
               {userRole !== "pilot" && !isOfficerInCharge && (
                 <TouchableOpacity
@@ -369,9 +369,9 @@ export default function PreInspection({ route }) {
                     borderRadius: 8,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                     Create New Entry
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
             </View>

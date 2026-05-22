@@ -1,20 +1,20 @@
 import React, { useContext, useEffect, useState } from "react";
+import AppPaperInput from "../../components/common/AppPaperInput";
 import {
   View,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Alert,
   Platform,
   PermissionsAndroid,
   Linking,
+  KeyboardAvoidingView,
 } from "react-native";
 import {
   Card,
-  Button,
+  IconButton,
   SegmentedButtons,
-  TextInput,
   Avatar,
   Text,
   Switch,
@@ -29,20 +29,24 @@ import { API_BASE } from "../../utilities/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import { showToast } from "../../utilities/toast";
 import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
+import { useFontScale } from "../../Context/FontScaleContext";
+import { COLORS } from "../../stylesheets/colors";
 export default function Profile() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, updateUser } = useContext(AuthContext);
+  const {
+    fontScalePreference,
+    setFontScalePreference,
+    scale: scaled,
+  } = useFontScale();
 
   const [activeTab, setActiveTab] = useState("info");
   const [previewUri, setPreviewUri] = useState(null);
-  const [file, setFile] = useState(null); // New state to track selected but unsaved file
   const [loading, setLoading] = useState(false);
-  const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
   const MOBILE_FONT_MAX = 1.3;
-  const fontScale = Number(fontScalePreference) || 1;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -67,26 +71,12 @@ export default function Profile() {
         const stored = JSON.parse(
           (await AsyncStorage.getItem(MOBILE_SETTINGS_KEY)) || "{}",
         );
-        const storedFont = stored.fontSizePreference;
-        if (typeof storedFont === "number") {
-          setFontScalePreference(storedFont);
-        } else {
-          const legacyMap = {
-            small: 0.9,
-            medium: 1,
-            large: 1.1,
-          };
-          setFontScalePreference(
-            legacyMap[storedFont] || MOBILE_FONT_RECOMMENDED,
-          );
-        }
         setNotificationsEnabled(
           typeof stored.notificationsEnabled === "boolean"
             ? stored.notificationsEnabled
             : true,
         );
       } catch {}
-
     };
 
     loadSettings();
@@ -106,6 +96,15 @@ export default function Profile() {
     await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
   };
 
+  const prepareMessagingForNotifications = async () => {
+    try {
+      await messaging().registerDeviceForRemoteMessages();
+      await messaging().getToken();
+    } catch (error) {
+      console.warn("Notification token refresh skipped:", error);
+    }
+  };
+
   const requestNotificationPermission = async () => {
     try {
       if (Platform.OS === "web") {
@@ -119,8 +118,7 @@ export default function Profile() {
           authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
           authStatus === messaging.AuthorizationStatus.PROVISIONAL;
         if (granted) {
-          await messaging().registerDeviceForRemoteMessages();
-          await messaging().getToken();
+          await prepareMessagingForNotifications();
           showToast("Notification permission granted.");
           return true;
         }
@@ -129,39 +127,71 @@ export default function Profile() {
       }
 
       if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
+        const alreadyGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+        if (alreadyGranted) {
+          await prepareMessagingForNotifications();
+          showToast("Notifications are enabled.");
+          return true;
+        }
+
         const result = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
         if (result === PermissionsAndroid.RESULTS.GRANTED) {
-          await messaging().registerDeviceForRemoteMessages();
-          await messaging().getToken();
+          await prepareMessagingForNotifications();
           showToast("Notification permission granted.");
           return true;
         }
-        showToast("Notification permission denied.");
+        showToast(
+          result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
+            ? "Enable notifications from Android app settings."
+            : "Notification permission denied.",
+        );
+        if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+          Linking.openSettings();
+        }
         return false;
       }
 
-      await messaging().registerDeviceForRemoteMessages();
-      await messaging().getToken();
+      await prepareMessagingForNotifications();
       showToast("Notifications are enabled.");
       return true;
     } catch (error) {
+      console.error("Notification permission update failed:", error);
       showToast("Could not update notification permission.");
       return false;
     }
   };
 
+  const requestImagePickerPermission = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (permission.granted) {
+      return true;
+    }
+
+    const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (requested.granted) {
+      return true;
+    }
+
+    Alert.alert(
+      "Permission Denied",
+      "Enable photo library access in your device settings to change your profile image.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => Linking.openSettings() },
+      ],
+    );
+    return false;
+  };
+
   // --- IMAGE PICKER HANDLER ---
   const handleImagePick = async () => {
     // 1. Ask for permission
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Enable permissions in settings to change your photo.",
-      );
+    const hasPermission = await requestImagePickerPermission();
+    if (!hasPermission) {
       return;
     }
 
@@ -180,17 +210,38 @@ export default function Profile() {
         selectedFile.fileName || `profile_${user.id || user._id}.jpg`;
       const fileType = selectedFile.mimeType || "image/jpeg";
 
-      setFile({
+      const normalizedFile = {
         uri: selectedFile.uri,
         type: fileType,
         name: fileName,
-      });
+      };
 
+      const previousPreviewUri = previewUri;
       setPreviewUri(selectedFile.uri);
+
+      Alert.alert(
+        "Save Profile Image",
+        "Use this photo as your profile image?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              setPreviewUri(previousPreviewUri);
+            },
+          },
+          {
+            text: "Save",
+            onPress: async () => {
+              await handleSaveImage(normalizedFile);
+            },
+          },
+        ],
+      );
     }
   };
-  const handleSaveImage = async () => {
-    if (!file || !file.uri) return;
+  const handleSaveImage = async (file) => {
+    if (!file?.uri) return;
     setLoading(true);
 
     const uploadData = new FormData();
@@ -209,6 +260,7 @@ export default function Profile() {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
             // Note: Content-Type must be omitted for FormData in RN
           },
           body: uploadData,
@@ -218,14 +270,13 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to upload");
 
-      setUser((prev) => ({
+      updateUser((prev) => ({
         ...prev,
         ...data.user,
         id: data?.user?.id || data?.user?._id || prev?.id,
       }));
       const uploadedImagePath = getUserImageUri(data?.user?.image) || null;
       setPreviewUri(uploadedImagePath || null);
-      setFile(null);
       showToast("Image updated!");
     } catch (err) {
       showToast(err.message);
@@ -253,8 +304,9 @@ export default function Profile() {
                   headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
+                    "x-action-confirmed": "true",
                   },
-                  body: JSON.stringify({ image: null }),
+                  body: JSON.stringify({ image: null, confirmAction: true }),
                 },
               );
 
@@ -262,9 +314,8 @@ export default function Profile() {
               if (!res.ok)
                 throw new Error(data.message || "Failed to remove image");
 
-              setUser((prev) => ({ ...prev, image: null }));
+              updateUser((prev) => ({ ...prev, image: null }));
               setPreviewUri(null); // Will fallback to DefaultAvatar in render
-              setFile(null);
               showToast("Profile picture removed!");
             } catch (err) {
               showToast(err.message || "Image removal failed");
@@ -276,281 +327,339 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Card style={styles.headerCard}>
-        <Card.Content style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleImagePick}>
-            {previewUri ? (
-              <Avatar.Image
-                size={120}
-                source={{ uri: previewUri }}
-                style={styles.avatar}
-              />
-            ) : (
-              <Avatar.Text
-                size={120}
-                label={getUserInitials(user?.firstName, user?.lastName)}
-                style={styles.avatar}
-              />
-            )}
-            <View style={styles.editBadge}>
-              <Text style={styles.editBadgeText}>{file ? "New" : "Edit"}</Text>
-            </View>
-          </TouchableOpacity>
-
-          <Text variant="titleLarge" style={styles.userName}>
-            {`${user?.firstName || ""} ${user?.lastName || ""}`}
-          </Text>
-          <Text variant="bodyMedium" style={styles.userRole}>
-            {user?.jobTitle}
-          </Text>
-
-          <View style={[styles.buttonRow, { marginTop: 15 }]}>
-            {file && (
-              <Button
-                mode="contained"
-                onPress={handleSaveImage}
-                loading={loading}
-                style={styles.actionButton}
-              >
-                Save Picture
-              </Button>
-            )}
-            <Button
-              icon="delete"
-              textColor="red"
-              onPress={handleRemoveImage}
-              disabled={!user?.image && !file}
-              style={styles.actionButton}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 8}
+    >
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      >
+        <Card style={styles.headerCard}>
+          <Card.Content style={styles.avatarContainer}>
+            <TouchableOpacity
+              onPress={handleImagePick}
+              style={styles.avatarTapTarget}
             >
-              Remove Image
-            </Button>
-          </View>
-        </Card.Content>
+              {previewUri ? (
+                <Avatar.Image
+                  size={120}
+                  source={{ uri: previewUri }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Avatar.Text
+                  size={120}
+                  label={getUserInitials(user?.firstName, user?.lastName)}
+                  style={styles.avatar}
+                />
+              )}
+            </TouchableOpacity>
 
-        <Card.Content>
-          <SegmentedButtons
-            value={activeTab}
-            onValueChange={setActiveTab}
-            buttons={[
-              {
-                value: "info",
-                label: "Information",
-                icon: "account-details-outline",
-              },
-              {
-                value: "security",
-                label: "Security",
-                icon: "shield-check-outline",
-              },
-              {
-                value: "settings",
-                label: "Settings",
-                icon: "cog-outline",
-              },
-            ]}
-            style={styles.segmented}
-          />
-        </Card.Content>
-      </Card>
-
-      {activeTab === "info" ? (
-        <Card style={styles.formCard}>
-          <Card.Content>
-            <TextInput
-              label="First Name"
-              mode="outlined"
-              value={user?.firstName || ""}
-              editable={false}
-              style={styles.input}
-            />
-
-            <TextInput
-              label="Last Name"
-              mode="outlined"
-              value={user?.lastName || ""}
-              editable={false}
-              style={styles.input}
-            />
-
-            <TextInput
-              label="Username"
-              mode="outlined"
-              value={user?.username}
-              editable={false}
-              style={styles.input}
-            />
-            <TextInput
-              label="Email Address"
-              mode="outlined"
-              value={user?.email}
-              editable={false}
-              style={styles.input}
-            />
-            <TextInput
-              label="Last Login"
-              mode="outlined"
-              value={formatDate(user?.lastLogin)}
-              editable={false}
-              style={styles.input}
-            />
-
-            <Text style={{ color: "#6b7280", fontSize: 12 }}>
-              Name editing is disabled. Contact an administrator to update your
-              legal profile name.
+            <Text
+              variant="titleLarge"
+              style={[styles.userName, { fontSize: scaled(20) }]}
+            >
+              {`${user?.firstName || ""} ${user?.lastName || ""}`}
             </Text>
+            <Text
+              variant="bodyMedium"
+              style={[styles.userRole, { fontSize: scaled(12) }]}
+            >
+              {user?.jobTitle}
+            </Text>
+
+            <Text style={[styles.helperText, { fontSize: scaled(12) }]}>
+              Tap photo to update profile image
+            </Text>
+
+            <View style={[styles.buttonRow, { marginTop: 14 }]}>
+              <IconButton
+                icon="pencil-outline"
+                size={20}
+                iconColor={COLORS.primaryLight}
+                containerColor={COLORS.white}
+                style={styles.iconActionButton}
+                onPress={handleImagePick}
+                disabled={loading}
+                accessibilityLabel="Edit profile image"
+              />
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                iconColor={COLORS.dangerBorder}
+                containerColor={COLORS.white}
+                style={[styles.iconActionButton, styles.removeIconActionButton]}
+                onPress={handleRemoveImage}
+                disabled={!user?.image && !previewUri}
+                accessibilityLabel="Remove profile image"
+              />
+            </View>
           </Card.Content>
-        </Card>
-      ) : activeTab === "security" ? (
-        <UpdateSecurity />
-      ) : (
-        <Card style={styles.formCard}>
+
           <Card.Content>
-            <Text style={[styles.settingsTitle, { fontSize: 16 * fontScale }]}>
-              App Settings
-            </Text>
-
-            <Text style={[styles.settingLabel, { fontSize: 14 * fontScale }]}>
-              Font Size
-            </Text>
-            <Text style={styles.settingSub}>
-              Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to Max
-              ({MOBILE_FONT_MAX.toFixed(2)}x)
-            </Text>
-            <Slider
-              minimumValue={MOBILE_FONT_RECOMMENDED}
-              maximumValue={MOBILE_FONT_MAX}
-              step={0.05}
-              value={fontScalePreference}
-              minimumTrackTintColor="#26866F"
-              maximumTrackTintColor="#CFE7E0"
-              thumbTintColor="#26866F"
-              onValueChange={(value) => setFontScalePreference(value)}
-              onSlidingComplete={async (value) => {
-                await saveSettings({ fontSizePreference: value });
-                showToast("Font size preference saved.");
-              }}
+            <SegmentedButtons
+              value={activeTab}
+              onValueChange={setActiveTab}
+              buttons={[
+                {
+                  value: "info",
+                  label: "Information",
+                  icon: "account-details-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+                {
+                  value: "security",
+                  label: "Security",
+                  icon: "shield-check-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+                {
+                  value: "settings",
+                  label: "Settings",
+                  icon: "cog-outline",
+                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
+                  style: styles.segmentButton,
+                  checkedColor: COLORS.primaryLight,
+                  uncheckedColor: COLORS.grayDark,
+                },
+              ]}
+              style={styles.segmented}
             />
-            <Text style={[styles.settingSub, { marginBottom: 14 }]}>
-              Current: {fontScalePreference.toFixed(2)}x
-            </Text>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text
-                  style={[styles.settingLabel, { fontSize: 14 * fontScale }]}
-                >
-                  Enable Notifications
+          </Card.Content>
+          {activeTab === "info" ? (
+            <Card style={styles.formCard}>
+              <Card.Content>
+                <Text style={[styles.sectionTitle, { fontSize: scaled(16) }]}>
+                  Account Information
                 </Text>
-                <Text style={styles.settingSub}>Managed by device settings.</Text>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={async (value) => {
-                  if (value) {
-                    const granted = await requestNotificationPermission();
-                    setNotificationsEnabled(granted);
-                    await saveSettings({ notificationsEnabled: granted });
-                    return;
-                  }
+                <AppPaperInput
+                  label="First Name"
+                  mode="outlined"
+                  value={user?.firstName || ""}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
 
-                  setNotificationsEnabled(false);
-                  await saveSettings({ notificationsEnabled: false });
-                  showToast(
-                    "Notifications toggled off in app. You can re-enable from device settings.",
-                  );
-                }}
-              />
-            </View>
-            <Button
-              mode="outlined"
-              style={styles.fullWidthButton}
-              onPress={async () => {
-                const granted = await requestNotificationPermission();
-                setNotificationsEnabled(granted);
-                await saveSettings({ notificationsEnabled: granted });
-                if (!granted) {
-                  Alert.alert(
-                    "Permission required",
-                    "Please enable notifications in your device settings.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Open Settings",
-                        onPress: () => Linking.openSettings(),
-                      },
-                    ],
-                  );
-                }
-              }}
-            >
-              Request Notification Permission
-            </Button>
-          </Card.Content>
+                <AppPaperInput
+                  label="Last Name"
+                  mode="outlined"
+                  value={user?.lastName || ""}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+
+                <AppPaperInput
+                  label="Username"
+                  mode="outlined"
+                  value={user?.username}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+                <AppPaperInput
+                  label="Email Address"
+                  mode="outlined"
+                  value={user?.email}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+                <AppPaperInput
+                  label="Last Login"
+                  mode="outlined"
+                  value={formatDate(user?.lastLogin)}
+                  editable={false}
+                  style={styles.input}
+                  contentStyle={{ fontSize: scaled(14) }}
+                />
+
+                <Text style={{ color: COLORS.grayDark, fontSize: scaled(12) }}>
+                  Name editing is disabled. Contact an administrator to update
+                  your legal profile name.
+                </Text>
+              </Card.Content>
+            </Card>
+          ) : activeTab === "security" ? (
+            <UpdateSecurity />
+          ) : (
+            <Card style={styles.formCard}>
+              <Card.Content>
+                <Text style={[styles.settingsTitle, { fontSize: scaled(16) }]}>
+                  App Settings
+                </Text>
+
+                <Text style={[styles.settingLabel, { fontSize: scaled(14) }]}>
+                  Font Size
+                </Text>
+                <Text style={[styles.settingSub, { fontSize: scaled(12) }]}>
+                  Range: Recommended ({MOBILE_FONT_RECOMMENDED.toFixed(2)}x) to
+                  Max ({MOBILE_FONT_MAX.toFixed(2)}x)
+                </Text>
+                <Slider
+                  minimumValue={MOBILE_FONT_RECOMMENDED}
+                  maximumValue={MOBILE_FONT_MAX}
+                  step={0.05}
+                  value={fontScalePreference}
+                  minimumTrackTintColor={COLORS.primaryLight}
+                  maximumTrackTintColor={COLORS.grayMedium}
+                  thumbTintColor={COLORS.primaryLight}
+                  onValueChange={(value) =>
+                    setFontScalePreference(value, { persist: false })
+                  }
+                  onSlidingComplete={async (value) => {
+                    await setFontScalePreference(value);
+                    await saveSettings({ fontSizePreference: value });
+                    showToast("Font size preference saved.");
+                  }}
+                />
+                <Text
+                  style={[
+                    styles.settingSub,
+                    { marginBottom: 16, fontSize: scaled(12) },
+                  ]}
+                >
+                  Current: {fontScalePreference.toFixed(2)}x
+                </Text>
+
+                <View style={styles.settingRowCard}>
+                  <View style={styles.settingRow}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={[styles.settingLabel, { fontSize: scaled(14) }]}
+                      >
+                        Enable Notifications
+                      </Text>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Managed by device settings.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={notificationsEnabled}
+                      onValueChange={async (value) => {
+                        if (value) {
+                          const granted = await requestNotificationPermission();
+                          setNotificationsEnabled(granted);
+                          await saveSettings({ notificationsEnabled: granted });
+                          return;
+                        }
+
+                        setNotificationsEnabled(false);
+                        await saveSettings({ notificationsEnabled: false });
+                        showToast(
+                          "Notifications toggled off in app. You can re-enable from device settings.",
+                        );
+                      }}
+                    />
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
         </Card>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: COLORS.grayLight },
   headerCard: {
-    margin: 15,
-    borderRadius: 12,
+    marginHorizontal: 14,
+    marginTop: 14,
+    marginBottom: 10,
+    borderRadius: 14,
     elevation: 2,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
   formCard: {
-    marginHorizontal: 15,
-    marginBottom: 24,
-    borderRadius: 12,
-    elevation: 2,
-    backgroundColor: "#fff",
+    // elevation: 2,
+    backgroundColor: COLORS.white,
   },
-  avatarContainer: { alignItems: "center", padding: 16 },
+  avatarContainer: {
+    alignItems: "center",
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  avatarTapTarget: { position: "relative" },
   avatar: {
-    backgroundColor: "#eee",
+    backgroundColor: COLORS.grayMedium,
   },
-  userName: { marginTop: 12, fontSize: 14, fontWeight: "600" },
-  userRole: { fontSize: 12, color: "#666", marginTop: 4 },
-  segmented: { marginTop: 10 },
-  input: { marginBottom: 16, backgroundColor: "#fff" },
+  userName: { marginTop: 12, fontWeight: "700", color: COLORS.black },
+  userRole: {
+    fontSize: 12,
+    color: COLORS.grayDark,
+    marginTop: 4,
+    textTransform: "capitalize",
+  },
+  helperText: { color: COLORS.grayDark, marginTop: 6 },
+
+  segmented: {
+    marginTop: 0,
+    borderRadius: 0,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  segmentButton: {
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    backgroundColor: COLORS.white,
+  },
+  sectionTitle: { fontWeight: "700", color: COLORS.black, marginBottom: 14 },
+  input: { marginBottom: 16, backgroundColor: COLORS.white },
   buttonRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     flexWrap: "wrap",
+    gap: 8,
   },
-  actionButton: { flex: 1, minWidth: 140, marginTop: 8 },
-  fullWidthButton: { width: "100%", marginTop: 8 },
+  iconActionButton: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  removeIconActionButton: { borderColor: COLORS.dangerBorder },
   errorText: { color: "#b00020", fontSize: 12, marginBottom: 12 },
-  editBadge: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
-    backgroundColor: "#23a08b",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  editBadgeText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   settingsTitle: {
     fontWeight: "700",
-    marginBottom: 14,
+    marginBottom: 12,
+    color: COLORS.black,
   },
   settingLabel: {
     fontWeight: "600",
-    color: "#1f2937",
+    color: COLORS.black,
   },
   settingSub: {
-    color: "#6b7280",
+    color: COLORS.grayDark,
     fontSize: 12,
     marginTop: 4,
   },
+  settingRowCard: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
+  },
   settingRow: {
-    marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

@@ -1,13 +1,13 @@
 import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -460,7 +460,7 @@ export default function FlightLog({ route, navigation }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search"
               placeholderTextColor={COLORS.grayDark}
               style={styles.unifiedSearchInput}
@@ -479,7 +479,7 @@ export default function FlightLog({ route, navigation }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -506,7 +506,7 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -520,7 +520,7 @@ export default function FlightLog({ route, navigation }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP-C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -542,11 +542,11 @@ export default function FlightLog({ route, navigation }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -566,10 +566,10 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -590,9 +590,9 @@ export default function FlightLog({ route, navigation }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -611,9 +611,9 @@ export default function FlightLog({ route, navigation }) {
             }}
           >
             <ActivityIndicator size="large" color={COLORS.primaryLight} />
-            <Text style={{ marginTop: 10, color: COLORS.grayDark }}>
+            <AppText style={{ marginTop: 10, color: COLORS.grayDark }}>
               Loading flight logs...
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -644,7 +644,7 @@ export default function FlightLog({ route, navigation }) {
                   size={60}
                   color={COLORS.grayMedium}
                 />
-                <Text
+                <AppText
                   style={{
                     marginTop: 10,
                     fontSize: 12,
@@ -653,7 +653,7 @@ export default function FlightLog({ route, navigation }) {
                   }}
                 >
                   No flight logs found
-                </Text>
+                </AppText>
                 {!isOfficerInCharge && (
                   <TouchableOpacity
                     onPress={handleNewEntry}
@@ -665,9 +665,9 @@ export default function FlightLog({ route, navigation }) {
                       borderRadius: 8,
                     }}
                   >
-                    <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                       Create New Entry
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 )}
               </View>

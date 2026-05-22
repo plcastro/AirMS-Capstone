@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
   FlatList,
-  TextInput,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -161,16 +161,16 @@ export default function MechanicList() {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+          <AppText style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
             {item.name.charAt(0)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Mechanic Info */}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 4 }}>
+          <AppText style={{ fontSize: 14, fontWeight: "600", marginBottom: 4 }}>
             {item.name}
-          </Text>
+          </AppText>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <View
               style={{
@@ -181,7 +181,7 @@ export default function MechanicList() {
                 marginRight: 6,
               }}
             />
-            <Text
+            <AppText
               style={{
                 color: statusColor,
                 fontWeight: "500",
@@ -189,16 +189,16 @@ export default function MechanicList() {
               }}
             >
               {displayStatus}
-            </Text>
+            </AppText>
 
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               {item.taskCount} task{item.taskCount !== 1 ? "s" : ""}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         {/* Arrow Icon */}
-        <Text style={{ fontSize: 12, color: COLORS.grayDark }}></Text>
+        <AppText style={{ fontSize: 12, color: COLORS.grayDark }}></AppText>
       </TouchableOpacity>
     );
   };
@@ -228,7 +228,7 @@ export default function MechanicList() {
               marginBottom: 15,
             }}
           >
-            <TextInput
+            <AppInput
               placeholder="Search by mechanic"
               placeholderTextColor={COLORS.grayDark}
               style={[
@@ -246,7 +246,7 @@ export default function MechanicList() {
             />
           </View>
           <View style={{ marginBottom: 15 }}>
-            <Text
+            <AppText
               style={{
                 color: "#5a5a5a",
                 fontWeight: "500",
@@ -255,15 +255,15 @@ export default function MechanicList() {
               }}
             >
               Total Mechanics ({filteredMechanics.length})
-            </Text>
+            </AppText>
           </View>
         </View>
       }
       ListEmptyComponent={
         <View style={{ alignItems: "center", marginTop: 50 }}>
-          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
             No mechanics found
-          </Text>
+          </AppText>
         </View>
       }
       contentContainerStyle={{ paddingBottom: 20 }}

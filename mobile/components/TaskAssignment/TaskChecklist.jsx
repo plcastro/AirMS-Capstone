@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
   Modal,
   ScrollView,
-  TextInput,
   Image,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Button from "../Button";
@@ -205,7 +205,7 @@ export default function TaskChecklist({
     return (
       <View>
         {!!checklistMeta && (
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               fontWeight: "600",
@@ -214,9 +214,9 @@ export default function TaskChecklist({
             }}
           >
             {checklistMeta}
-          </Text>
+          </AppText>
         )}
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             fontWeight: "600",
@@ -225,9 +225,9 @@ export default function TaskChecklist({
           }}
         >
           {item.taskName}
-        </Text>
+        </AppText>
         {!!item.documentation && (
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               fontWeight: "600",
@@ -236,10 +236,10 @@ export default function TaskChecklist({
             }}
           >
             AMM: {item.documentation}
-          </Text>
+          </AppText>
         )}
         {!!item.description && (
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               lineHeight: 18,
@@ -247,7 +247,7 @@ export default function TaskChecklist({
             }}
           >
             {item.description}
-          </Text>
+          </AppText>
         )}
       </View>
     );
@@ -297,7 +297,7 @@ export default function TaskChecklist({
               />
             </TouchableOpacity>
 
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "bold",
@@ -306,12 +306,12 @@ export default function TaskChecklist({
               }}
             >
               {task.title}
-            </Text>
+            </AppText>
 
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 20 }}>
+            <AppText style={{ fontSize: 12, color: "#666", marginBottom: 20 }}>
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
               {" "}Aircraft {task.aircraft}
-            </Text>
+            </AppText>
 
             {isHeadView && isReturned && (
               <View
@@ -324,7 +324,7 @@ export default function TaskChecklist({
                   borderColor: "#ffcdd2",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "600",
@@ -333,11 +333,11 @@ export default function TaskChecklist({
                   }}
                 >
                   Returned for Rework
-                </Text>
+                </AppText>
                 {task.returnComments && (
-                  <Text style={{ fontSize: 12, color: "#b71c1c" }}>
+                  <AppText style={{ fontSize: 12, color: "#b71c1c" }}>
                     {task.returnComments}
-                  </Text>
+                  </AppText>
                 )}
               </View>
             )}
@@ -353,7 +353,7 @@ export default function TaskChecklist({
                   borderColor: "#ffcdd2",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "600",
@@ -362,19 +362,19 @@ export default function TaskChecklist({
                   }}
                 >
                   Remarks
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={{ fontSize: 12, color: "#b71c1c", marginBottom: 12 }}
                 >
                   {task.returnComments ||
                     "Finding details are incomplete. Please update findings."}
-                </Text>
-                <Text style={{ fontSize: 12, color: "#e57373" }}>
+                </AppText>
+                <AppText style={{ fontSize: 12, color: "#e57373" }}>
                   Returned on{" "}
                   {formatReturnedDateTime(
                     task.returnedAt || task.returnedDate || new Date(),
                   )}
-                </Text>
+                </AppText>
               </View>
             )}
 
@@ -407,7 +407,7 @@ export default function TaskChecklist({
                       marginRight: 8,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: "#fff",
                         fontSize: 12,
@@ -415,9 +415,9 @@ export default function TaskChecklist({
                       }}
                     >
                       OK
-                    </Text>
+                    </AppText>
                   </View>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: "#2e7d32",
@@ -425,7 +425,7 @@ export default function TaskChecklist({
                     }}
                   >
                     Task Completed
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -437,14 +437,14 @@ export default function TaskChecklist({
                     borderColor: "#c8e6c9",
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{ fontSize: 12, color: "#555", marginBottom: 4 }}
                   >
                     Approval Status:
-                  </Text>
+                  </AppText>
                   {isApproved ? (
                     <View>
-                      <Text
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: "#2e7d32",
@@ -453,12 +453,12 @@ export default function TaskChecklist({
                         }}
                       >
                         Approved
-                      </Text>
-                      <Text style={{ fontSize: 12, color: "#666" }}>
+                      </AppText>
+                      <AppText style={{ fontSize: 12, color: "#666" }}>
                         {approvedDate
                           ? `Approved by ${approvedBy || "Maintenance Manager"} on ${formatReturnedDateTime(approvedDate)}`
                           : `Approved by ${approvedBy || "Maintenance Manager"}`}
-                      </Text>
+                      </AppText>
                       {!!approvedSignature && (
                         <View
                           style={{
@@ -480,7 +480,7 @@ export default function TaskChecklist({
                     </View>
                   ) : (
                     <View>
-                      <Text
+                      <AppText
                         style={{
                           fontSize: 12,
                           color: "#f57c00",
@@ -489,10 +489,10 @@ export default function TaskChecklist({
                         }}
                       >
                         Pending Approval
-                      </Text>
-                      <Text style={{ fontSize: 12, color: "#666" }}>
+                      </AppText>
+                      <AppText style={{ fontSize: 12, color: "#666" }}>
                         Pending review by Maintenance Manager
-                      </Text>
+                      </AppText>
                     </View>
                   )}
                 </View>
@@ -503,11 +503,11 @@ export default function TaskChecklist({
               style={{ marginBottom: 20 }}
               showsVerticalScrollIndicator={false}
             >
-              <Text
+              <AppText
                 style={{ fontSize: 14, fontWeight: "600", marginBottom: 12}}
               >
                 Checklist
-              </Text>
+              </AppText>
 
               {checklistItems.map((item, index) => {
                 const isDisabled = !isStarted || isCompleted || isHeadView;
@@ -529,7 +529,7 @@ export default function TaskChecklist({
 
               {!isHeadView && isStarted && (
                 <>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       fontWeight: "600",
@@ -538,8 +538,8 @@ export default function TaskChecklist({
                     }}
                   >
                     Findings (AI-interpreted)
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: "#667085",
@@ -548,7 +548,7 @@ export default function TaskChecklist({
                     }}
                   >
                     These findings are used by the AI maintenance tracker. Include symptoms, affected components, inspection results, and corrective details when available.
-                  </Text>
+                  </AppText>
                   <View
                     style={{
                       borderWidth: 1,
@@ -567,7 +567,7 @@ export default function TaskChecklist({
                         backgroundColor: "#f5f5f5",
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           fontWeight: "600",
                           fontSize: 12,
@@ -575,9 +575,9 @@ export default function TaskChecklist({
                         }}
                       >
                         Findings
-                      </Text>
+                      </AppText>
                     </View>
-                    <TextInput
+                    <AppInput
                       style={{
                         minHeight: 100,
                         padding: 12,

@@ -250,6 +250,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = useCallback(async (updater) => {
+    setUser((prev) => {
+      const nextUser =
+        typeof updater === "function" ? updater(prev) : { ...(prev || {}), ...(updater || {}) };
+
+      AsyncStorage.setItem("currentUser", JSON.stringify(nextUser)).catch((error) => {
+        console.error("Failed to persist updated user:", error);
+      });
+
+      return nextUser;
+    });
+  }, []);
+
   const updateRememberMePreference = async (
     rememberMe,
     { revokePersistentTokens = false } = {},
@@ -306,6 +319,7 @@ export const AuthProvider = ({ children }) => {
         user,
         token,
         loginUser,
+        updateUser,
         logoutUser,
         loading,
         refreshSession,

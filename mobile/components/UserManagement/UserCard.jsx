@@ -1,5 +1,11 @@
 import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserImageUri } from "../../utilities/avatar";
@@ -64,43 +70,43 @@ export default function UserCard({
           {getUserImageUri(item?.image) ? (
             <Image source={getUserAvatarSource(item?.image)} style={styles.avatarImage} />
           ) : (
-            <Text style={styles.avatarText}>{getInitials(item.firstName, item.lastName)}</Text>
+            <AppText style={styles.avatarText}>{getInitials(item.firstName, item.lastName)}</AppText>
           )}
         </View>
         <View style={styles.mainInfo}>
-          <Text style={styles.userName}>
+          <AppText style={styles.userName}>
             {`${item.firstName || ""} ${item.lastName || ""}`.trim() || "New User"}
-          </Text>
-          <Text style={styles.userMeta}>@{item.username} | {item.access}</Text>
+          </AppText>
+          <AppText style={styles.userMeta}>@{item.username} | {item.access}</AppText>
         </View>
         <View style={[styles.badge, { backgroundColor: isActive ? "#E8F5E9" : "#FFEBEE" }]}>
-          <Text style={[styles.badgeText, { color: isActive ? "#2E7D32" : "#C62828" }]}>{status}</Text>
+          <AppText style={[styles.badgeText, { color: isActive ? "#2E7D32" : "#C62828" }]}>{status}</AppText>
         </View>
       </View>
 
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <MaterialCommunityIcons name="email-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{maskEmail(item.email)}</Text>
+          <AppText style={styles.infoText}>{maskEmail(item.email)}</AppText>
         </View>
         <View style={styles.infoRow}>
           <MaterialCommunityIcons name="briefcase-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{item.jobTitle || "No Title Set"}</Text>
+          <AppText style={styles.infoText}>{item.jobTitle || "No Title Set"}</AppText>
         </View>
         <View style={styles.infoRow}>
           <MaterialCommunityIcons name="map-marker-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{item.base || "No Base Set"}</Text>
+          <AppText style={styles.infoText}>{item.base || "No Base Set"}</AppText>
         </View>
         {canShowInviteActions && (
           <View style={styles.inviteMetaWrap}>
             <View style={[styles.inviteBadge, { backgroundColor: inviteStatusTone.bg }]}>
-              <Text style={[styles.inviteBadgeText, { color: inviteStatusTone.text }]}>
+              <AppText style={[styles.inviteBadgeText, { color: inviteStatusTone.text }]}>
                 INVITE: {inviteStatusLabel.toUpperCase()}
-              </Text>
+              </AppText>
             </View>
-            <Text style={styles.inviteExpiryText}>
+            <AppText style={styles.inviteExpiryText}>
               Expires: {formatExpiry(item?.invitationExpiresAt)}
-            </Text>
+            </AppText>
           </View>
         )}
       </View>
@@ -108,7 +114,7 @@ export default function UserCard({
       <View style={styles.cardActions}>
         <TouchableOpacity onPress={() => onEdit(item)} style={[styles.actionBtn, styles.btnEdit]}>
           <MaterialCommunityIcons name="account-edit-outline" size={16} color="white" />
-          <Text style={styles.actionBtnText}> Edit</Text>
+          <AppText style={styles.actionBtnText}> Edit</AppText>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => onToggleStatus(item, isActive ? "deactivated" : "active")}
@@ -116,7 +122,7 @@ export default function UserCard({
           disabled={isCurrentUser}
         >
           <MaterialCommunityIcons name={isActive ? "account-remove" : "account-check"} size={16} color="white" />
-          <Text style={styles.actionBtnText}>{isActive ? " Deactivate" : " Reactivate"}</Text>
+          <AppText style={styles.actionBtnText}>{isActive ? " Deactivate" : " Reactivate"}</AppText>
         </TouchableOpacity>
       </View>
 
@@ -129,14 +135,14 @@ export default function UserCard({
                 style={[styles.actionBtn, styles.btnInfo]}
                 disabled={inviteActionLoading}
               >
-                <Text style={styles.actionBtnText}>{inviteActionLoading ? "Working..." : "Resend"}</Text>
+                <AppText style={styles.actionBtnText}>{inviteActionLoading ? "Working..." : "Resend"}</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onExtendInvite?.(item)}
                 style={[styles.actionBtn, styles.btnWarn]}
                 disabled={inviteActionLoading}
               >
-                <Text style={styles.actionBtnText}>Extend +24h</Text>
+                <AppText style={styles.actionBtnText}>Extend +24h</AppText>
               </TouchableOpacity>
             </>
           )}
@@ -146,7 +152,7 @@ export default function UserCard({
               style={[styles.actionBtn, styles.btnDangerOutline]}
               disabled={inviteActionLoading}
             >
-              <Text style={styles.actionBtnText}>Revoke</Text>
+              <AppText style={styles.actionBtnText}>Revoke</AppText>
             </TouchableOpacity>
           )}
         </View>

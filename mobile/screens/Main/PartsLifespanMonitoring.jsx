@@ -1,5 +1,10 @@
 ﻿import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -319,7 +324,7 @@ export default function PartsLifespanMonitoring() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {referenceFields.map(([key, label]) => (
               <View key={key} style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>{label}</Text>
+                <AppText style={moduleStyles.label}>{label}</AppText>
                 {key === "today" ? (
                   <TouchableOpacity
                     disabled={!canEditParts}
@@ -334,12 +339,12 @@ export default function PartsLifespanMonitoring() {
                       backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
                     }}
                   >
-                    <Text style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
+                    <AppText style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
                       {formatDateInput(refs[key]) || "Select date"}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ) : (
-                  <TextInput
+                  <AppInput
                     value={String(refs[key] ?? "")}
                     editable={canEditParts}
                     keyboardType="numeric"
@@ -367,9 +372,9 @@ export default function PartsLifespanMonitoring() {
               disabled={saving}
             >
               <MaterialCommunityIcons name="content-save" size={18} color={COLORS.white} />
-              <Text style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+              <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
                 {saving ? "Saving..." : "Save to Database"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </InfoCard>
@@ -410,8 +415,8 @@ export default function PartsLifespanMonitoring() {
               <FieldRow label="Date Due" value={part.dateDue} />
               <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>HRS C/W</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>HRS C/W</AppText>
+                <AppInput
                   value={String(part.hoursCW ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -430,8 +435,8 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>TIME SINCE INSTALLATION</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>TIME SINCE INSTALLATION</AppText>
+                <AppInput
                   value={String(part.timeSinceInstall ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -450,8 +455,8 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>TOTAL TIME SINCE NEW</Text>
-                <TextInput
+                <AppText style={moduleStyles.label}>TOTAL TIME SINCE NEW</AppText>
+                <AppInput
                   value={String(part.totalTimeSinceNew ?? "")}
                   editable={canEditParts}
                   keyboardType="numeric"
@@ -470,7 +475,7 @@ export default function PartsLifespanMonitoring() {
                 />
               </View>
               <View style={{ width: "48%" }}>
-                <Text style={moduleStyles.label}>DATE C/W</Text>
+                <AppText style={moduleStyles.label}>DATE C/W</AppText>
                 <TouchableOpacity
                   disabled={!canEditParts}
                   onPress={() =>
@@ -490,9 +495,9 @@ export default function PartsLifespanMonitoring() {
                     backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
                   }}
                 >
-                  <Text style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
+                  <AppText style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
                     {formatDateInput(part.dateCW) || "Select date"}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -530,9 +535,9 @@ export default function PartsLifespanMonitoring() {
               size={18}
               color={COLORS.white}
             />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <View
             style={[
@@ -546,9 +551,9 @@ export default function PartsLifespanMonitoring() {
               },
             ]}
           >
-            <Text style={{ color: COLORS.primary, fontWeight: "800" }}>
+            <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
               {componentPage + 1}/{totalComponentPages}
-            </Text>
+            </AppText>
           </View>
           <TouchableOpacity
             style={[
@@ -568,9 +573,9 @@ export default function PartsLifespanMonitoring() {
               )
             }
           >
-            <Text style={[moduleStyles.buttonText, { marginRight: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginRight: 4 }]}>
               Next
-            </Text>
+            </AppText>
             <MaterialCommunityIcons
               name="chevron-right"
               size={18}

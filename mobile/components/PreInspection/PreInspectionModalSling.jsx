@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View,
+  ScrollView,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -101,7 +106,7 @@ export default function PreInspectionModalSling({
 
   const renderListItem = (index, title, label, field, value, onCheck) => (
     <View key={field} style={{ marginBottom: 18 }}>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           fontWeight: "bold",
@@ -110,7 +115,7 @@ export default function PreInspectionModalSling({
         }}
       >
         {index + 1}. {title}
-      </Text>
+      </AppText>
 
       <TouchableOpacity
         style={{
@@ -143,7 +148,7 @@ export default function PreInspectionModalSling({
             />
           )}
         </View>
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             color: COLORS.grayDark,
@@ -152,7 +157,7 @@ export default function PreInspectionModalSling({
           }}
         >
           {label}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     </View>
   );
@@ -180,11 +185,11 @@ export default function PreInspectionModalSling({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Station 3
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -223,11 +228,11 @@ export default function PreInspectionModalSling({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}
@@ -269,11 +274,11 @@ export default function PreInspectionModalSling({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Sling
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -312,11 +317,11 @@ export default function PreInspectionModalSling({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}

@@ -6,12 +6,15 @@ import React, {
   useRef,
   useState,
 } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
+import {
+  Picker,
+} from "@react-native-picker/picker";
 import {
   RefreshControl,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -297,6 +300,15 @@ const resolveTabForRequest = (request, isManager) => {
     return null;
   }
   if (isManager) {
+    if (request.rawStatus === "To Be Ordered") {
+      return "To Be Restocked";
+    }
+    if (request.rawStatus === "Ordered") {
+      return "Restocked";
+    }
+    if (request.rawStatus === "Approved") {
+      return "Approved";
+    }
     return ["Delivered", "Cancelled"].includes(request.rawStatus)
       ? "Closed"
       : "For Review";
@@ -348,7 +360,7 @@ export default function PartsRequisition({ route, navigation }) {
     "warehouse department",
   ].includes(userRole);
   const tabLabels = isManager
-    ? ["For Review", "Closed"]
+    ? ["For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
     : isWarehouse
       ? [
           "Parts Requested",
@@ -542,7 +554,16 @@ export default function PartsRequisition({ route, navigation }) {
     const sourceData = mappedRequisitions.filter((item) => {
       if (isManager) {
         if (selectedTab === "For Review") {
-          return ["Availability Checked", "Ordered"].includes(item.rawStatus);
+          return item.rawStatus === "Availability Checked";
+        }
+        if (selectedTab === "To Be Restocked") {
+          return item.rawStatus === "To Be Ordered";
+        }
+        if (selectedTab === "Restocked") {
+          return item.rawStatus === "Ordered";
+        }
+        if (selectedTab === "Approved") {
+          return item.rawStatus === "Approved";
         }
         return ["Delivered", "Cancelled"].includes(item.rawStatus);
       }
@@ -591,14 +612,11 @@ export default function PartsRequisition({ route, navigation }) {
   const tabCounts = useMemo(
     () => ({
       "For Review": mappedRequisitions.filter((item) =>
-        ["Availability Checked", "Ordered"].includes(item.rawStatus),
+        ["Availability Checked"].includes(item.rawStatus),
       ).length,
       Pending: mappedRequisitions.filter(
         (item) =>
           !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
-      ).length,
-      Approved: mappedRequisitions.filter(
-        (item) => item.rawStatus === "Approved",
       ).length,
       "Parts Requested": mappedRequisitions.filter(
         (item) => item.rawStatus === "Parts Requested",
@@ -609,8 +627,12 @@ export default function PartsRequisition({ route, navigation }) {
       "To Be Restocked": mappedRequisitions.filter(
         (item) => item.rawStatus === "To Be Ordered",
       ).length,
-      Restocked: mappedRequisitions.filter((item) => item.rawStatus === "Ordered")
-        .length,
+      Restocked: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Ordered",
+      ).length,
+      Approved: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Approved",
+      ).length,
       Closed: mappedRequisitions.filter((item) =>
         ["Delivered", "Cancelled"].includes(item.rawStatus),
       ).length,
@@ -689,7 +711,12 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const submitRequisitionUpdate = useCallback(
-    async (requestId, payload, successMessage, { closeDetails = true } = {}) => {
+    async (
+      requestId,
+      payload,
+      successMessage,
+      { closeDetails = true } = {},
+    ) => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
@@ -719,7 +746,9 @@ export default function PartsRequisition({ route, navigation }) {
 
         const updatedRecord = await parseJsonSafely(response);
         if (updatedRecord?._id) {
-          setSelectedRequest(mapRequisitionToCard(updatedRecord).requestDetails);
+          setSelectedRequest(
+            mapRequisitionToCard(updatedRecord).requestDetails,
+          );
         }
 
         if (closeDetails) {
@@ -727,6 +756,7 @@ export default function PartsRequisition({ route, navigation }) {
         }
         resetEntryModal();
         await fetchRequisitions();
+        await fetchNotifications();
 
         if (successMessage) {
           showToast(successMessage);
@@ -736,7 +766,7 @@ export default function PartsRequisition({ route, navigation }) {
         showToast(error.message || "Failed to update requisition.");
       }
     },
-    [fetchRequisitions],
+    [fetchNotifications, fetchRequisitions],
   );
 
   const handleCancelRequest = async (item) => {
@@ -882,6 +912,7 @@ export default function PartsRequisition({ route, navigation }) {
       resetEntryModal();
       setSelectedTab(defaultTab);
       await fetchRequisitions();
+      await fetchNotifications();
       showToast(`${nextSlipNo} added successfully.`);
     } catch (error) {
       console.error("Error creating requisition:", error);
@@ -1056,7 +1087,7 @@ export default function PartsRequisition({ route, navigation }) {
           },
         ]}
       >
-        <Text
+        <AppText
           style={[
             {
               textAlign: "center",
@@ -1068,7 +1099,7 @@ export default function PartsRequisition({ route, navigation }) {
           ]}
         >
           {`${label} (${count})`}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     );
   };
@@ -1139,7 +1170,7 @@ export default function PartsRequisition({ route, navigation }) {
               size={22}
               color={COLORS.grayDark}
             />
-            <TextInput
+            <AppInput
               placeholder="Search by WRS#"
               placeholderTextColor={COLORS.grayDark}
               style={{
@@ -1173,7 +1204,7 @@ export default function PartsRequisition({ route, navigation }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text
+              <AppText
                 style={{
                   color: COLORS.white,
                   fontSize: 12,
@@ -1182,21 +1213,48 @@ export default function PartsRequisition({ route, navigation }) {
                 }}
               >
                 Request
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: 3,
-            marginBottom: 20,
-          }}
-        >
-          {tabLabels.map(renderTabButton)}
-        </View>
+        {tabLabels.length > 3 ? (
+          <View
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: COLORS.grayMedium,
+              marginBottom: 20,
+              overflow: "hidden",
+            }}
+          >
+            <Picker
+              selectedValue={selectedTab}
+              onValueChange={setSelectedTab}
+              style={{ color: COLORS.black }}
+            >
+              {tabLabels.map((label) => (
+                <Picker.Item
+                  key={label}
+                  label={`${label} (${tabCounts[label] || 0})`}
+                  value={label}
+                />
+              ))}
+            </Picker>
+          </View>
+        ) : (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 3,
+              marginBottom: 20,
+            }}
+          >
+            {tabLabels.map(renderTabButton)}
+          </View>
+        )}
 
         <ScrollView
           showsVerticalScrollIndicator={false}

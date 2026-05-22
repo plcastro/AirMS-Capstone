@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text, ScrollView } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View,
+  ScrollView
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function FlightLogModalToDate({
@@ -7,9 +11,9 @@ export default function FlightLogModalToDate({
 }) {
   const renderReadOnlyField = (label, value) => (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
-      </Text>
+      </AppText>
       <View
         style={{
           backgroundColor: "#E8E8E8",
@@ -19,7 +23,7 @@ export default function FlightLogModalToDate({
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 12, color: COLORS.grayDark }}>{value || ""}</Text>
+        <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>{value || ""}</AppText>
       </View>
     </View>
   );
@@ -48,9 +52,9 @@ export default function FlightLogModalToDate({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             To Date
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>

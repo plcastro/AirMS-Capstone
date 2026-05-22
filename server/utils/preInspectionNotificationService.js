@@ -9,11 +9,13 @@ const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
-const uniqueStrings = (values = []) =>
-  [...new Set(values.map((value) => String(value)).filter(Boolean))];
+const uniqueStrings = (values = []) => [
+  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+];
 
-const uniqueRoles = (roles = []) =>
-  [...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean))];
+const uniqueRoles = (roles = []) => [
+  ...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean)),
+];
 
 const resolveUserIdByFullName = async (fullName) => {
   const trimmedName = fullName?.trim();
@@ -90,7 +92,7 @@ const createNotification = async ({
     return;
   }
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
     description,
     module: "pre-inspections",
@@ -112,6 +114,8 @@ const createNotification = async ({
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
     data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
       module: "pre-inspections",
       targetScreen: "Pre-Inspection",
       targetPreInspectionId: String(inspection._id),
@@ -138,7 +142,7 @@ const createPreInspectionNotifications = async ({
   if (!previousInspection) {
     if (currentStatus === "pending") {
       await createNotification({
-        title: `Pre-inspection for RP-C ${inspection.rpc} is ready for release`,
+        title: `Pre-inspection for ${inspection.rpc} is ready for release`,
         description:
           "A new pre-flight inspection needs mechanic review and release.",
         inspection,
@@ -150,7 +154,7 @@ const createPreInspectionNotifications = async ({
 
     if (currentStatus === "released") {
       await createNotification({
-        title: `Pre-inspection for RP-C ${inspection.rpc} was released`,
+        title: `Pre-inspection for ${inspection.rpc} was released`,
         description: "The pre-flight inspection is ready for pilot acceptance.",
         inspection,
         recipientRoles: [ROLE_PILOT],
@@ -162,9 +166,8 @@ const createPreInspectionNotifications = async ({
 
     if (currentStatus === "completed") {
       await createNotification({
-        title: `Pre-inspection for RP-C ${inspection.rpc} was completed`,
-        description:
-          "The pre-flight inspection has been completed.",
+        title: `Pre-inspection for ${inspection.rpc} was completed`,
+        description: "The pre-flight inspection has been completed.",
         inspection,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
@@ -182,7 +185,7 @@ const createPreInspectionNotifications = async ({
     );
 
     await createNotification({
-      title: `Pre-inspection for RP-C ${inspection.rpc} has been updated`,
+      title: `Pre-inspection for ${inspection.rpc} has been updated`,
       description: "The pre-flight inspection details were updated.",
       inspection,
       ...recipients,
@@ -194,7 +197,7 @@ const createPreInspectionNotifications = async ({
   switch (currentStatus) {
     case "released":
       await createNotification({
-        title: `Pre-inspection for RP-C ${inspection.rpc} is pending acceptance`,
+        title: `Pre-inspection for ${inspection.rpc} is pending acceptance`,
         description:
           "This pre-flight inspection was released and is waiting for pilot acceptance.",
         inspection,
@@ -205,7 +208,7 @@ const createPreInspectionNotifications = async ({
       break;
     case "completed":
       await createNotification({
-        title: `Pre-inspection for RP-C ${inspection.rpc} was completed`,
+        title: `Pre-inspection for ${inspection.rpc} was completed`,
         description:
           "The pre-flight inspection has been completed and updated.",
         inspection,

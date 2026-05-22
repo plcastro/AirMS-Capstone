@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getArrayData, getAuthHeaders } from "../../utilities/mobileApi";
@@ -262,7 +266,7 @@ export default function ReportsAndAnalytics() {
                   alignItems: "center",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: selected ? COLORS.white : COLORS.grayDark,
                     fontSize: 11,
@@ -271,7 +275,7 @@ export default function ReportsAndAnalytics() {
                   numberOfLines={2}
                 >
                   {label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -305,7 +309,7 @@ export default function ReportsAndAnalytics() {
       {reportSections.map((section) => (
         <InfoCard key={section.title} title={section.title}>
           {section.rows.length === 0 ? (
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</Text>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</AppText>
           ) : (
             section.rows.map((row) => (
               <View
@@ -319,13 +323,13 @@ export default function ReportsAndAnalytics() {
                   paddingVertical: 9,
                 }}
               >
-                <Text style={{ color: COLORS.black, flex: 1, fontSize: 12 }}>
+                <AppText style={{ color: COLORS.black, flex: 1, fontSize: 12 }}>
                   {row.label}
-                </Text>
+                </AppText>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ color: COLORS.primary, fontWeight: "800" }}>
+                  <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
                     {row.value}
-                  </Text>
+                  </AppText>
                   <MaterialCommunityIcons
                     name="chart-bar"
                     size={16}

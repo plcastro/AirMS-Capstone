@@ -9,11 +9,13 @@ const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
-const uniqueStrings = (values = []) =>
-  [...new Set(values.map((value) => String(value)).filter(Boolean))];
+const uniqueStrings = (values = []) => [
+  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+];
 
-const uniqueRoles = (roles = []) =>
-  [...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean))];
+const uniqueRoles = (roles = []) => [
+  ...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean)),
+];
 
 const resolveUserIdByFullName = async (fullName) => {
   const trimmedName = fullName?.trim();
@@ -54,7 +56,12 @@ const getCreatorUserId = async (inspection) => {
   return resolveUserIdByFullName(inspection.createdBy);
 };
 
-const getRecipientsForStatus = (status, creatorUserId, managerRoles, mechanicRoles) => {
+const getRecipientsForStatus = (
+  status,
+  creatorUserId,
+  managerRoles,
+  mechanicRoles,
+) => {
   switch (status) {
     case "released":
       return {
@@ -90,7 +97,7 @@ const createNotification = async ({
     return;
   }
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
     description,
     module: "post-inspections",
@@ -112,6 +119,8 @@ const createNotification = async ({
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
     data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
       module: "post-inspections",
       targetScreen: "Post-Inspection",
       targetPostInspectionId: String(inspection._id),
@@ -139,7 +148,7 @@ const createPostInspectionNotifications = async ({
   if (!previousInspection) {
     if (currentStatus === "pending") {
       await createNotification({
-        title: `Post-inspection for RP-C ${inspection.rpc} is pending release`,
+        title: `Post-inspection for ${inspection.rpc} is pending release`,
         description:
           "A new post-flight inspection is ready for mechanic review and release.",
         inspection,
@@ -151,8 +160,9 @@ const createPostInspectionNotifications = async ({
 
     if (currentStatus === "released") {
       await createNotification({
-        title: `Post-inspection for RP-C ${inspection.rpc} was released`,
-        description: "The post-flight inspection is ready for pilot acceptance.",
+        title: `Post-inspection for ${inspection.rpc} was released`,
+        description:
+          "The post-flight inspection is ready for pilot acceptance.",
         inspection,
         recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
@@ -163,7 +173,7 @@ const createPostInspectionNotifications = async ({
 
     if (currentStatus === "completed") {
       await createNotification({
-        title: `Post-inspection for RP-C ${inspection.rpc} was completed`,
+        title: `Post-inspection for ${inspection.rpc} was completed`,
         description: "The post-flight inspection has been completed.",
         inspection,
         recipientRoles: managerRoles,
@@ -183,7 +193,7 @@ const createPostInspectionNotifications = async ({
     );
 
     await createNotification({
-      title: `Post-inspection for RP-C ${inspection.rpc} has been updated`,
+      title: `Post-inspection for ${inspection.rpc} has been updated`,
       description: "The post-flight inspection details were updated.",
       inspection,
       ...recipients,
@@ -195,7 +205,7 @@ const createPostInspectionNotifications = async ({
   switch (currentStatus) {
     case "released":
       await createNotification({
-        title: `Post-inspection for RP-C ${inspection.rpc} is pending acceptance`,
+        title: `Post-inspection for ${inspection.rpc} is pending acceptance`,
         description:
           "This post-flight inspection was released and is waiting for pilot acceptance.",
         inspection,
@@ -206,7 +216,7 @@ const createPostInspectionNotifications = async ({
       break;
     case "completed":
       await createNotification({
-        title: `Post-inspection for RP-C ${inspection.rpc} was completed`,
+        title: `Post-inspection for ${inspection.rpc} was completed`,
         description:
           "The post-flight inspection has been completed and updated.",
         inspection,

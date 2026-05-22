@@ -322,6 +322,13 @@ export default function PostInspection() {
           },
         ]}
       />
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filtered.length}</Text> post-inspection log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <Modal
         open={Boolean(editing)}

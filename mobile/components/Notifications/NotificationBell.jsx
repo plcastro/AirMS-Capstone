@@ -1,12 +1,12 @@
 import React, { useContext, useMemo, useState } from "react";
+import AppText from "../common/AppText";
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { NotificationContext } from "../../Context/NotificationContext";
@@ -107,7 +107,7 @@ export default function NotificationBell({ navigation }) {
               justifyContent: "center",
             }}
           >
-            <Text
+            <AppText
               style={{
                 color: COLORS.white,
                 fontSize: 10,
@@ -117,7 +117,7 @@ export default function NotificationBell({ navigation }) {
               }}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
-            </Text>
+            </AppText>
           </View>
         )}
       </TouchableOpacity>
@@ -167,7 +167,7 @@ export default function NotificationBell({ navigation }) {
                   size={20}
                   color={COLORS.black}
                 />
-                <Text
+                <AppText
                   style={{
                     fontSize: 14,
                     fontWeight: "600",
@@ -175,7 +175,7 @@ export default function NotificationBell({ navigation }) {
                   }}
                 >
                   Notifications
-                </Text>
+                </AppText>
                 <View
                   style={{
                     backgroundColor: "#E9F4F1",
@@ -184,7 +184,7 @@ export default function NotificationBell({ navigation }) {
                     borderRadius: 999,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: "#26866F",
                       fontSize: 14,
@@ -192,7 +192,7 @@ export default function NotificationBell({ navigation }) {
                     }}
                   >
                     {unreadCount} Unread
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 
@@ -204,9 +204,9 @@ export default function NotificationBell({ navigation }) {
             {loadingNotifications ? (
               <View style={{ paddingVertical: 40, alignItems: "center" }}>
                 <ActivityIndicator size="small" color="#26866F" />
-                <Text style={{ marginTop: 10, color: "#666" }}>
+                <AppText style={{ marginTop: 10, color: "#666" }}>
                   Loading notifications...
-                </Text>
+                </AppText>
               </View>
             ) : sortedNotifications.length === 0 ? (
               <View style={{ paddingVertical: 36, alignItems: "center" }}>
@@ -215,9 +215,9 @@ export default function NotificationBell({ navigation }) {
                   size={32}
                   color="#A0A0A0"
                 />
-                <Text style={{ marginTop: 10, color: "#666", fontSize: 12 }}>
+                <AppText style={{ marginTop: 10, color: "#666", fontSize: 12 }}>
                   No notifications
-                </Text>
+                </AppText>
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
@@ -268,7 +268,7 @@ export default function NotificationBell({ navigation }) {
                           gap: 6,
                         }}
                       >
-                        <Text
+                        <AppText
                           style={{
                             color: COLORS.black,
                             fontSize: 12,
@@ -277,7 +277,7 @@ export default function NotificationBell({ navigation }) {
                           }}
                         >
                           {notification.title}
-                        </Text>
+                        </AppText>
                         {!notification.read && (
                           <View
                             style={{
@@ -287,7 +287,7 @@ export default function NotificationBell({ navigation }) {
                               paddingVertical: 2,
                             }}
                           >
-                            <Text
+                            <AppText
                               style={{
                                 color: COLORS.white,
                                 fontSize: 12,
@@ -295,12 +295,12 @@ export default function NotificationBell({ navigation }) {
                               }}
                             >
                               New
-                            </Text>
+                            </AppText>
                           </View>
                         )}
                       </View>
 
-                      <Text
+                      <AppText
                         style={{
                           marginTop: 4,
                           color: "#666",
@@ -309,13 +309,13 @@ export default function NotificationBell({ navigation }) {
                         }}
                       >
                         {notification.description}
-                      </Text>
+                      </AppText>
 
-                      <Text
+                      <AppText
                         style={{ marginTop: 6, color: "#999", fontSize: 12 }}
                       >
                         {formatTimeAgo(notification.createdAt)}
-                      </Text>
+                      </AppText>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -333,19 +333,19 @@ export default function NotificationBell({ navigation }) {
               }}
             >
               <TouchableOpacity onPress={markAllAsRead}>
-                <Text
+                <AppText
                   style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}
                 >
                   Mark all as read
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => fetchNotifications({ force: true })}>
-                <Text
+                <AppText
                   style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}
                 >
                   Refresh
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           </Pressable>

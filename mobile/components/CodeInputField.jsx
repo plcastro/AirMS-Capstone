@@ -1,4 +1,9 @@
-import { View, Text, TextInput, Pressable } from "react-native";
+import {
+  View,
+  Pressable
+} from "react-native";
+import AppText from "./common/AppText";
+import AppInput from "./common/AppInput";
 import React, { useState, useRef, useEffect } from "react";
 import { styles } from "../stylesheets/styles";
 
@@ -48,7 +53,7 @@ export default function CodeInputField({
 
     return (
       <View style={StyledCodeInput} key={index}>
-        <Text style={styles.codeInputText}>{digit}</Text>
+        <AppText style={styles.codeInputText}>{digit}</AppText>
       </View>
     );
   };
@@ -57,7 +62,7 @@ export default function CodeInputField({
       <Pressable onPress={handleOnPress} style={[styles.codeInputContainer, inputContainerStyle]}>
         {codeDigitsArray.map(toCodeDigitInput)}
       </Pressable>
-      <TextInput
+      <AppInput
         style={styles.hiddenTextInput}
         ref={textInputRef}
         value={code}

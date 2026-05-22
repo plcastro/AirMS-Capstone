@@ -1,7 +1,7 @@
+const admin = require("firebase-admin");
 const UserModel = require("../models/userModel");
 const { sendToUsers } = require("./realtimeEvents");
 
-const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const ROLE_TO_JOB_TITLE = {
   "maintenance manager": "Maintenance Manager",
   "officer-in-charge": "Officer-In-Charge",
@@ -11,7 +11,41 @@ const ROLE_TO_JOB_TITLE = {
   admin: "Admin",
 };
 
-const uniqueValues = (values = []) => [...new Set(values.map(String).filter(Boolean))];
+const uniqueValues = (values = []) => [
+  ...new Set(values.map(String).filter(Boolean)),
+];
+
+const parseServiceAccount = () => {
+  const encoded = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (encoded) {
+    return JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
+  }
+
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (raw) {
+    return JSON.parse(raw);
+  }
+
+  return null;
+};
+
+const getFirebaseMessaging = () => {
+  if (!admin.apps.length) {
+    const serviceAccount = parseServiceAccount();
+
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    } else {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+      });
+    }
+  }
+
+  return admin.messaging();
+};
 
 const getUserIdsForRoles = async (roles = []) => {
   if (!roles.length) {
@@ -35,15 +69,40 @@ const getPushTokensForUsers = async (userIds = []) => {
   }
 
   const users = await UserModel.find({ _id: { $in: userIds } }).select(
-    "mobilePushDevices.expoPushToken",
+    "mobilePushDevices.fcmToken",
   );
 
   return uniqueValues(
     users.flatMap((user) =>
-      (user.mobilePushDevices || []).map((device) => device.expoPushToken),
+      (user.mobilePushDevices || []).map((device) => device.fcmToken),
     ),
   );
 };
+
+const removeInvalidPushTokens = async (tokens = []) => {
+  if (!tokens.length) return;
+
+  await UserModel.updateMany(
+    { "mobilePushDevices.fcmToken": { $in: tokens } },
+    {
+      $pull: {
+        mobilePushDevices: {
+          fcmToken: { $in: tokens },
+        },
+      },
+    },
+  );
+};
+
+const stringifyData = (data = {}) =>
+  Object.fromEntries(
+    Object.entries(data || {})
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [
+        key,
+        typeof value === "string" ? value : JSON.stringify(value),
+      ]),
+  );
 
 const sendPushNotificationToUsers = async ({
   title,
@@ -55,7 +114,7 @@ const sendPushNotificationToUsers = async ({
   try {
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
     const userIds = uniqueValues([...recipientUsers, ...roleUserIds]);
-    const expoPushTokens = await getPushTokensForUsers(userIds);
+    const fcmTokens = await getPushTokensForUsers(userIds);
 
     sendToUsers(userIds, "notification-created", {
       title,
@@ -64,25 +123,57 @@ const sendPushNotificationToUsers = async ({
       createdAt: new Date().toISOString(),
     });
 
-    if (expoPushTokens.length === 0) {
+    if (fcmTokens.length === 0) {
+      console.log("FCM push skipped: no registered tokens", {
+        userCount: userIds.length,
+        recipientUsers,
+        recipientRoles,
+      });
       return;
     }
 
-    await fetch(EXPO_PUSH_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(
-        expoPushTokens.map((to) => ({
-          to,
-          sound: "default",
-          title,
-          body,
-          data,
-        })),
-      ),
+    console.log("Sending FCM push", {
+      userCount: userIds.length,
+      tokenCount: fcmTokens.length,
+      title,
     });
+
+    const response = await getFirebaseMessaging().sendEachForMulticast({
+      tokens: fcmTokens,
+      notification: {
+        title: String(title || "AirMS"),
+        body: String(body || "You have a new notification."),
+      },
+      data: stringifyData(data),
+      android: {
+        priority: "high",
+        notification: {
+          sound: "default",
+        },
+      },
+    });
+
+    console.log("FCM push result", {
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+
+    const invalidTokens = [];
+    response.responses.forEach((result, index) => {
+      if (result.success) return;
+
+      const code = result.error?.code;
+      if (
+        code === "messaging/registration-token-not-registered" ||
+        code === "messaging/invalid-registration-token"
+      ) {
+        invalidTokens.push(fcmTokens[index]);
+      } else {
+        console.error("FCM push failed:", code, result.error?.message);
+      }
+    });
+
+    await removeInvalidPushTokens(invalidTokens);
   } catch (error) {
     console.error("sendPushNotificationToUsers error:", error);
   }

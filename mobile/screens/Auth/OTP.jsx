@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from "react";
+import AppText from "../../components/common/AppText";
 import {
-  Text,
   KeyboardAvoidingView,
   ScrollView,
   View,
-  Pressable,
+  Pressable
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -33,7 +33,8 @@ export default function OTP() {
   const [pinReady, setPinReady] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [message, setMessage] = useState("");
-  const [trustDevice, setTrustDevice] = useState(true);
+  const rememberMe = Boolean(route.params?.rememberMe);
+  const [trustDevice, setTrustDevice] = useState(rememberMe);
   const MAX_CODE_LENGTH = 6;
   const parseResponse = async (res) => {
     const text = await res.text();
@@ -98,10 +99,10 @@ export default function OTP() {
         body: JSON.stringify({
           token,
           otp: code,
-          rememberMe: true,
+          rememberMe,
           base: route.params?.base,
           client: route.params?.client || "mobile",
-          trustDevice,
+          trustDevice: rememberMe ? trustDevice : false,
           trustedDeviceLabel: "mobile-app",
         }),
       });
@@ -126,22 +127,23 @@ export default function OTP() {
 
       await AsyncStorage.setItem("currentUserToken", String(accessToken));
 
-      await AsyncStorage.setItem(
-        "rememberMe",
-        "true",
-      );
-
-      await AsyncStorage.setItem(
-        "rememberedIdentifier",
-        route.params?.identifier || user?.email || "",
-      );
-      await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+      if (rememberMe) {
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          route.params?.identifier || user?.email || "",
+        );
+        await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
+      } else {
+        await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedBase");
+      }
 
       await loginUser({
         user,
         accessToken,
         refreshToken,
-        rememberMe: true,
+        rememberMe,
       });
 
       const pendingRedirect = await readPendingRedirect();
@@ -256,28 +258,40 @@ export default function OTP() {
                 justifyContent: "space-between",
               }}
             >
-              <Text style={{ color: "#1f2937", fontWeight: "600" }}>
-                Trust this device for 30 days
-              </Text>
+              <AppText style={{ color: "#1f2937", fontWeight: "600" }}>
+                Remember this device for 30 days
+              </AppText>
               <Pressable
-                onPress={() => setTrustDevice((prev) => !prev)}
+                onPress={() =>
+                  rememberMe && setTrustDevice((prev) => !prev)
+                }
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: trustDevice }}
+                disabled={!rememberMe}
                 style={{
                   width: 24,
                   height: 24,
                   borderWidth: 2,
-                  borderColor: trustDevice ? "#1d4ed8" : "#9ca3af",
+                  borderColor: !rememberMe
+                    ? "#d1d5db"
+                    : trustDevice
+                      ? "#1d4ed8"
+                      : "#9ca3af",
                   borderRadius: 4,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: trustDevice ? "#1d4ed8" : "transparent",
+                  backgroundColor: !rememberMe
+                    ? "#f3f4f6"
+                    : trustDevice
+                      ? "#1d4ed8"
+                      : "transparent",
+                  opacity: rememberMe ? 1 : 0.6,
                 }}
               >
                 {trustDevice && (
-                  <Text style={{ color: "#ffffff", fontWeight: "700" }}>
+                  <AppText style={{ color: "#ffffff", fontWeight: "700" }}>
                     ✓
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             </View>
@@ -292,9 +306,9 @@ export default function OTP() {
             buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
             buttonTextStyle={styles.secondaryBtnTxt}
           />
-          <Text style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+          <AppText style={{ color: "red", marginTop: 10, textAlign: "left" }}>
             {pinReady ? message : ""}
-          </Text>
+          </AppText>
         </LoginLayout>
       </ScrollView>
     </KeyboardAvoidingView>

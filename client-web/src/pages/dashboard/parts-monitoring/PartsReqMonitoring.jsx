@@ -6,13 +6,13 @@
   useEffect,
 } from "react";
 import {
+  App as AntdApp,
   Alert,
   Button,
   Col,
   Form,
   Input,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
@@ -25,8 +25,6 @@ import {
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
-  ShoppingCartOutlined,
-  SyncOutlined,
 } from "@ant-design/icons";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
@@ -44,6 +42,37 @@ const normalizeStatus = (value) => {
   if (raw === "completed") return "delivered";
   return raw;
 };
+
+const getEffectiveStatus = (record) => {
+  const normalized = normalizeStatus(record?.status);
+  if (normalized === "parts requested" && record?.dateWarehouseReviewed) {
+    return "availability checked";
+  }
+  return normalized;
+};
+
+const getStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (normalized === "approved") return "approved";
+  if (["delivered", "cancelled"].includes(normalized)) return "closed";
+  return "pending";
+};
+
+const getManagerStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (["availability checked", "ordered"].includes(normalized)) {
+    return "for_review";
+  }
+  if (["approved", "delivered", "cancelled"].includes(normalized)) {
+    return "closed";
+  }
+  return "pending";
+};
+
+const getWarehouseStatusBucket = (record) =>
+  ["delivered", "cancelled"].includes(getEffectiveStatus(record))
+    ? "completed"
+    : "pending";
 
 const parseRequestedDate = (dateValue) => {
   const [month, day, year] = String(dateValue || "")
@@ -88,6 +117,7 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
+  const { message } = AntdApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -111,9 +141,18 @@ export default function PartsReqMonitoring() {
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const isManager = ["maintenance manager", "officer-in-charge"].includes(
-    userRole,
-  );
+  const isManager = [
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(userRole);
+  const isWarehouseDepartment = userRole === "warehouse department";
+  const canRequestParts = ![
+    "admin",
+    "maintenance manager",
+    "officer-in-charge",
+    "warehouse department",
+  ].includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
@@ -142,7 +181,61 @@ export default function PartsReqMonitoring() {
   );
 
   const statusFilters = useMemo(() => {
-    const allFilters = [
+    if (isManager) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "for_review",
+          title: "For Review",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "for_review",
+          ).length,
+        },
+        {
+          key: "closed",
+          title: "Closed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "closed",
+          ).length,
+        },
+      ];
+    }
+
+    if (isWarehouseDepartment) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "pending",
+          title: "Pending",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "pending",
+          ).length,
+        },
+        {
+          key: "completed",
+          title: "Completed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "completed",
+          ).length,
+        },
+      ];
+    }
+
+    return [
       {
         key: "all",
         title: "All",
@@ -150,41 +243,31 @@ export default function PartsReqMonitoring() {
         count: warehouseRequisitions.length,
       },
       {
-        key: "To Be Ordered",
-        title: "To Be Ordered",
-        icon: <ShoppingCartOutlined />,
+        key: "pending",
+        title: "Pending",
+        icon: <InboxOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "to be ordered",
+          (record) => getStatusBucket(record) === "pending",
         ).length,
       },
       {
-        key: "Availability Checked",
-        title: "Availability Checked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "availability checked",
-        ).length,
-      },
-      {
-        key: "Ordered",
-        title: "Restocked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "ordered",
-        ).length,
-      },
-      {
-        key: "Approved",
+        key: "approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "approved",
+          (record) => getStatusBucket(record) === "approved",
+        ).length,
+      },
+      {
+        key: "closed",
+        title: "Closed",
+        icon: <CheckCircleOutlined />,
+        count: warehouseRequisitions.filter(
+          (record) => getStatusBucket(record) === "closed",
         ).length,
       },
     ];
-
-    return allFilters;
-  }, [warehouseRequisitions]);
+  }, [isManager, isWarehouseDepartment, warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
@@ -201,10 +284,22 @@ export default function PartsReqMonitoring() {
     }
 
     if (selectedStatus !== "all") {
-      data = data.filter(
-        (record) =>
-          normalizeStatus(record.status) === normalizeStatus(selectedStatus),
-      );
+      const normalizedSelectedStatus = normalizeStatus(selectedStatus);
+      data = data.filter((record) => {
+        if (normalizedSelectedStatus === "for_review") {
+          return getManagerStatusBucket(record) === "for_review";
+        }
+        if (normalizedSelectedStatus === "completed") {
+          return getWarehouseStatusBucket(record) === "completed";
+        }
+        if (isWarehouseDepartment && normalizedSelectedStatus === "pending") {
+          return getWarehouseStatusBucket(record) === "pending";
+        }
+        if (["pending", "approved", "closed"].includes(normalizedSelectedStatus)) {
+          return getStatusBucket(record) === normalizedSelectedStatus;
+        }
+        return getEffectiveStatus(record) === normalizedSelectedStatus;
+      });
     }
 
     return [...data].sort((first, second) => {
@@ -215,7 +310,19 @@ export default function PartsReqMonitoring() {
         ? firstDate - secondDate
         : secondDate - firstDate;
     });
-  }, [dateSortOrder, searchText, selectedStatus, warehouseRequisitions]);
+  }, [
+    dateSortOrder,
+    isWarehouseDepartment,
+    searchText,
+    selectedStatus,
+    warehouseRequisitions,
+  ]);
+
+  useEffect(() => {
+    if (!statusFilters.some((filter) => filter.key === selectedStatus)) {
+      setSelectedStatus(statusFilters[0]?.key || "all");
+    }
+  }, [selectedStatus, statusFilters]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

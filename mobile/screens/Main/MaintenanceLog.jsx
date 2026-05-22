@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import AppText from "../../components/common/AppText";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -142,9 +146,9 @@ export default function MaintenanceLog() {
           onPress={() => setSelectedWorkOrder(null)}
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <Text style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
             Back to work orders
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         <InfoCard
@@ -168,9 +172,9 @@ export default function MaintenanceLog() {
         <SectionTitle title="Description of Work" />
         {(selectedWorkOrder.workDetails || []).map((detail, index) => (
           <InfoCard key={`${index}-${detail.description || detail}`}>
-            <Text style={{ color: COLORS.black, fontSize: 13, lineHeight: 19 }}>
+            <AppText style={{ color: COLORS.black, fontSize: 13, lineHeight: 19 }}>
               {index + 1}. {detail.description || detail || "N/A"}
-            </Text>
+            </AppText>
           </InfoCard>
         ))}
       </ModuleContainer>
@@ -185,9 +189,9 @@ export default function MaintenanceLog() {
           onPress={() => setSelectedAircraft(null)}
         >
           <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <Text style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
             Back to aircraft
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         <InfoCard title={selectedAircraft.aircraft} subtitle="Maintenance snapshot">
