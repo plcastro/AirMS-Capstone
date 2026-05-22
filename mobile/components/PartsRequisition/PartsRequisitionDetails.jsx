@@ -6,12 +6,12 @@ import {
   ScrollView,
   StatusBar,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
-
+import { Picker } from "@react-native-picker/picker";
 const getDisplayStatusLabel = (status) => {
   switch (status) {
     case "To Be Ordered":
@@ -165,11 +165,16 @@ export default function PartsRequisitionDetails({
       return value !== undefined && value !== null && value !== "";
     });
   const hasUnsavedStockChanges = rawItems.some(
-    (item) => Number(availableQtyMap[item._id] ?? 0) !== Number(persistedQtyMap[item._id] ?? 0),
+    (item) =>
+      Number(availableQtyMap[item._id] ?? 0) !==
+      Number(persistedQtyMap[item._id] ?? 0),
   );
   const allRestockItemsReady = rawItems
     .filter((item) => item.stockStatus === "To Be Ordered")
-    .every((item) => Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0));
+    .every(
+      (item) =>
+        Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
+    );
   const canEditStock =
     showWarehouseActions &&
     ["Parts Requested", "To Be Ordered"].includes(currentStatus);
@@ -241,11 +246,14 @@ export default function PartsRequisitionDetails({
 
   const buildUpdatedItems = () =>
     rawItems.map((item) => {
-      const availableQty = Number(availableQtyMap[item._id] ?? item.availableQty ?? 0);
+      const availableQty = Number(
+        availableQtyMap[item._id] ?? item.availableQty ?? 0,
+      );
       return {
         ...item,
         availableQty,
-        stockStatus: getItemStockStatus?.(item, availableQty) || item.stockStatus,
+        stockStatus:
+          getItemStockStatus?.(item, availableQty) || item.stockStatus,
       };
     });
 
@@ -537,12 +545,12 @@ export default function PartsRequisitionDetails({
                           paddingVertical: 4,
                         }}
                       >
-                      <AppText
-                        style={{
-                          color: badgeStyle.textColor,
-                          fontSize: 12,
-                        }}
-                      >
+                        <AppText
+                          style={{
+                            color: badgeStyle.textColor,
+                            fontSize: 12,
+                          }}
+                        >
                           {getDisplayStatusLabel(item.status)}
                         </AppText>
                       </View>
@@ -575,7 +583,8 @@ export default function PartsRequisitionDetails({
                 : entry.isCurrent
                   ? COLORS.primaryLight
                   : COLORS.grayMedium;
-              const contentOpacity = entry.isCompleted || entry.isCurrent ? 1 : 0.55;
+              const contentOpacity =
+                entry.isCompleted || entry.isCurrent ? 1 : 0.55;
 
               return (
                 <View
@@ -750,7 +759,9 @@ export default function PartsRequisitionDetails({
                   onPress={() => onApprove?.(request)}
                   disabled={!canApprove}
                   style={{
-                    backgroundColor: canApprove ? COLORS.primaryLight : "#D8D8D8",
+                    backgroundColor: canApprove
+                      ? COLORS.primaryLight
+                      : "#D8D8D8",
                     paddingHorizontal: 18,
                     paddingVertical: 12,
                     borderRadius: 6,

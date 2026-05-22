@@ -34,14 +34,12 @@ import {
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { subscribeRealtime } from "../../../utils/realtimeSocket";
 import "./Messaging.css";
 
 const { Text } = Typography;
 const { TextArea } = Input;
 const LIVE_SYNC_INTERVAL_MS = 1000;
-
-const getStoredToken = () =>
-  localStorage.getItem("token") || sessionStorage.getItem("token");
 
 const getDisplayFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
@@ -125,14 +123,6 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   });
 };
 
-const buildWsUrl = (token) => {
-  const baseUrl = API_BASE || window.location.origin;
-  const url = new URL(baseUrl, window.location.origin);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.searchParams.set("token", token);
-  return url.toString();
-};
-
 export default function Messaging() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const { useBreakpoint } = Grid;
@@ -153,8 +143,6 @@ export default function Messaging() {
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [mobileView, setMobileView] = useState("list");
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
@@ -302,117 +290,82 @@ export default function Messaging() {
   }, [syncMessaging]);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token || !currentUserId) return undefined;
+    if (!currentUserId) return undefined;
 
-    let closedByEffect = false;
+    const unsubscribeRealtime = subscribeRealtime((payload) => {
+      if (payload.event === "chat:conversation") {
+        fetchConversations();
+        return;
+      }
 
-    const connect = () => {
-      const ws = new WebSocket(buildWsUrl(token));
-      wsRef.current = ws;
+      if (payload.event === "chat:read") {
+        const readReceipt = payload.data || {};
+        const messageIds = new Set((readReceipt.messageIds || []).map(String));
 
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
+        setMessages((current) =>
+          current.map((item) =>
+            messageIds.has(String(item._id))
+              ? {
+                  ...item,
+                  readAt: readReceipt.readAt,
+                  deliveryStatus: "sent",
+                }
+              : item,
+          ),
+        );
+        fetchConversations();
+        return;
+      }
 
-          if (payload.event === "chat:conversation") {
-            fetchConversations();
-            return;
-          }
-
-          if (payload.event === "chat:read") {
-            const readReceipt = payload.data || {};
-            const messageIds = new Set(
-              (readReceipt.messageIds || []).map(String),
-            );
-
-            setMessages((current) =>
-              current.map((item) =>
-                messageIds.has(String(item._id))
-                  ? {
-                      ...item,
-                      readAt: readReceipt.readAt,
-                      deliveryStatus: "sent",
-                    }
-                  : item,
-              ),
-            );
-            fetchConversations();
-            return;
-          }
-
-          if (
-            payload.event === "data-changed" &&
-            String(payload.data?.url || "").startsWith("/api/messages")
-          ) {
-            fetchConversations();
-            if (selectedConversationRef.current?.id) {
-              fetchThread(selectedConversationRef.current.id).catch((error) => {
-                console.error("Failed to refresh realtime messages:", error);
-              });
-            }
-            return;
-          }
-
-          if (payload.event !== "chat:message") return;
-
-          const nextMessage = withSentStatus(payload.data);
-          notifyIncomingChat(nextMessage);
-          const conversationId = nextMessage.conversation
-            ? String(getEntityId(nextMessage.conversation))
-            : String(getEntityId(nextMessage.sender)) === String(currentUserId)
-              ? String(getEntityId(nextMessage.recipient))
-              : String(getEntityId(nextMessage.sender));
-
-          if (
-            String(conversationId) ===
-            String(selectedConversationRef.current?.id)
-          ) {
-            setMessages((current) => {
-              if (current.some((item) => item._id === nextMessage._id)) {
-                return current.map((item) =>
-                  item._id === nextMessage._id
-                    ? withSentStatus({ ...item, ...nextMessage })
-                    : item,
-                );
-              }
-              return [...current, nextMessage];
-            });
-
-            if (
-              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
-            ) {
-              fetchThread(conversationId).catch((error) => {
-                console.error("Failed to refresh realtime thread:", error);
-              });
-            }
-          }
-
-          fetchConversations();
-        } catch (error) {
-          console.error("Message websocket parse error:", error);
+      if (
+        payload.event === "data-changed" &&
+        String(payload.data?.url || "").startsWith("/api/messages")
+      ) {
+        fetchConversations();
+        if (selectedConversationRef.current?.id) {
+          fetchThread(selectedConversationRef.current.id).catch((error) => {
+            console.error("Failed to refresh realtime messages:", error);
+          });
         }
-      };
+        return;
+      }
 
-      ws.onclose = () => {
-        if (!closedByEffect) {
-          reconnectTimeoutRef.current = window.setTimeout(connect, 1500);
+      if (payload.event !== "chat:message") return;
+
+      const nextMessage = withSentStatus(payload.data);
+      notifyIncomingChat(nextMessage);
+      const conversationId = nextMessage.conversation
+        ? String(getEntityId(nextMessage.conversation))
+        : String(getEntityId(nextMessage.sender)) === String(currentUserId)
+          ? String(getEntityId(nextMessage.recipient))
+          : String(getEntityId(nextMessage.sender));
+
+      if (
+        String(conversationId) === String(selectedConversationRef.current?.id)
+      ) {
+        setMessages((current) => {
+          if (current.some((item) => item._id === nextMessage._id)) {
+            return current.map((item) =>
+              item._id === nextMessage._id
+                ? withSentStatus({ ...item, ...nextMessage })
+                : item,
+            );
+          }
+          return [...current, nextMessage];
+        });
+
+        if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+          fetchThread(conversationId).catch((error) => {
+            console.error("Failed to refresh realtime thread:", error);
+          });
         }
-      };
+      }
 
-      ws.onerror = () => {
-        ws.close();
-      };
-    };
-
-    connect();
+      fetchConversations();
+    });
 
     return () => {
-      closedByEffect = true;
-      if (reconnectTimeoutRef.current) {
-        window.clearTimeout(reconnectTimeoutRef.current);
-      }
-      wsRef.current?.close();
+      unsubscribeRealtime();
     };
   }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
 
@@ -455,7 +408,17 @@ export default function Messaging() {
       ...groupFromConversations,
       ...directFromConversations,
       ...remainingUsers,
-    ].filter(Boolean);
+    ]
+      .filter(Boolean)
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.lastMessage?.createdAt || first.group?.updatedAt || 0,
+        ).getTime();
+        const secondTime = new Date(
+          second.lastMessage?.createdAt || second.group?.updatedAt || 0,
+        ).getTime();
+        return secondTime - firstTime;
+      });
     const query = searchText.trim().toLowerCase();
 
     if (!query) return merged;

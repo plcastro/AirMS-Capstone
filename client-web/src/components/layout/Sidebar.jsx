@@ -17,6 +17,7 @@ import {
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
 import { AuthContext } from "../../context/AuthContext";
+import { hasNavAccess } from "../../../../shared/navigationAccess";
 
 const { useBreakpoint } = Grid;
 
@@ -85,19 +86,13 @@ const Sidebar = ({ collapsed, onNavigate }) => {
           key: "13",
           label: wrapLabelSub("Maintenance Reports and Analytics"),
           icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager", "officer-in-charge"],
+          accessKey: "reports",
         },
         {
           key: "15",
           label: "Messages",
           icon: <MessageOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "admin",
-            "maintenance manager",
-            "officer-in-charge",
-            "warehouse department",
-            "mechanic",
-          ],
+          accessKey: "messages",
         },
       ],
     },
@@ -111,13 +106,13 @@ const Sidebar = ({ collapsed, onNavigate }) => {
           key: "1",
           label: "Manage Users",
           icon: <TeamOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin"],
+          accessKey: "userManagement",
         },
         {
           key: "2",
           label: "Activity Logs",
           icon: <AuditOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin"],
+          accessKey: "activityLogs",
         },
       ],
     },
@@ -126,13 +121,6 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     {
       type: "group",
       label: collapsed ? null : wrapLabel("AIRCRAFT HEALTH LOGBOOK"),
-      roles: [
-        "admin",
-        "maintenance manager",
-        "officer-in-charge",
-        "mechanic",
-        "pilot",
-      ],
       children: [
         {
           key: "3",
@@ -145,47 +133,25 @@ const Sidebar = ({ collapsed, onNavigate }) => {
               helicopter
             </span>
           ),
-          roles: [
-            "admin",
-            "maintenance manager",
-            "officer-in-charge",
-            "pilot",
-            "mechanic",
-          ],
+          accessKey: "flightLogs",
         },
         {
           key: "4",
           label: "Maintenance Logs",
           icon: <ToolOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "admin",
-            "maintenance manager",
-            "officer-in-charge",
-            "mechanic",
-          ],
+          accessKey: "maintenanceLogs",
         },
         {
           key: "5",
           label: "Pre-Inspection",
           icon: <AuditOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "admin",
-            "maintenance manager",
-            "officer-in-charge",
-            "pilot",
-            "mechanic",
-          ],
+          accessKey: "preInspection",
         },
         {
           key: "6",
           label: "Post-Inspection",
           icon: <AuditOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "admin",
-            "maintenance manager",
-            "officer-in-charge",
-            "mechanic",
-          ],
+          accessKey: "postInspection",
         },
       ],
     },
@@ -194,19 +160,18 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     {
       type: "group",
       label: collapsed ? null : wrapLabel("TASK ASSIGNMENT & MONITORING"),
-      roles: ["admin", "maintenance manager", "mechanic"],
       children: [
         {
           key: "7",
           label: "Tasks",
           icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager", "mechanic"],
+          accessKey: "tasks",
         },
         {
           key: "8",
           label: "Mechanics",
           icon: <TeamOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager"],
+          accessKey: "mechanics",
         },
       ],
     },
@@ -217,25 +182,24 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       label: collapsed
         ? null
         : wrapLabel("PARTS LIFESPAN & MAINTENANCE TRACKING"),
-      roles: ["admin", "maintenance manager", "officer-in-charge"],
       children: [
         {
           key: "9",
           label: wrapLabelSub("Parts Lifespan Monitoring"),
           icon: <DashboardOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager", "officer-in-charge"],
+          accessKey: "partsLifespan",
         },
         {
           key: "10",
           label: wrapLabelSub("Maintenance Tracking"),
           icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager", "officer-in-charge"],
+          accessKey: "maintenanceTracking",
         },
         {
           key: "11",
           label: wrapLabelSub("Maintenance Priority Sorting"),
           icon: <FlagOutlined style={{ fontSize: 24 }} />,
-          roles: ["admin", "maintenance manager"],
+          accessKey: "maintenancePriority",
         },
       ],
     },
@@ -244,50 +208,24 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     {
       type: "group",
       label: collapsed ? null : wrapLabel("Parts Requisition Monitoring"),
-      roles: [
-        "admin",
-        "warehouse department",
-        "maintenance manager",
-        "officer-in-charge",
-        "mechanic",
-      ],
       children: [
         {
           key: "12",
           label: wrapLabelSub("Parts Requisition Monitoring"),
           icon: <InboxOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "admin",
-            "warehouse department",
-            "maintenance manager",
-            "officer-in-charge",
-            "mechanic",
-          ],
+          accessKey: "partsRequisition",
         },
       ],
     },
     {
       type: "group",
       label: collapsed ? null : wrapLabel("SETTINGS"),
-      roles: [
-        "admin",
-        "warehouse department",
-        "maintenance manager",
-        "officer-in-charge",
-        "mechanic",
-      ],
       children: [
         {
           key: "14",
           label: "Profile",
           icon: <UserOutlined style={{ fontSize: 24 }} />,
-          roles: [
-            "maintenance manager",
-            "officer-in-charge",
-            "warehouse department",
-            "admin",
-            "mechanic",
-          ],
+          accessKey: "profile",
         },
       ],
     },
@@ -298,7 +236,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     .map((item) => {
       if (item.children) {
         const filteredChildren = item.children.filter(
-          (child) => !child.roles || child.roles.includes(role),
+          (child) => hasNavAccess(role, child.accessKey),
         );
 
         if (!filteredChildren.length) return null;
@@ -309,7 +247,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         };
       }
 
-      if (!item.roles || item.roles.includes(role)) {
+      if (hasNavAccess(role, item.accessKey)) {
         return item;
       }
 

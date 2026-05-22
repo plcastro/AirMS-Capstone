@@ -32,22 +32,31 @@ const withActorId = (req, action, fallbackId = null) => {
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
+const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
+  15 * 60 * 1000;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 const hashTrustedDeviceToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 
-const issueRefreshToken = (userId) => {
+const getRefreshTokenTtlMs = (isPersistent) =>
+  isPersistent ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS : REFRESH_TOKEN_TTL_MS;
+
+const issueRefreshToken = (userId, isPersistent = false) => {
   const jti = crypto.randomUUID();
+  const expiresInSeconds = Math.floor(
+    getRefreshTokenTtlMs(isPersistent) / 1000,
+  );
   const token = jwt.sign(
     { id: userId, type: "refresh" },
     process.env.REFRESH_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: expiresInSeconds,
       jwtid: jti,
     },
   );
@@ -64,7 +73,7 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   };
 
   if (isPersistent) {
-    refreshCookieOptions.maxAge = REFRESH_TOKEN_TTL_MS;
+    refreshCookieOptions.maxAge = getRefreshTokenTtlMs(true);
   }
 
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
@@ -82,7 +91,9 @@ const storeRefreshToken = async ({
     userId,
     tokenHash,
     jti,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    expiresAt: new Date(
+      Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent)),
+    ),
     isPersistent: Boolean(isPersistent),
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
@@ -298,7 +309,6 @@ const buildLoginSuccessPayload = async ({
   await user.save();
 
   const session = await createUserSession(req, user._id, loginPlatform);
-  const sessionMinutes = 0;
 
   const token = jwt.sign(
     {
@@ -312,11 +322,14 @@ const buildLoginSuccessPayload = async ({
       base: session.base,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "30m" },
+    { expiresIn: "15m" },
   );
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
-  const { token: refreshToken, jti } = issueRefreshToken(user._id.toString());
+  const { token: refreshToken, jti } = issueRefreshToken(
+    user._id.toString(),
+    usePersistentRefreshCookie,
+  );
   await storeRefreshToken({
     userId: user._id,
     refreshToken,
@@ -346,7 +359,6 @@ const buildLoginSuccessPayload = async ({
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
     sessionId: session.sessionId,
-    sessionMinutes,
     user: {
       id: user._id,
       username: user.username,
@@ -364,7 +376,6 @@ const buildLoginSuccessPayload = async ({
       platform: user.platform,
       base: session.base || loginBase,
       sessionId: session.sessionId,
-      sessionMinutes,
       lastSeenAt: user.lastSeenAt,
     },
   };
@@ -540,7 +551,15 @@ const loginUser = async (req, res) => {
     user.loginOtpLockUntil = undefined;
     await user.save();
 
-    await sendLoginOtpEmail(user.email, otp);
+    try {
+      await sendLoginOtpEmail(user.email, otp);
+    } catch (otpError) {
+      console.error("sendLoginOtpEmail error:", otpError);
+      return res.status(503).json({
+        message:
+          "Unable to send verification code email. Please contact support.",
+      });
+    }
 
     return res.status(200).json({
       requireLoginOtp: true,
@@ -559,7 +578,12 @@ const loginUser = async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({ message: "Login failed" });
+    const isDev =
+      String(process.env.NODE_ENV || "").toLowerCase() === "development";
+    return res.status(500).json({
+      message:
+        isDev && err?.message ? `Login failed: ${err.message}` : "Login failed",
+    });
   }
 };
 
@@ -748,6 +772,38 @@ const refreshToken = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const sessionId = req.headers["x-session-id"] || null;
+    if (!sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+
+    const activeSession = await UserSession.findOne({
+      userId: user._id,
+      sessionId,
+      isActive: true,
+    });
+
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const now = Date.now();
+    const lastActivityAt = new Date(
+      activeSession.lastActivityAt || activeSession.loginAt || now,
+    ).getTime();
+    if (now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+      return res.status(401).json({ message: "Session timed out due to inactivity" });
+    }
+
+    await UserSession.findOneAndUpdate(
+      { userId: user._id, sessionId, isActive: true },
+      { lastActivityAt: new Date() },
+    );
+
     if (user.status === "deactivated") {
       return res.status(403).json({ message: "Account deactivated" });
     }
@@ -769,6 +825,7 @@ const refreshToken = async (req, res) => {
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
+      Boolean(tokenRecord.isPersistent),
     );
     const newTokenHash = hashRefreshToken(newRefreshToken);
 
@@ -875,8 +932,8 @@ const logoutUser = async (req, res) => {
 const registerMobilePushDevice = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { deviceId, fcmToken, platform } = req.body;
-    const pushToken = fcmToken;
+    const { deviceId, expoPushToken, fcmToken, platform } = req.body;
+    const pushToken = fcmToken || expoPushToken;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -892,13 +949,18 @@ const registerMobilePushDevice = async (req, res) => {
       {
         $or: [
           { "mobilePushDevices.deviceId": deviceId },
+          { "mobilePushDevices.fcmToken": pushToken },
           { "mobilePushDevices.expoPushToken": pushToken },
         ],
       },
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { expoPushToken: pushToken }],
+            $or: [
+              { deviceId },
+              { fcmToken: pushToken },
+              { expoPushToken: pushToken },
+            ],
           },
         },
       },
@@ -910,7 +972,7 @@ const registerMobilePushDevice = async (req, res) => {
         $push: {
           mobilePushDevices: {
             deviceId,
-            expoPushToken: pushToken,
+            fcmToken: pushToken,
             platform: platform || "unknown",
             lastSeenAt: new Date(),
           },

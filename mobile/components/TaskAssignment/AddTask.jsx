@@ -58,6 +58,47 @@ const dedupeChecklistItems = (items = []) => {
   });
 };
 
+const PRIORITY_OPTIONS = ["Low", "Normal", "High"];
+const RISK_PRIORITY_POINTS = {
+  Critical: 70,
+  High: 45,
+  Medium: 25,
+  Low: 10,
+};
+
+const computePriorityScore = ({
+  riskLevel = "",
+  maintenanceType = "",
+  checklistCount = 0,
+  startDate = null,
+}) => {
+  let score = 0;
+  score += RISK_PRIORITY_POINTS[String(riskLevel || "").trim()] || 0;
+
+  const normalizedType = String(maintenanceType || "").toLowerCase();
+  if (normalizedType.includes("corrective")) score += 20;
+  if (normalizedType.includes("custom")) score += 10;
+
+  if (checklistCount >= 12) score += 15;
+  else if (checklistCount >= 6) score += 10;
+  else if (checklistCount >= 3) score += 5;
+
+  if (startDate instanceof Date) {
+    const hoursUntilStart = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntilStart <= 6) score += 20;
+    else if (hoursUntilStart <= 24) score += 12;
+    else if (hoursUntilStart <= 72) score += 6;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+};
+
+const scoreToPriority = (score = 0) => {
+  if (score >= 60) return "High";
+  if (score >= 30) return "Normal";
+  return "Low";
+};
+
 export default function AddTask({
   visible,
   onClose,
@@ -83,6 +124,8 @@ export default function AddTask({
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [showInspectionDropdown, setShowInspectionDropdown] = useState(false);
   const [showMechanicDropdown, setShowMechanicDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [selectedPriority, setSelectedPriority] = useState("Normal");
   const [loading, setLoading] = useState(false);
   const [androidPickerMode, setAndroidPickerMode] = useState("date");
   const [endDateManuallyAdjusted, setEndDateManuallyAdjusted] = useState(false);
@@ -95,6 +138,18 @@ export default function AddTask({
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees.filter((emp) => !emp.isBusy);
+  const derivedMaintenanceType = isCustomTask
+    ? "Custom Task"
+    : initialDraft
+      ? "Corrective Maintenance"
+      : "Inspection";
+  const suggestedPriorityScore = computePriorityScore({
+    riskLevel: initialDraft?.riskLevel,
+    maintenanceType: derivedMaintenanceType,
+    checklistCount: checklistItems.length,
+    startDate,
+  });
+  const suggestedPriority = scoreToPriority(suggestedPriorityScore);
 
   const draftKey = initialDraft
     ? JSON.stringify({
@@ -240,6 +295,16 @@ export default function AddTask({
   };
 
   const applyDraft = async (draft = {}) => {
+    setSelectedPriority(
+      scoreToPriority(
+        computePriorityScore({
+          riskLevel: draft?.riskLevel,
+          maintenanceType: "Corrective Maintenance",
+          checklistCount: checklistItems.length,
+          startDate,
+        }),
+      ),
+    );
     const matchedInspection = findInspectionForDraft(draft);
 
     if (draft.aircraft) {
@@ -302,8 +367,10 @@ export default function AddTask({
     setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
     setAndroidPickerMode("date");
     setEndDateManuallyAdjusted(false);
+    setSelectedPriority("Normal");
   };
 
   const fetchInspectionTasks = async (inspection) => {
@@ -469,16 +536,8 @@ export default function AddTask({
       startDateTime: startDate.toISOString(),
       endDateTime: endDate.toISOString(),
       status: "Pending",
-      priority:
-        initialDraft?.riskLevel === "Critical" ||
-        initialDraft?.riskLevel === "High"
-          ? "High"
-          : "Normal",
-      maintenanceType: isCustomTask
-        ? "Custom Task"
-        : initialDraft
-          ? "Corrective Maintenance"
-          : "Inspection",
+      priority: selectedPriority || suggestedPriority,
+      maintenanceType: derivedMaintenanceType,
       assignedTo: selectedEmployee,
       assignedToName:
         employees.find((e) => e.id === selectedEmployee)?.name || "",
@@ -684,6 +743,7 @@ export default function AddTask({
     setShowBaseDropdown(false);
     setShowInspectionDropdown(false);
     setShowMechanicDropdown(false);
+    setShowPriorityDropdown(false);
   };
 
   const getAddTaskWarning = () => {
@@ -846,6 +906,7 @@ export default function AddTask({
           ?.name || "";
   const selectedEmployeeLabel =
     availableEmployees.find((emp) => emp.id === selectedEmployee)?.name || "";
+  const selectedPriorityLabel = selectedPriority || "";
   const addTaskWarning = getAddTaskWarning();
   const hasUnsavedChanges = () =>
     Boolean(selectedAircraft) ||
@@ -1017,6 +1078,31 @@ export default function AddTask({
               onToggle: setShowMechanicDropdown,
               onSelect: setSelectedEmployee,
             })}
+
+            {renderDropdownField({
+              label: "Priority",
+              required: true,
+              value: selectedPriorityLabel,
+              placeholder: "Pick Priority",
+              options: PRIORITY_OPTIONS.map((level) => ({
+                label: level,
+                value: level,
+              })),
+              visible: showPriorityDropdown,
+              onToggle: setShowPriorityDropdown,
+              onSelect: setSelectedPriority,
+            })}
+
+            <AppText
+              style={{
+                fontSize: 11,
+                color: COLORS.grayDark,
+                marginTop: -8,
+                marginBottom: 14,
+              }}
+            >
+              Suggested: {suggestedPriority} (score {suggestedPriorityScore}/100)
+            </AppText>
 
             <AppText
               style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}

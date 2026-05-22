@@ -896,6 +896,13 @@ export default function PreInspection() {
           },
         ]}
       />
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filtered.length}</Text> pre-inspection log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <Modal
         open={creating}

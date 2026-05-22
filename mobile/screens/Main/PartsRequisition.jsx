@@ -9,11 +9,14 @@ import React, {
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
+  Picker,
+} from "@react-native-picker/picker";
+import {
   RefreshControl,
   ScrollView,
   StatusBar,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -624,8 +627,9 @@ export default function PartsRequisition({ route, navigation }) {
       "To Be Restocked": mappedRequisitions.filter(
         (item) => item.rawStatus === "To Be Ordered",
       ).length,
-      Restocked: mappedRequisitions.filter((item) => item.rawStatus === "Ordered")
-        .length,
+      Restocked: mappedRequisitions.filter(
+        (item) => item.rawStatus === "Ordered",
+      ).length,
       Approved: mappedRequisitions.filter(
         (item) => item.rawStatus === "Approved",
       ).length,
@@ -707,7 +711,12 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const submitRequisitionUpdate = useCallback(
-    async (requestId, payload, successMessage, { closeDetails = true } = {}) => {
+    async (
+      requestId,
+      payload,
+      successMessage,
+      { closeDetails = true } = {},
+    ) => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
@@ -737,7 +746,9 @@ export default function PartsRequisition({ route, navigation }) {
 
         const updatedRecord = await parseJsonSafely(response);
         if (updatedRecord?._id) {
-          setSelectedRequest(mapRequisitionToCard(updatedRecord).requestDetails);
+          setSelectedRequest(
+            mapRequisitionToCard(updatedRecord).requestDetails,
+          );
         }
 
         if (closeDetails) {
@@ -1207,16 +1218,43 @@ export default function PartsRequisition({ route, navigation }) {
           )}
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: 3,
-            marginBottom: 20,
-          }}
-        >
-          {tabLabels.map(renderTabButton)}
-        </View>
+        {tabLabels.length > 3 ? (
+          <View
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: COLORS.grayMedium,
+              marginBottom: 20,
+              overflow: "hidden",
+            }}
+          >
+            <Picker
+              selectedValue={selectedTab}
+              onValueChange={setSelectedTab}
+              style={{ color: COLORS.black }}
+            >
+              {tabLabels.map((label) => (
+                <Picker.Item
+                  key={label}
+                  label={`${label} (${tabCounts[label] || 0})`}
+                  value={label}
+                />
+              ))}
+            </Picker>
+          </View>
+        ) : (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 3,
+              marginBottom: 20,
+            }}
+          >
+            {tabLabels.map(renderTabButton)}
+          </View>
+        )}
 
         <ScrollView
           showsVerticalScrollIndicator={false}

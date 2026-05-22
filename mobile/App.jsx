@@ -13,7 +13,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
 import { FontScaleProvider, useFontScale } from "./Context/FontScaleContext";
@@ -32,6 +32,7 @@ import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
+import { getUserImageUri, getUserInitials } from "./utilities/avatar";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -170,12 +171,7 @@ function DrawerNav({ navigation }) {
             : canAccessPartsRequisition
               ? "Parts Requisition Monitoring"
               : "Profile";
-  const profileImage =
-    user?.image && typeof user.image === "string"
-      ? user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`
-      : `${API_BASE}/uploads/default_avatar.jpg`;
+  const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
 
@@ -221,17 +217,35 @@ function DrawerNav({ navigation }) {
               }}
               onPress={() => navigation.navigate("Profile")}
             >
-              <Image
-                source={{
-                  uri: profileImage,
-                }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  marginRight: 5,
-                }}
-              />
+              {profileImage ? (
+                <Image
+                  source={{
+                    uri: profileImage,
+                  }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                    backgroundColor: "#E6F4F1",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AppText style={{ color: "#26866F", fontWeight: "700" }}>
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </AppText>
+                </View>
+              )}
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
                   <AppText style={{ fontSize: scale(14), fontWeight: "600" }}>

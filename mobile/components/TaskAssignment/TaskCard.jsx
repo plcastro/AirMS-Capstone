@@ -25,6 +25,7 @@ export default function TaskCard({
     aircraft,
     maintenanceType,
     assignedToName,
+    priority,
     returnComments,
     checklistItems,
     checklistState,
@@ -134,6 +135,37 @@ export default function TaskCard({
             <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={{ flexDirection: "row", marginBottom: 6 }}>
+        <View
+          style={{
+            backgroundColor:
+              priority === "High"
+                ? COLORS.dangerBg
+                : priority === "Low"
+                  ? COLORS.successBg
+                  : COLORS.infoBg,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 10,
+          }}
+        >
+          <AppText
+            style={{
+              fontSize: 10,
+              fontWeight: "700",
+              color:
+                priority === "High"
+                  ? COLORS.dangerBorder
+                  : priority === "Low"
+                    ? COLORS.successBorder
+                    : COLORS.infoBorder,
+            }}
+          >
+            Priority: {priority || "Normal"}
+          </AppText>
+        </View>
       </View>
 
       {/* BODY INFO */}

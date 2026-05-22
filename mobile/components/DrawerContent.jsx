@@ -1,11 +1,7 @@
 import React, { useState, useContext } from "react";
 import AppText from "./common/AppText";
-import {
-  CommonActions,
-  useNavigation } from "@react-navigation/native";
-import { View,
-  Image
-} from "react-native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { View, Image } from "react-native";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,202 +9,131 @@ import AirMSWeb from "../assets/AirMS_web.png";
 import AlertComp from "./AlertComp";
 import { AuthContext } from "../Context/AuthContext";
 import { useFontScale } from "../Context/FontScaleContext";
+import { hasNavAccess, normalizeRole } from "../../shared/navigationAccess";
 
 const DrawerList = [
   {
     label: "GENERAL",
-    jobTitle: [
-      "admin",
-      "maintenance manager",
-      "officer-in-charge",
-      "warehouse department",
-      "mechanic",
-    ],
     children: [
       {
         icon: "chart-areaspline",
         label: "Reports and Analytics",
         navigateTo: "Reports and Analytics",
-        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+        accessKey: "reports",
       },
       {
         icon: "message-text-outline",
         label: "Messages",
         navigateTo: "Messages",
-        jobTitle: [
-          "admin",
-          "maintenance manager",
-          "mechanic",
-          "pilot",
-          "officer-in-charge",
-          "warehouse department",
-        ],
+        accessKey: "messages",
       },
     ],
   },
   {
     label: "USER MANAGEMENT",
-    jobTitle: ["admin"],
     children: [
       {
         icon: "account-multiple-outline",
         label: "Manage Users",
         navigateTo: "Manage Users",
-        jobTitle: ["admin"],
+        accessKey: "userManagement",
       },
       {
         icon: "history",
         label: "Activity Logs",
         navigateTo: "Activity Logs",
-        jobTitle: ["admin"],
+        accessKey: "activityLogs",
       },
     ],
   },
   {
     label: "AIRCRAFT HEALTH LOGBOOK",
-    jobTitle: [
-      "admin",
-      "pilot",
-      "maintenance manager",
-      "officer-in-charge",
-      "mechanic",
-    ],
     children: [
       {
         icon: "helicopter",
         label: "Flight Logs",
         navigateTo: "Flight Logs",
-        jobTitle: [
-          "admin",
-          "pilot",
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        accessKey: "flightLogs",
       },
       {
         icon: "tools",
         label: "Maintenance Logs",
         navigateTo: "Maintenance Logs",
-        jobTitle: [
-          "admin",
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        accessKey: "maintenanceLogs",
       },
       {
         icon: "clipboard-check-outline",
         label: "Pre-Inspection",
         navigateTo: "Pre-Inspection",
-        jobTitle: [
-          "admin",
-          "pilot",
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        accessKey: "preInspection",
       },
       {
         icon: "clipboard-check-outline",
         label: "Post-Inspection",
         navigateTo: "Post-Inspection",
-        jobTitle: [
-          "admin",
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        accessKey: "postInspection",
       },
     ],
   },
   {
     label: "TASK ASSIGNMENT & MONITORING",
-    jobTitle: ["admin", "maintenance manager", "mechanic"],
     children: [
       {
         icon: "calendar-clock",
         label: "Tasks",
         navigateTo: "Tasks",
-        jobTitle: ["admin", "maintenance manager", "mechanic"],
+        accessKey: "tasks",
       },
       {
         icon: "account-group",
         label: "Mechanics",
         navigateTo: "Mechanics",
-        jobTitle: ["admin", "maintenance manager"],
+        accessKey: "mechanics",
       },
     ],
   },
   {
     label: "PARTS LIFESPAN & MAINTENANCE TRACKING",
-    jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
     children: [
       {
         icon: "view-dashboard-outline",
         label: "Parts Lifespan Monitoring",
         navigateTo: "Parts Lifespan Monitoring",
-        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+        accessKey: "partsLifespan",
       },
       {
         icon: "radar",
         label: "Maintenance Tracking",
         navigateTo: "Maintenance Tracking",
-        jobTitle: ["admin", "maintenance manager", "officer-in-charge"],
+        accessKey: "maintenanceTracking",
       },
       {
         icon: "flag-outline",
         label: "Maintenance Priority Sorting",
         navigateTo: "Maintenance Priority Sorting",
-        jobTitle: ["admin", "maintenance manager"],
+        accessKey: "maintenancePriority",
       },
     ],
   },
   {
     label: "PARTS REQUISITION",
-    jobTitle: [
-      "admin",
-      "warehouse department",
-      "maintenance manager",
-      "officer-in-charge",
-      "mechanic",
-    ],
     children: [
       {
         icon: "inbox-outline",
         label: "Parts Requisition Monitoring",
         navigateTo: "Parts Requisition",
-        jobTitle: [
-          "admin",
-          "warehouse department",
-          "maintenance manager",
-          "officer-in-charge",
-          "mechanic",
-        ],
+        accessKey: "partsRequisition",
       },
     ],
   },
   {
     label: "SETTINGS",
-    jobTitle: [
-      "admin",
-      "maintenance manager",
-      "mechanic",
-      "officer-in-charge",
-      "warehouse department",
-    ],
     children: [
       {
         icon: "account-circle",
         label: "Profile",
         navigateTo: "Profile",
-        jobTitle: [
-          "admin",
-          "maintenance manager",
-          "mechanic",
-          "officer-in-charge",
-          "warehouse department",
-        ],
+        accessKey: "profile",
       },
     ],
   },
@@ -220,18 +145,23 @@ function DrawerContent({ navigation }) {
   const { scale } = useFontScale();
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
-  const userJob = user?.jobTitle?.toLowerCase();
+  const userJob = normalizeRole(user?.jobTitle);
 
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;
 
   const isVisible = (item) => {
-    const roles = item.jobTitle?.map((r) => r.toLowerCase()) || [];
-    return roles.length === 0 || roles.includes(userJob);
+    return hasNavAccess(userJob, item.accessKey);
   };
 
   const getChildren = (item) =>
     item.children ? item.children.filter(isVisible) : [];
+  const visibleDrawerItems = DrawerList.filter((item) => {
+    if (item.children) {
+      return getChildren(item).length > 0;
+    }
+    return isVisible(item);
+  });
 
   const handleLogout = async () => {
     try {
@@ -256,7 +186,7 @@ function DrawerContent({ navigation }) {
         />
 
         <View>
-          {DrawerList.filter(isVisible).map((item) => {
+          {visibleDrawerItems.map((item) => {
             const isActive =
               (!item.children && item.navigateTo === activeRoute) ||
               (item.children &&

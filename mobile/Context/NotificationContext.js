@@ -26,6 +26,7 @@ const WS_BACKOFF_MAX_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 250;
 const NAV_QUEUE_RETRY_MS = 150;
 const NAV_QUEUE_MAX_ATTEMPTS = 40;
+const ACTIVE_NOTIFICATION_POLL_MS = 10000;
 
 const VALID_MODULES = new Set([
   "flight-logs",
@@ -226,6 +227,29 @@ export function NotificationProvider({ children }) {
   const moduleNotifierReadyRef = useRef(false);
   const loadedNotificationsUserIdRef = useRef("");
 
+  const pushInAppNotification = useCallback(
+    ({ title, description, module = "parts-requisition", entityType = "system" }) => {
+      const syntheticId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const nowIso = new Date().toISOString();
+
+      setNotifications((current) => [
+        {
+          _id: syntheticId,
+          title: String(title || "New notification"),
+          description: String(description || ""),
+          module,
+          entityType,
+          read: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          localOnly: true,
+        },
+        ...current,
+      ]);
+    },
+    [],
+  );
+
   const lastRegisteredPushRef = useRef({
     userId: "",
     deviceId: "",
@@ -327,10 +351,16 @@ export function NotificationProvider({ children }) {
           authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
           authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
       } else if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
-        const result = await PermissionsAndroid.check(
+        let granted = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
-        enabled = result === true;
+        if (!granted) {
+          const requestResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          );
+          granted = requestResult === PermissionsAndroid.RESULTS.GRANTED;
+        }
+        enabled = granted === true;
       }
 
       if (!enabled) {
@@ -365,7 +395,6 @@ export function NotificationProvider({ children }) {
           },
           body: JSON.stringify({
             deviceId,
-            expoPushToken: fcmToken,
             fcmToken,
             platform: Platform.OS,
           }),
@@ -647,13 +676,13 @@ export function NotificationProvider({ children }) {
           showToast("You have new task updates.");
         }
 
-        if (
-          nextSnapshot.latestLogId &&
-          previousSnapshot.latestLogId &&
-          nextSnapshot.latestLogId !== previousSnapshot.latestLogId
-        ) {
-          showToast("New activity logs were added.");
-        }
+        // if (
+        //   nextSnapshot.latestLogId &&
+        //   previousSnapshot.latestLogId &&
+        //   nextSnapshot.latestLogId !== previousSnapshot.latestLogId
+        // ) {
+        //   showToast("New activity logs were added.");
+        // }
 
         if (
           nextSnapshot.requisitionCount > previousSnapshot.requisitionCount ||
@@ -661,7 +690,12 @@ export function NotificationProvider({ children }) {
             nextSnapshot.latestRequisitionUpdatedAt !==
               previousSnapshot.latestRequisitionUpdatedAt)
         ) {
-          showToast("You have new requisition updates.");
+          pushInAppNotification({
+            title: "Parts requisition updated",
+            description: "You have new requisition updates.",
+            module: "parts-requisition",
+            entityType: "requisition",
+          });
         }
       } catch (error) {
         if (error?.name !== "AbortError") {
@@ -671,7 +705,7 @@ export function NotificationProvider({ children }) {
         checkInFlightRef.current = false;
       }
     },
-    [fetchModuleSnapshot],
+    [fetchModuleSnapshot, pushInAppNotification],
   );
 
   const scheduleRefresh = useCallback(
@@ -773,8 +807,13 @@ export function NotificationProvider({ children }) {
       log("notification-open", getModuleName(notificationPayload));
 
       if (user?.id) {
-        if (notificationPayload?._id) {
-          await markAsRead(notificationPayload._id);
+        const notificationId =
+          notificationPayload?._id ||
+          notificationPayload?.notificationId ||
+          notificationPayload?.data?.notificationId;
+
+        if (notificationId) {
+          await markAsRead(notificationId);
         }
 
         const params = {
@@ -809,7 +848,9 @@ export function NotificationProvider({ children }) {
         (item) => item?.data && Object.keys(item.data).length > 0,
       );
       if (latestNavigable?.data) {
-        const moduleName = String(latestNavigable.data?.module || "").toLowerCase();
+        const moduleName = String(
+          latestNavigable.data?.module || "",
+        ).toLowerCase();
         if (moduleName === "messages") {
           showToast("You received new chat messages.");
         } else {
@@ -933,6 +974,18 @@ export function NotificationProvider({ children }) {
   }, [clearReconnectTimer, scheduleRefresh, user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const interval = setInterval(() => {
+      if (appStateRef.current === "active") {
+        scheduleRefresh("active-poll");
+      }
+    }, ACTIVE_NOTIFICATION_POLL_MS);
+
+    return () => clearInterval(interval);
+  }, [scheduleRefresh, user?.id]);
+
+  useEffect(() => {
     const unsubscribe = messaging().onTokenRefresh(async (token) => {
       console.log("FCM token refreshed:", token);
 
@@ -956,6 +1009,7 @@ export function NotificationProvider({ children }) {
       appStateRef.current = nextState;
       if (wasBackground && nextState === "active") {
         registerPushTokenWithServer();
+        scheduleRefresh("app-active");
         consumePushInbox().then((queuedMessages) => {
           if (!queuedMessages.length) return;
           handleQueuedBackgroundMessages(queuedMessages);

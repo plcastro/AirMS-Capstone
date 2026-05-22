@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Keyboard,
 } from "react-native";
 
 import {
@@ -51,7 +52,24 @@ export default function ChatView({
       scrollRef.current?.scrollToEnd({ animated: false });
     }, 50);
   }, [messages]);
+  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return undefined;
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setAndroidKeyboardHeight(event?.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setAndroidKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <SafeAreaView
@@ -60,8 +78,8 @@ export default function ChatView({
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <View style={{ flex: 1 }}>
           <View
@@ -150,6 +168,7 @@ export default function ChatView({
               paddingBottom: 10,
             }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               scrollRef.current?.scrollToEnd({ animated: true });
@@ -295,6 +314,7 @@ export default function ChatView({
               borderTopColor: "#ECEFEE",
               paddingBottom:
                 Platform.OS === "ios" ? Math.max(insets.bottom, 8) : 8,
+              marginBottom: Platform.OS === "android" ? androidKeyboardHeight : 0,
             }}
           >
             {attachments?.length ? (

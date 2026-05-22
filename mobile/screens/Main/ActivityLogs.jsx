@@ -6,7 +6,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  View
+  View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
@@ -206,7 +206,10 @@ export default function ActivityLogs() {
     setCurrentPage(1);
   }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLogs.length / LOGS_PER_PAGE),
+  );
   const paginatedLogs = useMemo(() => {
     const start = (currentPage - 1) * LOGS_PER_PAGE;
     return filteredLogs.slice(start, start + LOGS_PER_PAGE);
@@ -272,18 +275,17 @@ export default function ActivityLogs() {
       const userKey = String(item.username || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
-      const module =
-        actionText.includes("task")
-          ? "tasks"
-          : actionText.includes("flight")
-            ? "flight logs"
-            : actionText.includes("inspection")
-              ? "inspections"
-              : actionText.includes("requisition")
-                ? "requisitions"
-                : actionText.includes("user")
-                  ? "users"
-                  : "other";
+      const module = actionText.includes("task")
+        ? "tasks"
+        : actionText.includes("flight")
+          ? "flight logs"
+          : actionText.includes("inspection")
+            ? "inspections"
+            : actionText.includes("requisition")
+              ? "requisitions"
+              : actionText.includes("user")
+                ? "users"
+                : "other";
       byModule[module] = (byModule[module] || 0) + 1;
     });
     const topUsers = Object.entries(byUser)
@@ -363,95 +365,6 @@ export default function ActivityLogs() {
         />
       </View>
 
-      <View style={styles.filtersRow}>
-        <View style={styles.filterCard}>
-          <AppText style={styles.filterLabel}>Action Type</AppText>
-          <Picker selectedValue={actionType} onValueChange={setActionType}>
-            {ACTION_TYPES.map((type) => (
-              <Picker.Item
-                key={type}
-                value={type}
-                label={
-                  type === "all"
-                    ? "All Actions"
-                    : type[0].toUpperCase() + type.slice(1)
-                }
-              />
-            ))}
-          </Picker>
-        </View>
-
-        <View style={styles.filterCard}>
-          <AppText style={styles.filterLabel}>Date Range</AppText>
-          <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
-            {DATE_RANGE_OPTIONS.map((value) => (
-              <Picker.Item key={value.value} value={value.value} label={value.label} />
-            ))}
-          </Picker>
-        </View>
-
-        <View style={styles.filterCard}>
-          <AppText style={styles.filterLabel}>Scope</AppText>
-          <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
-            {scopeOptions.map((value) => (
-              <Picker.Item
-                key={value.value}
-                value={value.value}
-                label={value.label}
-              />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.analyticsCard}>
-        <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
-        <AreaChart data={trendSeries} height={130} />
-        <View style={styles.trendLabelsRow}>
-          {trendSeries.map((point) => (
-            <AppText key={point.date} style={styles.trendLabel}>
-              {point.label}
-            </AppText>
-          ))}
-        </View>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiChip}>
-            <AppText style={styles.kpiLabel}>Create</AppText>
-            <AppText style={styles.kpiValue}>{actionCounts.create}</AppText>
-          </View>
-          <View style={styles.kpiChip}>
-            <AppText style={styles.kpiLabel}>Update</AppText>
-            <AppText style={styles.kpiValue}>{actionCounts.update}</AppText>
-          </View>
-          <View style={styles.kpiChip}>
-            <AppText style={styles.kpiLabel}>Delete</AppText>
-            <AppText style={styles.kpiValue}>{actionCounts.delete}</AppText>
-          </View>
-          <View style={styles.kpiChip}>
-            <AppText style={styles.kpiLabel}>Login</AppText>
-            <AppText style={styles.kpiValue}>{actionCounts.login}</AppText>
-          </View>
-          <View style={styles.kpiChip}>
-            <AppText style={styles.kpiLabel}>Logout</AppText>
-            <AppText style={styles.kpiValue}>{actionCounts.logout}</AppText>
-          </View>
-        </View>
-        <View style={styles.groupSummaryWrap}>
-          <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
-          {groupedSummary.topUsers.map(([name, count]) => (
-            <AppText key={name} style={styles.groupSummaryText}>
-              {name}: {count}
-            </AppText>
-          ))}
-          <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</AppText>
-          {groupedSummary.topModules.map(([name, count]) => (
-            <AppText key={name} style={styles.groupSummaryText}>
-              {name}: {count}
-            </AppText>
-          ))}
-        </View>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -465,6 +378,104 @@ export default function ActivityLogs() {
           />
         }
       >
+        <View style={styles.filtersRow}>
+          <View style={styles.filterCard}>
+            <AppText style={styles.filterLabel}>Action Type</AppText>
+            <Picker selectedValue={actionType} onValueChange={setActionType}>
+              {ACTION_TYPES.map((type) => (
+                <Picker.Item
+                  key={type}
+                  value={type}
+                  label={
+                    type === "all"
+                      ? "All Actions"
+                      : type[0].toUpperCase() + type.slice(1)
+                  }
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <View style={styles.filterCard}>
+            <AppText style={styles.filterLabel}>Date Range</AppText>
+            <Picker
+              selectedValue={dateRangeFilter}
+              onValueChange={setDateRangeFilter}
+            >
+              {DATE_RANGE_OPTIONS.map((value) => (
+                <Picker.Item
+                  key={value.value}
+                  value={value.value}
+                  label={value.label}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <View style={styles.filterCard}>
+            <AppText style={styles.filterLabel}>Scope</AppText>
+            <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
+              {scopeOptions.map((value) => (
+                <Picker.Item
+                  key={value.value}
+                  value={value.value}
+                  label={value.label}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        <View style={styles.analyticsCard}>
+          <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
+          <AreaChart data={trendSeries} height={130} />
+          <View style={styles.trendLabelsRow}>
+            {trendSeries.map((point) => (
+              <AppText key={point.date} style={styles.trendLabel}>
+                {point.label}
+              </AppText>
+            ))}
+          </View>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiChip}>
+              <AppText style={styles.kpiLabel}>Create</AppText>
+              <AppText style={styles.kpiValue}>{actionCounts.create}</AppText>
+            </View>
+            <View style={styles.kpiChip}>
+              <AppText style={styles.kpiLabel}>Update</AppText>
+              <AppText style={styles.kpiValue}>{actionCounts.update}</AppText>
+            </View>
+            <View style={styles.kpiChip}>
+              <AppText style={styles.kpiLabel}>Delete</AppText>
+              <AppText style={styles.kpiValue}>{actionCounts.delete}</AppText>
+            </View>
+            <View style={styles.kpiChip}>
+              <AppText style={styles.kpiLabel}>Login</AppText>
+              <AppText style={styles.kpiValue}>{actionCounts.login}</AppText>
+            </View>
+            <View style={styles.kpiChip}>
+              <AppText style={styles.kpiLabel}>Logout</AppText>
+              <AppText style={styles.kpiValue}>{actionCounts.logout}</AppText>
+            </View>
+          </View>
+          <View style={styles.groupSummaryWrap}>
+            <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
+            {groupedSummary.topUsers.map(([name, count]) => (
+              <AppText key={name} style={styles.groupSummaryText}>
+                {name}: {count}
+              </AppText>
+            ))}
+            <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>
+              Top Modules
+            </AppText>
+            {groupedSummary.topModules.map(([name, count]) => (
+              <AppText key={name} style={styles.groupSummaryText}>
+                {name}: {count}
+              </AppText>
+            ))}
+          </View>
+        </View>
+
         {filteredLogs.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
@@ -560,7 +571,12 @@ export default function ActivityLogs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.grayLight, padding: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.grayLight,
+    padding: 10,
+    height: "100%",
+  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",

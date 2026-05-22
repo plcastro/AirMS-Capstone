@@ -495,7 +495,17 @@ export default function Messaging({ navigation }) {
       ...groupFromConversations,
       ...directFromConversations,
       ...remainingUsers,
-    ].filter(Boolean);
+    ]
+      .filter(Boolean)
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.lastMessage?.createdAt || first.group?.updatedAt || 0,
+        ).getTime();
+        const secondTime = new Date(
+          second.lastMessage?.createdAt || second.group?.updatedAt || 0,
+        ).getTime();
+        return secondTime - firstTime;
+      });
     const query = searchText.trim().toLowerCase();
 
     if (!query) return merged;

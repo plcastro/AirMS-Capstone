@@ -79,6 +79,25 @@ const getUnreadMessageSenderCount = async (userId) => {
   return new Set([...directSenders, ...groupSenders].map(String)).size;
 };
 
+const markMessageNotificationsRead = async ({ userId, messageIds = [] }) => {
+  const ids = messageIds
+    .map((messageId) => String(messageId))
+    .filter((messageId) => mongoose.Types.ObjectId.isValid(messageId));
+
+  if (!userId || ids.length === 0) return;
+
+  await NotificationModel.updateMany(
+    {
+      module: "messages",
+      entityId: { $in: ids },
+      recipientUsers: userId,
+    },
+    {
+      $addToSet: { readBy: userId },
+    },
+  );
+};
+
 const notifyUnreadMessageSummary = async (recipientIds = []) => {
   const uniqueRecipientIds = [...new Set(recipientIds.map(String).filter(Boolean))];
 
@@ -108,6 +127,12 @@ const buildMessagePreview = (message) => {
   return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 };
 
+const extractFirstName = (name) => {
+  const text = String(name || "").trim();
+  if (!text) return "Someone";
+  return text.split(/\s+/)[0] || "Someone";
+};
+
 const createChatNotifications = async ({
   senderName,
   messageBody,
@@ -124,13 +149,13 @@ const createChatNotifications = async ({
     return;
   }
 
-  const title = isGroup
-    ? `${senderName} in ${conversationName || "Group Chat"}`
-    : `New message from ${senderName}`;
+  const preview = buildMessagePreview(messageBody);
+  const firstName = extractFirstName(senderName);
+  const title = `${firstName}: ${preview}`;
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
-    description: buildMessagePreview(messageBody),
+    description: preview,
     module: "messages",
     entityType: "message",
     entityId: messageId,
@@ -138,8 +163,25 @@ const createChatNotifications = async ({
     metadata: {
       notificationType: isGroup ? "group-message" : "direct-message",
       senderName,
+      senderFirstName: firstName,
       conversationId: conversationId ? String(conversationId) : null,
       conversationName: conversationName || null,
+    },
+  });
+
+  await sendPushNotificationToUsers({
+    title,
+    body: preview,
+    recipientUsers: recipients,
+    data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
+      module: "messages",
+      entityType: "message",
+      entityId: String(messageId),
+      targetMessageId: String(messageId),
+      conversationId: conversationId ? String(conversationId) : "",
+      isGroup: String(Boolean(isGroup)),
     },
   });
 };
@@ -308,6 +350,11 @@ const getThread = async (req, res) => {
       });
 
       if (readState?.messageIds?.length > 0) {
+        await markMessageNotificationsRead({
+          userId,
+          messageIds: readState.messageIds,
+        });
+
         sendToUsers(
           groupConversation.members.map((member) => member._id),
           "chat:read",
@@ -353,6 +400,7 @@ const getThread = async (req, res) => {
       const messageIds = unreadMessages.map((message) => message._id);
 
       await Message.updateMany({ _id: { $in: messageIds } }, { readAt });
+      await markMessageNotificationsRead({ userId, messageIds });
 
       sendToUsers([otherUserId, userId], "chat:read", {
         readerId: userId,
@@ -459,12 +507,6 @@ const sendMessage = async (req, res) => {
       }).catch((error) => {
         console.error("Group chat notification creation failed:", error);
       });
-      notifyUnreadMessageSummary(
-        recipientMemberIds,
-      ).catch((error) => {
-        console.error("Message push notification failed:", error);
-      });
-
       auditLog(`Message sent to group: ${conversation.name}`, senderId).catch((error) => {
         console.error("Message audit failed:", error);
       });
@@ -521,10 +563,6 @@ const sendMessage = async (req, res) => {
     }).catch((error) => {
       console.error("Direct chat notification creation failed:", error);
     });
-    notifyUnreadMessageSummary([recipientId]).catch((error) => {
-      console.error("Message push notification failed:", error);
-    });
-
     auditLog(`Message sent to user: ${recipientId}`, senderId).catch((error) => {
       console.error("Message audit failed:", error);
     });

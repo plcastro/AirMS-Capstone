@@ -97,7 +97,7 @@ const createNotification = async ({
     return;
   }
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
     description,
     module: "post-inspections",
@@ -119,6 +119,8 @@ const createNotification = async ({
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
     data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
       module: "post-inspections",
       targetScreen: "Post-Inspection",
       targetPostInspectionId: String(inspection._id),

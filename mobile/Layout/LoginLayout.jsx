@@ -55,6 +55,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         style={styles.cardScroll}
         contentContainerStyle={[
           styles.card,
+          { flexGrow: 1 },
           { paddingHorizontal: isSmall ? 16 : 25 },
         ]}
         onScroll={Animated.event(

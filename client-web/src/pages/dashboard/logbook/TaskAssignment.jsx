@@ -24,7 +24,7 @@ import {
   Tag,
   Typography,
   DatePicker,
-  message,
+  App,
 } from "antd";
 import {
   DeleteOutlined,
@@ -143,6 +143,7 @@ const createCustomChecklistItem = (index = 0) => ({
 });
 
 export default function TaskAssignment() {
+  const { message: messageApi } = App.useApp();
   const { user, getAuthHeader } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
@@ -201,7 +202,7 @@ export default function TaskAssignment() {
         setUsers([]);
       }
     } catch (error) {
-      message.error(error.message || "Failed to load tasks");
+      messageApi.error(error.message || "Failed to load tasks");
     } finally {
       setLoading(false);
     }
@@ -443,7 +444,7 @@ export default function TaskAssignment() {
         endDateTime: dayjs(addMinutesToDate(start.toDate(), estimate.minutes)),
       });
     } catch (error) {
-      message.error(error.message || "Failed to fetch inspection tasks");
+      messageApi.error(error.message || "Failed to fetch inspection tasks");
       form.setFieldsValue({ checklistItems: [] });
     }
   };
@@ -487,10 +488,10 @@ export default function TaskAssignment() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Failed to delete task");
-      message.success("Task deleted");
+      messageApi.success("Task deleted");
       await load();
     } catch (error) {
-      message.error(error.message || "Failed to delete task");
+      messageApi.error(error.message || "Failed to delete task");
     }
   };
 
@@ -512,11 +513,11 @@ export default function TaskAssignment() {
     };
     try {
       await upsertTask(next);
-      message.success("Task started");
+      messageApi.success("Task started");
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      message.error(error.message || "Failed to start task");
+      messageApi.error(error.message || "Failed to start task");
     }
   };
 
@@ -538,7 +539,7 @@ export default function TaskAssignment() {
         ? next.checklistState
         : [];
       if (checklist.length > 0 && checklist.some((value) => !value)) {
-        message.error("Please complete all checklist items before turning in");
+        messageApi.error("Please complete all checklist items before turning in");
         return;
       }
     }
@@ -556,11 +557,11 @@ export default function TaskAssignment() {
 
     try {
       await upsertTask(next);
-      message.success(options.undo ? "Turn in undone" : turnIn ? "Task turned in" : "Draft saved");
+      messageApi.success(options.undo ? "Turn in undone" : turnIn ? "Task turned in" : "Draft saved");
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      message.error(error.message || "Failed to update task");
+      messageApi.error(error.message || "Failed to update task");
     }
   };
 
@@ -650,20 +651,20 @@ export default function TaskAssignment() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "Failed to save task");
-      message.success(editingTask ? "Task updated" : "Task created");
+      messageApi.success(editingTask ? "Task updated" : "Task created");
       form.resetFields();
       setEditingTask(null);
       setCreateOpen(false);
       await load();
     } catch (error) {
       if (!error?.errorFields)
-        message.error(error.message || "Failed to create task");
+        messageApi.error(error.message || "Failed to create task");
     }
   };
 
   const submitReturn = async () => {
     if (!selectedTask || !reviewNote.trim()) {
-      message.error("Return remarks are required");
+      messageApi.error("Return remarks are required");
       return;
     }
 
@@ -694,14 +695,14 @@ export default function TaskAssignment() {
         reviewedAt: new Date().toISOString(),
         checklistState: nextChecklist,
       });
-      message.success("Task returned");
+      messageApi.success("Task returned");
       setReviewOpen(false);
       setChecklistOpen(false);
       setReviewNote("");
       setItemsToUncheck([]);
       await load();
     } catch (error) {
-      message.error(error.message || "Failed to return task");
+      messageApi.error(error.message || "Failed to return task");
     }
   };
 
@@ -721,12 +722,12 @@ export default function TaskAssignment() {
         approvedAt: new Date().toISOString(),
         reviewedAt: new Date().toISOString(),
       });
-      message.success("Task approved");
+      messageApi.success("Task approved");
       setSignatureState({ open: false, mode: null });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      message.error(error.message || "Failed to approve task");
+      messageApi.error(error.message || "Failed to approve task");
     }
   };
 
@@ -884,7 +885,7 @@ export default function TaskAssignment() {
         width={960}
       >
         <Form form={form} layout="vertical">
-          <Space direction="vertical" size={6} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={6} style={{ width: "100%" }}>
             <Row gutter={[12, 4]}>
               <Col xs={24} md={12}>
                 <Form.Item
@@ -1030,7 +1031,7 @@ export default function TaskAssignment() {
                 </Form.Item>
               </Col>
               <Col xs={24}>
-                <Divider orientation="left">Checklist</Divider>
+                <Divider titlePlacement="left">Checklist</Divider>
                 <Text type="secondary">
                   Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
                   {scheduleEstimate.itemCount} checklist item
@@ -1051,7 +1052,7 @@ export default function TaskAssignment() {
                   ]}
                 >
                   {(fields, { add, remove }, { errors }) => (
-                    <Space direction="vertical" style={{ width: "100%", marginTop: 12 }}>
+                    <Space orientation="vertical" style={{ width: "100%", marginTop: 12 }}>
                       {fields.map((field, index) => {
                         const item = watchedChecklistItems?.[index] || {};
                         return (
@@ -1337,7 +1338,7 @@ export default function TaskAssignment() {
         onCancel={() => setReviewOpen(false)}
         width={720}
       >
-        <Space direction="vertical" style={{ width: "100%" }} size={10}>
+        <Space orientation="vertical" style={{ width: "100%" }} size={10}>
           <Text>Uncheck items that need rework:</Text>
           <Row gutter={[8, 8]}>
             {(selectedTask?.checklistItems || [])
@@ -1391,3 +1392,4 @@ export default function TaskAssignment() {
     </div>
   );
 }
+
