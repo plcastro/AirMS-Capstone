@@ -123,6 +123,14 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
   );
 };
 
+const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
+  if (!userId || !keepTokenHash) return;
+  await RefreshToken.deleteMany({
+    userId,
+    tokenHash: { $ne: keepTokenHash },
+  });
+};
+
 const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
@@ -337,6 +345,10 @@ const buildLoginSuccessPayload = async ({
     isPersistent: usePersistentRefreshCookie,
     req,
   });
+  await deletePreviousRefreshTokens(
+    user._id,
+    hashRefreshToken(refreshToken),
+  );
   setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
 
   auditLog(
@@ -835,15 +847,16 @@ const refreshToken = async (req, res) => {
       newTokenHash,
     );
 
-    await storeRefreshToken({
-      userId: user._id,
-      refreshToken: newRefreshToken,
-      jti,
-      isPersistent: tokenRecord.isPersistent,
-      req,
-    });
+      await storeRefreshToken({
+        userId: user._id,
+        refreshToken: newRefreshToken,
+        jti,
+        isPersistent: tokenRecord.isPersistent,
+        req,
+      });
+      await deletePreviousRefreshTokens(user._id, newTokenHash);
 
-    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
+      setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
     const isMobileClient =
       String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
     res.json({
@@ -924,15 +937,19 @@ const updateSessionPreference = async (req, res) => {
         userId.toString(),
         desiredPersistent,
       );
-      await storeRefreshToken({
-        userId,
-        refreshToken: issuedRefreshToken,
-        jti,
-        isPersistent: desiredPersistent,
-        req,
-      });
+        await storeRefreshToken({
+          userId,
+          refreshToken: issuedRefreshToken,
+          jti,
+          isPersistent: desiredPersistent,
+          req,
+        });
+        await deletePreviousRefreshTokens(
+          userId,
+          hashRefreshToken(issuedRefreshToken),
+        );
 
-      if (incomingTokenHash) {
+        if (incomingTokenHash) {
         await revokeRefreshTokenByHash(
           incomingTokenHash,
           "Session preference updated",
