@@ -394,17 +394,18 @@ function LoginWrapper({ navigation, ...props }) {
     if (loading) return;
     if (!user) return;
 
-    if (user.status === "deactivated") {
+    if (user.status === "active") {
+      navigation.replace("dashboard");
       return;
     }
-    if (user.jobTitle === "Admin") {
+
+    if (user.status === "deactivated") {
       return;
     }
 
     if (user.status === "inactive") {
-      console.log(user.setupToken);
-      navigation.navigate("securitySetup", {
-        setupToken: user.token,
+      navigation.replace("securitySetup", {
+        setupToken: user.setupToken,
         email: user.email,
       });
 
@@ -421,13 +422,13 @@ function LoginWrapper({ navigation, ...props }) {
 
 // --- Stack navigator ---
 function StackNavWrapper() {
-  const { loading } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext);
 
   if (loading) return null;
 
   return (
     <Stack.Navigator
-      initialRouteName="login"
+      initialRouteName={user ? "dashboard" : "login"}
       screenOptions={{
         headerShown: false,
       }}

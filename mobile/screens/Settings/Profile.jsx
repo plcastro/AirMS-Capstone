@@ -567,6 +567,7 @@ export default function Profile() {
                     />
                   </View>
                 </View>
+
               </Card.Content>
             </Card>
           )}

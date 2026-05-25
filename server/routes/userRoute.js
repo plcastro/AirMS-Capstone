@@ -26,6 +26,7 @@ const {
   verifyLoginOtp,
   resendLoginOtp,
   refreshToken,
+  updateSessionPreference,
   logoutUser,
   registerMobilePushDevice,
   createUser,
@@ -68,6 +69,12 @@ router.post("/login/verify-otp", otpRequestLimiter, verifyLoginOtp);
 router.post("/login/resend-otp", otpRequestLimiter, resendLoginOtp);
 
 router.post("/refresh-token", refreshToken);
+router.put(
+  "/session-preference",
+  verifyToken,
+  touchSessionActivity,
+  updateSessionPreference,
+);
 
 router.post("/logout", logoutUser);
 router.post(

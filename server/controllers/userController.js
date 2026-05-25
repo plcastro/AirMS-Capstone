@@ -861,6 +861,108 @@ const refreshToken = async (req, res) => {
   }
 };
 
+const updateSessionPreference = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const sessionId = req.headers["x-session-id"] || req.user?.sessionId || null;
+    const { rememberMe, revokePersistentTokens = false, refreshToken } = req.body || {};
+
+    if (!userId || !sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+    if (typeof rememberMe !== "boolean") {
+      return res.status(400).json({ message: "rememberMe must be boolean" });
+    }
+
+    const activeSession = await UserSession.findOne({
+      userId,
+      sessionId,
+      isActive: true,
+    });
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const incomingRefreshToken =
+      req.cookies?.refreshToken || refreshToken || req.body?.refreshToken || null;
+    const incomingTokenHash = incomingRefreshToken
+      ? hashRefreshToken(incomingRefreshToken)
+      : null;
+
+    let tokenRecord = null;
+    if (incomingTokenHash) {
+      tokenRecord = await RefreshToken.findOne({
+        tokenHash: incomingTokenHash,
+        userId,
+        revokedAt: null,
+      });
+    }
+
+    if (Boolean(revokePersistentTokens)) {
+      const persistentFilter = {
+        userId,
+        isPersistent: true,
+        revokedAt: null,
+      };
+      if (incomingTokenHash) {
+        persistentFilter.tokenHash = { $ne: incomingTokenHash };
+      }
+      await RefreshToken.updateMany(persistentFilter, {
+        revokedAt: new Date(),
+        revokedReason: "Remember me disabled",
+      });
+    }
+
+    let nextRefreshToken;
+    let rotated = false;
+    const desiredPersistent = Boolean(rememberMe);
+    const shouldRotate =
+      !tokenRecord || Boolean(tokenRecord.isPersistent) !== desiredPersistent;
+
+    if (shouldRotate) {
+      const { token: issuedRefreshToken, jti } = issueRefreshToken(
+        userId.toString(),
+        desiredPersistent,
+      );
+      await storeRefreshToken({
+        userId,
+        refreshToken: issuedRefreshToken,
+        jti,
+        isPersistent: desiredPersistent,
+        req,
+      });
+
+      if (incomingTokenHash) {
+        await revokeRefreshTokenByHash(
+          incomingTokenHash,
+          "Session preference updated",
+          hashRefreshToken(issuedRefreshToken),
+        );
+      }
+
+      setRefreshTokenCookie(res, issuedRefreshToken, desiredPersistent);
+      nextRefreshToken = issuedRefreshToken;
+      rotated = true;
+    } else if (incomingRefreshToken) {
+      setRefreshTokenCookie(res, incomingRefreshToken, desiredPersistent);
+    }
+
+    const isMobileClient =
+      String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+
+    return res.status(200).json({
+      message: "Session preference updated",
+      rememberMe: desiredPersistent,
+      sessionId,
+      rotated,
+      refreshToken: isMobileClient ? (nextRefreshToken || incomingRefreshToken) : undefined,
+    });
+  } catch (error) {
+    console.error("updateSessionPreference error:", error);
+    return res.status(500).json({ message: "Failed to update session preference" });
+  }
+};
+
 const logoutUser = async (req, res) => {
   try {
     const incomingRefreshToken = req.cookies?.refreshToken;
@@ -1891,6 +1993,7 @@ module.exports = {
   verifyLoginOtp,
   resendLoginOtp,
   refreshToken,
+  updateSessionPreference,
   unlockUser,
   logoutUser,
   registerMobilePushDevice,

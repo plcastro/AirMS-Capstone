@@ -33,8 +33,6 @@ export default function Profile() {
     user,
     setUser,
     getValidToken,
-    rememberMePreference,
-    updateRememberMePreference,
   } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
@@ -42,7 +40,6 @@ export default function Profile() {
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [browserPermission, setBrowserPermission] = useState("default");
-  const [updatingRememberMe, setUpdatingRememberMe] = useState(false);
   const [sessionExpiryText, setSessionExpiryText] = useState("N/A");
   const [sessionStorageSource, setSessionStorageSource] = useState("N/A");
   const [tokenLocationText, setTokenLocationText] = useState("N/A");
@@ -396,36 +393,6 @@ export default function Profile() {
             </Space>
           </Card>
 
-          <Card size="small" title="Session">
-            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-              <Space>
-                <Text strong>Keep Me Signed In (Remember Me)</Text>
-                <Switch
-                  checked={rememberMePreference}
-                  loading={updatingRememberMe}
-                  onChange={async (checked) => {
-                    try {
-                      setUpdatingRememberMe(true);
-                      await updateRememberMePreference(checked, {
-                        revokePersistentTokens: !checked,
-                      });
-                      message.success(
-                        checked
-                          ? "Remember Me enabled for future refreshes."
-                          : "Remember Me disabled. Current session stays active until expiry.",
-                      );
-                    } catch (error) {
-                      message.error(
-                        error.message || "Failed to update session preference.",
-                      );
-                    } finally {
-                      setUpdatingRememberMe(false);
-                    }
-                  }}
-                />
-              </Space>
-            </Space>
-          </Card>
         </Space>
       ),
     },

@@ -215,11 +215,16 @@ export const AuthProvider = ({ children }) => {
             (await secureGetItem("refreshToken"))
           : null;
 
-        if (storedUser) {
+        const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
+        if (hasAuthMaterial && storedUser) {
           setUser(JSON.parse(storedUser));
+        } else {
+          setUser(null);
         }
         if (accessToken) {
           setToken(accessToken);
+        } else {
+          setToken(null);
         }
 
         refreshTokenRef.current = persistedRefreshToken;
