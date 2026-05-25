@@ -4,7 +4,6 @@ import {
   Card,
   Typography,
   Button,
-  Input,
   Row,
   Col,
   Tabs,
@@ -40,10 +39,6 @@ export default function Profile() {
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [browserPermission, setBrowserPermission] = useState("default");
-  const [sessionExpiryText, setSessionExpiryText] = useState("N/A");
-  const [sessionStorageSource, setSessionStorageSource] = useState("N/A");
-  const [tokenLocationText, setTokenLocationText] = useState("N/A");
-  const [userLocationText, setUserLocationText] = useState("N/A");
   const WEB_SETTINGS_KEY = "webProfileSettings";
 
   const WEB_FONT_RECOMMENDED = 1;
@@ -65,31 +60,6 @@ export default function Profile() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const formatSessionExpiry = (timestampMs) => {
-    if (!timestampMs) return "N/A";
-    const expiry = new Date(timestampMs);
-    if (Number.isNaN(expiry.getTime())) return "N/A";
-
-    const hh = String(expiry.getHours()).padStart(2, "0");
-    const mm = String(expiry.getMinutes()).padStart(2, "0");
-    const ss = String(expiry.getSeconds()).padStart(2, "0");
-    const month = String(expiry.getMonth() + 1).padStart(2, "0");
-    const day = String(expiry.getDate()).padStart(2, "0");
-    const year = expiry.getFullYear();
-
-    return `${hh}:${mm}:${ss} ${month}-${day}-${year}`;
-  };
-
-  const parseJwtExpiryMs = (token = "") => {
-    if (!token || typeof token !== "string") return null;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1] || ""));
-      return payload?.exp ? payload.exp * 1000 : null;
-    } catch {
-      return null;
-    }
   };
 
   useEffect(() => {
@@ -133,68 +103,6 @@ export default function Profile() {
       setBrowserPermission(Notification.permission);
     }
   }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    const updateSessionDetails = async () => {
-      try {
-        const sessionToken = sessionStorage.getItem("token");
-        const localToken = localStorage.getItem("token");
-        const sessionUser = sessionStorage.getItem("currentUser");
-        const localUser = localStorage.getItem("currentUser");
-
-        const tokenSource = sessionToken
-          ? "sessionStorage"
-          : localToken
-            ? "localStorage"
-            : "N/A";
-        const nextTokenLocation = [
-          sessionToken ? "sessionStorage" : null,
-          localToken ? "localStorage" : null,
-        ]
-          .filter(Boolean)
-          .join(" + ");
-        const nextUserLocation = [
-          sessionUser ? "sessionStorage" : null,
-          localUser ? "localStorage" : null,
-        ]
-          .filter(Boolean)
-          .join(" + ");
-
-        const token = await getValidToken();
-        const expiryMs = parseJwtExpiryMs(token);
-        if (!mounted) return;
-
-        setSessionStorageSource(tokenSource);
-        setTokenLocationText(nextTokenLocation || "N/A");
-        setUserLocationText(nextUserLocation || "N/A");
-        if (!expiryMs) {
-          setSessionExpiryText("N/A");
-          return;
-        }
-
-        setSessionExpiryText(formatSessionExpiry(expiryMs));
-      } catch {
-        if (mounted) {
-          setSessionStorageSource("N/A");
-          setTokenLocationText("N/A");
-          setUserLocationText("N/A");
-          setSessionExpiryText("N/A");
-        }
-      }
-    };
-
-    updateSessionDetails();
-    const timer = window.setInterval(updateSessionDetails, 30000);
-    const onStorageChange = () => updateSessionDetails();
-    window.addEventListener("storage", onStorageChange);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-      window.removeEventListener("storage", onStorageChange);
-    };
-  }, [getValidToken]);
 
   const persistWebSettings = (next) => {
     const payload = {
