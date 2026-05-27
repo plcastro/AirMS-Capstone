@@ -4,7 +4,7 @@ import { API_BASE } from "../utils/API_BASE";
 export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
-const WARNING_DURATION_MS = 30 * 1000;
+const WARNING_DURATION_MS = 15 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
@@ -295,13 +295,20 @@ export const AuthProvider = ({ children }) => {
 
   const logoutUser = async (options = {}) => {
     const { broadcast = true } = options;
+    const token = getStoredToken();
     try {
       sessionEndedRef.current = true;
       setLoading(true);
       setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();
-      const token = getStoredToken();
+      setUser(null);
+      clearAuthStorage();
+      setRememberMePreferenceState(false);
+      if (broadcast) {
+        publishAuthSync({ type: "LOGOUT" });
+      }
+
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
@@ -312,18 +319,15 @@ export const AuthProvider = ({ children }) => {
           credentials: "include",
         });
       }
-      setUser(null);
-      clearAuthStorage();
-      setRememberMePreferenceState(false);
-      if (broadcast) {
-        publishAuthSync({ type: "LOGOUT" });
-      }
     } finally {
       setLoading(false);
     }
   };
 
   const getValidToken = async () => {
+    if (sessionEndedRef.current) {
+      return null;
+    }
     const token = getStoredToken();
     if (token && isTokenValid(token)) {
       scheduleTokenExpiryLogout(token, logoutUser);
@@ -425,7 +429,7 @@ export const AuthProvider = ({ children }) => {
       syncChannelRef.current = new BroadcastChannel("airms-auth-sync");
       syncChannelRef.current.onmessage = (event) => {
         const payload = event?.data || {};
-      if (payload.type === "LOGOUT") {
+        if (payload.type === "LOGOUT") {
           sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
