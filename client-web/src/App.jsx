@@ -134,7 +134,7 @@ const AppRouter = () => {
       >
         <p style={{ marginBottom: 8 }}>
           You&apos;ve been inactive for a while. For your security, you&apos;ll
-          be signed out in 2 minutes unless you continue.
+          be signed out in 30 seconds unless you continue.
         </p>
         <p style={{ marginBottom: 0 }}>
           Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
@@ -229,7 +229,11 @@ const AppRouter = () => {
               path="tasks"
               element={
                 <ProtectedRoute
-                  allowedRoles={["superadmin", "maintenance manager", "mechanic"]}
+                  allowedRoles={[
+                    "superadmin",
+                    "maintenance manager",
+                    "mechanic",
+                  ]}
                 >
                   <TaskAssignment />
                 </ProtectedRoute>
@@ -238,7 +242,9 @@ const AppRouter = () => {
             <Route
               path="mechanics"
               element={
-                <ProtectedRoute allowedRoles={["superadmin", "maintenance manager"]}>
+                <ProtectedRoute
+                  allowedRoles={["superadmin", "maintenance manager"]}
+                >
                   <MechanicList />
                 </ProtectedRoute>
               }
@@ -290,7 +296,9 @@ const AppRouter = () => {
             <Route
               path="maintenance-priority"
               element={
-                <ProtectedRoute allowedRoles={["superadmin", "maintenance manager"]}>
+                <ProtectedRoute
+                  allowedRoles={["superadmin", "maintenance manager"]}
+                >
                   <MaintenancePriority />
                 </ProtectedRoute>
               }
