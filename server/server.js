@@ -82,6 +82,27 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
+const corsAllowedHeaders = corsOptions.allowedHeaders.join(", ");
+const corsAllowedMethods = corsOptions.methods.join(", ");
+
+// Defensive CORS fallback for preflight/proxy edge-cases.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", corsAllowedMethods);
+    res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders);
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(
   cors(corsOptions),
 );
