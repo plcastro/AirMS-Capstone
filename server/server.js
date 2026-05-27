@@ -49,29 +49,43 @@ const allowedOrigins = [
   "http://10.0.2.2:8081", // Android emulator (if using different port)
 ];
 
+const allowedOriginPatterns = [
+  /^https:\/\/([a-z0-9-]+\.)?airms\.online$/i,
+  /^http:\/\/localhost(?::\d+)?$/i,
+  /^http:\/\/10\.0\.2\.2(?::\d+)?$/i,
+];
+
+const isAllowedOrigin = (origin) =>
+  allowedOrigins.includes(origin) ||
+  allowedOriginPatterns.some((pattern) => pattern.test(origin));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      console.log("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-platform",
+    "x-base",
+    "x-session-id",
+    "x-action-confirmed",
+    "x-confirm-action",
+  ],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log("Blocked by CORS:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "x-platform",
-      "x-base",
-      "x-session-id",
-      "x-action-confirmed",
-      "x-confirm-action",
-    ],
-    credentials: true,
-  }),
+  cors(corsOptions),
 );
+app.options("*", cors(corsOptions));
 
 app.get("/api/events/stream", subscribeSSE);
 
