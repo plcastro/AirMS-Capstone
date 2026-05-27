@@ -222,7 +222,7 @@ export default function TaskTabs({
       {/* Task List */}
       <View style={styles.taskTable}>
         <ScrollView
-          contentContainerStyle={{ padding: 10 }}
+          contentContainerStyle={{ padding: 10, paddingBottom: 110 }}
           refreshControl={
             onRefresh ? (
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

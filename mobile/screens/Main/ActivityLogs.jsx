@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: "uppercase",
   },
-  listContent: { paddingBottom: 20 },
+  listContent: { paddingBottom: 110 },
   emptyState: { alignItems: "center", marginTop: 40 },
   emptyText: { marginTop: 8, color: COLORS.grayDark },
   logCard: {

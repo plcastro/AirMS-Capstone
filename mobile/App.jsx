@@ -169,7 +169,7 @@ function DrawerNav({ navigation }) {
           : canAccessTasks
             ? "Tasks"
             : canAccessPartsRequisition
-              ? "Parts Requisition Monitoring"
+              ? "Parts Requisition"
               : "Profile";
   const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
@@ -179,7 +179,7 @@ function DrawerNav({ navigation }) {
     return <LoadingScreen />;
   }
 
-  if (!user) return null;
+  if (!user) return <LoadingScreen message="Preparing your session..." />;
 
   const navLabel = {
     headerTitleStyle: {
@@ -424,7 +424,7 @@ function LoginWrapper({ navigation, ...props }) {
 function StackNavWrapper() {
   const { user, loading } = useContext(AuthContext);
 
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
 
   return (
     <Stack.Navigator

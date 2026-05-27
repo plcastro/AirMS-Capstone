@@ -29,7 +29,7 @@ const LinkingConfig = {
           "Parts Lifespan Monitoring": "parts-lifespan-monitoring",
           "Maintenance Tracking": "maintenance-tracking",
           "Maintenance Priority Sorting": "maintenance-priority",
-          "Parts Requisition Monitoring": "parts-requisition",
+          "Parts Requisition": "parts-requisition",
           Profile: "profile",
         },
       },

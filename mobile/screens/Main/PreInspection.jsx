@@ -331,7 +331,7 @@ export default function PreInspection({ route }) {
         {/* Pre-Inspection Cards */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
         >
           {filteredInspections.length === 0 ? (
             <View
