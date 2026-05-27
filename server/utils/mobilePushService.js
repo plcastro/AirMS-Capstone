@@ -110,6 +110,7 @@ const sendPushNotificationToUsers = async ({
   recipientRoles = [],
   recipientUsers = [],
   data = {},
+  android = {},
 }) => {
   try {
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
@@ -146,9 +147,12 @@ const sendPushNotificationToUsers = async ({
       },
       data: stringifyData(data),
       android: {
+        ...(android.collapseKey ? { collapseKey: String(android.collapseKey) } : {}),
         priority: "high",
         notification: {
           sound: "default",
+          ...(android.tag ? { tag: String(android.tag) } : {}),
+          ...(android.channelId ? { channelId: String(android.channelId) } : {}),
         },
       },
     });

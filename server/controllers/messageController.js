@@ -135,6 +135,7 @@ const extractFirstName = (name) => {
 
 const createChatNotifications = async ({
   senderName,
+  senderUserId,
   messageBody,
   messageId,
   recipientUserIds = [],
@@ -151,11 +152,15 @@ const createChatNotifications = async ({
 
   const preview = buildMessagePreview(messageBody);
   const firstName = extractFirstName(senderName);
-  const title = `${firstName}: ${preview}`;
+  const title = isGroup && conversationName ? conversationName : firstName;
+  const description = isGroup ? `${firstName}: ${preview}` : preview;
+  const threadId = isGroup && conversationId
+    ? `group:${conversationId}`
+    : `direct:${[senderUserId, ...recipients].map(String).sort().join(":")}`;
 
   const notification = await NotificationModel.create({
     title,
-    description: preview,
+    description,
     module: "messages",
     entityType: "message",
     entityId: messageId,
@@ -171,7 +176,7 @@ const createChatNotifications = async ({
 
   await sendPushNotificationToUsers({
     title,
-    body: preview,
+    body: description,
     recipientUsers: recipients,
     data: {
       _id: String(notification._id),
@@ -182,6 +187,11 @@ const createChatNotifications = async ({
       targetMessageId: String(messageId),
       conversationId: conversationId ? String(conversationId) : "",
       isGroup: String(Boolean(isGroup)),
+      threadId,
+    },
+    android: {
+      collapseKey: threadId,
+      tag: threadId,
     },
   });
 };
@@ -500,6 +510,7 @@ const sendMessage = async (req, res) => {
         senderName,
         messageBody: bodyState.value,
         messageId: message._id,
+        senderUserId: senderId,
         recipientUserIds: recipientMemberIds,
         conversationId,
         conversationName: conversation.name,
@@ -558,6 +569,7 @@ const sendMessage = async (req, res) => {
       senderName,
       messageBody: bodyState.value,
       messageId: message._id,
+      senderUserId: senderId,
       recipientUserIds: [recipientId],
       isGroup: false,
     }).catch((error) => {

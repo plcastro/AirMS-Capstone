@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rememberMePreference, setRememberMePreference] = useState(false);
+  const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
 
@@ -37,7 +38,8 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = useCallback(
     async ({ broadcast = true } = {}) => {
       try {
-        const accessToken = token || (await AsyncStorage.getItem("currentUserToken"));
+        const accessToken =
+          accessTokenRef.current || (await AsyncStorage.getItem("currentUserToken"));
         const refreshToken =
           refreshTokenRef.current ||
           (await AsyncStorage.getItem("refreshToken")) ||
@@ -61,12 +63,13 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setUser(null);
         setToken(null);
+        accessTokenRef.current = null;
         refreshTokenRef.current = null;
         setRememberMePreference(false);
         await clearStoredAuth();
       }
     },
-    [clearStoredAuth, token],
+    [clearStoredAuth],
   );
 
   const persistSessionMeta = useCallback(async (sessionData = {}) => {
@@ -134,6 +137,7 @@ export const AuthProvider = ({ children }) => {
         if (response.ok && nextAccessToken) {
           const rotatedRefreshToken = data.refreshToken || refreshToken;
           setToken(nextAccessToken);
+          accessTokenRef.current = nextAccessToken;
           refreshTokenRef.current = rotatedRefreshToken;
 
           await secureSetItem("accessToken", nextAccessToken);
@@ -172,6 +176,7 @@ export const AuthProvider = ({ children }) => {
       if (isInvalidRefreshToken) {
         setUser(null);
         setToken(null);
+        accessTokenRef.current = null;
         setRememberMePreference(false);
         refreshTokenRef.current = null;
         await clearStoredAuth();
@@ -201,6 +206,7 @@ export const AuthProvider = ({ children }) => {
           if (rememberWindowExpired) {
             setUser(null);
             setToken(null);
+            accessTokenRef.current = null;
             refreshTokenRef.current = null;
             setRememberMePreference(false);
             await clearStoredAuth();
@@ -223,8 +229,10 @@ export const AuthProvider = ({ children }) => {
         }
         if (accessToken) {
           setToken(accessToken);
+          accessTokenRef.current = accessToken;
         } else {
           setToken(null);
+          accessTokenRef.current = null;
         }
 
         refreshTokenRef.current = persistedRefreshToken;
@@ -252,6 +260,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setUser(userData);
       setToken(accessToken);
+      accessTokenRef.current = accessToken;
       setRememberMePreference(Boolean(rememberMe));
 
       await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
