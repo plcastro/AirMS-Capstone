@@ -4,8 +4,17 @@ const UserModel = require("../models/userModel");
 const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
+const DEFAULT_SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
   15 * 60 * 1000;
+const WEB_SESSION_IDLE_LIMIT_MS =
+  Number(process.env.WEB_SESSION_IDLE_LIMIT_MS) || 1 * 60 * 1000;
+const MOBILE_SESSION_IDLE_LIMIT_MS =
+  Number(process.env.MOBILE_SESSION_IDLE_LIMIT_MS) || DEFAULT_SESSION_IDLE_LIMIT_MS;
+
+const getSessionIdleLimitMs = (platform) =>
+  String(platform || "").toUpperCase() === "WEB"
+    ? WEB_SESSION_IDLE_LIMIT_MS
+    : MOBILE_SESSION_IDLE_LIMIT_MS;
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -38,7 +47,10 @@ const verifyToken = async (req, res, next) => {
     const lastActivityAt = new Date(session.lastActivityAt || session.loginAt || now).getTime();
     const inactiveForMs = now - lastActivityAt;
 
-    if (inactiveForMs > SESSION_IDLE_LIMIT_MS) {
+    const platform = req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
+    const sessionIdleLimitMs = getSessionIdleLimitMs(platform);
+
+    if (inactiveForMs > sessionIdleLimitMs) {
       await UserSession.findOneAndUpdate(
         { userId, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
@@ -54,7 +66,7 @@ const verifyToken = async (req, res, next) => {
     req.user = decoded;
     updateRequestContext({
       sessionId,
-      platform: req.headers["x-platform"] || decoded.platform,
+      platform,
       base: req.headers["x-base"] || decoded.base,
     });
     next();
