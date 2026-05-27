@@ -1,4 +1,4 @@
-const Superadmin = require("firebase-Superadmin");
+const admin = require("firebase-admin");
 const UserModel = require("../models/userModel");
 const { sendToUsers } = require("./realtimeEvents");
 
@@ -30,21 +30,21 @@ const parseServiceAccount = () => {
 };
 
 const getFirebaseMessaging = () => {
-  if (!Superadmin.apps.length) {
+  if (!admin.apps.length) {
     const serviceAccount = parseServiceAccount();
 
     if (serviceAccount) {
-      Superadmin.initializeApp({
-        credential: Superadmin.credential.cert(serviceAccount),
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
       });
     } else {
-      Superadmin.initializeApp({
-        credential: Superadmin.credential.applicationDefault(),
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
       });
     }
   }
 
-  return Superadmin.messaging();
+  return admin.messaging();
 };
 
 const getUserIdsForRoles = async (roles = []) => {
@@ -147,12 +147,16 @@ const sendPushNotificationToUsers = async ({
       },
       data: stringifyData(data),
       android: {
-        ...(android.collapseKey ? { collapseKey: String(android.collapseKey) } : {}),
+        ...(android.collapseKey
+          ? { collapseKey: String(android.collapseKey) }
+          : {}),
         priority: "high",
         notification: {
           sound: "default",
           ...(android.tag ? { tag: String(android.tag) } : {}),
-          ...(android.channelId ? { channelId: String(android.channelId) } : {}),
+          ...(android.channelId
+            ? { channelId: String(android.channelId) }
+            : {}),
         },
       },
     });
