@@ -56,7 +56,7 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  admin: [
+  superadmin: [
     permissions.ADMIN_PANEL,
 
     permissions.USERS_READ,

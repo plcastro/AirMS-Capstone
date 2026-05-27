@@ -28,7 +28,7 @@ const accessLevelData = [
     value: "pos-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin_job" },
+      { title: "Superadmin", value: "Admin_job" },
       { title: "Maintenance Manager", value: "Maintenance Manager" },
       { title: "Pilot", value: "Pilot" },
       { title: "Officer-In-Charge", value: "Officer-In-Charge" },
@@ -41,7 +41,7 @@ const accessLevelData = [
     value: "access-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin_access" }, // Note: unique value if overlaps with jobTitle
+      { title: "Superadmin", value: "Admin_access" }, // Note: unique value if overlaps with jobTitle
       { title: "Superuser", value: "Superuser" },
       { title: "User", value: "User" },
     ],
@@ -224,8 +224,8 @@ export default function UserManagement() {
 
     if (treeValue) {
       filtered = filtered.filter((u) => {
-        if (treeValue === "Admin_job") return u.jobTitle === "Admin";
-        if (treeValue === "Admin_access") return u.access === "Admin";
+        if (treeValue === "Admin_job") return u.jobTitle === "Superadmin";
+        if (treeValue === "Admin_access") return u.access === "Superadmin";
 
         return (
           u.jobTitle === treeValue ||

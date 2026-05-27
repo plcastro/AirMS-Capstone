@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
@@ -47,7 +47,10 @@ export default function ChatView({
   renderAvatar,
   getDisplayName,
 }) {
+  const shouldAutoScrollRef = useRef(true);
+
   useEffect(() => {
+    if (!shouldAutoScrollRef.current) return;
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: false });
     }, 50);
@@ -170,7 +173,20 @@ export default function ChatView({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(event) => {
+              const {
+                contentOffset,
+                contentSize,
+                layoutMeasurement,
+              } = event.nativeEvent;
+              const distanceFromBottom =
+                contentSize.height -
+                (contentOffset.y + layoutMeasurement.height);
+              shouldAutoScrollRef.current = distanceFromBottom < 80;
+            }}
             onContentSizeChange={() => {
+              if (!shouldAutoScrollRef.current) return;
               scrollRef.current?.scrollToEnd({ animated: true });
             }}
           >

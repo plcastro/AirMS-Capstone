@@ -65,6 +65,7 @@ const getDisplayNotification = (notification = {}) => {
 
 export default function NotificationBell({ navigation }) {
   const [visible, setVisible] = useState(false);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
   const {
     notifications,
     unreadCount,
@@ -88,6 +89,16 @@ export default function NotificationBell({ navigation }) {
     setVisible(true);
   };
 
+  const runWithLoading = async (key, action) => {
+    if (actionLoadingKey) return;
+    setActionLoadingKey(key);
+    try {
+      await action();
+    } finally {
+      setActionLoadingKey("");
+    }
+  };
+
   const handleNotificationPress = async (notification) => {
     setVisible(false);
     await openNotificationTarget(notification);
@@ -96,7 +107,7 @@ export default function NotificationBell({ navigation }) {
   return (
     <>
       <TouchableOpacity
-        onPress={openNotifications}
+        onPress={() => runWithLoading("open", () => openNotifications())}
         activeOpacity={0.8}
         style={{
           width: 40,
@@ -218,7 +229,7 @@ export default function NotificationBell({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={() => setVisible(false)}>
+              <TouchableOpacity onPress={() => setVisible(false)} disabled={Boolean(actionLoadingKey)}>
                 <MaterialCommunityIcons name="close" size={22} color="#666" />
               </TouchableOpacity>
             </View>
@@ -250,7 +261,12 @@ export default function NotificationBell({ navigation }) {
                     <TouchableOpacity
                       key={notification._id}
                       activeOpacity={0.85}
-                      onPress={() => handleNotificationPress(notification)}
+                      onPress={() =>
+                        runWithLoading("open-notification", () =>
+                          handleNotificationPress(notification),
+                        )
+                      }
+                      disabled={Boolean(actionLoadingKey)}
                       style={{
                         flexDirection: "row",
                         alignItems: "flex-start",
@@ -358,19 +374,29 @@ export default function NotificationBell({ navigation }) {
                 justifyContent: "space-between",
               }}
             >
-              <TouchableOpacity onPress={markAllAsRead}>
+              <TouchableOpacity
+                onPress={() =>
+                  runWithLoading("mark-all", () => markAllAsRead())
+                }
+                disabled={Boolean(actionLoadingKey)}
+              >
                 <AppText
                   style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}
                 >
-                  Mark all as read
+                  {actionLoadingKey === "mark-all" ? "Processing..." : "Mark all as read"}
                 </AppText>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => fetchNotifications({ force: true })}>
+              <TouchableOpacity
+                onPress={() =>
+                  runWithLoading("refresh", () => fetchNotifications({ force: true }))
+                }
+                disabled={Boolean(actionLoadingKey)}
+              >
                 <AppText
                   style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}
                 >
-                  Refresh
+                  {actionLoadingKey === "refresh" ? "Refreshing..." : "Refresh"}
                 </AppText>
               </TouchableOpacity>
             </View>

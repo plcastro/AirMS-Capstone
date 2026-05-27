@@ -100,7 +100,7 @@ export default function OTP() {
 
           message.success("Login verified");
           const role = String(data?.user?.jobTitle || "").toLowerCase();
-          if (role === "admin") navigate("/dashboard/user-management/view-users");
+          if (role === "superadmin") navigate("/dashboard/user-management/view-users");
           else if (role === "mechanic") navigate("/dashboard/maintenance-log");
           else if (role === "maintenance manager" || role === "officer-in-charge")
             navigate("/dashboard/maintenance-dashboard");

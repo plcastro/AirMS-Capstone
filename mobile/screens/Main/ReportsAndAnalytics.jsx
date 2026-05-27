@@ -19,6 +19,7 @@ import {
   StatCard,
   StatusChip,
 } from "../../components/common/MobileModule";
+import ExportFile from "../../components/common/ExportFile";
 import { COLORS } from "../../stylesheets/colors";
 
 const normalizeStatus = (value) =>
@@ -248,6 +249,8 @@ export default function ReportsAndAnalytics() {
         <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
         <StatCard label="Module Reports" value={stats.moduleReports} />
       </View>
+
+      <ExportFile title="Reports and Analytics" sections={reportSections} />
 
       <InfoCard title="Task Details" subtitle="Records behind the summary cards">
         <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>

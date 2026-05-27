@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
+  ActivityIndicator,
   Modal,
   ScrollView,
   StatusBar,
@@ -143,6 +144,7 @@ export default function PartsRequisitionDetails({
 }) {
   const [availableQtyMap, setAvailableQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
 
   useEffect(() => {
     if (!request) return;
@@ -259,18 +261,23 @@ export default function PartsRequisitionDetails({
 
   const handleWarehouseAction = () => {
     if (!stockAction?.onPress) return;
+    if (actionLoadingKey) return;
     const updatedItems = buildUpdatedItems();
 
-    if (stockAction.onPress === "submitReview") {
-      onSubmitStockReview?.(request, updatedItems);
-    } else if (stockAction.onPress === "saveRestock") {
-      onSaveRestock?.(request, updatedItems);
-      setPersistedQtyMap({ ...availableQtyMap });
-    } else if (stockAction.onPress === "markRestocked") {
-      onMarkRestocked?.(request, updatedItems);
-    } else if (stockAction.onPress === "markDelivered") {
-      onMarkDelivered?.(request);
-    }
+    const run = async () => {
+      if (stockAction.onPress === "submitReview") {
+        await Promise.resolve(onSubmitStockReview?.(request, updatedItems));
+      } else if (stockAction.onPress === "saveRestock") {
+        await Promise.resolve(onSaveRestock?.(request, updatedItems));
+        setPersistedQtyMap({ ...availableQtyMap });
+      } else if (stockAction.onPress === "markRestocked") {
+        await Promise.resolve(onMarkRestocked?.(request, updatedItems));
+      } else if (stockAction.onPress === "markDelivered") {
+        await Promise.resolve(onMarkDelivered?.(request));
+      }
+    };
+    setActionLoadingKey("warehouse");
+    run().finally(() => setActionLoadingKey(""));
   };
 
   return (
@@ -328,7 +335,7 @@ export default function PartsRequisitionDetails({
               Request Details
             </AppText>
 
-            <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7} disabled={Boolean(actionLoadingKey)}>
               <MaterialCommunityIcons
                 name="close"
                 size={24}
@@ -695,8 +702,8 @@ export default function PartsRequisitionDetails({
                     "No further warehouse action is needed."}
                 </AppText>
                 <TouchableOpacity
-                  activeOpacity={stockAction.disabled ? 1 : 0.8}
-                  disabled={stockAction.disabled}
+                  activeOpacity={stockAction.disabled || Boolean(actionLoadingKey) ? 1 : 0.8}
+                  disabled={stockAction.disabled || Boolean(actionLoadingKey)}
                   onPress={handleWarehouseAction}
                   style={{
                     alignSelf: "flex-end",
@@ -708,15 +715,24 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {stockAction.label}
-                  </AppText>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {actionLoadingKey === "warehouse" ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={COLORS.white}
+                        style={{ marginRight: 6 }}
+                      />
+                    ) : null}
+                    <AppText
+                      style={{
+                        color: COLORS.white,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {actionLoadingKey === "warehouse" ? "Processing..." : stockAction.label}
+                    </AppText>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
@@ -731,9 +747,17 @@ export default function PartsRequisitionDetails({
                 }}
               >
                 <TouchableOpacity
-                  activeOpacity={canOrder ? 0.8 : 1}
-                  onPress={() => onOrder?.(request)}
-                  disabled={!canOrder}
+                  activeOpacity={canOrder && !actionLoadingKey ? 0.8 : 1}
+                  onPress={async () => {
+                    if (!canOrder || actionLoadingKey) return;
+                    setActionLoadingKey("order");
+                    try {
+                      await Promise.resolve(onOrder?.(request));
+                    } finally {
+                      setActionLoadingKey("");
+                    }
+                  }}
+                  disabled={!canOrder || Boolean(actionLoadingKey)}
                   style={{
                     backgroundColor: canOrder ? COLORS.white : "#F1F1F1",
                     borderWidth: 1,
@@ -743,21 +767,40 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <AppText
-                    style={{
-                      color: canOrder ? "#C26A00" : "#9E9E9E",
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {getDisplayStatusLabel(orderLabel)}
-                  </AppText>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {actionLoadingKey === "order" ? (
+                      <ActivityIndicator
+                        size="small"
+                        color="#C26A00"
+                        style={{ marginRight: 6 }}
+                      />
+                    ) : null}
+                    <AppText
+                      style={{
+                        color: canOrder ? "#C26A00" : "#9E9E9E",
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {actionLoadingKey === "order"
+                        ? "Processing..."
+                        : getDisplayStatusLabel(orderLabel)}
+                    </AppText>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  activeOpacity={canApprove ? 0.8 : 1}
-                  onPress={() => onApprove?.(request)}
-                  disabled={!canApprove}
+                  activeOpacity={canApprove && !actionLoadingKey ? 0.8 : 1}
+                  onPress={async () => {
+                    if (!canApprove || actionLoadingKey) return;
+                    setActionLoadingKey("approve");
+                    try {
+                      await Promise.resolve(onApprove?.(request));
+                    } finally {
+                      setActionLoadingKey("");
+                    }
+                  }}
+                  disabled={!canApprove || Boolean(actionLoadingKey)}
                   style={{
                     backgroundColor: canApprove
                       ? COLORS.primaryLight
@@ -767,15 +810,24 @@ export default function PartsRequisitionDetails({
                     borderRadius: 6,
                   }}
                 >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {approveLabel}
-                  </AppText>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {actionLoadingKey === "approve" ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={COLORS.white}
+                        style={{ marginRight: 6 }}
+                      />
+                    ) : null}
+                    <AppText
+                      style={{
+                        color: COLORS.white,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {actionLoadingKey === "approve" ? "Processing..." : approveLabel}
+                    </AppText>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}

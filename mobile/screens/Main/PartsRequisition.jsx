@@ -351,11 +351,11 @@ export default function PartsRequisition({ route, navigation }) {
 
   const userRole = user?.jobTitle?.toLowerCase();
   const isWarehouse = userRole === "warehouse department";
-  const isManager = ["admin", "maintenance manager", "officer-in-charge"].includes(
+  const isManager = ["superadmin", "maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
   const canRequestParts = ![
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
     "warehouse department",

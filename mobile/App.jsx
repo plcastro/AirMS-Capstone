@@ -99,18 +99,18 @@ function DrawerNav({ navigation }) {
     "pilot",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
-  const canAccessMechanics = ["maintenance manager", "admin"].includes(
+  const canAccessMechanics = ["maintenance manager", "superadmin"].includes(
     normalizedRole,
   );
-  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
+  const canAccessTasks = ["superadmin", "maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessPartsRequisition = [
@@ -118,30 +118,30 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "officer-in-charge",
     "warehouse department",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenancePriority = [
     "maintenance manager",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMessages = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
@@ -149,15 +149,15 @@ function DrawerNav({ navigation }) {
     "warehouse department",
   ].includes(normalizedRole);
   const canAccessProfile = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
-  const canAccessUserManagement = normalizedRole === "admin";
-  const canAccessActivityLogs = normalizedRole === "admin";
+  const canAccessUserManagement = normalizedRole === "superadmin";
+  const canAccessActivityLogs = normalizedRole === "superadmin";
   const initialDrawerRoute = canAccessReports
     ? "Reports and Analytics"
     : canAccessMessages

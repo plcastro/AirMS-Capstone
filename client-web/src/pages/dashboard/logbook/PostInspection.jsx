@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useEffect,
@@ -73,7 +73,7 @@ export default function PostInspection() {
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
   const getDisplayStatus = (value) =>

@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useEffect,
@@ -439,7 +439,7 @@ export default function PreInspection() {
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
   const canCreate = role !== "pilot" && !readOnly;
-  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
   const canAccept = role === "pilot";

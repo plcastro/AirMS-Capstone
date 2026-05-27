@@ -1,4 +1,4 @@
-﻿const bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
@@ -1356,7 +1356,7 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    const allowedAccess = new Set(["Superadmin", "Superuser", "User"]);
     if (!allowedAccess.has(access)) {
       return res.status(400).json({ message: "Invalid access level" });
     }
@@ -1899,7 +1899,7 @@ const resendActivationByAdmin = async (req, res) => {
 
     const audit = withActorId(
       req,
-      `Activation email resent by admin for ${user.username}`,
+      `Activation email resent by superadmin for ${user.username}`,
       user._id,
     );
     await auditLog(audit.action, audit.actorId);
