@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
@@ -47,11 +47,32 @@ export default function ChatView({
   renderAvatar,
   getDisplayName,
 }) {
+  const isNearBottomRef = useRef(true);
+  const lastConversationIdRef = useRef(null);
+
+  const scrollToLatest = (animated = true) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    });
+  };
+
   useEffect(() => {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: false });
-    }, 50);
-  }, [messages]);
+    const currentConversationId = selectedConversation?.id || "";
+    const openedNewConversation =
+      currentConversationId &&
+      currentConversationId !== lastConversationIdRef.current;
+
+    if (openedNewConversation) {
+      lastConversationIdRef.current = currentConversationId;
+      isNearBottomRef.current = true;
+      setTimeout(() => scrollToLatest(false), 50);
+      return;
+    }
+
+    if (isNearBottomRef.current) {
+      setTimeout(() => scrollToLatest(true), 50);
+    }
+  }, [messages, selectedConversation?.id]);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -170,8 +191,19 @@ export default function ChatView({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
+            onScroll={(event) => {
+              const { contentOffset, contentSize, layoutMeasurement } =
+                event.nativeEvent;
+              const distanceFromBottom =
+                contentSize.height -
+                (contentOffset.y + layoutMeasurement.height);
+              isNearBottomRef.current = distanceFromBottom < 80;
+            }}
+            scrollEventThrottle={16}
             onContentSizeChange={() => {
-              scrollRef.current?.scrollToEnd({ animated: true });
+              if (isNearBottomRef.current) {
+                scrollToLatest(true);
+              }
             }}
           >
             {messages.map((item) => {
