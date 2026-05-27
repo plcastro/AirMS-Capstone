@@ -36,8 +36,14 @@ const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
-  15 * 60 * 1000;
+const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const WEB_SESSION_IDLE_LIMIT_MS = 1 * 60 * 1000;
+const MOBILE_SESSION_IDLE_LIMIT_MS = SESSION_IDLE_LIMIT_MS;
+
+const getSessionIdleLimitMs = (platform) =>
+  String(platform || "").toUpperCase() === "WEB"
+    ? WEB_SESSION_IDLE_LIMIT_MS
+    : MOBILE_SESSION_IDLE_LIMIT_MS;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -345,10 +351,7 @@ const buildLoginSuccessPayload = async ({
     isPersistent: usePersistentRefreshCookie,
     req,
   });
-  await deletePreviousRefreshTokens(
-    user._id,
-    hashRefreshToken(refreshToken),
-  );
+  await deletePreviousRefreshTokens(user._id, hashRefreshToken(refreshToken));
   setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
 
   auditLog(
@@ -803,12 +806,15 @@ const refreshToken = async (req, res) => {
     const lastActivityAt = new Date(
       activeSession.lastActivityAt || activeSession.loginAt || now,
     ).getTime();
-    if (now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+    const sessionIdleLimitMs = getSessionIdleLimitMs(activeSession.platform);
+    if (now - lastActivityAt > sessionIdleLimitMs) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
       );
-      return res.status(401).json({ message: "Session timed out due to inactivity" });
+      return res
+        .status(401)
+        .json({ message: "Session timed out due to inactivity" });
     }
 
     await UserSession.findOneAndUpdate(
@@ -847,16 +853,16 @@ const refreshToken = async (req, res) => {
       newTokenHash,
     );
 
-      await storeRefreshToken({
-        userId: user._id,
-        refreshToken: newRefreshToken,
-        jti,
-        isPersistent: tokenRecord.isPersistent,
-        req,
-      });
-      await deletePreviousRefreshTokens(user._id, newTokenHash);
+    await storeRefreshToken({
+      userId: user._id,
+      refreshToken: newRefreshToken,
+      jti,
+      isPersistent: tokenRecord.isPersistent,
+      req,
+    });
+    await deletePreviousRefreshTokens(user._id, newTokenHash);
 
-      setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
+    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
     const isMobileClient =
       String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
     res.json({
@@ -877,8 +883,13 @@ const refreshToken = async (req, res) => {
 const updateSessionPreference = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const sessionId = req.headers["x-session-id"] || req.user?.sessionId || null;
-    const { rememberMe, revokePersistentTokens = false, refreshToken } = req.body || {};
+    const sessionId =
+      req.headers["x-session-id"] || req.user?.sessionId || null;
+    const {
+      rememberMe,
+      revokePersistentTokens = false,
+      refreshToken,
+    } = req.body || {};
 
     if (!userId || !sessionId) {
       return res.status(401).json({ message: "Session context missing" });
@@ -897,7 +908,10 @@ const updateSessionPreference = async (req, res) => {
     }
 
     const incomingRefreshToken =
-      req.cookies?.refreshToken || refreshToken || req.body?.refreshToken || null;
+      req.cookies?.refreshToken ||
+      refreshToken ||
+      req.body?.refreshToken ||
+      null;
     const incomingTokenHash = incomingRefreshToken
       ? hashRefreshToken(incomingRefreshToken)
       : null;
@@ -937,19 +951,19 @@ const updateSessionPreference = async (req, res) => {
         userId.toString(),
         desiredPersistent,
       );
-        await storeRefreshToken({
-          userId,
-          refreshToken: issuedRefreshToken,
-          jti,
-          isPersistent: desiredPersistent,
-          req,
-        });
-        await deletePreviousRefreshTokens(
-          userId,
-          hashRefreshToken(issuedRefreshToken),
-        );
+      await storeRefreshToken({
+        userId,
+        refreshToken: issuedRefreshToken,
+        jti,
+        isPersistent: desiredPersistent,
+        req,
+      });
+      await deletePreviousRefreshTokens(
+        userId,
+        hashRefreshToken(issuedRefreshToken),
+      );
 
-        if (incomingTokenHash) {
+      if (incomingTokenHash) {
         await revokeRefreshTokenByHash(
           incomingTokenHash,
           "Session preference updated",
@@ -972,11 +986,15 @@ const updateSessionPreference = async (req, res) => {
       rememberMe: desiredPersistent,
       sessionId,
       rotated,
-      refreshToken: isMobileClient ? (nextRefreshToken || incomingRefreshToken) : undefined,
+      refreshToken: isMobileClient
+        ? nextRefreshToken || incomingRefreshToken
+        : undefined,
     });
   } catch (error) {
     console.error("updateSessionPreference error:", error);
-    return res.status(500).json({ message: "Failed to update session preference" });
+    return res
+      .status(500)
+      .json({ message: "Failed to update session preference" });
   }
 };
 

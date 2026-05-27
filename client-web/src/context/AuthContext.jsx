@@ -3,8 +3,8 @@ import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
-const WARNING_DURATION_MS = 2 * 60 * 1000;
+const INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
+const WARNING_DURATION_MS = 30 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
