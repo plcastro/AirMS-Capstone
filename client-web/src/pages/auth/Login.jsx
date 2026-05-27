@@ -176,7 +176,7 @@ const Login = () => {
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
 
     switch (pos) {
-      case "admin":
+      case "superadmin":
         navigate("/dashboard/user-management/view-users");
         break;
       case "mechanic":

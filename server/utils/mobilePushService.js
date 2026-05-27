@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const Superadmin = require("firebase-Superadmin");
 const UserModel = require("../models/userModel");
 const { sendToUsers } = require("./realtimeEvents");
 
@@ -8,7 +8,7 @@ const ROLE_TO_JOB_TITLE = {
   mechanic: "Mechanic",
   "warehouse department": "Warehouse Department",
   pilot: "Pilot",
-  admin: "Admin",
+  superadmin: "superadmin",
 };
 
 const uniqueValues = (values = []) => [
@@ -30,21 +30,21 @@ const parseServiceAccount = () => {
 };
 
 const getFirebaseMessaging = () => {
-  if (!admin.apps.length) {
+  if (!Superadmin.apps.length) {
     const serviceAccount = parseServiceAccount();
 
     if (serviceAccount) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+      Superadmin.initializeApp({
+        credential: Superadmin.credential.cert(serviceAccount),
       });
     } else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
+      Superadmin.initializeApp({
+        credential: Superadmin.credential.applicationDefault(),
       });
     }
   }
 
-  return admin.messaging();
+  return Superadmin.messaging();
 };
 
 const getUserIdsForRoles = async (roles = []) => {

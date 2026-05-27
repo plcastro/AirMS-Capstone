@@ -12,7 +12,7 @@ const adminActivityLogSchema = new mongoose.Schema(
       email: { type: String, required: true },
       accessLevel: {
         type: String,
-        enum: ["Admin", "Superuser"],
+        enum: ["Superadmin", "Superuser"],
         required: true,
       },
     },

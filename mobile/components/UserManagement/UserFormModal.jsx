@@ -14,7 +14,6 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { COLORS } from "../../stylesheets/colors";
 import {
-  BASE_OPTIONS,
   JOB_TITLE_OPTIONS,
   ROLE_MAP,
   ROLES_REQUIRING_LICENSE,
@@ -54,7 +53,6 @@ const emptyForm = {
   email: "",
   username: "",
   jobTitle: "",
-  base: "",
   access: "",
   licenseNo: "",
 };
@@ -84,7 +82,6 @@ export default function UserFormModal({
         email: userToEdit?.email || "",
         username: userToEdit?.username || "",
         jobTitle: userToEdit?.jobTitle || "",
-        base: userToEdit?.base || "",
         access:
           userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
         licenseNo: userToEdit?.licenseNo || "",
@@ -125,7 +122,6 @@ export default function UserFormModal({
           email: userToEdit?.email || "",
           username: userToEdit?.username || "",
           jobTitle: userToEdit?.jobTitle || "",
-          base: userToEdit?.base || "",
           access: userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
           licenseNo: userToEdit?.licenseNo || "",
         }
@@ -157,8 +153,8 @@ export default function UserFormModal({
       setError("First name, last name, and email are required.");
       return;
     }
-    if (!payload.jobTitle || !payload.base || !payload.access) {
-      setError("Job title, base, and access are required.");
+    if (!payload.jobTitle || !payload.access) {
+      setError("Job title and access are required.");
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(payload.email)) {
@@ -318,16 +314,6 @@ export default function UserFormModal({
               </Picker>
             </View>
 
-            <AppText style={styles.label}>Base</AppText>
-            <View style={styles.pickerWrap}>
-              <Picker selectedValue={form.base} onValueChange={(value) => updateField("base", value)}>
-                <Picker.Item label="Select base" value="" />
-                {BASE_OPTIONS.map((item) => (
-                  <Picker.Item key={item} label={item} value={item} />
-                ))}
-              </Picker>
-            </View>
-
             <AppText style={styles.label}>Access</AppText>
             <AppInput style={[styles.input, styles.disabledInput]} value={form.access} editable={false} />
 
@@ -348,11 +334,27 @@ export default function UserFormModal({
             </ScrollView>
 
             <View style={styles.actions}>
-              <TouchableOpacity style={[styles.btn, styles.secondary]} onPress={handleCancelWithWarning} disabled={saving}>
-                <AppText style={styles.secondaryTxt}>Cancel</AppText>
+              <TouchableOpacity
+                style={[styles.btn, styles.secondary, saving && styles.imageBtnDisabled]}
+                onPress={handleCancelWithWarning}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#37474F" />
+                ) : (
+                  <AppText style={styles.secondaryTxt}>Cancel</AppText>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.primary]} onPress={validateAndSubmit} disabled={saving}>
-                <AppText style={styles.primaryTxt}>{saving ? "Saving..." : isEdit ? "Save" : "Create"}</AppText>
+              <TouchableOpacity
+                style={[styles.btn, styles.primary, saving && styles.imageBtnDisabled]}
+                onPress={validateAndSubmit}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <AppText style={styles.primaryTxt}>{isEdit ? "Save" : "Create"}</AppText>
+                )}
               </TouchableOpacity>
             </View>
           </View>

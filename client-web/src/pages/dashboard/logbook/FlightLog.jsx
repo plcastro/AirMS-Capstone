@@ -92,7 +92,7 @@ export default function FlightLog() {
     "engineer",
     "mechanic",
     "maintenance manager",
-    "admin",
+    "superadmin",
     "head of maintenance",
   ].includes(userRole);
 

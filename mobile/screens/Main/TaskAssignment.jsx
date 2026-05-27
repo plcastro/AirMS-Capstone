@@ -21,7 +21,7 @@ export default function TaskAssignment({ route }) {
       : null;
 
   if (
-    ["maintenance manager", "admin"].includes(
+    ["maintenance manager", "superadmin"].includes(
       user?.jobTitle?.toLowerCase() || "",
     )
   ) {

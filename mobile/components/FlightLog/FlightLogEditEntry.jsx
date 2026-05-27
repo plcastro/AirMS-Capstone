@@ -99,7 +99,7 @@ export default function FlightLogEditEntry({
   const normalizedRole = (userRole || "").toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(normalizedRole);
+    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -833,7 +833,7 @@ export default function FlightLogEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "admin"].includes((userRole || "").toLowerCase())
+                      {["maintenance manager", "superadmin"].includes((userRole || "").toLowerCase())
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </AppText>

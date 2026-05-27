@@ -1,17 +1,33 @@
-﻿import React from "react";
+import React, { useState } from "react";
 import AppText from "../common/AppText";
-import {
-  View,
-  TouchableOpacity
-} from "react-native";
+import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+
 export default function PreInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
 }) {
+  const [exportingInspectionId, setExportingInspectionId] = useState(null);
+
+  const handleExportPress = async (inspection) => {
+    if (!onExport || exportingInspectionId) return;
+    const key = inspection?._id || inspection?.id;
+    if (!key) {
+      await onExport(inspection);
+      return;
+    }
+
+    setExportingInspectionId(String(key));
+    try {
+      await Promise.resolve(onExport(inspection));
+    } finally {
+      setExportingInspectionId(null);
+    }
+  };
+
   const getDisplayStatus = (status) => {
     const normalizedStatus = String(status || "").toLowerCase();
     return normalizedStatus === "completed"
@@ -73,6 +89,8 @@ export default function PreInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const inspectionKey = String(inspection._id || inspection.id || "");
+        const exportLoading = exportingInspectionId === inspectionKey;
         const displayStatus = getDisplayStatus(inspection.status);
         const isViewOnly =
           displayStatus === "released" ||
@@ -93,11 +111,9 @@ export default function PreInspectionCards({
               overflow: "hidden",
             }}
           >
-            {/* Accent bar */}
             <View style={{ width: 4, backgroundColor: COLORS.primaryLight }} />
 
             <View style={{ flex: 1, position: "relative" }}>
-              {/* HEADER */}
               <View
                 style={{
                   paddingHorizontal: 10,
@@ -120,7 +136,6 @@ export default function PreInspectionCards({
                 <View
                   style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
-                  {/* STATUS */}
                   <View
                     style={{
                       backgroundColor: statusStyle.backgroundColor,
@@ -140,18 +155,23 @@ export default function PreInspectionCards({
                     </AppText>
                   </View>
 
-                  {/* EXPORT */}
-                  <TouchableOpacity onPress={() => onExport?.(inspection) }>
-                    <MaterialCommunityIcons
-                      name="export-variant"
-                      size={18}
-                      color="#444"
-                    />
+                  <TouchableOpacity
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                  >
+                    {exportLoading ? (
+                      <ActivityIndicator size="small" color="#444" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="export-variant"
+                        size={18}
+                        color="#444"
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* BODY (compact inline like logs) */}
               <View
                 style={{
                   paddingHorizontal: 10,
@@ -169,7 +189,6 @@ export default function PreInspectionCards({
                 </AppText>
               </View>
 
-              {/* ACTION ICON (bottom-right compact style) */}
               <View
                 style={{
                   position: "absolute",

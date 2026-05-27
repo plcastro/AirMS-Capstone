@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
 import {
+  ActivityIndicator,
   View,
   ScrollView,
   StyleSheet,
@@ -42,6 +43,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("info");
   const [previewUri, setPreviewUri] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
@@ -240,6 +242,15 @@ export default function Profile() {
       );
     }
   };
+  const runWithLoading = async (key, action) => {
+    if (actionLoadingKey) return;
+    setActionLoadingKey(key);
+    try {
+      await action();
+    } finally {
+      setActionLoadingKey("");
+    }
+  };
   const handleSaveImage = async (file) => {
     if (!file?.uri) return;
     setLoading(true);
@@ -342,7 +353,7 @@ export default function Profile() {
         <Card style={styles.headerCard}>
           <Card.Content style={styles.avatarContainer}>
             <TouchableOpacity
-              onPress={handleImagePick}
+              onPress={() => runWithLoading("pick-image", () => handleImagePick())}
               style={styles.avatarTapTarget}
             >
               {previewUri ? (
@@ -385,7 +396,7 @@ export default function Profile() {
                 containerColor={COLORS.white}
                 style={styles.iconActionButton}
                 onPress={handleImagePick}
-                disabled={loading}
+                disabled={loading || Boolean(actionLoadingKey)}
                 accessibilityLabel="Edit profile image"
               />
               <IconButton
@@ -394,11 +405,18 @@ export default function Profile() {
                 iconColor={COLORS.dangerBorder}
                 containerColor={COLORS.white}
                 style={[styles.iconActionButton, styles.removeIconActionButton]}
-                onPress={handleRemoveImage}
-                disabled={!user?.image && !previewUri}
+                onPress={() => runWithLoading("remove-image", () => handleRemoveImage())}
+                disabled={(!user?.image && !previewUri) || Boolean(actionLoadingKey)}
                 accessibilityLabel="Remove profile image"
               />
             </View>
+            {!!actionLoadingKey && (
+              <ActivityIndicator
+                size="small"
+                color={COLORS.primaryLight}
+                style={{ marginTop: 6 }}
+              />
+            )}
           </Card.Content>
 
           <Card.Content>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
+  ActivityIndicator,
   Modal,
   Platform,
   ScrollView,
@@ -37,6 +38,7 @@ export default function PartsRequisitionEntry({
   initialItems = [],
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -159,6 +161,7 @@ export default function PartsRequisitionEntry({
 
             <TouchableOpacity
               onPress={onClose}
+              disabled={submitting}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -281,6 +284,7 @@ export default function PartsRequisitionEntry({
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => removeItem(item.id)}
+                      disabled={submitting}
                     >
                       <MaterialCommunityIcons
                         name="delete"
@@ -373,6 +377,7 @@ export default function PartsRequisitionEntry({
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={addAnotherItem}
+                    disabled={submitting}
                     style={{
                       backgroundColor: "#62C982",
                       paddingHorizontal: 14,
@@ -403,26 +408,47 @@ export default function PartsRequisitionEntry({
             ))}
 
             <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => onSubmit?.({ aircraft: selectedAircraft, items })}
-                style={{
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 22,
-                  paddingVertical: 14,
-                  borderRadius: 4,
-                }}
-              >
-                <AppText
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    if (submitting) return;
+                    setSubmitting(true);
+                    try {
+                      await Promise.resolve(
+                        onSubmit?.({ aircraft: selectedAircraft, items }),
+                      );
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
                   style={{
-                    color: COLORS.white,
+                    backgroundColor: COLORS.primaryLight,
+                    paddingHorizontal: 22,
+                    paddingVertical: 14,
+                    borderRadius: 4,
+                    opacity: submitting ? 0.7 : 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {submitting ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={COLORS.white}
+                      style={{ marginRight: 6 }}
+                    />
+                  ) : null}
+                  <AppText
+                    style={{
+                      color: COLORS.white,
                     fontSize: 12,
                     fontWeight: "600",
                   }}
                 >
-                  {submitLabel}
-                </AppText>
-              </TouchableOpacity>
+                  {submitting ? "Submitting..." : submitLabel}
+                  </AppText>
+                </TouchableOpacity>
             </View>
           </ScrollView>
         </View>

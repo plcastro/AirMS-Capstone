@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import {
+  ActivityIndicator,
   TouchableOpacity,
   View
 } from "react-native";
@@ -65,6 +66,8 @@ export default function MaintenanceTracking() {
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
+  const [rectifyingKey, setRectifyingKey] = useState("");
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: "",
@@ -228,6 +231,7 @@ export default function MaintenanceTracking() {
   );
 
   const regenerateSummaries = async () => {
+    if (actionLoadingKey) return;
     if (health?.configured === false) {
       showToast(health.message || "OpenAI is not configured on the server.");
       return;
@@ -242,6 +246,7 @@ export default function MaintenanceTracking() {
     if (!confirmed) return;
 
     try {
+      setActionLoadingKey("regenerate");
       setSummaryLoading(true);
       const response = await fetch(
         `${API_BASE}/api/ai-insights/maintenance-tracking?includeLLMSummary=1&llmLimit=0`,
@@ -259,10 +264,12 @@ export default function MaintenanceTracking() {
       showToast(error.message || "Failed to regenerate summaries.");
     } finally {
       setSummaryLoading(false);
+      setActionLoadingKey("");
     }
   };
 
   const markRectified = async (item) => {
+    if (actionLoadingKey || rectifyingKey) return;
     const confirmed = await confirmWithAlert({
       title: "Mark finding rectified?",
       message: `This will clear the active maintenance issue for ${item.aircraft}.`,
@@ -271,6 +278,9 @@ export default function MaintenanceTracking() {
     if (!confirmed) return;
 
     try {
+      const key = `${item.aircraft}-${item.issueTitle}`;
+      setRectifyingKey(key);
+      setActionLoadingKey("rectify");
       const payload = {
         aircraft: item.aircraft,
         aircraftModel: item.aircraftModel || "AS350 B3",
@@ -317,6 +327,9 @@ export default function MaintenanceTracking() {
     } catch (error) {
       console.error("Rectify finding failed:", error);
       showToast(error.message || "Failed to mark rectified.");
+    } finally {
+      setRectifyingKey("");
+      setActionLoadingKey("");
     }
   };
 
@@ -343,9 +356,13 @@ export default function MaintenanceTracking() {
           <TouchableOpacity
             style={[moduleStyles.button, { marginTop: 12 }]}
             onPress={regenerateSummaries}
-            disabled={summaryLoading || health?.cooldown?.active}
+            disabled={summaryLoading || health?.cooldown?.active || Boolean(actionLoadingKey)}
           >
-            <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
+            {summaryLoading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
+            )}
             <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
               {summaryLoading ? "Refreshing..." : "Regenerate OpenAI Summaries"}
             </AppText>
@@ -403,8 +420,16 @@ export default function MaintenanceTracking() {
             <TouchableOpacity
               style={[moduleStyles.button, { marginTop: 12 }]}
               onPress={() => markRectified(item)}
+              disabled={Boolean(actionLoadingKey)}
             >
-              <AppText style={moduleStyles.buttonText}>Mark Rectified</AppText>
+              {rectifyingKey === `${item.aircraft}-${item.issueTitle}` ? (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                  <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>Processing...</AppText>
+                </View>
+              ) : (
+                <AppText style={moduleStyles.buttonText}>Mark Rectified</AppText>
+              )}
             </TouchableOpacity>
           )}
         </InfoCard>
