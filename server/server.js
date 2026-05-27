@@ -106,7 +106,7 @@ app.use((req, res, next) => {
 app.use(
   cors(corsOptions),
 );
-app.options("*", cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.get("/api/events/stream", subscribeSSE);
 
