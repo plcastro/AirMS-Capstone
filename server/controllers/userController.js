@@ -789,21 +789,32 @@ const refreshToken = async (req, res) => {
       return res.status(401).json({ message: "Session context missing" });
     }
 
-    const activeSession = await UserSession.findOne({
+    let activeSession = await UserSession.findOne({
       userId: user._id,
       sessionId,
-      isActive: true,
     });
 
     if (!activeSession) {
       return res.status(401).json({ message: "Session is no longer active" });
     }
 
+    if (!activeSession.isActive) {
+      if (!tokenRecord.isPersistent) {
+        return res.status(401).json({ message: "Session is no longer active" });
+      }
+
+      activeSession = await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId },
+        { isActive: true, lastActivityAt: new Date(), logoutAt: null },
+        { new: true },
+      );
+    }
+
     const now = Date.now();
     const lastActivityAt = new Date(
       activeSession.lastActivityAt || activeSession.loginAt || now,
     ).getTime();
-    if (now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+    if (!tokenRecord.isPersistent && now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },

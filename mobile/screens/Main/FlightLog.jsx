@@ -621,7 +621,7 @@ export default function FlightLog({ route, navigation }) {
         {!loading && (
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 110 }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
