@@ -491,11 +491,6 @@ export const AuthProvider = ({ children }) => {
           localStorage.getItem("currentUser");
         let token = getStoredToken();
 
-        if (!storedUser && !token) {
-          setUser(null);
-          return;
-        }
-
         if (!storedUser && token) {
           token = await refreshAccessToken();
         }
@@ -556,14 +551,7 @@ export const AuthProvider = ({ children }) => {
       return undefined;
     }
     scheduleInactivityTimers(0);
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
+    const events = ["click"];
     events.forEach((eventName) =>
       window.addEventListener(eventName, recordActivity),
     );
