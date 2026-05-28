@@ -102,8 +102,29 @@ const resolveStoredFontScale = () => {
   }
 };
 
+const getUserHomePath = (user) => {
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+
+  switch (role) {
+    case "superadmin":
+      return "/dashboard/user-management/view-users";
+    case "mechanic":
+      return "/dashboard/maintenance-log";
+    case "maintenance manager":
+    case "officer-in-charge":
+      return "/dashboard/maintenance-dashboard";
+    case "warehouse department":
+      return "/dashboard/parts-requisition";
+    default:
+      return "/dashboard/profile";
+  }
+};
+
 const AppRouter = () => {
   const {
+    user,
     loading,
     showSessionTimeoutWarning,
     warningSecondsRemaining,
@@ -142,7 +163,15 @@ const AppRouter = () => {
       </Modal>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={user ? getUserHomePath(user) : "/login"}
+                replace
+              />
+            }
+          />
 
           {/* Authentication */}
           <Route element={<RootLayout />}>

@@ -197,6 +197,10 @@ export const AuthProvider = ({ children }) => {
       startWarningCountdown(remainingSeconds);
     };
 
+    inactivityLogoutTimeoutRef.current = setTimeout(() => {
+      logoutUser();
+    }, Math.max(0, autoLogoutAfterMs));
+
     if (warningStartAfterMs <= 0) {
       triggerWarning(Math.max(1000, autoLogoutAfterMs));
     } else {
