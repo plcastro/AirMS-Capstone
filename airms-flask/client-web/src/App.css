@@ -1,0 +1,41 @@
+:root {
+  --color-primary: #244d3b;
+  --color-primary-light: #26866f;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-gray-light: #f1f1f1;
+  --color-gray-medium: #d4d4d4;
+  --color-gray-dark: #5c5c5c;
+
+  --color-border: #e4e4e4;
+
+  --color-success-bg: #d4edda;
+  --color-success-border: #28a745;
+
+  --color-info-bg: #d1ecf1;
+  --color-info-border: #17a2b8;
+
+  --color-danger-bg: #f8d7da;
+  --color-danger-border: #dc3545;
+
+  --color-overlay-dark: rgba(0, 0, 0, 0.6);
+  --color-overlay-light: rgba(0, 0, 0, 0.4);
+}
+
+.primary-btn {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+.primary-btn:hover:active {
+  background-color: var(--color-primary-light);
+  color: var(--color-white);
+}
+
+.sidebar-menu .ant-menu-submenu-title:hover,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-title-content,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-item-icon,
+.sidebar-menu .ant-menu-submenu-title:hover .ant-menu-submenu-arrow {
+  color: #ffffff !important;
+}

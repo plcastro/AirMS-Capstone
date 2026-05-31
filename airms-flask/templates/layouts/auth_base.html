@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% load static %}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title or 'AirMS' }}</title>
+  <link rel="stylesheet" href="{% static 'css/flask_web.css' %}" />
+</head>
+<body class="auth-bg">
+  <main class="auth-shell">
+    <section class="auth-card">
+      <h1>{{ title }}</h1>
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+<script src="{% static 'js/flask_web.js' %}"></script>
+</body>
+</html>
