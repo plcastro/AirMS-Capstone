@@ -41,8 +41,31 @@ const formatTimeAgo = (dateValue) => {
   });
 };
 
+const getDisplayNotification = (notification = {}) => {
+  const title = String(notification.title || "");
+  const description = String(notification.description || "");
+  const isMessage = String(notification.module || "") === "messages";
+
+  if (!isMessage) {
+    return { title, description };
+  }
+
+  const separatorIndex = title.indexOf(": ");
+  if (separatorIndex > 0) {
+    const sender = title.slice(0, separatorIndex).trim();
+    const titleMessage = title.slice(separatorIndex + 2).trim();
+
+    if (sender && titleMessage && titleMessage === description.trim()) {
+      return { title: sender, description };
+    }
+  }
+
+  return { title, description };
+};
+
 export default function NotificationBell({ navigation }) {
   const [visible, setVisible] = useState(false);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
   const {
     notifications,
     unreadCount,
@@ -66,6 +89,16 @@ export default function NotificationBell({ navigation }) {
     setVisible(true);
   };
 
+  const runWithLoading = async (key, action) => {
+    if (actionLoadingKey) return;
+    setActionLoadingKey(key);
+    try {
+      await action();
+    } finally {
+      setActionLoadingKey("");
+    }
+  };
+
   const handleNotificationPress = async (notification) => {
     setVisible(false);
     await openNotificationTarget(notification);
@@ -74,7 +107,7 @@ export default function NotificationBell({ navigation }) {
   return (
     <>
       <TouchableOpacity
-        onPress={openNotifications}
+        onPress={() => runWithLoading("open", () => openNotifications())}
         activeOpacity={0.8}
         style={{
           width: 40,
@@ -196,12 +229,12 @@ export default function NotificationBell({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={() => setVisible(false)}>
+              <TouchableOpacity onPress={() => setVisible(false)} disabled={Boolean(actionLoadingKey)}>
                 <MaterialCommunityIcons name="close" size={22} color="#666" />
               </TouchableOpacity>
             </View>
 
-            {loadingNotifications ? (
+            {loadingNotifications && sortedNotifications.length === 0 ? (
               <View style={{ paddingVertical: 40, alignItems: "center" }}>
                 <ActivityIndicator size="small" color="#26866F" />
                 <AppText style={{ marginTop: 10, color: "#666" }}>
@@ -221,104 +254,113 @@ export default function NotificationBell({ navigation }) {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {sortedNotifications.map((notification) => (
-                  <TouchableOpacity
-                    key={notification._id}
-                    activeOpacity={0.85}
-                    onPress={() => handleNotificationPress(notification)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "flex-start",
-                      padding: 12,
-                      borderRadius: 12,
-                      backgroundColor: notification.read
-                        ? COLORS.white
-                        : "#F6FFED",
-                      borderWidth: 1,
-                      borderColor: notification.read ? "#E4E4E4" : "#CDECCB",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <View
+                {sortedNotifications.map((notification) => {
+                  const displayNotification = getDisplayNotification(notification);
+
+                  return (
+                    <TouchableOpacity
+                      key={notification._id}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        runWithLoading("open-notification", () =>
+                          handleNotificationPress(notification),
+                        )
+                      }
+                      disabled={Boolean(actionLoadingKey)}
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
+                        flexDirection: "row",
+                        alignItems: "flex-start",
+                        padding: 12,
+                        borderRadius: 12,
                         backgroundColor: notification.read
-                          ? "#D9D9D9"
-                          : "#52C41A",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: 12,
+                          ? COLORS.white
+                          : "#F6FFED",
+                        borderWidth: 1,
+                        borderColor: notification.read ? "#E4E4E4" : "#CDECCB",
+                        marginBottom: 10,
                       }}
                     >
-                      <MaterialCommunityIcons
-                        name="bell-outline"
-                        size={20}
-                        color={COLORS.white}
-                      />
-                    </View>
-
-                    <View style={{ flex: 1 }}>
                       <View
                         style={{
-                          flexDirection: "row",
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: notification.read
+                            ? "#D9D9D9"
+                            : "#52C41A",
                           alignItems: "center",
-                          flexWrap: "wrap",
-                          gap: 6,
+                          justifyContent: "center",
+                          marginRight: 12,
                         }}
                       >
-                        <AppText
-                          style={{
-                            color: COLORS.black,
-                            fontSize: 12,
-                            fontWeight: notification.read ? "600" : "700",
-                            flexShrink: 1,
-                          }}
-                        >
-                          {notification.title}
-                        </AppText>
-                        {!notification.read && (
-                          <View
-                            style={{
-                              backgroundColor: "#52C41A",
-                              borderRadius: 999,
-                              paddingHorizontal: 8,
-                              paddingVertical: 2,
-                            }}
-                          >
-                            <AppText
-                              style={{
-                                color: COLORS.white,
-                                fontSize: 12,
-                                fontWeight: "700",
-                              }}
-                            >
-                              New
-                            </AppText>
-                          </View>
-                        )}
+                        <MaterialCommunityIcons
+                          name="bell-outline"
+                          size={20}
+                          color={COLORS.white}
+                        />
                       </View>
 
-                      <AppText
-                        style={{
-                          marginTop: 4,
-                          color: "#666",
-                          fontSize: 12,
-                          lineHeight: 18,
-                        }}
-                      >
-                        {notification.description}
-                      </AppText>
+                      <View style={{ flex: 1 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 6,
+                          }}
+                        >
+                          <AppText
+                            style={{
+                              color: COLORS.black,
+                              fontSize: 12,
+                              fontWeight: notification.read ? "600" : "700",
+                              flexShrink: 1,
+                            }}
+                          >
+                            {displayNotification.title}
+                          </AppText>
+                          {!notification.read && (
+                            <View
+                              style={{
+                                backgroundColor: "#52C41A",
+                                borderRadius: 999,
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                              }}
+                            >
+                              <AppText
+                                style={{
+                                  color: COLORS.white,
+                                  fontSize: 12,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                New
+                              </AppText>
+                            </View>
+                          )}
+                        </View>
 
-                      <AppText
-                        style={{ marginTop: 6, color: "#999", fontSize: 12 }}
-                      >
-                        {formatTimeAgo(notification.createdAt)}
-                      </AppText>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                        <AppText
+                          style={{
+                            marginTop: 4,
+                            color: "#666",
+                            fontSize: 12,
+                            lineHeight: 18,
+                          }}
+                        >
+                          {displayNotification.description}
+                        </AppText>
+
+                        <AppText
+                          style={{ marginTop: 6, color: "#999", fontSize: 12 }}
+                        >
+                          {formatTimeAgo(notification.createdAt)}
+                        </AppText>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
 
@@ -332,19 +374,29 @@ export default function NotificationBell({ navigation }) {
                 justifyContent: "space-between",
               }}
             >
-              <TouchableOpacity onPress={markAllAsRead}>
+              <TouchableOpacity
+                onPress={() =>
+                  runWithLoading("mark-all", () => markAllAsRead())
+                }
+                disabled={Boolean(actionLoadingKey)}
+              >
                 <AppText
                   style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}
                 >
-                  Mark all as read
+                  {actionLoadingKey === "mark-all" ? "Processing..." : "Mark all as read"}
                 </AppText>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => fetchNotifications({ force: true })}>
+              <TouchableOpacity
+                onPress={() =>
+                  runWithLoading("refresh", () => fetchNotifications({ force: true }))
+                }
+                disabled={Boolean(actionLoadingKey)}
+              >
                 <AppText
                   style={{ color: "#D9534F", fontSize: 14, fontWeight: "600" }}
                 >
-                  Refresh
+                  {actionLoadingKey === "refresh" ? "Refreshing..." : "Refresh"}
                 </AppText>
               </TouchableOpacity>
             </View>

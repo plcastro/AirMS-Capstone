@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import AppText from "../common/AppText";
 import {
+  ActivityIndicator,
   View,
   TouchableOpacity
 } from "react-native";
@@ -13,6 +14,23 @@ export default function FlightLogCards({
   onExport,
   readOnly = false,
 }) {
+  const [exportingLogId, setExportingLogId] = useState(null);
+
+  const handleExportPress = async (log) => {
+    if (!onExport || exportingLogId) return;
+    const key = log?._id || log?.id;
+    if (!key) {
+      await onExport(log);
+      return;
+    }
+    setExportingLogId(String(key));
+    try {
+      await Promise.resolve(onExport(log));
+    } finally {
+      setExportingLogId(null);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Date not set";
 
@@ -91,6 +109,8 @@ export default function FlightLogCards({
     <>
       {logs.map((log) => {
         const statusStyle = getStatusBadgeStyle(log.status);
+        const logKey = String(log._id || log.id || "");
+        const exportLoading = exportingLogId === logKey;
 
         return (
           <TouchableOpacity
@@ -152,12 +172,19 @@ export default function FlightLogCards({
                     </AppText>
                   </View>
 
-                  <TouchableOpacity onPress={() => onExport?.(log)}>
-                    <MaterialCommunityIcons
-                      name="export-variant"
-                      size={21}
-                      color="#444"
-                    />
+                  <TouchableOpacity
+                    onPress={() => handleExportPress(log)}
+                    disabled={Boolean(exportingLogId)}
+                  >
+                    {exportLoading ? (
+                      <ActivityIndicator size="small" color="#444" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="export-variant"
+                        size={21}
+                        color="#444"
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>

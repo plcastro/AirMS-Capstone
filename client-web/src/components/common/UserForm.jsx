@@ -25,7 +25,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const ROLE_MAP = {
-  Admin: "Admin",
+  Superadmin: "Superadmin",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
@@ -74,7 +74,6 @@ export default function UserForm({
         email: user.email || "",
         username: user.username || "",
         jobTitle: user.jobTitle || undefined,
-        base: user.base || undefined,
         access: user.access || ROLE_MAP[user.jobTitle] || "",
         licenseNo: user.licenseNo || "",
       });
@@ -89,7 +88,6 @@ export default function UserForm({
         email: "",
         username: "",
         jobTitle: undefined,
-        base: undefined,
         access: "",
         licenseNo: "",
       });
@@ -152,7 +150,6 @@ export default function UserForm({
         body.append("email", values.email.trim());
         body.append("username", values.username.trim());
         body.append("jobTitle", values.jobTitle);
-        body.append("base", values.base);
         body.append("access", values.access);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("confirmAction", "true");
@@ -176,7 +173,6 @@ export default function UserForm({
           email: values.email.trim(),
           username: values.username.trim(),
           jobTitle: values.jobTitle,
-          base: values.base,
           access: values.access,
           dateCreated: joinedDate.toISOString(),
           licenseNo: values.licenseNo || "",
@@ -219,7 +215,6 @@ export default function UserForm({
         email: values.email.trim(),
         username: values.username,
         jobTitle: values.jobTitle,
-        base: values.base,
         access: values.access,
         dateCreated: joinedDate.toISOString(),
         image: savedUserData?.image || imageUrl,
@@ -439,7 +434,7 @@ export default function UserForm({
                   <Select
                     size="large"
                     options={[
-                      { label: "Admin", value: "Admin" },
+                      { label: "Superadmin", value: "Superadmin" },
                       {
                         label: "Maintenance Manager",
                         value: "Maintenance Manager",
@@ -454,24 +449,6 @@ export default function UserForm({
                         label: "Warehouse Department",
                         value: "Warehouse Department",
                       },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Base"
-                  name="base"
-                  rules={[{ required: true, message: "Base is required" }]}
-                >
-                  <Select
-                    size="large"
-                    placeholder="Select user base"
-                    options={[
-                      { label: "MANILA", value: "MANILA" },
-                      { label: "CEBU", value: "CEBU" },
-                      { label: "CDO", value: "CDO" },
                     ]}
                   />
                 </Form.Item>
@@ -586,9 +563,6 @@ export default function UserForm({
             </Descriptions.Item>
             <Descriptions.Item label="Job Title">
               {previewData?.jobTitle || "-"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Base">
-              {previewData?.base || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Access Level">
               {previewData?.access || "-"}

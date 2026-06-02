@@ -187,7 +187,7 @@ const buildTargetNavigation = (notificationPayload) => {
   }
 
   return {
-    screen: "Parts Requisition Monitoring",
+    screen: "Parts Requisition",
     params: {
       refreshAt: Date.now(),
       targetRequestId:
@@ -423,7 +423,7 @@ export function NotificationProvider({ children }) {
   }, [getDeviceInstallationId, user?.id]);
 
   const fetchNotifications = useCallback(
-    async ({ signal } = {}) => {
+    async ({ signal, showLoading = false } = {}) => {
       if (!user?.id) {
         setNotifications([]);
         return;
@@ -435,7 +435,9 @@ export function NotificationProvider({ children }) {
         return;
       }
 
-      setLoadingNotifications(true);
+      if (showLoading) {
+        setLoadingNotifications(true);
+      }
       try {
         const response = await fetch(`${API_BASE}/api/notifications`, {
           headers: { Authorization: `Bearer ${authToken}` },
@@ -461,10 +463,11 @@ export function NotificationProvider({ children }) {
       } catch (error) {
         if (error?.name !== "AbortError") {
           console.error("Error fetching notifications:", error);
-          setNotifications([]);
         }
       } finally {
-        setLoadingNotifications(false);
+        if (showLoading) {
+          setLoadingNotifications(false);
+        }
       }
     },
     [logoutUser, user?.id],
@@ -479,13 +482,13 @@ export function NotificationProvider({ children }) {
       const headers = { Authorization: `Bearer ${authToken}` };
       const normalizedRole = String(user?.jobTitle || "").toLowerCase();
       const canAccessTasks = [
-        "admin",
+        "superadmin",
         "maintenance manager",
         "mechanic",
       ].includes(normalizedRole);
-      const canAccessLogs = normalizedRole === "admin";
+      const canAccessLogs = normalizedRole === "superadmin";
       const canAccessRequisitions = [
-        "admin",
+        "superadmin",
         "maintenance manager",
         "mechanic",
         "officer-in-charge",
@@ -724,7 +727,7 @@ export function NotificationProvider({ children }) {
         fetchAbortRef.current = controller;
 
         await Promise.all([
-          fetchNotifications({ signal: controller.signal }),
+          fetchNotifications({ signal: controller.signal, showLoading: false }),
           checkModuleUpdates({ reason: reasons.join(",") }),
         ]);
       }, REFRESH_DEBOUNCE_MS);
@@ -796,43 +799,48 @@ export function NotificationProvider({ children }) {
 
   const openNotificationTarget = useCallback(
     async (notificationPayload) => {
-      if (!validateNotificationPayload(notificationPayload)) {
-        log("notification-open:invalid-payload", notificationPayload);
-        return;
-      }
-
-      const targetNavigation = buildTargetNavigation(notificationPayload);
-      if (!targetNavigation) return;
-
-      log("notification-open", getModuleName(notificationPayload));
-
-      if (user?.id) {
-        const notificationId =
-          notificationPayload?._id ||
-          notificationPayload?.notificationId ||
-          notificationPayload?.data?.notificationId;
-
-        if (notificationId) {
-          await markAsRead(notificationId);
+      try {
+        if (!validateNotificationPayload(notificationPayload)) {
+          log("notification-open:invalid-payload", notificationPayload);
+          return;
         }
 
-        const params = {
-          screen: targetNavigation.screen,
-          params: targetNavigation.params,
-        };
+        const targetNavigation = buildTargetNavigation(notificationPayload);
+        if (!targetNavigation) return;
+
+        log("notification-open", getModuleName(notificationPayload));
+
+        if (user?.id) {
+          const notificationId =
+            notificationPayload?._id ||
+            notificationPayload?.notificationId ||
+            notificationPayload?.data?.notificationId;
+
+          if (notificationId) {
+            await markAsRead(notificationId);
+          }
+
+          const params = {
+            screen: targetNavigation.screen,
+            params: targetNavigation.params,
+          };
+          if (navigationRef.isReady()) {
+            navigate("dashboard", params);
+          } else {
+            queueNavigation("dashboard", params);
+          }
+          return;
+        }
+
+        await savePendingRedirect(targetNavigation);
         if (navigationRef.isReady()) {
-          navigate("dashboard", params);
+          navigate("login");
         } else {
-          queueNavigation("dashboard", params);
+          queueNavigation("login");
         }
-        return;
-      }
-
-      await savePendingRedirect(targetNavigation);
-      if (navigationRef.isReady()) {
-        navigate("login");
-      } else {
-        queueNavigation("login");
+      } catch (error) {
+        console.error("Failed to open notification target:", error);
+        showToast("Could not open that notification.");
       }
     },
     [markAsRead, queueNavigation, user?.id],

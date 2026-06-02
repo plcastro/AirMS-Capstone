@@ -290,7 +290,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   useEffect(() => {
     const key =
-      routeToKey[location.pathname] || (role === "admin" ? "2" : "11");
+      routeToKey[location.pathname] || (role === "superadmin" ? "2" : "11");
     setCurrent(key);
   }, [location.pathname, routeToKey, role]);
 
@@ -301,7 +301,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     );
     navigate(
       routes[e.key] ||
-        (role === "admin"
+        (role === "superadmin"
           ? "/dashboard/user-management/view-users"
           : "/dashboard/profile"),
     );

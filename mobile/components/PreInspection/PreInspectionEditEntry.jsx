@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
@@ -39,7 +39,7 @@ export default function PreInspectionEditEntry({
 
   const isPilot = userRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(userRole);
+    ["mechanic", "maintenance manager", "superadmin"].includes(userRole);
 
   const tabs = [
     "Basic Information",

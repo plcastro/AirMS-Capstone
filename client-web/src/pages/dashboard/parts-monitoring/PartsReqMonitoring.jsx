@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useMemo,
@@ -134,7 +134,7 @@ export default function PartsReqMonitoring() {
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const allowedRoles = [
-    "admin",
+    "superadmin",
     "warehouse department",
     "maintenance manager",
     "officer-in-charge",
@@ -142,13 +142,13 @@ export default function PartsReqMonitoring() {
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
   const isManager = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
   const isWarehouseDepartment = userRole === "warehouse department";
   const canRequestParts = ![
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
     "warehouse department",

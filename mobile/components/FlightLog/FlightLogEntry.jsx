@@ -47,6 +47,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
       "maintenance manager",
       "head of maintenance",
       "admin",
+      "superadmin",
     ].includes(normalizedRole);
 
   const handleAircraftDataLoaded = (data) => {

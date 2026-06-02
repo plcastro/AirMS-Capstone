@@ -453,17 +453,19 @@ export default function FlightLogEntry({
       message.error("Flight log date is required");
       return;
     }
-    const hasInvalidLeg = (formData.legs || []).some((leg) => {
-      const hasRoute = (leg.stations || []).some(
-        (station) =>
-          !String(station?.from || "").trim() ||
-          !String(station?.to || "").trim(),
-      );
-      return hasRoute || !String(leg.date || "").trim();
-    });
-    if (hasInvalidLeg) {
-      message.error("Each leg must include complete station route and date");
-      return;
+    if (canEditDestinations) {
+      const hasInvalidLeg = (formData.legs || []).some((leg) => {
+        const hasRoute = (leg.stations || []).some(
+          (station) =>
+            !String(station?.from || "").trim() ||
+            !String(station?.to || "").trim(),
+        );
+        return hasRoute || !String(leg.date || "").trim();
+      });
+      if (hasInvalidLeg) {
+        message.error("Each leg must include complete station route and date");
+        return;
+      }
     }
     const dateStr =
       formData.date instanceof Date

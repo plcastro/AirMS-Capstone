@@ -620,6 +620,7 @@ export default function HeadTaskScreen({
           data={filteredTasks}
           keyExtractor={(item) => item.id || item._id}
           renderItem={renderTask}
+          contentContainerStyle={{ paddingBottom: 110 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
           }

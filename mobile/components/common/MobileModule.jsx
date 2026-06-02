@@ -83,7 +83,7 @@ export function ModuleContainer({ children, contentStyle }) {
     <View style={moduleStyles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[{ paddingBottom: 28 }, contentStyle]}
+        contentContainerStyle={[{ paddingBottom: 110 }, contentStyle]}
       >
         {children}
       </ScrollView>

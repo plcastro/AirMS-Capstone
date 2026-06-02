@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import AppText from "./AppText";
 import {
+  ActivityIndicator,
   TouchableOpacity,
   View
 } from "react-native";
@@ -53,6 +54,13 @@ export default function ExportFile({ title = "Reports and Analytics", sections =
       }}
     >
       <MaterialCommunityIcons name={icon} size={16} color={COLORS.white} />
+      {exporting ? (
+        <ActivityIndicator
+          size="small"
+          color={COLORS.white}
+          style={{ marginLeft: 6 }}
+        />
+      ) : null}
       <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700", marginLeft: 6 }}>
         {exporting ? "Exporting..." : label}
       </AppText>

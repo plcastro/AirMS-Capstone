@@ -266,7 +266,7 @@ export default function MechanicList() {
           </AppText>
         </View>
       }
-      contentContainerStyle={{ paddingBottom: 20 }}
+      contentContainerStyle={{ paddingBottom: 110 }}
     />
   );
 }

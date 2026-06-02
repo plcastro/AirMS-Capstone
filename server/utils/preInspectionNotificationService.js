@@ -56,6 +56,16 @@ const getCreatorUserId = async (inspection) => {
   return resolveUserIdByFullName(inspection.createdBy);
 };
 
+const getInvolvedUserIds = async (inspection) => {
+  const [creatorUserId, releasedByUserId, acceptedByUserId] = await Promise.all([
+    getCreatorUserId(inspection),
+    resolveUserIdByFullName(inspection?.releasedBy?.name),
+    resolveUserIdByFullName(inspection?.acceptedBy?.name),
+  ]);
+
+  return uniqueStrings([creatorUserId, releasedByUserId, acceptedByUserId]);
+};
+
 const getRecipientsForStatus = (status, creatorUserId, mechanicRoles) => {
   switch (status) {
     case "released":
@@ -135,6 +145,7 @@ const createPreInspectionNotifications = async ({
   }
 
   const creatorUserId = await getCreatorUserId(inspection);
+  const involvedUserIds = await getInvolvedUserIds(inspection);
   const mechanicRoles = [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE, ROLE_MECHANIC];
   const previousStatus = previousInspection?.status;
   const currentStatus = inspection.status;
@@ -170,7 +181,7 @@ const createPreInspectionNotifications = async ({
         description: "The pre-flight inspection has been completed.",
         inspection,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
+        recipientUsers: involvedUserIds,
         metadata: { notificationType: "created-completed" },
       });
       return;
@@ -213,7 +224,7 @@ const createPreInspectionNotifications = async ({
           "The pre-flight inspection has been completed and updated.",
         inspection,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
+        recipientUsers: involvedUserIds,
         metadata: { notificationType: "completed" },
       });
       break;

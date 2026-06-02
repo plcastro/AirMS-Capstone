@@ -1,4 +1,4 @@
-﻿const bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const validator = require("validator");
@@ -36,8 +36,14 @@ const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
-  15 * 60 * 1000;
+const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const WEB_SESSION_IDLE_LIMIT_MS = 1 * 60 * 1000;
+const MOBILE_SESSION_IDLE_LIMIT_MS = SESSION_IDLE_LIMIT_MS;
+
+const getSessionIdleLimitMs = (platform) =>
+  String(platform || "").toUpperCase() === "WEB"
+    ? WEB_SESSION_IDLE_LIMIT_MS
+    : MOBILE_SESSION_IDLE_LIMIT_MS;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -121,6 +127,14 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
     { userId, revokedAt: null },
     { revokedAt: new Date(), revokedReason: reason },
   );
+};
+
+const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
+  if (!userId || !keepTokenHash) return;
+  await RefreshToken.deleteMany({
+    userId,
+    tokenHash: { $ne: keepTokenHash },
+  });
 };
 
 const createUserSession = async (req, userId, platform) => {
@@ -337,6 +351,7 @@ const buildLoginSuccessPayload = async ({
     isPersistent: usePersistentRefreshCookie,
     req,
   });
+  await deletePreviousRefreshTokens(user._id, hashRefreshToken(refreshToken));
   setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
 
   auditLog(
@@ -777,26 +792,42 @@ const refreshToken = async (req, res) => {
       return res.status(401).json({ message: "Session context missing" });
     }
 
-    const activeSession = await UserSession.findOne({
+    let activeSession = await UserSession.findOne({
       userId: user._id,
       sessionId,
-      isActive: true,
     });
 
     if (!activeSession) {
       return res.status(401).json({ message: "Session is no longer active" });
     }
 
+    if (!activeSession.isActive) {
+      if (!tokenRecord.isPersistent) {
+        return res.status(401).json({ message: "Session is no longer active" });
+      }
+
+      activeSession = await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId },
+        { isActive: true, lastActivityAt: new Date(), logoutAt: null },
+        { new: true },
+      );
+    }
+
     const now = Date.now();
     const lastActivityAt = new Date(
       activeSession.lastActivityAt || activeSession.loginAt || now,
     ).getTime();
-    if (now - lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+    if (
+      !tokenRecord.isPersistent &&
+      now - lastActivityAt > SESSION_IDLE_LIMIT_MS
+    ) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
       );
-      return res.status(401).json({ message: "Session timed out due to inactivity" });
+      return res
+        .status(401)
+        .json({ message: "Session timed out due to inactivity" });
     }
 
     await UserSession.findOneAndUpdate(
@@ -842,6 +873,7 @@ const refreshToken = async (req, res) => {
       isPersistent: tokenRecord.isPersistent,
       req,
     });
+    await deletePreviousRefreshTokens(user._id, newTokenHash);
 
     setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
     const isMobileClient =
@@ -858,6 +890,124 @@ const refreshToken = async (req, res) => {
       secure: true,
     });
     res.status(403).json({ message: "Invalid refresh token" });
+  }
+};
+
+const updateSessionPreference = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const sessionId =
+      req.headers["x-session-id"] || req.user?.sessionId || null;
+    const {
+      rememberMe,
+      revokePersistentTokens = false,
+      refreshToken,
+    } = req.body || {};
+
+    if (!userId || !sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+    if (typeof rememberMe !== "boolean") {
+      return res.status(400).json({ message: "rememberMe must be boolean" });
+    }
+
+    const activeSession = await UserSession.findOne({
+      userId,
+      sessionId,
+      isActive: true,
+    });
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const incomingRefreshToken =
+      req.cookies?.refreshToken ||
+      refreshToken ||
+      req.body?.refreshToken ||
+      null;
+    const incomingTokenHash = incomingRefreshToken
+      ? hashRefreshToken(incomingRefreshToken)
+      : null;
+
+    let tokenRecord = null;
+    if (incomingTokenHash) {
+      tokenRecord = await RefreshToken.findOne({
+        tokenHash: incomingTokenHash,
+        userId,
+        revokedAt: null,
+      });
+    }
+
+    if (Boolean(revokePersistentTokens)) {
+      const persistentFilter = {
+        userId,
+        isPersistent: true,
+        revokedAt: null,
+      };
+      if (incomingTokenHash) {
+        persistentFilter.tokenHash = { $ne: incomingTokenHash };
+      }
+      await RefreshToken.updateMany(persistentFilter, {
+        revokedAt: new Date(),
+        revokedReason: "Remember me disabled",
+      });
+    }
+
+    let nextRefreshToken;
+    let rotated = false;
+    const desiredPersistent = Boolean(rememberMe);
+    const shouldRotate =
+      !tokenRecord || Boolean(tokenRecord.isPersistent) !== desiredPersistent;
+
+    if (shouldRotate) {
+      const { token: issuedRefreshToken, jti } = issueRefreshToken(
+        userId.toString(),
+        desiredPersistent,
+      );
+      await storeRefreshToken({
+        userId,
+        refreshToken: issuedRefreshToken,
+        jti,
+        isPersistent: desiredPersistent,
+        req,
+      });
+      await deletePreviousRefreshTokens(
+        userId,
+        hashRefreshToken(issuedRefreshToken),
+      );
+
+      if (incomingTokenHash) {
+        await revokeRefreshTokenByHash(
+          incomingTokenHash,
+          "Session preference updated",
+          hashRefreshToken(issuedRefreshToken),
+        );
+      }
+
+      setRefreshTokenCookie(res, issuedRefreshToken, desiredPersistent);
+      nextRefreshToken = issuedRefreshToken;
+      rotated = true;
+    } else if (incomingRefreshToken) {
+      setRefreshTokenCookie(res, incomingRefreshToken, desiredPersistent);
+    }
+
+    const isMobileClient =
+      String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+
+    return res.status(200).json({
+      message: "Session preference updated",
+      rememberMe: desiredPersistent,
+      sessionId,
+      rotated,
+      refreshToken: isMobileClient
+        ? nextRefreshToken || incomingRefreshToken
+        : undefined,
+    });
+  } catch (error) {
+    console.error("updateSessionPreference error:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to update session preference" });
   }
 };
 
@@ -1206,7 +1356,7 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    const allowedAccess = new Set(["Superadmin", "Superuser", "User"]);
     if (!allowedAccess.has(access)) {
       return res.status(400).json({ message: "Invalid access level" });
     }
@@ -1749,7 +1899,7 @@ const resendActivationByAdmin = async (req, res) => {
 
     const audit = withActorId(
       req,
-      `Activation email resent by admin for ${user.username}`,
+      `Activation email resent by superadmin for ${user.username}`,
       user._id,
     );
     await auditLog(audit.action, audit.actorId);
@@ -1891,6 +2041,7 @@ module.exports = {
   verifyLoginOtp,
   resendLoginOtp,
   refreshToken,
+  updateSessionPreference,
   unlockUser,
   logoutUser,
   registerMobilePushDevice,
