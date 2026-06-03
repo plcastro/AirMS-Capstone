@@ -1,4 +1,4 @@
-:root { --bg:#f4f7fc; --panel:#fff; --ink:#1f2937; --muted:#64748b; --line:#dbe2ea; --primary:#0e7490; }
+:root { --bg:#f4f7fc; --panel:#fff; --ink:#1f2937; --muted:#64748b; --line:#dbe2ea; --primary:#0e7490; --danger:#b42318; --ok:#087443; }
 * { box-sizing: border-box; }
 body { margin:0; font-family: Segoe UI, Arial, sans-serif; color:var(--ink); background:var(--bg); }
 .auth-bg { background: radial-gradient(circle at top right, #dff3ff, #f4f7fc 55%); }
@@ -7,19 +7,62 @@ body { margin:0; font-family: Segoe UI, Arial, sans-serif; color:var(--ink); bac
 .field { display:grid; gap:6px; margin:12px 0; }
 label { font-size:13px; color:var(--muted); }
 input,select,textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; }
-button,.btn { background:var(--primary); color:#fff; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; text-decoration:none; display:inline-block; }
+.check-row { display:flex; align-items:center; gap:8px; margin:12px 0; color:var(--ink); }
+.check-row input { width:auto; }
+button,.btn { background:var(--primary); color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; text-decoration:none; display:inline-block; font:inherit; }
+.btn.ghost { background:#eef6f8; color:var(--primary); }
+.btn.danger { background:#fde8e7; color:var(--danger); }
+.btn.small { padding:6px 9px; font-size:12px; }
+.icon-btn { width:34px; height:34px; display:grid; place-items:center; border-radius:8px; background:#eef2f7; color:var(--ink); padding:0; }
 .top-nav { height:56px; background:#fff; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; padding:0 16px; }
-.brand { font-weight:700; }
+.brand { font-weight:700; color:var(--ink); text-decoration:none; }
+.top-actions { display:flex; align-items:center; gap:8px; }
 .user-pill { font-size:12px; padding:5px 10px; border-radius:999px; background:#e6f6fb; color:#0e7490; }
 .app-shell { display:grid; grid-template-columns:260px 1fr; min-height:calc(100vh - 56px); }
 .side-nav { background:#fff; border-right:1px solid var(--line); padding:14px; display:grid; gap:6px; align-content:start; }
 .nav-link { color:var(--ink); text-decoration:none; padding:9px 10px; border-radius:8px; }
 .nav-link.active,.nav-link:hover { background:#ecf8fb; color:#0e7490; }
 .page-content { padding:18px; }
+.page-heading { margin-bottom:14px; }
+.page-heading h2 { margin:0 0 4px; }
+.page-heading p { margin:0; min-height:18px; }
 .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
 .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; }
+.card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+.card-head h3 { margin:0; }
 .kpi { font-size:28px; font-weight:700; }
+.toolbar { display:flex; justify-content:space-between; gap:12px; align-items:end; margin-bottom:12px; }
+.toolbar-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.search-box { width:min(420px,100%); }
+.table-card { padding:0; overflow:hidden; }
+.table-scroll { width:100%; overflow:auto; }
 .table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
 .table th,.table td { border-bottom:1px solid var(--line); text-align:left; padding:9px; font-size:14px; }
+.table th { background:#f8fafc; color:#475569; white-space:nowrap; }
+.table td { vertical-align:top; }
+.row-actions { display:flex; flex-wrap:wrap; gap:6px; min-width:210px; }
 .muted { color:var(--muted); }
-@media (max-width: 900px){ .app-shell{grid-template-columns:1fr;} .side-nav{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.status-pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#eef2f7; font-size:12px; color:#475569; }
+.status-pill.active,.status-pill.completed,.status-pill.closed,.status-pill.passed,.status-pill.approved { background:#e7f8ef; color:var(--ok); }
+.status-pill.deactivated,.status-pill.failed,.status-pill.rejected,.status-pill.critical { background:#fde8e7; color:var(--danger); }
+.modal { border:0; padding:0; background:transparent; width:min(720px,calc(100% - 24px)); }
+.modal::backdrop { background:rgba(15,23,42,.45); }
+.modal-panel { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:0 24px 60px rgba(15,23,42,.18); }
+.modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:10px; }
+.modal-head h3 { margin:0; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.form-status { margin:10px 0 0; white-space:pre-wrap; color:var(--muted); }
+.list-panel { display:grid; gap:8px; max-height:520px; overflow:auto; }
+.list-item { border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfdff; cursor:pointer; }
+.list-item:hover { border-color:#9bd4df; }
+.messages-grid { display:grid; grid-template-columns:minmax(220px,.8fr) minmax(240px,.9fr) minmax(320px,1.4fr); gap:12px; }
+.thread { min-height:360px; max-height:520px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfdff; display:grid; align-content:start; gap:8px; }
+.bubble { max-width:76%; padding:8px 10px; border-radius:10px; background:#eef2f7; }
+.bubble.mine { justify-self:end; background:#dff3ff; }
+.send-row { display:grid; grid-template-columns:1fr 2fr auto; gap:8px; margin-top:10px; }
+.profile-list { display:grid; grid-template-columns:160px 1fr; gap:8px 14px; }
+.profile-list dt { color:var(--muted); }
+.profile-list dd { margin:0; overflow-wrap:anywhere; }
+@media (max-width: 1100px){ .messages-grid{grid-template-columns:1fr;} }
+@media (max-width: 900px){ .app-shell{grid-template-columns:1fr;} .side-nav{grid-template-columns:repeat(2,minmax(0,1fr));} .toolbar{align-items:stretch; flex-direction:column;} .form-grid{grid-template-columns:1fr;} .send-row{grid-template-columns:1fr;} }

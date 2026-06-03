@@ -31,6 +31,15 @@ def summary():
     return jsonify({"total": total, "open": open_count, "completed": done_count})
 
 
+@blueprint.get("/analytics/base-maintenance")
+def base_maintenance():
+    pipeline = [
+        {"$group": {"_id": {"$ifNull": ["$base", "Unknown"]}, "total": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+    ]
+    return jsonify(to_jsonable(list(_col().aggregate(pipeline))))
+
+
 @blueprint.get("/<id>")
 def get_task(id):
     oid = parse_object_id(id)

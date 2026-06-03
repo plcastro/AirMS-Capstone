@@ -1,4 +1,6 @@
 from datetime import datetime
+import random
+import string
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required
@@ -18,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 def _users_collection():
     return get_db()["users"]
+
+
+def _random_otp():
+    return f"{random.randrange(0, 1000000):06d}"
 
 
 def _verify_password(raw_password, stored_hash):
@@ -162,6 +168,77 @@ def logout():
     return jsonify({"message": "Logged out"})
 
 
+@blueprint.post("/request-password-reset")
+def request_password_reset():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip()
+    if not email:
+        return jsonify({"message": "Email is required"}), 400
+    otp = _random_otp()
+    result = _users_collection().update_one(
+        {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
+        {"$set": {"resetOtp": otp, "resetOtpCreatedAt": datetime.utcnow()}},
+    )
+    if result.matched_count == 0:
+        return jsonify({"message": "Account not found"}), 404
+    return jsonify({"message": "Reset code generated", "otp": otp})
+
+
+@blueprint.post("/verify-otp")
+def verify_otp():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip()
+    otp = str(body.get("otp") or "").strip()
+    user = _users_collection().find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    if not user or str(user.get("resetOtp") or user.get("otp") or "") != otp:
+        return jsonify({"message": "Invalid verification code"}), 400
+    return jsonify({"message": "Verification successful"})
+
+
+@blueprint.post("/reset-password")
+def reset_password():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip()
+    otp = str(body.get("otp") or "").strip()
+    password = str(body.get("password") or "").strip()
+    if not email or not otp or not password:
+        return jsonify({"message": "Email, code, and password are required"}), 400
+    user = _users_collection().find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    if not user or str(user.get("resetOtp") or user.get("otp") or "") != otp:
+        return jsonify({"message": "Invalid reset code"}), 400
+    _users_collection().update_one(
+        {"_id": user["_id"]},
+        {"$set": {"passwordHash": generate_password_hash(password), "updatedAt": datetime.utcnow()}, "$unset": {"resetOtp": "", "otp": ""}},
+    )
+    return jsonify({"message": "Password reset successful"})
+
+
+@blueprint.post("/activate")
+def activate_user():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip()
+    password = str(body.get("password") or "").strip()
+    pin = str(body.get("pin") or "").strip()
+    if not email or not password:
+        return jsonify({"message": "Email and password are required"}), 400
+    updates = {
+        "passwordHash": generate_password_hash(password),
+        "securitySetupCompleted": True,
+        "status": "active",
+        "isActive": True,
+        "updatedAt": datetime.utcnow(),
+    }
+    if pin:
+        updates["pinHash"] = generate_password_hash(pin)
+    result = _users_collection().update_one(
+        {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
+        {"$set": updates, "$unset": {"activationOtp": "", "otp": ""}},
+    )
+    if result.matched_count == 0:
+        return jsonify({"message": "Account not found"}), 404
+    return jsonify({"message": "Account activated successfully"})
+
+
 @blueprint.put("/session-preference")
 @jwt_required()
 def session_preference():
@@ -182,24 +259,44 @@ def get_all_users():
     return jsonify(to_jsonable(users))
 
 
+@blueprint.get("/assignable-users")
+@jwt_required()
+def assignable_users():
+    query = {
+        "$or": [
+            {"jobTitle": {"$regex": "mechanic|maintenance manager|officer-in-charge", "$options": "i"}},
+            {"role": {"$regex": "mechanic|maintenance manager|officer-in-charge", "$options": "i"}},
+        ]
+    }
+    users = list(_users_collection().find(query, {"password": 0, "passwordHash": 0}))
+    return jsonify(to_jsonable(users))
+
+
 @blueprint.post("/create")
 @jwt_required()
 def create_user():
     body = request.get_json(silent=True) or {}
-    required = ["username", "password", "role"]
+    role = body.get("role") or body.get("jobTitle") or body.get("access")
+    required = ["username", "password"]
     missing = [key for key in required if not body.get(key)]
+    if not role:
+        missing.append("role")
     if missing:
         return jsonify({"message": f"Missing fields: {', '.join(missing)}"}), 400
 
     if _users_collection().find_one({"username": body["username"]}):
         return jsonify({"message": "Username already exists"}), 409
 
+    normalized_role = str(role).strip().lower()
     doc = {
         "username": body["username"],
         "name": body.get("name"),
+        "firstName": body.get("firstName"),
+        "lastName": body.get("lastName"),
         "email": body.get("email"),
-        "role": str(body.get("role")).strip().lower(),
-        "jobTitle": str(body.get("role")).strip().lower(),
+        "role": normalized_role,
+        "jobTitle": normalized_role,
+        "status": body.get("status") or "active",
         "passwordHash": generate_password_hash(body["password"]),
         "isActive": True,
         "createdAt": datetime.utcnow(),
@@ -219,7 +316,9 @@ def update_user(id):
         return jsonify({"message": "Invalid id"}), 400
 
     body = request.get_json(silent=True) or {}
-    updates = {k: v for k, v in body.items() if k in {"name", "email", "role", "jobTitle", "isActive"}}
+    updates = {k: v for k, v in body.items() if k in {"name", "firstName", "lastName", "email", "role", "jobTitle", "access", "status", "isActive"}}
+    if "jobTitle" in updates and "role" not in updates:
+        updates["role"] = str(updates["jobTitle"]).strip().lower()
     if "password" in body and body["password"]:
         updates["passwordHash"] = generate_password_hash(body["password"])
     updates["updatedAt"] = datetime.utcnow()
@@ -229,6 +328,25 @@ def update_user(id):
         return jsonify({"message": "User not found"}), 404
     user = _users_collection().find_one({"_id": oid}, {"password": 0, "passwordHash": 0})
     return jsonify(to_jsonable(user))
+
+
+@blueprint.put("/update-user-status/<id>")
+@jwt_required()
+def update_user_status(id):
+    oid = parse_object_id(id)
+    if not oid:
+        return jsonify({"message": "Invalid id"}), 400
+    body = request.get_json(silent=True) or {}
+    status = str(body.get("status") or "").strip().lower()
+    if status not in {"active", "inactive", "deactivated"}:
+        return jsonify({"message": "Invalid status"}), 400
+    result = _users_collection().update_one(
+        {"_id": oid},
+        {"$set": {"status": status, "isActive": status == "active", "updatedAt": datetime.utcnow()}},
+    )
+    if result.matched_count == 0:
+        return jsonify({"message": "User not found"}), 404
+    return jsonify({"message": "Status updated"})
 
 
 @blueprint.put("/update-user-profile/<id>")

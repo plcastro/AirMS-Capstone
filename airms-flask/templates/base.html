@@ -1,21 +1,20 @@
 <!doctype html>
 <html lang="en">
 <head>
-  {% load static %}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ page_title or "AirMS" }}</title>
-  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">AirMS Flask</div>
     <nav>
       <a href="/">Home</a>
-      <a href="/login">Login</a>
-      <a href="/dashboard">Dashboard</a>
-      <a href="/reports">Reports</a>
-      <a href="/messages">Messages</a>
+      <a href="/web/login">Login</a>
+      <a href="/web/dashboard/maintenance-dashboard">Dashboard</a>
+      <a href="/web/dashboard/maintenance-log">Maintenance</a>
+      <a href="/web/dashboard/messages">Messages</a>
     </nav>
   </header>
 
@@ -27,7 +26,7 @@
     <small>AirMS Flask Backend UI</small>
   </footer>
 
-  <script src="{% static 'js/main.js' %}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

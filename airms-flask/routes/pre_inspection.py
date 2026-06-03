@@ -10,6 +10,7 @@ def _col():
     return get_db()["pre_inspections"]
 
 
+@blueprint.post("")
 @blueprint.post("/")
 def create_item():
     body = request.get_json(silent=True) or {}
@@ -55,3 +56,13 @@ def delete_item(id):
     if not res.deleted_count:
         return jsonify({"message": "Not found"}), 404
     return jsonify({"message": "Deleted"})
+
+
+@blueprint.post("/createPreInspection")
+def create_item_legacy():
+    return create_item()
+
+
+@blueprint.put("/updatePreInspectionById/<id>")
+def update_item_legacy(id):
+    return update_item(id)

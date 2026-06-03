@@ -42,6 +42,7 @@ def create_requisition():
     return jsonify(to_jsonable(body)), 201
 
 
+@blueprint.put("/update-requisition/<id>")
 @blueprint.post("/update-requisition/<id>")
 def update_requisition(id):
     oid = parse_object_id(id)

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory, url_for
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
@@ -82,18 +82,13 @@ def create_app() -> Flask:
     register_blueprints(app)
     app.register_blueprint(web_blueprint)
 
-    client_dist = Path(app.root_path).parent / "client-web" / "dist"
-
     @app.get("/")
-    def serve_spa_root():
-        return send_from_directory(client_dist, "index.html")
+    def web_root():
+        return redirect(url_for("web.login"))
 
-    @app.get("/<path:path>")
-    def serve_spa(path: str):
-        file_path = client_dist / path
-        if file_path.exists() and file_path.is_file():
-            return send_from_directory(client_dist, path)
-        return send_from_directory(client_dist, "index.html")
+    @app.get("/dashboard")
+    def dashboard_root():
+        return redirect("/web/dashboard/maintenance-dashboard")
 
     @app.errorhandler(Exception)
     def handle_error(err):
