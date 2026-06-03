@@ -47,14 +47,32 @@ export default function ChatView({
   renderAvatar,
   getDisplayName,
 }) {
-  const shouldAutoScrollRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+  const lastConversationIdRef = useRef(null);
+
+  const scrollToLatest = (animated = true) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    });
+  };
 
   useEffect(() => {
-    if (!shouldAutoScrollRef.current) return;
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: false });
-    }, 50);
-  }, [messages]);
+    const currentConversationId = selectedConversation?.id || "";
+    const openedNewConversation =
+      currentConversationId &&
+      currentConversationId !== lastConversationIdRef.current;
+
+    if (openedNewConversation) {
+      lastConversationIdRef.current = currentConversationId;
+      isNearBottomRef.current = true;
+      setTimeout(() => scrollToLatest(false), 50);
+      return;
+    }
+
+    if (isNearBottomRef.current) {
+      setTimeout(() => scrollToLatest(true), 50);
+    }
+  }, [messages, selectedConversation?.id]);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -173,21 +191,19 @@ export default function ChatView({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
-            scrollEventThrottle={16}
             onScroll={(event) => {
-              const {
-                contentOffset,
-                contentSize,
-                layoutMeasurement,
-              } = event.nativeEvent;
+              const { contentOffset, contentSize, layoutMeasurement } =
+                event.nativeEvent;
               const distanceFromBottom =
                 contentSize.height -
                 (contentOffset.y + layoutMeasurement.height);
-              shouldAutoScrollRef.current = distanceFromBottom < 80;
+              isNearBottomRef.current = distanceFromBottom < 80;
             }}
+            scrollEventThrottle={16}
             onContentSizeChange={() => {
-              if (!shouldAutoScrollRef.current) return;
-              scrollRef.current?.scrollToEnd({ animated: true });
+              if (isNearBottomRef.current) {
+                scrollToLatest(true);
+              }
             }}
           >
             {messages.map((item) => {
