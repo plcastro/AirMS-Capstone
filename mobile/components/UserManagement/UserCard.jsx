@@ -93,10 +93,6 @@ export default function UserCard({
           <MaterialCommunityIcons name="briefcase-outline" size={14} color={COLORS.grayDark} />
           <AppText style={styles.infoText}>{item.jobTitle || "No Title Set"}</AppText>
         </View>
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="map-marker-outline" size={14} color={COLORS.grayDark} />
-          <AppText style={styles.infoText}>{item.base || "No Base Set"}</AppText>
-        </View>
         {canShowInviteActions && (
           <View style={styles.inviteMetaWrap}>
             <View style={[styles.inviteBadge, { backgroundColor: inviteStatusTone.bg }]}>
