@@ -92,6 +92,10 @@
       <label>Signature / Name</label>
       <input name="signature" required />
     </div>
+    <div class="field">
+      <label>6-Digit PIN</label>
+      <input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required />
+    </div>
     <pre class="form-status" data-inspection-sign-status></pre>
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-inspection-sign-close>Cancel</button>

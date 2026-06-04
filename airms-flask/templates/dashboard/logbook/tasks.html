@@ -49,8 +49,9 @@
     </div>
     <div class="form-grid">
       <div class="field"><label>Task Title</label><input name="title" required /></div>
-      <div class="field"><label>Aircraft</label><input name="aircraft" required /></div>
+      <div class="field"><label>Aircraft</label><input name="aircraft" list="task-aircraft-list" required /><datalist id="task-aircraft-list" data-task-aircraft-list></datalist></div>
       <div class="field"><label>Assign Mechanic</label><select name="assignedTo" data-task-mechanics required></select></div>
+      <div class="field"><label>Inspection Schedule</label><select name="inspectionSchedule" data-task-schedules><option value="">Custom Task</option></select></div>
       <div class="field"><label>Priority</label><select name="priority"><option>Low</option><option selected>Normal</option><option>High</option></select></div>
       <div class="field"><label>Start Date/Time</label><input name="startDateTime" type="datetime-local" required /></div>
       <div class="field"><label>End Date/Time</label><input name="endDateTime" type="datetime-local" required /></div>
@@ -109,6 +110,10 @@
     </div>
     <p class="muted">Attach your approval signature. Approved tasks appear in Maintenance Log.</p>
     <div class="field"><label>Signature / Name</label><input name="signature" required /></div>
+    <div class="field">
+      <label>6-Digit PIN</label>
+      <input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required />
+    </div>
     <pre class="form-status" data-task-approve-status></pre>
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-task-approve-close>Cancel</button>

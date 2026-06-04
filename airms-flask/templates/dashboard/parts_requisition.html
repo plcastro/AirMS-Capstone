@@ -1,4 +1,108 @@
 {% extends "layouts/dashboard_base.html" %}
 {% block content %}
-<table class="table"><thead><tr><th>Request #</th><th>Part</th><th>Qty</th><th>Status</th></tr></thead><tbody><tr><td>PR-247</td><td>Fuel Filter</td><td>4</td><td>Pending</td></tr></tbody></table>
+<section class="requisition-page" data-requisition-page>
+  <section class="card requisition-toolbar">
+    <div class="field">
+      <label for="req-search">Search</label>
+      <input id="req-search" type="search" placeholder="Search WRS, aircraft, status, requester" data-req-search />
+    </div>
+    <div class="field">
+      <label for="req-sort">Sort</label>
+      <select id="req-sort" data-req-sort>
+        <option value="newest">Date: Newest First</option>
+        <option value="oldest">Date: Oldest First</option>
+      </select>
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn ghost" data-req-refresh>Refresh</button>
+      <button type="button" class="btn" data-req-new>Add Requisition</button>
+    </div>
+  </section>
+
+  <section class="req-filter-row" data-req-filters></section>
+
+  <section class="card table-card">
+    <div class="table-scroll">
+      <table class="table requisition-table">
+        <thead>
+          <tr>
+            <th>WRS No.</th>
+            <th>Aircraft</th>
+            <th>Requested By</th>
+            <th>Date</th>
+            <th>Items</th>
+            <th>Total Qty</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody data-req-table><tr><td colspan="8" class="muted">Loading requisitions...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination-bar"><span class="muted" data-req-count></span></div>
+  </section>
+</section>
+
+<dialog class="modal logbook-modal" data-req-dialog>
+  <form method="dialog" class="modal-panel" data-req-form>
+    <div class="modal-head">
+      <h3>Add Requisition</h3>
+      <button type="button" class="icon-btn" data-req-close aria-label="Close">x</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Aircraft</label>
+        <select name="aircraft" data-req-aircraft required><option value="">Choose Aircraft</option></select>
+      </div>
+    </div>
+    <div class="card-head">
+      <h3>Requested Items</h3>
+      <button type="button" class="btn ghost small" data-req-add-item>Add Item</button>
+    </div>
+    <div class="req-item-list" data-req-items></div>
+    <pre class="form-status" data-req-form-status></pre>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-req-close>Cancel</button>
+      <button type="submit" class="btn">Submit</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal logbook-modal" data-wrs-dialog>
+  <section class="modal-panel">
+    <div class="modal-head">
+      <h3>Warehouse Requisition Details</h3>
+      <button type="button" class="icon-btn" data-wrs-close aria-label="Close">x</button>
+    </div>
+    <div class="wrs-grid">
+      <section>
+        <div class="card wrs-summary" data-wrs-summary></div>
+        <h3>Requested Items</h3>
+        <div class="table-scroll">
+          <table class="table">
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Purpose</th><th>Available Qty</th><th>Stock Status</th></tr></thead>
+            <tbody data-wrs-items></tbody>
+          </table>
+        </div>
+      </section>
+      <aside>
+        <section class="card">
+          <h3>Warehouse Flow</h3>
+          <ol class="wrs-timeline" data-wrs-timeline></ol>
+        </section>
+        <section class="card wrs-action">
+          <h3 data-wrs-action-title>Next Action</h3>
+          <p class="muted" data-wrs-action-copy></p>
+          <pre class="form-status" data-wrs-status></pre>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" data-wrs-close>Close</button>
+            <button type="button" class="btn" data-wrs-submit>Submit</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </section>
+</dialog>
+
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
 {% endblock %}

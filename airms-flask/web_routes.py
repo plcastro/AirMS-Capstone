@@ -271,6 +271,10 @@ def render_dashboard(page_key, active_path):
         if page_key == "maintenance_tracking"
         else "dashboard/parts/maintenance_priority.html"
         if page_key == "maintenance_priority"
+        else "dashboard/maintenance_dashboard.html"
+        if page_key == "maintenance_dashboard"
+        else "dashboard/parts_requisition.html"
+        if page_key == "parts_requisition"
         else "dashboard/crud_page.html"
     )
     return render_template(
