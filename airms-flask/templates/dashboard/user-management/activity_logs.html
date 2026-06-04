@@ -1,4 +1,81 @@
 {% extends "layouts/dashboard_base.html" %}
 {% block content %}
-<table class="table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th></tr></thead><tbody><tr><td>20:52</td><td>admin</td><td>Updated requisition status</td></tr></tbody></table>
+<section class="activity-page" data-activity-logs>
+  <div class="activity-filters">
+    <div class="field">
+      <label for="log-search">Search logs</label>
+      <input id="log-search" type="search" placeholder="Action, user, or date" data-log-search />
+    </div>
+    <div class="field">
+      <label for="log-start">Start date</label>
+      <input id="log-start" type="date" data-log-start />
+    </div>
+    <div class="field">
+      <label for="log-end">End date</label>
+      <input id="log-end" type="date" data-log-end />
+    </div>
+    <div class="field">
+      <label for="log-action-type">Action type</label>
+      <select id="log-action-type" data-log-action-type></select>
+    </div>
+    <div class="field">
+      <label for="log-scope">Scope</label>
+      <select id="log-scope" data-log-scope>
+        <option value="all">All Scope</option>
+        <option value="base">Base</option>
+        <option value="platform">Platform</option>
+      </select>
+    </div>
+    <div class="field" data-log-scope-value-wrap hidden>
+      <label for="log-scope-value">Scope value</label>
+      <select id="log-scope-value" data-log-scope-value></select>
+    </div>
+    <div class="activity-filter-actions">
+      <button type="button" class="btn ghost" data-log-clear>Clear</button>
+      <button type="button" class="btn" data-log-refresh>Refresh</button>
+    </div>
+  </div>
+
+  <section class="card activity-chart-card">
+    <div class="card-head">
+      <h3>Activity Trends</h3>
+      <span class="muted" data-log-count>Loading logs...</span>
+    </div>
+    <div class="activity-chart" data-log-chart></div>
+  </section>
+
+  <section class="card table-card">
+    <div class="table-scroll">
+      <table class="table activity-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Action Made</th>
+            <th>Performed By</th>
+            <th>Platform</th>
+            <th>Base</th>
+            <th>Date and Time</th>
+          </tr>
+        </thead>
+        <tbody data-log-rows>
+          <tr><td colspan="6" class="muted">Loading logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination-bar">
+      <span class="muted" data-log-page-summary></span>
+      <div class="pagination-actions">
+        <select aria-label="Rows per page" data-log-page-size>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+        <button type="button" class="btn ghost small" data-log-prev>Previous</button>
+        <button type="button" class="btn ghost small" data-log-next>Next</button>
+      </div>
+    </div>
+  </section>
+</section>
+
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
 {% endblock %}

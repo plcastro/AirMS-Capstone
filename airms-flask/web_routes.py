@@ -29,10 +29,21 @@ def field(name, label, kind="text", options=None, required=False):
     return {"name": name, "label": label, "type": kind, "options": options or [], "required": required}
 
 
+ROLES = {
+    "all": ["superadmin", "maintenance manager", "officer-in-charge", "warehouse department", "mechanic"],
+    "admin": ["superadmin"],
+    "maintenance": ["superadmin", "maintenance manager", "officer-in-charge"],
+    "logbook": ["superadmin", "maintenance manager", "officer-in-charge", "pilot", "mechanic"],
+    "mechanic_work": ["superadmin", "maintenance manager", "mechanic"],
+    "requisition": ["superadmin", "maintenance manager", "officer-in-charge", "mechanic", "warehouse department"],
+}
+
+
 PAGES = {
     "view_users": {
         "title": "User Management",
         "subtitle": "Create users, update account details, and manage active/deactivated status.",
+        "allowedRoles": ROLES["admin"],
         "list": "/api/user/get-all-users",
         "create": "/api/user/create",
         "update": "/api/user/update-user/{id}",
@@ -51,13 +62,15 @@ PAGES = {
     "activity_logs": {
         "title": "Activity Logs",
         "subtitle": "Audit trail of system actions and user activity.",
-        "list": "/api/admin-activity",
+        "allowedRoles": ROLES["admin"],
+        "list": "/api/logs/getAllUserLogs",
         "readonly": True,
         "columns": ["createdAt", "username", "action", "method", "path", "module"],
     },
     "flight_log": {
         "title": "Flight Log",
         "subtitle": "Create, review, release, accept, and complete aircraft flight records.",
+        "allowedRoles": ROLES["logbook"],
         "list": "/api/flightlogs",
         "create": "/api/flightlogs",
         "update": "/api/flightlogs/{id}",
@@ -80,6 +93,7 @@ PAGES = {
     "pre_inspection": {
         "title": "Pre Inspection",
         "subtitle": "Record before-flight inspection checklists and sign-off results.",
+        "allowedRoles": ROLES["logbook"],
         "list": "/api/pre-inspections/getAllPreInspection",
         "create": "/api/pre-inspections",
         "update": "/api/pre-inspections/{id}",
@@ -97,6 +111,7 @@ PAGES = {
     "post_inspection": {
         "title": "Post Inspection",
         "subtitle": "Record after-flight inspection findings, discrepancies, and corrective notes.",
+        "allowedRoles": ["superadmin", "maintenance manager", "officer-in-charge", "mechanic"],
         "list": "/api/post-inspections/getAllPostInspection",
         "create": "/api/post-inspections",
         "update": "/api/post-inspections/{id}",
@@ -114,6 +129,7 @@ PAGES = {
     "tasks": {
         "title": "Task Assignment",
         "subtitle": "Assign inspection and maintenance work to mechanics and track progress.",
+        "allowedRoles": ROLES["mechanic_work"],
         "list": "/api/tasks/getAll",
         "create": "/api/tasks/create",
         "update": "/api/tasks/{id}",
@@ -132,6 +148,7 @@ PAGES = {
     "mechanics": {
         "title": "Mechanics",
         "subtitle": "Assignable maintenance users and their current task load.",
+        "allowedRoles": ["superadmin", "maintenance manager"],
         "list": "/api/user/assignable-users",
         "readonly": True,
         "columns": ["username", "firstName", "lastName", "jobTitle", "status"],
@@ -139,6 +156,7 @@ PAGES = {
     "maintenance_log": {
         "title": "Maintenance Log",
         "subtitle": "Record maintenance activity, component work, and completion status.",
+        "allowedRoles": ["superadmin", "maintenance manager", "officer-in-charge", "mechanic"],
         "list": "/api/maintenance-logs/getAllMaintenanceLog",
         "create": "/api/maintenance-logs",
         "update": "/api/maintenance-logs/{id}",
@@ -156,6 +174,7 @@ PAGES = {
     "parts_lifespan": {
         "title": "Parts Lifespan Monitoring",
         "subtitle": "Track aircraft components, remaining hours, and replacement priorities.",
+        "allowedRoles": ROLES["maintenance"],
         "list": "/api/parts-monitoring",
         "create": "/api/parts-monitoring/save",
         "delete": "/api/parts-monitoring/{id}",
@@ -172,6 +191,7 @@ PAGES = {
     "maintenance_tracking": {
         "title": "Maintenance Tracking",
         "subtitle": "View maintenance status by aircraft and remaining inspection hours.",
+        "allowedRoles": ROLES["maintenance"],
         "list": "/api/parts-monitoring/inspection-remaining-hours",
         "readonly": True,
         "columns": ["aircraft", "remainingHours", "inspectionName", "status"],
@@ -179,6 +199,7 @@ PAGES = {
     "maintenance_priority": {
         "title": "Maintenance Priority",
         "subtitle": "Prioritized components and aircraft needing attention.",
+        "allowedRoles": ["superadmin", "maintenance manager"],
         "list": "/api/parts-monitoring/maintenance-priority",
         "readonly": True,
         "columns": ["aircraft", "partName", "component", "remainingHours", "priority"],
@@ -186,6 +207,7 @@ PAGES = {
     "parts_requisition": {
         "title": "Parts Requisition",
         "subtitle": "Create parts requests and update procurement or warehouse status.",
+        "allowedRoles": ROLES["requisition"],
         "list": "/api/parts-requisition/get-all-requisition",
         "create": "/api/parts-requisition/create-requisition",
         "update": "/api/parts-requisition/update-requisition/{id}",
@@ -203,11 +225,13 @@ PAGES = {
     "messages": {
         "title": "Messages",
         "subtitle": "Load conversations, open a thread, and send direct messages.",
+        "allowedRoles": ROLES["all"],
         "messages": True,
     },
     "profile": {
         "title": "Profile",
         "subtitle": "View the active web session profile stored after login.",
+        "allowedRoles": ROLES["all"],
         "profile": True,
     },
 }
@@ -215,7 +239,33 @@ PAGES = {
 
 def render_dashboard(page_key, active_path):
     page = PAGES[page_key]
-    template = "dashboard/messages.html" if page.get("messages") else "dashboard/profile.html" if page.get("profile") else "dashboard/crud_page.html"
+    template = (
+        "dashboard/messages.html"
+        if page.get("messages")
+        else "dashboard/profile.html"
+        if page.get("profile")
+        else "dashboard/user-management/activity_logs.html"
+        if page_key == "activity_logs"
+        else "dashboard/user-management/view_users.html"
+        if page_key == "view_users"
+        else "dashboard/logbook/flight_log.html"
+        if page_key == "flight_log"
+        else "dashboard/logbook/inspection.html"
+        if page_key in {"pre_inspection", "post_inspection"}
+        else "dashboard/logbook/tasks.html"
+        if page_key == "tasks"
+        else "dashboard/logbook/mechanics.html"
+        if page_key == "mechanics"
+        else "dashboard/logbook/maintenance_log.html"
+        if page_key == "maintenance_log"
+        else "dashboard/parts/parts_lifespan.html"
+        if page_key == "parts_lifespan"
+        else "dashboard/parts/maintenance_tracking.html"
+        if page_key == "maintenance_tracking"
+        else "dashboard/parts/maintenance_priority.html"
+        if page_key == "maintenance_priority"
+        else "dashboard/crud_page.html"
+    )
     return render_template(
         template,
         title=page["title"],
@@ -328,6 +378,7 @@ def profile():
 PAGES["maintenance_dashboard"] = {
     "title": "Maintenance Dashboard",
     "subtitle": "Live counts from tasks, flight logs, inspections, parts, and requisitions.",
+    "allowedRoles": ROLES["maintenance"],
     "dashboard": True,
     "readonly": True,
     "list": "/api/tasks/summary",

@@ -1,0 +1,48 @@
+{% extends "layouts/dashboard_base.html" %}
+{% block content %}
+<section class="parts-page" data-parts-lifespan-page>
+  <section class="card parts-toolbar">
+    <div class="field">
+      <label for="parts-search">Search</label>
+      <input id="parts-search" type="search" placeholder="Search component or due status" data-parts-search />
+    </div>
+    <div class="field">
+      <label for="parts-aircraft">Aircraft</label>
+      <select id="parts-aircraft" data-parts-aircraft><option value="">Select aircraft</option></select>
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn ghost" data-parts-refresh>Refresh</button>
+      <button type="button" class="btn" data-parts-save>Save to Database</button>
+      <button type="button" class="btn ghost" data-parts-export>Export</button>
+    </div>
+  </section>
+
+  <section class="parts-metrics">
+    <section class="card profile-list" data-aircraft-details></section>
+    <section class="card">
+      <div class="form-grid">
+        <div class="field"><label>Engine Cycle</label><input type="number" step="0.01" data-ref="engTT" /></div>
+        <div class="field"><label>Date</label><input type="date" data-ref="today" /></div>
+        <div class="field"><label>N1</label><input type="number" step="0.01" data-ref="n1Cycles" /></div>
+        <div class="field"><label>N2</label><input type="number" step="0.01" data-ref="n2Cycles" /></div>
+        <div class="field"><label>Acft. TT</label><input type="number" step="0.01" data-ref="acftTT" /></div>
+        <div class="field"><label>Landings</label><input type="number" step="0.01" data-ref="landings" /></div>
+      </div>
+    </section>
+  </section>
+
+  <section class="card table-card">
+    <div class="table-scroll">
+      <table class="table parts-table">
+        <thead>
+          <tr>
+            <th>Component</th><th>Hour/Cyc Limit</th><th>Day Limit</th><th>Date C/W</th><th>HRS C/W</th><th>Days Remaining</th><th>Time Remaining</th><th>Date Due</th><th>TT/CYC Due</th><th>Due</th><th>TSI</th><th>TTSN</th>
+          </tr>
+        </thead>
+        <tbody data-parts-table><tr><td colspan="12" class="muted">Select an aircraft.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</section>
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
+{% endblock %}

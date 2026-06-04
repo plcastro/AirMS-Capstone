@@ -1,9 +1,15 @@
 {% extends "layouts/auth_base.html" %}
 {% block content %}
-<form action="/api/user/verify-otp" method="post" data-api-form>
-  <div class="field"><label>Email</label><input name="email" type="email" required /></div>
+<form action="/api/user/verify-otp" method="post" data-otp-form>
+  <input type="hidden" name="mode" data-otp-mode />
+  <input type="hidden" name="token" data-otp-token />
+  <input type="hidden" name="rememberMe" data-otp-remember />
+  <input type="hidden" name="base" data-otp-base />
+  <div class="field"><label>Email</label><input name="email" type="email" data-otp-email required /></div>
   <div class="field"><label>Verification Code</label><input name="otp" maxlength="6" required /></div>
+  <label class="check-row" data-trust-device-row hidden><input type="checkbox" name="trustDevice" checked /> Trust this device for 30 days</label>
   <button type="submit">Verify</button>
+  <button type="button" class="btn ghost" data-resend-otp>Resend code</button>
   <pre class="muted" data-form-result></pre>
 </form>
 {% endblock %}

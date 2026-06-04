@@ -10,6 +10,9 @@
   <header class="top-nav">
     <a class="brand" href="/web/dashboard/maintenance-dashboard">AirMS</a>
     <div class="top-actions">
+      <button type="button" class="btn ghost small notification-btn" data-notifications-open>
+        Notifications <span class="notification-count" data-notification-count hidden>0</span>
+      </button>
       <span class="user-pill" id="current-user-pill">Flask Web</span>
       <button type="button" class="btn ghost small" data-logout>Logout</button>
     </div>
@@ -28,6 +31,33 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+  <dialog class="modal session-modal" data-session-warning>
+    <section class="modal-panel">
+      <div class="modal-head">
+        <h3>Session Timeout Warning</h3>
+      </div>
+      <p class="muted">You've been inactive for a while. You will be signed out unless you continue your session.</p>
+      <p>Auto sign-out in <strong data-warning-seconds>15</strong> seconds.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-logout>Sign out now</button>
+        <button type="button" class="btn" data-continue-session>Continue session</button>
+      </div>
+    </section>
+  </dialog>
+  <dialog class="modal notification-modal" data-notifications-dialog>
+    <section class="modal-panel">
+      <div class="modal-head">
+        <h3>Notifications</h3>
+        <button type="button" class="icon-btn" data-notifications-close aria-label="Close">x</button>
+      </div>
+      <div class="list-panel" data-notifications-list>
+        <p class="muted">Loading notifications...</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-mark-all-notifications>Mark all read</button>
+      </div>
+    </section>
+  </dialog>
 <script src="{{ url_for('static', filename='js/flask_web.js') }}"></script>
 </body>
 </html>
