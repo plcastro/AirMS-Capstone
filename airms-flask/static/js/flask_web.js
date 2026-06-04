@@ -563,11 +563,29 @@
   const initLayout = () => {
     const user = getUser();
     const pill = $("#current-user-pill");
+    const avatar = $("[data-user-avatar]");
     if (pill && user) {
       const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "AirMS User";
-      pill.textContent = `${name} - ${user.jobTitle || user.access || "web"}`;
+      pill.innerHTML = `<strong>${escapeHtml(name.toUpperCase())}</strong><span>${escapeHtml(String(user.jobTitle || user.access || "web").toUpperCase())}</span>`;
+    }
+    if (avatar && user) {
+      const initials = `${String(user.firstName || "").charAt(0)}${String(user.lastName || "").charAt(0)}`.toUpperCase() || "U";
+      if (user.image) {
+        avatar.innerHTML = `<img src="${escapeHtml(user.image.startsWith("http") ? user.image : user.image)}" alt="">`;
+      } else {
+        avatar.textContent = initials;
+      }
     }
     $$("[data-logout]").forEach((button) => button.addEventListener("click", logout));
+    $("[data-profile-link]")?.addEventListener("click", () => {
+      window.location.href = "/web/dashboard/profile";
+    });
+    $("[data-sidebar-toggle]")?.addEventListener("click", () => {
+      document.body.classList.toggle("sidebar-open");
+    });
+    $$(".nav-link").forEach((link) => {
+      link.addEventListener("click", () => document.body.classList.remove("sidebar-open"));
+    });
   };
 
   const initNotifications = () => {

@@ -9,6 +9,7 @@
 <body class="auth-bg">
   <main class="auth-shell">
     <section class="auth-card">
+      <img class="auth-logo" src="{{ url_for('static', filename='img/AirMS_web.png') }}" alt="AirMS" />
       <h1>{{ title }}</h1>
       {% block content %}{% endblock %}
     </section>

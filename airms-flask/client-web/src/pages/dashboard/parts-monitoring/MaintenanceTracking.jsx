@@ -247,16 +247,25 @@ export default function MaintenanceTracking() {
             inspectionRemainingResponse.json(),
           ]);
 
-        if (!insightsResponse.ok || !insightsResult.success) {
+        if (insightsResponse.status === 410 || insightsResult.disabled) {
+          setInsights([]);
+          setMeta({
+            llmEnabled: false,
+            activeModel: "Disabled",
+            message:
+              insightsResult.message ||
+              "AI insights are disabled on the server.",
+          });
+        } else if (!insightsResponse.ok || !insightsResult.success) {
           throw new Error(
             insightsResult.message || "Failed to load AI maintenance insights",
           );
+        } else {
+          setInsights(
+            Array.isArray(insightsResult.data) ? insightsResult.data : [],
+          );
+          setMeta(insightsResult.meta || null);
         }
-
-        setInsights(
-          Array.isArray(insightsResult.data) ? insightsResult.data : [],
-        );
-        setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
         setInspectionRemainingRows(
           inspectionRemainingResponse.ok &&
@@ -313,6 +322,11 @@ export default function MaintenanceTracking() {
         { cache: "no-store" },
       );
       const result = await response.json();
+
+      if (response.status === 410 || result.disabled) {
+        message.info(result.message || "AI insights are disabled on the server.");
+        return;
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to load OpenAI summaries");

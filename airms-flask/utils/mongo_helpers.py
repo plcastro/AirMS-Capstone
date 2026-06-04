@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 from flask import jsonify
 
@@ -17,6 +19,8 @@ def to_jsonable(document):
         for key, value in document.items():
             if isinstance(value, ObjectId):
                 out[key] = str(value)
+            elif isinstance(value, datetime):
+                out[key] = value.isoformat()
             elif isinstance(value, dict):
                 out[key] = to_jsonable(value)
             elif isinstance(value, list):

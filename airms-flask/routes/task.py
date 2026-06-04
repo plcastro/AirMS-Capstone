@@ -16,6 +16,10 @@ def _maintenance_logs():
     return get_db()["maintenance_logs"]
 
 
+def _legacy_maintenance_logs():
+    return get_db()["maintenancelogs"]
+
+
 def _payload():
     body = request.get_json(silent=True) or {}
     body.pop("confirmAction", None)
@@ -58,11 +62,12 @@ def _sync_maintenance_log(task):
         "workDetails": work_details or [{"description": task.get("title") or "Maintenance task completed"}],
         "updatedAt": datetime.utcnow(),
     }
-    _maintenance_logs().update_one(
-        {"sourceTaskId": source_id},
-        {"$set": doc, "$setOnInsert": {"createdAt": datetime.utcnow()}},
-        upsert=True,
-    )
+    for collection in (_maintenance_logs(), _legacy_maintenance_logs()):
+        collection.update_one(
+            {"sourceTaskId": source_id},
+            {"$set": doc, "$setOnInsert": {"createdAt": datetime.utcnow()}},
+            upsert=True,
+        )
 
 
 @blueprint.post("/create")

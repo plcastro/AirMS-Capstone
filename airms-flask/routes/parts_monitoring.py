@@ -6,10 +6,22 @@ from services.mongo import get_db
 from utils.mongo_helpers import parse_object_id, to_jsonable
 
 blueprint = Blueprint("parts_monitoring", __name__)
+PARTS_MONITORING_COLLECTIONS = ("parts_monitoring", "partslifespanmonitorings")
+AIRCRAFT_COLLECTIONS = ("aircrafts",)
 
 
 def _col():
     return get_db()["parts_monitoring"]
+
+
+def _collections():
+    db = get_db()
+    return [db[name] for name in PARTS_MONITORING_COLLECTIONS]
+
+
+def _aircraft_collections():
+    db = get_db()
+    return [db[name] for name in AIRCRAFT_COLLECTIONS]
 
 
 DEFAULT_RULES = {
@@ -27,7 +39,32 @@ def _success(data=None, **extra):
 
 
 def _latest_by_aircraft(aircraft):
-    return _col().find_one({"aircraft": aircraft}, sort=[("updatedAt", -1), ("_id", -1)])
+    candidates = []
+    for collection in _collections():
+        candidates.extend(list(collection.find({"aircraft": aircraft})))
+    if not candidates:
+        return None
+    def _key(doc):
+        value = doc.get("updatedAt") or doc.get("createdAt") or doc.get("_id")
+        if isinstance(value, datetime):
+            return (0, value.timestamp())
+        return (1, str(value or ""))
+
+    candidates.sort(key=_key, reverse=True)
+    return candidates[0]
+
+
+def _find_by_id(id_value):
+    oid = parse_object_id(id_value)
+    for collection in _collections():
+        if oid:
+            doc = collection.find_one({"_id": oid})
+            if doc:
+                return doc, collection
+        doc = collection.find_one({"_id": id_value})
+        if doc:
+            return doc, collection
+    return None, None
 
 
 def _remaining_value(row, *keys):
@@ -43,7 +80,14 @@ def _remaining_value(row, *keys):
 
 def _iter_aircraft_parts():
     seen = set()
-    for aircraft in _col().distinct("aircraft"):
+    aircraft_values = []
+    for collection in _collections():
+        aircraft_values.extend(collection.distinct("aircraft"))
+    for collection in _aircraft_collections():
+        aircraft_values.extend(collection.distinct("rpc"))
+        aircraft_values.extend(collection.distinct("aircraft"))
+        aircraft_values.extend(collection.distinct("registration"))
+    for aircraft in aircraft_values:
         if not aircraft or aircraft in seen:
             continue
         doc = _latest_by_aircraft(aircraft)
@@ -119,13 +163,33 @@ def _rules_from_request():
 @blueprint.get("")
 @blueprint.get("/")
 def get_all():
-    return _success(list(_col().find().sort("_id", -1)))
+    rows = []
+    seen = set()
+    for aircraft, doc in _iter_aircraft_parts():
+        if aircraft in seen:
+            continue
+        seen.add(aircraft)
+        rows.append(doc)
+    def _key(doc):
+        value = doc.get("updatedAt") or doc.get("createdAt") or doc.get("_id")
+        if isinstance(value, datetime):
+            return (0, value.timestamp())
+        return (1, str(value or ""))
+
+    rows.sort(key=_key, reverse=True)
+    return _success(rows)
 
 
 @blueprint.get("/aircraft-list")
 def aircraft_list():
-    docs = _col().distinct("aircraft")
-    return _success([aircraft for aircraft in docs if aircraft])
+    values = set()
+    for collection in _collections():
+        values.update(value for value in collection.distinct("aircraft") if value)
+    for collection in _aircraft_collections():
+        values.update(value for value in collection.distinct("rpc") if value)
+        values.update(value for value in collection.distinct("aircraft") if value)
+        values.update(value for value in collection.distinct("registration") if value)
+    return _success(sorted(values))
 
 
 @blueprint.get("/maintenance-priority/rules")
@@ -198,13 +262,19 @@ def save():
     body.setdefault("createdAt", datetime.utcnow())
     aircraft = body.get("aircraft")
     if aircraft:
-        result = _col().update_one(
-            {"aircraft": aircraft},
-            {"$set": body, "$setOnInsert": {"createdAt": body["createdAt"]}},
-            upsert=True,
-        )
+        matched = 0
+        for collection in _collections():
+            result = collection.update_many(
+                {"aircraft": aircraft},
+                {"$set": body, "$setOnInsert": {"createdAt": body["createdAt"]}},
+                upsert=False,
+            )
+            matched += result.matched_count
+        if not matched:
+            result = _col().insert_one(body)
+            body["_id"] = result.inserted_id
         doc = _latest_by_aircraft(aircraft)
-        return _success(doc, message="Saved"), 201 if result.upserted_id else 200
+        return _success(doc, message="Saved"), 201 if matched == 0 else 200
     result = _col().insert_one(body)
     body["_id"] = result.inserted_id
     return _success(body), 201
@@ -212,10 +282,12 @@ def save():
 
 @blueprint.delete("/<id>")
 def delete_by_id(id):
-    oid = parse_object_id(id)
-    if not oid:
+    if not parse_object_id(id):
         return jsonify({"message": "Invalid id"}), 400
-    res = _col().delete_one({"_id": oid})
+    doc, collection = _find_by_id(id)
+    if not doc or collection is None:
+        return jsonify({"message": "Not found"}), 404
+    res = collection.delete_one({"_id": doc["_id"]})
     if not res.deleted_count:
         return jsonify({"message": "Not found"}), 404
     return jsonify({"message": "Deleted"})
@@ -223,13 +295,18 @@ def delete_by_id(id):
 
 @blueprint.delete("/aircraft/<aircraft>")
 def delete_by_aircraft(aircraft):
-    res = _col().delete_many({"aircraft": aircraft})
-    return jsonify({"message": "Deleted", "count": res.deleted_count})
+    deleted = 0
+    for collection in _collections():
+        deleted += collection.delete_many({"aircraft": aircraft}).deleted_count
+    return jsonify({"message": "Deleted", "count": deleted})
 
 
 @blueprint.put("/<aircraft>/update-totals")
 def update_totals(aircraft):
     payload = request.get_json(silent=True) or {}
     payload["updatedAt"] = datetime.utcnow()
-    res = _col().update_many({"aircraft": aircraft}, {"$set": {"referenceData.acftTT": payload.get("acftTT"), "referenceData.n1Cycles": payload.get("n1Cycles"), "referenceData.n2Cycles": payload.get("n2Cycles"), "referenceData.landings": payload.get("landings"), "updatedAt": payload["updatedAt"]}})
-    return jsonify({"success": True, "message": "Updated", "count": res.modified_count})
+    modified = 0
+    for collection in _collections():
+        res = collection.update_many({"aircraft": aircraft}, {"$set": {"referenceData.acftTT": payload.get("acftTT"), "referenceData.n1Cycles": payload.get("n1Cycles"), "referenceData.n2Cycles": payload.get("n2Cycles"), "referenceData.landings": payload.get("landings"), "updatedAt": payload["updatedAt"]}})
+        modified += res.modified_count
+    return jsonify({"success": True, "message": "Updated", "count": modified})

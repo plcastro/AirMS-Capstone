@@ -92,7 +92,7 @@ export default function FlightLog() {
     "engineer",
     "mechanic",
     "maintenance manager",
-    "admin",
+    "superadmin",
     "head of maintenance",
   ].includes(userRole);
 
@@ -696,7 +696,9 @@ export default function FlightLog() {
 
     setSelectedAircraft("");
     if (notificationStatus) {
-      setSelectedStatus(normalizeStatusFilterValue(notificationStatus || "all"));
+      setSelectedStatus(
+        normalizeStatusFilterValue(notificationStatus || "all"),
+      );
     }
     fetchFlightLogs();
   }, [fetchFlightLogs, location.search, normalizeStatusFilterValue]);
@@ -927,12 +929,16 @@ export default function FlightLog() {
           }}
         >
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{record.rpc || "N/A"}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              {record.rpc || "N/A"}
+            </div>
             <div style={{ color: "#667085", fontSize: 12 }}>
               {formatDisplayDate(record.date)}
             </div>
           </div>
-          <span className={`fl-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+          <span className={`fl-badge ${statusMeta.className}`}>
+            {statusMeta.label}
+          </span>
         </div>
 
         <div style={{ marginTop: 8, color: "#475467", fontSize: 12 }}>
@@ -954,17 +960,19 @@ export default function FlightLog() {
           >
             {isOfficerInCharge ? "View" : "Edit"}
           </Button>
-          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWorkflowModal("release", record);
-              }}
-            >
-              Release
-            </Button>
-          )}
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "pending_release" && (
+              <Button
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openWorkflowModal("release", record);
+                }}
+              >
+                Release
+              </Button>
+            )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
             <Button
               size="small"
@@ -976,17 +984,19 @@ export default function FlightLog() {
               Accept
             </Button>
           )}
-          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWorkflowModal("notify", record);
-              }}
-            >
-              Notify
-            </Button>
-          )}
+          {isPilot &&
+            record.status === "accepted" &&
+            !record.notifiedForCompletion && (
+              <Button
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openWorkflowModal("notify", record);
+                }}
+              >
+                Notify
+              </Button>
+            )}
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "accepted" &&

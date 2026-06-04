@@ -8,6 +8,7 @@ const WARNING_DURATION_MS = 2 * 60 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
+const REFRESH_TOKEN_KEY = "refreshToken";
 const AUTH_SYNC_KEY = "authSyncEvent";
 
 export const AuthProvider = ({ children }) => {
@@ -30,6 +31,10 @@ export const AuthProvider = ({ children }) => {
 
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
+
+  const getStoredRefreshToken = () =>
+    sessionStorage.getItem(REFRESH_TOKEN_KEY) ||
+    localStorage.getItem(REFRESH_TOKEN_KEY);
 
   const normalizeUser = (userData) => ({
     ...userData,
@@ -70,16 +75,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const persistAuthState = (normalizedUser, token, rememberMe) => {
+  const persistAuthState = (
+    normalizedUser,
+    token,
+    refreshToken,
+    rememberMe,
+  ) => {
     sessionStorage.setItem("currentUser", JSON.stringify(normalizedUser));
     sessionStorage.setItem("token", token);
+    if (refreshToken) {
+      sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    } else {
+      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
     if (rememberMe) {
       localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
       localStorage.setItem("token", token);
+      if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      } else {
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
       localStorage.setItem(REMEMBER_ME_KEY, "true");
     } else {
       localStorage.removeItem("currentUser");
       localStorage.removeItem("token");
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.setItem(REMEMBER_ME_KEY, "false");
     }
   };
@@ -87,9 +108,11 @@ export const AuthProvider = ({ children }) => {
   const clearAuthStorage = () => {
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("token");
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(SESSION_TIMING_KEY);
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(SESSION_META_KEY);
     localStorage.removeItem(SESSION_TIMING_KEY);
     localStorage.setItem(REMEMBER_ME_KEY, "false");
@@ -222,11 +245,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshAccessToken = async () => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) {
+      throw new Error("Session expired. Please sign in again.");
+    }
+
     const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
       method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${refreshToken}`,
         ...buildSessionHeaders(),
       },
     });
@@ -303,6 +332,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
+    const refreshToken = options.refreshToken || null;
     const rememberMe = Boolean(options.rememberMe);
     const normalized = normalizeUser({
       ...userData,
@@ -319,9 +349,15 @@ export const AuthProvider = ({ children }) => {
       sessionId: normalized.sessionId,
       platform: "WEB",
     });
-    persistAuthState(normalized, token, rememberMe);
+    persistAuthState(normalized, token, refreshToken, rememberMe);
     persistSessionTiming(token, "login");
-    publishAuthSync({ type: "LOGIN", token, user: normalized, rememberMe });
+    publishAuthSync({
+      type: "LOGIN",
+      token,
+      refreshToken,
+      user: normalized,
+      rememberMe,
+    });
     scheduleTokenExpiryLogout(token, logoutUser);
   };
 
@@ -412,7 +448,13 @@ export const AuthProvider = ({ children }) => {
           setUser(normalizeUser(payload.user));
           sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
           sessionStorage.setItem("token", payload.token);
+          if (payload.refreshToken) {
+            sessionStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
+          }
           setRememberMePreferenceState(Boolean(payload.rememberMe));
+          if (payload.refreshToken && payload.rememberMe) {
+            localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
+          }
           persistSessionTiming(payload.token, "sync-login");
           return;
         }
@@ -483,6 +525,7 @@ export const AuthProvider = ({ children }) => {
           persistAuthState(
             normalizeUser(normalizedFromToken),
             token,
+            getStoredRefreshToken(),
             remembered,
           );
         }

@@ -11,7 +11,9 @@ from config import Config
 from middleware.audit import audit_mutating_request
 from middleware.auth import register_auth_handlers
 from middleware.request_context import attach_request_context
+from routes.ai_insights import blueprint as ai_insights_bp
 from realtime import events_blueprint
+from routes.legacy_api import legacy_api_bp
 from routes import register_blueprints
 from services.mongo import init_mongo
 from utils.events import publish_event
@@ -31,7 +33,7 @@ def create_app() -> Flask:
     app.config["MONGO_URI"] = os.getenv("MONGO_URI") or os.getenv("ATLAS_URL") or app.config.get("MONGO_URI")
     app.config["MONGO_DB_NAME"] = os.getenv("MONGO_DB_NAME", app.config.get("MONGO_DB_NAME", "airms"))
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET", app.config.get("JWT_SECRET_KEY"))
-    app.config["PORT"] = int(os.getenv("PORT", str(app.config.get("PORT", 5173))))
+    app.config["PORT"] = int(os.getenv("PORT", str(app.config.get("PORT", 5000))))
     app.config["CORS_ORIGINS"] = [
         o.strip()
         for o in os.getenv(
@@ -80,6 +82,8 @@ def create_app() -> Flask:
 
     app.register_blueprint(events_blueprint, url_prefix="/api/events")
     register_blueprints(app)
+    app.register_blueprint(ai_insights_bp, url_prefix="/api/ai-insights")
+    app.register_blueprint(legacy_api_bp)
     app.register_blueprint(web_blueprint)
 
     @app.get("/")

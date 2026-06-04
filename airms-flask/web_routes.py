@@ -3,26 +3,33 @@ from flask import Blueprint, render_template
 web_blueprint = Blueprint("web", __name__)
 
 NAV = [
-    ("View Users", "/web/dashboard/user-management/view-users"),
-    ("Activity Logs", "/web/dashboard/user-management/activity-logs"),
-    ("Flight Log", "/web/dashboard/flight-log"),
-    ("Pre Inspection", "/web/dashboard/pre-inspection"),
-    ("Post Inspection", "/web/dashboard/post-inspection"),
-    ("Tasks", "/web/dashboard/tasks"),
-    ("Mechanics", "/web/dashboard/mechanics"),
-    ("Maintenance Log", "/web/dashboard/maintenance-log"),
-    ("Parts Lifespan", "/web/dashboard/parts-lifespan-monitoring"),
-    ("Maintenance Tracking", "/web/dashboard/maintenance-tracking"),
-    ("Maintenance Priority", "/web/dashboard/maintenance-priority"),
-    ("Maintenance Dashboard", "/web/dashboard/maintenance-dashboard"),
-    ("Parts Requisition", "/web/dashboard/parts-requisition"),
-    ("Messages", "/web/dashboard/messages"),
-    ("Profile", "/web/dashboard/profile"),
+    ("GENERAL", "Maintenance Reports and Analytics", "/web/dashboard/maintenance-dashboard", "chart"),
+    ("GENERAL", "Messages", "/web/dashboard/messages", "message"),
+    ("USER MANAGEMENT", "Manage Users", "/web/dashboard/user-management/view-users", "team"),
+    ("USER MANAGEMENT", "Activity Logs", "/web/dashboard/user-management/activity-logs", "audit"),
+    ("AIRCRAFT HEALTH LOGBOOK", "Flight Logs", "/web/dashboard/flight-log", "flight"),
+    ("AIRCRAFT HEALTH LOGBOOK", "Maintenance Logs", "/web/dashboard/maintenance-log", "tool"),
+    ("AIRCRAFT HEALTH LOGBOOK", "Pre-Inspection", "/web/dashboard/pre-inspection", "audit"),
+    ("AIRCRAFT HEALTH LOGBOOK", "Post-Inspection", "/web/dashboard/post-inspection", "audit"),
+    ("TASK ASSIGNMENT & MONITORING", "Tasks", "/web/dashboard/tasks", "schedule"),
+    ("TASK ASSIGNMENT & MONITORING", "Mechanics", "/web/dashboard/mechanics", "team"),
+    ("PARTS LIFESPAN & MAINTENANCE TRACKING", "Parts Lifespan Monitoring", "/web/dashboard/parts-lifespan-monitoring", "dashboard"),
+    ("PARTS LIFESPAN & MAINTENANCE TRACKING", "Maintenance Tracking", "/web/dashboard/maintenance-tracking", "schedule"),
+    ("PARTS LIFESPAN & MAINTENANCE TRACKING", "Maintenance Priority Sorting", "/web/dashboard/maintenance-priority", "flag"),
+    ("PARTS REQUISITION MONITORING", "Parts Requisition Monitoring", "/web/dashboard/parts-requisition", "inbox"),
+    ("SETTINGS", "Profile", "/web/dashboard/profile", "user"),
 ]
 
 
 def nav(active):
-    return [{"label": label, "href": href, "active": href == active} for label, href in NAV]
+    sections = []
+    section_map = {}
+    for group, label, href, icon in NAV:
+        if group not in section_map:
+            section_map[group] = {"group": group, "items": []}
+            sections.append(section_map[group])
+        section_map[group]["items"].append({"label": label, "href": href, "icon": icon, "active": href == active})
+    return sections
 
 
 def field(name, label, kind="text", options=None, required=False):

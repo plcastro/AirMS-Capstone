@@ -24,6 +24,27 @@ def _oid(v):
         return None
 
 
+def _primary_col(db):
+    return db.partsrequisitions
+
+
+def _legacy_col(db):
+    return db.parts_requisitions
+
+
+def _sort_token(row):
+    value = row.get('createdAt') or row.get('updatedAt') or row.get('dateRequested')
+    if isinstance(value, datetime):
+        return value.timestamp()
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp()
+        except ValueError:
+            pass
+    oid = row.get('_id')
+    return oid.generation_time.timestamp() if isinstance(oid, ObjectId) else 0.0
+
+
 def _ser(d):
     def _convert(value):
         if isinstance(value, datetime):
@@ -45,7 +66,11 @@ def _ser(d):
 def get_all_requisition():
     try:
         db = get_db()
-        rows = list(db.partsrequisitions.find({}).sort('createdAt', -1))
+        primary_rows = list(_primary_col(db).find({}))
+        legacy_rows = list(_legacy_col(db).find({}))
+        rows_by_id = {str(row.get('_id')): row for row in primary_rows + legacy_rows}
+        rows = list(rows_by_id.values())
+        rows.sort(key=_sort_token, reverse=True)
         return jsonify({"success": True, "data": [_ser(r) for r in rows]})
     except Exception as exc:
         return jsonify({
@@ -62,8 +87,9 @@ def create_requisition():
     p.setdefault('status', 'Pending')
     p.setdefault('createdAt', _utcnow())
     p.setdefault('updatedAt', _utcnow())
-    res = db.partsrequisitions.insert_one(p)
-    row = db.partsrequisitions.find_one({'_id': res.inserted_id})
+    res = _primary_col(db).insert_one(p)
+    _legacy_col(db).replace_one({'_id': res.inserted_id}, p, upsert=True)
+    row = _primary_col(db).find_one({'_id': res.inserted_id})
     return jsonify({"success": True, "message": "Requisition created", "data": _ser(row)})
 
 
@@ -72,9 +98,11 @@ def update_requisition(id):
     db = get_db()
     p = request.get_json(silent=True) or {}
     p['updatedAt'] = _utcnow()
-    row = db.partsrequisitions.find_one_and_update({'_id': _oid(id)}, {'$set': p}, return_document=ReturnDocument.AFTER)
-    if not row:
+    oid = _oid(id)
+    row = _primary_col(db).find_one_and_update({'_id': oid}, {'$set': p}, return_document=ReturnDocument.AFTER)
+    legacy_row = _legacy_col(db).find_one_and_update({'_id': oid}, {'$set': p}, return_document=ReturnDocument.AFTER)
+    if not row and not legacy_row:
         return jsonify({"success": False, "message": "Requisition not found"}), 404
-    return jsonify({"success": True, "message": "Requisition updated", "data": _ser(row)})
+    return jsonify({"success": True, "message": "Requisition updated", "data": _ser(row or legacy_row)})
 
 

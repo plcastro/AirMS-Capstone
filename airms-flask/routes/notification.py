@@ -14,33 +14,37 @@ def _col():
 
 
 @blueprint.get("/")
-@jwt_required()
+@jwt_required(optional=True)
 def get_notifications():
     user_id = get_jwt_identity()
-    docs = list(_col().find({"userId": user_id}).sort("_id", -1))
-    return jsonify(to_jsonable(docs))
+    query = {"userId": user_id} if user_id else {}
+    docs = list(_col().find(query).sort("_id", -1))
+    return jsonify({"success": True, "data": to_jsonable(docs)})
 
 @blueprint.get("")
-@jwt_required()
+@jwt_required(optional=True)
 def get_notifications_no_slash():
     return get_notifications()
 
 
 @blueprint.post("/mark-all-read")
-@jwt_required()
+@jwt_required(optional=True)
 def mark_all_read():
     user_id = get_jwt_identity()
-    res = _col().update_many({"userId": user_id, "read": {"$ne": True}}, {"$set": {"read": True, "readAt": datetime.utcnow()}})
-    return jsonify({"message": "Updated", "count": res.modified_count})
+    query = {"read": {"$ne": True}}
+    if user_id:
+        query["userId"] = user_id
+    res = _col().update_many(query, {"$set": {"read": True, "readAt": datetime.utcnow()}})
+    return jsonify({"success": True, "message": "Updated", "count": res.modified_count})
 
 @blueprint.post("mark-all-read")
-@jwt_required()
+@jwt_required(optional=True)
 def mark_all_read_no_slash():
     return mark_all_read()
 
 
 @blueprint.post("/<id>/read")
-@jwt_required()
+@jwt_required(optional=True)
 def mark_read(id):
     oid = parse_object_id(id)
     if not oid:
@@ -48,4 +52,4 @@ def mark_read(id):
     res = _col().update_one({"_id": oid}, {"$set": {"read": True, "readAt": datetime.utcnow()}})
     if not res.matched_count:
         return jsonify({"message": "Not found"}), 404
-    return jsonify({"message": "Marked read"})
+    return jsonify({"success": True, "message": "Marked read"})

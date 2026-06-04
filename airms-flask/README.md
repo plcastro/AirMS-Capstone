@@ -1,17 +1,19 @@
 # AirMS Flask Conversion
 
-This folder is the Flask/Jinja conversion of the AirMS web client. It serves Flask-rendered pages under `/web/...` and uses Python/Flask API routes for the CRUD workflows.
+This folder now supports a React frontend paired with a Flask backend. React lives in `client-web/`, while Flask serves the API and uploaded files.
 
 ## Structure
 
-- `app.py` / `run.py`: canonical Flask application entrypoint
-- `routes/`: Python API routes used by the Flask web pages
-- `templates/`: Flask/Jinja pages converted from the React client-web routes
-- `static/`: CSS and browser JavaScript used by the Flask pages
-
-The older `server/`, `django_airms/`, and nested `client-web/` folders are legacy migration artifacts and are not the canonical run path.
+- `run.py`: canonical Flask application entrypoint
+- `app.py`: Flask app factory and API wiring
+- `routes/`: Python API routes
+- `client-web/`: React app
+- `templates/`: only needed for Flask-rendered pages; not required for a pure React UI
+- `static/`: assets used by Flask-rendered pages and uploads
 
 ## Run
+
+### Backend
 
 ```bash
 cd airms-flask
@@ -21,6 +23,18 @@ pip install -r requirements.txt
 python run.py
 ```
 
-By default the app runs at: `http://127.0.0.1:5173`
+By default the Flask backend runs at: `http://127.0.0.1:5000`
 
-Open the Flask web app at: `http://127.0.0.1:5173/web/login`
+### Frontend
+
+```bash
+cd airms-flask/client-web
+npm install
+npm run dev
+```
+
+React runs at `http://127.0.0.1:5173` and proxies `/api` and `/uploads` to Flask.
+
+### Production
+
+Build the React app with `npm run build` inside `client-web/`, then serve `client-web/dist` from Flask if you want a single deployed app.

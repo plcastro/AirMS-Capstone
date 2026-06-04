@@ -26,7 +26,9 @@ import WRSTable from "../tables/WRSTable";
 const { Paragraph, Text, Title } = Typography;
 
 const normalizeRequisitionStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "pending":
@@ -57,7 +59,9 @@ const normalizeRequisitionStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "ready for pickup":
@@ -141,7 +145,10 @@ const getItemStockStatus = (record, availQty) => {
     return "Cancelled";
   }
 
-  if (currentItemStatus === "To Be Ordered" || currentItemStatus === "Ordered") {
+  if (
+    currentItemStatus === "To Be Ordered" ||
+    currentItemStatus === "Ordered"
+  ) {
     return availQty >= record.quantity ? "Ordered" : "To Be Ordered";
   }
 
@@ -158,7 +165,7 @@ export default function WRSModal({
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const isWarehouseDepartment = userRole === "warehouse department";
   const isMaintenanceReviewer = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
@@ -180,7 +187,7 @@ export default function WRSModal({
     (selectedRecord.items || []).forEach((item) => {
       nextMap[item._id] = isInitialStockReview
         ? undefined
-        : item.availableQty ?? item.availQty;
+        : (item.availableQty ?? item.availQty);
     });
     setAvailQtyMap(nextMap);
     setPersistedQtyMap(nextMap);
@@ -260,7 +267,9 @@ export default function WRSModal({
   const allRestockItemsReady = useMemo(
     () =>
       (selectedRecord?.items || [])
-        .filter((item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered")
+        .filter(
+          (item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered",
+        )
         .every((item) => {
           const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
           return persistedValue >= Number(item.quantity || 0);
@@ -300,7 +309,8 @@ export default function WRSModal({
 
       return {
         title: "Delivery",
-        description: "Warehouse can now mark this approved requisition as delivered.",
+        description:
+          "Warehouse can now mark this approved requisition as delivered.",
         buttonText: "Mark Delivered",
         disabled: false,
       };
@@ -309,7 +319,8 @@ export default function WRSModal({
     if (currentStatus === "Delivered" || currentStatus === "Cancelled") {
       return {
         title: "Completed",
-        description: "No further warehouse action is needed for this requisition.",
+        description:
+          "No further warehouse action is needed for this requisition.",
         buttonText: "Done",
         disabled: true,
       };
@@ -353,10 +364,9 @@ export default function WRSModal({
 
       return {
         title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
-        description:
-          hasUnsavedStockChanges
-            ? "Save the edited stock quantities first."
-            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        description: hasUnsavedStockChanges
+          ? "Save the edited stock quantities first."
+          : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
         buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
         disabled: hasUnsavedStockChanges
           ? !allQuantitiesFilled
@@ -385,11 +395,12 @@ export default function WRSModal({
     }
 
     return {
-      title: isWarehouseDepartment ? "Stock Review" : "Awaiting Warehouse Review",
-      description:
-        isWarehouseDepartment
-          ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
-          : "Warehouse is currently reviewing stock availability for this requisition.",
+      title: isWarehouseDepartment
+        ? "Stock Review"
+        : "Awaiting Warehouse Review",
+      description: isWarehouseDepartment
+        ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
+        : "Warehouse is currently reviewing stock availability for this requisition.",
       buttonText: isWarehouseDepartment ? "Submit Stock Review" : "Waiting",
       disabled: isWarehouseDepartment ? !allQuantitiesFilled : true,
     };
@@ -406,7 +417,11 @@ export default function WRSModal({
     selectedRecord,
   ]);
 
-  const updateRequisition = async (payload, successMessage, shouldClose = true) => {
+  const updateRequisition = async (
+    payload,
+    successMessage,
+    shouldClose = true,
+  ) => {
     setSubmitting(true);
 
     try {
@@ -433,7 +448,9 @@ export default function WRSModal({
           responseStatus: response.status,
           errorPayload,
         });
-        throw new Error(errorPayload?.message || "Failed to update requisition");
+        throw new Error(
+          errorPayload?.message || "Failed to update requisition",
+        );
       }
 
       message.success(successMessage);
@@ -489,7 +506,8 @@ export default function WRSModal({
       await updateRequisition(
         {
           status: nextReviewerStatus,
-          approvedBy: nextReviewerStatus === "Approved" ? reviewerName : undefined,
+          approvedBy:
+            nextReviewerStatus === "Approved" ? reviewerName : undefined,
           approvedAt:
             nextReviewerStatus === "Approved"
               ? new Date().toISOString()
@@ -503,7 +521,9 @@ export default function WRSModal({
     }
 
     if (isMaintenanceReviewer && currentStatus === "Ordered") {
-      const confirmed = await confirmSubmit("Approve this restocked requisition?");
+      const confirmed = await confirmSubmit(
+        "Approve this restocked requisition?",
+      );
       if (!confirmed) return;
       await updateRequisition(
         {
@@ -534,7 +554,9 @@ export default function WRSModal({
           warehouseBy: warehouseName,
           items: (selectedRecord.items || []).map((item) => ({
             ...item,
-            availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+            availableQty: Number(
+              availQtyMap[item._id] ?? item.availableQty ?? 0,
+            ),
             stockStatus: "Delivered",
           })),
         },
@@ -543,8 +565,10 @@ export default function WRSModal({
       return;
     }
 
-      const updatedItems = (selectedRecord.items || []).map((item) => {
-      const availableQty = Number(availQtyMap[item._id] ?? item.availableQty ?? 0);
+    const updatedItems = (selectedRecord.items || []).map((item) => {
+      const availableQty = Number(
+        availQtyMap[item._id] ?? item.availableQty ?? 0,
+      );
 
       return {
         ...item,
@@ -663,8 +687,8 @@ export default function WRSModal({
             Warehouse Requisition Details
           </Title>
           <Text type="secondary">
-            Review stock, confirm ordered items, and mark approved requisitions as
-            delivered.
+            Review stock, confirm ordered items, and mark approved requisitions
+            as delivered.
           </Text>
         </div>
       }

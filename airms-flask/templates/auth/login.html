@@ -1,12 +1,22 @@
 {% extends "layouts/auth_base.html" %}
 {% block content %}
 <form action="/api/user/login" method="post" data-login-form>
-  <div class="field"><label>Username or Email</label><input name="identifier" required /></div>
-  <div class="field"><label>Password</label><input type="password" name="password" required /></div>
-  <div class="field"><label>Base</label><select name="base"><option>MANILA</option><option>CEBU</option><option>CDO</option></select></div>
-  <label class="check-row"><input type="checkbox" name="rememberMe" /> Stay signed in</label>
-  <button type="submit">Login</button>
-  <p class="auth-links"><a href="/web/forgot">Forgot password?</a></p>
+  <div class="field"><label>Username or Email</label><input name="identifier" placeholder="Enter username or email" autocomplete="username" required /></div>
+  <div class="field"><label>Password</label><input type="password" name="password" placeholder="Enter password" autocomplete="current-password" required /></div>
+  <div class="field">
+    <label>Logging in from</label>
+    <select name="base" required>
+      <option value="">Select base</option>
+      <option value="MANILA">Manila</option>
+      <option value="CEBU">Cebu</option>
+      <option value="CDO">CDO</option>
+    </select>
+  </div>
+  <div class="login-options">
+    <label class="check-row"><input type="checkbox" name="rememberMe" /> Stay signed in</label>
+    <a href="/web/forgot">Forgot password?</a>
+  </div>
+  <button type="submit" class="login-btn">LOGIN</button>
 </form>
 <pre class="muted" data-login-result></pre>
 {% endblock %}
