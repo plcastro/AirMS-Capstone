@@ -6,6 +6,7 @@ from utils.mongo_helpers import to_jsonable
 blueprint = Blueprint("admin_activity", __name__)
 
 
+@blueprint.get("")
 @blueprint.get("/")
 def get_activity_logs():
     limit = int(request.args.get("limit", 200))

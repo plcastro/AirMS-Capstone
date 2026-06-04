@@ -1,0 +1,49 @@
+{% extends "layouts/dashboard_base.html" %}
+{% block content %}
+<section class="parts-page" data-maintenance-priority-page>
+  <section class="card logbook-toolbar">
+    <div>
+      <h3>Adjustable Rule-Based Maintenance Ranking</h3>
+      <p class="muted">Adjust rule thresholds to control schedule escalation.</p>
+    </div>
+    <div class="field">
+      <label for="priority-search">Search</label>
+      <input id="priority-search" type="search" placeholder="Search aircraft or inspection" data-priority-search />
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn ghost" data-priority-toggle-rules>Show Controls</button>
+      <button type="button" class="btn ghost" data-priority-refresh>Refresh</button>
+    </div>
+  </section>
+
+  <section class="card" data-priority-rules hidden>
+    <h3>Maintenance Manager Rule Controls</h3>
+    <div class="form-grid">
+      <div class="field"><label>Critical if due within days</label><input type="number" min="0" data-rule="criticalDueDays" /></div>
+      <div class="field"><label>Critical remaining hours</label><input type="number" min="0" data-rule="criticalRemainingHours" /></div>
+      <div class="field"><label>High if due within days</label><input type="number" min="0" data-rule="highDueDays" /></div>
+      <div class="field"><label>High remaining hours</label><input type="number" min="0" data-rule="highRemainingHours" /></div>
+      <div class="field"><label>Medium if due within days</label><input type="number" min="0" data-rule="mediumDueDays" /></div>
+      <div class="field"><label>Long turnaround threshold hrs</label><input type="number" min="0" data-rule="longTurnaroundHours" /></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" data-priority-apply>Apply Rules</button>
+      <button type="button" class="btn ghost" data-priority-save-rules>Save as Default</button>
+      <button type="button" class="btn danger" data-priority-reset>Reset Rules</button>
+    </div>
+  </section>
+
+  <section class="card-grid" data-priority-stats></section>
+  <section class="card" data-priority-meta></section>
+
+  <section class="card table-card">
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Rank</th><th>Aircraft</th><th>Model</th><th>Next Inspection</th><th>Remaining</th><th>Calendar Due</th><th>Due Basis</th><th>Turnaround</th><th>Priority</th><th>Decision Basis</th><th>Rule Trigger</th></tr></thead>
+        <tbody data-priority-table><tr><td colspan="11" class="muted">Loading priority ranking...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</section>
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
+{% endblock %}

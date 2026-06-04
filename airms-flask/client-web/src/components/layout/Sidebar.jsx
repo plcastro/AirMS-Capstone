@@ -17,7 +17,7 @@ import {
 import AirMS_web from "../../assets/AirMS_web.png";
 import AirMS_logo from "../../assets/AirMS_logo.png";
 import { AuthContext } from "../../context/AuthContext";
-import { hasNavAccess } from "../../../../shared/navigationAccess";
+import { hasNavAccess } from "../../config/navigationAccess";
 
 const { useBreakpoint } = Grid;
 
@@ -235,8 +235,8 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const filteredItems = menuItems
     .map((item) => {
       if (item.children) {
-        const filteredChildren = item.children.filter(
-          (child) => hasNavAccess(role, child.accessKey),
+        const filteredChildren = item.children.filter((child) =>
+          hasNavAccess(role, child.accessKey),
         );
 
         if (!filteredChildren.length) return null;
@@ -290,7 +290,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   useEffect(() => {
     const key =
-      routeToKey[location.pathname] || (role === "admin" ? "2" : "11");
+      routeToKey[location.pathname] || (role === "superadmin" ? "2" : "11");
     setCurrent(key);
   }, [location.pathname, routeToKey, role]);
 
@@ -301,7 +301,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     );
     navigate(
       routes[e.key] ||
-        (role === "admin"
+        (role === "superadmin"
           ? "/dashboard/user-management/view-users"
           : "/dashboard/profile"),
     );

@@ -15,6 +15,33 @@ const buildSafeFileName = (value) =>
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
+const normalizeSection = (section = {}) => {
+  const rows = Array.isArray(section.rows) ? section.rows : [];
+  const columns =
+    Array.isArray(section.columns) && section.columns.length
+      ? section.columns
+      : ["Metric", "Value"];
+
+  return {
+    title: section.title || "Report",
+    columns,
+    rows: rows.map((row) => {
+      if (Array.isArray(row)) return row;
+      if (row && typeof row === "object") {
+        if ("label" in row || "value" in row) {
+          return [row.label ?? "", row.value ?? ""];
+        }
+
+        return columns.map((column) => row[column] ?? row[String(column).toLowerCase()] ?? "");
+      }
+
+      return [row ?? ""];
+    }),
+  };
+};
+
+const normalizeSections = (sections = []) => sections.map(normalizeSection);
+
 const buildHtml = (title, sections) => `
 <!doctype html>
 <html>
@@ -74,7 +101,8 @@ const buildCsv = (sections) =>
     .join("\n");
 
 export const exportReportPdf = async ({ title = "Analytics Report", sections = [] }) => {
-  const html = buildHtml(title, sections);
+  const normalizedSections = normalizeSections(sections);
+  const html = buildHtml(title, normalizedSections);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(title)} Numbers.pdf`;
   await FileSystem.copyAsync({ from: uri, to: finalUri });
@@ -91,7 +119,8 @@ export const exportReportPdf = async ({ title = "Analytics Report", sections = [
 };
 
 export const exportReportCsv = async ({ title = "analytics-report", sections = [] }) => {
-  const csv = buildCsv(sections);
+  const normalizedSections = normalizeSections(sections);
+  const csv = buildCsv(normalizedSections);
   const fileName = `${buildSafeFileName(title)} Numbers.csv`;
   const uri = `${FileSystem.cacheDirectory}${fileName}`;
 

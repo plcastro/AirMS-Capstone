@@ -25,7 +25,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const ROLE_MAP = {
-  Admin: "Admin",
+  Superadmin: "Superadmin",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
@@ -439,7 +439,7 @@ export default function UserForm({
                   <Select
                     size="large"
                     options={[
-                      { label: "Admin", value: "Admin" },
+                      { label: "Superadmin", value: "Superadmin" },
                       {
                         label: "Maintenance Manager",
                         value: "Maintenance Manager",

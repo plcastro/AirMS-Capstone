@@ -5,6 +5,7 @@ from . import admin_security_alert
 from . import aircraft
 from . import flight_log
 from . import inspection
+from . import logs
 from . import maintenance_log
 from . import message
 from . import notification
@@ -22,6 +23,7 @@ def register_blueprints(app):
         (aircraft.blueprint, "/api/aircraft"),
         (task.blueprint, "/api/tasks"),
         (inspection.blueprint, "/api/inspections"),
+        (logs.blueprint, "/api/logs"),
         (pre_inspection.blueprint, "/api/pre-inspections"),
         (post_inspection.blueprint, "/api/post-inspections"),
         (flight_log.blueprint, "/api/flightlogs"),

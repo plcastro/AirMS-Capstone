@@ -1,28 +1,85 @@
 <!doctype html>
 <html lang="en">
 <head>
-  {% load static %}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ title or 'AirMS Dashboard' }}</title>
-  <link rel="stylesheet" href="{% static 'css/flask_web.css' %}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/flask_web.css') }}" />
 </head>
-<body>
-  <header class="top-nav">
-    <div class="brand">AirMS</div>
-    <div class="user-pill">Flask Web</div>
-  </header>
   <div class="app-shell">
     <aside class="side-nav">
-      {% for item in nav_items %}
-      <a href="{{ item.href }}" class="nav-link {% if item.active %}active{% endif %}">{{ item.label }}</a>
+      <a class="side-brand" href="/web/dashboard/maintenance-dashboard" aria-label="AirMS dashboard">
+        <img src="{{ url_for('static', filename='img/AirMS_web.png') }}" alt="AirMS" />
+      </a>
+      <nav class="side-menu" aria-label="Dashboard navigation">
+      {% for section in nav_items %}
+        <section class="nav-group">
+          <p class="nav-group-label">{{ section.group }}</p>
+          {% for item in section["items"] %}
+          <a href="{{ item.href }}" class="nav-link {% if item.active %}active{% endif %}" data-icon="{{ item.icon }}">
+            <span class="nav-icon" aria-hidden="true"></span>
+            <span>{{ item.label }}</span>
+          </a>
+          {% endfor %}
+        </section>
       {% endfor %}
+      </nav>
+      <div class="side-footer">
+        <button type="button" class="btn danger sidebar-logout" data-logout>Logout</button>
+      </div>
     </aside>
-    <main class="page-content">
-      <h2>{{ title }}</h2>
-      {% block content %}{% endblock %}
-    </main>
+    <section class="main-shell">
+      <header class="top-nav">
+        <div class="top-title">
+          <button type="button" class="icon-btn menu-toggle" data-sidebar-toggle aria-label="Toggle navigation"><span></span></button>
+          <div>
+            <h1>{{ title }}</h1>
+            <p>{{ subtitle or 'Dashboard' }}</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button type="button" class="icon-btn notification-btn" data-notifications-open aria-label="Notifications">
+            <span class="bell-shape" aria-hidden="true"></span>
+            <span class="notification-count" data-notification-count hidden>0</span>
+          </button>
+          <button type="button" class="user-chip" data-profile-link>
+            <span class="user-avatar" data-user-avatar>U</span>
+            <span class="user-chip-copy" id="current-user-pill">Flask Web</span>
+          </button>
+        </div>
+      </header>
+      <main class="page-content">
+        {% block content %}{% endblock %}
+      </main>
+    </section>
   </div>
-<script src="{% static 'js/flask_web.js' %}"></script>
+  <dialog class="modal session-modal" data-session-warning>
+    <section class="modal-panel">
+      <div class="modal-head">
+        <h3>Session Timeout Warning</h3>
+      </div>
+      <p class="muted">You've been inactive for a while. You will be signed out unless you continue your session.</p>
+      <p>Auto sign-out in <strong data-warning-seconds>15</strong> seconds.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-logout>Sign out now</button>
+        <button type="button" class="btn" data-continue-session>Continue session</button>
+      </div>
+    </section>
+  </dialog>
+  <dialog class="modal notification-modal" data-notifications-dialog>
+    <section class="modal-panel">
+      <div class="modal-head">
+        <h3>Notifications</h3>
+        <button type="button" class="icon-btn" data-notifications-close aria-label="Close">x</button>
+      </div>
+      <div class="list-panel" data-notifications-list>
+        <p class="muted">Loading notifications...</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-mark-all-notifications>Mark all read</button>
+      </div>
+    </section>
+  </dialog>
+<script src="{{ url_for('static', filename='js/flask_web.js') }}"></script>
 </body>
 </html>

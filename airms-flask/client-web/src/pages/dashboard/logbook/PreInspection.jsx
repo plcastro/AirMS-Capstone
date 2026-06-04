@@ -439,7 +439,7 @@ export default function PreInspection() {
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
   const canCreate = role !== "pilot" && !readOnly;
-  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
   const canAccept = role === "pilot";
@@ -456,7 +456,9 @@ export default function PreInspection() {
     getDisplayStatus(record?.status) === "released" &&
     !record?.acceptedBy?.name;
   const isRecordReadOnly = (record) =>
-    readOnly || isCompletedInspection(record) || getDisplayStatus(record?.status) === "released";
+    readOnly ||
+    isCompletedInspection(record) ||
+    getDisplayStatus(record?.status) === "released";
   const getRecordActionLabel = (record) =>
     isAcceptableByPilot(record) ? "Accept" : "View";
 
@@ -679,8 +681,7 @@ export default function PreInspection() {
 
     const confirmed = await confirmAction({
       title: "Release Pre-Inspection",
-      content:
-        "This will create and release the pre-inspection log. Continue?",
+      content: "This will create and release the pre-inspection log. Continue?",
       okText: "Release",
     });
     if (confirmed) setSignatureMode("create-release");
@@ -1110,9 +1111,7 @@ export default function PreInspection() {
           style: { display: editingReadOnly ? "none" : undefined },
         }}
         title={
-          editingCanAccept
-            ? "Accept Pre-Inspection"
-            : "View Pre-Inspection"
+          editingCanAccept ? "Accept Pre-Inspection" : "View Pre-Inspection"
         }
         okText="Save"
         cancelText="Close"
@@ -1223,20 +1222,14 @@ export default function PreInspection() {
                 editing.status === "pending" &&
                 !editing.releasedBy?.name &&
                 !editingReadOnly && (
-                  <Button
-                    type="primary"
-                    onClick={requestEditRelease}
-                  >
+                  <Button type="primary" onClick={requestEditRelease}>
                     Release
                   </Button>
                 )}
               {canAccept &&
                 editing.status === "released" &&
                 !editing.acceptedBy?.name && (
-                  <Button
-                    type="primary"
-                    onClick={requestAccept}
-                  >
+                  <Button type="primary" onClick={requestAccept}>
                     Accept / Complete
                   </Button>
                 )}

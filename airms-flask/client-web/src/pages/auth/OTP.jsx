@@ -96,13 +96,18 @@ export default function OTP() {
             rememberMe: Boolean(params.rememberMe),
             base: data.user?.base || params.base,
             sessionId: data.sessionId || data.user?.sessionId,
+            refreshToken: data.refreshToken,
           });
 
           message.success("Login verified");
           const role = String(data?.user?.jobTitle || "").toLowerCase();
-          if (role === "admin") navigate("/dashboard/user-management/view-users");
+          if (role === "superadmin")
+            navigate("/dashboard/user-management/view-users");
           else if (role === "mechanic") navigate("/dashboard/maintenance-log");
-          else if (role === "maintenance manager" || role === "officer-in-charge")
+          else if (
+            role === "maintenance manager" ||
+            role === "officer-in-charge"
+          )
             navigate("/dashboard/maintenance-dashboard");
           else if (role === "warehouse department")
             navigate("/dashboard/parts-requisition");
@@ -135,8 +140,7 @@ export default function OTP() {
         mode === "login-2fa"
           ? `${API_BASE}/api/user/login/resend-otp`
           : `${API_BASE}/api/user/request-password-reset`;
-      const resendPayload =
-        mode === "login-2fa" ? { token } : { email };
+      const resendPayload = mode === "login-2fa" ? { token } : { email };
 
       const res = await fetch(resendEndpoint, {
         method: "POST",
@@ -159,7 +163,9 @@ export default function OTP() {
 
   return (
     <LoginLayout
-      title={mode === "login-2fa" ? "Login Verification" : "Account Verification"}
+      title={
+        mode === "login-2fa" ? "Login Verification" : "Account Verification"
+      }
       subtitle={`Enter the 6-digit code sent to ${maskedEmail || (email ? maskEmail(email) : "your email")}`}
     >
       <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
@@ -188,7 +194,10 @@ export default function OTP() {
       </Button>
       {mode === "login-2fa" && (
         <div style={{ marginBottom: 10 }}>
-          <Checkbox checked={trustDevice} onChange={(e) => setTrustDevice(e.target.checked)}>
+          <Checkbox
+            checked={trustDevice}
+            onChange={(e) => setTrustDevice(e.target.checked)}
+          >
             Trust this device for 30 days
           </Checkbox>
         </div>

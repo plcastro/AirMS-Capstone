@@ -134,7 +134,7 @@ export default function PartsReqMonitoring() {
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const allowedRoles = [
-    "admin",
+    "superadmin",
     "warehouse department",
     "maintenance manager",
     "officer-in-charge",
@@ -142,13 +142,13 @@ export default function PartsReqMonitoring() {
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
   const isManager = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
   const isWarehouseDepartment = userRole === "warehouse department";
   const canRequestParts = ![
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
     "warehouse department",
@@ -295,7 +295,9 @@ export default function PartsReqMonitoring() {
         if (isWarehouseDepartment && normalizedSelectedStatus === "pending") {
           return getWarehouseStatusBucket(record) === "pending";
         }
-        if (["pending", "approved", "closed"].includes(normalizedSelectedStatus)) {
+        if (
+          ["pending", "approved", "closed"].includes(normalizedSelectedStatus)
+        ) {
           return getStatusBucket(record) === normalizedSelectedStatus;
         }
         return getEffectiveStatus(record) === normalizedSelectedStatus;
@@ -358,10 +360,14 @@ export default function PartsReqMonitoring() {
       }
 
       const data = await response.json();
+      const requisitionsPayload = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
 
-      // console.log("Requisitions:", data);
       setRequisitions(
-        Array.isArray(data) ? data.map(normalizeRequisitionRecord) : [],
+        requisitionsPayload.map(normalizeRequisitionRecord),
       );
     } catch (err) {
       console.error("Fetch error:", err);
@@ -494,7 +500,7 @@ export default function PartsReqMonitoring() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.message || "Failed to create requisition");
+        throw new Error(data?.message || data?.error || "Failed to create requisition");
       }
 
       message.success(`${nextSlipNo} added successfully.`);

@@ -1,0 +1,37 @@
+{% extends "layouts/dashboard_base.html" %}
+{% block content %}
+<section class="maintenance-log-page" data-maintenance-log-page>
+  <section class="card logbook-toolbar">
+    <div>
+      <span class="muted">MAINTENANCE LOGBOOK</span>
+      <h3>Aircraft Maintenance Logs</h3>
+    </div>
+    <div class="field">
+      <label for="maintenance-search">Search</label>
+      <input id="maintenance-search" type="search" placeholder="Search aircraft, task, defects, reporter" data-maintenance-search />
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn ghost" data-maintenance-back hidden>Back</button>
+      <button type="button" class="btn ghost" data-maintenance-refresh>Refresh</button>
+      <button type="button" class="btn" data-maintenance-export hidden>Export</button>
+    </div>
+  </section>
+
+  <section class="card-grid maintenance-aircraft-grid" data-maintenance-aircraft></section>
+
+  <section class="card" data-maintenance-aircraft-detail hidden></section>
+
+  <section class="card table-card" data-maintenance-workorders hidden>
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>W.O. #</th><th>Date</th><th>Task Title</th><th>Status</th></tr></thead>
+        <tbody data-maintenance-workorder-table></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card maintenance-report" data-maintenance-report hidden></section>
+</section>
+
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
+{% endblock %}
