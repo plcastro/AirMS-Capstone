@@ -1,4 +1,13 @@
 {% extends "layouts/dashboard_base.html" %}
 {% block content %}
-<div class="card"><h3>Profile</h3><p class="muted">Manage user details, password, and signature specimen.</p></div>
+<section class="card profile-card">
+  <h3>Current User</h3>
+  <dl class="profile-list" data-profile-details></dl>
+</section>
+<section class="card">
+  <h3>Session</h3>
+  <p class="muted">This Flask conversion stores the active web session in browser storage after login, then uses the token for protected API fetches.</p>
+  <button type="button" class="btn ghost" data-logout>Logout</button>
+</section>
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
 {% endblock %}

@@ -1,0 +1,47 @@
+{% extends "layouts/dashboard_base.html" %}
+{% block content %}
+<section class="toolbar">
+  <div class="search-box">
+    <label for="page-search">Search</label>
+    <input id="page-search" type="search" placeholder="Filter visible records" data-page-search />
+  </div>
+  <div class="toolbar-actions">
+    <button type="button" class="btn ghost" data-refresh>Refresh</button>
+    {% if not page.readonly %}
+    <button type="button" class="btn" data-open-create>New Record</button>
+    {% endif %}
+  </div>
+</section>
+
+{% if page.dashboard %}
+<section class="card-grid" data-dashboard-cards></section>
+{% endif %}
+
+<section class="card table-card">
+  <div class="table-scroll">
+    <table class="table" data-crud-table>
+      <thead></thead>
+      <tbody>
+        <tr><td class="muted">Loading records...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<dialog class="modal" data-record-dialog>
+  <form method="dialog" class="modal-panel" data-record-form>
+    <div class="modal-head">
+      <h3 data-dialog-title>New Record</h3>
+      <button type="button" class="icon-btn" data-close-dialog aria-label="Close">x</button>
+    </div>
+    <div class="form-grid" data-form-fields></div>
+    <pre class="form-status" data-form-status></pre>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close-dialog>Cancel</button>
+      <button type="submit" class="btn">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
+{% endblock %}

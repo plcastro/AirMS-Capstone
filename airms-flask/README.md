@@ -1,11 +1,15 @@
-# AirMS Flask (Python Replica)
+# AirMS Flask Conversion
 
-This folder is a Python/Flask replica layout of the existing AirMS `client-web` + `server` setup.
+This folder is the Flask/Jinja conversion of the AirMS web client. It serves Flask-rendered pages under `/web/...` and uses Python/Flask API routes for the CRUD workflows.
 
 ## Structure
 
-- `server/`: Flask backend and HTML template rendering
-- `client-web/static/`: Static frontend assets (CSS, JS, images)
+- `app.py` / `run.py`: canonical Flask application entrypoint
+- `routes/`: Python API routes used by the Flask web pages
+- `templates/`: Flask/Jinja pages converted from the React client-web routes
+- `static/`: CSS and browser JavaScript used by the Flask pages
+
+The older `server/`, `django_airms/`, and nested `client-web/` folders are legacy migration artifacts and are not the canonical run path.
 
 ## Run
 
@@ -14,7 +18,9 @@ cd airms-flask
 python -m venv .venv
 .venv\\Scripts\\activate
 pip install -r requirements.txt
-python server/app.py
+python run.py
 ```
 
-App runs at: `http://127.0.0.1:5000`
+By default the app runs at: `http://127.0.0.1:5173`
+
+Open the Flask web app at: `http://127.0.0.1:5173/web/login`

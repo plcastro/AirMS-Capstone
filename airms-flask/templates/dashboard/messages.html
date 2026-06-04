@@ -1,4 +1,29 @@
 {% extends "layouts/dashboard_base.html" %}
 {% block content %}
-<div class="card"><h3>Messages</h3><p class="muted">Conversation list and chat thread preview.</p></div>
+<section class="messages-grid" data-messages-page>
+  <div class="card">
+    <div class="card-head">
+      <h3>Users</h3>
+      <button type="button" class="btn ghost small" data-load-message-users>Refresh</button>
+    </div>
+    <div class="list-panel" data-message-users></div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <h3>Conversations</h3>
+      <button type="button" class="btn ghost small" data-load-conversations>Refresh</button>
+    </div>
+    <div class="list-panel" data-conversations></div>
+  </div>
+  <div class="card thread-card">
+    <h3 data-thread-title>Thread</h3>
+    <div class="thread" data-thread></div>
+    <form class="send-row" data-send-message>
+      <input name="to" placeholder="Recipient user id" required />
+      <input name="body" placeholder="Message" required />
+      <button type="submit" class="btn">Send</button>
+    </form>
+  </div>
+</section>
+<script id="page-config" type="application/json">{{ page | tojson }}</script>
 {% endblock %}

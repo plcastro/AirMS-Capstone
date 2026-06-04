@@ -10,11 +10,13 @@ def _col():
     return get_db()["flight_logs"]
 
 
+@blueprint.get("")
 @blueprint.get("/")
 def list_items():
     return jsonify(to_jsonable(list(_col().find().sort("_id", -1))))
 
 
+@blueprint.post("")
 @blueprint.post("/")
 def create_item():
     body = request.get_json(silent=True) or {}

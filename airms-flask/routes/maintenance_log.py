@@ -26,6 +26,7 @@ def get_item(id):
     return jsonify(to_jsonable(doc))
 
 
+@blueprint.post("")
 @blueprint.post("/")
 def create_item():
     body = request.get_json(silent=True) or {}

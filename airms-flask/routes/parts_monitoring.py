@@ -10,6 +10,7 @@ def _col():
     return get_db()["parts_monitoring"]
 
 
+@blueprint.get("")
 @blueprint.get("/")
 def get_all():
     return jsonify(to_jsonable(list(_col().find().sort("_id", -1))))
