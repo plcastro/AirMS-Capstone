@@ -159,12 +159,13 @@
     window.location.href = "/web/login";
   };
 
-  const headers = (extra = {}) => {
+  const headers = (extra = {}, includeAuth = true) => {
     const token = getToken();
     const meta = getSessionMeta();
+
     return {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(includeAuth && token ? { Authorization: `Bearer ${token}` } : {}),
       ...(meta.base ? { "x-base": meta.base } : {}),
       ...(meta.sessionId ? { "x-session-id": meta.sessionId } : {}),
       "x-platform": meta.platform || "WEB",
@@ -208,7 +209,7 @@
     }
     const response = await fetch(url, {
       ...options,
-      headers: headers(options.headers || {}),
+      headers: headers(options.headers || {}, false),
     });
     const text = await response.text();
     let data = null;
@@ -283,6 +284,100 @@
       }));
     }
     return [];
+  };
+
+  const createTablePager = (
+    tableBody,
+    summaryRoot,
+    onChange,
+    initialPageSize = 10,
+  ) => {
+    if (!tableBody) {
+      return {
+        page: (rows) => rows,
+        reset: () => {},
+      };
+    }
+
+    let currentPage = 1;
+    let pageSize = initialPageSize;
+    const tableScroll = tableBody.closest(".table-scroll");
+    let bar =
+      summaryRoot?.closest(".pagination-bar") ||
+      tableScroll?.nextElementSibling;
+
+    if (!bar || !bar.classList.contains("pagination-bar")) {
+      bar = document.createElement("div");
+      bar.className = "pagination-bar";
+      tableScroll?.after(bar);
+    }
+
+    let summary = summaryRoot || $(".pagination-summary", bar);
+    if (!summary) {
+      summary = document.createElement("span");
+      summary.className = "muted pagination-summary";
+      bar.appendChild(summary);
+    }
+
+    let actions = $(".pagination-actions", bar);
+    if (!actions) {
+      actions = document.createElement("div");
+      actions.className = "pagination-actions";
+      bar.appendChild(actions);
+    }
+
+    actions.innerHTML = `
+      <select aria-label="Rows per page">
+        <option value="10">10 / page</option>
+        <option value="20">20 / page</option>
+        <option value="50">50 / page</option>
+      </select>
+      <button type="button" class="btn small ghost" data-page-prev>Prev</button>
+      <span class="muted" data-page-current></span>
+      <button type="button" class="btn small ghost" data-page-next>Next</button>
+    `;
+
+    const sizeSelect = $("select", actions);
+    const prev = $("[data-page-prev]", actions);
+    const next = $("[data-page-next]", actions);
+    const current = $("[data-page-current]", actions);
+    sizeSelect.value = String(pageSize);
+
+    const render = (total) => {
+      const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+      currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+      const start = total ? (currentPage - 1) * pageSize + 1 : 0;
+      const end = Math.min(currentPage * pageSize, total);
+      summary.textContent = total ? `${start}-${end} of ${total}` : "0 of 0";
+      current.textContent = `Page ${currentPage} of ${totalPages}`;
+      prev.disabled = currentPage <= 1;
+      next.disabled = currentPage >= totalPages;
+    };
+
+    sizeSelect.addEventListener("change", () => {
+      pageSize = Number(sizeSelect.value || initialPageSize);
+      currentPage = 1;
+      onChange?.();
+    });
+    prev.addEventListener("click", () => {
+      currentPage -= 1;
+      onChange?.();
+    });
+    next.addEventListener("click", () => {
+      currentPage += 1;
+      onChange?.();
+    });
+
+    return {
+      page: (rows) => {
+        render(rows.length);
+        const startIndex = (currentPage - 1) * pageSize;
+        return rows.slice(startIndex, startIndex + pageSize);
+      },
+      reset: () => {
+        currentPage = 1;
+      },
+    };
   };
 
   const valueAt = (row, key) => {
@@ -1150,6 +1245,7 @@
     let editingRow = null;
 
     const columns = config.columns || [];
+    const pager = createTablePager(tbody, null, () => renderTable());
 
     const renderDashboard = () => {
       if (!dashboardCards) return;
@@ -1169,11 +1265,12 @@
         JSON.stringify(row).toLowerCase().includes(query),
       );
       if (!filtered.length) {
+        pager.page(filtered);
         tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="muted">No records found.</td></tr>`;
         return;
       }
       tbody.innerHTML = "";
-      filtered.forEach((row) => {
+      pager.page(filtered).forEach((row) => {
         const tr = document.createElement("tr");
         columns.forEach((col) => {
           const td = document.createElement("td");
@@ -1351,6 +1448,7 @@
     ]);
     let users = [];
     let editingUser = null;
+    const pager = createTablePager(tableBody, null, () => renderTable());
 
     const imageUrl = (path) => {
       if (!path) return "";
@@ -1468,11 +1566,13 @@
     const renderTable = () => {
       const rows = visibleUsers();
       if (!rows.length) {
+        pager.page(rows);
         tableBody.innerHTML = `<tr><td colspan="9" class="muted">No users found.</td></tr>`;
         return;
       }
       const currentUserId = getUser()?.id;
-      tableBody.innerHTML = rows
+      tableBody.innerHTML = pager
+        .page(rows)
         .map((user) => {
           const id = getId(user);
           const status = String(user.status || "").toLowerCase();
@@ -1705,6 +1805,7 @@
     let fuelServicing = [];
     let oilServicing = [];
     let workItems = [];
+    const pager = createTablePager(tableBody, countRoot, () => renderTable());
 
     const componentFields = [
       ["airframe", "A/Frame"],
@@ -1958,13 +2059,13 @@
     };
     const renderTable = () => {
       const rows = filtered();
-      if (countRoot)
-        countRoot.textContent = `Showing ${rows.length} flight log(s)`;
       if (!rows.length) {
+        pager.page(rows);
         tableBody.innerHTML = `<tr><td colspan="6" class="muted">No flight logs found.</td></tr>`;
         return;
       }
-      tableBody.innerHTML = rows
+      tableBody.innerHTML = pager
+        .page(rows)
         .map((log) => {
           const id = getId(log);
           const status = comparableFlightStatus(log);
@@ -2500,6 +2601,7 @@
     let records = [];
     let editing = null;
     let signMode = "";
+    const pager = createTablePager(tableBody, countRoot, () => renderTable());
 
     const preFields = {
       "Station 1 and 2": [
@@ -2616,13 +2718,13 @@
     };
     const renderTable = () => {
       const rows = filtered();
-      if (countRoot)
-        countRoot.textContent = `Showing ${rows.length} ${kind}-inspection log(s)`;
       if (!rows.length) {
+        pager.page(rows);
         tableBody.innerHTML = `<tr><td colspan="7" class="muted">No inspections found.</td></tr>`;
         return;
       }
-      tableBody.innerHTML = rows
+      tableBody.innerHTML = pager
+        .page(rows)
         .map((record) => {
           const id = getId(record);
           const status = getDisplayStatus(record);
@@ -2906,6 +3008,7 @@
     let activeTab = isManager() ? "assigned" : "upcoming";
     let editingTask = null;
     let selectedTask = null;
+    const pager = createTablePager(tableBody, countRoot, () => renderTasks());
 
     const taskId = (task) => task.id || getId(task);
     const mechanicName = (user) =>
@@ -3047,12 +3150,13 @@
     const renderTasks = () => {
       renderTabs();
       const rows = displayedTasks();
-      countRoot.textContent = `Showing ${rows.length} task(s)`;
       if (!rows.length) {
+        pager.page(rows);
         tableBody.innerHTML = `<tr><td colspan="7" class="muted">No tasks found.</td></tr>`;
         return;
       }
-      tableBody.innerHTML = rows
+      tableBody.innerHTML = pager
+        .page(rows)
         .map((task) => {
           const id = taskId(task);
           const actions = [
@@ -3479,6 +3583,7 @@
     let tasks = [];
     let selected = null;
     let tab = "ongoing";
+    const pager = createTablePager(tableBody, null, () => render());
     const isCompletedTask = (task) =>
       ["completed", "turned in", "approved"].includes(
         String(task?.status || "").toLowerCase(),
@@ -3547,8 +3652,9 @@
         back.hidden = false;
         tableHead.innerHTML = `<tr><th>Task</th><th>Aircraft</th><th>Due</th><th>Status</th></tr>`;
         const rows = selectedTasks();
+        const pagedRows = pager.page(rows);
         tableBody.innerHTML = rows.length
-          ? rows
+          ? pagedRows
               .map(
                 (task) =>
                   `<tr><td>${escapeHtml(task.title || "-")}</td><td>${escapeHtml(task.aircraft || "-")}</td><td>${escapeHtml(task.endDateTime || task.dueDate || "-")}</td><td>${renderStatus(task.status || "-")}</td></tr>`,
@@ -3562,8 +3668,9 @@
       back.hidden = true;
       tableHead.innerHTML = `<tr><th>Name</th><th>Job Title</th><th>Platform</th><th>Active Tasks</th><th>Status</th></tr>`;
       const rows = mechanics();
+      const pagedRows = pager.page(rows);
       tableBody.innerHTML = rows.length
-        ? rows
+        ? pagedRows
             .map(
               (mechanic) =>
                 `<tr data-mechanic-id="${escapeHtml(mechanic.id)}"><td>${escapeHtml(mechanic.name)}</td><td>${escapeHtml(mechanic.jobTitle || "-")}</td><td>${escapeHtml(mechanic.platform)}</td><td>${mechanic.activeTasks}</td><td>${renderStatus(mechanic.availability)}</td></tr>`,
@@ -3625,6 +3732,9 @@
     let view = "dashboard";
     let selectedAircraft = null;
     let selectedWO = null;
+    const workorderPager = createTablePager(workorderTable, null, () => {
+      if (selectedAircraft?.aircraft) showAircraft(selectedAircraft.aircraft);
+    });
     const seen = () => {
       try {
         return new Set(JSON.parse(localStorage.getItem(seenKey) || "[]"));
@@ -3722,7 +3832,8 @@
       back.hidden = false;
       exportButton.hidden = true;
       detail.innerHTML = `<h3>${escapeHtml(reg)}</h3><p class="muted">Completed task records synced to maintenance logs</p><div class="card-grid"><div class="card"><span class="muted">Reported By</span><strong>${escapeHtml(selectedAircraft.reportedBy || "N/A")}</strong></div><div class="card"><span class="muted">Status</span><strong>${escapeHtml(selectedAircraft.status || "N/A")}</strong></div><div class="card"><span class="muted">ACFT S/N</span><strong>${escapeHtml(selectedAircraft.sn || "N/A")}</strong></div><div class="card"><span class="muted">Work Orders</span><strong>${rows.length}</strong></div></div>`;
-      workorderTable.innerHTML = rows
+      workorderTable.innerHTML = workorderPager
+        .page(rows)
         .map(
           (entry) =>
             `<tr data-workorder="${escapeHtml(stableId(entry))}"><td>${escapeHtml(entry.id || "N/A")}</td><td>${escapeHtml(entry.dateDefectRectified ? new Date(entry.dateDefectRectified).toLocaleDateString("en-US") : "N/A")}</td><td>${escapeHtml(entry.taskTitle || "-")}</td><td>${renderStatus(entry.status || "-")}</td></tr>`,
@@ -3848,6 +3959,7 @@
     let currentDoc = null;
     let parts = [];
     let referenceData = {};
+    const pager = createTablePager(tableBody, null, () => renderTable());
     const editablePartColumns = new Set([
       "dateCW",
       "hoursCW",
@@ -4000,14 +4112,17 @@
     const renderTable = () => {
       const rows = filteredParts();
       if (!selectedAircraft) {
+        pager.page([]);
         tableBody.innerHTML = `<tr><td colspan="12" class="muted">Select an aircraft.</td></tr>`;
         return;
       }
       if (!rows.length) {
+        pager.page(rows);
         tableBody.innerHTML = `<tr><td colspan="12" class="muted">No parts rows found.</td></tr>`;
         return;
       }
-      tableBody.innerHTML = rows
+      tableBody.innerHTML = pager
+        .page(rows)
         .map((rawPart) => {
           const part = computedPart(rawPart);
           const due = part.due;
@@ -4162,6 +4277,18 @@
     let health = null;
     let meta = null;
     let remaining = [];
+    const findingsBody = $("[data-tracking-findings]");
+    const tasksBody = $("[data-tracking-tasks]");
+    const remainingBody = $("[data-tracking-remaining]");
+    const findingsPager = createTablePager(findingsBody, null, () =>
+      renderTracking(),
+    );
+    const tasksPager = createTablePager(tasksBody, null, () =>
+      renderTracking(),
+    );
+    const remainingPager = createTablePager(remainingBody, null, () =>
+      renderTracking(),
+    );
     const selectedAircraft = () => aircraftFilter.value || "all";
     const riskCounts = () =>
       filteredInsights().reduce(
@@ -4259,30 +4386,36 @@
       ]
         .map((text) => `<p class="muted">${escapeHtml(text)}</p>`)
         .join("");
-      $("[data-tracking-findings]").innerHTML =
-        filteredInsights()
-          .map(
-            (item, index) =>
-              `<tr><td>${escapeHtml(item.aircraft || "-")}</td><td>${renderStatus(item.riskLevel || "Low")}</td><td><strong>${escapeHtml(item.issueTitle || "-")}</strong><p class="muted">${escapeHtml(insightSummary(item))}</p></td><td>${escapeHtml(item.recommendedAction || (item.recommendedActions || []).join(" | ") || "-")}</td><td>${escapeHtml(referenceText(item))}</td><td><button type="button" class="btn small ghost" data-rectify="${index}">Rectify</button></td></tr>`,
-          )
-          .join("") ||
-        `<tr><td colspan="6" class="muted">No findings.</td></tr>`;
-      $("[data-tracking-tasks]").innerHTML =
-        scheduledTasks()
-          .map(
-            (task) =>
-              `<tr><td>${escapeHtml(task.aircraft || "-")}</td><td>${escapeHtml(task.title || "-")}</td><td>${escapeHtml(task.assignedToName || "Unassigned")}</td><td>${escapeHtml(task.startDateTime || "-")}</td><td>${escapeHtml(task.endDateTime || task.dueDate || "-")}</td><td>${escapeHtml(task.priority || "Normal")}</td><td>${renderStatus(task.status || "-")}</td></tr>`,
-          )
-          .join("") ||
-        `<tr><td colspan="7" class="muted">No scheduled tasks.</td></tr>`;
-      $("[data-tracking-remaining]").innerHTML =
-        filteredRemaining()
-          .map(
-            (row) =>
-              `<tr><td>${escapeHtml(row.aircraft || "-")}</td><td>${escapeHtml(row.inspectionName || "-")}</td><td>${escapeHtml(row.remainingHours ?? "N/A")}</td><td>${escapeHtml(row.remainingDays ?? "N/A")}</td><td>${escapeHtml(row.dueDate || "N/A")}</td><td>${escapeHtml(row.dueAtHours ?? "N/A")}</td><td>${escapeHtml(row.sourceRow || "-")}</td></tr>`,
-          )
-          .join("") ||
-        `<tr><td colspan="7" class="muted">No remaining-hours data.</td></tr>`;
+      const insightRows = filteredInsights();
+      const pagedInsights = findingsPager.page(insightRows);
+      findingsBody.innerHTML = insightRows.length
+        ? pagedInsights
+            .map(
+              (item) =>
+                `<tr><td>${escapeHtml(item.aircraft || "-")}</td><td>${renderStatus(item.riskLevel || "Low")}</td><td><strong>${escapeHtml(item.issueTitle || "-")}</strong><p class="muted">${escapeHtml(insightSummary(item))}</p></td><td>${escapeHtml(item.recommendedAction || (item.recommendedActions || []).join(" | ") || "-")}</td><td>${escapeHtml(referenceText(item))}</td><td><button type="button" class="btn small ghost" data-rectify="${insightRows.indexOf(item)}">Rectify</button></td></tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="6" class="muted">No findings.</td></tr>`;
+      const taskRows = scheduledTasks();
+      const pagedTasks = tasksPager.page(taskRows);
+      tasksBody.innerHTML = taskRows.length
+        ? pagedTasks
+            .map(
+              (task) =>
+                `<tr><td>${escapeHtml(task.aircraft || "-")}</td><td>${escapeHtml(task.title || "-")}</td><td>${escapeHtml(task.assignedToName || "Unassigned")}</td><td>${escapeHtml(task.startDateTime || "-")}</td><td>${escapeHtml(task.endDateTime || task.dueDate || "-")}</td><td>${escapeHtml(task.priority || "Normal")}</td><td>${renderStatus(task.status || "-")}</td></tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="7" class="muted">No scheduled tasks.</td></tr>`;
+      const remainingRows = filteredRemaining();
+      const pagedRemaining = remainingPager.page(remainingRows);
+      remainingBody.innerHTML = remainingRows.length
+        ? pagedRemaining
+            .map(
+              (row) =>
+                `<tr><td>${escapeHtml(row.aircraft || "-")}</td><td>${escapeHtml(row.inspectionName || "-")}</td><td>${escapeHtml(row.remainingHours ?? "N/A")}</td><td>${escapeHtml(row.remainingDays ?? "N/A")}</td><td>${escapeHtml(row.dueDate || "N/A")}</td><td>${escapeHtml(row.dueAtHours ?? "N/A")}</td><td>${escapeHtml(row.sourceRow || "-")}</td></tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="7" class="muted">No remaining-hours data.</td></tr>`;
     };
     const load = async (includeAiSummary = false) => {
       $("[data-tracking-findings]").innerHTML =
@@ -4375,9 +4508,11 @@
     };
     const search = $("[data-priority-search]");
     const rulesPanel = $("[data-priority-rules]");
+    const tableBody = $("[data-priority-table]");
     let rules = { ...defaults };
     let rows = [];
     let meta = null;
+    const pager = createTablePager(tableBody, null, () => render());
     const collectRules = () => {
       $$("[data-rule]").forEach((input) => {
         rules[input.dataset.rule] = Number(
@@ -4438,14 +4573,15 @@
       $("[data-priority-meta]").innerHTML = meta
         ? `<strong>Priority tie-break logic</strong><p class="muted">Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH. High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.</p>`
         : "";
-      $("[data-priority-table]").innerHTML =
-        data
-          .map(
-            (item) =>
-              `<tr><td>${item.rank}</td><td>${escapeHtml(item.aircraft || "-")}</td><td>${escapeHtml(item.aircraftModel || "-")}</td><td>${escapeHtml(item.nextInspection || "-")}</td><td>${escapeHtml([item.dueByHours != null ? `FH: ${item.dueByHours}` : "", item.dueByDays != null ? `Days: ${item.dueByDays}` : ""].filter(Boolean).join(" | ") || "N/A")}</td><td>${escapeHtml(item.dueDate || "N/A")}</td><td>${escapeHtml(item.dueBasis || "N/A")}</td><td>${escapeHtml(item.estimatedTurnaroundHours != null ? `${item.estimatedTurnaroundHours} hrs` : "N/A")}</td><td>${renderStatus(item.priorityLevel || "Low")}</td><td>${escapeHtml(item.priorityReason || "-")}</td><td>${escapeHtml((item.priorityTriggers || []).join(" | ") || "N/A")}</td></tr>`,
-          )
-          .join("") ||
-        `<tr><td colspan="11" class="muted">No priority rows found.</td></tr>`;
+      const pagedRows = pager.page(data);
+      tableBody.innerHTML = data.length
+        ? pagedRows
+            .map(
+              (item) =>
+                `<tr><td>${item.rank}</td><td>${escapeHtml(item.aircraft || "-")}</td><td>${escapeHtml(item.aircraftModel || "-")}</td><td>${escapeHtml(item.nextInspection || "-")}</td><td>${escapeHtml([item.dueByHours != null ? `FH: ${item.dueByHours}` : "", item.dueByDays != null ? `Days: ${item.dueByDays}` : ""].filter(Boolean).join(" | ") || "N/A")}</td><td>${escapeHtml(item.dueDate || "N/A")}</td><td>${escapeHtml(item.dueBasis || "N/A")}</td><td>${escapeHtml(item.estimatedTurnaroundHours != null ? `${item.estimatedTurnaroundHours} hrs` : "N/A")}</td><td>${renderStatus(item.priorityLevel || "Low")}</td><td>${escapeHtml(item.priorityReason || "-")}</td><td>${escapeHtml((item.priorityTriggers || []).join(" | ") || "N/A")}</td></tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="11" class="muted">No priority rows found.</td></tr>`;
     };
     const load = async (activeRules = rules) => {
       const params = new URLSearchParams(
@@ -4528,6 +4664,7 @@
       baseAnalytics: null,
       aircraftBases: [],
     };
+    const pager = createTablePager(tbody, null, () => renderTable());
 
     const endpoints = {
       tasks: "/api/tasks/getAll",
@@ -4819,8 +4956,9 @@
       const view = views[state.activeView] || views.dueSoon;
       titleRoot.textContent = view.title;
       thead.innerHTML = `<tr>${view.columns.map((column) => `<th>${escapeHtml(labelize(column))}</th>`).join("")}</tr>`;
+      const pagedRows = pager.page(view.rows);
       tbody.innerHTML = view.rows.length
-        ? view.rows
+        ? pagedRows
             .map(
               (row) =>
                 `<tr>${view.columns
@@ -5131,6 +5269,7 @@
     let selectedStatus = "all";
     let selectedRecord = null;
     let itemCounter = 0;
+    const pager = createTablePager(tableBody, countRoot, () => renderTable());
 
     const normalizeReqStatus = (value) => {
       const raw = String(value || "")
@@ -5339,10 +5478,10 @@
     };
     const renderTable = () => {
       const rows = filtered();
-      countRoot.textContent = `Showing ${rows.length} requisition(s)`;
       renderFilters();
+      const pagedRows = pager.page(rows);
       tableBody.innerHTML = rows.length
-        ? rows
+        ? pagedRows
             .map(
               (record) => `
         <tr>
