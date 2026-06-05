@@ -8,7 +8,24 @@ blueprint = Blueprint("aircraft", __name__)
 
 @blueprint.get("/aircraft-tail-numbers")
 def get_tail_numbers():
-    docs = list(get_db()["aircraft"].find({}, {"_id": 0, "rpc": 1, "tailNumber": 1}))
+    docs = []
+    seen = set()
+    for collection_name in ("aircraft", "aircrafts"):
+        for aircraft in get_db()[collection_name].find(
+            {},
+            {"_id": 0, "rpc": 1, "tailNumber": 1, "tailNum": 1, "aircraft": 1, "registration": 1},
+        ):
+            key = (
+                aircraft.get("rpc")
+                or aircraft.get("tailNumber")
+                or aircraft.get("tailNum")
+                or aircraft.get("aircraft")
+                or aircraft.get("registration")
+            )
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            docs.append(aircraft)
     return jsonify(to_jsonable(docs))
 
 
