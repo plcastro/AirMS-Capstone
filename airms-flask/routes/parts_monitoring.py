@@ -7,7 +7,7 @@ from utils.mongo_helpers import parse_object_id, to_jsonable
 
 blueprint = Blueprint("parts_monitoring", __name__)
 PARTS_MONITORING_COLLECTIONS = ("parts_monitoring", "partslifespanmonitorings")
-AIRCRAFT_COLLECTIONS = ("aircrafts",)
+AIRCRAFT_COLLECTIONS = ("aircraft", "aircrafts")
 
 
 def _col():
@@ -54,6 +54,48 @@ def _latest_by_aircraft(aircraft):
     return candidates[0]
 
 
+def _aircraft_reference(aircraft):
+    normalized = str(aircraft or "").strip()
+    if not normalized:
+        return None
+    query = {
+        "$or": [
+            {"rpc": normalized},
+            {"aircraft": normalized},
+            {"registration": normalized},
+            {"tailNumber": normalized},
+            {"tailNum": normalized},
+        ]
+    }
+    for collection in _aircraft_collections():
+        doc = collection.find_one(query)
+        if doc:
+            aircraft_value = (
+                doc.get("aircraft")
+                or doc.get("rpc")
+                or doc.get("registration")
+                or doc.get("tailNumber")
+                or doc.get("tailNum")
+                or normalized
+            )
+            aircraft_type = (
+                doc.get("aircraftType")
+                or doc.get("model")
+                or doc.get("type")
+                or doc.get("aircraftModel")
+                or ""
+            )
+            return {
+                **doc,
+                "aircraft": aircraft_value,
+                "rpc": doc.get("rpc") or aircraft_value,
+                "aircraftType": aircraft_type,
+                "referenceData": doc.get("referenceData") or {},
+                "parts": doc.get("parts") or [],
+            }
+    return None
+
+
 def _find_by_id(id_value):
     oid = parse_object_id(id_value)
     for collection in _collections():
@@ -87,10 +129,12 @@ def _iter_aircraft_parts():
         aircraft_values.extend(collection.distinct("rpc"))
         aircraft_values.extend(collection.distinct("aircraft"))
         aircraft_values.extend(collection.distinct("registration"))
+        aircraft_values.extend(collection.distinct("tailNumber"))
+        aircraft_values.extend(collection.distinct("tailNum"))
     for aircraft in aircraft_values:
         if not aircraft or aircraft in seen:
             continue
-        doc = _latest_by_aircraft(aircraft)
+        doc = _latest_by_aircraft(aircraft) or _aircraft_reference(aircraft)
         if doc:
             seen.add(aircraft)
             yield aircraft, doc
@@ -189,6 +233,8 @@ def aircraft_list():
         values.update(value for value in collection.distinct("rpc") if value)
         values.update(value for value in collection.distinct("aircraft") if value)
         values.update(value for value in collection.distinct("registration") if value)
+        values.update(value for value in collection.distinct("tailNumber") if value)
+        values.update(value for value in collection.distinct("tailNum") if value)
     return _success(sorted(values))
 
 
@@ -265,7 +311,7 @@ def remaining_hours():
 
 @blueprint.get("/<aircraft>")
 def by_aircraft(aircraft):
-    doc = _latest_by_aircraft(aircraft)
+    doc = _latest_by_aircraft(aircraft) or _aircraft_reference(aircraft)
     if not doc:
         return jsonify({"success": False, "message": "Aircraft data not found"}), 404
     return _success(doc)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
@@ -20,6 +20,10 @@ def _legacy_maintenance_logs():
     return get_db()["maintenancelogs"]
 
 
+def _aircraft():
+    return get_db()["aircraft"]
+
+
 def _payload():
     body = request.get_json(silent=True) or {}
     body.pop("confirmAction", None)
@@ -29,6 +33,91 @@ def _payload():
 
 def _task_id(doc):
     return str(doc.get("id") or doc.get("_id") or "")
+
+
+def _to_valid_date(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+    if isinstance(value, str):
+        try:
+            date = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return date.astimezone(timezone.utc).replace(tzinfo=None) if date.tzinfo else date
+        except ValueError:
+            return None
+    return None
+
+
+def _round_hours(value):
+    return round(value, 2)
+
+
+def _normalize_base_value(value):
+    return str(value or "").strip().upper()
+
+
+def _is_known_base(value):
+    normalized = _normalize_base_value(value)
+    return normalized not in {"", "UNKNOWN", "N/A", "NA", "UNASSIGNED"}
+
+
+def _first_known_base(*values):
+    for value in values:
+        if _is_known_base(value):
+            return _normalize_base_value(value)
+    return ""
+
+
+def _build_aircraft_base_lookup():
+    lookup = {}
+    for aircraft in _aircraft().find({}, {"tailNum": 1, "tailNumber": 1, "rpc": 1, "aircraft": 1, "base": 1}):
+        base = aircraft.get("base")
+        if not _is_known_base(base):
+            continue
+        for key in (aircraft.get("tailNum"), aircraft.get("tailNumber"), aircraft.get("rpc"), aircraft.get("aircraft")):
+            normalized_key = _normalize_base_value(key)
+            if normalized_key:
+                lookup[normalized_key] = _normalize_base_value(base)
+    return lookup
+
+
+def _normalize_task_base(task, aircraft_base_by_tail):
+    return _first_known_base(
+        task.get("base"),
+        task.get("locationBase"),
+        task.get("assignedBase"),
+        task.get("stationBase"),
+        aircraft_base_by_tail.get(_normalize_base_value(task.get("aircraft"))),
+    ) or "UNKNOWN"
+
+
+def _get_discovered_at(task):
+    history = task.get("maintenanceHistory") if isinstance(task.get("maintenanceHistory"), dict) else {}
+    return _to_valid_date(history.get("defectDiscoveredAt") or task.get("dateDiscovered") or task.get("createdAt"))
+
+
+def _get_rectified_at(task):
+    history = task.get("maintenanceHistory") if isinstance(task.get("maintenanceHistory"), dict) else {}
+    return _to_valid_date(
+        history.get("defectRectifiedAt")
+        or task.get("dateRectified")
+        or task.get("completedAt")
+        or task.get("approvedAt")
+    )
+
+
+def _is_damage_related(task):
+    has_defect_notes = bool(str(task.get("defects") or "").strip() or str(task.get("findings") or "").strip())
+    maintenance_type = str(task.get("maintenanceType") or "").lower()
+    title = str(task.get("title") or "").lower()
+    return has_defect_notes or "corrective" in maintenance_type or any(
+        keyword in title for keyword in ("damage", "damaged", "defect", "crack", "fault", "issue")
+    )
+
+
+def _is_same_calendar_day(left_date, right_date):
+    return left_date.date() == right_date.date()
 
 
 def _sync_maintenance_log(task):
@@ -96,11 +185,81 @@ def summary():
 
 @blueprint.get("/analytics/base-maintenance")
 def base_maintenance():
-    pipeline = [
-        {"$group": {"_id": {"$ifNull": ["$base", "Unknown"]}, "total": {"$sum": 1}}},
-        {"$sort": {"total": -1}},
-    ]
-    return jsonify(to_jsonable(list(_col().aggregate(pipeline))))
+    aircraft_base_by_tail = _build_aircraft_base_lookup()
+    by_base = {}
+    totals = {
+        "damagedCount": 0,
+        "repairedCount": 0,
+        "sameDayRepairCount": 0,
+        "rectificationHoursTotal": 0,
+        "rectificationSamples": 0,
+        "averageRectificationHours": 0,
+    }
+
+    for task in _col().find({}):
+        base = _normalize_task_base(task, aircraft_base_by_tail)
+        if base not in by_base:
+            by_base[base] = {
+                "base": base,
+                "damagedCount": 0,
+                "repairedCount": 0,
+                "sameDayRepairCount": 0,
+                "rectificationHoursTotal": 0,
+                "rectificationSamples": 0,
+                "averageRectificationHours": 0,
+            }
+
+        discovered_at = _get_discovered_at(task)
+        rectified_at = _get_rectified_at(task)
+
+        if _is_damage_related(task):
+            by_base[base]["damagedCount"] += 1
+            totals["damagedCount"] += 1
+
+        if rectified_at:
+            by_base[base]["repairedCount"] += 1
+            totals["repairedCount"] += 1
+
+        if discovered_at and rectified_at:
+            rectification_hours = (rectified_at - discovered_at).total_seconds() / 3600
+            if rectification_hours >= 0:
+                by_base[base]["rectificationHoursTotal"] += rectification_hours
+                by_base[base]["rectificationSamples"] += 1
+                totals["rectificationHoursTotal"] += rectification_hours
+                totals["rectificationSamples"] += 1
+
+            history = task.get("maintenanceHistory") if isinstance(task.get("maintenanceHistory"), dict) else {}
+            if history.get("sameDayRepair") is True or _is_same_calendar_day(discovered_at, rectified_at):
+                by_base[base]["sameDayRepairCount"] += 1
+                totals["sameDayRepairCount"] += 1
+
+    base_rows = []
+    for row in by_base.values():
+        samples = row["rectificationSamples"]
+        row["averageRectificationHours"] = _round_hours(row["rectificationHoursTotal"] / samples) if samples else 0
+        base_rows.append(row)
+    base_rows.sort(key=lambda row: row["damagedCount"], reverse=True)
+
+    top_damaged_base = max(base_rows, key=lambda row: row["damagedCount"], default=None)
+    top_repaired_base = max(base_rows, key=lambda row: row["repairedCount"], default=None)
+    if totals["rectificationSamples"]:
+        totals["averageRectificationHours"] = _round_hours(
+            totals["rectificationHoursTotal"] / totals["rectificationSamples"]
+        )
+
+    return jsonify(
+        to_jsonable(
+            {
+                "status": "Ok",
+                "data": {
+                    "byBase": base_rows,
+                    "topDamagedBase": top_damaged_base,
+                    "topRepairedBase": top_repaired_base,
+                    "totals": totals,
+                },
+            }
+        )
+    )
 
 
 @blueprint.get("/<id>")

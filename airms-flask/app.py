@@ -17,7 +17,6 @@ from routes.legacy_api import legacy_api_bp
 from routes import register_blueprints
 from services.mongo import init_mongo
 from utils.events import publish_event
-# from web_routes import web_blueprint
 
 
 def create_app() -> Flask:
@@ -84,15 +83,6 @@ def create_app() -> Flask:
     register_blueprints(app)
     app.register_blueprint(ai_insights_bp, url_prefix="/api/ai-insights")
     app.register_blueprint(legacy_api_bp)
-    # app.register_blueprint(web_blueprint)
-
-    # @app.get("/")
-    # def web_root():
-    #     return redirect(url_for("web.login"))
-
-    # @app.get("/dashboard")
-    # def dashboard_root():
-    #     return redirect("/web/dashboard/maintenance-dashboard")
 
     @app.errorhandler(Exception)
     def handle_error(err):

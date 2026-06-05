@@ -33,6 +33,13 @@ const ROLE_MAP = {
   "Warehouse Department": "User",
 };
 
+const getUserLicenseNo = (value = {}) =>
+  value.licenseNo ||
+  value.licenseNumber ||
+  value.license ||
+  value.certificateNumber ||
+  "";
+
 export default function UserForm({
   visible,
   onClose,
@@ -74,9 +81,8 @@ export default function UserForm({
         email: user.email || "",
         username: user.username || "",
         jobTitle: user.jobTitle || undefined,
-        base: user.base || undefined,
         access: user.access || ROLE_MAP[user.jobTitle] || "",
-        licenseNo: user.licenseNo || "",
+        licenseNo: getUserLicenseNo(user),
       });
       setJoinedDate(user.dateCreated ? new Date(user.dateCreated) : new Date());
       setImageUrl(user.image || null);
@@ -89,7 +95,6 @@ export default function UserForm({
         email: "",
         username: "",
         jobTitle: undefined,
-        base: undefined,
         access: "",
         licenseNo: "",
       });
@@ -121,6 +126,8 @@ export default function UserForm({
   }, [firstNameValue, lastNameValue, user, allUsers, form]);
 
   useEffect(() => {
+    if (!jobTitleValue) return;
+
     form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
     if (
       ![
@@ -152,7 +159,6 @@ export default function UserForm({
         body.append("email", values.email.trim());
         body.append("username", values.username.trim());
         body.append("jobTitle", values.jobTitle);
-        body.append("base", values.base);
         body.append("access", values.access);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("confirmAction", "true");
@@ -176,7 +182,6 @@ export default function UserForm({
           email: values.email.trim(),
           username: values.username.trim(),
           jobTitle: values.jobTitle,
-          base: values.base,
           access: values.access,
           dateCreated: joinedDate.toISOString(),
           licenseNo: values.licenseNo || "",
@@ -219,7 +224,6 @@ export default function UserForm({
         email: values.email.trim(),
         username: values.username,
         jobTitle: values.jobTitle,
-        base: values.base,
         access: values.access,
         dateCreated: joinedDate.toISOString(),
         image: savedUserData?.image || imageUrl,
@@ -460,24 +464,6 @@ export default function UserForm({
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item
-                  label="Base"
-                  name="base"
-                  rules={[{ required: true, message: "Base is required" }]}
-                >
-                  <Select
-                    size="large"
-                    placeholder="Select user base"
-                    options={[
-                      { label: "MANILA", value: "MANILA" },
-                      { label: "CEBU", value: "CEBU" },
-                      { label: "CDO", value: "CDO" },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
                 <Form.Item label="Access Level" name="access">
                   <Input size="large" disabled />
                 </Form.Item>
@@ -586,9 +572,6 @@ export default function UserForm({
             </Descriptions.Item>
             <Descriptions.Item label="Job Title">
               {previewData?.jobTitle || "-"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Base">
-              {previewData?.base || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Access Level">
               {previewData?.access || "-"}

@@ -53,6 +53,8 @@ def _public_user(user):
     data.pop("pinHash", None)
     if data.get("_id") and not data.get("id"):
         data["id"] = data["_id"]
+    if not data.get("licenseNo"):
+        data["licenseNo"] = data.get("licenseNumber") or data.get("license") or data.get("certificateNumber") or ""
     return data
 
 
@@ -414,6 +416,18 @@ def get_all_users():
     return jsonify({"success": True, "data": [_public_user(user) for user in users]})
 
 
+@blueprint.get("/get-user/<id>")
+@jwt_required()
+def get_user(id):
+    oid = parse_object_id(id)
+    if not oid:
+        return jsonify({"message": "Invalid id"}), 400
+    user = _users_collection().find_one({"_id": oid}, {"password": 0, "passwordHash": 0})
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    return jsonify({"success": True, "data": _public_user(user), "user": _public_user(user)})
+
+
 @blueprint.get("/assignable-users")
 @jwt_required()
 def assignable_users():
@@ -470,7 +484,6 @@ def create_user():
         "role": job_title.lower(),
         "jobTitle": job_title,
         "access": access,
-        "base": str(body.get("base") or request.headers.get("x-base") or "").strip().upper(),
         "licenseNo": str(body.get("licenseNo") or "").strip(),
         "status": str(body.get("status") or "inactive").strip().lower(),
         "passwordHash": generate_password_hash(password),
@@ -502,7 +515,7 @@ def update_user(id):
         return jsonify({"message": "Invalid id"}), 400
 
     body = _request_data()
-    updates = {k: v for k, v in body.items() if k in {"name", "firstName", "lastName", "email", "username", "role", "jobTitle", "access", "status", "isActive", "base", "licenseNo", "dateCreated", "signature"}}
+    updates = {k: v for k, v in body.items() if k in {"name", "firstName", "lastName", "email", "username", "role", "jobTitle", "access", "status", "isActive", "licenseNo", "dateCreated", "signature"}}
     if request.files.get("image"):
         filename, _ = save_upload(request.files["image"])
         updates["image"] = f"/uploads/{filename}"

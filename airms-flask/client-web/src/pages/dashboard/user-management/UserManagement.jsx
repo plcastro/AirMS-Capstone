@@ -69,6 +69,7 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingEditUserId, setLoadingEditUserId] = useState(null);
 
   const statusCounts = useMemo(() => {
     const counts = { active: 0, inactive: 0, deactivated: 0, unknown: 0 };
@@ -259,9 +260,47 @@ export default function UserManagement() {
     setEditingUser(null);
     setShowModal(true);
   };
-  const handleEditUser = (user) => {
-    setEditingUser(user);
-    setShowModal(true);
+  const handleEditUser = async (user) => {
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      message.error("Unable to edit user: missing user id");
+      return;
+    }
+
+    setLoadingEditUserId(userId);
+    try {
+      const token = await getValidToken();
+      const res = await fetch(`${API_BASE}/api/user/get-user/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.message || "Failed to fetch user details");
+      }
+
+      const userDetails = json.data || json.user || {};
+      setEditingUser(
+        formatUserForTable({
+          ...user,
+          ...userDetails,
+          licenseNo:
+            userDetails.licenseNo ||
+            userDetails.licenseNumber ||
+            userDetails.license ||
+            userDetails.certificateNumber ||
+            user.licenseNo ||
+            "",
+        }),
+      );
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+      message.error(err.message || "Failed to fetch user details");
+    } finally {
+      setLoadingEditUserId(null);
+    }
   };
 
   const handleDeactivateUser = async (user) => {
@@ -568,7 +607,7 @@ export default function UserManagement() {
         onExtendInvite={handleExtendInvite}
         onRevokeInvite={handleRevokeInvite}
         currentUserId={currentUserId}
-        loading={loading}
+        loading={loading || Boolean(loadingEditUserId)}
       />
 
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
