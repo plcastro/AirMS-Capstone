@@ -411,7 +411,7 @@ def username_exists():
 @jwt_required()
 def get_all_users():
     users = list(_users_collection().find({}, {"password": 0, "passwordHash": 0}))
-    return jsonify([_public_user(user) for user in users])
+    return jsonify({"success": True, "data": [_public_user(user) for user in users]})
 
 
 @blueprint.get("/assignable-users")
@@ -424,7 +424,7 @@ def assignable_users():
         ]
     }
     users = list(_users_collection().find(query, {"password": 0, "passwordHash": 0}))
-    return jsonify([_public_user(user) for user in users])
+    return jsonify({"success": True, "data": [_public_user(user) for user in users]})
 
 
 @blueprint.post("/create")
@@ -456,6 +456,10 @@ def create_user():
     if request.files.get("image"):
         filename, _ = save_upload(request.files["image"])
         image = f"/uploads/{filename}"
+    signature = str(body.get("signature") or "").strip()
+    if request.files.get("signature"):
+        filename, _ = save_upload(request.files["signature"])
+        signature = f"/uploads/{filename}"
 
     doc = {
         "username": username,
@@ -474,6 +478,7 @@ def create_user():
         "securitySetupCompleted": False,
         "isActive": False,
         "image": image,
+        "signature": signature,
         "dateCreated": body.get("dateCreated") or datetime.utcnow(),
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow(),
@@ -497,10 +502,13 @@ def update_user(id):
         return jsonify({"message": "Invalid id"}), 400
 
     body = _request_data()
-    updates = {k: v for k, v in body.items() if k in {"name", "firstName", "lastName", "email", "username", "role", "jobTitle", "access", "status", "isActive", "base", "licenseNo", "dateCreated"}}
+    updates = {k: v for k, v in body.items() if k in {"name", "firstName", "lastName", "email", "username", "role", "jobTitle", "access", "status", "isActive", "base", "licenseNo", "dateCreated", "signature"}}
     if request.files.get("image"):
         filename, _ = save_upload(request.files["image"])
         updates["image"] = f"/uploads/{filename}"
+    if request.files.get("signature"):
+        filename, _ = save_upload(request.files["signature"])
+        updates["signature"] = f"/uploads/{filename}"
     if "firstName" in updates or "lastName" in updates:
         first_name = str(updates.get("firstName") or body.get("firstName") or "").strip()
         last_name = str(updates.get("lastName") or body.get("lastName") or "").strip()
@@ -639,6 +647,35 @@ def remove_user_image(id):
         return jsonify({"message": "User not found"}), 404
     user = _users_collection().find_one({"_id": oid}, {"password": 0, "passwordHash": 0})
     return jsonify({"message": "Avatar removed", "user": _public_user(user)})
+
+
+@blueprint.put("/updateSignature/<id>")
+@jwt_required()
+def update_signature(id):
+    oid = parse_object_id(id)
+    if not oid:
+        return jsonify({"message": "Invalid id"}), 400
+
+    user = _users_collection().find_one({"_id": oid})
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    if user.get("signature"):
+        return jsonify({"message": "Signature specimen has already been uploaded."}), 400
+
+    body = _request_data()
+    signature = str(body.get("signature") or "").strip()
+    if request.files.get("signature"):
+        filename, _ = save_upload(request.files["signature"])
+        signature = f"/uploads/{filename}"
+    if not signature:
+        return jsonify({"message": "Signature is required"}), 400
+
+    _users_collection().update_one(
+        {"_id": oid},
+        {"$set": {"signature": signature, "updatedAt": datetime.utcnow()}},
+    )
+    updated = _users_collection().find_one({"_id": oid}, {"password": 0, "passwordHash": 0, "pin": 0, "pinHash": 0})
+    return jsonify({"message": "Signature updated", "user": _public_user(updated), "data": _public_user(updated)})
 
 
 @blueprint.put("/change-password/<id>")

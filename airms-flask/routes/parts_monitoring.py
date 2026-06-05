@@ -213,32 +213,49 @@ def put_rules():
 @blueprint.get("/maintenance-priority")
 def maintenance_priority():
     rules = _rules_from_request()
-    rows = []
+    rows_by_aircraft = {}
     for row in _inspection_rows():
         level, triggers = _priority_level(row, rules)
         hours = row.get("remainingHours")
         days = row.get("remainingDays")
         turnaround = max(1, round((abs(float(hours or 0)) / 12) if hours is not None else rules["longTurnaroundHours"], 1))
-        rows.append(
-            {
-                **row,
-                "priorityLevel": level,
-                "priorityTriggers": triggers,
-                "priorityReason": f"{level} based on remaining hours/days thresholds",
-                "nextInspection": row.get("inspectionName"),
-                "dueByHours": hours,
-                "dueByDays": days,
-                "dueBasis": "hours-and-calendar" if hours is not None and days is not None else "hours" if hours is not None else "calendar",
-                "estimatedTurnaroundHours": turnaround,
-                "usedHistoricalEstimate": False,
-                "inspectionKey": f"{row.get('aircraft')}-{row.get('inspectionName')}-{row.get('rowIndex')}",
-            }
-        )
-    rank_weight = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
-    rows.sort(key=lambda item: (rank_weight.get(item["priorityLevel"], 9), item.get("dueByHours") if item.get("dueByHours") is not None else 999999, item.get("dueByDays") if item.get("dueByDays") is not None else 999999))
+        priority_row = {
+            **row,
+            "priorityLevel": level,
+            "priorityTriggers": triggers,
+            "priorityReason": f"{level} based on remaining hours/days thresholds",
+            "nextInspection": row.get("inspectionName"),
+            "dueByHours": hours,
+            "dueByDays": days,
+            "dueBasis": "hours-and-calendar" if hours is not None and days is not None else "hours" if hours is not None else "calendar",
+            "estimatedTurnaroundHours": turnaround,
+            "usedHistoricalEstimate": False,
+            "inspectionKey": f"{row.get('aircraft')}-{row.get('inspectionName')}-{row.get('rowIndex')}",
+        }
+        aircraft = str(row.get("aircraft") or "").strip()
+        if not aircraft:
+            continue
+        existing = rows_by_aircraft.get(aircraft)
+        if existing is None:
+            rows_by_aircraft[aircraft] = priority_row
+            continue
+        if _priority_sort_key(priority_row) < _priority_sort_key(existing):
+            rows_by_aircraft[aircraft] = priority_row
+
+    rows = list(rows_by_aircraft.values())
+    rows.sort(key=_priority_sort_key)
     for index, row in enumerate(rows, start=1):
         row["rank"] = index
     return _success(rows, meta={"rules": rules, "tieBreakHours": 5, "tieBreakDays": 7, "tieBreakUrgencyRatio": 0.2})
+
+
+def _priority_sort_key(item):
+    rank_weight = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    return (
+        rank_weight.get(item["priorityLevel"], 9),
+        item.get("dueByHours") if item.get("dueByHours") is not None else 999999,
+        item.get("dueByDays") if item.get("dueByDays") is not None else 999999,
+    )
 
 
 @blueprint.get("/inspection-remaining-hours")

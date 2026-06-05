@@ -31,7 +31,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config["MONGO_URI"] = os.getenv("MONGO_URI") or os.getenv("ATLAS_URL") or app.config.get("MONGO_URI")
-    app.config["MONGO_DB_NAME"] = os.getenv("MONGO_DB_NAME", app.config.get("MONGO_DB_NAME", "airms"))
+    app.config["MONGO_DB_NAME"] = os.getenv("MONGO_DB_NAME", app.config.get("MONGO_DB_NAME", "test"))
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET", app.config.get("JWT_SECRET_KEY"))
     app.config["PORT"] = int(os.getenv("PORT", str(app.config.get("PORT", 5000))))
     app.config["CORS_ORIGINS"] = [

@@ -12,6 +12,10 @@ def parse_object_id(value):
 
 
 def to_jsonable(document):
+    if isinstance(document, ObjectId):
+        return str(document)
+    if isinstance(document, datetime):
+        return document.isoformat()
     if isinstance(document, list):
         return [to_jsonable(item) for item in document]
     if isinstance(document, dict):
