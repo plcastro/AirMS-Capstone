@@ -209,7 +209,7 @@
     }
     const response = await fetch(url, {
       ...options,
-      headers: headers(options.headers || {}, false),
+      headers: headers(options.headers || {}),
     });
     const text = await response.text();
     let data = null;
