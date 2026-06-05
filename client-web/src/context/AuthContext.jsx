@@ -3,7 +3,7 @@ import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 15 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
@@ -197,9 +197,12 @@ export const AuthProvider = ({ children }) => {
       startWarningCountdown(remainingSeconds);
     };
 
-    inactivityLogoutTimeoutRef.current = setTimeout(() => {
-      logoutUser();
-    }, Math.max(0, autoLogoutAfterMs));
+    inactivityLogoutTimeoutRef.current = setTimeout(
+      () => {
+        logoutUser();
+      },
+      Math.max(0, autoLogoutAfterMs),
+    );
 
     if (warningStartAfterMs <= 0) {
       triggerWarning(Math.max(1000, autoLogoutAfterMs));

@@ -26,6 +26,43 @@ def _now():
     return datetime.utcnow()
 
 
+def _id_variants(value):
+    text = str(value or "").strip()
+    values = [text] if text else []
+    oid = parse_object_id(text)
+    if oid:
+        values.append(oid)
+    return values
+
+
+def _id_filter(field, value):
+    values = _id_variants(value)
+    if not values:
+        return {field: value}
+    return {field: {"$in": values}}
+
+
+def _no_conversation_filter():
+    return {
+        "$and": [
+            {
+                "$or": [
+                    {"conversation": {"$exists": False}},
+                    {"conversation": None},
+                    {"conversation": ""},
+                ]
+            },
+            {
+                "$or": [
+                    {"conversationId": {"$exists": False}},
+                    {"conversationId": None},
+                    {"conversationId": ""},
+                ]
+            },
+        ]
+    }
+
+
 def _serialize_user(user_doc):
     if not user_doc:
         return None
@@ -93,7 +130,20 @@ def _conversation_sort_key(doc):
 def _direct_conversations_for(me):
     inbox = []
     seen = set()
-    query = {"$or": [{"from": me}, {"to": me}, {"recipient": me}]}
+    me_values = _id_variants(me)
+    query = {
+        "$and": [
+            _no_conversation_filter(),
+            {
+                "$or": [
+                    {"from": {"$in": me_values}},
+                    {"to": {"$in": me_values}},
+                    {"sender": {"$in": me_values}},
+                    {"recipient": {"$in": me_values}},
+                ]
+            },
+        ]
+    }
     for message in _messages().find(query).sort([("createdAt", -1), ("_id", -1)]):
         sender = str(message.get("from") or message.get("sender") or "")
         recipient = str(message.get("to") or message.get("recipient") or "")
@@ -101,24 +151,36 @@ def _direct_conversations_for(me):
         if not other_user_id or other_user_id == str(me) or other_user_id in seen:
             continue
         seen.add(other_user_id)
+        other_values = _id_variants(other_user_id)
         latest_message = _messages().find_one(
             {
-                "$or": [
-                    {"from": str(me), "to": other_user_id},
-                    {"from": other_user_id, "to": str(me)},
-                    {"sender": str(me), "recipient": other_user_id},
-                    {"sender": other_user_id, "recipient": str(me)},
+                "$and": [
+                    _no_conversation_filter(),
+                    {
+                        "$or": [
+                            {"from": {"$in": me_values}, "to": {"$in": other_values}},
+                            {"from": {"$in": other_values}, "to": {"$in": me_values}},
+                            {"sender": {"$in": me_values}, "recipient": {"$in": other_values}},
+                            {"sender": {"$in": other_values}, "recipient": {"$in": me_values}},
+                        ]
+                    },
                 ]
             },
             sort=[("createdAt", -1), ("_id", -1)],
         )
         unread_count = _messages().count_documents(
             {
-                "$or": [
-                    {"from": other_user_id, "to": str(me)},
-                    {"sender": other_user_id, "recipient": str(me)},
+                "$and": [
+                    _no_conversation_filter(),
+                    {
+                        "$or": [
+                            {"from": {"$in": other_values}, "to": {"$in": me_values}},
+                            {"sender": {"$in": other_values}, "recipient": {"$in": me_values}},
+                        ]
+                    },
                 ],
                 "read": {"$ne": True},
+                "readAt": None,
             }
         )
         user = _user_by_id(other_user_id)
@@ -139,10 +201,19 @@ def _direct_conversations_for(me):
 
 def _group_conversations():
     groups = []
-    for doc in _conversations().find({"type": "group"}).sort([("updatedAt", -1), ("_id", -1)]):
+    current_user_values = _id_variants(get_jwt_identity())
+    group_query = {
+        "$or": [
+            {"members": {"$in": current_user_values}},
+            {"participants": {"$in": current_user_values}},
+            {"memberIds": {"$in": current_user_values}},
+            {"group.memberIds": {"$in": current_user_values}},
+        ]
+    }
+    for doc in _conversations().find(group_query).sort([("updatedAt", -1), ("_id", -1)]):
         conversation = dict(doc)
         group = conversation.get("group") or {}
-        member_ids = conversation.get("participants") or conversation.get("memberIds") or group.get("memberIds") or []
+        member_ids = conversation.get("members") or conversation.get("participants") or conversation.get("memberIds") or group.get("memberIds") or []
         members = []
         seen_members = set()
         for member_id in member_ids:
@@ -154,25 +225,30 @@ def _group_conversations():
             if user:
                 members.append(_serialize_user(user))
         conversation["group"] = {
+            "_id": str(conversation.get("_id")),
+            "id": str(conversation.get("_id")),
             "name": group.get("name") or conversation.get("name") or "Group chat",
             "members": members,
+            "updatedAt": conversation.get("updatedAt"),
         }
         conversation["id"] = str(conversation.get("_id"))
         conversation["type"] = "group"
+        conversation_values = _id_variants(conversation.get("_id"))
         conversation["unreadCount"] = _messages().count_documents(
             {
                 "$or": [
-                    {"conversation": str(conversation.get("_id"))},
-                    {"conversationId": str(conversation.get("_id"))},
+                    {"conversation": {"$in": conversation_values}},
+                    {"conversationId": {"$in": conversation_values}},
                 ],
                 "read": {"$ne": True},
+                "readAt": None,
             }
         )
         latest = _messages().find_one(
             {
                 "$or": [
-                    {"conversation": str(conversation.get("_id"))},
-                    {"conversationId": str(conversation.get("_id"))},
+                    {"conversation": {"$in": conversation_values}},
+                    {"conversationId": {"$in": conversation_values}},
                 ]
             },
             sort=[("createdAt", -1), ("_id", -1)],
@@ -185,7 +261,9 @@ def _group_conversations():
 @blueprint.get("/users")
 @jwt_required()
 def users():
-    docs = list(_users().find({}, {"password": 0, "passwordHash": 0, "pin": 0, "pinHash": 0}))
+    identity = str(get_jwt_identity())
+    query = {"_id": {"$nin": _id_variants(identity)}, "status": {"$ne": "deactivated"}}
+    docs = list(_users().find(query, {"password": 0, "passwordHash": 0, "pin": 0, "pinHash": 0}).sort([("firstName", 1), ("lastName", 1), ("username", 1)]))
     return jsonify({"success": True, "data": to_jsonable(docs)})
 
 
@@ -202,16 +280,18 @@ def conversations():
 @jwt_required()
 def summary():
     me = str(get_jwt_identity())
+    me_values = _id_variants(me)
     unread = _messages().count_documents(
         {
             "$or": [
-                {"to": me},
-                {"recipient": me},
+                {"to": {"$in": me_values}},
+                {"recipient": {"$in": me_values}},
             ],
             "read": {"$ne": True},
+            "readAt": None,
         }
     )
-    return jsonify({"success": True, "unread": unread})
+    return jsonify({"success": True, "unread": unread, "unreadCount": unread})
 
 
 @blueprint.post("/groups")
@@ -234,6 +314,8 @@ def create_group():
         "name": str(body.get("name") or body.get("groupName") or "Group chat").strip(),
         "participants": member_ids,
         "memberIds": member_ids,
+        "members": [parse_object_id(member_id) or member_id for member_id in member_ids],
+        "createdBy": parse_object_id(current_user_id) or current_user_id,
         "group": {
             "name": str(body.get("name") or body.get("groupName") or "Group chat").strip(),
             "members": members,
@@ -251,25 +333,74 @@ def create_group():
 @jwt_required()
 def thread(other_user_id):
     me = str(get_jwt_identity())
+    me_values = _id_variants(me)
+    other_values = _id_variants(other_user_id)
+    conversation = _conversations().find_one(
+        {
+            "$and": [
+                _id_filter("_id", other_user_id),
+                {
+                    "$or": [
+                        {"members": {"$in": me_values}},
+                        {"participants": {"$in": me_values}},
+                        {"memberIds": {"$in": me_values}},
+                        {"group.memberIds": {"$in": me_values}},
+                    ]
+                },
+            ]
+        }
+    )
+    if conversation:
+        messages = list(
+            _messages()
+            .find({"$or": [{"conversation": {"$in": other_values}}, {"conversationId": {"$in": other_values}}]})
+            .sort("createdAt", 1)
+            .limit(300)
+        )
+        _messages().update_many(
+            {
+                "$or": [{"conversation": {"$in": other_values}}, {"conversationId": {"$in": other_values}}],
+                "sender": {"$nin": me_values},
+                "readBy.user": {"$nin": me_values},
+            },
+            {"$push": {"readBy": {"user": parse_object_id(me) or me, "readAt": _now()}}},
+        )
+        return jsonify({"success": True, "data": [to_jsonable(_serialize_message(doc)) for doc in messages]})
+
     messages = list(
         _messages()
         .find(
             {
-                "$or": [
-                    {"from": me, "to": other_user_id},
-                    {"from": other_user_id, "to": me},
-                    {"sender": me, "recipient": other_user_id},
-                    {"sender": other_user_id, "recipient": me},
-                    {"conversation": other_user_id},
-                    {"conversationId": other_user_id},
+                "$and": [
+                    _no_conversation_filter(),
+                    {
+                        "$or": [
+                            {"from": {"$in": me_values}, "to": {"$in": other_values}},
+                            {"from": {"$in": other_values}, "to": {"$in": me_values}},
+                            {"sender": {"$in": me_values}, "recipient": {"$in": other_values}},
+                            {"sender": {"$in": other_values}, "recipient": {"$in": me_values}},
+                        ]
+                    },
                 ]
             }
         )
         .sort("createdAt", 1)
+        .limit(300)
+    )
+    _messages().update_many(
+        {
+            "$and": [
+                _no_conversation_filter(),
+                {"sender": {"$in": other_values}, "recipient": {"$in": me_values}},
+                {"readAt": None},
+            ]
+        },
+        {"$set": {"readAt": _now(), "read": True}},
     )
     return jsonify({"success": True, "data": [to_jsonable(_serialize_message(doc)) for doc in messages]})
 
 
+@blueprint.post("")
 @blueprint.post("/")
 @jwt_required()
 def send_message():
@@ -297,17 +428,19 @@ def send_message():
         "body": body_text,
         "attachments": attachments,
         "from": sender_id,
-        "sender": sender_id,
+        "sender": parse_object_id(sender_id) or sender_id,
         "read": False,
+        "readAt": None,
+        "readBy": [],
         "createdAt": _now(),
         "updatedAt": _now(),
     }
     if conversation_id:
-        doc["conversation"] = conversation_id
+        doc["conversation"] = parse_object_id(conversation_id) or conversation_id
         doc["conversationId"] = conversation_id
     if recipient_id:
         doc["to"] = recipient_id
-        doc["recipient"] = recipient_id
+        doc["recipient"] = parse_object_id(recipient_id) or recipient_id
 
     result = _messages().insert_one(doc)
     doc["_id"] = result.inserted_id
