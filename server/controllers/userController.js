@@ -74,7 +74,7 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   const refreshCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "None",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     secure: true,
   };
 

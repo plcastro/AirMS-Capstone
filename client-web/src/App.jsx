@@ -155,7 +155,7 @@ const AppRouter = () => {
       >
         <p style={{ marginBottom: 8 }}>
           You&apos;ve been inactive for a while. For your security, you&apos;ll
-          be signed out in 15 seconds unless you continue.
+          be signed out in 2 minutes unless you continue.
         </p>
         <p style={{ marginBottom: 0 }}>
           Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
@@ -166,10 +166,7 @@ const AppRouter = () => {
           <Route
             path="/"
             element={
-              <Navigate
-                to={user ? getUserHomePath(user) : "/login"}
-                replace
-              />
+              <Navigate to={user ? getUserHomePath(user) : "/login"} replace />
             }
           />
 
