@@ -90,7 +90,7 @@ export const AUDIT_ACTION_CATEGORIES = [
     value: "security",
     label: "Security",
     color: "#f5222d",
-    keywords: ["security alert", "audit logs", "admin activity"],
+    keywords: ["security alert", "audit logs", "superadmin activity"],
   },
   {
     value: "export",

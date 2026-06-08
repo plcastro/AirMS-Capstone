@@ -27,6 +27,8 @@ export const AuthProvider = ({ children }) => {
   const inactivityLogoutTimeoutRef = useRef(null);
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
+  const refreshTokenPromiseRef = useRef(null);
+  const sessionEndedRef = useRef(false);
 
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
@@ -195,12 +197,33 @@ export const AuthProvider = ({ children }) => {
       startWarningCountdown(remainingSeconds);
     };
 
+    inactivityLogoutTimeoutRef.current = setTimeout(
+      () => {
+        logoutUser();
+      },
+      Math.max(0, autoLogoutAfterMs),
+    );
+
     if (warningStartAfterMs <= 0) {
       triggerWarning(Math.max(1000, autoLogoutAfterMs));
     } else {
       inactivityWarningTimeoutRef.current = setTimeout(() => {
         triggerWarning(warningLeadTimeMs);
       }, warningStartAfterMs);
+    }
+  };
+
+  const forceLogoutOnce = (broadcast = true) => {
+    if (sessionEndedRef.current) return;
+    sessionEndedRef.current = true;
+    setShowSessionTimeoutWarning(false);
+    clearInactivityTimers();
+    clearTokenExpiryTimer();
+    setUser(null);
+    clearAuthStorage();
+    setRememberMePreferenceState(false);
+    if (broadcast) {
+      publishAuthSync({ type: "LOGOUT" });
     }
   };
 
@@ -222,45 +245,77 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshAccessToken = async () => {
-    const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildSessionHeaders(),
-      },
-    });
-    const text = await response.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      throw new Error("Failed to refresh token (invalid response)");
+    if (refreshTokenPromiseRef.current) {
+      return refreshTokenPromiseRef.current;
     }
-    if (!response.ok)
-      throw new Error(data?.message || "Failed to refresh token");
-    if (!data.token) throw new Error("No token received");
 
-    sessionStorage.setItem("token", data.token);
-    if (rememberMePreference) {
-      localStorage.setItem("token", data.token);
-    } else {
-      localStorage.removeItem("token");
+    refreshTokenPromiseRef.current = (async () => {
+      const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildSessionHeaders(),
+        },
+      });
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error("Failed to refresh token (invalid response)");
+      }
+
+      if (!response.ok) {
+        const backendMessage = String(data?.message || "");
+        if (
+          response.status === 401 ||
+          response.status === 403 ||
+          backendMessage.toLowerCase().includes("session is no longer active")
+        ) {
+          forceLogoutOnce(true);
+        }
+        throw new Error(data?.message || "Failed to refresh token");
+      }
+
+      if (!data.token) throw new Error("No token received");
+
+      sessionEndedRef.current = false;
+      sessionStorage.setItem("token", data.token);
+      if (rememberMePreference) {
+        localStorage.setItem("token", data.token);
+      } else {
+        localStorage.removeItem("token");
+      }
+      persistSessionTiming(data.token, "refresh");
+      publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
+      scheduleTokenExpiryLogout(data.token, logoutUser);
+      return data.token;
+    })();
+
+    try {
+      return await refreshTokenPromiseRef.current;
+    } finally {
+      refreshTokenPromiseRef.current = null;
     }
-    persistSessionTiming(data.token, "refresh");
-    publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
-    scheduleTokenExpiryLogout(data.token, logoutUser);
-    return data.token;
   };
 
   const logoutUser = async (options = {}) => {
     const { broadcast = true } = options;
+    const token = getStoredToken();
     try {
+      sessionEndedRef.current = true;
       setLoading(true);
       setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();
-      const token = getStoredToken();
+      setUser(null);
+      clearAuthStorage();
+      setRememberMePreferenceState(false);
+      if (broadcast) {
+        publishAuthSync({ type: "LOGOUT" });
+      }
+
       if (token) {
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
@@ -271,18 +326,15 @@ export const AuthProvider = ({ children }) => {
           credentials: "include",
         });
       }
-      setUser(null);
-      clearAuthStorage();
-      setRememberMePreferenceState(false);
-      if (broadcast) {
-        publishAuthSync({ type: "LOGOUT" });
-      }
     } finally {
       setLoading(false);
     }
   };
 
   const getValidToken = async () => {
+    if (sessionEndedRef.current) {
+      return null;
+    }
     const token = getStoredToken();
     if (token && isTokenValid(token)) {
       scheduleTokenExpiryLogout(token, logoutUser);
@@ -303,6 +355,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
+    sessionEndedRef.current = false;
     const rememberMe = Boolean(options.rememberMe);
     const normalized = normalizeUser({
       ...userData,
@@ -384,6 +437,7 @@ export const AuthProvider = ({ children }) => {
       syncChannelRef.current.onmessage = (event) => {
         const payload = event?.data || {};
         if (payload.type === "LOGOUT") {
+          sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
           setRememberMePreferenceState(false);
@@ -403,6 +457,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const payload = JSON.parse(event.newValue);
         if (payload.type === "LOGOUT") {
+          sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
           setRememberMePreferenceState(false);
@@ -442,11 +497,6 @@ export const AuthProvider = ({ children }) => {
           sessionStorage.getItem("currentUser") ||
           localStorage.getItem("currentUser");
         let token = getStoredToken();
-
-        if (!storedUser && !token) {
-          setUser(null);
-          return;
-        }
 
         if (!storedUser && token) {
           token = await refreshAccessToken();
@@ -508,14 +558,7 @@ export const AuthProvider = ({ children }) => {
       return undefined;
     }
     scheduleInactivityTimers(0);
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
+    const events = ["click"];
     events.forEach((eventName) =>
       window.addEventListener(eventName, recordActivity),
     );

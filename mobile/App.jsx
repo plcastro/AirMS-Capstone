@@ -99,18 +99,18 @@ function DrawerNav({ navigation }) {
     "pilot",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
-  const canAccessMechanics = ["maintenance manager", "admin"].includes(
+  const canAccessMechanics = ["maintenance manager", "superadmin"].includes(
     normalizedRole,
   );
-  const canAccessTasks = ["admin", "maintenance manager", "mechanic"].includes(
+  const canAccessTasks = ["superadmin", "maintenance manager", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessPartsRequisition = [
@@ -118,30 +118,30 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "officer-in-charge",
     "warehouse department",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenancePriority = [
     "maintenance manager",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMessages = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
@@ -149,15 +149,15 @@ function DrawerNav({ navigation }) {
     "warehouse department",
   ].includes(normalizedRole);
   const canAccessProfile = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
     "warehouse department",
   ].includes(normalizedRole);
-  const canAccessUserManagement = normalizedRole === "admin";
-  const canAccessActivityLogs = normalizedRole === "admin";
+  const canAccessUserManagement = normalizedRole === "superadmin";
+  const canAccessActivityLogs = normalizedRole === "superadmin";
   const initialDrawerRoute = canAccessReports
     ? "Reports and Analytics"
     : canAccessMessages
@@ -169,7 +169,7 @@ function DrawerNav({ navigation }) {
           : canAccessTasks
             ? "Tasks"
             : canAccessPartsRequisition
-              ? "Parts Requisition Monitoring"
+              ? "Parts Requisition"
               : "Profile";
   const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
@@ -179,7 +179,7 @@ function DrawerNav({ navigation }) {
     return <LoadingScreen />;
   }
 
-  if (!user) return null;
+  if (!user) return <LoadingScreen message="Preparing your session..." />;
 
   const navLabel = {
     headerTitleStyle: {
@@ -394,17 +394,18 @@ function LoginWrapper({ navigation, ...props }) {
     if (loading) return;
     if (!user) return;
 
-    if (user.status === "deactivated") {
+    if (user.status === "active") {
+      navigation.replace("dashboard");
       return;
     }
-    if (user.jobTitle === "Admin") {
+
+    if (user.status === "deactivated") {
       return;
     }
 
     if (user.status === "inactive") {
-      console.log(user.setupToken);
-      navigation.navigate("securitySetup", {
-        setupToken: user.token,
+      navigation.replace("securitySetup", {
+        setupToken: user.setupToken,
         email: user.email,
       });
 
@@ -421,13 +422,13 @@ function LoginWrapper({ navigation, ...props }) {
 
 // --- Stack navigator ---
 function StackNavWrapper() {
-  const { loading } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext);
 
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
 
   return (
     <Stack.Navigator
-      initialRouteName="login"
+      initialRouteName={user ? "dashboard" : "login"}
       screenOptions={{
         headerShown: false,
       }}

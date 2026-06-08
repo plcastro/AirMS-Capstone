@@ -351,10 +351,11 @@ export default function PartsRequisition({ route, navigation }) {
 
   const userRole = user?.jobTitle?.toLowerCase();
   const isWarehouse = userRole === "warehouse department";
-  const isManager = ["maintenance manager", "officer-in-charge"].includes(
+  const isManager = ["superadmin", "maintenance manager", "officer-in-charge"].includes(
     userRole,
   );
   const canRequestParts = ![
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
     "warehouse department",
@@ -1258,7 +1259,7 @@ export default function PartsRequisition({ route, navigation }) {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
           refreshControl={
             <RefreshControl
               refreshing={loading}

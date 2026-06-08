@@ -18,7 +18,6 @@ export default function UpdateSecurity() {
   const scrollRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("password");
-  const [needScrollHeight, setNeedScrollHeight] = useState(0);
 
   // --- Password States ---
   const [currentPassword, setCurrentPassword] = useState("");
@@ -42,6 +41,17 @@ export default function UpdateSecurity() {
   const [pinResetToken, setPinResetToken] = useState("");
 
   const [validationMessage, setValidationMessage] = useState("");
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
+
+  const runWithLoading = async (key, action) => {
+    if (actionLoadingKey) return;
+    setActionLoadingKey(key);
+    try {
+      await action();
+    } finally {
+      setActionLoadingKey("");
+    }
+  };
 
   // --- Password Validation & Strength ---
   useEffect(() => {
@@ -232,13 +242,15 @@ export default function UpdateSecurity() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 16}
     >
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        automaticallyAdjustKeyboardInsets
       >
         <Card style={styles.card}>
           <Card.Content>
@@ -314,8 +326,13 @@ export default function UpdateSecurity() {
                 ) : null}
                 <Button
                   mode="contained"
+                  loading={actionLoadingKey === "save-password"}
                   disabled={!Object.values(passwordErrors).every(Boolean)}
-                  onPress={() => handleSave("Password")}
+                  onPress={() =>
+                    runWithLoading("save-password", () =>
+                      handleSave("Password"),
+                    )
+                  }
                   style={styles.mainBtn}
                 >
                   Save Password
@@ -332,6 +349,7 @@ export default function UpdateSecurity() {
                     })}
                     <Button
                       mode="text"
+                      loading={actionLoadingKey === "forgot-pin"}
                       onPress={() => setForgotPinMode(true)}
                       compact
                       style={styles.linkButton}
@@ -346,6 +364,7 @@ export default function UpdateSecurity() {
                     })}
                     <Button
                       mode="text"
+                      loading={actionLoadingKey === "toggle-pin-1"}
                       onPress={() => setShowPin((current) => !current)}
                       compact
                       style={styles.linkButton}
@@ -354,8 +373,11 @@ export default function UpdateSecurity() {
                     </Button>
                     <Button
                       mode="contained"
+                      loading={actionLoadingKey === "save-pin"}
                       disabled={!Object.values(pinErrors).every(Boolean)}
-                      onPress={() => handleSave("PIN")}
+                      onPress={() =>
+                        runWithLoading("save-pin", () => handleSave("PIN"))
+                      }
                       style={styles.mainBtn}
                     >
                       Save PIN
@@ -380,7 +402,10 @@ export default function UpdateSecurity() {
                     ) : null}
                     <Button
                       mode="contained"
-                      onPress={requestOtp}
+                      loading={actionLoadingKey === "send-otp"}
+                      onPress={() =>
+                        runWithLoading("send-otp", () => requestOtp())
+                      }
                       disabled={!passwordForPin}
                       style={styles.mainBtn}
                     >
@@ -388,6 +413,7 @@ export default function UpdateSecurity() {
                     </Button>
                     <Button
                       mode="outlined"
+                      loading={actionLoadingKey === "cancel-otp"}
                       onPress={resetAll}
                       style={styles.secondaryBtn}
                     >
@@ -406,7 +432,10 @@ export default function UpdateSecurity() {
                     ) : null}
                     <Button
                       mode="contained"
-                      onPress={verifyOtp}
+                      loading={actionLoadingKey === "verify-otp"}
+                      onPress={() =>
+                        runWithLoading("verify-otp", () => verifyOtp())
+                      }
                       disabled={!otp}
                       style={styles.mainBtn}
                     >
@@ -414,6 +443,7 @@ export default function UpdateSecurity() {
                     </Button>
                     <Button
                       mode="outlined"
+                      loading={actionLoadingKey === "otp-back"}
                       onPress={() => setOtpSent(false)}
                       style={styles.secondaryBtn}
                     >
@@ -437,6 +467,7 @@ export default function UpdateSecurity() {
                     )}
                     <Button
                       mode="text"
+                      loading={actionLoadingKey === "toggle-pin-2"}
                       onPress={() => setShowPin((current) => !current)}
                       compact
                       style={styles.linkButton}
@@ -445,8 +476,11 @@ export default function UpdateSecurity() {
                     </Button>
                     <Button
                       mode="contained"
+                      loading={actionLoadingKey === "reset-pin"}
                       disabled={!Object.values(pinErrors).every(Boolean)}
-                      onPress={() => handleReset("PIN")}
+                      onPress={() =>
+                        runWithLoading("reset-pin", () => handleReset("PIN"))
+                      }
                       style={styles.mainBtn}
                     >
                       Reset PIN
@@ -458,7 +492,6 @@ export default function UpdateSecurity() {
           </Card.Content>
         </Card>
 
-        <View style={{ height: needScrollHeight }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

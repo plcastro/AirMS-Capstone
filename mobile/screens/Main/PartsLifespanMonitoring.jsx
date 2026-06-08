@@ -1,7 +1,8 @@
-﻿import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
+  ActivityIndicator,
   TouchableOpacity,
   View
 } from "react-native";
@@ -80,7 +81,7 @@ const getPartStatus = (part = {}) => {
 export default function PartsLifespanMonitoring() {
   const { user } = useContext(AuthContext);
   const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
-  const canEditParts = ["maintenance manager", "admin"].includes(normalizedRole);
+  const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [search, setSearch] = useState("");
@@ -371,7 +372,11 @@ export default function PartsLifespanMonitoring() {
               onPress={saveToDatabase}
               disabled={saving}
             >
-              <MaterialCommunityIcons name="content-save" size={18} color={COLORS.white} />
+              {saving ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <MaterialCommunityIcons name="content-save" size={18} color={COLORS.white} />
+              )}
               <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
                 {saving ? "Saving..." : "Save to Database"}
               </AppText>

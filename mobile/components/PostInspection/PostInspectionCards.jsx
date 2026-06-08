@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import AppText from "../common/AppText";
 import {
+  ActivityIndicator,
   View,
   TouchableOpacity
 } from "react-native";
@@ -13,6 +14,23 @@ export default function PostInspectionCards({
   onExport,
   userRole,
 }) {
+  const [exportingInspectionId, setExportingInspectionId] = useState(null);
+
+  const handleExportPress = async (inspection) => {
+    if (!onExport || exportingInspectionId) return;
+    const key = inspection?._id || inspection?.id;
+    if (!key) {
+      await onExport(inspection);
+      return;
+    }
+    setExportingInspectionId(String(key));
+    try {
+      await Promise.resolve(onExport(inspection));
+    } finally {
+      setExportingInspectionId(null);
+    }
+  };
+
   const getDisplayStatus = (status) =>
     status === "completed"
       ? "completed"
@@ -72,6 +90,8 @@ export default function PostInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const inspectionKey = String(inspection._id || inspection.id || "");
+        const exportLoading = exportingInspectionId === inspectionKey;
 
         return (
           <TouchableOpacity
@@ -135,12 +155,19 @@ export default function PostInspectionCards({
                   </View>
 
                   {/* Export */}
-                  <TouchableOpacity onPress={() => onExport?.(inspection)}>
-                    <MaterialCommunityIcons
-                      name="export-variant"
-                      size={21}
-                      color="#444"
-                    />
+                  <TouchableOpacity
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                  >
+                    {exportLoading ? (
+                      <ActivityIndicator size="small" color="#444" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="export-variant"
+                        size={21}
+                        color="#444"
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>

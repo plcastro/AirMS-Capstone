@@ -158,7 +158,7 @@ export default function WRSModal({
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const isWarehouseDepartment = userRole === "warehouse department";
   const isMaintenanceReviewer = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);

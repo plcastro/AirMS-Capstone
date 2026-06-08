@@ -146,6 +146,8 @@ export default function Messaging() {
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
+  const threadContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
 
   const currentUserId = user?.id || user?._id;
@@ -250,6 +252,7 @@ export default function Messaging() {
 
   useEffect(() => {
     if (selectedConversationId) {
+      shouldAutoScrollRef.current = true;
       fetchThread(selectedConversationId).catch((error) => {
         antdMessage.error(error.message || "Failed to load thread");
       });
@@ -257,6 +260,7 @@ export default function Messaging() {
   }, [fetchThread, selectedConversationId]);
 
   useEffect(() => {
+    if (!shouldAutoScrollRef.current) return;
     threadBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -489,6 +493,7 @@ export default function Messaging() {
   };
 
   const handleSelectConversation = (item) => {
+    shouldAutoScrollRef.current = true;
     setSelectedConversation({
       type: item.type === "group" ? "group" : "direct",
       id: String(item.id),
@@ -889,11 +894,19 @@ export default function Messaging() {
               ) : (
                 <>
                   <div
+                    ref={threadContainerRef}
                     style={{
                       flex: 1,
                       overflowY: "auto",
                       padding: 16,
                       background: "#f7f9f8",
+                    }}
+                    onScroll={(event) => {
+                      const element = event.currentTarget;
+                      const distanceFromBottom =
+                        element.scrollHeight -
+                        (element.scrollTop + element.clientHeight);
+                      shouldAutoScrollRef.current = distanceFromBottom < 80;
                     }}
                   >
                     {messages.map((item, index) => {
