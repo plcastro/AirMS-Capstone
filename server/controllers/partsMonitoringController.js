@@ -3,6 +3,7 @@ const PartsMonitoring = require("../models/partsMonitoringModel");
 const InspectionSchedule = require("../models/inspectionScheduleModel");
 const InspectionTask = require("../models/inspectionTaskModel");
 const TaskModel = require("../models/taskModel");
+const { readWorkbookData } = require("../utils/partsMonitoringExcelImport");
 const MaintenancePriorityRule = require("../models/maintenancePriorityRuleModel");
 const {
   getToday,
@@ -510,6 +511,63 @@ const resolveAircraftModelForRecord = (record = {}, computedParts = [], schedule
   return bestMatchCount > 0 ? bestModel : preferredModel;
 };
 
+const normalizeAircraftName = (value = "") =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+
+const validateImportedAircraftRecord = async (record = {}) => {
+  const warnings = [];
+  const errors = [];
+  const aircraft = normalizeAircraftName(record.aircraft);
+
+  if (!aircraft) {
+    errors.push("Aircraft name is required in cell C1.");
+  }
+
+  if (aircraft && !/^RP-C[A-Z0-9-]+$/i.test(aircraft)) {
+    warnings.push("Aircraft name does not follow the expected RP-C registration format.");
+  }
+
+  if (!record.aircraftType) {
+    warnings.push("Aircraft type was not found in cell C3.");
+  }
+
+  if (!record.referenceData?.acftTT) {
+    warnings.push("Aircraft total time is empty or zero.");
+  }
+
+  if (!Array.isArray(record.parts) || record.parts.length === 0) {
+    errors.push("No parts rows were found in the workbook.");
+  }
+
+  const partRows = (record.parts || []).filter((part) => part.rowType !== "header");
+  if (partRows.length === 0) {
+    errors.push("The workbook does not contain any component rows.");
+  }
+
+  if (aircraft) {
+    const duplicate = await PartsMonitoring.findOne({
+      aircraft: { $regex: `^${aircraft.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+    })
+      .select("aircraft lastUpdated")
+      .lean();
+
+    if (duplicate) {
+      errors.push(`Aircraft ${duplicate.aircraft} already exists in parts lifespan monitoring.`);
+    }
+  }
+
+  return {
+    aircraft,
+    partRowsCount: partRows.length,
+    headerRowsCount: (record.parts || []).length - partRows.length,
+    warnings,
+    errors,
+  };
+};
+
 exports.updateAircraftTotals = async (req, res) => {
   try {
     const { aircraft } = req.params;
@@ -640,6 +698,178 @@ exports.savePartsMonitoring = async (req, res) => {
   } catch (error) {
     console.error("Error saving data:", error);
     res.status(500).json({ success: false, message: "Error saving data", error: error.message });
+  }
+};
+
+exports.importPartsMonitoringWorkbook = async (req, res) => {
+  try {
+    const role = String(req.user?.jobTitle || req.user?.access || "")
+      .trim()
+      .toLowerCase();
+    const canImport = ["maintenance manager", "superadmin"].includes(role);
+
+    if (!canImport) {
+      return res.status(403).json({
+        success: false,
+        message: "Only maintenance managers and superadmins can add aircraft.",
+      });
+    }
+
+    if (!req.file?.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel workbook is required.",
+      });
+    }
+
+    const importedRecord = await readWorkbookData({
+      buffer: req.file.buffer,
+      aircraft: req.body?.aircraft,
+      sheetName: req.body?.sheetName || "STATUS",
+    });
+    importedRecord.aircraft = normalizeAircraftName(importedRecord.aircraft);
+
+    const validation = await validateImportedAircraftRecord(importedRecord);
+    if (validation.errors.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: validation.errors[0],
+        errors: validation.errors,
+        warnings: validation.warnings,
+      });
+    }
+
+    if (!req.body?.approvalSignature) {
+      return res.status(400).json({
+        success: false,
+        message: "Signature approval is required before adding aircraft.",
+      });
+    }
+
+    const updatedBy =
+      req.body?.updatedBy ||
+      [req.user?.firstName, req.user?.lastName].filter(Boolean).join(" ") ||
+      req.user?.username ||
+      "excel_import";
+
+    const savedRecord = await PartsMonitoring.findOneAndUpdate(
+      { aircraft: importedRecord.aircraft },
+      {
+        ...importedRecord,
+        importApproval: {
+          signature: req.body.approvalSignature,
+          signedAt: new Date(),
+          signedBy: updatedBy,
+          userId: req.user?.id || req.user?._id || null,
+        },
+        lastUpdated: new Date(),
+        updatedBy,
+      },
+      {
+        new: true,
+        upsert: false,
+        setDefaultsOnInsert: true,
+      },
+    );
+
+    if (!savedRecord) {
+      const createdRecord = await PartsMonitoring.create({
+        ...importedRecord,
+        importApproval: {
+          signature: req.body.approvalSignature,
+          signedAt: new Date(),
+          signedBy: updatedBy,
+          userId: req.user?.id || req.user?._id || null,
+        },
+        lastUpdated: new Date(),
+        updatedBy,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: `Aircraft ${createdRecord.aircraft} imported successfully.`,
+        data: createdRecord,
+        meta: {
+          partsCount: createdRecord.parts.length,
+          sourceWorksheet: importedRecord.sourceWorksheet,
+          warnings: validation.warnings,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Aircraft ${savedRecord.aircraft} imported successfully.`,
+      data: savedRecord,
+      meta: {
+        partsCount: savedRecord.parts.length,
+        sourceWorksheet: importedRecord.sourceWorksheet,
+        warnings: validation.warnings,
+      },
+    });
+  } catch (error) {
+    console.error("Error importing parts monitoring workbook:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Error importing workbook",
+    });
+  }
+};
+
+exports.previewPartsMonitoringWorkbook = async (req, res) => {
+  try {
+    const role = String(req.user?.jobTitle || req.user?.access || "")
+      .trim()
+      .toLowerCase();
+    const canImport = ["maintenance manager", "superadmin"].includes(role);
+
+    if (!canImport) {
+      return res.status(403).json({
+        success: false,
+        message: "Only maintenance managers and superadmins can add aircraft.",
+      });
+    }
+
+    if (!req.file?.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel workbook is required.",
+      });
+    }
+
+    const importedRecord = await readWorkbookData({
+      buffer: req.file.buffer,
+      aircraft: req.body?.aircraft,
+      sheetName: req.body?.sheetName || "STATUS",
+    });
+    importedRecord.aircraft = normalizeAircraftName(importedRecord.aircraft);
+
+    const validation = await validateImportedAircraftRecord(importedRecord);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        aircraft: importedRecord.aircraft,
+        aircraftType: importedRecord.aircraftType,
+        serialNumber: importedRecord.serialNumber,
+        dateManufactured: importedRecord.dateManufactured,
+        creepDamage: importedRecord.creepDamage,
+        referenceData: importedRecord.referenceData,
+        partsCount: importedRecord.parts.length,
+        partRowsCount: validation.partRowsCount,
+        headerRowsCount: validation.headerRowsCount,
+        sourceWorksheet: importedRecord.sourceWorksheet,
+        parts: importedRecord.parts,
+      },
+      warnings: validation.warnings,
+      errors: validation.errors,
+    });
+  } catch (error) {
+    console.error("Error previewing parts monitoring workbook:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Error previewing workbook",
+    });
   }
 };
 
@@ -1270,6 +1500,8 @@ module.exports = {
   getMaintenancePriority: exports.getMaintenancePriority,
   getInspectionRemainingHours: exports.getInspectionRemainingHours,
   saveMaintenancePriorityRules: exports.saveMaintenancePriorityRules,
+  importPartsMonitoringWorkbook: exports.importPartsMonitoringWorkbook,
+  previewPartsMonitoringWorkbook: exports.previewPartsMonitoringWorkbook,
   updateAircraftTotals: exports.updateAircraftTotals,
   savePartsMonitoring: exports.savePartsMonitoring,
   deleteAircraftData,

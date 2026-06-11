@@ -46,6 +46,11 @@
   color: #000;
 }
 
+.preview-import-header-row td {
+  background: #b6d7a8 !important;
+  font-weight: 700;
+}
+
 .input-row {
   display: flex;
   align-items: center;

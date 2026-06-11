@@ -10,6 +10,15 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
   };
 };
 
+export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
+  const token = await AsyncStorage.getItem("currentUserToken");
+
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 export const getArrayData = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
