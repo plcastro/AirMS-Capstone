@@ -178,6 +178,9 @@ export default function UpdateSecurity() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
+      console.log("REQUEST OTP RESPONSE:", data);
+      console.log("TOKEN FROM REQUEST:", data.token);
+
       setOtpSent(true);
       setPinResetToken(data.token);
       setValidationMessage("OTP sent to your email.");
@@ -198,11 +201,15 @@ export default function UpdateSecurity() {
       });
 
       const data = await res.json();
+      const message = String(data?.message || "");
+
       if (!res.ok) {
-        if (data.message.includes("expired")) {
+        if (message.toLowerCase().includes("expired")) {
           setOtpSent(false);
           setValidationMessage("OTP expired! Request a new one.");
-        } else throw new Error(data.message);
+        } else {
+          throw new Error(message || "OTP verification failed");
+        }
         return;
       }
 
@@ -485,13 +492,20 @@ export default function UpdateSecurity() {
                     >
                       Reset PIN
                     </Button>
+                    <Button
+                      mode="outlined"
+                      loading={actionLoadingKey === "cancel-otp"}
+                      onPress={resetAll}
+                      style={styles.secondaryBtn}
+                    >
+                      Cancel
+                    </Button>
                   </View>
                 )}
               </View>
             )}
           </Card.Content>
         </Card>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );

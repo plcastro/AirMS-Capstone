@@ -32,7 +32,6 @@
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "versionCode": 1
     },
     "web": {
