@@ -37,13 +37,6 @@ const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const WEB_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const MOBILE_SESSION_IDLE_LIMIT_MS = SESSION_IDLE_LIMIT_MS;
-
-const getSessionIdleLimitMs = (platform) =>
-  String(platform || "").toUpperCase() === "WEB"
-    ? WEB_SESSION_IDLE_LIMIT_MS
-    : MOBILE_SESSION_IDLE_LIMIT_MS;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");

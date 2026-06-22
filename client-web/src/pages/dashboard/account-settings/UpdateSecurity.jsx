@@ -197,6 +197,7 @@ export default function UpdateSecurity() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${await getValidToken()}`,
+          "x-action-confirmed": "true",
         },
         body: JSON.stringify({ token: pinResetToken, newPin }),
       });
@@ -312,7 +313,15 @@ export default function UpdateSecurity() {
             </Form.Item>
 
             <Form.Item>
-              <Button type="link" onClick={() => setForgotPinMode(true)}>
+              <Button
+                type="link"
+                onClick={() => {
+                  setCurrentPin("");
+                  setNewPin("");
+                  setConfirmPin("");
+                  setForgotPinMode(true);
+                }}
+              >
                 Forgot PIN?
               </Button>
             </Form.Item>

@@ -228,6 +228,7 @@ export default function UpdateSecurity() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${user.token}`,
+            "x-action-confirmed": "true",
           },
           body: JSON.stringify({ token: pinResetToken, newPin }),
         });
