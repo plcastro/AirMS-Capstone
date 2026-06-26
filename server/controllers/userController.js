@@ -1394,23 +1394,21 @@ const updateUser = async (req, res) => {
       }
     }
 
-    const changes = {};
-    if (firstName && firstName !== user.firstName)
-      changes.firstName = { old: user.firstName, new: firstName };
-    if (lastName && lastName !== user.lastName)
-      changes.lastName = { old: user.lastName, new: lastName };
-    if (email && email !== user.email)
-      changes.email = { old: user.email, new: email };
-    if (username && username !== user.username)
-      changes.username = { old: user.username, new: username };
-    if (jobTitle && jobTitle !== user.jobTitle)
-      changes.jobTitle = { old: user.jobTitle, new: jobTitle };
-    if (access && access !== user.access)
-      changes.access = { old: user.access, new: access };
-    if (requiresLicense && licenseNo !== (user.licenseNo || ""))
-      changes.licenseNo = { old: user.licenseNo || "", new: licenseNo };
+    const changedFields = [];
+
+    if (firstName !== user.firstName) changedFields.push("First Name");
+    if (lastName !== user.lastName) changedFields.push("Last Name");
+    if (email !== user.email) changedFields.push("Email");
+    if (username !== user.username) changedFields.push("Username");
+    if (jobTitle !== user.jobTitle) changedFields.push("Job Title");
+    if (access !== user.access) changedFields.push("Access Level");
+
+    if (requiresLicense && licenseNo !== (user.licenseNo || "")) {
+      changedFields.push("License Number");
+    }
+
     if (!requiresLicense && user.licenseNo) {
-      changes.licenseNo = { old: user.licenseNo, new: "" };
+      changedFields.push("License Number");
     }
 
     const updateData = {
@@ -1427,18 +1425,19 @@ const updateUser = async (req, res) => {
       returnDocument: "after",
       runValidators: true,
     });
+    // console.log(updatedUser.username);
 
-    if (Object.keys(changes).length > 0) {
+    if (changedFields.length > 0) {
       const audit = withActorId(
         req,
-        `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
+        `User account updated for username: ${updatedUser.username}. Fields updated: ${changedFields.join(", ")}`,
         updatedUser._id,
       );
       await auditLog(audit.action, audit.actorId);
     } else {
       const audit = withActorId(
         req,
-        `User update attempted but no changes detected: ${username}`,
+        `User update attempted but no changes were detected. Username: ${updatedUser.username}`,
         updatedUser._id,
       );
       await auditLog(audit.action, audit.actorId);
