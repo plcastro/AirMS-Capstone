@@ -1580,4 +1580,3 @@ export default function MaintenanceDashboard() {
     </div>
   );
 }
-
