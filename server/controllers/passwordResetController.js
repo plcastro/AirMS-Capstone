@@ -64,7 +64,11 @@ const requestPasswordReset = async (req, res) => {
   `,
     });
 
-    const audit = withActorId(req, `Password reset requested for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `Password reset requested for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
@@ -164,7 +168,11 @@ const requestPinReset = async (req, res) => {
   `,
     });
 
-    const audit = withActorId(req, `PIN reset requested for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `PIN reset requested for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
@@ -191,6 +199,9 @@ const verifyPinOtp = async (req, res) => {
 
 // RESET PIN
 const resetPin = async (req, res) => {
+  console.log("Reached resetPin");
+  console.log(req.headers);
+  console.log(req.body);
   const { token, newPin } = req.body;
 
   const user = await UserModel.findOne({

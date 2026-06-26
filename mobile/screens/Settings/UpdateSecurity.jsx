@@ -142,8 +142,12 @@ export default function UpdateSecurity() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${user.token}`,
+          "x-action-confirmed": "true",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          confirmAction: true,
+        }),
       });
 
       const data = await res.json();
@@ -230,7 +234,11 @@ export default function UpdateSecurity() {
             Authorization: `Bearer ${user.token}`,
             "x-action-confirmed": "true",
           },
-          body: JSON.stringify({ token: pinResetToken, newPin }),
+          body: JSON.stringify({
+            token: pinResetToken,
+            newPin,
+            confirmAction: true,
+          }),
         });
 
         const data = await res.json();

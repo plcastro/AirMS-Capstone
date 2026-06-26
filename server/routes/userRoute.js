@@ -270,7 +270,7 @@ router.post("/request-pin-reset/:id", requestPinReset);
 
 router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
 
-router.post("/reset-pin", resetPin);
+router.post("/reset-pin", requireActionConfirmation, resetPin);
 
 /* =========================================
    ERROR HANDLER

@@ -122,17 +122,27 @@ export default function UpdateSecurity() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${await getValidToken()}`,
+          "x-action-confirmed": "true",
         },
-        body: JSON.stringify({ currentPin, newPin }),
+        body: JSON.stringify({
+          currentPin,
+          newPin,
+          confirmAction: true,
+        }),
       });
 
       const data = await res.json();
+
+      // console.log("Status:", res.status);
+      // console.log("Response:", data);
+
       if (!res.ok) throw new Error(data.message);
 
       setUser((prev) => ({ ...prev, pin: newPin }));
       message.success("PIN successfully updated!");
       resetAll();
     } catch (err) {
+      console.error(err);
       message.error(err.message);
     }
   };
@@ -199,7 +209,11 @@ export default function UpdateSecurity() {
           Authorization: `Bearer ${await getValidToken()}`,
           "x-action-confirmed": "true",
         },
-        body: JSON.stringify({ token: pinResetToken, newPin }),
+        body: JSON.stringify({
+          token: pinResetToken,
+          newPin,
+          confirmAction: true,
+        }),
       });
 
       const data = await res.json();
