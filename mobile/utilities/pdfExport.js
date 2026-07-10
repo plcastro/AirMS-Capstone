@@ -1,5 +1,6 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 import { Alert } from "react-native";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
@@ -32,6 +33,11 @@ const formatValue = (value) => {
   if (value instanceof Date) return value.toLocaleString();
   return String(value);
 };
+
+const buildSafeFileName = (value, fallback = "export") =>
+  String(value || fallback)
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
 const flattenRecord = (value, prefix = "") => {
   if (value === null || value === undefined) {
@@ -150,6 +156,139 @@ const buildGenericHtml = ({ title, subtitle, rows }) => `
     </body>
   </html>
 `;
+
+const simpleTable = (rows = []) => `
+  <table>
+    <tbody>
+      ${rows
+        .map(
+          ([label, value]) => `
+            <tr>
+              <td>${escapeHtml(label)}</td>
+              <td>${escapeHtml(formatValue(value))}</td>
+            </tr>
+          `,
+        )
+        .join("")}
+    </tbody>
+  </table>
+`;
+
+const buildFlightLogHtml = (log = {}) => {
+  const legs = Array.isArray(log.legs) ? log.legs : [];
+  const workItems = Array.isArray(log.workItems) ? log.workItems : [];
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          body { font-family: Arial, sans-serif; padding: 22px; color: #1f1f1f; }
+          h1 { margin: 0 0 8px; color: #048a25; font-size: 22px; }
+          h2 { margin: 18px 0 8px; font-size: 15px; color: #244D3B; }
+          p { margin: 0 0 14px; color: #666; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 10px; }
+          th, td { border: 1px solid #d9d9d9; padding: 6px; text-align: left; vertical-align: top; word-wrap: break-word; font-size: 10px; }
+          th { background: #048a25; color: #fff; }
+          td:first-child { width: 34%; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>Flight Log</h1>
+        <p>RP/C: ${escapeHtml(log.rpc || "N/A")} | Date: ${escapeHtml(log.date || "N/A")}</p>
+        ${simpleTable([
+          ["Aircraft Type", log.aircraftType],
+          ["Control No.", log.controlNo || log.control],
+          ["Status", log.status],
+          ["Released By", log.releasedBy?.name],
+          ["Accepted By", log.acceptedBy?.name],
+          ["Remarks", log.remarks],
+          ["Sling", log.sling],
+        ])}
+
+        <h2>Flight Legs</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Leg</th>
+              <th>Station</th>
+              <th>Block On</th>
+              <th>Block Off</th>
+              <th>Flight On</th>
+              <th>Flight Off</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              legs.length
+                ? legs
+                    .map(
+                      (leg, index) => `
+                        <tr>
+                          <td>${index + 1}</td>
+                          <td>${escapeHtml(
+                            Array.isArray(leg.stations)
+                              ? leg.stations
+                                  .map((station) =>
+                                    [station?.from, station?.to]
+                                      .filter(Boolean)
+                                      .join(" - "),
+                                  )
+                                  .filter(Boolean)
+                                  .join(" / ")
+                              : "",
+                          )}</td>
+                          <td>${escapeHtml(leg.blockTimeOn || "")}</td>
+                          <td>${escapeHtml(leg.blockTimeOff || "")}</td>
+                          <td>${escapeHtml(leg.flightTimeOn || "")}</td>
+                          <td>${escapeHtml(leg.flightTimeOff || "")}</td>
+                          <td>${escapeHtml(leg.totalTimeOn || leg.totalTimeOff || "")}</td>
+                        </tr>
+                      `,
+                    )
+                    .join("")
+                : '<tr><td colspan="7">No flight legs recorded.</td></tr>'
+            }
+          </tbody>
+        </table>
+
+        <h2>Work Done</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Aircraft</th>
+              <th>Work Done</th>
+              <th>Name</th>
+              <th>Certificate No.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              workItems.length
+                ? workItems
+                    .map(
+                      (item) => `
+                        <tr>
+                          <td>${escapeHtml(item.date || "")}</td>
+                          <td>${escapeHtml(item.aircraft || log.rpc || "")}</td>
+                          <td>${escapeHtml(item.workDone || item.description || "")}</td>
+                          <td>${escapeHtml(item.name || item.performedBy || "")}</td>
+                          <td>${escapeHtml(item.certificateNumber || "")}</td>
+                        </tr>
+                      `,
+                    )
+                    .join("")
+                : '<tr><td colspan="5">No work done items recorded.</td></tr>'
+            }
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+};
 
 const getChecklistValue = (inspection, item) =>
   inspection?.[item.key] === true ? "Checked" : "";
@@ -789,19 +928,23 @@ const exportRecordToPdf = async ({ title, subtitle, record, html }) => {
       html: finalHtml,
       base64: false,
     });
+    const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(title)}.pdf`;
+    await FileSystem.copyAsync({ from: uri, to: finalUri });
 
     const canShare = await Sharing.isAvailableAsync();
 
     if (!canShare) {
-      Alert.alert("Export ready", `PDF saved to:\n${uri}`);
-      return;
+      Alert.alert("Export ready", `PDF saved to:\n${finalUri}`);
+      return finalUri;
     }
 
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(finalUri, {
       mimeType: "application/pdf",
       dialogTitle: title,
       UTI: "com.adobe.pdf",
     });
+
+    return finalUri;
   } catch (error) {
     console.error(`Failed to export ${title}:`, error);
     Alert.alert("Export failed", error.message || "Unable to generate PDF");
@@ -823,6 +966,22 @@ export const exportPostInspectionPdf = (inspection) =>
 export const exportFlightLogPdf = (log) =>
   exportRecordToPdf({
     title: "Flight Log",
-    subtitle: `RP/C: ${log?.rpc || "N/A"} | Date: ${log?.date || "N/A"}`,
-    record: log,
+    html: buildFlightLogHtml(log),
+  });
+
+export const exportMaintenanceLogPdf = (log) =>
+  exportRecordToPdf({
+    title: "Work Done Report",
+    subtitle: `Aircraft: ${log?.aircraft || "N/A"} | WO: ${
+      log?.sourceTaskId || log?.id || "N/A"
+    }`,
+    record: {
+      aircraft: log?.aircraft,
+      base: log?.base,
+      reportedBy: log?.reportedBy,
+      rectified: log?.dateDefectRectified,
+      taskStatus: log?.sourceTaskStatus || log?.status,
+      taskTitle: log?.taskTitle,
+      workDetails: log?.workDetails,
+    },
   });

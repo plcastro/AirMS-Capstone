@@ -24,7 +24,7 @@ import {
   DatePicker,
   message,
 } from "antd";
-import { EditOutlined, SearchOutlined } from "@ant-design/icons";
+import { EditOutlined, ExportOutlined, SearchOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -35,6 +35,10 @@ const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
+const sanitizeFileName = (value) =>
+  String(value || "post-inspection")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
 const POST_TABS = [
   { key: "basic", label: "Basic Information" },
@@ -242,6 +246,34 @@ export default function PostInspection() {
     }
   };
 
+  const exportInspectionPdf = async (record) => {
+    if (!record?._id) return;
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/post/${record._id}/export-pdf`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || "Failed to export post-inspection");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFileName(
+        `Post-Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+      )}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      message.success("Post-inspection exported successfully");
+    } catch (error) {
+      message.error(error.message || "Failed to export post-inspection");
+    }
+  };
+
   const handleSignedAction = async (signature) => {
     if (!editing) return;
     await saveEdit({
@@ -312,12 +344,20 @@ export default function PostInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Button
-                icon={<EditOutlined />}
-                onClick={() => setEditing(record)}
-              >
-                {readOnly ? "View" : "Edit"}
-              </Button>
+              <Space>
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => setEditing(record)}
+                >
+                  {readOnly ? "View" : "Edit"}
+                </Button>
+                <Button
+                  icon={<ExportOutlined />}
+                  onClick={() => exportInspectionPdf(record)}
+                >
+                  Export
+                </Button>
+              </Space>
             ),
           },
         ]}

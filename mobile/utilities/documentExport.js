@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
@@ -60,7 +60,7 @@ const downloadInspectionDocument = async (
     const base64Data = arrayBufferToBase64(arrayBuffer);
 
     // Write file
-    await new File().write()(fileUri, base64Data, {
+    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
