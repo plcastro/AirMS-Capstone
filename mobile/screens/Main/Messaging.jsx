@@ -104,11 +104,12 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
 };
 
 const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+  const wsBase = String(API_BASE || "")
+    .replace(/\/+$/, "")
+    .replace(/^http/i, (match) =>
+      match.toLowerCase() === "https" ? "wss" : "ws",
+    );
+  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
 export default function Messaging({ navigation }) {

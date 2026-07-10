@@ -122,7 +122,12 @@ export default function PushNotificationsCard({ open, onClose }) {
     let isMounted = true;
 
     const getWebSocketUrl = (token) => {
-      return `wss://api.airms.online/ws?token=${token}`;
+      const wsBase = String(API_BASE || "")
+        .replace(/\/+$/, "")
+        .replace(/^http/i, (match) =>
+          match.toLowerCase() === "https" ? "wss" : "ws",
+        );
+      return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
     };
 
     const connect = async () => {
