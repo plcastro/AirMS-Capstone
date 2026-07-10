@@ -445,7 +445,12 @@ export default function PartsLifespanMonitoring() {
             onValueChange={setSelectedAircraft}
             enabled={!loadingAircraft}
           >
-            <Picker.Item label="Select aircraft" value="" />
+            <Picker.Item
+              label={loadingAircraft ? "Loading aircraft..." : "Select Aircraft"}
+              value=""
+              enabled={false}
+              color={COLORS.grayDark}
+            />
             {aircraftOptions.map((aircraft) => (
               <Picker.Item label={aircraft} value={aircraft} key={aircraft} />
             ))}

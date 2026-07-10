@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
+import { exportMaintenanceLogPdf } from "../../utilities/pdfExport";
 import {
   EmptyState,
   FieldRow,
@@ -58,6 +59,7 @@ export default function MaintenanceLog() {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [selectedBase, setSelectedBase] = useState("all");
+  const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -141,15 +143,42 @@ export default function MaintenanceLog() {
   if (selectedWorkOrder) {
     return (
       <ModuleContainer>
-        <TouchableOpacity
-          style={[moduleStyles.row, { marginBottom: 10 }]}
-          onPress={() => setSelectedWorkOrder(null)}
+        <View
+          style={[
+            moduleStyles.row,
+            { justifyContent: "space-between", marginBottom: 10 },
+          ]}
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
-            Back to work orders
-          </AppText>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={moduleStyles.row}
+            onPress={() => setSelectedWorkOrder(null)}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
+            <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+              Back to work orders
+            </AppText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              moduleStyles.button,
+              { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0 },
+            ]}
+            disabled={exportingWorkOrder}
+            onPress={async () => {
+              setExportingWorkOrder(true);
+              try {
+                await exportMaintenanceLogPdf(selectedWorkOrder);
+              } finally {
+                setExportingWorkOrder(false);
+              }
+            }}
+          >
+            <MaterialCommunityIcons name="export-variant" size={18} color={COLORS.white} />
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+              {exportingWorkOrder ? "Exporting..." : "Export"}
+            </AppText>
+          </TouchableOpacity>
+        </View>
 
         <InfoCard
           title="Work Done Report"
