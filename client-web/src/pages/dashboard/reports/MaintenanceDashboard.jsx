@@ -272,7 +272,7 @@ export default function MaintenanceDashboard() {
             headers,
           }),
           flightLogs: fetch(
-            `${API_BASE}/api/flightlogs?page=1&limit=500&sortBy=date&sortOrder=desc`,
+            `${API_BASE}/api/flightlogs?page=1&limit=300&sortBy=date&sortOrder=desc`,
             { headers },
           ),
           preInspections: fetch(

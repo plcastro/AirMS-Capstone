@@ -37,6 +37,7 @@ const {
 } = require("./utils/realtimeEvents");
 const { requestContextMiddleware } = require("./middleware/requestContext");
 const { auditMutatingRequest } = require("./middleware/auditRequestMiddleware");
+const { responseTimeLogger } = require("./middleware/responseTimeLogger");
 const app = express();
 
 const allowedOrigins = [
@@ -78,12 +79,14 @@ const corsOptions = {
     "x-action-confirmed",
     "x-confirm-action",
   ],
+  exposedHeaders: ["X-Response-Time", "Server-Timing"],
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
 const corsAllowedHeaders = corsOptions.allowedHeaders.join(", ");
 const corsAllowedMethods = corsOptions.methods.join(", ");
+const corsExposedHeaders = corsOptions.exposedHeaders.join(", ");
 
 // Defensive CORS fallback for preflight/proxy edge-cases.
 app.use((req, res, next) => {
@@ -94,6 +97,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", corsAllowedMethods);
     res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders);
+    res.setHeader("Access-Control-Expose-Headers", corsExposedHeaders);
   }
 
   if (req.method === "OPTIONS") {
@@ -107,6 +111,7 @@ app.use(
   cors(corsOptions),
 );
 app.options(/.*/, cors(corsOptions));
+app.use(responseTimeLogger);
 
 app.get("/api/events/stream", subscribeSSE);
 

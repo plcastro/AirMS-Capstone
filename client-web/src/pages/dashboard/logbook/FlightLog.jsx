@@ -296,7 +296,7 @@ export default function FlightLog() {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=300`,
         {
           method: "GET",
           headers: {
