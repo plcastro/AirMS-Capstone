@@ -165,8 +165,15 @@ export default function TaskAssignment() {
     open: false,
     mode: null,
   });
-  const role = user?.jobTitle?.toLowerCase() || "";
-  const isManager = ["maintenance manager", "superadmin"].includes(role);
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const access = String(user?.access || "")
+    .trim()
+    .toLowerCase();
+  const isSuperadmin = role === "superadmin" || access === "superadmin";
+  const isManager =
+    role === "maintenance manager" || isSuperadmin;
   const watchedInspectionType = Form.useWatch("inspectionType", form);
   const rawChecklistItems = Form.useWatch("checklistItems", form);
   const watchedChecklistItems = useMemo(
@@ -844,9 +851,10 @@ export default function TaskAssignment() {
                 {
                   title: "Actions",
                   render: (_, record) => {
+                    const status = normalizeStatus(record.status);
                     const canEditDelete =
                       activeTab === "assigned" &&
-                      normalizeStatus(record.status) === "pending";
+                      (isSuperadmin || status === "pending");
                     if (!canEditDelete) return null;
                     return (
                       <Space onClick={(event) => event.stopPropagation()}>

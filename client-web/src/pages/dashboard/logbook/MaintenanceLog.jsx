@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space, Tag } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -15,6 +15,32 @@ const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
+const STATUS_TAG_COLORS = {
+  approved: "green",
+  verified: "green",
+  completed: "green",
+  complete: "green",
+  rectified: "green",
+  released: "green",
+  active: "green",
+  open: "blue",
+  pending: "gold",
+  "in progress": "processing",
+  ongoing: "processing",
+  assigned: "cyan",
+  submitted: "blue",
+  review: "purple",
+  "for review": "purple",
+  rejected: "red",
+  cancelled: "red",
+  canceled: "red",
+  failed: "red",
+  overdue: "volcano",
+  deferred: "orange",
+  inactive: "default",
+  closed: "default",
+  "n/a": "default",
+};
 
 const formatPdfValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
@@ -26,6 +52,18 @@ const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
+
+const getStatusTagColor = (status) => {
+  const normalized = String(status || "N/A")
+    .trim()
+    .toLowerCase();
+  return STATUS_TAG_COLORS[normalized] || "default";
+};
+
+const renderStatusTag = (status) => {
+  const label = String(status || "N/A").trim() || "N/A";
+  return <Tag color={getStatusTagColor(label)}>{label.toUpperCase()}</Tag>;
+};
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -248,7 +286,7 @@ export default function MaintenanceLog() {
     overflowX: "hidden",
   };
   const contentWrapStyle = {
-    maxWidth: 1280,
+    maxWidth: "100%",
     margin: "0 auto",
   };
   const persistSeenLogIds = (nextSet) => {
@@ -409,30 +447,37 @@ export default function MaintenanceLog() {
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
   };
 
-  const renderReadOnlyField = (label, value) => (
-    <Space.Compact style={{ width: "100%" }}>
-      <span
-        style={{
-          minWidth: 120,
-          padding: "0 11px",
-          border: "1px solid #d9d9d9",
-          borderRight: 0,
-          borderRadius: "6px 0 0 6px",
-          background: "#fafafa",
-          lineHeight: "30px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-      <Input
-        value={value || ""}
-        readOnly
-        style={{ borderRadius: "0 6px 6px 0" }}
-      />
-    </Space.Compact>
-  );
+  const renderReadOnlyField = (label, value, isTag = false) => {
+    if (isTag) {
+      return (
+        <Space.Compact style={{ width: "100%" }}>
+          <span
+            style={{
+              minWidth: 120,
+              padding: "0 11px",
+            }}
+          >
+            {label}
+          </span>
+          {renderStatusTag(value)}
+        </Space.Compact>
+      );
+    }
 
+    return (
+      <Space.Compact style={{ width: "100%" }}>
+        <span
+          style={{
+            minWidth: 120,
+            padding: "0 11px",
+          }}
+        >
+          {label}
+        </span>
+        <Input value={value || ""} readOnly />
+      </Space.Compact>
+    );
+  };
   const fetchAircraftExportData = async (aircraft) => {
     if (!aircraft) return null;
 
@@ -763,7 +808,9 @@ export default function MaintenanceLog() {
                               wordBreak: "break-word",
                             }}
                           >
-                            {item.value}
+                            {item.label === "Status"
+                              ? renderStatusTag(item.value)
+                              : item.value}
                           </Text>
                         </div>
                       </Col>
@@ -902,10 +949,11 @@ export default function MaintenanceLog() {
                 {renderReadOnlyField(
                   "Task Status:",
                   selectedWO?.sourceTaskStatus,
+                  true,
                 )}
               </Col>
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Log Status:", selectedWO?.status)}
+                {renderReadOnlyField("Log Status:", selectedWO?.status, true)}
               </Col>
               <Col xs={24} md={12}>
                 {renderReadOnlyField(

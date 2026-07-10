@@ -12,9 +12,14 @@ import {
   Upload,
   Modal,
   Alert,
+  Space,
   Table as AntTable,
 } from "antd";
-import { DownloadOutlined, SearchOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  DownloadOutlined,
+  SearchOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
@@ -433,7 +438,9 @@ export default function PartsMonitoring() {
 
   const uploadWorkbookForPreview = async (file) => {
     if (!canManageAircraft) {
-      message.error("Only maintenance managers and superadmins can add aircraft.");
+      message.error(
+        "Only maintenance managers and superadmins can add aircraft.",
+      );
       return Upload.LIST_IGNORE;
     }
 
@@ -1131,6 +1138,64 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
+      <Card className="aircraft-card legend-card">
+        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
+          <Text strong>NOTE:</Text>
+
+          <Row gutter={[16, 12]}>
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>OC</Text>
+                <Text>- ON CONDITION</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>H</Text>
+                <Text>- HOURS</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>D</Text>
+                <Text>- DAY</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#ff4d4f",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>REMOVED</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#52c41a",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>INSTALLED</Text>
+              </Space>
+            </Col>
+          </Row>
+        </Space>
+      </Card>
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}
@@ -1160,7 +1225,7 @@ export default function PartsMonitoring() {
           <Alert
             key={error}
             type="error"
-            message={error}
+            title={error}
             showIcon
             style={{ marginBottom: 8 }}
           />
@@ -1169,7 +1234,7 @@ export default function PartsMonitoring() {
           <Alert
             key={warning}
             type="warning"
-            message={warning}
+            title={warning}
             showIcon
             style={{ marginBottom: 8 }}
           />
@@ -1179,18 +1244,40 @@ export default function PartsMonitoring() {
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
               <Col xs={24} md={6}>
                 <Card>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
                       <Text>Aircraft:</Text>
-                      <Text className="info-value">{importPreview.aircraft || "N/A"}</Text>
+                      <Text className="info-value">
+                        {importPreview.aircraft || "N/A"}
+                      </Text>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
                       <Text>Date Manufactured:</Text>
                       <Text className="info-value">
                         {formatPreviewDate(importPreview.dateManufactured)}
                       </Text>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
                       <Text>Acft. Type:</Text>
                       <Text className="info-value">
                         {importPreview.aircraftType || "Not available"}
@@ -1199,7 +1286,13 @@ export default function PartsMonitoring() {
                           : ""}
                       </Text>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
                       <Text>Creep Damage:</Text>
                       <Text className="info-value">
                         {importPreview.creepDamage
@@ -1228,7 +1321,9 @@ export default function PartsMonitoring() {
                               size="middle"
                               value={
                                 key === "today"
-                                  ? formatPreviewDate(importPreview.referenceData?.[key])
+                                  ? formatPreviewDate(
+                                      importPreview.referenceData?.[key],
+                                    )
                                   : (importPreview.referenceData?.[key] ?? "")
                               }
                               readOnly
@@ -1246,6 +1341,7 @@ export default function PartsMonitoring() {
                 </Card>
               </Col>
             </Row>
+
             <AntTable
               size="small"
               bordered

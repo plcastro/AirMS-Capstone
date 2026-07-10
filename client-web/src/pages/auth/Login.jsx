@@ -272,7 +272,7 @@ const Login = () => {
                 checked={rememberMe}
                 onChange={handleRememberMeChange}
               >
-                Stay signed in
+                Remember me
               </Checkbox>
             </Col>
             <Col
