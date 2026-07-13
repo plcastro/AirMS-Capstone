@@ -1,8 +1,7 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import AirMS_Hero from "../../assets/airms_hero.webp";
-
+const AirMS_Hero = "/images/airms_hero.webp";
 const { Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;

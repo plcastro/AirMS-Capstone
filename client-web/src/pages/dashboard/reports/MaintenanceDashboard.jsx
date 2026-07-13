@@ -1,8 +1,4 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   App,
   Row,
@@ -924,6 +920,10 @@ export default function MaintenanceDashboard() {
 
   const exportReportsToExcel = async () => {
     try {
+      const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+        import("exceljs"),
+        import("file-saver"),
+      ]);
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "AirMS";
       workbook.created = new Date();
@@ -973,6 +973,10 @@ export default function MaintenanceDashboard() {
 
   const exportReportsToPdf = async () => {
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF("p", "pt", "a4");
       const sections = buildReportExportSections();
       let y = 42;

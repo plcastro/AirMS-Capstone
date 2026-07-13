@@ -7,7 +7,6 @@ import {
   Button,
   Input,
   Card,
-  Divider,
   Form,
   Upload,
   Modal,
@@ -20,8 +19,6 @@ import {
   SearchOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 
 import {
@@ -660,6 +657,10 @@ export default function PartsMonitoring() {
     }
 
     try {
+      const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+        import("exceljs"),
+        import("file-saver"),
+      ]);
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "AirMS";
       workbook.created = new Date();
