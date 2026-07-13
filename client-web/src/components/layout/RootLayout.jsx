@@ -1,7 +1,7 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import AirMS_Hero from "../../assets/airms_hero.png";
+import AirMS_Hero from "../../assets/airms_hero.webp";
 
 const { Content } = Layout;
 const { Text } = Typography;

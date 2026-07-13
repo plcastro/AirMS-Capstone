@@ -1,5 +1,5 @@
 import React from "react";
-import AirMS_web from "../../assets/AirMS_web.png";
+import AirMS_web from "../../assets/AirMS_web.webp";
 import { Typography, Row, Col, Space, Grid } from "antd";
 import "../../pages/auth/login.css";
 

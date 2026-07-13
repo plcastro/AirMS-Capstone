@@ -14,8 +14,8 @@ import {
   InboxOutlined,
   MessageOutlined,
 } from "@ant-design/icons";
-import AirMS_web from "../../assets/AirMS_web.png";
-import AirMS_logo from "../../assets/AirMS_logo.png";
+import AirMS_web from "../../assets/AirMS_web.webp";
+import AirMS_logo from "../../assets/AirMS_logo.webp";
 import { AuthContext } from "../../context/AuthContext";
 import { hasNavAccess } from "../../../../shared/navigationAccess";
 
@@ -235,8 +235,8 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const filteredItems = menuItems
     .map((item) => {
       if (item.children) {
-        const filteredChildren = item.children.filter(
-          (child) => hasNavAccess(role, child.accessKey),
+        const filteredChildren = item.children.filter((child) =>
+          hasNavAccess(role, child.accessKey),
         );
 
         if (!filteredChildren.length) return null;
