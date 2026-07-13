@@ -13,6 +13,7 @@ import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function UpdateSecurity() {
   const { user, setUser } = useContext(AuthContext);
   const scrollRef = useRef(null);
@@ -131,6 +132,7 @@ export default function UpdateSecurity() {
   const handleSave = async (type) => {
     setValidationMessage("");
     try {
+      const token = await AsyncStorage.getItem("currentUserToken");
       const endpoint = type === "Password" ? "change-password" : "update-pin";
       const payload =
         type === "Password"
@@ -141,8 +143,9 @@ export default function UpdateSecurity() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token || user.token}`,
           "x-action-confirmed": "true",
+          "x-confirm-action": "true",
         },
         body: JSON.stringify({
           ...payload,
@@ -227,12 +230,14 @@ export default function UpdateSecurity() {
   const handleReset = async (type) => {
     if (type === "PIN") {
       try {
+        const token = await AsyncStorage.getItem("currentUserToken");
         const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${token || user.token}`,
             "x-action-confirmed": "true",
+            "x-confirm-action": "true",
           },
           body: JSON.stringify({
             token: pinResetToken,
