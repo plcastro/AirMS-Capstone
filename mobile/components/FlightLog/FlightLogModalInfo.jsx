@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -22,7 +18,10 @@ export default function FlightLogModalInfo({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
   const canEditRPC = isEditable && isRPCEditable;
-  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
+  const normalizeRpc = (value = "") =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
 
   const fetchAircraftOptions = async () => {
     try {
@@ -51,7 +50,7 @@ export default function FlightLogModalInfo({
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
-              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+              `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
             ),
           ),
         );
@@ -61,9 +60,7 @@ export default function FlightLogModalInfo({
 
         const nextOngoingAircraft = payloads.flatMap((payload, index) =>
           responses[index].ok && Array.isArray(payload.data)
-            ? payload.data
-                .map((log) => normalizeRpc(log.rpc))
-                .filter(Boolean)
+            ? payload.data.map((log) => normalizeRpc(log.rpc)).filter(Boolean)
             : [],
         );
 

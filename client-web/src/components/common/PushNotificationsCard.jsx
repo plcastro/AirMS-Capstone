@@ -38,7 +38,9 @@ export default function PushNotificationsCard({ open, onClose }) {
       return "";
     }
 
-    const diffInSeconds = Math.floor((Date.now() - parsedDate.getTime()) / 1000);
+    const diffInSeconds = Math.floor(
+      (Date.now() - parsedDate.getTime()) / 1000,
+    );
 
     if (diffInSeconds < 60) {
       return "Just now";
@@ -60,44 +62,48 @@ export default function PushNotificationsCard({ open, onClose }) {
     });
   };
 
-  const fetchNotifications = useCallback(async ({ silent = false } = {}) => {
-    if (!user?.id) {
-      setNotifications([]);
-      return;
-    }
-
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const response = await fetch(`${API_BASE}/api/notifications`, {
-        headers: await getAuthHeader(),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch notifications");
+  const fetchNotifications = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!user?.id) {
+        setNotifications([]);
+        return;
       }
 
-      const data = await response.json();
-      setNotifications(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      setNotifications([]);
-      if (!silent) {
-        message.error("Failed to load notifications");
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
+        const response = await fetch(`${API_BASE}/api/notifications`, {
+          headers: await getAuthHeader(),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch notifications");
+        }
+
+        const data = await response.json();
+        setNotifications(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        setNotifications([]);
+        if (!silent) {
+          message.error("Failed to load notifications");
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
       }
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [getAuthHeader, user?.id]);
+    },
+    [getAuthHeader, user?.id],
+  );
 
   const sortedNotifications = useMemo(
     () =>
       [...notifications].sort(
         (left, right) =>
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
       ),
     [notifications],
   );
@@ -116,10 +122,12 @@ export default function PushNotificationsCard({ open, onClose }) {
     let isMounted = true;
 
     const getWebSocketUrl = (token) => {
-      const apiUrl = new URL(API_BASE);
-      apiUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-      apiUrl.searchParams.set("token", token);
-      return apiUrl.toString();
+      const wsBase = String(API_BASE || "")
+        .replace(/\/+$/, "")
+        .replace(/^http/i, (match) =>
+          match.toLowerCase() === "https" ? "wss" : "ws",
+        );
+      return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
     };
 
     const connect = async () => {
@@ -147,7 +155,8 @@ export default function PushNotificationsCard({ open, onClose }) {
             antdNotification.info({
               message: notification.title || "New notification",
               description:
-                notification.description || "You have a new AirMS notification.",
+                notification.description ||
+                "You have a new AirMS notification.",
               placement: "topRight",
             });
           } catch (error) {
@@ -209,10 +218,13 @@ export default function PushNotificationsCard({ open, onClose }) {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/notifications/mark-all-read`, {
-        method: "POST",
-        headers: await getAuthHeader(),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/notifications/mark-all-read`,
+        {
+          method: "POST",
+          headers: await getAuthHeader(),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to mark all notifications as read");

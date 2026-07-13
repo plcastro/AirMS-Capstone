@@ -1,8 +1,7 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import AirMS_Hero from "../../assets/airms_hero.png";
-
+const AirMS_Hero = "/images/airms_hero.webp";
 const { Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -27,15 +26,27 @@ const RootLayout = () => {
       <Row style={{ minHeight: "100dvh" }}>
         <Col
           xs={0}
-          md={14}
+          md={12}
           style={{
             position: "relative",
-            backgroundImage: `url(${AirMS_Hero})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            overflow: "hidden",
             minHeight: "100vh",
           }}
         >
+          <img
+            src={AirMS_Hero}
+            alt="Aircraft Maintenance Made Smarter"
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
           <div
             style={{
               position: "absolute",
@@ -74,7 +85,7 @@ const RootLayout = () => {
 
         <Col
           xs={24}
-          md={10}
+          md={12}
           style={{
             display: "flex",
             alignItems: "center",

@@ -13,12 +13,17 @@ export default function FlightLogModalInfo({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
 
-  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
+  const normalizeRpc = (value = "") =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
 
   useEffect(() => {
     const fetchAircraftOptions = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/aircraft-list`,
+        );
         const data = await response.json();
 
         if (response.ok && Array.isArray(data.data)) {
@@ -39,7 +44,7 @@ export default function FlightLogModalInfo({
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
-              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+              `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
             ),
           ),
         );
@@ -49,9 +54,7 @@ export default function FlightLogModalInfo({
 
         const nextOngoingAircraft = payloads.flatMap((payload, index) =>
           responses[index].ok && Array.isArray(payload.data)
-            ? payload.data
-                .map((log) => normalizeRpc(log.rpc))
-                .filter(Boolean)
+            ? payload.data.map((log) => normalizeRpc(log.rpc)).filter(Boolean)
             : [],
         );
 
@@ -117,7 +120,9 @@ export default function FlightLogModalInfo({
       <div className="fl-section-title">BASIC INFORMATION</div>
 
       <div className="fl-card">
-        <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
+        <div className="fl-card-header">
+          Rotary Winged Aircraft - Single Engine
+        </div>
         <div className="fl-card-body">
           <div className="fl-field-row">
             <span className="fl-label">RP-C: *</span>

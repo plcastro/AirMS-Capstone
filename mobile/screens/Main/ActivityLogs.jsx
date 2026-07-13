@@ -34,26 +34,51 @@ const HIDDEN_ACTION_KEYWORDS = [
 
 const getActionCategory = (actionText = "") => {
   const text = String(actionText).toLowerCase();
-  if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
-    return "create";
-  if (
-    ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
-  )
-    return "update";
-  if (
-    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
-  )
-    return "delete";
+
+  // login/logout first
   if (
     ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
-  )
+  ) {
     return "login";
+  }
+
   if (
     ["log out", "logged out", "logout", "signed out"].some((k) =>
       text.includes(k),
     )
-  )
+  ) {
     return "logout";
+  }
+
+  // updates
+  if (
+    [
+      "updated",
+      "modified",
+      "changed",
+      "edited",
+      "activated",
+      "deactivated",
+      "disabled",
+      "enabled",
+      "status changed",
+    ].some((k) => text.includes(k))
+  ) {
+    return "update";
+  }
+
+  // delete
+  if (
+    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
+  ) {
+    return "delete";
+  }
+
+  // create
+  if (["created", "added", "inserted"].some((k) => text.includes(k))) {
+    return "create";
+  }
+
   return "other";
 };
 

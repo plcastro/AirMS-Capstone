@@ -1,10 +1,3 @@
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable"; // registers autoTable globally
-import html2canvas from "html2canvas";
-import ExcelJS from "exceljs";
-import JSZip from "jszip";
-import { saveAs } from "file-saver";
-
 import { message } from "antd";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
@@ -106,7 +99,7 @@ const COMPONENT_TIME_FIELDS = [
   ["USAGE", "usage"],
   ["L'DING CYCLE", "landingCycle"],
 ];
-const FLIGHT_LOG_WORD_TEMPLATE_PATH = "/templates/AIRCRAFT-FLIGHT-LOG.docx";
+// const FLIGHT_LOG_WORD_TEMPLATE_PATH = "/templates/AIRCRAFT-FLIGHT-LOG.docx";
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 
 const flightValue = (value, fallback = "") =>
@@ -149,66 +142,40 @@ const fitRows = (items = [], count, emptyFactory) =>
     (_, index) => items[index] || emptyFactory(index),
   );
 
-const escapeWordXml = (value) =>
-  flightValue(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+// const escapeWordXml = (value) =>
+//   flightValue(value)
+//     .replace(/&/g, "&amp;")
+//     .replace(/</g, "&lt;")
+//     .replace(/>/g, "&gt;")
+//     .replace(/"/g, "&quot;")
+//     .replace(/'/g, "&apos;");
 
-const buildWordParagraph = (value) => {
-  const text = escapeWordXml(value);
-  return `<w:p><w:pPr><w:jc w:val="center"/><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:lang w:val="en-US"/></w:rPr></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:lang w:val="en-US"/></w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
-};
+// const buildWordParagraph = (value) => {
+//   const text = escapeWordXml(value);
+//   return `<w:p><w:pPr><w:jc w:val="center"/><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:lang w:val="en-US"/></w:rPr></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:lang w:val="en-US"/></w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
+// };
 
-const replaceWordCellText = (cellXml, value) => {
-  const openingTag = cellXml.match(/^<w:tc\b[^>]*>/)?.[0] || "<w:tc>";
-  const properties = cellXml.match(/<w:tcPr>[\s\S]*?<\/w:tcPr>/)?.[0] || "";
-  return `${openingTag}${properties}${buildWordParagraph(value)}</w:tc>`;
-};
+// const replaceWordCellText = (cellXml, value) => {
+//   const openingTag = cellXml.match(/^<w:tc\b[^>]*>/)?.[0] || "<w:tc>";
+//   const properties = cellXml.match(/<w:tcPr>[\s\S]*?<\/w:tcPr>/)?.[0] || "";
+//   return `${openingTag}${properties}${buildWordParagraph(value)}</w:tc>`;
+// };
 
-const replaceWordTableRowCells = (rowXml, values = [], startCell = 0) => {
-  const cells = Array.from(rowXml.matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)).map(
-    (match) => match[0],
-  );
+// const replaceWordTableRowCells = (rowXml, values = [], startCell = 0) => {
+//   const cells = Array.from(rowXml.matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)).map(
+//     (match) => match[0],
+//   );
 
-  values.forEach((value, index) => {
-    const cellIndex = startCell + index;
-    if (cells[cellIndex]) {
-      cells[cellIndex] = replaceWordCellText(cells[cellIndex], value);
-    }
-  });
+//   values.forEach((value, index) => {
+//     const cellIndex = startCell + index;
+//     if (cells[cellIndex]) {
+//       cells[cellIndex] = replaceWordCellText(cells[cellIndex], value);
+//     }
+//   });
 
-  const openingTag = rowXml.match(/^<w:tr\b[^>]*>/)?.[0] || "<w:tr>";
-  return `${openingTag}${cells.join("")}</w:tr>`;
-};
-
-const replaceWordTableCells = (
-  documentXml,
-  tableIndex,
-  rowIndex,
-  values,
-  startCell = 0,
-) => {
-  const tables = Array.from(documentXml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g));
-  const tableMatch = tables[tableIndex];
-  if (!tableMatch) return documentXml;
-
-  const tableXml = tableMatch[0];
-  const rows = Array.from(tableXml.matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g));
-  const rowMatch = rows[rowIndex];
-  if (!rowMatch) return documentXml;
-
-  const updatedRow = replaceWordTableRowCells(rowMatch[0], values, startCell);
-  const updatedTable = tableXml.replace(rowMatch[0], updatedRow);
-  return documentXml.replace(tableXml, updatedTable);
-};
-
-const replaceWordText = (documentXml, pattern, value) =>
-  documentXml.replace(pattern, (match) =>
-    match.replace(/_+/, escapeWordXml(value)),
-  );
+//   const openingTag = rowXml.match(/^<w:tr\b[^>]*>/)?.[0] || "<w:tr>";
+//   return `${openingTag}${cells.join("")}</w:tr>`;
+// };
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -267,177 +234,177 @@ const drawSignatureInCell = (doc, cell, signature, options = {}) => {
   }
 };
 
-export const exportFlightLogToWordTemplate = async (record = {}) => {
-  try {
-    const response = await fetch(FLIGHT_LOG_WORD_TEMPLATE_PATH);
-    if (!response.ok) {
-      throw new Error("Flight log Word template could not be loaded");
-    }
+// export const exportFlightLogToWordTemplate = async (record = {}) => {
+//   try {
+//     const response = await fetch(FLIGHT_LOG_WORD_TEMPLATE_PATH);
+//     if (!response.ok) {
+//       throw new Error("Flight log Word template could not be loaded");
+//     }
 
-    const templateBuffer = await response.arrayBuffer();
-    const zip = await JSZip.loadAsync(templateBuffer);
-    const documentFile = zip.file("word/document.xml");
-    if (!documentFile) {
-      throw new Error("Word template is missing word/document.xml");
-    }
+//     const templateBuffer = await response.arrayBuffer();
+//     const zip = await JSZip.loadAsync(templateBuffer);
+//     const documentFile = zip.file("word/document.xml");
+//     if (!documentFile) {
+//       throw new Error("Word template is missing word/document.xml");
+//     }
 
-    let documentXml = await documentFile.async("string");
+//     let documentXml = await documentFile.async("string");
 
-    documentXml = replaceWordText(
-      documentXml,
-      /Aircraft Type:\s*_+/,
-      record.aircraftType || "",
-    );
-    documentXml = replaceWordText(
-      documentXml,
-      /Date:\s*_+/,
-      formatFlightLogDate(record.date),
-    );
-    documentXml = replaceWordText(documentXml, /RP-C:\s*_+/, record.rpc || "");
-    documentXml = replaceWordText(
-      documentXml,
-      /Control No\.:\s*_+/,
-      record.controlNo || "",
-    );
-    documentXml = documentXml.replace(
-      /Released By:/,
-      `Released By: ${escapeWordXml(record.releasedBy?.name || "")}`,
-    );
-    documentXml = documentXml.replace(
-      /Accepted By:/,
-      `Accepted By: ${escapeWordXml(record.acceptedBy?.name || "")}`,
-    );
+//     documentXml = replaceWordText(
+//       documentXml,
+//       /Aircraft Type:\s*_+/,
+//       record.aircraftType || "",
+//     );
+//     documentXml = replaceWordText(
+//       documentXml,
+//       /Date:\s*_+/,
+//       formatFlightLogDate(record.date),
+//     );
+//     documentXml = replaceWordText(documentXml, /RP-C:\s*_+/, record.rpc || "");
+//     documentXml = replaceWordText(
+//       documentXml,
+//       /Control No\.:\s*_+/,
+//       record.controlNo || "",
+//     );
+//     documentXml = documentXml.replace(
+//       /Released By:/,
+//       `Released By: ${escapeWordXml(record.releasedBy?.name || "")}`,
+//     );
+//     documentXml = documentXml.replace(
+//       /Accepted By:/,
+//       `Accepted By: ${escapeWordXml(record.acceptedBy?.name || "")}`,
+//     );
 
-    fitRows(record.legs || [], 6, () => ({})).forEach((leg, index) => {
-      documentXml = replaceWordTableCells(
-        documentXml,
-        0,
-        index + 2,
-        [
-          getStationText(leg),
-          flightValue(leg.blockTimeOn),
-          flightValue(leg.blockTimeOff),
-          flightValue(leg.flightTimeOn),
-          flightValue(leg.flightTimeOff),
-          flightValue(leg.totalTimeOn),
-          flightValue(leg.totalTimeOff),
-        ],
-        1,
-      );
-    });
+//     fitRows(record.legs || [], 6, () => ({})).forEach((leg, index) => {
+//       documentXml = replaceWordTableCells(
+//         documentXml,
+//         0,
+//         index + 2,
+//         [
+//           getStationText(leg),
+//           flightValue(leg.blockTimeOn),
+//           flightValue(leg.blockTimeOff),
+//           flightValue(leg.flightTimeOn),
+//           flightValue(leg.flightTimeOff),
+//           flightValue(leg.totalTimeOn),
+//           flightValue(leg.totalTimeOff),
+//         ],
+//         1,
+//       );
+//     });
 
-    documentXml = replaceWordTableCells(
-      documentXml,
-      1,
-      1,
-      [
-        formatFlightLogDate(record.date),
-        ...PASSENGER_LEG_LABELS.map((_, index) =>
-          flightValue(record.legs?.[index]?.passengers),
-        ),
-      ],
-      0,
-    );
+//     documentXml = replaceWordTableCells(
+//       documentXml,
+//       1,
+//       1,
+//       [
+//         formatFlightLogDate(record.date),
+//         ...PASSENGER_LEG_LABELS.map((_, index) =>
+//           flightValue(record.legs?.[index]?.passengers),
+//         ),
+//       ],
+//       0,
+//     );
 
-    [
-      getComponentSection(record, "broughtForwardData"),
-      getComponentSection(record, "thisFlightData"),
-      getComponentSection(record, "toDateData"),
-    ].forEach((section, index) => {
-      documentXml = replaceWordTableCells(
-        documentXml,
-        2,
-        index + 2,
-        COMPONENT_TIME_FIELDS.map(([, key]) => flightValue(section[key])),
-        1,
-      );
-    });
+//     [
+//       getComponentSection(record, "broughtForwardData"),
+//       getComponentSection(record, "thisFlightData"),
+//       getComponentSection(record, "toDateData"),
+//     ].forEach((section, index) => {
+//       documentXml = replaceWordTableCells(
+//         documentXml,
+//         2,
+//         index + 2,
+//         COMPONENT_TIME_FIELDS.map(([, key]) => flightValue(section[key])),
+//         1,
+//       );
+//     });
 
-    const broughtForward = getComponentSection(record, "broughtForwardData");
-    const thisFlight = getComponentSection(record, "thisFlightData");
-    documentXml = replaceWordTableCells(
-      documentXml,
-      2,
-      5,
-      [
-        `AIRFRAME NEXT INSP. DUE AT: ${flightValue(thisFlight.airframeNextInsp || broughtForward.airframeNextInsp)}`,
-        `ENGINE NEXT INSP. DUE AT: ${flightValue(thisFlight.engineNextInsp || broughtForward.engineNextInsp)}`,
-      ],
-      0,
-    );
+//     const broughtForward = getComponentSection(record, "broughtForwardData");
+//     const thisFlight = getComponentSection(record, "thisFlightData");
+//     documentXml = replaceWordTableCells(
+//       documentXml,
+//       2,
+//       5,
+//       [
+//         `AIRFRAME NEXT INSP. DUE AT: ${flightValue(thisFlight.airframeNextInsp || broughtForward.airframeNextInsp)}`,
+//         `ENGINE NEXT INSP. DUE AT: ${flightValue(thisFlight.engineNextInsp || broughtForward.engineNextInsp)}`,
+//       ],
+//       0,
+//     );
 
-    fitRows(record.fuelServicing || [], 4, () => ({})).forEach(
-      (fuel, index) => {
-        documentXml = replaceWordTableCells(
-          documentXml,
-          3,
-          index + 2,
-          [
-            FLIGHT_LEG_LABELS[index],
-            formatFlightLogDate(fuel.date),
-            flightValue(fuel.contCheck),
-            flightValue(fuel.mainRemG),
-            flightValue(fuel.mainAdd),
-            flightValue(fuel.mainTotal),
-            fuel.fuelType === "drum" ? "/" : "",
-            fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : "",
-            flightValue(fuel.refuelerName),
-          ],
-          0,
-        );
-      },
-    );
+//     fitRows(record.fuelServicing || [], 4, () => ({})).forEach(
+//       (fuel, index) => {
+//         documentXml = replaceWordTableCells(
+//           documentXml,
+//           3,
+//           index + 2,
+//           [
+//             FLIGHT_LEG_LABELS[index],
+//             formatFlightLogDate(fuel.date),
+//             flightValue(fuel.contCheck),
+//             flightValue(fuel.mainRemG),
+//             flightValue(fuel.mainAdd),
+//             flightValue(fuel.mainTotal),
+//             fuel.fuelType === "drum" ? "/" : "",
+//             fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : "",
+//             flightValue(fuel.refuelerName),
+//           ],
+//           0,
+//         );
+//       },
+//     );
 
-    fitRows(record.oilServicing || [], 4, () => ({})).forEach((oil, index) => {
-      documentXml = replaceWordTableCells(
-        documentXml,
-        4,
-        index + 2,
-        [
-          FLIGHT_LEG_LABELS[index],
-          formatFlightLogDate(oil.date),
-          flightValue(oil.engineRem),
-          flightValue(oil.engineAdd),
-          flightValue(oil.engineTot),
-          flightValue(oil.mrGboxRem),
-          flightValue(oil.mrGboxAdd),
-          flightValue(oil.mrGboxTot),
-          flightValue(oil.trGboxRem),
-          flightValue(oil.trGboxAdd),
-          flightValue(oil.trGboxTot),
-          flightValue(oil.remarks),
-          oil.signature ? "Signed" : "",
-        ],
-        0,
-      );
-    });
+//     fitRows(record.oilServicing || [], 4, () => ({})).forEach((oil, index) => {
+//       documentXml = replaceWordTableCells(
+//         documentXml,
+//         4,
+//         index + 2,
+//         [
+//           FLIGHT_LEG_LABELS[index],
+//           formatFlightLogDate(oil.date),
+//           flightValue(oil.engineRem),
+//           flightValue(oil.engineAdd),
+//           flightValue(oil.engineTot),
+//           flightValue(oil.mrGboxRem),
+//           flightValue(oil.mrGboxAdd),
+//           flightValue(oil.mrGboxTot),
+//           flightValue(oil.trGboxRem),
+//           flightValue(oil.trGboxAdd),
+//           flightValue(oil.trGboxTot),
+//           flightValue(oil.remarks),
+//           oil.signature ? "Signed" : "",
+//         ],
+//         0,
+//       );
+//     });
 
-    documentXml = replaceWordTableCells(
-      documentXml,
-      5,
-      1,
-      [flightValue(record.remarks), flightValue(record.sling)],
-      0,
-    );
+//     documentXml = replaceWordTableCells(
+//       documentXml,
+//       5,
+//       1,
+//       [flightValue(record.remarks), flightValue(record.sling)],
+//       0,
+//     );
 
-    zip.file("word/document.xml", documentXml);
+//     zip.file("word/document.xml", documentXml);
 
-    const outputBlob = await zip.generateAsync({
-      type: "blob",
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
+//     const outputBlob = await zip.generateAsync({
+//       type: "blob",
+//       mimeType:
+//         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+//     });
 
-    saveAs(
-      outputBlob,
-      `${buildSafeFileName(`FlightLog-${record?.rpc || record?._id || "record"}`, "FlightLog")}.docx`,
-    );
-    message.success("Flight log Word export generated successfully!");
-  } catch (err) {
-    console.error(err);
-    message.error("Flight log Word export failed: " + err.message);
-  }
-};
+//     saveAs(
+//       outputBlob,
+//       `${buildSafeFileName(`FlightLog-${record?.rpc || record?._id || "record"}`, "FlightLog")}.docx`,
+//     );
+//     message.success("Flight log Word export generated successfully!");
+//   } catch (err) {
+//     console.error(err);
+//     message.error("Flight log Word export failed: " + err.message);
+//   }
+// };
 
 const drawFlightHeader = (doc, record, logoDataUrl = null) => {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -512,6 +479,10 @@ const flightTableTheme = {
 
 export const exportFlightLogToPDF = async (record = {}) => {
   try {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const doc = new jsPDF("p", "pt", "a4");
     const fileName = buildSafeFileName(
       `FlightLog-${record?.rpc || record?._id || "record"}`,
@@ -827,6 +798,12 @@ export const exportFlightLogToPDF = async (record = {}) => {
 
 export const exportToPDF = async () => {
   try {
+    const [{ jsPDF }, { default: autoTable }, { default: html2canvas }] =
+      await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+        import("html2canvas"),
+      ]);
     const doc = new jsPDF("p", "pt", "a4");
 
     doc.setFontSize(18);
@@ -895,6 +872,10 @@ export const exportRecordToPDF = async ({
   subtitle,
 }) => {
   try {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const rows = flattenRecord(record);
 
     if (rows.length === 0) {
@@ -942,6 +923,11 @@ export const exportRecordToPDF = async ({
 
 export const exportToExcel = async () => {
   try {
+    const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+      import("exceljs"),
+      import("file-saver"),
+    ]);
+
     const workbook = new ExcelJS.Workbook();
 
     // Helper function to add a sheet and data quickly

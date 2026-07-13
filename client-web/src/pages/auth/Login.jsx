@@ -21,7 +21,7 @@ import {
   LockOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import AirMSLogo from "../../assets/AirMS_web.png";
+import AirMSLogo from "../../assets/AirMS_web.webp";
 const { Text } = Typography;
 
 const Login = () => {
@@ -272,7 +272,7 @@ const Login = () => {
                 checked={rememberMe}
                 onChange={handleRememberMeChange}
               >
-                Stay signed in
+                Remember me
               </Checkbox>
             </Col>
             <Col

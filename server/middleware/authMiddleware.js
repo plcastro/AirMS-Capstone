@@ -4,17 +4,12 @@ const UserModel = require("../models/userModel");
 const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const DEFAULT_SESSION_IDLE_LIMIT_MS = Number(process.env.SESSION_IDLE_LIMIT_MS) ||
-  15 * 60 * 1000;
-const WEB_SESSION_IDLE_LIMIT_MS =
-  Number(process.env.WEB_SESSION_IDLE_LIMIT_MS) || 1 * 60 * 1000;
-const MOBILE_SESSION_IDLE_LIMIT_MS =
-  Number(process.env.MOBILE_SESSION_IDLE_LIMIT_MS) || DEFAULT_SESSION_IDLE_LIMIT_MS;
+const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
 
 const getSessionIdleLimitMs = (platform) =>
   String(platform || "").toUpperCase() === "WEB"
-    ? WEB_SESSION_IDLE_LIMIT_MS
-    : MOBILE_SESSION_IDLE_LIMIT_MS;
+    ? DEFAULT_SESSION_IDLE_LIMIT_MS
+    : DEFAULT_SESSION_IDLE_LIMIT_MS;
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -44,10 +39,13 @@ const verifyToken = async (req, res, next) => {
     }
 
     const now = Date.now();
-    const lastActivityAt = new Date(session.lastActivityAt || session.loginAt || now).getTime();
+    const lastActivityAt = new Date(
+      session.lastActivityAt || session.loginAt || now,
+    ).getTime();
     const inactiveForMs = now - lastActivityAt;
 
-    const platform = req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
+    const platform =
+      req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
     const sessionIdleLimitMs = getSessionIdleLimitMs(platform);
 
     if (inactiveForMs > sessionIdleLimitMs) {
@@ -55,7 +53,9 @@ const verifyToken = async (req, res, next) => {
         { userId, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
       );
-      return res.status(401).json({ message: "Session timed out due to inactivity" });
+      return res
+        .status(401)
+        .json({ message: "Session timed out due to inactivity" });
     }
 
     await UserSession.findOneAndUpdate(

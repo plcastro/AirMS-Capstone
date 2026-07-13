@@ -27,6 +27,7 @@ import {
 } from "antd";
 import {
   CheckOutlined,
+  ExportOutlined,
   EyeOutlined,
   PlusOutlined,
   SearchOutlined,
@@ -408,6 +409,11 @@ const RELEASE_CHECK_FIELDS = Object.values(CHECKLIST_GROUPS).flatMap((groups) =>
 const areAllReleaseChecksComplete = (record = {}) =>
   RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
 
+const sanitizeFileName = (value) =>
+  String(value || "pre-inspection")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
 const signaturePayload = (user, signature) => ({
   name:
     `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -671,6 +677,34 @@ export default function PreInspection() {
     }
   };
 
+  const exportInspectionPdf = async (record) => {
+    if (!record?._id) return;
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/pre/${record._id}/export-pdf`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || "Failed to export pre-inspection");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFileName(
+        `Pre-Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+      )}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      message.success("Pre-inspection exported successfully");
+    } catch (error) {
+      message.error(error.message || "Failed to export pre-inspection");
+    }
+  };
+
   const requestCreateRelease = async () => {
     if (!allDraftReleaseChecksComplete) {
       message.warning("Please check all pre-inspection items before release");
@@ -880,18 +914,26 @@ export default function PreInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Button
-                icon={
-                  isAcceptableByPilot(record) ? (
-                    <CheckOutlined />
-                  ) : (
-                    <EyeOutlined />
-                  )
-                }
-                onClick={() => setEditing(record)}
-              >
-                {getRecordActionLabel(record)}
-              </Button>
+              <Space>
+                <Button
+                  icon={
+                    isAcceptableByPilot(record) ? (
+                      <CheckOutlined />
+                    ) : (
+                      <EyeOutlined />
+                    )
+                  }
+                  onClick={() => setEditing(record)}
+                >
+                  {getRecordActionLabel(record)}
+                </Button>
+                <Button
+                  icon={<ExportOutlined />}
+                  onClick={() => exportInspectionPdf(record)}
+                >
+                  Export
+                </Button>
+              </Space>
             ),
           },
         ]}

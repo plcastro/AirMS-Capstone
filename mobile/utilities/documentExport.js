@@ -1,21 +1,30 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 import { API_BASE } from "./API_BASE";
 
-/**
- * Download and share inspection document from template
- * @param {string} inspectionId - ID of the inspection
- * @param {string} documentType - "pre" or "post"
- * @param {string} fileName - Name for the downloaded file
- * @param {string} format - "document" or "pdf"
- */
+const sanitizeFileName = (value) =>
+  String(value || "N-A")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return global.btoa(binary);
+};
+
 const downloadInspectionDocument = async (
   inspectionId,
   documentType,
   fileName,
-  format = "document"
+  format = "document",
 ) => {
   try {
     if (!inspectionId) {
@@ -23,119 +32,114 @@ const downloadInspectionDocument = async (
     }
 
     const token = await AsyncStorage.getItem("currentUserToken");
+
     const exportPath = format === "pdf" ? "export-pdf" : "export-document";
+
     const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/${exportPath}`;
 
-    // Create a file path for storage
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    const safeFileName = sanitizeFileName(fileName);
 
-    // Show loading indicator
-    Alert.alert("Exporting", `Generating ${format === "pdf" ? "PDF" : "document"}...`);
+    const fileUri = FileSystem.documentDirectory + safeFileName;
 
-    // Download the file
-    const downloadResult = await FileSystem.downloadAsync(apiUrl, fileUri, {
+    Alert.alert(
+      "Exporting",
+      `Generating ${format === "pdf" ? "PDF" : "document"}...`,
+    );
+
+    // Fetch file
+    const response = await fetch(apiUrl, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    if (downloadResult.status !== 200) {
+    if (!response.ok) {
       throw new Error("Failed to download document from server");
     }
 
-    // Check if sharing is available
+    // Convert to base64
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+
+    // Write file
+    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Share if available
     const canShare = await Sharing.isAvailableAsync();
 
     if (!canShare) {
-      Alert.alert("Export Ready", `Document saved to:\n${fileUri}`);
+      Alert.alert("Export Ready", `Saved to:\n${fileUri}`);
       return fileUri;
     }
 
-    // Share the document
-    await Sharing.shareAsync(fileUri, getSharingOptions(fileName, format));
+    await Sharing.shareAsync(fileUri, {
+      mimeType:
+        format === "pdf"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      dialogTitle: fileName,
+    });
 
     return fileUri;
   } catch (error) {
-    console.error("Error downloading inspection document:", error);
+    console.error("Download error:", error);
+
     Alert.alert(
       "Export Failed",
-      error.message || "Unable to generate and download document"
+      error.message || "Unable to generate document",
     );
+
     throw error;
   }
 };
 
-const getSharingOptions = (fileName, format) =>
-  format === "pdf"
-    ? {
-        mimeType: "application/pdf",
-        dialogTitle: fileName,
-        UTI: "com.adobe.pdf",
-      }
-    : {
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        dialogTitle: fileName,
-        UTI: "com.microsoft.word.doc",
-      };
-
-const sanitizeFileName = (value) =>
-  String(value || "N-A")
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
-
-/**
- * Export pre-inspection to Word document using template
- * @param {Object} inspection - Pre-inspection object with _id property
- */
 export const exportPreInspectionToWord = (inspection) => {
-  if (!inspection || !inspection._id) {
+  if (!inspection?._id) {
     Alert.alert("Error", "Invalid inspection data");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.docx`
+    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
   );
 
   return downloadInspectionDocument(inspection._id, "pre", fileName);
 };
 
 export const exportPreInspectionTemplatePdf = (inspection) => {
-  if (!inspection || !inspection._id) {
+  if (!inspection?._id) {
     Alert.alert("Error", "Invalid inspection data");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`
+    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`,
   );
 
   return downloadInspectionDocument(inspection._id, "pre", fileName, "pdf");
 };
 
-/**
- * Export post-inspection to Word document using template
- * @param {Object} inspection - Post-inspection object with _id property
- */
 export const exportPostInspectionToWord = (inspection) => {
-  if (!inspection || !inspection._id) {
+  if (!inspection?._id) {
     Alert.alert("Error", "Invalid inspection data");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.docx`
+    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
   );
 
   return downloadInspectionDocument(inspection._id, "post", fileName);
 };
 
 export const exportPostInspectionTemplatePdf = (inspection) => {
-  if (!inspection || !inspection._id) {
+  if (!inspection?._id) {
     Alert.alert("Error", "Invalid inspection data");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`
+    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`,
   );
 
   return downloadInspectionDocument(inspection._id, "post", fileName, "pdf");

@@ -175,13 +175,38 @@ export default function MTrackingTable({
           ),
         };
       }
-
+      if (header.key === "recommendedAction") {
+        return {
+          title: header.title,
+          dataIndex: "recommendedAction",
+          key: "recommendedAction",
+          width: 300,
+          render: (text) => (
+            <div style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+              {text}
+            </div>
+          ),
+        };
+      }
+      if (header.key === "manualReference") {
+        return {
+          title: header.title,
+          dataIndex: "manualReference",
+          key: "manualReference",
+          width: 300,
+          render: (text) => (
+            <div style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+              {text}
+            </div>
+          ),
+        };
+      }
       if (header.key === "procedureSummary") {
         return {
           title: header.title,
           dataIndex: "procedureSummary",
           key: "procedureSummary",
-          width: 460,
+          width: 300,
           render: (procedure) => {
             if (!procedure?.summary) {
               return <Text type="secondary">No AMM summary available.</Text>;

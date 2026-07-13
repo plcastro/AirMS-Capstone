@@ -3,8 +3,8 @@ import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
-const WARNING_DURATION_MS = 15 * 1000;
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+const WARNING_DURATION_MS = 2 * 60 * 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
@@ -197,9 +197,12 @@ export const AuthProvider = ({ children }) => {
       startWarningCountdown(remainingSeconds);
     };
 
-    inactivityLogoutTimeoutRef.current = setTimeout(() => {
-      logoutUser();
-    }, Math.max(0, autoLogoutAfterMs));
+    inactivityLogoutTimeoutRef.current = setTimeout(
+      () => {
+        logoutUser();
+      },
+      Math.max(0, autoLogoutAfterMs),
+    );
 
     if (warningStartAfterMs <= 0) {
       triggerWarning(Math.max(1000, autoLogoutAfterMs));
@@ -286,7 +289,7 @@ export const AuthProvider = ({ children }) => {
       }
       persistSessionTiming(data.token, "refresh");
       publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
-      scheduleTokenExpiryLogout(data.token, logoutUser);
+      scheduleTokenExpiryLogout(data.token, handleAccessTokenExpired);
       return data.token;
     })();
 
@@ -328,13 +331,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const handleAccessTokenExpired = () => {
+    if (sessionEndedRef.current) return;
+    refreshAccessToken().catch((err) => {
+      console.error("Token refresh on expiry failed:", err);
+      forceLogoutOnce(true);
+    });
+  };
+
+  const continueSession = async () => {
+    if (!user || sessionEndedRef.current) return;
+    try {
+      setShowSessionTimeoutWarning(false);
+      const token = await refreshAccessToken();
+      if (token) {
+        persistSessionTiming(token, "continue-session", {
+          restartFullWindow: true,
+        });
+      }
+      scheduleInactivityTimers(0);
+    } catch (err) {
+      console.error("Continue session failed:", err);
+      forceLogoutOnce(true);
+    }
+  };
+
   const getValidToken = async () => {
     if (sessionEndedRef.current) {
       return null;
     }
     const token = getStoredToken();
     if (token && isTokenValid(token)) {
-      scheduleTokenExpiryLogout(token, logoutUser);
+      scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
       return token;
     }
     return await refreshAccessToken();
@@ -372,7 +400,7 @@ export const AuthProvider = ({ children }) => {
     persistAuthState(normalized, token, rememberMe);
     persistSessionTiming(token, "login");
     publishAuthSync({ type: "LOGIN", token, user: normalized, rememberMe });
-    scheduleTokenExpiryLogout(token, logoutUser);
+    scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
   };
 
   const updateRememberMePreference = async (
@@ -503,7 +531,7 @@ export const AuthProvider = ({ children }) => {
         if (token && isTokenValid(token) && parsedUser) {
           setUser(normalizeUser(parsedUser));
           persistSessionTiming(token, "restore", { restartFullWindow: true });
-          scheduleTokenExpiryLogout(token, logoutUser);
+          scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
           return;
         }
 
@@ -536,7 +564,7 @@ export const AuthProvider = ({ children }) => {
         persistSessionTiming(token, "restore-refresh", {
           restartFullWindow: true,
         });
-        scheduleTokenExpiryLogout(token, logoutUser);
+        scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
       } catch (err) {
         console.error("Auth load error:", err);
         clearAuthStorage();
@@ -580,7 +608,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         showSessionTimeoutWarning,
         warningSecondsRemaining,
-        continueSession: recordActivity,
+        continueSession,
         token: getStoredToken(),
         rememberMePreference,
         updateRememberMePreference,

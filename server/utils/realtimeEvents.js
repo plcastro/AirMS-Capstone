@@ -97,7 +97,10 @@ const subscribeSSE = (req, res) => {
    WebSocket
 ========================= */
 const initWebSocket = (server) => {
-  wss = new WebSocket.Server({ server });
+  wss = new WebSocket.Server({
+    server,
+    path: "/ws",
+  });
 
   wss.on("connection", (ws, req) => {
     const decoded = authenticateWebSocket(req);

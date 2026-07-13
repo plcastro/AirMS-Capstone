@@ -153,10 +153,11 @@ const sendPushNotificationToUsers = async ({
         priority: "high",
         notification: {
           sound: "default",
+          channelId: android.channelId ? String(android.channelId) : "airms-high-priority",
+          priority: "max",
+          visibility: "public",
+          defaultVibrateTimings: true,
           ...(android.tag ? { tag: String(android.tag) } : {}),
-          ...(android.channelId
-            ? { channelId: String(android.channelId) }
-            : {}),
         },
       },
     });

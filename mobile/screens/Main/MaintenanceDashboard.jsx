@@ -7,10 +7,7 @@ import React, {
   useContext,
 } from "react";
 import AppText from "../../components/common/AppText";
-import {
-  TouchableOpacity,
-  View
-} from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   formatDate,
@@ -120,9 +117,13 @@ const getTaskCategory = (task = {}) => {
 
 const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
 
-const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
+const normalizeBaseValue = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
 
-const isKnownBase = (value) => !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
+const isKnownBase = (value) =>
+  !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
 
 const firstKnownBase = (...values) => {
   const match = values.find(isKnownBase);
@@ -205,9 +206,12 @@ export default function MaintenanceDashboard() {
       const headers = await getAuthHeaders();
       const requests = {
         tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
-        baseAnalytics: fetch(`${API_BASE}/api/tasks/analytics/base-maintenance`, {
-          headers,
-        }),
+        baseAnalytics: fetch(
+          `${API_BASE}/api/tasks/analytics/base-maintenance`,
+          {
+            headers,
+          },
+        ),
         aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, {
           headers,
         }),
@@ -215,7 +219,7 @@ export default function MaintenanceDashboard() {
           headers,
         }),
         flightLogs: fetch(
-          `${API_BASE}/api/flightlogs?page=1&limit=500&sortBy=date&sortOrder=desc`,
+          `${API_BASE}/api/flightlogs?page=1&limit=300&sortBy=date&sortOrder=desc`,
           { headers },
         ),
         preInspections: fetch(
@@ -252,7 +256,9 @@ export default function MaintenanceDashboard() {
 
       setTasks(getArrayData(resultMap.tasks));
       setBaseAnalytics(resultMap.baseAnalytics?.data || null);
-      setAircraftBaseByTail(buildAircraftBaseLookup(getArrayData(resultMap.aircraftBases)));
+      setAircraftBaseByTail(
+        buildAircraftBaseLookup(getArrayData(resultMap.aircraftBases)),
+      );
       setPartsRecords(getArrayData(resultMap.parts));
       setFlightLogs(getArrayData(resultMap.flightLogs));
       setPreInspections(getArrayData(resultMap.preInspections));
@@ -405,7 +411,10 @@ export default function MaintenanceDashboard() {
       .map((task, index) => {
         const dueDate = getTaskDueDate(task);
         const completionDate =
-          task.approvedAt || task.completedAt || task.dateRectified || task.updatedAt;
+          task.approvedAt ||
+          task.completedAt ||
+          task.dateRectified ||
+          task.updatedAt;
         return {
           key: task._id || task.id || `${task.title}-${index}`,
           aircraft: task.aircraft || "N/A",
@@ -626,8 +635,18 @@ export default function MaintenanceDashboard() {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <StatCard compact label="Completed Tasks" value={stats.completed} />
-        <StatCard compact label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
-        <StatCard compact label="Overdue" value={stats.overdue} tone="#cf1322" />
+        <StatCard
+          compact
+          label="Due Soon"
+          value={stats.dueSoon}
+          tone="#d46b08"
+        />
+        <StatCard
+          compact
+          label="Overdue"
+          value={stats.overdue}
+          tone="#cf1322"
+        />
         <StatCard compact label="Module Reports" value={stats.moduleReports} />
         <StatCard
           compact

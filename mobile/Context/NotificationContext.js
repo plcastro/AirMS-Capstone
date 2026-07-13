@@ -7,7 +7,15 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Alert, AppState, Platform, PermissionsAndroid } from "react-native";
+import {
+  AppState,
+  Platform,
+  PermissionsAndroid,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "./AuthContext";
 import { API_BASE } from "../utilities/API_BASE";
@@ -62,11 +70,12 @@ const getStoredToken = async () => {
 };
 
 const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+  const wsBase = String(API_BASE || "")
+    .replace(/\/+$/, "")
+    .replace(/^http/i, (match) =>
+      match.toLowerCase() === "https" ? "wss" : "ws",
+    );
+  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
 const getModuleName = (payload) =>
@@ -207,6 +216,7 @@ export function NotificationProvider({ children }) {
   const { user, logoutUser } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [foregroundBanner, setForegroundBanner] = useState(null);
 
   const wsRef = useRef(null);
   const wsReconnectTimeoutRef = useRef(null);
@@ -222,6 +232,7 @@ export function NotificationProvider({ children }) {
   const lastHandledNotificationRef = useRef("");
   const pendingNavQueueRef = useRef([]);
   const navQueueTimerRef = useRef(null);
+  const foregroundBannerTimerRef = useRef(null);
 
   const moduleSnapshotRef = useRef(null);
   const moduleNotifierReadyRef = useRef(false);
@@ -249,6 +260,40 @@ export function NotificationProvider({ children }) {
     },
     [],
   );
+
+  const showForegroundBanner = useCallback(
+    ({ title, body, payload }) => {
+      if (Platform.OS === "web") {
+        showToast(title || body);
+        return;
+      }
+
+      if (foregroundBannerTimerRef.current) {
+        clearTimeout(foregroundBannerTimerRef.current);
+      }
+
+      setForegroundBanner({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: String(title || "New notification"),
+        body: String(body || "You have a new update."),
+        payload: payload || {},
+      });
+
+      foregroundBannerTimerRef.current = setTimeout(() => {
+        setForegroundBanner(null);
+        foregroundBannerTimerRef.current = null;
+      }, 6000);
+    },
+    [],
+  );
+
+  const dismissForegroundBanner = useCallback(() => {
+    if (foregroundBannerTimerRef.current) {
+      clearTimeout(foregroundBannerTimerRef.current);
+      foregroundBannerTimerRef.current = null;
+    }
+    setForegroundBanner(null);
+  }, []);
 
   const lastRegisteredPushRef = useRef({
     userId: "",
@@ -1049,24 +1094,13 @@ export function NotificationProvider({ children }) {
         const payload = remoteMessage?.data || {};
 
         if (Object.keys(payload).length > 0) {
-          const moduleName = String(payload?.module || "").toLowerCase();
           const title =
             remoteMessage?.notification?.title || "New notification received";
           const body =
             remoteMessage?.notification?.body ||
             "You have a new update. Tap view to open.";
 
-          if (moduleName === "tasks" && payload?.targetTaskId) {
-            Alert.alert(title, body, [
-              { text: "Later", style: "cancel" },
-              {
-                text: "View",
-                onPress: () => openNotificationTarget(payload),
-              },
-            ]);
-          } else {
-            showToast(title);
-          }
+          showForegroundBanner({ title, body, payload });
         }
       },
     );
@@ -1104,7 +1138,7 @@ export function NotificationProvider({ children }) {
       unsubscribeForeground();
       unsubscribeOpened();
     };
-  }, [handleQueuedBackgroundMessages, openNotificationTarget]);
+  }, [handleQueuedBackgroundMessages, openNotificationTarget, showForegroundBanner]);
 
   useEffect(
     () => () => {
@@ -1112,6 +1146,9 @@ export function NotificationProvider({ children }) {
       clearNavigationQueueTimer();
       if (refreshDebounceRef.current) {
         clearTimeout(refreshDebounceRef.current);
+      }
+      if (foregroundBannerTimerRef.current) {
+        clearTimeout(foregroundBannerTimerRef.current);
       }
       fetchAbortRef.current?.abort?.();
       snapshotAbortRef.current?.abort?.();
@@ -1159,7 +1196,63 @@ export function NotificationProvider({ children }) {
 
   return (
     <NotificationContext.Provider value={contextValue}>
-      {children}
+      <View style={styles.providerRoot}>
+        {children}
+        {foregroundBanner && (
+          <Pressable
+            style={styles.foregroundBanner}
+            onPress={() => {
+              const payload = foregroundBanner.payload;
+              dismissForegroundBanner();
+              if (payload && Object.keys(payload).length > 0) {
+                openNotificationTarget(payload);
+              }
+            }}
+          >
+            <Text style={styles.foregroundBannerTitle} numberOfLines={1}>
+              {foregroundBanner.title}
+            </Text>
+            <Text style={styles.foregroundBannerBody} numberOfLines={2}>
+              {foregroundBanner.body}
+            </Text>
+          </Pressable>
+        )}
+      </View>
     </NotificationContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  providerRoot: {
+    flex: 1,
+  },
+  foregroundBanner: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 54 : 24,
+    left: 12,
+    right: 12,
+    zIndex: 9999,
+    elevation: 12,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#26866F",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: "#000000",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  foregroundBannerTitle: {
+    color: "#1f1f1f",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  foregroundBannerBody: {
+    color: "#4f4f4f",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+});

@@ -7,12 +7,18 @@ import {
   Button,
   Input,
   Card,
-  Divider,
   Form,
+  Upload,
+  Modal,
+  Alert,
+  Space,
+  Table as AntTable,
 } from "antd";
-import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+import {
+  DownloadOutlined,
+  SearchOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 
 import {
@@ -25,6 +31,7 @@ import { SaveOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
+import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -125,6 +132,13 @@ const formatDateForExport = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date;
+};
+
+const formatPreviewDate = (value) => {
+  if (!value) return "Not available";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString();
 };
 
 const sanitizeSheetFileName = (value) =>
@@ -293,9 +307,12 @@ const columnHeader = [
 ];
 
 export default function PartsMonitoring() {
-  const { user } = useContext(AuthContext);
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const normalizedRole = String(user?.jobTitle || "").toLowerCase();
+  const isOfficerInCharge = normalizedRole === "officer-in-charge";
+  const canManageAircraft = ["maintenance manager", "superadmin"].includes(
+    normalizedRole,
+  );
   const [refs, setRefs] = useState({
     today: getToday(),
     acftTT: 0,
@@ -313,6 +330,13 @@ export default function PartsMonitoring() {
   const [loading, setLoading] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [loadingAircraft, setLoadingAircraft] = useState(false);
+  const [importingAircraft, setImportingAircraft] = useState(false);
+  const [previewingAircraft, setPreviewingAircraft] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importWarnings, setImportWarnings] = useState([]);
+  const [importErrors, setImportErrors] = useState([]);
+  const [signatureImportOpen, setSignatureImportOpen] = useState(false);
   const [aircraftDetails, setAircraftDetails] = useState({
     dateManufactured: null,
     aircraftType: "",
@@ -373,11 +397,13 @@ export default function PartsMonitoring() {
         parts: rawData,
         updatedBy: "user",
       };
+      const authHeaders = await getAuthHeader();
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-action-confirmed": "true",
+          ...authHeaders,
         },
         body: JSON.stringify({
           ...saveData,
@@ -396,6 +422,101 @@ export default function PartsMonitoring() {
       message.error("Error saving data to database");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resetImportPreview = () => {
+    setPendingImportFile(null);
+    setImportPreview(null);
+    setImportWarnings([]);
+    setImportErrors([]);
+    setSignatureImportOpen(false);
+  };
+
+  const uploadWorkbookForPreview = async (file) => {
+    if (!canManageAircraft) {
+      message.error(
+        "Only maintenance managers and superadmins can add aircraft.",
+      );
+      return Upload.LIST_IGNORE;
+    }
+
+    setPreviewingAircraft(true);
+    try {
+      const formData = new FormData();
+      formData.append("workbook", file);
+
+      const authHeaders = await getAuthHeader();
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/preview-workbook`,
+        {
+          method: "POST",
+          headers: authHeaders,
+          body: formData,
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to preview aircraft workbook");
+      }
+
+      setPendingImportFile(file);
+      setImportPreview(data.data);
+      setImportWarnings(data.warnings || []);
+      setImportErrors(data.errors || []);
+    } catch (error) {
+      console.error("Aircraft workbook preview failed:", error);
+      message.error(error.message || "Failed to preview aircraft workbook.");
+      resetImportPreview();
+    } finally {
+      setPreviewingAircraft(false);
+    }
+
+    return Upload.LIST_IGNORE;
+  };
+
+  const handleImportWorkbook = async (approvalSignature) => {
+    if (!pendingImportFile) {
+      message.error("Select a workbook before adding aircraft.");
+      return;
+    }
+
+    setImportingAircraft(true);
+    try {
+      const formData = new FormData();
+      formData.append("workbook", pendingImportFile);
+      formData.append("approvalSignature", approvalSignature);
+      formData.append(
+        "updatedBy",
+        user
+          ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+          : "web user",
+      );
+
+      const authHeaders = await getAuthHeader();
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/import-workbook`,
+        {
+          method: "POST",
+          headers: authHeaders,
+          body: formData,
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to import aircraft workbook");
+      }
+
+      message.success(data.message || "Aircraft imported successfully.");
+      await fetchAircraftList();
+      setSelectedAircraft(data.data.aircraft);
+      setLastSaved(new Date());
+      resetImportPreview();
+    } catch (error) {
+      console.error("Aircraft workbook import failed:", error);
+      message.error(error.message || "Failed to import aircraft workbook.");
+    } finally {
+      setImportingAircraft(false);
     }
   };
 
@@ -536,6 +657,10 @@ export default function PartsMonitoring() {
     }
 
     try {
+      const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+        import("exceljs"),
+        import("file-saver"),
+      ]);
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "AirMS";
       workbook.created = new Date();
@@ -800,6 +925,21 @@ export default function PartsMonitoring() {
                   Save to Database
                 </Button>
               )}
+              {canManageAircraft && (
+                <Upload
+                  accept=".xlsx,.xlsm"
+                  beforeUpload={uploadWorkbookForPreview}
+                  showUploadList={false}
+                  disabled={previewingAircraft || importingAircraft}
+                >
+                  <Button
+                    icon={<UploadOutlined />}
+                    loading={previewingAircraft || importingAircraft}
+                  >
+                    Add Aircraft
+                  </Button>
+                </Upload>
+              )}
               <Button
                 icon={<DownloadOutlined />}
                 onClick={handleExportExcel}
@@ -999,6 +1139,64 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
+      <Card className="aircraft-card legend-card">
+        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
+          <Text strong>NOTE:</Text>
+
+          <Row gutter={[16, 12]}>
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>OC</Text>
+                <Text>- ON CONDITION</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>H</Text>
+                <Text>- HOURS</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <Text strong>D</Text>
+                <Text>- DAY</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#ff4d4f",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>REMOVED</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={8}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#52c41a",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>INSTALLED</Text>
+              </Space>
+            </Col>
+          </Row>
+        </Space>
+      </Card>
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}
@@ -1008,6 +1206,170 @@ export default function PartsMonitoring() {
         onCellEdit={handleCellEdit}
         rowKey="_id"
         scroll={{ x: 1500 }}
+      />
+      <Modal
+        open={Boolean(importPreview)}
+        title="Preview Aircraft Import"
+        onCancel={resetImportPreview}
+        onOk={() => setSignatureImportOpen(true)}
+        okText="Confirm and Sign"
+        cancelText="Discard"
+        okButtonProps={{
+          disabled: importErrors.length > 0 || importingAircraft,
+        }}
+        confirmLoading={importingAircraft}
+        width="92vw"
+        centered
+        destroyOnHidden
+      >
+        {importErrors.map((error) => (
+          <Alert
+            key={error}
+            type="error"
+            title={error}
+            showIcon
+            style={{ marginBottom: 8 }}
+          />
+        ))}
+        {importWarnings.map((warning) => (
+          <Alert
+            key={warning}
+            type="warning"
+            title={warning}
+            showIcon
+            style={{ marginBottom: 8 }}
+          />
+        ))}
+        {importPreview && (
+          <>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} md={6}>
+                <Card>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <Text>Aircraft:</Text>
+                      <Text className="info-value">
+                        {importPreview.aircraft || "N/A"}
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <Text>Date Manufactured:</Text>
+                      <Text className="info-value">
+                        {formatPreviewDate(importPreview.dateManufactured)}
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <Text>Acft. Type:</Text>
+                      <Text className="info-value">
+                        {importPreview.aircraftType || "Not available"}
+                        {importPreview.serialNumber
+                          ? ` SN: ${importPreview.serialNumber}`
+                          : ""}
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <Text>Creep Damage:</Text>
+                      <Text className="info-value">
+                        {importPreview.creepDamage
+                          ? `${importPreview.creepDamage}%`
+                          : "Not available"}
+                      </Text>
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+              <Col xs={24} md={18}>
+                <Card className="aircraft-card">
+                  <Form layout="vertical" colon={false}>
+                    <Row gutter={[12, 6]}>
+                      {[
+                        ["engTT", "Engine Cycle"],
+                        ["today", "Date"],
+                        ["n1Cycles", "N1"],
+                        ["n2Cycles", "N2"],
+                        ["acftTT", "Acft. TT"],
+                        ["landings", "Landings"],
+                      ].map(([key, label]) => (
+                        <Col xs={24} sm={12} md={6} key={key}>
+                          <Form.Item label={label} style={{ marginBottom: 8 }}>
+                            <Input
+                              size="middle"
+                              value={
+                                key === "today"
+                                  ? formatPreviewDate(
+                                      importPreview.referenceData?.[key],
+                                    )
+                                  : (importPreview.referenceData?.[key] ?? "")
+                              }
+                              readOnly
+                            />
+                          </Form.Item>
+                        </Col>
+                      ))}
+                      <Col xs={24} sm={12} md={6}>
+                        <Form.Item label="Sling" style={{ marginBottom: 8 }}>
+                          <Input size="middle" readOnly />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Form>
+                </Card>
+              </Col>
+            </Row>
+
+            <AntTable
+              size="small"
+              bordered
+              sticky
+              scroll={{ x: 1500, y: 420 }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: ["10", "20", "50"],
+              }}
+              rowKey={(row) => row._id || row.componentName}
+              rowClassName={(record) =>
+                record.rowType === "header" ? "preview-import-header-row" : ""
+              }
+              dataSource={importPreview.parts || []}
+              columns={columnHeader}
+            />
+          </>
+        )}
+      </Modal>
+      <PinVerifiedSignatureModal
+        open={signatureImportOpen}
+        title="Sign Aircraft Import"
+        description={`Draw your signature to add ${importPreview?.aircraft || "this aircraft"} to parts lifespan monitoring.`}
+        confirmDescription="Enter your 6-digit PIN to confirm this aircraft import."
+        onCancel={() => setSignatureImportOpen(false)}
+        onSave={handleImportWorkbook}
       />
     </div>
   );
