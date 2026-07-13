@@ -24,7 +24,45 @@ import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
-export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
+const toTitleCase = (value = "") =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getUserFullName = (user = {}) =>
+  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+  user?.name ||
+  user?.username ||
+  "";
+
+const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
+  const title =
+    user?.jobTitle || user?.access || toTitleCase(fallbackTitle) || "User";
+
+  return {
+    name: getUserFullName(user) || title,
+    title,
+    id:
+      user?.licenseNo ||
+      user?.licenseNumber ||
+      user?.license ||
+      user?.certificateNo ||
+      "",
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
+};
+
+export default function FlightLogEntry({
+  visible,
+  onClose,
+  onSave,
+  userRole,
+  currentUser,
+}) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -537,11 +575,7 @@ export default function FlightLogEntry({ visible, onClose, onSave, userRole }) {
 
     const updatedFormData = {
       ...formData,
-      releasedBy: {
-        name: "Mechanic",
-        signature,
-        timestamp: new Date().toISOString(),
-      },
+      releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
     };
 

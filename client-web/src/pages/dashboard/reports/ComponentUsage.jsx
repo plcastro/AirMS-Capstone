@@ -38,7 +38,11 @@ const formatDate = (value) => {
   if (!value) return "N/A";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleDateString("en-CA");
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 export default function ComponentUsage({ records = [], loading = false }) {

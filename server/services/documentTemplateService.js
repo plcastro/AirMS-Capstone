@@ -247,14 +247,25 @@ const loadTemplate = (templateName) => {
  */
 const formatInspectionData = (inspection) => ({
   rpc: inspection.rpc || inspection.RP_C || inspection.aircraftNo || "N/A",
-  date: inspection.date || inspection.inspectionDate || new Date().toLocaleDateString(),
+  date:
+    inspection.date ||
+    inspection.inspectionDate ||
+    new Date().toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    }),
   aircraftType: inspection.aircraftType || "N/A",
   fob: inspection.fob !== undefined ? `${inspection.fob}%` : "N/A",
   engineer: inspection.engineer || inspection.createdBy || "N/A",
   remarks: inspection.remarks || inspection.notes || "",
   status: inspection.status || "Pending",
   inspectionItems: formatInspectionItems(inspection),
-  createdAt: new Date(inspection.createdAt).toLocaleDateString(),
+  createdAt: new Date(inspection.createdAt).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  }),
   createdBy: inspection.createdBy || "N/A",
 });
 
@@ -305,12 +316,16 @@ const formatSignatureSummary = (signature = {}) => {
 
   const parts = [
     signature.name,
+    signature.title ? `Title: ${signature.title}` : "",
     signature.id ? `ID: ${signature.id}` : "",
     signature.timestamp ? `Signed: ${signature.timestamp}` : "",
   ].filter(Boolean);
 
   return parts.join(" | ");
 };
+
+const getSignatureTitle = (signature = {}, fallback = "") =>
+  signature?.title || fallback;
 
 const getSignatureBuffer = (signature = {}) => {
   const value = signature?.signature || "";
@@ -667,10 +682,11 @@ const buildInspectionLogXml = (inspection, title, imageManager) => {
     buildWordParagraph(`RP/C: ${data.rpc}`),
     buildWordParagraph(`Date: ${data.date}`),
     buildWordParagraph(`FOB: ${normalizeFob(inspection.fob)}`),
-    buildWordParagraph(`Mechanic Name: ${mechanic.name || "N/A"}`),
+    buildWordParagraph(`Released By Name: ${mechanic.name || "N/A"}`),
+    buildWordParagraph(`Released By Title: ${mechanic.title || "N/A"}`),
     mechanicSignatureRelId
       ? buildWordImageParagraph(imageManager.imageXml(mechanicSignatureRelId, 1828800, 508000))
-      : buildWordParagraph("Mechanic Signature: N/A"),
+      : buildWordParagraph("Released By Signature: N/A"),
     buildWordParagraph(`Aircraft Type: ${data.aircraftType}`),
     buildWordParagraph(`Status: ${data.status}`),
     buildWordParagraph(`Created By: ${data.createdBy}`),
@@ -1204,8 +1220,8 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
     doc.fontSize(9).text(inspection.releasedBy?.name || "", 88, signY + 60, { width: 170, align: "center" });
     drawPdfLine(doc, 42, signY + 76, 250, signY + 76);
     drawPdfLine(doc, 430, signY + 76, 638, signY + 76);
-    doc.font("Helvetica-Bold").fontSize(12).text("Mechanic", 122, signY + 82);
-    doc.text("Pilot", 520, signY + 82);
+    doc.font("Helvetica-Bold").fontSize(12).text(getSignatureTitle(inspection.releasedBy, "Mechanic"), 122, signY + 82);
+    doc.text(getSignatureTitle(inspection.acceptedBy, "Pilot"), 520, signY + 82);
 
     const licenseY = signY + 118;
     doc.font("Helvetica").fontSize(9).text(
@@ -1236,8 +1252,6 @@ module.exports = {
   generateDocument,
   formatInspectionData,
   formatInspectionItems,
-  getPreInspectionDocument,
-  getPostInspectionDocument,
   getPreInspectionPdf,
   getPostInspectionPdf,
 };

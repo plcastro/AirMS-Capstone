@@ -22,7 +22,11 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (isNaN(date.getTime())) return "---";
 
-  return date.toLocaleDateString("en-CA");
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const getDiscoveredAt = (task = {}) =>

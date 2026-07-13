@@ -110,7 +110,7 @@ const formatEstimatedDuration = (minutes) => {
 };
 
 const formatDisplayDateTime = (value) =>
-  value ? dayjs(value).format("MMM D, YYYY h:mm A") : "Not set";
+  value ? dayjs(value).format("MM/DD/YYYY h:mm A") : "Not set";
 
 const isPastDueTask = (task) => {
   const deadline = task?.endDateTime || task?.dueDate;
@@ -986,7 +986,7 @@ export default function TaskAssignment() {
                   <DatePicker
                     size="large"
                     style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
+                    format="MM/DD/YYYY HH:mm"
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1016,7 +1016,7 @@ export default function TaskAssignment() {
                   <DatePicker
                     size="large"
                     style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
+                    format="MM/DD/YYYY HH:mm"
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>

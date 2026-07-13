@@ -150,6 +150,14 @@ const getDisplayStatusLabel = (status) => {
   }
 };
 
+const getStaffTitle = (staff = {}, key, fallback = "-") =>
+  staff?.[`${key}Title`] || fallback;
+
+const getStaffActor = (staff = {}, key, fallback = "-") =>
+  [staff?.[key], getStaffTitle(staff, key, "")]
+    .filter(Boolean)
+    .join(" - ") || fallback;
+
 const buildTimeline = (record) => {
   const overallStatus = normalizeOverallStatus(record.status);
   const currentStatus =
@@ -169,7 +177,7 @@ const buildTimeline = (record) => {
     "Parts Requested": {
       status: "Parts Requested",
       dateTime: formatDateTime(record.dateRequested || record.createdAt),
-      by: record.staff?.requisitioner || "-",
+      by: getStaffActor(record.staff, "requisitioner", "-"),
       description: `Request submitted with ${record.items?.length || 0} item(s)`,
     },
     "Availability Checked": {
@@ -177,33 +185,35 @@ const buildTimeline = (record) => {
       dateTime: formatDateTime(
         record.dateWarehouseReviewed || record.updatedAt,
       ),
-      by: record.staff?.warehouseBy || "Warehouse Department",
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Department"),
       description: "Warehouse reviewed item stock availability",
     },
     "To Be Ordered": {
       status: "To Be Ordered",
       dateTime: formatDateTime(record.dateOrdered || record.updatedAt),
-      by: record.staff?.approvedBy || "Maintenance Manager",
+      by: getStaffActor(record.staff, "approvedBy", "Maintenance Review"),
       description: "Unavailable items were marked to be restocked",
     },
     Ordered: {
       status: "Ordered",
       dateTime: formatDateTime(record.updatedAt),
-      by: record.staff?.warehouseBy || "Warehouse Department",
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Department"),
       description: "Warehouse confirmed the restocked items are available",
     },
     Approved: {
       status: "Approved",
       dateTime: formatDateTime(record.dateApproved || record.updatedAt),
-      by: record.staff?.approvedBy || "-",
-      description: "Requisition approved by maintenance manager",
+      by: getStaffActor(record.staff, "approvedBy", "-"),
+      description: "Requisition approved",
     },
     Delivered: {
       status: "Delivered",
       dateTime: formatDateTime(
         record.dateDelivered || record.dateReceived || record.updatedAt,
       ),
-      by: record.staff?.deliveredBy || record.staff?.warehouseBy || "-",
+      by:
+        getStaffActor(record.staff, "deliveredBy", "") ||
+        getStaffActor(record.staff, "warehouseBy", "-"),
       description: "Warehouse marked the requisition as delivered",
     },
   };
@@ -218,7 +228,7 @@ const buildTimeline = (record) => {
       {
         status: "Cancelled",
         dateTime: formatDateTime(record.dateCancelled || record.updatedAt),
-        by: record.staff?.requisitioner || "-",
+        by: getStaffActor(record.staff, "requisitioner", "-"),
         description: "Requisition was cancelled",
         isCurrent: true,
         isCompleted: false,
@@ -350,6 +360,10 @@ export default function PartsRequisition({ route, navigation }) {
   });
 
   const userRole = user?.jobTitle?.toLowerCase();
+  const getCurrentUserTitle = useCallback(
+    (fallback = "User") => user?.jobTitle || user?.access || fallback,
+    [user?.access, user?.jobTitle],
+  );
   const isWarehouse = userRole === "warehouse department";
   const isManager = ["superadmin", "maintenance manager", "officer-in-charge"].includes(
     userRole,
@@ -892,11 +906,17 @@ export default function PartsRequisition({ route, navigation }) {
             confirmAction: true,
             staff: {
               requisitioner: fullName,
+              requisitionerTitle: getCurrentUserTitle("Requester"),
               approvedBy: "",
+              approvedByTitle: "",
               receiver: "",
+              receiverTitle: "",
               notedBy: "",
+              notedByTitle: "",
               warehouseBy: "",
+              warehouseByTitle: "",
               deliveredBy: "",
+              deliveredByTitle: "",
             },
             items: requestItems,
             dateRequested: new Date().toISOString(),
@@ -942,6 +962,8 @@ export default function PartsRequisition({ route, navigation }) {
       {
         status: "To Be Ordered",
         dateOrdered: new Date().toISOString(),
+        approvedBy: getCurrentUserName("Reviewer"),
+        approvedByTitle: getCurrentUserTitle("Reviewer"),
         items: updatedItems,
       },
       `${request.requestId} marked as to be restocked.`,
@@ -970,6 +992,7 @@ export default function PartsRequisition({ route, navigation }) {
         status: "Approved",
         dateApproved: new Date().toISOString(),
         approvedBy: fullName,
+        approvedByTitle: getCurrentUserTitle("Reviewer"),
         items: updatedItems,
       },
       `${request.requestId} approved successfully.`,
@@ -999,6 +1022,7 @@ export default function PartsRequisition({ route, navigation }) {
       {
         dateWarehouseReviewed: new Date().toISOString(),
         warehouseBy: getCurrentUserName("Warehouse Department"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
         items: updatedItems,
       },
       "Warehouse stock review submitted successfully.",
@@ -1011,6 +1035,7 @@ export default function PartsRequisition({ route, navigation }) {
       {
         status: "To Be Ordered",
         warehouseBy: getCurrentUserName("Warehouse Department"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
         items: updatedItems,
       },
       "Stock quantities saved.",
@@ -1032,6 +1057,7 @@ export default function PartsRequisition({ route, navigation }) {
         status: "Ordered",
         dateOrdered: new Date().toISOString(),
         warehouseBy: getCurrentUserName("Warehouse Department"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
         items: updatedItems,
       },
       "Requisition marked as restocked.",
@@ -1053,7 +1079,9 @@ export default function PartsRequisition({ route, navigation }) {
         dateDelivered: new Date().toISOString(),
         dateReceived: new Date().toISOString(),
         deliveredBy: getCurrentUserName("Warehouse Department"),
+        deliveredByTitle: getCurrentUserTitle("Warehouse Department"),
         warehouseBy: getCurrentUserName("Warehouse Department"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
         items: (request.rawRecord.items || []).map((item) => ({
           ...item,
           stockStatus: "Delivered",

@@ -554,7 +554,13 @@ export default function FlightLogEntry({
     if (!timestamp) return "";
     const parsed = new Date(timestamp);
     if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleString();
+    return parsed.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   const getSignerLabel = (signatureData = {}) =>

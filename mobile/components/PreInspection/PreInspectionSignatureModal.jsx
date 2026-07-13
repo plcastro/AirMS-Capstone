@@ -24,6 +24,8 @@ const getUserName = (user) =>
 const getUserIdentifier = (user) =>
   user?.licenseNo || user?.licenseNumber || user?.license || "No License No.";
 
+const getUserTitle = (user) => user?.jobTitle || user?.access || "User";
+
 export default function PreInspectionSignatureModal({
   visible,
   title,
@@ -112,6 +114,8 @@ export default function PreInspectionSignatureModal({
       await onSave({
         name: getUserName(user),
         id: getUserIdentifier(user),
+        title: getUserTitle(user),
+        userId: user?.id || user?._id || "",
         signature,
       });
       reset();

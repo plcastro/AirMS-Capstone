@@ -133,6 +133,7 @@ export default function PartsReqMonitoring() {
   const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
+  const userTitle = user?.jobTitle || user?.access || "User";
   const allowedRoles = [
     "superadmin",
     "warehouse department",
@@ -479,11 +480,17 @@ export default function PartsReqMonitoring() {
             aircraft: values.aircraft,
             staff: {
               requisitioner: fullName,
+              requisitionerTitle: userTitle,
               approvedBy: "",
+              approvedByTitle: "",
               receiver: "",
+              receiverTitle: "",
               notedBy: "",
+              notedByTitle: "",
               warehouseBy: "",
+              warehouseByTitle: "",
               deliveredBy: "",
+              deliveredByTitle: "",
             },
             items: buildRequestItemsPayload(values.items),
             dateRequested: new Date().toISOString(),

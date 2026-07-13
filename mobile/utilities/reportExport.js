@@ -9,7 +9,14 @@ const safe = (value) =>
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;");
 
-const asDate = () => new Date().toLocaleString();
+const asDate = () =>
+  new Date().toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 const buildSafeFileName = (value) =>
   String(value || "reports-analytics")
     .replace(/[\\/:*?"<>|]+/g, "-")

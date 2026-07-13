@@ -162,7 +162,15 @@ export default function UserTable({
           key: "invitationExpiresAt",
           render: (value, record) => {
             if (record.status === "active") return "N/A";
-            return value ? new Date(value).toLocaleString() : "N/A";
+            return value
+              ? new Date(value).toLocaleString("en-US", {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : "N/A";
           },
           sorter: (a, b) =>
             new Date(a.invitationExpiresAt || 0).getTime() -

@@ -156,6 +156,7 @@ export default function WRSModal({
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const userRole = user?.jobTitle?.toLowerCase() || "";
+  const userTitle = user?.jobTitle || user?.access || "User";
   const isWarehouseDepartment = userRole === "warehouse department";
   const isMaintenanceReviewer = [
     "superadmin",
@@ -334,7 +335,7 @@ export default function WRSModal({
       return {
         title: "Awaiting Maintenance Review",
         description:
-          "Stock availability has been submitted. Waiting for maintenance manager action.",
+          "Stock availability has been submitted. Waiting for maintenance reviewer action.",
         buttonText: "Waiting",
         disabled: true,
       };
@@ -378,7 +379,7 @@ export default function WRSModal({
       return {
         title: "Awaiting Approval",
         description:
-          "Warehouse already confirmed the items are restocked. Waiting for maintenance manager approval.",
+          "Warehouse already confirmed the items are restocked. Waiting for maintenance reviewer approval.",
         buttonText: "Waiting",
         disabled: true,
       };
@@ -474,7 +475,7 @@ export default function WRSModal({
       "Warehouse Department";
     const reviewerName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      "Maintenance Manager";
+      userTitle;
 
     if (isMaintenanceReviewer && currentStatus === "Availability Checked") {
       const nextReviewerStatus = hasItemsStillOutOfStock
@@ -489,7 +490,12 @@ export default function WRSModal({
       await updateRequisition(
         {
           status: nextReviewerStatus,
-          approvedBy: nextReviewerStatus === "Approved" ? reviewerName : undefined,
+          approvedBy: reviewerName,
+          approvedByTitle: userTitle,
+          dateApproved:
+            nextReviewerStatus === "Approved"
+              ? new Date().toISOString()
+              : undefined,
           approvedAt:
             nextReviewerStatus === "Approved"
               ? new Date().toISOString()
@@ -509,6 +515,8 @@ export default function WRSModal({
         {
           status: "Approved",
           approvedBy: reviewerName,
+          approvedByTitle: userTitle,
+          dateApproved: new Date().toISOString(),
           approvedAt: new Date().toISOString(),
         },
         "Requisition approved.",
@@ -531,7 +539,9 @@ export default function WRSModal({
           dateDelivered: new Date().toISOString(),
           dateReceived: new Date().toISOString(),
           deliveredBy: warehouseName,
+          deliveredByTitle: userTitle,
           warehouseBy: warehouseName,
+          warehouseByTitle: userTitle,
           items: (selectedRecord.items || []).map((item) => ({
             ...item,
             availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
@@ -572,6 +582,7 @@ export default function WRSModal({
         {
           status: "To Be Ordered",
           warehouseBy: warehouseName,
+          warehouseByTitle: userTitle,
           items: savedItems,
         },
         "Stock quantities saved.",
@@ -638,6 +649,7 @@ export default function WRSModal({
           ? { dateOrdered: new Date().toISOString() }
           : {}),
         warehouseBy: warehouseName,
+        warehouseByTitle: userTitle,
         items: finalItems,
       },
       currentStatus === "To Be Ordered"

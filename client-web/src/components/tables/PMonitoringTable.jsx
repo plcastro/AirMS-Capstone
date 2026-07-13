@@ -1,13 +1,13 @@
 import { Table, Tag, Input } from "antd";
 import React, { useState } from "react";
 
-// Helper to format YYYY-MM-DD to DD/MM/YYYY for display
+// Helper to format YYYY-MM-DD to MM/DD/YYYY for display
 const formatDateForDisplay = (dateStr) => {
   if (!dateStr || dateStr === "N/A") return dateStr || "";
   const parts = dateStr.split("-");
   if (parts.length !== 3) return dateStr;
   const [year, month, day] = parts;
-  return `${day}/${month}/${year}`;
+  return `${month}/${day}/${year}`;
 };
 
 export default function PMonitoringTable({
@@ -149,10 +149,10 @@ export default function PMonitoringTable({
           // Ensure value is in YYYY-MM-DD format; if not, try to parse
           let dateValue = value;
           if (value && value.includes("/")) {
-            // Convert from DD/MM/YYYY to YYYY-MM-DD if needed (fallback)
+            // Convert from MM/DD/YYYY to YYYY-MM-DD if needed (fallback)
             const parts = value.split("/");
             if (parts.length === 3) {
-              const [day, month, year] = parts;
+              const [month, day, year] = parts;
               dateValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
             }
           }

@@ -14,12 +14,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
-import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
-import {
-  exportPreInspectionTemplatePdf,
-  exportPreInspectionToWord,
-} from "../../utilities/documentExport";
+import { exportPreInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 
@@ -47,10 +43,6 @@ export default function PreInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
-  const [exportAlert, setExportAlert] = useState({
-    visible: false,
-    inspection: null,
-  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
@@ -177,7 +169,7 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    setExportAlert({ visible: true, inspection });
+    await exportPreInspectionTemplatePdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
@@ -484,23 +476,6 @@ export default function PreInspection({ route }) {
         }}
         userRole={userRole}
         readOnly={isCompletedInspection(selectedInspection)}
-      />
-      <AlertComp
-        visible={exportAlert.visible}
-        title="Export Pre-Inspection"
-        message="Choose export format."
-        confirmText="PDF"
-        cancelText="Word Template"
-        onCancel={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPreInspectionToWord(inspection);
-        }}
-        onConfirm={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPreInspectionTemplatePdf(inspection);
-        }}
       />
     </View>
   );
