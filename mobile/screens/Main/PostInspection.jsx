@@ -17,7 +17,7 @@ import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   exportPostInspectionTemplatePdf,
-  exportPostInspectionToWord,
+  exportPostInspectionToExcel,
 } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
@@ -403,11 +403,11 @@ export default function PostInspection({ route }) {
         title="Export Post-Inspection"
         message="Choose export format."
         confirmText="PDF"
-        cancelText="Word Template"
+        cancelText="Excel"
         onCancel={() => {
           const inspection = exportAlert.inspection;
           setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPostInspectionToWord(inspection);
+          if (inspection) exportPostInspectionToExcel(inspection);
         }}
         onConfirm={() => {
           const inspection = exportAlert.inspection;

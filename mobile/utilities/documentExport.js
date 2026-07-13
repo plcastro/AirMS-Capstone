@@ -20,6 +20,131 @@ const arrayBufferToBase64 = (buffer) => {
   return global.btoa(binary);
 };
 
+const formatLabel = (key) =>
+  String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  if (typeof value === "boolean") return value ? "Checked" : "";
+  if (Array.isArray(value)) return value.map(formatValue).join("; ");
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .filter(([key]) => !["_id", "__v", "id"].includes(key))
+      .map(([key, nestedValue]) => `${formatLabel(key)}: ${formatValue(nestedValue)}`)
+      .join("; ");
+  }
+  return String(value);
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const buildInspectionWorkbookHtml = (title, inspection = {}) => {
+  const rows = [
+    ["Field", "Value"],
+    ["Export", title],
+    ["RP/C", inspection.rpc || "N/A"],
+    ["Aircraft Type", inspection.aircraftType || "N/A"],
+    ["Date", inspection.date || "N/A"],
+    ["Status", inspection.status || "N/A"],
+    ["Released By", inspection.releasedBy?.name || "N/A"],
+    ["Accepted By", inspection.acceptedBy?.name || "N/A"],
+    ...Object.entries(inspection)
+      .filter(
+        ([key]) =>
+          ![
+            "_id",
+            "__v",
+            "id",
+            "rpc",
+            "aircraftType",
+            "date",
+            "status",
+            "releasedBy",
+            "acceptedBy",
+            "createdAt",
+            "updatedAt",
+          ].includes(key),
+      )
+      .map(([key, value]) => [formatLabel(key), formatValue(value)]),
+  ];
+
+  return `
+    <html>
+      <head>
+        <meta charset="utf-8" />
+      </head>
+      <body>
+        <table>
+          ${rows
+            .map(
+              (row, index) => `
+                <tr>
+                  <${index === 0 ? "th" : "td"}>${escapeHtml(row[0])}</${
+                    index === 0 ? "th" : "td"
+                  }>
+                  <${index === 0 ? "th" : "td"}>${escapeHtml(row[1])}</${
+                    index === 0 ? "th" : "td"
+                  }>
+                </tr>
+              `,
+            )
+            .join("")}
+        </table>
+      </body>
+    </html>
+  `;
+};
+
+const exportInspectionCsv = async (inspection, title, filePrefix) => {
+  if (!inspection?._id) {
+    Alert.alert("Error", "Invalid inspection data");
+    return;
+  }
+
+  try {
+    const fileName = sanitizeFileName(
+      `${filePrefix}-${inspection.rpc || "N-A"}-${
+        inspection.date || new Date().toLocaleDateString()
+      }.xls`,
+    );
+    const fileUri = FileSystem.documentDirectory + fileName;
+    const workbookHtml = buildInspectionWorkbookHtml(title, inspection);
+
+    await FileSystem.writeAsStringAsync(fileUri, workbookHtml, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) {
+      Alert.alert("Export Ready", `Saved to:\n${fileUri}`);
+      return fileUri;
+    }
+
+    await Sharing.shareAsync(fileUri, {
+      mimeType: "application/vnd.ms-excel",
+      dialogTitle: fileName,
+      UTI: "com.microsoft.excel.xls",
+    });
+
+    return fileUri;
+  } catch (error) {
+    console.error("Excel export error:", error);
+    Alert.alert("Export Failed", error.message || "Unable to generate Excel export");
+    throw error;
+  }
+};
+
 const downloadInspectionDocument = async (
   inspectionId,
   documentType,
@@ -93,18 +218,8 @@ const downloadInspectionDocument = async (
   }
 };
 
-export const exportPreInspectionToWord = (inspection) => {
-  if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
-  );
-
-  return downloadInspectionDocument(inspection._id, "pre", fileName);
-};
+export const exportPreInspectionToExcel = (inspection) =>
+  exportInspectionCsv(inspection, "Pre-Inspection", "Pre-Inspection");
 
 export const exportPreInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
@@ -119,18 +234,8 @@ export const exportPreInspectionTemplatePdf = (inspection) => {
   return downloadInspectionDocument(inspection._id, "pre", fileName, "pdf");
 };
 
-export const exportPostInspectionToWord = (inspection) => {
-  if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
-  );
-
-  return downloadInspectionDocument(inspection._id, "post", fileName);
-};
+export const exportPostInspectionToExcel = (inspection) =>
+  exportInspectionCsv(inspection, "Post-Inspection", "Post-Inspection");
 
 export const exportPostInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
@@ -146,8 +251,8 @@ export const exportPostInspectionTemplatePdf = (inspection) => {
 };
 
 export default {
-  exportPreInspectionToWord,
-  exportPostInspectionToWord,
+  exportPreInspectionToExcel,
+  exportPostInspectionToExcel,
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
   downloadInspectionDocument,
