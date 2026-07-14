@@ -83,6 +83,7 @@ export const estimateInspectionSchedule = (checklistItems = []) => {
     itemCount: validItems.length,
     minutes: totalMinutes,
     hours: Math.round((totalMinutes / MINUTES_PER_HOUR) * 100) / 100,
+    days: Math.max(1, Math.ceil(totalMinutes / MINUTES_PER_HOUR)),
   };
 };
 
@@ -91,12 +92,12 @@ export const addMinutesToDate = (date, minutes) => {
   return new Date(safeDate.getTime() + minutes * 60 * 1000);
 };
 
-export const formatEstimatedDuration = (minutes) => {
-  const wholeMinutes = Math.max(0, Math.round(minutes));
-  const hours = Math.floor(wholeMinutes / MINUTES_PER_HOUR);
-  const remainingMinutes = wholeMinutes % MINUTES_PER_HOUR;
+export const addDaysToDate = (date, days) => {
+  const safeDate = date instanceof Date ? date : new Date(date);
+  return new Date(safeDate.getTime() + days * 24 * 60 * 60 * 1000);
+};
 
-  if (hours === 0) return `${remainingMinutes} min`;
-  if (remainingMinutes === 0) return `${hours} hr`;
-  return `${hours} hr ${remainingMinutes} min`;
+export const formatEstimatedDuration = (minutes) => {
+  const days = Math.max(1, Math.ceil(Math.max(0, minutes) / MINUTES_PER_HOUR));
+  return `${days} day${days === 1 ? "" : "s"}`;
 };

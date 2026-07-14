@@ -17,6 +17,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import {
   addMinutesToDate,
+  addDaysToDate,
   estimateInspectionSchedule,
   formatEstimatedDuration,
 } from "../../utilities/inspectionTiming";
@@ -115,7 +116,7 @@ export default function AddTask({
 
   const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [endDate, setEndDate] = useState(
-    addMinutesToDate(getDefaultStartDate(), 60),
+    addDaysToDate(getDefaultStartDate(), 1),
   );
 
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -359,7 +360,7 @@ export default function AddTask({
     setInspectionType("");
     setSelectedInspection(null);
     setStartDate(nextStart);
-    setEndDate(addMinutesToDate(nextStart, 60));
+    setEndDate(addDaysToDate(nextStart, 1));
     setChecklistItems([]);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -402,8 +403,8 @@ export default function AddTask({
       return;
     }
 
-    setEndDate(addMinutesToDate(startDate, scheduleEstimate.minutes));
-  }, [startDate, scheduleEstimate.minutes, endDateManuallyAdjusted]);
+    setEndDate(addDaysToDate(startDate, scheduleEstimate.days));
+  }, [startDate, scheduleEstimate.days, endDateManuallyAdjusted]);
 
   useEffect(() => {
     if (initialDraft?.aircraft && selectedAircraft === initialDraft.aircraft) {
@@ -662,12 +663,12 @@ export default function AddTask({
       if (field === "start") {
         setStartDate(clampedDate);
         if (endDate <= clampedDate) {
-          setEndDate(addMinutesToDate(clampedDate, 1));
+          setEndDate(addDaysToDate(clampedDate, 1));
         }
       } else {
         if (clampedDate <= startDate) {
           showToast("End date/time must be after the start date/time.");
-          setEndDate(addMinutesToDate(startDate, 1));
+          setEndDate(addDaysToDate(startDate, 1));
         } else {
           setEndDate(clampedDate);
         }
@@ -694,13 +695,13 @@ export default function AddTask({
       const clampedDate = clampToNow(nextDate);
       setStartDate(clampedDate);
       if (endDate <= clampedDate) {
-        setEndDate(addMinutesToDate(clampedDate, 1));
+        setEndDate(addDaysToDate(clampedDate, 1));
       }
     } else {
       const clampedDate = clampToNow(nextDate);
       if (clampedDate <= startDate) {
         showToast("End date/time must be after the start date/time.");
-        setEndDate(addMinutesToDate(startDate, 1));
+        setEndDate(addDaysToDate(startDate, 1));
       } else {
         setEndDate(clampedDate);
       }

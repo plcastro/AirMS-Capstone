@@ -59,6 +59,11 @@ const addMinutesToDate = (date, minutes) => {
   return new Date(safeDate.getTime() + minutes * 60 * 1000);
 };
 
+const addDaysToDate = (date, days) => {
+  const safeDate = date instanceof Date ? date : new Date(date);
+  return new Date(safeDate.getTime() + days * 24 * 60 * 60 * 1000);
+};
+
 const estimateChecklistItemMinutes = (item = {}) => {
   const text = [
     item.taskName,
@@ -97,16 +102,13 @@ const estimateInspectionSchedule = (checklistItems = []) => {
     itemCount: validItems.length,
     minutes,
     hours: Math.round((minutes / 60) * 100) / 100,
+    days: Math.max(1, Math.ceil(minutes / 60)),
   };
 };
 
 const formatEstimatedDuration = (minutes) => {
-  const wholeMinutes = Math.max(0, Math.round(minutes));
-  const hours = Math.floor(wholeMinutes / 60);
-  const remainingMinutes = wholeMinutes % 60;
-  if (hours === 0) return `${remainingMinutes} min`;
-  if (remainingMinutes === 0) return `${hours} hr`;
-  return `${hours} hr ${remainingMinutes} min`;
+  const days = Math.max(1, Math.ceil(Math.max(0, minutes) / 60));
+  return `${days} day${days === 1 ? "" : "s"}`;
 };
 
 const formatDisplayDateTime = (value) =>
@@ -401,7 +403,7 @@ export default function TaskAssignment() {
     const nextStart = startDate instanceof Date ? startDate : new Date(startDate);
     const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
     if (currentEnd && currentEnd > nextStart) return task.endDateTime;
-    return new Date(nextStart.getTime() + 60 * 1000).toISOString();
+    return addDaysToDate(nextStart, 1).toISOString();
   };
 
   const loadInspectionTasks = async (inspectionId) => {
@@ -413,7 +415,7 @@ export default function TaskAssignment() {
         title: form.getFieldValue("title") || "Custom Task",
         maintenanceType: "Custom Task",
         checklistItems: items,
-        endDateTime: dayjs(addMinutesToDate(start.toDate(), estimate.minutes)),
+        endDateTime: dayjs(addDaysToDate(start.toDate(), estimate.days)),
       });
       return;
     }
@@ -448,7 +450,7 @@ export default function TaskAssignment() {
       form.setFieldsValue({
         checklistItems: items,
         maintenanceType: "Inspection",
-        endDateTime: dayjs(addMinutesToDate(start.toDate(), estimate.minutes)),
+        endDateTime: dayjs(addDaysToDate(start.toDate(), estimate.days)),
       });
     } catch (error) {
       messageApi.error(error.message || "Failed to fetch inspection tasks");
@@ -461,7 +463,7 @@ export default function TaskAssignment() {
     form.resetFields();
     form.setFieldsValue({
       startDateTime: dayjs(start),
-      endDateTime: dayjs(addMinutesToDate(start, 60)),
+      endDateTime: dayjs(addDaysToDate(start, 1)),
       priority: "Normal",
       maintenanceType: "Inspection",
       checklistItems: [],
