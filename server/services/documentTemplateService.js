@@ -245,16 +245,22 @@ const loadTemplate = (templateName) => {
  * @param {Object} inspection - Inspection object from database
  * @returns {Object} - Formatted data object
  */
+const formatInspectionDate = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).split("T")[0];
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const formatInspectionData = (inspection) => ({
   rpc: inspection.rpc || inspection.RP_C || inspection.aircraftNo || "N/A",
-  date:
-    inspection.date ||
-    inspection.inspectionDate ||
-    new Date().toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    }),
+  date: formatInspectionDate(
+    inspection.date || inspection.inspectionDate || inspection.createdAt || new Date(),
+  ),
   aircraftType: inspection.aircraftType || "N/A",
   fob: inspection.fob !== undefined ? `${inspection.fob}%` : "N/A",
   engineer: inspection.engineer || inspection.createdBy || "N/A",
@@ -1159,9 +1165,16 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       doc.fontSize(12).text("RP-C", 42, 118);
       doc.font("Helvetica").fontSize(9).text(inspection.rpc || "", 82, 119);
       drawPdfLine(doc, 82, 132, 186, 132);
-      doc.font("Helvetica-Bold").fontSize(12).text("Date", 505, 118);
-      doc.font("Helvetica").fontSize(9).text(inspection.date || "", 542, 119);
-      drawPdfLine(doc, 542, 132, 610, 132);
+      doc.font("Helvetica-Bold").fontSize(12).text("Date", 470, 118);
+      doc.font("Helvetica").fontSize(9).text(
+        formatInspectionDate(
+          inspection.date || inspection.inspectionDate || inspection.createdAt,
+        ),
+        505,
+        119,
+        { width: 66, align: "center", lineBreak: false },
+      );
+      drawPdfLine(doc, 505, 132, 571, 132);
 
       doc.font("Helvetica").fontSize(9).text("Status", statusX, 150);
       drawPdfLine(doc, statusX, 164, statusX + 40, 164);
@@ -1214,14 +1227,18 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
 
     const signY = bottomY + 54;
     doc.font("Helvetica").fontSize(11).text("Released by:", 42, signY);
-    doc.text("Accepted by:", 430, signY);
+    doc.text("Accepted by:", 362, signY);
     drawSignature(doc, releasedSignature, 72, signY + 16, 105, 42);
-    drawSignature(doc, acceptedSignature, 462, signY + 16, 105, 42);
+    drawSignature(doc, acceptedSignature, 394, signY + 16, 105, 42);
     doc.fontSize(9).text(inspection.releasedBy?.name || "", 88, signY + 60, { width: 170, align: "center" });
     drawPdfLine(doc, 42, signY + 76, 250, signY + 76);
-    drawPdfLine(doc, 430, signY + 76, 638, signY + 76);
+    drawPdfLine(doc, 362, signY + 76, 570, signY + 76);
     doc.font("Helvetica-Bold").fontSize(12).text(getSignatureTitle(inspection.releasedBy, "Mechanic"), 122, signY + 82);
-    doc.text(getSignatureTitle(inspection.acceptedBy, "Pilot"), 520, signY + 82);
+    doc.text(getSignatureTitle(inspection.acceptedBy, "Pilot"), 442, signY + 82, {
+      width: 50,
+      align: "center",
+      lineBreak: false,
+    });
 
     const licenseY = signY + 118;
     doc.font("Helvetica").fontSize(9).text(
@@ -1231,9 +1248,13 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       { width: 150, align: "center" },
     );
     drawPdfLine(doc, 42, licenseY + 14, 250, licenseY + 14);
-    drawPdfLine(doc, 430, licenseY + 14, 638, licenseY + 14);
+    drawPdfLine(doc, 362, licenseY + 14, 570, licenseY + 14);
     doc.font("Helvetica-Bold").fontSize(12).text("A & P License Nr.", 92, licenseY + 20);
-    doc.text("CHPL Nr.", 510, licenseY + 20);
+    doc.text("CHPL Nr.", 430, licenseY + 20, {
+      width: 72,
+      align: "center",
+      lineBreak: false,
+    });
 
     doc.end();
   });

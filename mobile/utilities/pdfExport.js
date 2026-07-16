@@ -182,6 +182,150 @@ const simpleTable = (rows = []) => `
   </table>
 `;
 
+const buildMaintenanceLogHtml = (log = {}) => {
+  const workItems = (
+    Array.isArray(log?.workDetails) && log.workDetails.length
+      ? log.workDetails
+      : [log?.correctiveActionDone, log?.defects]
+  )
+    .map((item) => String(item?.description || item || "").trim())
+    .filter(Boolean);
+  const serialNumber =
+    log?.sn || String(log?.aircraft || "").replace(/[^\d]/g, "") || "";
+  const workOrder = log?.sourceTaskId || log?.id || log?._id || "";
+
+  const detailRows = (workItems.length ? workItems : [""])
+    .map(
+      (description, index) => `
+        <tr class="work-row">
+          <td class="signoff"></td>
+          <td class="description">${index + 1}. ${escapeHtml(description)}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const labeledCell = (label, value) => `
+    <div class="meta-row">
+      <span class="meta-label">${escapeHtml(label)}</span>
+      <span class="meta-value">${escapeHtml(value || "")}</span>
+    </div>`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4 portrait; margin: 9mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            color: #111;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+          }
+          .report { width: 100%; border: 1.5px solid #111; }
+          .blank-top { height: 9mm; border-bottom: 1.5px solid #111; }
+          .metadata {
+            display: grid;
+            grid-template-columns: 27% 46% 27%;
+            min-height: 30mm;
+            border-bottom: 1.5px solid #111;
+          }
+          .meta-side { display: grid; grid-template-rows: repeat(4, 1fr); }
+          .meta-row { display: flex; border-bottom: 1px solid #111; }
+          .meta-row:last-child { border-bottom: 0; }
+          .meta-label {
+            width: 46%;
+            padding: 2px 3px;
+            border-right: 1px solid #111;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+          .meta-value { flex: 1; padding: 2px 4px; }
+          .brand {
+            border-left: 1.5px solid #111;
+            border-right: 1.5px solid #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .ngcp {
+            font-size: 36pt;
+            line-height: .85;
+            font-weight: 900;
+            letter-spacing: -4px;
+            color: #222;
+          }
+          .ngcp .accent { color: #087d4b; }
+          .tagline {
+            margin-top: 4px;
+            font-size: 8pt;
+            font-weight: 700;
+            letter-spacing: .4px;
+          }
+          .title {
+            padding: 5mm 2mm 4mm;
+            text-align: center;
+            font-size: 11pt;
+            line-height: 1.35;
+            font-weight: 700;
+            border-bottom: 1.5px solid #111;
+          }
+          .section-title {
+            height: 8mm;
+            padding: 2px 3px;
+            font-size: 10pt;
+            font-weight: 700;
+            border-bottom: 1.5px solid #111;
+          }
+          .work-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          .work-table td {
+            border-bottom: 1px solid #111;
+            vertical-align: middle;
+            page-break-inside: avoid;
+          }
+          .work-table tr:last-child td { border-bottom: 0; }
+          .signoff { width: 10%; border-right: 1px solid #111; }
+          .description {
+            padding: 3px 4px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+          }
+          .work-row { min-height: 8mm; }
+        </style>
+      </head>
+      <body>
+        <div class="report">
+          <div class="blank-top"></div>
+          <div class="metadata">
+            <div class="meta-side">
+              ${labeledCell("ACFT TYPE:", log?.aircraftType || "AS350 B3")}
+              ${labeledCell("ACFT REG:", log?.aircraft)}
+              ${labeledCell("ACFT S/N:", serialNumber)}
+              ${labeledCell("W.O. #:", workOrder)}
+            </div>
+            <div class="brand">
+              <div class="ngcp"><span class="accent">N</span>GC<span class="accent">P</span></div>
+              <div class="tagline">BRIDGING POWER &amp; PROGRESS</div>
+            </div>
+            <div class="meta-side">
+              ${labeledCell("AIRCRAFT TT:", log?.aircraftTT || log?.acftTT)}
+              ${labeledCell("LANDING CYC:", log?.landingCycles || log?.landings)}
+              ${labeledCell("ENGINE: TT:", log?.engineTT || log?.engTT)}
+              ${labeledCell("ENGINE CYC:", log?.engineCycles || log?.n2Cycles)}
+            </div>
+          </div>
+          <div class="title">WORK DONE REPORT /<br />CERTIFICATE OF RETURN TO SERVICE</div>
+          <div class="section-title">DESCRIPTION OF WORK:</div>
+          <table class="work-table"><tbody>${detailRows}</tbody></table>
+        </div>
+      </body>
+    </html>`;
+};
+
 const flightValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
     ? fallback
@@ -733,11 +877,47 @@ const baseInspectionStyles = `
     width: 55%;
   }
 
-  .line {
+  .signature-name {
     border-bottom: 1px solid #000;
-    height: 28px;
-    margin-top: 8px;
-    margin-bottom: 4px;
+    min-height: 27px;
+    margin: 8px 0 7px;
+    padding: 8px 4px 2px;
+    text-align: center;
+  }
+
+  .form-field {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 9px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .field-line {
+    display: inline-block;
+    flex: 0 0 105px;
+    width: 105px;
+    max-width: 105px;
+    min-height: 16px;
+    padding: 0 3px 2px;
+    border-bottom: 1px solid #000;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .date-value {
+    display: inline-block;
+    width: 82px;
+    min-width: 82px;
+    max-width: 82px;
+    padding: 0 3px 2px;
+    border-bottom: 1px solid #000;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 14px;
   }
 
   .footer {
@@ -1135,12 +1315,33 @@ const buildInspectionRows = (sections, inspection) =>
 const getRpc = (record) =>
   record?.rpc || record?.RP_C || record?.aircraft || record?.aircraftNo || "__________";
 
-const getDate = (record) =>
-  record?.date || record?.inspectionDate || record?.createdDate || "__________";
+const formatInspectionDate = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).split("T")[0];
+  return new Intl.DateTimeFormat("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
 
-const getSignatureName = (signature) => signature?.name || "__________________";
+const getDate = (record) =>
+  formatInspectionDate(
+    record?.date ||
+      record?.inspectionDate ||
+      record?.createdDate ||
+      record?.createdAt,
+  );
+
+const getSignatureName = (signature) =>
+  typeof signature === "string" ? signature : signature?.name || "";
 const getSignatureTitle = (signature, fallback = "__________________") =>
-  signature?.title || fallback;
+  (typeof signature === "object" && signature?.title) || fallback;
+const getSignatureLicense = (signature, ...keys) => {
+  if (!signature || typeof signature !== "object") return "";
+  return keys.map((key) => signature?.[key]).find(Boolean) || "";
+};
 
 const buildPreInspectionHtml = (inspection = {}) => `
   <!DOCTYPE html>
@@ -1155,7 +1356,7 @@ const buildPreInspectionHtml = (inspection = {}) => `
 
       <div class="top-info">
         <div><strong>RP-C:</strong> ${escapeHtml(getRpc(inspection))}</div>
-        <div><strong>Date:</strong> ${escapeHtml(getDate(inspection))}</div>
+        <div><strong>Date:</strong> <span class="date-value">${escapeHtml(getDate(inspection))}</span></div>
       </div>
 
       <table>
@@ -1178,20 +1379,16 @@ const buildPreInspectionHtml = (inspection = {}) => `
       <div class="signature-section">
         <div class="signature-box">
           <strong>Released by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
-          <div>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}</div>
-          <div class="line"></div>
-          <div>A & P License Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>A &amp; P License Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.releasedBy, "licenseNumber", "licenseNo", "apLicenseNumber"))}</span></div>
         </div>
 
         <div class="signature-box">
           <strong>Accepted by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.acceptedBy))}</div>
-          <div>${escapeHtml(getSignatureTitle(inspection?.acceptedBy, "Pilot"))}</div>
-          <div class="line"></div>
-          <div>CHPL Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.acceptedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.acceptedBy, "Pilot"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>CHPL Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.acceptedBy, "licenseNumber", "licenseNo", "chplNumber", "chplNo"))}</span></div>
         </div>
       </div>
 
@@ -1217,7 +1414,7 @@ const buildPostInspectionHtml = (inspection = {}) => `
 
       <div class="top-info">
         <div><strong>RP-C:</strong> ${escapeHtml(getRpc(inspection))}</div>
-        <div><strong>Date:</strong> ${escapeHtml(getDate(inspection))}</div>
+        <div><strong>Date:</strong> <span class="date-value">${escapeHtml(getDate(inspection))}</span></div>
       </div>
 
       <table>
@@ -1238,13 +1435,10 @@ const buildPostInspectionHtml = (inspection = {}) => `
       <div class="signature-section">
         <div class="signature-box single">
           <strong>Released by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
-          <div>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}</div>
-          <div class="line"></div>
-          <div>Dated</div>
-          <div class="line"></div>
-          <div>A & P License Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>Dated:</span><span class="field-line">${escapeHtml(getDate(inspection))}</span></div>
+          <div class="form-field"><span>A &amp; P License Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.releasedBy, "licenseNumber", "licenseNo", "apLicenseNumber"))}</span></div>
         </div>
       </div>
 
@@ -1319,16 +1513,5 @@ export const exportFlightLogPdf = (log) =>
 export const exportMaintenanceLogPdf = (log) =>
   exportRecordToPdf({
     title: "Work Done Report",
-    subtitle: `Aircraft: ${log?.aircraft || "N/A"} | WO: ${
-      log?.sourceTaskId || log?.id || "N/A"
-    }`,
-    record: {
-      aircraft: log?.aircraft,
-      base: log?.base,
-      reportedBy: log?.reportedBy,
-      rectified: log?.dateDefectRectified,
-      taskStatus: log?.sourceTaskStatus || log?.status,
-      taskTitle: log?.taskTitle,
-      workDetails: log?.workDetails,
-    },
+    html: buildMaintenanceLogHtml(log),
   });
