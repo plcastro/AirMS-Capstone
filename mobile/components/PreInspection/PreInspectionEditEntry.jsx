@@ -123,9 +123,7 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       acceptedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
@@ -151,9 +149,7 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",
@@ -281,7 +277,13 @@ export default function PreInspectionEditEntry({
   const formatDate = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    return date.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   return (

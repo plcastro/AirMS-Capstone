@@ -240,16 +240,8 @@ const routeLabels = [
     action: "Security alert count viewed",
   },
   {
-    pattern: /^\/api\/inspections\/pre\/[^/]+\/export-document$/,
-    action: "Pre-inspection document exported",
-  },
-  {
     pattern: /^\/api\/inspections\/pre\/[^/]+\/export-pdf$/,
     action: "Pre-inspection PDF exported",
-  },
-  {
-    pattern: /^\/api\/inspections\/post\/[^/]+\/export-document$/,
-    action: "Post-inspection document exported",
   },
   {
     pattern: /^\/api\/inspections\/post\/[^/]+\/export-pdf$/,

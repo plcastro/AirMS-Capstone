@@ -70,13 +70,53 @@ const formatSignatureDate = (timestamp) => {
   const parsed = new Date(timestamp);
   if (Number.isNaN(parsed.getTime())) return "";
 
-  return parsed.toLocaleString();
+  return parsed.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const toTitleCase = (value = "") =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getUserFullName = (user = {}) =>
+  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+  user?.name ||
+  user?.username ||
+  "";
+
+const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
+  const title =
+    user?.jobTitle || user?.access || toTitleCase(fallbackTitle) || "User";
+
+  return {
+    name: getUserFullName(user) || title,
+    title,
+    id:
+      user?.licenseNo ||
+      user?.licenseNumber ||
+      user?.license ||
+      user?.certificateNo ||
+      "",
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
 };
 
 const getSignerLabel = (signatureData = {}) =>
   signatureData.id
     ? `${signatureData.name || "Unknown"} / ${signatureData.id}`
-    : signatureData.name || "Unknown";
+    : [signatureData.name || "Unknown", signatureData.title]
+        .filter(Boolean)
+        .join(" - ");
 
 export default function FlightLogEditEntry({
   visible,
@@ -84,6 +124,7 @@ export default function FlightLogEditEntry({
   onClose,
   onSave,
   userRole,
+  currentUser,
   readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
@@ -311,11 +352,7 @@ export default function FlightLogEditEntry({
   const handleRelease = async (signature) => {
     const updated = {
       ...formData,
-      releasedBy: {
-        name: "Mechanic",
-        signature,
-        timestamp: new Date().toISOString(),
-      },
+      releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
     };
     setFormData(updated);
@@ -334,11 +371,7 @@ export default function FlightLogEditEntry({
 
     const updated = {
       ...formData,
-      acceptedBy: {
-        name: "Pilot",
-        signature,
-        timestamp: new Date().toISOString(),
-      },
+      acceptedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "accepted",
     };
     setFormData(updated);

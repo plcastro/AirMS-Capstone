@@ -174,7 +174,7 @@ export default function CreateTaskModal({
               <DatePicker
                 size="large"
                 style={{ width: "100%" }}
-                format="YYYY-MM-DD HH:mm"
+                format="MM/DD/YYYY HH:mm"
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(false)}
               />
@@ -200,7 +200,7 @@ export default function CreateTaskModal({
               <DatePicker
                 size="large"
                 style={{ width: "100%" }}
-                format="YYYY-MM-DD HH:mm"
+                format="MM/DD/YYYY HH:mm"
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(true)}
               />

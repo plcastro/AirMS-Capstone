@@ -1,6 +1,8 @@
 export const getDefaultPostInspectionSignature = () => ({
   name: "",
   id: "",
+  title: "",
+  userId: "",
   signature: "",
   timestamp: "",
 });

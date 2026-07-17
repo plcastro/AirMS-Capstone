@@ -9,6 +9,13 @@ const sanitizeFileName = (value) =>
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
+const formatToday = () =>
+  new Date().toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+
 const arrayBufferToBase64 = (buffer) => {
   let binary = "";
   const bytes = new Uint8Array(buffer);
@@ -24,7 +31,6 @@ const downloadInspectionDocument = async (
   inspectionId,
   documentType,
   fileName,
-  format = "document",
 ) => {
   try {
     if (!inspectionId) {
@@ -33,9 +39,7 @@ const downloadInspectionDocument = async (
 
     const token = await AsyncStorage.getItem("currentUserToken");
 
-    const exportPath = format === "pdf" ? "export-pdf" : "export-document";
-
-    const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/${exportPath}`;
+    const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/export-pdf`;
 
     const safeFileName = sanitizeFileName(fileName);
 
@@ -43,7 +47,7 @@ const downloadInspectionDocument = async (
 
     Alert.alert(
       "Exporting",
-      `Generating ${format === "pdf" ? "PDF" : "document"}...`,
+      "Generating PDF...",
     );
 
     // Fetch file
@@ -73,10 +77,7 @@ const downloadInspectionDocument = async (
     }
 
     await Sharing.shareAsync(fileUri, {
-      mimeType:
-        format === "pdf"
-          ? "application/pdf"
-          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mimeType: "application/pdf",
       dialogTitle: fileName,
     });
 
@@ -93,19 +94,6 @@ const downloadInspectionDocument = async (
   }
 };
 
-export const exportPreInspectionToWord = (inspection) => {
-  if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
-  );
-
-  return downloadInspectionDocument(inspection._id, "pre", fileName);
-};
-
 export const exportPreInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
     Alert.alert("Error", "Invalid inspection data");
@@ -113,23 +101,10 @@ export const exportPreInspectionTemplatePdf = (inspection) => {
   }
 
   const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`,
+    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || formatToday()}.pdf`,
   );
 
-  return downloadInspectionDocument(inspection._id, "pre", fileName, "pdf");
-};
-
-export const exportPostInspectionToWord = (inspection) => {
-  if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.docx`,
-  );
-
-  return downloadInspectionDocument(inspection._id, "post", fileName);
+  return downloadInspectionDocument(inspection._id, "pre", fileName);
 };
 
 export const exportPostInspectionTemplatePdf = (inspection) => {
@@ -139,15 +114,13 @@ export const exportPostInspectionTemplatePdf = (inspection) => {
   }
 
   const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`,
+    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || formatToday()}.pdf`,
   );
 
-  return downloadInspectionDocument(inspection._id, "post", fileName, "pdf");
+  return downloadInspectionDocument(inspection._id, "post", fileName);
 };
 
 export default {
-  exportPreInspectionToWord,
-  exportPostInspectionToWord,
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
   downloadInspectionDocument,

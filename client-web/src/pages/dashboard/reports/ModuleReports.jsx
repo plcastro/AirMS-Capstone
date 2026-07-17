@@ -53,7 +53,11 @@ const formatDate = (value) => {
   if (!value) return "---";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "---";
-  return date.toLocaleDateString("en-CA");
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const getRecordDate = (record = {}) =>
@@ -112,11 +116,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
       const weekStart = getWeekStart(date);
       const key = weekStart.toISOString().slice(0, 10);
       buckets[key] = {
-        label: weekStart.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "2-digit",
-        }),
+        label: weekStart.toLocaleDateString("en-US"),
         order: weekStart.getTime(),
         value: (buckets[key]?.value || 0) + 1,
       };
@@ -126,10 +126,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
     const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
     const key = monthStart.toISOString().slice(0, 7);
     buckets[key] = {
-      label: monthStart.toLocaleDateString("en-US", {
-        month: "short",
-        year: "2-digit",
-      }),
+      label: monthStart.toLocaleDateString("en-US"),
       order: monthStart.getTime(),
       value: (buckets[key]?.value || 0) + 1,
     };

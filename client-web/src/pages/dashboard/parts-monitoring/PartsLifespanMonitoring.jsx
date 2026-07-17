@@ -138,7 +138,11 @@ const formatPreviewDate = (value) => {
   if (!value) return "Not available";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const sanitizeSheetFileName = (value) =>
@@ -978,7 +982,11 @@ export default function PartsMonitoring() {
                   {aircraftDetails.dateManufactured
                     ? new Date(
                         aircraftDetails.dateManufactured,
-                      ).toLocaleDateString()
+                      ).toLocaleDateString("en-US", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        year: "numeric",
+                      })
                     : "Not available"}
                 </Text>
               </div>

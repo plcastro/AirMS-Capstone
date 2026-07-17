@@ -88,7 +88,7 @@ export default function UserLogs() {
           index: index + 1,
           dateTime: log.dateTime,
           displayDateTime: log.dateTime
-            ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
+            ? dayjs(log.dateTime).format("MM/DD/YYYY hh:mm A")
             : "N/A",
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
@@ -289,7 +289,7 @@ export default function UserLogs() {
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
-          format="YYYY-MM-DD"
+          format="MM/DD/YYYY"
           allowClear
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}
@@ -335,12 +335,12 @@ export default function UserLogs() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(date) => dayjs(date).format("MMM D")}
+                tickFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
                 tick={{ fontSize: 12 }}
               />
               <YAxis tick={{ fontSize: 12 }} width={32} />
               <Tooltip
-                labelFormatter={(date) => dayjs(date).format("MMM DD, YYYY")}
+                labelFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
 

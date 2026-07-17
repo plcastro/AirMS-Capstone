@@ -63,7 +63,7 @@ const headers = [
     render: (_, record) =>
       record.displayDateTime ||
       (record.dateTime
-        ? dayjs(record.dateTime).format("MMM DD, YYYY hh:mm A")
+        ? dayjs(record.dateTime).format("MM/DD/YYYY hh:mm A")
         : "N/A"),
   },
 ];

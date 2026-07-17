@@ -147,9 +147,7 @@ export default function PreInspectionEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",

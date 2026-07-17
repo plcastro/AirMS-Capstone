@@ -246,11 +246,17 @@ const updateRequisitionStatus = async (req, res) => {
     const staffMappings = {
       requisitioner: "staff.requisitioner",
       requisitionerId: "staff.requisitionerId",
+      requisitionerTitle: "staff.requisitionerTitle",
       approvedBy: "staff.approvedBy",
+      approvedByTitle: "staff.approvedByTitle",
       receiver: "staff.receiver",
+      receiverTitle: "staff.receiverTitle",
       notedBy: "staff.notedBy",
+      notedByTitle: "staff.notedByTitle",
       warehouseBy: "staff.warehouseBy",
+      warehouseByTitle: "staff.warehouseByTitle",
       deliveredBy: "staff.deliveredBy",
+      deliveredByTitle: "staff.deliveredByTitle",
     };
 
     Object.entries(staffMappings).forEach(([requestField, modelField]) => {

@@ -33,8 +33,8 @@ export const formatDate = (value, options = {}) => {
   if (Number.isNaN(parsed.getTime())) return "N/A";
 
   return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     year: "numeric",
     ...options,
   });
@@ -47,8 +47,8 @@ export const formatDateTime = (value) => {
   if (Number.isNaN(parsed.getTime())) return "N/A";
 
   return parsed.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",

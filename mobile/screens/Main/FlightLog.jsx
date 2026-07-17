@@ -42,14 +42,29 @@ const getComparableStatus = (statusValue = "") => {
   return normalized;
 };
 
+const parseFlightLogDate = (log = {}) => {
+  const value = log?.date || log?.dateAdded || log?.createdAt || log?.updatedAt;
+
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+
+  const raw = String(value).trim();
+  const slashDate = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+
+  if (slashDate) {
+    const [, month, day, yearValue] = slashDate;
+    const year =
+      yearValue.length === 2 ? Number(`20${yearValue}`) : Number(yearValue);
+    return new Date(year, Number(month) - 1, Number(day)).getTime();
+  }
+
+  const parsed = new Date(raw).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const sortNewestFlightLogs = (logs = []) =>
-  [...logs].sort((a, b) => {
-    const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
-    const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
-    return (
-      (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate)
-    );
-  });
+  [...logs].sort((a, b) => parseFlightLogDate(b) - parseFlightLogDate(a));
 
 const mergeFlightLogs = (logs = []) =>
   Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
@@ -690,6 +705,7 @@ export default function FlightLog({ route, navigation }) {
         onClose={() => setShowNewEntryModal(false)}
         onSave={handleSaveNewEntry}
         userRole={userRole}
+        currentUser={user}
       />
 
       {/* Edit Entry Modal */}
@@ -702,6 +718,7 @@ export default function FlightLog({ route, navigation }) {
         }}
         onSave={handleSaveEdit}
         userRole={userRole}
+        currentUser={user}
         readOnly={isOfficerInCharge}
       />
     </View>

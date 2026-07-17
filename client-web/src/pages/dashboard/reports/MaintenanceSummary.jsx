@@ -17,7 +17,11 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (isNaN(date.getTime())) return "";
 
-  return date.toLocaleDateString("en-CA");
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 export default function MaintenanceSummary({ tasks = [], loading = false }) {
@@ -80,8 +84,9 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       if (!rawDate || isNaN(parsedDate.getTime())) return acc;
 
       const label = parsedDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
       });
 
       const existing = acc.find((entry) => entry.date === label);
@@ -95,7 +100,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
     }, [])
     .sort(
       (a, b) =>
-        new Date(`2000 ${a.date}`).getTime() - new Date(`2000 ${b.date}`).getTime(),
+        new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
   const headers = [
@@ -181,7 +186,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
           <Space size="large" wrap>
             <RangePicker
               onChange={(values) => setDateRange(values)}
-              format="YYYY-MM-DD"
+              format="MM/DD/YYYY"
             />
             {(searchText || dateRange) && (
               <Button

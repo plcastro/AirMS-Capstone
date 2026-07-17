@@ -30,7 +30,15 @@ const formatLabel = (key) =>
 const formatValue = (value) => {
   if (value === null || value === undefined || value === "") return "N/A";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (value instanceof Date) return value.toLocaleString();
+  if (value instanceof Date) {
+    return value.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
   return String(value);
 };
 
@@ -174,9 +182,33 @@ const simpleTable = (rows = []) => `
   </table>
 `;
 
-const buildFlightLogHtml = (log = {}) => {
-  const legs = Array.isArray(log.legs) ? log.legs : [];
-  const workItems = Array.isArray(log.workItems) ? log.workItems : [];
+const buildMaintenanceLogHtml = (log = {}) => {
+  const workItems = (
+    Array.isArray(log?.workDetails) && log.workDetails.length
+      ? log.workDetails
+      : [log?.correctiveActionDone, log?.defects]
+  )
+    .map((item) => String(item?.description || item || "").trim())
+    .filter(Boolean);
+  const serialNumber =
+    log?.sn || String(log?.aircraft || "").replace(/[^\d]/g, "") || "";
+  const workOrder = log?.sourceTaskId || log?.id || log?._id || "";
+
+  const detailRows = (workItems.length ? workItems : [""])
+    .map(
+      (description, index) => `
+        <tr class="work-row">
+          <td class="signoff"></td>
+          <td class="description">${index + 1}. ${escapeHtml(description)}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const labeledCell = (label, value) => `
+    <div class="meta-row">
+      <span class="meta-label">${escapeHtml(label)}</span>
+      <span class="meta-value">${escapeHtml(value || "")}</span>
+    </div>`;
 
   return `
     <!DOCTYPE html>
@@ -184,107 +216,564 @@ const buildFlightLogHtml = (log = {}) => {
       <head>
         <meta charset="utf-8" />
         <style>
-          body { font-family: Arial, sans-serif; padding: 22px; color: #1f1f1f; }
-          h1 { margin: 0 0 8px; color: #048a25; font-size: 22px; }
-          h2 { margin: 18px 0 8px; font-size: 15px; color: #244D3B; }
-          p { margin: 0 0 14px; color: #666; font-size: 12px; }
-          table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 10px; }
-          th, td { border: 1px solid #d9d9d9; padding: 6px; text-align: left; vertical-align: top; word-wrap: break-word; font-size: 10px; }
-          th { background: #048a25; color: #fff; }
-          td:first-child { width: 34%; font-weight: bold; }
+          @page { size: A4 portrait; margin: 9mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            color: #111;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+          }
+          .report { width: 100%; border: 1.5px solid #111; }
+          .blank-top { height: 9mm; border-bottom: 1.5px solid #111; }
+          .metadata {
+            display: grid;
+            grid-template-columns: 27% 46% 27%;
+            min-height: 30mm;
+            border-bottom: 1.5px solid #111;
+          }
+          .meta-side { display: grid; grid-template-rows: repeat(4, 1fr); }
+          .meta-row { display: flex; border-bottom: 1px solid #111; }
+          .meta-row:last-child { border-bottom: 0; }
+          .meta-label {
+            width: 46%;
+            padding: 2px 3px;
+            border-right: 1px solid #111;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+          .meta-value { flex: 1; padding: 2px 4px; }
+          .brand {
+            border-left: 1.5px solid #111;
+            border-right: 1.5px solid #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .ngcp {
+            font-size: 36pt;
+            line-height: .85;
+            font-weight: 900;
+            letter-spacing: -4px;
+            color: #222;
+          }
+          .ngcp .accent { color: #087d4b; }
+          .tagline {
+            margin-top: 4px;
+            font-size: 8pt;
+            font-weight: 700;
+            letter-spacing: .4px;
+          }
+          .title {
+            padding: 5mm 2mm 4mm;
+            text-align: center;
+            font-size: 11pt;
+            line-height: 1.35;
+            font-weight: 700;
+            border-bottom: 1.5px solid #111;
+          }
+          .section-title {
+            height: 8mm;
+            padding: 2px 3px;
+            font-size: 10pt;
+            font-weight: 700;
+            border-bottom: 1.5px solid #111;
+          }
+          .work-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          .work-table td {
+            border-bottom: 1px solid #111;
+            vertical-align: middle;
+            page-break-inside: avoid;
+          }
+          .work-table tr:last-child td { border-bottom: 0; }
+          .signoff { width: 10%; border-right: 1px solid #111; }
+          .description {
+            padding: 3px 4px;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+          }
+          .work-row { min-height: 8mm; }
         </style>
       </head>
       <body>
-        <h1>Flight Log</h1>
-        <p>RP/C: ${escapeHtml(log.rpc || "N/A")} | Date: ${escapeHtml(log.date || "N/A")}</p>
-        ${simpleTable([
-          ["Aircraft Type", log.aircraftType],
-          ["Control No.", log.controlNo || log.control],
-          ["Status", log.status],
-          ["Released By", log.releasedBy?.name],
-          ["Accepted By", log.acceptedBy?.name],
-          ["Remarks", log.remarks],
-          ["Sling", log.sling],
-        ])}
+        <div class="report">
+          <div class="blank-top"></div>
+          <div class="metadata">
+            <div class="meta-side">
+              ${labeledCell("ACFT TYPE:", log?.aircraftType || "AS350 B3")}
+              ${labeledCell("ACFT REG:", log?.aircraft)}
+              ${labeledCell("ACFT S/N:", serialNumber)}
+              ${labeledCell("W.O. #:", workOrder)}
+            </div>
+            <div class="brand">
+              <div class="ngcp"><span class="accent">N</span>GC<span class="accent">P</span></div>
+              <div class="tagline">BRIDGING POWER &amp; PROGRESS</div>
+            </div>
+            <div class="meta-side">
+              ${labeledCell("AIRCRAFT TT:", log?.aircraftTT || log?.acftTT)}
+              ${labeledCell("LANDING CYC:", log?.landingCycles || log?.landings)}
+              ${labeledCell("ENGINE: TT:", log?.engineTT || log?.engTT)}
+              ${labeledCell("ENGINE CYC:", log?.engineCycles || log?.n2Cycles)}
+            </div>
+          </div>
+          <div class="title">WORK DONE REPORT /<br />CERTIFICATE OF RETURN TO SERVICE</div>
+          <div class="section-title">DESCRIPTION OF WORK:</div>
+          <table class="work-table"><tbody>${detailRows}</tbody></table>
+        </div>
+      </body>
+    </html>`;
+};
 
-        <h2>Flight Legs</h2>
-        <table>
+const flightValue = (value, fallback = "") =>
+  value === null || value === undefined || value === ""
+    ? fallback
+    : String(value);
+
+const formatFlightLogDate = (value) => {
+  if (!value) return "";
+
+  const raw = String(value).trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(raw)) return raw;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
+
+const getStationText = (leg = {}) => {
+  if (!Array.isArray(leg.stations) || leg.stations.length === 0) {
+    return "";
+  }
+
+  return leg.stations
+    .map((station) => [station?.from, station?.to].filter(Boolean).join(" - "))
+    .filter(Boolean)
+    .join(" / ");
+};
+
+const getComponentSection = (record = {}, sectionKey) =>
+  record?.componentData?.[sectionKey] || {};
+
+const fitRows = (items = [], count, emptyFactory) =>
+  Array.from({ length: count }, (_, index) => items[index] || emptyFactory(index));
+
+const FLIGHT_LEG_LABELS = ["1ST", "2ND", "3RD", "4TH", "5TH", "6TH"];
+const PASSENGER_LEG_LABELS = [
+  "1ST LEG",
+  "2ND LEG",
+  "3RD LEG",
+  "4TH LEG",
+  "5TH LEG",
+  "6TH LEG",
+  "7TH LEG",
+  "8TH LEG",
+];
+const COMPONENT_TIME_FIELDS = [
+  ["A/FRAME", "airframe"],
+  ["MAIN", "gearBoxMain"],
+  ["TAIL", "gearBoxTail"],
+  ["MAIN", "rotorMain"],
+  ["TAIL", "rotorTail"],
+  ["ENGINE", "engine"],
+  ["N1", "cycleN1"],
+  ["N2", "cycleN2"],
+  ["USAGE", "usage"],
+  ["L'DING CYCLE", "landingCycle"],
+];
+
+const buildFlightLogHtml = (log = {}) => {
+  const legs = fitRows(log.legs || [], 6, () => ({}));
+  const passengerRows = Array.from({ length: 4 }, (_, rowIndex) => [
+    rowIndex === 0 ? formatFlightLogDate(log.date) : "",
+    ...PASSENGER_LEG_LABELS.map((_, legIndex) =>
+      flightValue(log.legs?.[legIndex]?.passengers),
+    ),
+  ]);
+  const componentSections = [
+    ["BRT FRW", getComponentSection(log, "broughtForwardData")],
+    ["THIS FLT", getComponentSection(log, "thisFlightData")],
+    ["TO DATE", getComponentSection(log, "toDateData")],
+  ];
+  const bf = getComponentSection(log, "broughtForwardData");
+  const tf = getComponentSection(log, "thisFlightData");
+  const fuelRows = fitRows(log.fuelServicing || [], 4, () => ({}));
+  const oilRows = fitRows(log.oilServicing || [], 4, () => ({}));
+  const workItems = fitRows(log.workItems || [], 5, () => ({}));
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4 portrait; margin: 14px; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111;
+            margin: 0;
+            font-size: 7px;
+          }
+          .sheet { width: 100%; }
+          .header {
+            position: relative;
+            min-height: 100px;
+            padding-top: 18px;
+          }
+          .logo {
+            position: absolute;
+            left: 4px;
+            top: 48px;
+            font-size: 26px;
+            line-height: 1;
+            font-weight: 900;
+            letter-spacing: -2px;
+          }
+          .logo span:first-child,
+          .logo span:last-child { color: #068345; }
+          .title {
+            text-align: center;
+            font-weight: 800;
+            font-size: 12px;
+            line-height: 1.45;
+            letter-spacing: .2px;
+          }
+          .field {
+            position: absolute;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            font-size: 8px;
+            font-weight: 800;
+          }
+          .field .line {
+            display: inline-block;
+            min-width: 112px;
+            border-bottom: 1px solid #111;
+            padding: 0 4px 2px;
+            font-weight: 400;
+          }
+          .aircraft-type { left: 4px; top: 86px; }
+          .rpc { left: 4px; top: 102px; }
+          .date { right: 28px; top: 78px; }
+          .control { right: 28px; top: 94px; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0;
+            page-break-inside: avoid;
+          }
+          th, td {
+            border: .8px solid #111;
+            padding: 2px 3px;
+            min-height: 10px;
+            vertical-align: middle;
+            overflow-wrap: anywhere;
+          }
+          th {
+            background: #e5e5e5;
+            text-align: center;
+            font-weight: 800;
+          }
+          .center { text-align: center; }
+          .bold { font-weight: 800; }
+          .section th {
+            font-size: 8px;
+            letter-spacing: .2px;
+            padding: 3px;
+          }
+          .empty { color: transparent; }
+          .due-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-left: .8px solid #111;
+            border-right: .8px solid #111;
+            font-weight: 800;
+          }
+          .due-row div {
+            min-height: 13px;
+            padding: 2px 4px;
+          }
+          .signature {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-left: .8px solid #111;
+            border-right: .8px solid #111;
+            border-bottom: .8px solid #111;
+          }
+          .signature > div {
+            min-height: 34px;
+            padding: 4px;
+            text-align: center;
+            font-weight: 800;
+          }
+          .signature .name {
+            margin: 8px 42px 2px;
+            border-bottom: .8px solid #111;
+            min-height: 9px;
+            font-weight: 400;
+          }
+          .checks {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border-left: .8px solid #111;
+            border-right: .8px solid #111;
+            border-bottom: .8px solid #111;
+            padding: 4px 2px;
+            font-weight: 800;
+          }
+          .box {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border: .8px solid #111;
+            margin-right: 4px;
+            vertical-align: -1px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="sheet">
+          <div class="header">
+            <div class="logo"><span>N</span>GC<span>P</span></div>
+            <div class="title">
+              AIRCRAFT FLIGHT LOG - RW<br />
+              ROTARY WINGED AIRCRAFT<br />
+              SINGLE ENGINE
+            </div>
+            <div class="field aircraft-type">AIRCRAFT TYPE:<span class="line">${escapeHtml(flightValue(log.aircraftType))}</span></div>
+            <div class="field rpc">RP-C:<span class="line">${escapeHtml(flightValue(log.rpc))}</span></div>
+            <div class="field date">DATE:<span class="line">${escapeHtml(formatFlightLogDate(log.date))}</span></div>
+            <div class="field control">CONTROL NO.:<span class="line">${escapeHtml(flightValue(log.controlNo || log.control))}</span></div>
+          </div>
+
+          <table>
+            <colgroup>
+              <col style="width: 7%" />
+              <col style="width: 42%" />
+              <col style="width: 5%" />
+              <col style="width: 5%" />
+              <col style="width: 6%" />
+              <col style="width: 9%" />
+              <col style="width: 16%" />
+              <col style="width: 10%" />
+            </colgroup>
           <thead>
             <tr>
-              <th>Leg</th>
-              <th>Station</th>
-              <th>Block On</th>
-              <th>Block Off</th>
-              <th>Flight On</th>
-              <th>Flight Off</th>
-              <th>Total</th>
+                <th rowspan="2">LEG</th>
+                <th rowspan="2">STATION</th>
+                <th colspan="2">BLOCK TIME</th>
+                <th colspan="2">FLIGHT TIME</th>
+                <th colspan="2">TOTAL TIME</th>
+              </tr>
+              <tr>
+                <th>ON</th>
+                <th>OFF</th>
+                <th>ON</th>
+                <th>OFF</th>
+                <th>BLOCK</th>
+                <th>FLIGHT</th>
             </tr>
           </thead>
           <tbody>
-            ${
-              legs.length
-                ? legs
-                    .map(
-                      (leg, index) => `
-                        <tr>
-                          <td>${index + 1}</td>
-                          <td>${escapeHtml(
-                            Array.isArray(leg.stations)
-                              ? leg.stations
-                                  .map((station) =>
-                                    [station?.from, station?.to]
-                                      .filter(Boolean)
-                                      .join(" - "),
-                                  )
-                                  .filter(Boolean)
-                                  .join(" / ")
-                              : "",
-                          )}</td>
-                          <td>${escapeHtml(leg.blockTimeOn || "")}</td>
-                          <td>${escapeHtml(leg.blockTimeOff || "")}</td>
-                          <td>${escapeHtml(leg.flightTimeOn || "")}</td>
-                          <td>${escapeHtml(leg.flightTimeOff || "")}</td>
-                          <td>${escapeHtml(leg.totalTimeOn || leg.totalTimeOff || "")}</td>
-                        </tr>
-                      `,
-                    )
-                    .join("")
-                : '<tr><td colspan="7">No flight legs recorded.</td></tr>'
-            }
+              ${legs
+                .map(
+                  (leg, index) => `
+                    <tr>
+                      <td class="center bold">${FLIGHT_LEG_LABELS[index]}</td>
+                      <td>${escapeHtml(getStationText(leg))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.blockTimeOn))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.blockTimeOff))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.flightTimeOn))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.flightTimeOff))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.totalTimeOn))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.totalTimeOff))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
           </tbody>
         </table>
 
-        <h2>Work Done</h2>
-        <table>
+          <table class="section">
           <thead>
-            <tr>
-              <th>Date</th>
-              <th>Aircraft</th>
-              <th>Work Done</th>
-              <th>Name</th>
-              <th>Certificate No.</th>
-            </tr>
+              <tr><th colspan="9">PASSENGERS</th></tr>
+              <tr>
+                <th>DATE</th>
+                ${PASSENGER_LEG_LABELS.map((label) => `<th>${label}</th>`).join("")}
+              </tr>
           </thead>
           <tbody>
-            ${
-              workItems.length
-                ? workItems
-                    .map(
-                      (item) => `
-                        <tr>
-                          <td>${escapeHtml(item.date || "")}</td>
-                          <td>${escapeHtml(item.aircraft || log.rpc || "")}</td>
-                          <td>${escapeHtml(item.workDone || item.description || "")}</td>
-                          <td>${escapeHtml(item.name || item.performedBy || "")}</td>
-                          <td>${escapeHtml(item.certificateNumber || "")}</td>
-                        </tr>
-                      `,
-                    )
-                    .join("")
-                : '<tr><td colspan="5">No work done items recorded.</td></tr>'
-            }
+              ${passengerRows
+                .map(
+                  (row) => `
+                    <tr>
+                      ${row.map((cell) => `<td class="center">${escapeHtml(cell)}</td>`).join("")}
+                    </tr>
+                  `,
+                )
+                .join("")}
           </tbody>
         </table>
+
+          <table>
+            <thead>
+              <tr>
+                <th rowspan="2"></th>
+                <th rowspan="2">A/FRAME</th>
+                <th colspan="2">GEAR BOX</th>
+                <th colspan="2">ROTOR</th>
+                <th rowspan="2">ENGINE</th>
+                <th colspan="2">CYCLE</th>
+                <th rowspan="2">USAGE</th>
+                <th rowspan="2">L'DING<br />CYCLE</th>
+              </tr>
+              <tr>
+                <th>MAIN</th><th>TAIL</th><th>MAIN</th><th>TAIL</th><th>N1</th><th>N2</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${componentSections
+                .map(
+                  ([label, section]) => `
+                    <tr>
+                      <td class="bold">${label}</td>
+                      ${COMPONENT_TIME_FIELDS.map(([, key]) => `<td class="center">${escapeHtml(flightValue(section[key]))}</td>`).join("")}
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="due-row">
+            <div>AIRFRAME NEXT INSP. DUE AT: ${escapeHtml(flightValue(tf.airframeNextInsp || bf.airframeNextInsp))}</div>
+            <div>ENGINE NEXT INSP. DUE AT: ${escapeHtml(flightValue(tf.engineNextInsp || bf.engineNextInsp))}</div>
+          </div>
+
+          <table class="section">
+            <thead>
+              <tr><th colspan="9">FUEL SERVICING</th></tr>
+              <tr>
+                <th rowspan="2">LEG</th><th rowspan="2">DATE</th><th rowspan="2">CONT<br />CHECK</th>
+                <th colspan="3">MAIN</th><th colspan="2">FUEL</th><th rowspan="2">REFUELLER<br />NAME/SIGN</th>
+              </tr>
+              <tr><th>REM/G</th><th>ADD</th><th>TOTAL</th><th>DRUM</th><th>TRUCK</th></tr>
+            </thead>
+            <tbody>
+              ${fuelRows
+                .map(
+                  (fuel, index) => `
+                    <tr>
+                      <td class="center bold">${FLIGHT_LEG_LABELS[index]}</td>
+                      <td class="center">${escapeHtml(formatFlightLogDate(fuel.date))}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.contCheck))}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.mainRemG))}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.mainAdd))}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.mainTotal))}</td>
+                      <td class="center">${fuel.fuelType === "drum" ? "/" : ""}</td>
+                      <td class="center">${fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : ""}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.refuelerName))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <table class="section">
+            <thead>
+              <tr><th colspan="13">OIL SERVICING</th></tr>
+              <tr>
+                <th rowspan="2">LEG</th><th rowspan="2">DATE</th><th colspan="3">ENGINE</th>
+                <th colspan="3">M/R<br />G/BOX</th><th colspan="3">T/R<br />G/BOX</th>
+                <th rowspan="2">REMARKS</th><th rowspan="2">SIGN</th>
+              </tr>
+              <tr><th>REM</th><th>ADD</th><th>TOT</th><th>REM</th><th>ADD</th><th>TOT</th><th>REM</th><th>ADD</th><th>TOT</th></tr>
+            </thead>
+            <tbody>
+              ${oilRows
+                .map(
+                  (oil, index) => `
+                    <tr>
+                      <td class="center bold">${FLIGHT_LEG_LABELS[index]}</td>
+                      <td class="center">${escapeHtml(formatFlightLogDate(oil.date))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.engineRem))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.engineAdd))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.engineTot))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.mrGboxRem))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.mrGboxAdd))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.mrGboxTot))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.trGboxRem))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.trGboxAdd))}</td>
+                      <td class="center">${escapeHtml(flightValue(oil.trGboxTot))}</td>
+                      <td>${escapeHtml(flightValue(oil.remarks))}</td>
+                      <td></td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+          </tbody>
+        </table>
+
+          <div class="signature">
+            <div>
+              RELEASED BY:
+              <div class="name">${escapeHtml(flightValue(log.releasedBy?.name))}</div>
+              ENGINEER / CERTIFICATE
+            </div>
+            <div>
+              ACCEPTED BY:
+              <div class="name">${escapeHtml(flightValue(log.acceptedBy?.name))}</div>
+              PILOT-IN-COMMAND / CERTIFICATE
+            </div>
+          </div>
+
+          <table class="section">
+            <thead><tr><th>DISCREPANCY / REMARKS</th><th style="width: 18%">SLING</th></tr></thead>
+            <tbody>
+              <tr><td>${escapeHtml(flightValue(log.remarks))}</td><td>${escapeHtml(flightValue(log.sling))}</td></tr>
+              <tr><td class="empty">.</td><td class="empty">.</td></tr>
+              <tr><td class="empty">.</td><td class="empty">.</td></tr>
+              <tr><td class="empty">.</td><td class="empty">.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="checks">
+            <div><span class="box"></span>DISCREPANCY CORRECTION</div>
+            <div><span class="box"></span>SB/AD COMPLIANCE</div>
+            <div><span class="box"></span>INSPECTION</div>
+            <div><span class="box"></span>OTHERS</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>DATE</th><th>ACFT / T /</th><th>WORK DONE</th><th>NAME / SIGN</th><th>CERT. NO.</th></tr>
+            </thead>
+            <tbody>
+              ${workItems
+                .map(
+                  (item) => `
+                    <tr>
+                      <td class="center">${escapeHtml(formatFlightLogDate(item.date))}</td>
+                      <td class="center">${escapeHtml(flightValue(item.aircraft || log.rpc))}</td>
+                      <td>${escapeHtml(flightValue(item.workDone || item.description))}</td>
+                      <td>${escapeHtml(flightValue(item.name || item.performedBy))}</td>
+                      <td class="center">${escapeHtml(flightValue(item.certificateNumber))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
       </body>
     </html>
   `;
@@ -388,11 +877,47 @@ const baseInspectionStyles = `
     width: 55%;
   }
 
-  .line {
+  .signature-name {
     border-bottom: 1px solid #000;
-    height: 28px;
-    margin-top: 8px;
-    margin-bottom: 4px;
+    min-height: 27px;
+    margin: 8px 0 7px;
+    padding: 8px 4px 2px;
+    text-align: center;
+  }
+
+  .form-field {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 9px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .field-line {
+    display: inline-block;
+    flex: 0 0 105px;
+    width: 105px;
+    max-width: 105px;
+    min-height: 16px;
+    padding: 0 3px 2px;
+    border-bottom: 1px solid #000;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .date-value {
+    display: inline-block;
+    width: 82px;
+    min-width: 82px;
+    max-width: 82px;
+    padding: 0 3px 2px;
+    border-bottom: 1px solid #000;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 14px;
   }
 
   .footer {
@@ -790,10 +1315,33 @@ const buildInspectionRows = (sections, inspection) =>
 const getRpc = (record) =>
   record?.rpc || record?.RP_C || record?.aircraft || record?.aircraftNo || "__________";
 
-const getDate = (record) =>
-  record?.date || record?.inspectionDate || record?.createdDate || "__________";
+const formatInspectionDate = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).split("T")[0];
+  return new Intl.DateTimeFormat("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
 
-const getSignatureName = (signature) => signature?.name || "__________________";
+const getDate = (record) =>
+  formatInspectionDate(
+    record?.date ||
+      record?.inspectionDate ||
+      record?.createdDate ||
+      record?.createdAt,
+  );
+
+const getSignatureName = (signature) =>
+  typeof signature === "string" ? signature : signature?.name || "";
+const getSignatureTitle = (signature, fallback = "__________________") =>
+  (typeof signature === "object" && signature?.title) || fallback;
+const getSignatureLicense = (signature, ...keys) => {
+  if (!signature || typeof signature !== "object") return "";
+  return keys.map((key) => signature?.[key]).find(Boolean) || "";
+};
 
 const buildPreInspectionHtml = (inspection = {}) => `
   <!DOCTYPE html>
@@ -808,7 +1356,7 @@ const buildPreInspectionHtml = (inspection = {}) => `
 
       <div class="top-info">
         <div><strong>RP-C:</strong> ${escapeHtml(getRpc(inspection))}</div>
-        <div><strong>Date:</strong> ${escapeHtml(getDate(inspection))}</div>
+        <div><strong>Date:</strong> <span class="date-value">${escapeHtml(getDate(inspection))}</span></div>
       </div>
 
       <table>
@@ -831,20 +1379,16 @@ const buildPreInspectionHtml = (inspection = {}) => `
       <div class="signature-section">
         <div class="signature-box">
           <strong>Released by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
-          <div>Mechanic</div>
-          <div class="line"></div>
-          <div>A & P License Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>A &amp; P License Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.releasedBy, "licenseNumber", "licenseNo", "apLicenseNumber"))}</span></div>
         </div>
 
         <div class="signature-box">
           <strong>Accepted by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.acceptedBy))}</div>
-          <div>Pilot</div>
-          <div class="line"></div>
-          <div>CHPL Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.acceptedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.acceptedBy, "Pilot"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>CHPL Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.acceptedBy, "licenseNumber", "licenseNo", "chplNumber", "chplNo"))}</span></div>
         </div>
       </div>
 
@@ -870,7 +1414,7 @@ const buildPostInspectionHtml = (inspection = {}) => `
 
       <div class="top-info">
         <div><strong>RP-C:</strong> ${escapeHtml(getRpc(inspection))}</div>
-        <div><strong>Date:</strong> ${escapeHtml(getDate(inspection))}</div>
+        <div><strong>Date:</strong> <span class="date-value">${escapeHtml(getDate(inspection))}</span></div>
       </div>
 
       <table>
@@ -891,13 +1435,10 @@ const buildPostInspectionHtml = (inspection = {}) => `
       <div class="signature-section">
         <div class="signature-box single">
           <strong>Released by:</strong>
-          <div class="line"></div>
-          <div>${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
-          <div>Mechanic</div>
-          <div class="line"></div>
-          <div>Dated</div>
-          <div class="line"></div>
-          <div>A & P License Nr.</div>
+          <div class="signature-name">${escapeHtml(getSignatureName(inspection?.releasedBy))}</div>
+          <div class="form-field"><span>${escapeHtml(getSignatureTitle(inspection?.releasedBy, "Mechanic"))}:</span><span class="field-line"></span></div>
+          <div class="form-field"><span>Dated:</span><span class="field-line">${escapeHtml(getDate(inspection))}</span></div>
+          <div class="form-field"><span>A &amp; P License Nr.:</span><span class="field-line">${escapeHtml(getSignatureLicense(inspection?.releasedBy, "licenseNumber", "licenseNo", "apLicenseNumber"))}</span></div>
         </div>
       </div>
 
@@ -972,16 +1513,5 @@ export const exportFlightLogPdf = (log) =>
 export const exportMaintenanceLogPdf = (log) =>
   exportRecordToPdf({
     title: "Work Done Report",
-    subtitle: `Aircraft: ${log?.aircraft || "N/A"} | WO: ${
-      log?.sourceTaskId || log?.id || "N/A"
-    }`,
-    record: {
-      aircraft: log?.aircraft,
-      base: log?.base,
-      reportedBy: log?.reportedBy,
-      rectified: log?.dateDefectRectified,
-      taskStatus: log?.sourceTaskStatus || log?.status,
-      taskTitle: log?.taskTitle,
-      workDetails: log?.workDetails,
-    },
+    html: buildMaintenanceLogHtml(log),
   });
