@@ -189,9 +189,36 @@ const buildTargetNavigation = (notificationPayload) => {
   }
 
   if (moduleName === "messages") {
+    const metadata = notificationPayload?.metadata || {};
+    const data = notificationPayload?.data || {};
+    const isGroup =
+      metadata?.notificationType === "group-message" ||
+      notificationPayload?.isGroup === true ||
+      String(notificationPayload?.isGroup || data?.isGroup || "").toLowerCase() ===
+        "true";
+    const conversationId =
+      notificationPayload?.conversationId ||
+      data?.conversationId ||
+      metadata?.conversationId ||
+      null;
+    const senderUserId =
+      notificationPayload?.senderUserId ||
+      data?.senderUserId ||
+      metadata?.senderUserId ||
+      null;
+
     return {
       screen: "Messages",
-      params: { refreshAt: Date.now() },
+      params: {
+        refreshAt: Date.now(),
+        targetConversationType: isGroup ? "group" : "direct",
+        targetConversationId: isGroup ? conversationId : senderUserId,
+        targetMessageId:
+          notificationPayload?.targetMessageId ||
+          data?.targetMessageId ||
+          notificationPayload?.entityId ||
+          null,
+      },
     };
   }
 

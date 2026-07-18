@@ -50,15 +50,20 @@ const POST_TABS = [
   { key: "notes", label: "Notes" },
 ];
 
-const signaturePayload = (user, signature) => ({
-  name:
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    user?.username ||
-    "User",
-  id: user?.id || user?._id || "",
-  signature,
-  timestamp: new Date().toISOString(),
-});
+const signaturePayload = (user, signature) => {
+  const licenseNo = user?.licenseNo || user?.licenseNumber || user?.license || "";
+  return {
+    name:
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      user?.username ||
+      "User",
+    id: licenseNo,
+    licenseNo,
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
+};
 
 export default function PostInspection() {
   const screens = useBreakpoint();

@@ -95,16 +95,18 @@ const getUserFullName = (user = {}) =>
 const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
   const title =
     user?.jobTitle || user?.access || toTitleCase(fallbackTitle) || "User";
+  const licenseNo =
+    user?.licenseNo ||
+    user?.licenseNumber ||
+    user?.license ||
+    user?.certificateNo ||
+    "";
 
   return {
     name: getUserFullName(user) || title,
     title,
-    id:
-      user?.licenseNo ||
-      user?.licenseNumber ||
-      user?.license ||
-      user?.certificateNo ||
-      "",
+    id: licenseNo,
+    licenseNo,
     userId: user?.id || user?._id || "",
     signature,
     timestamp: new Date().toISOString(),

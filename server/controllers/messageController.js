@@ -167,6 +167,7 @@ const createChatNotifications = async ({
     recipientUsers: recipients,
     metadata: {
       notificationType: isGroup ? "group-message" : "direct-message",
+      senderUserId: senderUserId ? String(senderUserId) : null,
       senderName,
       senderFirstName: firstName,
       conversationId: conversationId ? String(conversationId) : null,
@@ -185,6 +186,7 @@ const createChatNotifications = async ({
       entityType: "message",
       entityId: String(messageId),
       targetMessageId: String(messageId),
+      senderUserId: senderUserId ? String(senderUserId) : "",
       conversationId: conversationId ? String(conversationId) : "",
       isGroup: String(Boolean(isGroup)),
       threadId,

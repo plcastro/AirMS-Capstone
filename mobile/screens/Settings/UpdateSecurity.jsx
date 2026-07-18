@@ -15,7 +15,7 @@ import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function UpdateSecurity() {
-  const { user, setUser } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const scrollRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("password");
@@ -158,8 +158,6 @@ export default function UpdateSecurity() {
 
       setValidationMessage(`${type} updated successfully!`);
 
-      if (type === "PIN") setUser((prev) => ({ ...prev, pin: newPin }));
-
       resetAll();
     } catch (err) {
       setValidationMessage(err.message);
@@ -249,7 +247,6 @@ export default function UpdateSecurity() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
 
-        setUser((prev) => ({ ...prev, pin: newPin }));
         showToast("PIN successfully reset!");
         resetAll();
       } catch (err) {

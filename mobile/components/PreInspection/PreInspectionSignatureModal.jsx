@@ -22,7 +22,7 @@ const getUserName = (user) =>
   "Unknown User";
 
 const getUserIdentifier = (user) =>
-  user?.licenseNo || user?.licenseNumber || user?.license || "No License No.";
+  user?.licenseNo || user?.licenseNumber || user?.license || "";
 
 const getUserTitle = (user) => user?.jobTitle || user?.access || "User";
 
@@ -108,12 +108,18 @@ export default function PreInspectionSignatureModal({
       return;
     }
 
+    if (!getUserIdentifier(user)) {
+      showToast("Your profile has no license number. Contact an administrator before signing.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       await verifyPin();
       await onSave({
         name: getUserName(user),
         id: getUserIdentifier(user),
+        licenseNo: getUserIdentifier(user),
         title: getUserTitle(user),
         userId: user?.id || user?._id || "",
         signature,
