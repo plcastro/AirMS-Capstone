@@ -1231,6 +1231,11 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
     drawSignature(doc, releasedSignature, 72, signY + 16, 105, 42);
     drawSignature(doc, acceptedSignature, 394, signY + 16, 105, 42);
     doc.fontSize(9).text(inspection.releasedBy?.name || "", 88, signY + 60, { width: 170, align: "center" });
+    doc.text(inspection.acceptedBy?.name || "", 381, signY + 60, {
+      width: 170,
+      align: "center",
+      lineBreak: false,
+    });
     drawPdfLine(doc, 42, signY + 76, 250, signY + 76);
     drawPdfLine(doc, 362, signY + 76, 570, signY + 76);
     doc.font("Helvetica-Bold").fontSize(12).text(getSignatureTitle(inspection.releasedBy, "Mechanic"), 122, signY + 82);
@@ -1246,6 +1251,12 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       92,
       licenseY - 1,
       { width: 150, align: "center" },
+    );
+    doc.text(
+      inspection.acceptedBy?.licenseNo || inspection.acceptedBy?.id || "",
+      381,
+      licenseY - 1,
+      { width: 170, align: "center", lineBreak: false },
     );
     drawPdfLine(doc, 42, licenseY + 14, 250, licenseY + 14);
     drawPdfLine(doc, 362, licenseY + 14, 570, licenseY + 14);
@@ -1263,10 +1274,142 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
 const getPreInspectionPdf = (inspection) =>
   getPreInspectionPdfDirect(inspection);
 
-const getPostInspectionPdf = (inspection) =>
-  getPostInspectionDocument(inspection).then((documentBuffer) =>
-    convertDocxBufferToPdf(documentBuffer, "post-inspection"),
+const POST_INSPECTION_PDF_SECTIONS = [
+  ["station1_", "STATION 1"],
+  ["station2_", "STATION 2"],
+  ["engine_", "ENGINE AND ENGINE BAY"],
+  ["station3_", "STATION 3"],
+  ["mainRotor_", "MAIN ROTOR HEAD"],
+  ["cabin_", "CABIN INTERIOR"],
+];
+
+const getPostInspectionPdfDirect = async (inspection = {}) => {
+  const releasedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.releasedBy),
   );
+  const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 36 });
+    const chunks = [];
+    const left = 42;
+    const right = doc.page.width - 42;
+    const statusX = right - 126;
+    const initialX = right - 58;
+    const itemWidth = statusX - left - 12;
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const drawHeader = () => {
+      doc.font("Helvetica-Bold").fontSize(28).fillColor("#0a8f63").text("N", left, 36, {
+        continued: true,
+      });
+      doc.fillColor("#000").text("GCP");
+      doc.font("Helvetica").fontSize(7).text("BRIDGING POWER & PROGRESS", left, 68);
+      doc.font("Helvetica-Bold").fontSize(17).text(
+        "AS 350 B3e POST-FLIGHT INSPECTION",
+        182,
+        51,
+        { width: 388, align: "center", lineBreak: false },
+      );
+      drawPdfLine(doc, 182, 74, right, 74);
+
+      doc.fontSize(11).text("RP-C", left, 100);
+      doc.font("Helvetica").fontSize(9).text(inspection.rpc || "", 82, 101, {
+        width: 104,
+        lineBreak: false,
+      });
+      drawPdfLine(doc, 82, 114, 186, 114);
+      doc.font("Helvetica-Bold").fontSize(11).text("Date", 470, 100);
+      doc.font("Helvetica").fontSize(9).text(
+        formatInspectionDate(
+          inspection.date || inspection.inspectionDate || inspection.createdAt,
+        ),
+        505,
+        101,
+        { width: 66, align: "center", lineBreak: false },
+      );
+      drawPdfLine(doc, 505, 114, 571, 114);
+
+      doc.font("Helvetica-Bold").fontSize(8).text("INSPECTION ITEM", left, 130);
+      doc.text("STATUS", statusX, 130, { width: 48, align: "center" });
+      doc.text("INITIAL", initialX, 130, { width: 52, align: "center" });
+      drawPdfLine(doc, left, 143, right, 143);
+      doc.y = 149;
+    };
+
+    const ensureSpace = (height) => {
+      if (doc.y + height <= doc.page.height - 52) return;
+      doc.addPage();
+      drawHeader();
+    };
+
+    drawHeader();
+
+    POST_INSPECTION_PDF_SECTIONS.forEach(([prefix, title]) => {
+      const items = Object.entries(inspection).filter(
+        ([key, value]) => key.startsWith(prefix) && typeof value === "boolean",
+      );
+      if (!items.length) return;
+
+      ensureSpace(30);
+      doc.font("Helvetica-Bold").fontSize(10).text(title, left, doc.y + 4);
+      doc.y += 19;
+
+      items.forEach(([key, checked], index) => {
+        const label = formatFieldLabel(key.slice(prefix.length));
+        doc.font("Helvetica").fontSize(8);
+        const textHeight = Math.max(11, doc.heightOfString(`${index + 1}. ${label}`, {
+          width: itemWidth,
+        }));
+        const rowHeight = textHeight + 5;
+        ensureSpace(rowHeight);
+        const y = doc.y;
+
+        doc.text(`${index + 1}. ${label}`, left, y, { width: itemWidth });
+        drawPdfLine(doc, statusX, y + rowHeight - 3, statusX + 48, y + rowHeight - 3);
+        drawPdfLine(doc, initialX, y + rowHeight - 3, initialX + 52, y + rowHeight - 3);
+        if (checked && checkImage) {
+          doc.image(checkImage, statusX + 18, y - 1, { fit: [12, 12] });
+          drawSignature(doc, releasedSignature, initialX + 2, y - 5, 48, 16);
+        }
+        doc.y = y + rowHeight;
+      });
+    });
+
+    ensureSpace(145);
+    const signY = doc.y + 24;
+    doc.font("Helvetica").fontSize(10).text("Released by:", left, signY);
+    drawSignature(doc, releasedSignature, 72, signY + 12, 105, 38);
+    doc.fontSize(9).text(inspection.releasedBy?.name || "", 62, signY + 52, {
+      width: 170,
+      align: "center",
+      lineBreak: false,
+    });
+    drawPdfLine(doc, left, signY + 68, 250, signY + 68);
+    doc.font("Helvetica-Bold").fontSize(11).text(
+      getSignatureTitle(inspection.releasedBy, "Mechanic"),
+      92,
+      signY + 74,
+      { width: 110, align: "center", lineBreak: false },
+    );
+    doc.font("Helvetica").fontSize(9).text(
+      inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
+      62,
+      signY + 101,
+      { width: 170, align: "center", lineBreak: false },
+    );
+    drawPdfLine(doc, left, signY + 115, 250, signY + 115);
+    doc.font("Helvetica-Bold").fontSize(11).text("A & P License Nr.", 87, signY + 121);
+
+    doc.end();
+  });
+};
+
+const getPostInspectionPdf = (inspection) =>
+  getPostInspectionPdfDirect(inspection);
 
 module.exports = {
   loadTemplate,

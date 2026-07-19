@@ -116,7 +116,7 @@ const buildWsUrl = (token) => {
   return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
-export default function Messaging({ navigation }) {
+export default function Messaging({ navigation, route }) {
   const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -138,6 +138,7 @@ export default function Messaging({ navigation }) {
   const selectedConversationRef = useRef(null);
   const liveSyncPausedUntilRef = useRef(0);
   const notifiedMessageIdsRef = useRef(new Set());
+  const handledNotificationTargetRef = useRef("");
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -548,6 +549,31 @@ export default function Messaging({ navigation }) {
 
     return selectedConversation;
   }, [conversationItems, selectedConversation, usersById]);
+
+  useEffect(() => {
+    const targetConversationId = route?.params?.targetConversationId;
+    const targetConversationType = route?.params?.targetConversationType;
+    const refreshAt = route?.params?.refreshAt;
+    if (!targetConversationId || !targetConversationType) return;
+
+    const targetKey = `${targetConversationType}:${targetConversationId}:${refreshAt || ""}`;
+    if (handledNotificationTargetRef.current === targetKey) return;
+
+    const target = conversationItems.find(
+      (item) =>
+        String(item.type) === String(targetConversationType) &&
+        String(item.id) === String(targetConversationId),
+    );
+    if (!target) return;
+
+    handledNotificationTargetRef.current = targetKey;
+    setSelectedConversation(target);
+  }, [
+    conversationItems,
+    route?.params?.refreshAt,
+    route?.params?.targetConversationId,
+    route?.params?.targetConversationType,
+  ]);
 
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;

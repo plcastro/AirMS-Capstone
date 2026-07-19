@@ -4,6 +4,9 @@ const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
+    licenseNo: { type: String, default: "" },
+    userId: { type: String, default: "" },
+    title: { type: String, default: "" },
     signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
