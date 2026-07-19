@@ -64,6 +64,21 @@ const previewColumns = [
 
 const COMPONENT_DISPLAY_LIMIT = 10;
 
+const parseApiResponse = async (response) => {
+  const responseText = await response.text();
+  if (!responseText) return {};
+
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    throw new Error(
+      response.ok
+        ? "The server returned an invalid workbook response."
+        : `Workbook upload failed (${response.status}).`,
+    );
+  }
+};
+
 const formatDateInput = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -369,7 +384,7 @@ export default function PartsLifespanMonitoring() {
           body: formData,
         },
       );
-      const result = await response.json();
+      const result = await parseApiResponse(response);
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to preview workbook");
       }
@@ -411,7 +426,7 @@ export default function PartsLifespanMonitoring() {
           body: formData,
         },
       );
-      const result = await response.json();
+      const result = await parseApiResponse(response);
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to import workbook");
       }
@@ -885,6 +900,13 @@ export default function PartsLifespanMonitoring() {
                   <SectionTitle
                     title="Parts Lifespan Table"
                   />
+                  {importPreview.previewTruncated && (
+                    <AppText style={{ color: "#8a5a00", marginBottom: 8 }}>
+                      Showing the first {importPreview.previewRowCount} rows to
+                      keep the preview responsive. All {importPreview.partsCount}
+                      rows will be imported.
+                    </AppText>
+                  )}
                   <ScrollView horizontal>
                     <View
                       style={{

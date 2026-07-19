@@ -517,6 +517,8 @@ const normalizeAircraftName = (value = "") =>
     .toUpperCase()
     .replace(/\s+/g, "");
 
+const WORKBOOK_PREVIEW_ROW_LIMIT = 100;
+
 const validateImportedAircraftRecord = async (record = {}) => {
   const warnings = [];
   const errors = [];
@@ -788,7 +790,9 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: `Aircraft ${createdRecord.aircraft} imported successfully.`,
-        data: createdRecord,
+        data: {
+          aircraft: createdRecord.aircraft,
+        },
         meta: {
           partsCount: createdRecord.parts.length,
           sourceWorksheet: importedRecord.sourceWorksheet,
@@ -800,7 +804,9 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Aircraft ${savedRecord.aircraft} imported successfully.`,
-      data: savedRecord,
+      data: {
+        aircraft: savedRecord.aircraft,
+      },
       meta: {
         partsCount: savedRecord.parts.length,
         sourceWorksheet: importedRecord.sourceWorksheet,
@@ -846,6 +852,11 @@ exports.previewPartsMonitoringWorkbook = async (req, res) => {
 
     const validation = await validateImportedAircraftRecord(importedRecord);
 
+    const previewParts = importedRecord.parts.slice(
+      0,
+      WORKBOOK_PREVIEW_ROW_LIMIT,
+    );
+
     res.status(200).json({
       success: true,
       data: {
@@ -859,7 +870,10 @@ exports.previewPartsMonitoringWorkbook = async (req, res) => {
         partRowsCount: validation.partRowsCount,
         headerRowsCount: validation.headerRowsCount,
         sourceWorksheet: importedRecord.sourceWorksheet,
-        parts: importedRecord.parts,
+        parts: previewParts,
+        previewRowCount: previewParts.length,
+        previewRowLimit: WORKBOOK_PREVIEW_ROW_LIMIT,
+        previewTruncated: importedRecord.parts.length > previewParts.length,
       },
       warnings: validation.warnings,
       errors: validation.errors,
