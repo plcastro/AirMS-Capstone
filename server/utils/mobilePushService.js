@@ -48,16 +48,18 @@ const getFirebaseMessaging = () => {
 };
 
 const getUserIdsForRoles = async (roles = []) => {
-  if (!roles.length) {
+  const jobTitles = roles
+    .map((role) => ROLE_TO_JOB_TITLE[String(role).trim().toLowerCase()])
+    .filter(Boolean);
+
+  if (!jobTitles.length) {
     return [];
   }
 
   const users = await UserModel.find({
-    jobTitle: {
-      $in: roles
-        .map((role) => ROLE_TO_JOB_TITLE[String(role).trim().toLowerCase()])
-        .filter(Boolean),
-    },
+    $or: jobTitles.map((jobTitle) => ({
+      jobTitle: { $regex: `^${jobTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+    })),
   }).select("_id");
 
   return users.map((user) => String(user._id));
@@ -139,36 +141,50 @@ const sendPushNotificationToUsers = async ({
       title,
     });
 
-    const response = await getFirebaseMessaging().sendEachForMulticast({
-      tokens: fcmTokens,
-      notification: {
-        title: String(title || "AirMS"),
-        body: String(body || "You have a new notification."),
-      },
-      data: stringifyData(data),
-      android: {
-        ...(android.collapseKey
-          ? { collapseKey: String(android.collapseKey) }
-          : {}),
-        priority: "high",
+    const messaging = getFirebaseMessaging();
+    const responses = [];
+    for (let offset = 0; offset < fcmTokens.length; offset += 500) {
+      const tokens = fcmTokens.slice(offset, offset + 500);
+      const batchResponse = await messaging.sendEachForMulticast({
+        tokens,
         notification: {
-          sound: "default",
-          channelId: android.channelId ? String(android.channelId) : "airms-high-priority",
-          priority: "max",
-          visibility: "public",
-          defaultVibrateTimings: true,
-          ...(android.tag ? { tag: String(android.tag) } : {}),
+          title: String(title || "AirMS"),
+          body: String(body || "You have a new notification."),
         },
-      },
-    });
+        data: stringifyData(data),
+        android: {
+          ...(android.collapseKey
+            ? { collapseKey: String(android.collapseKey) }
+            : {}),
+          priority: "high",
+          notification: {
+            sound: "default",
+            channelId: android.channelId
+              ? String(android.channelId)
+              : "airms-high-priority",
+            priority: "max",
+            visibility: "public",
+            defaultVibrateTimings: true,
+            ...(android.tag ? { tag: String(android.tag) } : {}),
+          },
+        },
+        apns: {
+          payload: { aps: { sound: "default", contentAvailable: true } },
+          headers: { "apns-priority": "10" },
+        },
+      });
+      batchResponse.responses.forEach((result, index) => {
+        responses.push({ result, token: tokens[index] });
+      });
+    }
 
     console.log("FCM push result", {
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      successCount: responses.filter(({ result }) => result.success).length,
+      failureCount: responses.filter(({ result }) => !result.success).length,
     });
 
     const invalidTokens = [];
-    response.responses.forEach((result, index) => {
+    responses.forEach(({ result, token }) => {
       if (result.success) return;
 
       const code = result.error?.code;
@@ -176,7 +192,7 @@ const sendPushNotificationToUsers = async ({
         code === "messaging/registration-token-not-registered" ||
         code === "messaging/invalid-registration-token"
       ) {
-        invalidTokens.push(fcmTokens[index]);
+        invalidTokens.push(token);
       } else {
         console.error("FCM push failed:", code, result.error?.message);
       }

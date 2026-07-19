@@ -81,7 +81,23 @@ const buildWsUrl = (token) => {
 const getModuleName = (payload) =>
   String(
     payload?.module || payload?.data?.module || payload?.metadata?.module || "",
-  ).trim();
+  )
+    .trim()
+    .toLowerCase();
+
+const normalizePushData = (data = {}) =>
+  Object.fromEntries(
+    Object.entries(data || {}).map(([key, value]) => {
+      if (typeof value !== "string") return [key, value];
+      const trimmed = value.trim();
+      if (!trimmed || !["{", "["].includes(trimmed[0])) return [key, value];
+      try {
+        return [key, JSON.parse(trimmed)];
+      } catch {
+        return [key, value];
+      }
+    }),
+  );
 
 const normalizeWsEvent = (rawEvent = "", payload = {}) => {
   const event = String(rawEvent || "");
@@ -809,8 +825,19 @@ export function NotificationProvider({ children }) {
 
   const markAsRead = useCallback(
     async (notificationId) => {
+      if (String(notificationId || "").startsWith("local-")) {
+        setNotifications((currentNotifications) =>
+          currentNotifications.map((notification) =>
+            notification._id === notificationId
+              ? { ...notification, read: true }
+              : notification,
+          ),
+        );
+        return true;
+      }
+
       const authToken = await getStoredToken();
-      if (!authToken || !notificationId) return;
+      if (!authToken || !notificationId) return false;
 
       try {
         const response = await fetch(
@@ -823,7 +850,15 @@ export function NotificationProvider({ children }) {
 
         if (response.status === 401 || response.status === 403) {
           await logoutUser?.();
-          return;
+          return false;
+        }
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null);
+          throw new Error(
+            errorBody?.message ||
+              `Failed to mark notification read (${response.status})`,
+          );
         }
 
         setNotifications((currentNotifications) =>
@@ -833,8 +868,10 @@ export function NotificationProvider({ children }) {
               : notification,
           ),
         );
+        return true;
       } catch (error) {
         console.error("Error marking notification as read:", error);
+        return false;
       }
     },
     [logoutUser],
@@ -856,6 +893,14 @@ export function NotificationProvider({ children }) {
       if (response.status === 401 || response.status === 403) {
         await logoutUser?.();
         return;
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.message ||
+            `Failed to mark notifications read (${response.status})`,
+        );
       }
 
       setNotifications((currentNotifications) =>
@@ -1100,8 +1145,8 @@ export function NotificationProvider({ children }) {
     return () => subscription.remove();
   }, [
     handleQueuedBackgroundMessages,
-    openNotificationTarget,
     registerPushTokenWithServer,
+    scheduleRefresh,
   ]);
 
   useEffect(() => {
@@ -1118,7 +1163,7 @@ export function NotificationProvider({ children }) {
 
         scheduleRefresh("push-foreground");
 
-        const payload = remoteMessage?.data || {};
+        const payload = normalizePushData(remoteMessage?.data || {});
 
         if (Object.keys(payload).length > 0) {
           const title =
@@ -1136,7 +1181,7 @@ export function NotificationProvider({ children }) {
       (remoteMessage) => {
         console.log("Notification caused app open:", remoteMessage);
 
-        const payload = remoteMessage?.data || {};
+        const payload = normalizePushData(remoteMessage?.data || {});
 
         if (Object.keys(payload).length > 0) {
           openNotificationTarget(payload);
@@ -1153,7 +1198,7 @@ export function NotificationProvider({ children }) {
             remoteMessage,
           );
 
-          const payload = remoteMessage?.data || {};
+          const payload = normalizePushData(remoteMessage?.data || {});
 
           if (Object.keys(payload).length > 0) {
             openNotificationTarget(payload);

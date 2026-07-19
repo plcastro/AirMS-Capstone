@@ -72,6 +72,10 @@ const markNotificationRead = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid notification id" });
+    }
+
     const role = await getUserRole(userId, req.user?.jobTitle);
     const recipientQuery = buildRecipientQuery(userId, role);
     if (!recipientQuery) {
