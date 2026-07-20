@@ -107,7 +107,7 @@ export default function PRMTable({
         title: "WRS No.",
         dataIndex: "wrsNo",
         key: "wrsNo",
-        width: 140,
+        width: 100,
         sorter: (a, b) => String(a.wrsNo ?? "").localeCompare(b.wrsNo ?? ""),
         render: (value) => <strong>{value || "N/A"}</strong>,
       },
@@ -115,18 +115,20 @@ export default function PRMTable({
         title: "Aircraft",
         dataIndex: "aircraft",
         key: "aircraft",
-        width: 130,
+        width: 120,
         sorter: (a, b) =>
           String(a.aircraft ?? "").localeCompare(String(b.aircraft ?? "")),
       },
       {
         title: "Requester",
         key: "requester",
-        width: 220,
+        width: 200,
         render: (_, record) =>
           record.staff?.employeeName || record.staff?.requisitioner || "N/A",
         sorter: (a, b) =>
-          String(a.staff?.employeeName ?? a.staff?.requisitioner ?? "").localeCompare(
+          String(
+            a.staff?.employeeName ?? a.staff?.requisitioner ?? "",
+          ).localeCompare(
             String(b.staff?.employeeName ?? b.staff?.requisitioner ?? ""),
           ),
       },
@@ -142,7 +144,7 @@ export default function PRMTable({
         title: "Items",
         dataIndex: "noOfItems",
         key: "noOfItems",
-        width: 100,
+        width: 50,
         align: "right",
         sorter: (a, b) => Number(a.noOfItems || 0) - Number(b.noOfItems || 0),
       },
@@ -150,7 +152,7 @@ export default function PRMTable({
         title: "Total Qty",
         dataIndex: "totalQty",
         key: "totalQty",
-        width: 110,
+        width: 100,
         align: "right",
         sorter: (a, b) => Number(a.totalQty || 0) - Number(b.totalQty || 0),
       },

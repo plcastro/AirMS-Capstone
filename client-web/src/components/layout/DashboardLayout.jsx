@@ -12,6 +12,7 @@ import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
 const { Header, Sider, Content } = Layout;
+const { AirmsFavicon } = "../assets/favicon.ico";
 const { useBreakpoint } = Grid;
 
 const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
@@ -28,6 +29,7 @@ const DashboardLayout = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const seenNotificationIdsRef = useRef(new Set());
+  const initialSyncDoneRef = useRef(false);
   const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
   const location = useLocation();
@@ -55,6 +57,12 @@ const DashboardLayout = () => {
 
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -89,13 +97,24 @@ const DashboardLayout = () => {
           if (item?._id && !nextSeenIds.has(item._id)) {
             nextSeenIds.add(item._id);
 
-            if (seenNotificationIdsRef.current.size > 0 && !item.read) {
+            if (!item.read) {
               api.info({
-                message: item.title || "New Notification",
+                title: item.title || "New Notification",
                 description: item.description || "You have a new update.",
                 placement: "topRight",
                 duration: 4,
               });
+
+              // Desktop notification
+              if (
+                "Notification" in window &&
+                Notification.permission === "granted"
+              ) {
+                new Notification(item.title || "New Notification", {
+                  body: item.description || "You have a new update.",
+                  icon: { AirmsFavicon },
+                });
+              }
             }
           }
         });
@@ -109,12 +128,17 @@ const DashboardLayout = () => {
     syncNotifications();
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
+      console.log("Realtime payload:", payload);
+
       const nextEvent = String(payload?.event || "");
+
       if (
         nextEvent === "data-changed" ||
         nextEvent === "chat:message" ||
-        nextEvent === "chat:conversation"
+        nextEvent === "chat:conversation" ||
+        nextEvent === "logs:new"
       ) {
+        console.log("Refreshing notifications...");
         syncNotifications();
       }
     });

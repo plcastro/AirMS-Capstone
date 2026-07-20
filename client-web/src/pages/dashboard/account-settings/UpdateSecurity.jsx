@@ -86,7 +86,10 @@ export default function UpdateSecurity() {
     setPasswordForPin("");
     setOtp("");
     setPinResetToken("");
-    setValidationMessage("");
+    //adds delay for resetting validation message
+    setTimeout(() => {
+      setValidationMessage("");
+    }, 3000);
   };
 
   const savePassword = async () => {
@@ -98,6 +101,7 @@ export default function UpdateSecurity() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${await getValidToken()}`,
+            "x-action-confirmed": "true",
           },
           body: JSON.stringify({ currentPassword, newPassword }),
         },
@@ -139,7 +143,7 @@ export default function UpdateSecurity() {
       if (!res.ok) throw new Error(data.message);
 
       setUser((prev) => ({ ...prev, pin: newPin }));
-      message.success("PIN successfully updated!");
+      setValidationMessage("PIN successfully updated!");
       resetAll();
     } catch (err) {
       console.error(err);
@@ -268,7 +272,11 @@ export default function UpdateSecurity() {
             />
           </Form.Item>
 
-          <Space orientation="vertical" size={6} style={{ width: "100%" }}>
+          <Space
+            orientation="vertical"
+            size={6}
+            style={{ width: "100%", marginBottom: 8 }}
+          >
             {newPassword && (
               <Text style={{ color: strength.color }}>{strength.text}</Text>
             )}
@@ -361,6 +369,23 @@ export default function UpdateSecurity() {
                 allowClear
               />
             </Form.Item>
+            <Space
+              orientation="vertical"
+              size={6}
+              style={{ width: "100%", marginBottom: 8 }}
+            >
+              {validationMessage && (
+                <Alert
+                  type={
+                    validationMessage.includes("successfully")
+                      ? "success"
+                      : "error"
+                  }
+                  showIcon
+                  title={validationMessage}
+                />
+              )}
+            </Space>
 
             <Row justify="end" gutter={8}>
               <Col>

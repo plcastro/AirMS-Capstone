@@ -26,7 +26,9 @@ import WRSTable from "../tables/WRSTable";
 const { Paragraph, Text, Title } = Typography;
 
 const normalizeRequisitionStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "pending":
@@ -57,7 +59,9 @@ const normalizeRequisitionStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "ready for pickup":
@@ -141,7 +145,10 @@ const getItemStockStatus = (record, availQty) => {
     return "Cancelled";
   }
 
-  if (currentItemStatus === "To Be Ordered" || currentItemStatus === "Ordered") {
+  if (
+    currentItemStatus === "To Be Ordered" ||
+    currentItemStatus === "Ordered"
+  ) {
     return availQty >= record.quantity ? "Ordered" : "To Be Ordered";
   }
 
@@ -181,7 +188,7 @@ export default function WRSModal({
     (selectedRecord.items || []).forEach((item) => {
       nextMap[item._id] = isInitialStockReview
         ? undefined
-        : item.availableQty ?? item.availQty;
+        : (item.availableQty ?? item.availQty);
     });
     setAvailQtyMap(nextMap);
     setPersistedQtyMap(nextMap);
@@ -261,7 +268,9 @@ export default function WRSModal({
   const allRestockItemsReady = useMemo(
     () =>
       (selectedRecord?.items || [])
-        .filter((item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered")
+        .filter(
+          (item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered",
+        )
         .every((item) => {
           const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
           return persistedValue >= Number(item.quantity || 0);
@@ -301,7 +310,8 @@ export default function WRSModal({
 
       return {
         title: "Delivery",
-        description: "Warehouse can now mark this approved requisition as delivered.",
+        description:
+          "Warehouse can now mark this approved requisition as delivered.",
         buttonText: "Mark Delivered",
         disabled: false,
       };
@@ -310,7 +320,8 @@ export default function WRSModal({
     if (currentStatus === "Delivered" || currentStatus === "Cancelled") {
       return {
         title: "Completed",
-        description: "No further warehouse action is needed for this requisition.",
+        description:
+          "No further warehouse action is needed for this requisition.",
         buttonText: "Done",
         disabled: true,
       };
@@ -354,10 +365,9 @@ export default function WRSModal({
 
       return {
         title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
-        description:
-          hasUnsavedStockChanges
-            ? "Save the edited stock quantities first."
-            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        description: hasUnsavedStockChanges
+          ? "Save the edited stock quantities first."
+          : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
         buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
         disabled: hasUnsavedStockChanges
           ? !allQuantitiesFilled
@@ -386,11 +396,12 @@ export default function WRSModal({
     }
 
     return {
-      title: isWarehouseDepartment ? "Stock Review" : "Awaiting Warehouse Review",
-      description:
-        isWarehouseDepartment
-          ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
-          : "Warehouse is currently reviewing stock availability for this requisition.",
+      title: isWarehouseDepartment
+        ? "Stock Review"
+        : "Awaiting Warehouse Review",
+      description: isWarehouseDepartment
+        ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
+        : "Warehouse is currently reviewing stock availability for this requisition.",
       buttonText: isWarehouseDepartment ? "Submit Stock Review" : "Waiting",
       disabled: isWarehouseDepartment ? !allQuantitiesFilled : true,
     };
@@ -407,7 +418,11 @@ export default function WRSModal({
     selectedRecord,
   ]);
 
-  const updateRequisition = async (payload, successMessage, shouldClose = true) => {
+  const updateRequisition = async (
+    payload,
+    successMessage,
+    shouldClose = true,
+  ) => {
     setSubmitting(true);
 
     try {
@@ -434,7 +449,9 @@ export default function WRSModal({
           responseStatus: response.status,
           errorPayload,
         });
-        throw new Error(errorPayload?.message || "Failed to update requisition");
+        throw new Error(
+          errorPayload?.message || "Failed to update requisition",
+        );
       }
 
       message.success(successMessage);
@@ -474,8 +491,7 @@ export default function WRSModal({
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       "Warehouse Department";
     const reviewerName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      userTitle;
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || userTitle;
 
     if (isMaintenanceReviewer && currentStatus === "Availability Checked") {
       const nextReviewerStatus = hasItemsStillOutOfStock
@@ -509,7 +525,9 @@ export default function WRSModal({
     }
 
     if (isMaintenanceReviewer && currentStatus === "Ordered") {
-      const confirmed = await confirmSubmit("Approve this restocked requisition?");
+      const confirmed = await confirmSubmit(
+        "Approve this restocked requisition?",
+      );
       if (!confirmed) return;
       await updateRequisition(
         {
@@ -544,7 +562,9 @@ export default function WRSModal({
           warehouseByTitle: userTitle,
           items: (selectedRecord.items || []).map((item) => ({
             ...item,
-            availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+            availableQty: Number(
+              availQtyMap[item._id] ?? item.availableQty ?? 0,
+            ),
             stockStatus: "Delivered",
           })),
         },
@@ -553,8 +573,10 @@ export default function WRSModal({
       return;
     }
 
-      const updatedItems = (selectedRecord.items || []).map((item) => {
-      const availableQty = Number(availQtyMap[item._id] ?? item.availableQty ?? 0);
+    const updatedItems = (selectedRecord.items || []).map((item) => {
+      const availableQty = Number(
+        availQtyMap[item._id] ?? item.availableQty ?? 0,
+      );
 
       return {
         ...item,
@@ -666,17 +688,19 @@ export default function WRSModal({
     <Modal
       open={visible}
       onCancel={onClose}
-      width={"80%"}
+      width={"95%"}
+      height={"90vh"}
       centered
       footer={null}
+      zIndex={1100}
       title={
         <div>
           <Title level={4} style={{ margin: 0 }}>
             Warehouse Requisition Details
           </Title>
           <Text type="secondary">
-            Review stock, confirm ordered items, and mark approved requisitions as
-            delivered.
+            Review stock, confirm ordered items, and mark approved requisitions
+            as delivered.
           </Text>
         </div>
       }
@@ -688,13 +712,13 @@ export default function WRSModal({
             style={{ borderRadius: 18, background: "#fafafa" }}
           >
             <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">WRS No.</Text>
                 <Title level={5} style={{ marginTop: 6 }}>
                   {selectedRecord.wrsNo}
                 </Title>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Status</Text>
                 <div style={{ marginTop: 6 }}>
                   <Tag color={statusMeta.color} icon={statusMeta.icon}>
@@ -702,13 +726,13 @@ export default function WRSModal({
                   </Tag>
                 </div>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Aircraft</Text>
                 <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
                   <Text strong>{selectedRecord.aircraft}</Text>
                 </Paragraph>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Requested By</Text>
                 <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
                   <Text strong>
@@ -717,19 +741,19 @@ export default function WRSModal({
                   </Text>
                 </Paragraph>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Date Requested</Text>
                 <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
                   <Text strong>{selectedRecord.dateRequested}</Text>
                 </Paragraph>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Total Items</Text>
                 <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
                   <Text strong>{selectedRecord.items.length}</Text>
                 </Paragraph>
               </Col>
-              <Col xs={24} sm={12}>
+              <Col xs={12} sm={12} md={6}>
                 <Text type="secondary">Total Quantity</Text>
                 <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
                   <Text strong>{totalQty}</Text>
@@ -805,7 +829,6 @@ export default function WRSModal({
             <Paragraph type="secondary">{nextAction.description}</Paragraph>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Button onClick={onClose}>Close</Button>
               <Button
                 type="primary"
                 icon={<CheckCircleOutlined />}

@@ -82,7 +82,13 @@ export default function WRSTable({
       title: "PARTICULAR",
       dataIndex: "particular",
       key: "particular",
-      width: 400,
+      width: 250,
+      onCell: () => ({
+        style: {
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+        },
+      }),
     },
     {
       title: "REQUESTED QTY",
@@ -127,13 +133,13 @@ export default function WRSTable({
     },
 
     {
-      title: "UOM",
+      title: "UNIT",
       dataIndex: "unitOfMeasure",
       key: "unitOfMeasure",
       width: 120,
     },
     {
-      title: "AUTO STATUS",
+      title: "STATUS",
       key: "autoStatus",
       width: 150,
       render: (_, record) => getAutoStatus(record),
