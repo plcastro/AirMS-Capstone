@@ -148,7 +148,13 @@ export default function UserLogs() {
     }
 
     return filtered;
-  }, [allUserLogs, searchQuery, selectedActionType, selectedScope, selectedScopeValue]);
+  }, [
+    allUserLogs,
+    searchQuery,
+    selectedActionType,
+    selectedScope,
+    selectedScopeValue,
+  ]);
 
   const scopeValueOptions = useMemo(() => {
     if (selectedScope === "base") {
@@ -294,27 +300,40 @@ export default function UserLogs() {
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}
         />
-        <Select
-          value={selectedActionType}
-          onChange={setSelectedActionType}
-          options={actionTypeOptions}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
-        <Select
-          value={selectedScope}
-          onChange={(value) => {
-            setSelectedScope(value);
-            setSelectedScopeValue("all");
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            width: isMobile ? "100%" : "auto",
           }}
-          options={[
-            { label: "All Scope", value: "all" },
-            { label: "Base", value: "base" },
-            { label: "Platform", value: "platform" },
-          ]}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
+        >
+          <Select
+            value={selectedActionType}
+            onChange={setSelectedActionType}
+            options={actionTypeOptions}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+
+          <Select
+            value={selectedScope}
+            onChange={(value) => {
+              setSelectedScope(value);
+              setSelectedScopeValue("all");
+            }}
+            options={[
+              { label: "All Scope", value: "all" },
+              { label: "Base", value: "base" },
+              { label: "Platform", value: "platform" },
+            ]}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+        </div>
         {selectedScope !== "all" && (
           <Select
             value={selectedScopeValue}
@@ -342,7 +361,7 @@ export default function UserLogs() {
               <Tooltip
                 labelFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12, marginTop: 5 }} />
 
               {AUDIT_ACTION_CHART_CATEGORIES.filter(
                 (category) =>
@@ -369,4 +388,3 @@ export default function UserLogs() {
     </div>
   );
 }
-

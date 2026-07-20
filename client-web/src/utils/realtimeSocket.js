@@ -85,14 +85,17 @@ const ensureConnection = () => {
   };
 
   socket.onmessage = (event) => {
+    console.log("RAW WS MESSAGE:", event.data);
+
     try {
       const payload = JSON.parse(event.data || "{}");
+      console.log("PARSED WS:", payload);
+
       notifyListeners(payload);
     } catch (error) {
-      console.error("Realtime websocket parse error:", error);
+      console.error(error);
     }
   };
-
   socket.onerror = () => {
     try {
       socket?.close();

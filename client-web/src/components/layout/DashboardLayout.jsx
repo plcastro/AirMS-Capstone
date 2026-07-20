@@ -57,7 +57,15 @@ const DashboardLayout = () => {
 
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
-
+  const moduleNames = {
+    messages: "Messages",
+    tasks: "Tasks",
+    maintenance: "Maintenance",
+    "parts-requisition": "Parts Requisition",
+    "flight-log": "Flight Logs",
+    reports: "Reports",
+    users: "User Management",
+  };
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -93,31 +101,65 @@ const DashboardLayout = () => {
 
         const nextSeenIds = new Set(seenNotificationIdsRef.current);
 
+        const newNotifications = [];
+
         notifications.forEach((item) => {
           if (item?._id && !nextSeenIds.has(item._id)) {
             nextSeenIds.add(item._id);
 
             if (!item.read) {
-              api.info({
-                title: item.title || "New Notification",
-                description: item.description || "You have a new update.",
-                placement: "topRight",
-                duration: 4,
-              });
-
-              // Desktop notification
-              if (
-                "Notification" in window &&
-                Notification.permission === "granted"
-              ) {
-                new Notification(item.title || "New Notification", {
-                  body: item.description || "You have a new update.",
-                  icon: { AirmsFavicon },
-                });
-              }
+              newNotifications.push(item);
             }
           }
         });
+
+        if (newNotifications.length === 1) {
+          const item = newNotifications[0];
+
+          api.info({
+            title: item.title || "New Notification",
+            description: item.description || "You have a new update.",
+            placement: "topRight",
+            duration: 4,
+          });
+
+          if (
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            new Notification(item.title || "New Notification", {
+              body: item.description || "You have a new update.",
+              icon: AirmsFavicon,
+            });
+          }
+        } else if (newNotifications.length > 1) {
+          // Group by module
+          const modules = [
+            ...new Set(
+              newNotifications.map((n) => moduleNames[n.module] || "System"),
+            ),
+          ];
+
+          const moduleText =
+            modules.length === 1 ? modules[0] : modules.join(", ");
+
+          api.info({
+            title: `${newNotifications.length} New Notifications`,
+            description: `You have new updates from ${moduleText}.`,
+            placement: "topRight",
+            duration: 5,
+          });
+
+          if (
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            new Notification(`${newNotifications.length} New Notifications`, {
+              body: `You have new updates from ${moduleText}.`,
+              icon: AirmsFavicon,
+            });
+          }
+        }
 
         seenNotificationIdsRef.current = nextSeenIds;
       } catch (error) {
@@ -125,21 +167,22 @@ const DashboardLayout = () => {
       }
     };
 
-    syncNotifications();
+    setTimeout(syncNotifications, 500);
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
-      console.log("Realtime payload:", payload);
+      console.log("Realtime payload:", JSON.stringify(payload, null, 2));
 
       const nextEvent = String(payload?.event || "");
 
       if (
         nextEvent === "data-changed" ||
         nextEvent === "chat:message" ||
+        nextEvent === "message:new" ||
         nextEvent === "chat:conversation" ||
         nextEvent === "logs:new"
       ) {
         console.log("Refreshing notifications...");
-        syncNotifications();
+        setTimeout(syncNotifications, 500);
       }
     });
 

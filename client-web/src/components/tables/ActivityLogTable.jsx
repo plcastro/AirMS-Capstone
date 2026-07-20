@@ -37,7 +37,7 @@ const headers = [
     title: "Performed by",
     dataIndex: "username",
     key: "username",
-    width: 100,
+    width: 120,
     render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
   },
   {
@@ -59,7 +59,7 @@ const headers = [
     dataIndex: "dateTime",
     key: "dateTime",
     sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
-    width: 260,
+    width: 100,
     render: (_, record) =>
       record.displayDateTime ||
       (record.dateTime
@@ -102,4 +102,3 @@ export default function ActivityLogTable({ data = [], loading }) {
     />
   );
 }
-
