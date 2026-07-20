@@ -1,6 +1,6 @@
 import React from "react";
 import AirMS_web from "../../assets/AirMS_web.webp";
-import { Typography, Row, Col, Space, Grid } from "antd";
+import { Typography, Row, Col, Grid } from "antd";
 import "../../pages/auth/login.css";
 
 const { Title, Text } = Typography;
@@ -20,47 +20,57 @@ export default function LoginLayout({
         width: "100%",
         maxWidth: isMobile ? "100%" : 560,
         margin: "0 auto",
-        paddingLeft: isMobile ? 12 : 20,
-        paddingRight: isMobile ? 12 : 20,
-        paddingTop: isMobile ? 8 : 20,
-        paddingBottom: isMobile ? 8 : 20,
+        padding: isMobile ? "8px 12px" : "20px",
       }}
     >
-      <Row align="middle" justify="center">
-        <Space orientation="vertical" size="small">
-          <Col span={24} style={{ display: "flex", justifyContent: "center" }}>
-            <img
-              src={AirMS_web}
-              alt="logo"
-              style={{ width: isMobile ? 170 : 200 }}
-            />
-          </Col>
+      {/* Desktop only */}
+      {!isMobile && (
+        <Row justify="center" style={{ marginBottom: 24 }}>
           <Col
             span={24}
             style={{
               display: "flex",
-              justifyContent: "center",
+              flexDirection: "column",
+              alignItems: "center",
               textAlign: "center",
             }}
           >
+            <img
+              src={AirMS_web}
+              alt="AirMS Logo"
+              style={{ width: 200, marginBottom: 8 }}
+            />
+
             <Text style={{ fontWeight: 300 }}>
               AIRCRAFT MAINTENANCE MANAGEMENT SYSTEM
             </Text>
           </Col>
-        </Space>
-      </Row>
+        </Row>
+      )}
 
-      <Row style={{ marginBottom: isMobile ? 16 : 20 }}>
+      <Row style={{ marginBottom: 20 }}>
         <Col span={24}>
           <Title
             level={3}
-            style={{ textAlign: "left", fontWeight: "bold", marginBottom: 6 }}
+            style={{
+              marginBottom: 6,
+              textAlign: isMobile ? "center" : "left",
+            }}
           >
             {title}
           </Title>
         </Col>
+
         <Col span={24}>
-          <Text style={{ fontWeight: 300 }}>{subtitle}</Text>
+          <Text
+            style={{
+              display: "block",
+              textAlign: isMobile ? "center" : "left",
+              fontWeight: 300,
+            }}
+          >
+            {subtitle}
+          </Text>
         </Col>
       </Row>
 

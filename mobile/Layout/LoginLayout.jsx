@@ -5,7 +5,7 @@ import {
   Image,
   StyleSheet,
   Animated,
-  useWindowDimensions
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -49,8 +49,6 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           </AppText>
         </View>
       </View>
-
-      {/* ONLY CARD IS SCROLLABLE */}
       <Animated.ScrollView
         style={styles.cardScroll}
         contentContainerStyle={[
