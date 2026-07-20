@@ -38,7 +38,7 @@ export default function UserLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dateRange, setDateRange] = useState([
-    dayjs().subtract(30, "days"),
+    dayjs().subtract(7, "days"),
     dayjs(),
   ]);
   const [loading, setLoading] = useState(false);
