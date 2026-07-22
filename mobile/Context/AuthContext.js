@@ -44,20 +44,30 @@ export const AuthProvider = ({ children }) => {
           refreshTokenRef.current ||
           (await AsyncStorage.getItem("refreshToken")) ||
           (await secureGetItem("refreshToken"));
-
-        if (accessToken) {
-          await fetch(`${API_BASE}/api/user/logout`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-              "x-platform": "MOBILE",
-            },
-            body: JSON.stringify({
-              refreshToken: refreshToken || undefined,
-            }),
-          });
+        let sessionMeta = {};
+        try {
+          const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+          sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+        } catch {
+          sessionMeta = {};
         }
+
+        await fetch(`${API_BASE}/api/user/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            "x-platform": sessionMeta?.platform || "MOBILE",
+            ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+            ...(sessionMeta?.sessionId
+              ? { "x-session-id": sessionMeta.sessionId }
+              : {}),
+          },
+          body: JSON.stringify({
+            refreshToken: refreshToken || undefined,
+          }),
+          credentials: "include",
+        });
       } catch (error) {
         console.error("Mobile logout API error:", error);
       } finally {

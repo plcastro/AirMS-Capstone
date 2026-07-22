@@ -1013,11 +1013,21 @@ const updateSessionPreference = async (req, res) => {
   }
 };
 
+const deactivateSessionById = async (userId, sessionId) => {
+  if (!userId || !sessionId) return;
+  await UserSession.findOneAndUpdate(
+    { userId, sessionId, isActive: true },
+    { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+  );
+};
+
 const logoutUser = async (req, res) => {
   try {
-    const incomingRefreshToken = req.cookies?.refreshToken;
+    const incomingRefreshToken =
+      req.cookies?.refreshToken || req.body?.refreshToken;
+    let revokedRefreshToken = null;
     if (incomingRefreshToken) {
-      await revokeRefreshTokenByHash(
+      revokedRefreshToken = await revokeRefreshTokenByHash(
         hashRefreshToken(incomingRefreshToken),
         "User logout",
       );
@@ -1025,9 +1035,12 @@ const logoutUser = async (req, res) => {
 
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
+      await deactivateSessionById(
+        revokedRefreshToken?.userId,
+        req.headers["x-session-id"],
+      );
       res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
         sameSite: "None",
         secure: true,
       });
@@ -1038,7 +1051,21 @@ const logoutUser = async (req, res) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      return res.status(401).json({ message: "Invalid or expired token" });
+      if (err?.name !== "TokenExpiredError") {
+        await deactivateSessionById(
+          revokedRefreshToken?.userId,
+          req.headers["x-session-id"],
+        );
+        res.clearCookie("refreshToken", {
+          httpOnly: true,
+          sameSite: "None",
+          secure: true,
+        });
+        return res.status(200).json({ message: "Logged out successfully" });
+      }
+      decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        ignoreExpiration: true,
+      });
     }
 
     await UserModel.findByIdAndUpdate(decoded.id, {

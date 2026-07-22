@@ -255,6 +255,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshAccessToken = async () => {
+    if (sessionEndedRef.current) {
+      return null;
+    }
+
     if (refreshTokenPromiseRef.current) {
       return refreshTokenPromiseRef.current;
     }
@@ -290,7 +294,10 @@ export const AuthProvider = ({ children }) => {
 
       if (!data.token) throw new Error("No token received");
 
-      sessionEndedRef.current = false;
+      if (sessionEndedRef.current) {
+        throw new Error("Session already ended");
+      }
+
       sessionStorage.setItem("token", data.token);
       if (rememberMePreference) {
         localStorage.setItem("token", data.token);
@@ -313,6 +320,7 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async (options = {}) => {
     const { broadcast = true } = options;
     const token = getStoredToken();
+    const sessionHeaders = buildSessionHeaders();
     try {
       sessionEndedRef.current = true;
       setLoading(true);
@@ -326,16 +334,14 @@ export const AuthProvider = ({ children }) => {
         publishAuthSync({ type: "LOGOUT" });
       }
 
-      if (token) {
-        await fetch(`${API_BASE}/api/user/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...buildSessionHeaders(),
-          },
-          credentials: "include",
-        });
-      }
+      await fetch(`${API_BASE}/api/user/logout`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...sessionHeaders,
+        },
+        credentials: "include",
+      });
     } finally {
       setLoading(false);
     }
@@ -479,6 +485,7 @@ export const AuthProvider = ({ children }) => {
           setRememberMePreferenceState(false);
         }
         if (payload.type === "TOKEN_REFRESH" && payload.token) {
+          if (sessionEndedRef.current) return;
           sessionStorage.setItem("token", payload.token);
           if (rememberMePreference) {
             localStorage.setItem("token", payload.token);
@@ -500,6 +507,7 @@ export const AuthProvider = ({ children }) => {
           return;
         }
         if (payload.type === "LOGIN" && payload.user && payload.token) {
+          sessionEndedRef.current = false;
           setUser(normalizeUser(payload.user));
           lastActivityRecordedAtRef.current = Date.now();
           sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
@@ -537,10 +545,12 @@ export const AuthProvider = ({ children }) => {
 
         if (!storedUser && token) {
           token = await refreshAccessToken();
+          if (sessionEndedRef.current) return;
         }
 
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
+          if (sessionEndedRef.current) return;
           lastActivityRecordedAtRef.current = Date.now();
           setUser(normalizeUser(parsedUser));
           persistSessionTiming(token, "restore", { restartFullWindow: true });
@@ -549,6 +559,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         token = await refreshAccessToken();
+        if (sessionEndedRef.current || !token) return;
         const payload = getTokenPayload(token);
         const normalizedFromToken =
           parsedUser ||
