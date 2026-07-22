@@ -37,6 +37,7 @@ const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -807,12 +808,20 @@ const refreshToken = async (req, res) => {
     }
 
     const now = Date.now();
+    const clientActiveAt = Number(req.headers["x-client-active-at"]);
+    const hasRecentClientActivity =
+      Number.isFinite(clientActiveAt) &&
+      clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
+      now - clientActiveAt <= SESSION_IDLE_LIMIT_MS;
     const lastActivityAt = new Date(
       activeSession.lastActivityAt || activeSession.loginAt || now,
     ).getTime();
+    const effectiveLastActivityAt = hasRecentClientActivity
+      ? Math.max(lastActivityAt, clientActiveAt)
+      : lastActivityAt;
     if (
       !tokenRecord.isPersistent &&
-      now - lastActivityAt > SESSION_IDLE_LIMIT_MS
+      now - effectiveLastActivityAt > SESSION_IDLE_LIMIT_MS
     ) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },

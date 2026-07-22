@@ -76,6 +76,7 @@ const corsOptions = {
     "x-platform",
     "x-base",
     "x-session-id",
+    "x-client-active-at",
     "x-action-confirmed",
     "x-confirm-action",
   ],

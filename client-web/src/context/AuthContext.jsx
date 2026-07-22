@@ -5,6 +5,8 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 2 * 60 * 1000;
+const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll", "touchstart"];
+const ACTIVITY_THROTTLE_MS = 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
@@ -29,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   const tokenExpiryTimeoutRef = useRef(null);
   const refreshTokenPromiseRef = useRef(null);
   const sessionEndedRef = useRef(false);
+  const lastActivityRecordedAtRef = useRef(0);
 
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
@@ -229,17 +232,24 @@ export const AuthProvider = ({ children }) => {
 
   const recordActivity = () => {
     if (!user) return;
+    const now = Date.now();
+    if (now - lastActivityRecordedAtRef.current < ACTIVITY_THROTTLE_MS) return;
+    lastActivityRecordedAtRef.current = now;
     setShowSessionTimeoutWarning(false);
     scheduleInactivityTimers(0);
   };
 
   const buildSessionHeaders = () => {
     const sessionMeta = getSessionMeta();
+    const lastClientActivityAt = lastActivityRecordedAtRef.current;
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
       ...(sessionMeta.sessionId
         ? { "x-session-id": sessionMeta.sessionId }
+        : {}),
+      ...(lastClientActivityAt
+        ? { "x-client-active-at": String(lastClientActivityAt) }
         : {}),
     };
   };
@@ -381,6 +391,7 @@ export const AuthProvider = ({ children }) => {
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
     sessionEndedRef.current = false;
+    lastActivityRecordedAtRef.current = Date.now();
     const rememberMe = Boolean(options.rememberMe);
     const normalized = normalizeUser({
       ...userData,
@@ -490,6 +501,7 @@ export const AuthProvider = ({ children }) => {
         }
         if (payload.type === "LOGIN" && payload.user && payload.token) {
           setUser(normalizeUser(payload.user));
+          lastActivityRecordedAtRef.current = Date.now();
           sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
           sessionStorage.setItem("token", payload.token);
           setRememberMePreferenceState(Boolean(payload.rememberMe));
@@ -529,6 +541,7 @@ export const AuthProvider = ({ children }) => {
 
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
+          lastActivityRecordedAtRef.current = Date.now();
           setUser(normalizeUser(parsedUser));
           persistSessionTiming(token, "restore", { restartFullWindow: true });
           scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
@@ -555,6 +568,7 @@ export const AuthProvider = ({ children }) => {
           normalizedFromToken ? normalizeUser(normalizedFromToken) : null,
         );
         if (normalizedFromToken) {
+          lastActivityRecordedAtRef.current = Date.now();
           persistAuthState(
             normalizeUser(normalizedFromToken),
             token,
@@ -582,13 +596,13 @@ export const AuthProvider = ({ children }) => {
       setShowSessionTimeoutWarning(false);
       return undefined;
     }
+    lastActivityRecordedAtRef.current = Date.now();
     scheduleInactivityTimers(0);
-    const events = ["click"];
-    events.forEach((eventName) =>
+    ACTIVITY_EVENTS.forEach((eventName) =>
       window.addEventListener(eventName, recordActivity),
     );
     return () => {
-      events.forEach((eventName) =>
+      ACTIVITY_EVENTS.forEach((eventName) =>
         window.removeEventListener(eventName, recordActivity),
       );
       clearInactivityTimers();

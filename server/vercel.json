@@ -19,7 +19,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, x-platform, x-base, x-session-id, x-action-confirmed, x-confirm-action"
+          "value": "Content-Type, Authorization, x-platform, x-base, x-session-id, x-client-active-at, x-action-confirmed, x-confirm-action"
         }
       ]
     }
