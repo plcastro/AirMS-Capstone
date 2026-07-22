@@ -188,7 +188,7 @@ const Login = () => {
       case "officer-in-charge":
         navigate("/dashboard/maintenance-dashboard");
         break;
-      case "warehouse department":
+      case "warehouse staff":
         navigate("/dashboard/parts-requisition");
         break;
       default:

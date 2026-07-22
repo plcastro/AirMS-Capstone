@@ -115,7 +115,7 @@ const getUserHomePath = (user) => {
     case "maintenance manager":
     case "officer-in-charge":
       return "/dashboard/maintenance-dashboard";
-    case "warehouse department":
+    case "warehouse staff":
       return "/dashboard/parts-requisition";
     default:
       return "/dashboard/profile";
@@ -352,7 +352,7 @@ const AppRouter = () => {
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
-                    "warehouse department",
+                    "warehouse staff",
                   ]}
                 >
                   <PartsRequisition />
@@ -367,7 +367,7 @@ const AppRouter = () => {
                     "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
-                    "warehouse department",
+                    "warehouse staff",
                     "mechanic",
                   ]}
                 >
@@ -383,7 +383,7 @@ const AppRouter = () => {
                     "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
-                    "warehouse department",
+                    "warehouse staff",
                     "mechanic",
                   ]}
                 >

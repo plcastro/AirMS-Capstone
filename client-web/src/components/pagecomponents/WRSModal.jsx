@@ -164,7 +164,7 @@ export default function WRSModal({
   const { user, getAuthHeader } = useContext(AuthContext);
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
-  const isWarehouseDepartment = userRole === "warehouse department";
+  const isWarehouseStaff = userRole === "warehouse staff";
   const isMaintenanceReviewer = [
     "superadmin",
     "maintenance manager",
@@ -298,7 +298,7 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Approved") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return {
           title: "Awaiting Delivery",
           description:
@@ -353,7 +353,7 @@ export default function WRSModal({
     }
 
     if (currentStatus === "To Be Ordered") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return {
           title: "Awaiting Warehouse Restock",
           description:
@@ -396,14 +396,12 @@ export default function WRSModal({
     }
 
     return {
-      title: isWarehouseDepartment
-        ? "Stock Review"
-        : "Awaiting Warehouse Review",
-      description: isWarehouseDepartment
+      title: isWarehouseStaff ? "Stock Review" : "Awaiting Warehouse Review",
+      description: isWarehouseStaff
         ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
         : "Warehouse is currently reviewing stock availability for this requisition.",
-      buttonText: isWarehouseDepartment ? "Submit Stock Review" : "Waiting",
-      disabled: isWarehouseDepartment ? !allQuantitiesFilled : true,
+      buttonText: isWarehouseStaff ? "Submit Stock Review" : "Waiting",
+      disabled: isWarehouseStaff ? !allQuantitiesFilled : true,
     };
   }, [
     allQuantitiesFilled,
@@ -413,7 +411,7 @@ export default function WRSModal({
     hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
     isMaintenanceReviewer,
-    isWarehouseDepartment,
+    isWarehouseStaff,
     persistedQtyMap,
     selectedRecord,
   ]);
@@ -489,7 +487,7 @@ export default function WRSModal({
 
     const warehouseName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      "Warehouse Department";
+      "Warehouse Staff";
     const reviewerName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || userTitle;
 
@@ -543,7 +541,7 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Approved") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return;
       }
 
@@ -586,7 +584,7 @@ export default function WRSModal({
     });
 
     if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return;
       }
 
@@ -770,7 +768,7 @@ export default function WRSModal({
             persistedQtyMap={persistedQtyMap}
             setAvailQtyMap={setAvailQtyMap}
             disabled={
-              !isWarehouseDepartment ||
+              !isWarehouseStaff ||
               (currentStatus !== "Parts Requested" &&
                 currentStatus !== "To Be Ordered")
             }

@@ -110,14 +110,16 @@ function DrawerNav({ navigation }) {
   const canAccessMechanics = ["maintenance manager", "superadmin"].includes(
     normalizedRole,
   );
-  const canAccessTasks = ["superadmin", "maintenance manager", "mechanic"].includes(
-    normalizedRole,
-  );
+  const canAccessTasks = [
+    "superadmin",
+    "maintenance manager",
+    "mechanic",
+  ].includes(normalizedRole);
   const canAccessPartsRequisition = [
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
     "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
@@ -146,7 +148,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
   const canAccessProfile = [
     "superadmin",
@@ -154,7 +156,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "superadmin";
   const canAccessActivityLogs = normalizedRole === "superadmin";
@@ -517,11 +519,15 @@ function AppShell({ linking }) {
             >
               Session Timeout Warning
             </AppText>
-            <AppText style={{ fontSize: scale(12), color: "#333", marginBottom: 8 }}>
+            <AppText
+              style={{ fontSize: scale(12), color: "#333", marginBottom: 8 }}
+            >
               You&apos;ve been inactive for a while. For your security,
               you&apos;ll be signed out in 2 minutes unless you continue.
             </AppText>
-            <AppText style={{ fontSize: scale(12), color: "#666", marginBottom: 16 }}>
+            <AppText
+              style={{ fontSize: scale(12), color: "#666", marginBottom: 16 }}
+            >
               Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
               seconds.
             </AppText>
@@ -555,7 +561,13 @@ function AppShell({ linking }) {
                   marginLeft: 8,
                 }}
               >
-                <AppText style={{ color: "#fff", fontWeight: "600", fontSize: scale(12) }}>
+                <AppText
+                  style={{
+                    color: "#fff",
+                    fontWeight: "600",
+                    fontSize: scale(12),
+                  }}
+                >
                   Continue session
                 </AppText>
               </Pressable>

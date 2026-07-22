@@ -210,8 +210,9 @@ const buildTargetNavigation = (notificationPayload) => {
     const isGroup =
       metadata?.notificationType === "group-message" ||
       notificationPayload?.isGroup === true ||
-      String(notificationPayload?.isGroup || data?.isGroup || "").toLowerCase() ===
-        "true";
+      String(
+        notificationPayload?.isGroup || data?.isGroup || "",
+      ).toLowerCase() === "true";
     const conversationId =
       notificationPayload?.conversationId ||
       data?.conversationId ||
@@ -282,7 +283,12 @@ export function NotificationProvider({ children }) {
   const loadedNotificationsUserIdRef = useRef("");
 
   const pushInAppNotification = useCallback(
-    ({ title, description, module = "parts-requisition", entityType = "system" }) => {
+    ({
+      title,
+      description,
+      module = "parts-requisition",
+      entityType = "system",
+    }) => {
       const syntheticId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const nowIso = new Date().toISOString();
 
@@ -304,31 +310,28 @@ export function NotificationProvider({ children }) {
     [],
   );
 
-  const showForegroundBanner = useCallback(
-    ({ title, body, payload }) => {
-      if (Platform.OS === "web") {
-        showToast(title || body);
-        return;
-      }
+  const showForegroundBanner = useCallback(({ title, body, payload }) => {
+    if (Platform.OS === "web") {
+      showToast(title || body);
+      return;
+    }
 
-      if (foregroundBannerTimerRef.current) {
-        clearTimeout(foregroundBannerTimerRef.current);
-      }
+    if (foregroundBannerTimerRef.current) {
+      clearTimeout(foregroundBannerTimerRef.current);
+    }
 
-      setForegroundBanner({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        title: String(title || "New notification"),
-        body: String(body || "You have a new update."),
-        payload: payload || {},
-      });
+    setForegroundBanner({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: String(title || "New notification"),
+      body: String(body || "You have a new update."),
+      payload: payload || {},
+    });
 
-      foregroundBannerTimerRef.current = setTimeout(() => {
-        setForegroundBanner(null);
-        foregroundBannerTimerRef.current = null;
-      }, 6000);
-    },
-    [],
-  );
+    foregroundBannerTimerRef.current = setTimeout(() => {
+      setForegroundBanner(null);
+      foregroundBannerTimerRef.current = null;
+    }, 6000);
+  }, []);
 
   const dismissForegroundBanner = useCallback(() => {
     if (foregroundBannerTimerRef.current) {
@@ -580,7 +583,7 @@ export function NotificationProvider({ children }) {
         "maintenance manager",
         "mechanic",
         "officer-in-charge",
-        "warehouse department",
+        "warehouse staff",
       ].includes(normalizedRole);
       const canAccessMessages = canAccessRequisitions;
 
@@ -1210,7 +1213,11 @@ export function NotificationProvider({ children }) {
       unsubscribeForeground();
       unsubscribeOpened();
     };
-  }, [handleQueuedBackgroundMessages, openNotificationTarget, showForegroundBanner]);
+  }, [
+    handleQueuedBackgroundMessages,
+    openNotificationTarget,
+    showForegroundBanner,
+  ]);
 
   useEffect(
     () => () => {

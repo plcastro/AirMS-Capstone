@@ -6,7 +6,7 @@ const ROLE_TO_JOB_TITLE = {
   "maintenance manager": "Maintenance Manager",
   "officer-in-charge": "Officer-In-Charge",
   mechanic: "Mechanic",
-  "warehouse department": "Warehouse Department",
+  "warehouse staff": "Warehouse Staff",
   pilot: "Pilot",
   superadmin: "superadmin",
 };
@@ -58,7 +58,10 @@ const getUserIdsForRoles = async (roles = []) => {
 
   const users = await UserModel.find({
     $or: jobTitles.map((jobTitle) => ({
-      jobTitle: { $regex: `^${jobTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+      jobTitle: {
+        $regex: `^${jobTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+        $options: "i",
+      },
     })),
   }).select("_id");
 

@@ -6,7 +6,7 @@ const NAV_ACCESS = {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ],
   userManagement: ["superadmin"],
   activityLogs: ["superadmin"],
@@ -39,11 +39,15 @@ const NAV_ACCESS = {
   tasks: ["superadmin", "maintenance manager", "mechanic"],
   mechanics: ["superadmin", "maintenance manager"],
   partsLifespan: ["superadmin", "maintenance manager", "officer-in-charge"],
-  maintenanceTracking: ["superadmin", "maintenance manager", "officer-in-charge"],
+  maintenanceTracking: [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+  ],
   maintenancePriority: ["superadmin", "maintenance manager"],
   partsRequisition: [
     "superadmin",
-    "warehouse department",
+    "warehouse staff",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -54,11 +58,14 @@ const NAV_ACCESS = {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ],
 };
 
-export const normalizeRole = (value) => String(value || "").trim().toLowerCase();
+export const normalizeRole = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 export const hasNavAccess = (role, accessKey) => {
   if (!accessKey) return true;

@@ -20,7 +20,7 @@ export default function Dashboard({ children, currentRouteName }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
   const showChatFab = canAccessMessages && currentRouteName !== "Messages";
   const isManageUsers = currentRouteName === "Manage Users";

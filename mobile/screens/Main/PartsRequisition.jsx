@@ -8,9 +8,7 @@ import React, {
 } from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
-import {
-  Picker,
-} from "@react-native-picker/picker";
+import { Picker } from "@react-native-picker/picker";
 import {
   RefreshControl,
   ScrollView,
@@ -154,9 +152,8 @@ const getStaffTitle = (staff = {}, key, fallback = "-") =>
   staff?.[`${key}Title`] || fallback;
 
 const getStaffActor = (staff = {}, key, fallback = "-") =>
-  [staff?.[key], getStaffTitle(staff, key, "")]
-    .filter(Boolean)
-    .join(" - ") || fallback;
+  [staff?.[key], getStaffTitle(staff, key, "")].filter(Boolean).join(" - ") ||
+  fallback;
 
 const buildTimeline = (record) => {
   const overallStatus = normalizeOverallStatus(record.status);
@@ -185,7 +182,7 @@ const buildTimeline = (record) => {
       dateTime: formatDateTime(
         record.dateWarehouseReviewed || record.updatedAt,
       ),
-      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Department"),
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Staff"),
       description: "Warehouse reviewed item stock availability",
     },
     "To Be Ordered": {
@@ -197,7 +194,7 @@ const buildTimeline = (record) => {
     Ordered: {
       status: "Ordered",
       dateTime: formatDateTime(record.updatedAt),
-      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Department"),
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Staff"),
       description: "Warehouse confirmed the restocked items are available",
     },
     Approved: {
@@ -364,15 +361,17 @@ export default function PartsRequisition({ route, navigation }) {
     (fallback = "User") => user?.jobTitle || user?.access || fallback,
     [user?.access, user?.jobTitle],
   );
-  const isWarehouse = userRole === "warehouse department";
-  const isManager = ["superadmin", "maintenance manager", "officer-in-charge"].includes(
-    userRole,
-  );
+  const isWarehouse = userRole === "warehouse staff";
+  const isManager = [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(userRole);
   const canRequestParts = ![
     "superadmin",
     "maintenance manager",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(userRole);
   const tabLabels = isManager
     ? ["For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
@@ -1021,8 +1020,8 @@ export default function PartsRequisition({ route, navigation }) {
       request.id,
       {
         dateWarehouseReviewed: new Date().toISOString(),
-        warehouseBy: getCurrentUserName("Warehouse Department"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
+        warehouseBy: getCurrentUserName("Warehouse Staff"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
       "Warehouse stock review submitted successfully.",
@@ -1034,8 +1033,8 @@ export default function PartsRequisition({ route, navigation }) {
       request.id,
       {
         status: "To Be Ordered",
-        warehouseBy: getCurrentUserName("Warehouse Department"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
+        warehouseBy: getCurrentUserName("Warehouse Staff"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
       "Stock quantities saved.",
@@ -1056,8 +1055,8 @@ export default function PartsRequisition({ route, navigation }) {
       {
         status: "Ordered",
         dateOrdered: new Date().toISOString(),
-        warehouseBy: getCurrentUserName("Warehouse Department"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
+        warehouseBy: getCurrentUserName("Warehouse Staff"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
       "Requisition marked as restocked.",
@@ -1078,10 +1077,10 @@ export default function PartsRequisition({ route, navigation }) {
         status: "Delivered",
         dateDelivered: new Date().toISOString(),
         dateReceived: new Date().toISOString(),
-        deliveredBy: getCurrentUserName("Warehouse Department"),
-        deliveredByTitle: getCurrentUserTitle("Warehouse Department"),
-        warehouseBy: getCurrentUserName("Warehouse Department"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Department"),
+        deliveredBy: getCurrentUserName("Warehouse Staff"),
+        deliveredByTitle: getCurrentUserTitle("Warehouse Staff"),
+        warehouseBy: getCurrentUserName("Warehouse Staff"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: (request.rawRecord.items || []).map((item) => ({
           ...item,
           stockStatus: "Delivered",

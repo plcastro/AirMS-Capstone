@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
       "Superadmin",
       "Officer-In-Charge",
       "Mechanic",
-      "Warehouse Department",
+      "Warehouse Staff",
     ],
     default: "Mechanic",
   },
@@ -123,7 +123,6 @@ userSchema.pre("validate", function sanitizeMobilePushDevices() {
     const hasFcmToken = Boolean(String(device?.fcmToken || "").trim());
     return hasDeviceId && hasFcmToken;
   });
-
 });
 
 module.exports = mongoose.model("User", userSchema);

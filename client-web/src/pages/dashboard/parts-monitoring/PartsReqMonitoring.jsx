@@ -136,7 +136,7 @@ export default function PartsReqMonitoring() {
   const userTitle = user?.jobTitle || user?.access || "User";
   const allowedRoles = [
     "superadmin",
-    "warehouse department",
+    "warehouse staff",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -147,12 +147,12 @@ export default function PartsReqMonitoring() {
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
-  const isWarehouseDepartment = userRole === "warehouse department";
+  const isWarehouseStaff = userRole === "warehouse staff";
   const canRequestParts = ![
     "superadmin",
     "maintenance manager",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(userRole);
 
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
@@ -209,7 +209,7 @@ export default function PartsReqMonitoring() {
       ];
     }
 
-    if (isWarehouseDepartment) {
+    if (isWarehouseStaff) {
       return [
         {
           key: "all",
@@ -268,7 +268,7 @@ export default function PartsReqMonitoring() {
         ).length,
       },
     ];
-  }, [isManager, isWarehouseDepartment, warehouseRequisitions]);
+  }, [isManager, isWarehouseStaff, warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
@@ -293,10 +293,12 @@ export default function PartsReqMonitoring() {
         if (normalizedSelectedStatus === "completed") {
           return getWarehouseStatusBucket(record) === "completed";
         }
-        if (isWarehouseDepartment && normalizedSelectedStatus === "pending") {
+        if (isWarehouseStaff && normalizedSelectedStatus === "pending") {
           return getWarehouseStatusBucket(record) === "pending";
         }
-        if (["pending", "approved", "closed"].includes(normalizedSelectedStatus)) {
+        if (
+          ["pending", "approved", "closed"].includes(normalizedSelectedStatus)
+        ) {
           return getStatusBucket(record) === normalizedSelectedStatus;
         }
         return getEffectiveStatus(record) === normalizedSelectedStatus;
@@ -313,7 +315,7 @@ export default function PartsReqMonitoring() {
     });
   }, [
     dateSortOrder,
-    isWarehouseDepartment,
+    isWarehouseStaff,
     searchText,
     selectedStatus,
     warehouseRequisitions,

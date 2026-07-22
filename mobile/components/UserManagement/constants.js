@@ -6,7 +6,7 @@ export const JOB_TITLE_OPTIONS = [
   "Pilot",
   "Officer-In-Charge",
   "Mechanic",
-  "Warehouse Department",
+  "Warehouse Staff",
 ];
 
 export const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
@@ -17,7 +17,7 @@ export const ROLE_MAP = {
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
   Mechanic: "User",
-  "Warehouse Department": "User",
+  "Warehouse Staff": "User",
 };
 
 export const ROLES_REQUIRING_LICENSE = new Set([
@@ -26,4 +26,3 @@ export const ROLES_REQUIRING_LICENSE = new Set([
   "mechanic",
   "officer-in-charge",
 ]);
-

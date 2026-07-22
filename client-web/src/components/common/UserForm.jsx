@@ -30,7 +30,7 @@ const ROLE_MAP = {
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
   Mechanic: "User",
-  "Warehouse Department": "User",
+  "Warehouse Staff": "User",
 };
 
 export default function UserForm({
@@ -460,8 +460,8 @@ export default function UserForm({
                       },
                       { label: "Mechanic", value: "Mechanic" },
                       {
-                        label: "Warehouse Department",
-                        value: "Warehouse Department",
+                        label: "Warehouse Staff",
+                        value: "Warehouse Staff",
                       },
                     ]}
                   />
