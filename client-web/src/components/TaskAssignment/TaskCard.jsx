@@ -64,9 +64,14 @@ export default function TaskCard({ task, onOpen, highlighted = false }) {
         backgroundColor: highlighted ? "#F3FAF8" : "#FFFFFF",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+      <div
+        style={{ display: "flex", justifyContent: "space-between", gap: 10 }}
+      >
         <div style={{ flex: 1 }}>
-          <Title level={5} style={{ margin: 0, fontSize: 15, lineHeight: "22px" }}>
+          <Title
+            level={5}
+            style={{ margin: 0, fontSize: 15, lineHeight: "22px" }}
+          >
             {task.title || task.maintenanceType || "Maintenance Task"}
           </Title>
           <Text type="secondary">
@@ -104,7 +109,9 @@ export default function TaskCard({ task, onOpen, highlighted = false }) {
             padding: "8px 10px",
           }}
         >
-          <Text style={{ color: "#B42318", fontSize: 12 }}>{task.returnComments}</Text>
+          <Text style={{ color: "#B42318", fontSize: 12 }}>
+            {task.returnComments}
+          </Text>
         </div>
       )}
 

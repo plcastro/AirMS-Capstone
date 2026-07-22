@@ -936,33 +936,58 @@ export default function MaintenanceLog() {
               <Col xs={24} md={12}>
                 {renderReadOnlyField("Aircraft:", selectedWO?.aircraft)}
               </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Task ID:",
                   selectedWO?.sourceTaskId || selectedWO?.id,
                 )}
               </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
               </Col>
+
               <Col xs={24} md={12}>
-                {renderReadOnlyField(
-                  "Task Status:",
-                  selectedWO?.sourceTaskStatus,
-                  true,
-                )}
+                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
               </Col>
-              <Col xs={24} md={12}>
-                {renderReadOnlyField("Log Status:", selectedWO?.status, true)}
-              </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Rectified:",
                   formatDisplayDate(selectedWO?.dateDefectRectified),
                 )}
               </Col>
+
+              {/* Bottom row */}
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+                <Space.Compact style={{ width: "100%" }}>
+                  <span
+                    style={{
+                      minWidth: 120,
+                      padding: "0 11px",
+                    }}
+                  >
+                    Task Status:
+                  </span>
+
+                  {renderStatusTag(selectedWO?.sourceTaskStatus)}
+                </Space.Compact>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Space.Compact style={{ width: "100%" }}>
+                  <span
+                    style={{
+                      minWidth: 120,
+                      padding: "0 11px",
+                    }}
+                  >
+                    Log Status:
+                  </span>
+
+                  {renderStatusTag(selectedWO?.status)}
+                </Space.Compact>
               </Col>
             </Row>
           </Card>
