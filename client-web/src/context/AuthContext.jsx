@@ -5,7 +5,7 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 2 * 60 * 1000;
-const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll", "touchstart"];
+const ACTIVITY_EVENTS = ["scroll", "touchstart"];
 const ACTIVITY_THROTTLE_MS = 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
@@ -231,7 +231,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const recordActivity = () => {
-    if (!user) return;
+    if (!user || showSessionTimeoutWarning || sessionEndedRef.current) return;
     const now = Date.now();
     if (now - lastActivityRecordedAtRef.current < ACTIVITY_THROTTLE_MS) return;
     lastActivityRecordedAtRef.current = now;
