@@ -34,7 +34,7 @@ import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import "./flightlog.css";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export default function FlightLog() {
