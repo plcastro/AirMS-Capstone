@@ -12,6 +12,7 @@ import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
 import AirmsFavicon from "../../assets/favicon.ico";
+import UserAvatar from "../common/UserAvatar";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 const WEB_SETTINGS_KEY = "webProfileSettings";
@@ -77,13 +78,6 @@ const saveAircraftFhNotifications = (notifications) => {
 const getAircraftFhUnreadCount = () =>
   loadAircraftFhNotifications().filter((item) => !item.read).length;
 
-const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
-  const initials = `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
-    .toUpperCase()
-    .trim();
-  return initials || fallback;
-};
-
 const DashboardLayout = () => {
   const [api, contextHolder] = notification.useNotification();
   const screens = useBreakpoint();
@@ -130,14 +124,6 @@ const DashboardLayout = () => {
       duration = 4,
       onClick,
     } = {}) => {
-      api.info({
-        message: title,
-        description,
-        placement: "topRight",
-        duration,
-        onClick,
-      });
-
       if (
         "Notification" in window &&
         Notification.permission === "granted" &&
@@ -155,7 +141,17 @@ const DashboardLayout = () => {
             nativeNotification.close?.();
           };
         }
+
+        return;
       }
+
+      api.info({
+        message: title,
+        description,
+        placement: "topRight",
+        duration,
+        onClick,
+      });
     };
 
     const goToAircraftMonitoring = (aircraft) => {
@@ -562,46 +558,13 @@ const DashboardLayout = () => {
                 }}
                 onClick={() => nav("/dashboard/profile")}
               >
-                {user?.image ? (
-                  <img
-                    src={
-                      user.image.startsWith("http")
-                        ? user.image
-                        : `${API_BASE}${user.image}`
-                    }
-                    alt="User"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      marginRight: 5,
-                      backgroundColor: "#E9F4F1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      userSelect: "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#26866F",
-                        fontWeight: 700,
-                        fontSize: 13,
-                      }}
-                    >
-                      {getUserInitials(user?.firstName, user?.lastName)}
-                    </span>
-                  </div>
-                )}
+                <UserAvatar
+                  image={user?.image}
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
+                  size={40}
+                  style={{ marginRight: 5, fontSize: 13 }}
+                />
                 {screens.md && (
                   <div
                     style={{

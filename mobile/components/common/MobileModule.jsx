@@ -213,6 +213,74 @@ export function StatusChip({ label, color = COLORS.primaryLight }) {
   );
 }
 
+const STATUS_TAG_COLORS = {
+  active: "#52c41a",
+  approved: "#389e0d",
+  complete: "#237804",
+  completed: "#237804",
+  rectified: "#5b8c00",
+  released: "#0958d9",
+  verified: "#08979c",
+  accepted: "#13c2c2",
+  available: "#52c41a",
+  open: "#1677ff",
+  submitted: "#1677ff",
+  "turned in": "#1677ff",
+  pending: "#faad14",
+  "pending approval": "#d48806",
+  "pending acceptance": "#fa8c16",
+  "pending release": "#d48806",
+  assigned: "#13c2c2",
+  ongoing: "#1677ff",
+  "in progress": "#1677ff",
+  busy: "#1677ff",
+  review: "#722ed1",
+  "for review": "#722ed1",
+  returned: "#fa8c16",
+  deferred: "#fa8c16",
+  overdue: "#fa541c",
+  "past due": "#fa541c",
+  rejected: "#ff4d4f",
+  cancelled: "#ff4d4f",
+  canceled: "#ff4d4f",
+  failed: "#ff4d4f",
+  inactive: "#8c8c8c",
+  closed: "#8c8c8c",
+  offline: "#8c8c8c",
+  "n/a": "#8c8c8c",
+};
+
+export const getStatusTagColor = (status) => {
+  const normalized = String(status || "N/A")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .toLowerCase();
+
+  return STATUS_TAG_COLORS[normalized] || "#8c8c8c";
+};
+
+export function StatusTag({ label, fallback = "N/A", style }) {
+  const value = String(label || fallback).trim() || fallback;
+  const color = getStatusTagColor(value);
+
+  return (
+    <View style={[moduleStyles.chip, { backgroundColor: `${color}18` }, style]}>
+      <AppText style={[moduleStyles.chipText, { color }]}>
+        {value.toUpperCase()}
+      </AppText>
+    </View>
+  );
+}
+
+export function StatusField({ label, value }) {
+  return (
+    <View style={{ flex: 1, minWidth: "45%", marginTop: 10, paddingRight: 8 }}>
+      <AppText style={moduleStyles.label}>{label}</AppText>
+      <StatusTag label={value} style={{ marginTop: 4 }} />
+    </View>
+  );
+}
+
 export function SectionTitle({ title, subtitle }) {
   return (
     <View style={{ marginBottom: 10 }}>

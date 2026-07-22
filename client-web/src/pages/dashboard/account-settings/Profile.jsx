@@ -8,7 +8,6 @@ import {
   Tabs,
   Popconfirm,
   Descriptions,
-  Avatar,
   Space,
   Slider,
   Switch,
@@ -24,7 +23,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import ResultPopup from "../../../components/common/ResultPopup";
-import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
+import UserAvatar from "../../../components/common/UserAvatar";
 const { Title, Text } = Typography;
 
 export default function Profile() {
@@ -34,8 +33,10 @@ export default function Profile() {
   const fileInputRef = useRef(null);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [aircraftFhDueNotificationsEnabled, setAircraftFhDueNotificationsEnabled] =
-    useState(false);
+  const [
+    aircraftFhDueNotificationsEnabled,
+    setAircraftFhDueNotificationsEnabled,
+  ] = useState(false);
   const [aircraftFhDueThreshold, setAircraftFhDueThreshold] = useState(25);
   const [browserPermission, setBrowserPermission] = useState("default");
   const [popup, setPopup] = useState({
@@ -89,11 +90,7 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
 
-    const imageUrl = user.image
-      ? user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`
-      : DefaultAvatar;
+    const imageUrl = user.image || "";
     setPreviewUri(imageUrl);
     setFile(null);
   }, [user]);
@@ -216,11 +213,8 @@ export default function Profile() {
         id: data?.user?.id || data?.user?._id || userId,
       };
       persistUser(nextUser);
-      const uploadedImagePath =
-        data?.user?.image && data.user.image.startsWith("http")
-          ? data.user.image
-          : `${API_BASE}${data?.user?.image || ""}`;
-      setPreviewUri(uploadedImagePath || DefaultAvatar);
+      const uploadedImagePath = data?.user?.image || "";
+      setPreviewUri(uploadedImagePath || "");
       setFile(null);
       setPopup({
         open: true,
@@ -270,7 +264,7 @@ export default function Profile() {
         id: data?.user?.id || data?.user?._id || userId,
         image: "",
       });
-      setPreviewUri(DefaultAvatar);
+      setPreviewUri("");
       setFile(null);
 
       setPopup({
@@ -510,10 +504,12 @@ export default function Profile() {
                       size={24}
                       style={{ width: "100%", alignItems: "center" }}
                     >
-                      <Avatar
-                        src={previewUri || DefaultAvatar}
+                      <UserAvatar
+                        image={previewUri || user?.image}
+                        firstName={user?.firstName}
+                        lastName={user?.lastName}
                         size={172}
-                        style={{ cursor: "pointer" }}
+                        style={{ cursor: "pointer", fontSize: 48 }}
                         onClick={() => fileInputRef.current?.click()}
                       />
                       <input

@@ -434,7 +434,7 @@ export default function FlightLog() {
   };
 
   const handleExport = async (record) => {
-    await exportFlightLogToPDF(record);
+    await exportFlightLogToPDF(record, { setPopup });
   };
 
   const getUserDisplayName = () => {
@@ -706,7 +706,7 @@ export default function FlightLog() {
         open: true,
         status: "error",
         title: "Flight log failed",
-        subTitle: "Failed to complete flight log." || error.message,
+        subTitle: error.message || "Failed to complete flight log.",
       });
     } finally {
       setSaving(false);

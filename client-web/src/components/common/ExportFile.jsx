@@ -1,5 +1,26 @@
 import { message } from "antd";
 
+const showExportPopup = (
+  setPopup,
+  { status, title, subTitle, fallbackMessage },
+) => {
+  if (typeof setPopup === "function") {
+    setPopup({
+      open: true,
+      status,
+      title,
+      subTitle,
+    });
+    return;
+  }
+
+  if (status === "success") {
+    message.success(fallbackMessage || subTitle);
+  } else {
+    message.error(fallbackMessage || subTitle);
+  }
+};
+
 const EXCLUDED_EXPORT_KEYS = new Set([
   "_id",
   "__v",
@@ -278,7 +299,8 @@ const flightTableTheme = {
   pageBreak: "avoid",
 };
 
-export const exportFlightLogToPDF = async (record = {}) => {
+export const exportFlightLogToPDF = async (record = {}, options = {}) => {
+  const { setPopup } = options;
   try {
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
@@ -618,14 +640,30 @@ export const exportFlightLogToPDF = async (record = {}) => {
     });
 
     doc.save(`${fileName}.pdf`);
-    message.success("Flight log PDF exported successfully!");
+    showExportPopup(setPopup, {
+      status: "success",
+      title: "Flight Log Exported!",
+      subTitle: "The flight log PDF has been exported successfully.",
+      fallbackMessage: "Flight log PDF exported successfully!",
+    });
   } catch (err) {
     console.error(err);
-    message.error("Flight log PDF export failed: " + err.message);
+    showExportPopup(setPopup, {
+      status: "error",
+      title: "Operation failed!",
+      subTitle: err.message || "Flight log PDF export failed.",
+      fallbackMessage: "Flight log PDF export failed: " + err.message,
+    });
   }
 };
 
-export const exportToPDF = async () => {
+export const exportToPDF = async (options = {}) => {
+  const {
+    setPopup,
+    summarydata = [],
+    mhistorydata = [],
+    componentData = [],
+  } = options;
   try {
     const [{ jsPDF }, { default: autoTable }, { default: html2canvas }] =
       await Promise.all([
@@ -687,10 +725,20 @@ export const exportToPDF = async () => {
     });
 
     doc.save("MaintenanceDashboard.pdf");
-    message.success("PDF exported successfully!");
+    showExportPopup(setPopup, {
+      status: "success",
+      title: "PDF Exported!",
+      subTitle: "The PDF has been exported successfully.",
+      fallbackMessage: "PDF exported successfully!",
+    });
   } catch (err) {
     console.error(err);
-    message.error("PDF export failed: " + err.message);
+    showExportPopup(setPopup, {
+      status: "error",
+      title: "Operation failed!",
+      subTitle: err.message || "PDF export failed.",
+      fallbackMessage: "PDF export failed: " + err.message,
+    });
   }
 };
 
@@ -699,6 +747,7 @@ export const exportRecordToPDF = async ({
   fileName,
   record,
   subtitle,
+  setPopup,
 }) => {
   try {
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -743,14 +792,31 @@ export const exportRecordToPDF = async ({
     });
 
     doc.save(buildSafeFileName(fileName, title || "export") + ".pdf");
-    message.success("PDF exported successfully!");
+    showExportPopup(setPopup, {
+      status: "success",
+      title: "PDF Exported!",
+      subTitle: "The PDF has been exported successfully.",
+      fallbackMessage: "PDF exported successfully!",
+    });
   } catch (err) {
     console.error(err);
-    message.error("PDF export failed: " + err.message);
+    showExportPopup(setPopup, {
+      status: "error",
+      title: "Operation failed!",
+      subTitle: err.message || "PDF export failed.",
+      fallbackMessage: "PDF export failed: " + err.message,
+    });
   }
 };
 
-export const exportToExcel = async () => {
+export const exportToExcel = async (options = {}) => {
+  const {
+    setPopup,
+    PACChartMock = [],
+    summarydata = [],
+    mhistorydata = [],
+    componentData = [],
+  } = options;
   try {
     const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
       import("exceljs"),
@@ -792,9 +858,19 @@ export const exportToExcel = async () => {
     });
     saveAs(blob, "MaintenanceDashboard.xlsx");
 
-    message.success("Excel exported successfully!");
+    showExportPopup(setPopup, {
+      status: "success",
+      title: "Excel Exported!",
+      subTitle: "The Excel file has been exported successfully.",
+      fallbackMessage: "Excel exported successfully!",
+    });
   } catch (err) {
     console.error("Excel export failed:", err);
-    message.error("Excel export failed: " + err.message);
+    showExportPopup(setPopup, {
+      status: "error",
+      title: "Operation failed!",
+      subTitle: err.message || "Excel export failed.",
+      fallbackMessage: "Excel export failed: " + err.message,
+    });
   }
 };

@@ -18,6 +18,8 @@ import {
   SearchBar,
   SectionTitle,
   StatusChip,
+  StatusField,
+  StatusTag,
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
@@ -183,7 +185,7 @@ export default function MaintenanceLog() {
         <InfoCard
           title="Work Done Report"
           subtitle={selectedWorkOrder.sourceTaskId || selectedWorkOrder.id}
-          right={<StatusChip label={selectedWorkOrder.status} />}
+          right={<StatusTag label={selectedWorkOrder.status} />}
         >
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Aircraft" value={selectedWorkOrder.aircraft} />
@@ -193,7 +195,7 @@ export default function MaintenanceLog() {
               label="Rectified"
               value={formatDate(selectedWorkOrder.dateDefectRectified)}
             />
-            <FieldRow label="Task Status" value={selectedWorkOrder.sourceTaskStatus} />
+            <StatusField label="Task Status" value={selectedWorkOrder.sourceTaskStatus} />
             <FieldRow label="Task Title" value={selectedWorkOrder.taskTitle} />
           </View>
         </InfoCard>
@@ -248,7 +250,7 @@ export default function MaintenanceLog() {
                 value={formatDate(entry.dateDefectRectified)}
               />
               <FieldRow label="Base" value={entry.base} />
-              <FieldRow label="Status" value={entry.status} />
+              <StatusField label="Status" value={entry.status} />
             </View>
           </InfoCard>
         ))}

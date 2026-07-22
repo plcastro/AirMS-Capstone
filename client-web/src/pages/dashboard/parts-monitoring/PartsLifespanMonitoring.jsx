@@ -1276,7 +1276,7 @@ export default function PartsMonitoring() {
           </Row>
         </Space>
       </Card>
-      {/* <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16 }}>
         <Button onClick={() => setShowComponentsToUpdate((current) => !current)}>
           {showComponentsToUpdate
             ? "Hide Components to Update"
@@ -1318,7 +1318,7 @@ export default function PartsMonitoring() {
             </Text>
           )}
         </Card>
-      )} */}
+      )}
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}

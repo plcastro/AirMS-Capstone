@@ -11,6 +11,7 @@ import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
@@ -231,6 +232,12 @@ export default function MaintenanceLog() {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const [seenLogIds, setSeenLogIds] = useState(() => {
     try {
       const stored = JSON.parse(
@@ -529,8 +536,20 @@ export default function MaintenanceLog() {
       });
 
       doc.save(`${fileName}.pdf`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Maintenance Log Exported!",
+        subTitle: "The maintenance log PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Failed to export maintenance log:", error);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Maintenance log PDF export failed.",
+      });
     } finally {
       setExporting(false);
     }
@@ -972,6 +991,13 @@ export default function MaintenanceLog() {
             />
           </Card>
         </div>
+        <ResultPopup
+          open={popup.open}
+          status={popup.status}
+          title={popup.title}
+          subTitle={popup.subTitle}
+          onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+        />
       </div>
     );
   }
