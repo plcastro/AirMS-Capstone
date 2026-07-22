@@ -13,6 +13,7 @@ import {
   DashboardOutlined,
   InboxOutlined,
   MessageOutlined,
+  RocketOutlined,
 } from "@ant-design/icons";
 import AirMS_web from "../../assets/AirMS_web.webp";
 import AirMS_logo from "../../assets/AirMS_logo.webp";
@@ -125,14 +126,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "3",
           label: "Flight Logs",
-          icon: (
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: 24 }}
-            >
-              helicopter
-            </span>
-          ),
+          icon: <RocketOutlined style={{ fontSize: 24 }} />,
           accessKey: "flightLogs",
         },
         {

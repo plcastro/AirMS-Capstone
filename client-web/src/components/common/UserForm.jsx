@@ -32,6 +32,47 @@ const ROLE_MAP = {
   "Warehouse Staff": "User",
 };
 
+const resizeImage = (file, size = 128) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      // Crop to square
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2;
+      const sy = (img.height - minSide) / 2;
+
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to resize image"));
+            return;
+          }
+
+          resolve(
+            new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            }),
+          );
+        },
+        "image/jpeg",
+        0.85, // 85% quality
+      );
+    };
+
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+
 export default function UserForm({
   visible,
   onClose,
@@ -360,9 +401,16 @@ export default function UserForm({
                   <Upload
                     listType="picture-card"
                     showUploadList={false}
-                    beforeUpload={(nextFile) => {
-                      setFile(nextFile);
-                      setImageUrl(URL.createObjectURL(nextFile));
+                    beforeUpload={async (nextFile) => {
+                      try {
+                        const resizedFile = await resizeImage(nextFile, 128);
+
+                        setFile(resizedFile);
+                        setImageUrl(URL.createObjectURL(resizedFile));
+                      } catch (err) {
+                        console.error(err);
+                      }
+
                       return false;
                     }}
                   >
@@ -370,6 +418,8 @@ export default function UserForm({
                       <img
                         src={imageUrl}
                         alt="avatar"
+                        loading="lazy"
+                        decoding="async"
                         style={{ width: "100%" }}
                       />
                     ) : (

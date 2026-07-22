@@ -8,7 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
@@ -18,9 +18,15 @@ import {
   ROLE_MAP,
   ROLES_REQUIRING_LICENSE,
 } from "./constants";
+import * as ImageManipulator from "expo-image-manipulator";
 import AlertComp from "../AlertComp";
 
-const buildUsername = ({ firstName, lastName, users = [], currentUserId = "" }) => {
+const buildUsername = ({
+  firstName,
+  lastName,
+  users = [],
+  currentUserId = "",
+}) => {
   const safeFirst = String(firstName || "").trim();
   const safeLast = String(lastName || "").trim();
   if (!safeFirst || !safeLast) return "";
@@ -107,7 +113,8 @@ export default function UserFormModal({
   }, [form.firstName, form.lastName, isEdit, users, visible]);
 
   const requiresLicense = useMemo(
-    () => ROLES_REQUIRING_LICENSE.has(String(form.jobTitle || "").toLowerCase()),
+    () =>
+      ROLES_REQUIRING_LICENSE.has(String(form.jobTitle || "").toLowerCase()),
     [form.jobTitle],
   );
 
@@ -122,7 +129,8 @@ export default function UserFormModal({
           email: userToEdit?.email || "",
           username: userToEdit?.username || "",
           jobTitle: userToEdit?.jobTitle || "",
-          access: userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
+          access:
+            userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
           licenseNo: userToEdit?.licenseNo || "",
         }
       : emptyForm;
@@ -193,7 +201,8 @@ export default function UserFormModal({
           return;
         }
       } else {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permission.status !== "granted") {
           setError("Media library permission is required to pick a photo.");
           return;
@@ -215,6 +224,22 @@ export default function UserFormModal({
 
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
+
+      const resized = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+        },
+      );
+
+      setImageUri(resized.uri);
+
+      setPickedImageAsset({
+        ...asset,
+        uri: resized.uri,
+      });
       setImageUri(asset.uri || "");
       setPickedImageAsset(asset);
       setError("");
@@ -227,115 +252,150 @@ export default function UserFormModal({
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancelWithWarning}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCancelWithWarning}
+      >
         <View style={styles.backdrop}>
           <View style={styles.card}>
-            <AppText style={styles.title}>{isEdit ? "Edit User" : "Add User"}</AppText>
+            <AppText style={styles.title}>
+              {isEdit ? "Edit User" : "Add User"}
+            </AppText>
             <ScrollView showsVerticalScrollIndicator={false}>
-            <AppText style={styles.label}>Profile Image</AppText>
-            <View style={styles.imageRow}>
-              <View style={styles.imagePreviewWrap}>
-                {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                ) : (
-                  <AppText style={styles.imagePlaceholder}>No image</AppText>
-                )}
+              <AppText style={styles.label}>Profile Image</AppText>
+              <View style={styles.imageRow}>
+                <View style={styles.imagePreviewWrap}>
+                  {imageUri ? (
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.imagePreview}
+                    />
+                  ) : (
+                    <AppText style={styles.imagePlaceholder}>No image</AppText>
+                  )}
+                </View>
+                <View style={{ flex: 1, gap: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.imageBtn,
+                      imageLoading && styles.imageBtnDisabled,
+                    ]}
+                    onPress={() => pickImage(false)}
+                    disabled={imageLoading}
+                  >
+                    <AppText style={styles.imageBtnTxt}>
+                      Choose from Gallery
+                    </AppText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.imageBtn,
+                      imageLoading && styles.imageBtnDisabled,
+                    ]}
+                    onPress={() => pickImage(true)}
+                    disabled={imageLoading}
+                  >
+                    <AppText style={styles.imageBtnTxt}>Take Photo</AppText>
+                  </TouchableOpacity>
+                  {imageLoading ? (
+                    <ActivityIndicator color={COLORS.primaryLight} />
+                  ) : null}
+                </View>
               </View>
-              <View style={{ flex: 1, gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
-                  onPress={() => pickImage(false)}
-                  disabled={imageLoading}
+              <AppText style={styles.label}>First Name</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.firstName}
+                onChangeText={(value) =>
+                  updateField("firstName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
+                }
+                placeholder="Enter first name"
+              />
+              <AppText style={styles.label}>Last Name</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.lastName}
+                onChangeText={(value) =>
+                  updateField("lastName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
+                }
+                placeholder="Enter last name"
+              />
+              <AppText style={styles.label}>Email</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.email}
+                onChangeText={(value) => updateField("email", value)}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="Enter email"
+              />
+              <AppText style={styles.label}>Username</AppText>
+              <AppInput
+                style={[styles.input, styles.disabledInput]}
+                value={form.username}
+                onChangeText={(value) => updateField("username", value)}
+                editable={isEdit}
+                placeholder="Auto-generated"
+              />
+
+              <AppText style={styles.label}>Job Title</AppText>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={form.jobTitle}
+                  onValueChange={(value) => {
+                    updateField("jobTitle", value);
+                    updateField("access", ROLE_MAP[value] || "");
+                    if (
+                      !ROLES_REQUIRING_LICENSE.has(String(value).toLowerCase())
+                    ) {
+                      updateField("licenseNo", "");
+                    }
+                  }}
                 >
-                  <AppText style={styles.imageBtnTxt}>Choose from Gallery</AppText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
-                  onPress={() => pickImage(true)}
-                  disabled={imageLoading}
-                >
-                  <AppText style={styles.imageBtnTxt}>Take Photo</AppText>
-                </TouchableOpacity>
-                {imageLoading ? <ActivityIndicator color={COLORS.primaryLight} /> : null}
+                  <Picker.Item label="Select job title" value="" />
+                  {JOB_TITLE_OPTIONS.map((item) => (
+                    <Picker.Item key={item} label={item} value={item} />
+                  ))}
+                </Picker>
               </View>
-            </View>
-            <AppText style={styles.label}>First Name</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.firstName}
-              onChangeText={(value) =>
-                updateField("firstName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
-              }
-              placeholder="Enter first name"
-            />
-            <AppText style={styles.label}>Last Name</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.lastName}
-              onChangeText={(value) =>
-                updateField("lastName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
-              }
-              placeholder="Enter last name"
-            />
-            <AppText style={styles.label}>Email</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.email}
-              onChangeText={(value) => updateField("email", value)}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="Enter email"
-            />
-            <AppText style={styles.label}>Username</AppText>
-            <AppInput
-              style={[styles.input, styles.disabledInput]}
-              value={form.username}
-              onChangeText={(value) => updateField("username", value)}
-              editable={isEdit}
-              placeholder="Auto-generated"
-            />
 
-            <AppText style={styles.label}>Job Title</AppText>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={form.jobTitle}
-                onValueChange={(value) => {
-                  updateField("jobTitle", value);
-                  updateField("access", ROLE_MAP[value] || "");
-                  if (!ROLES_REQUIRING_LICENSE.has(String(value).toLowerCase())) {
-                    updateField("licenseNo", "");
-                  }
-                }}
-              >
-                <Picker.Item label="Select job title" value="" />
-                {JOB_TITLE_OPTIONS.map((item) => (
-                  <Picker.Item key={item} label={item} value={item} />
-                ))}
-              </Picker>
-            </View>
+              <AppText style={styles.label}>Access</AppText>
+              <AppInput
+                style={[styles.input, styles.disabledInput]}
+                value={form.access}
+                editable={false}
+              />
 
-            <AppText style={styles.label}>Access</AppText>
-            <AppInput style={[styles.input, styles.disabledInput]} value={form.access} editable={false} />
+              {requiresLicense ? (
+                <>
+                  <AppText style={styles.label}>License No. (6 digits)</AppText>
+                  <AppInput
+                    style={styles.input}
+                    value={form.licenseNo}
+                    onChangeText={(value) =>
+                      updateField(
+                        "licenseNo",
+                        value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                    keyboardType="number-pad"
+                    placeholder="Enter license number"
+                  />
+                </>
+              ) : null}
 
-            {requiresLicense ? (
-              <>
-                <AppText style={styles.label}>License No. (6 digits)</AppText>
-                <AppInput
-                  style={styles.input}
-                  value={form.licenseNo}
-                  onChangeText={(value) => updateField("licenseNo", value.replace(/\D/g, "").slice(0, 6))}
-                  keyboardType="number-pad"
-                  placeholder="Enter license number"
-                />
-              </>
-            ) : null}
-
-            {error ? <AppText style={styles.error}>{error}</AppText> : null}
+              {error ? <AppText style={styles.error}>{error}</AppText> : null}
             </ScrollView>
 
             <View style={styles.actions}>
               <TouchableOpacity
-                style={[styles.btn, styles.secondary, saving && styles.imageBtnDisabled]}
+                style={[
+                  styles.btn,
+                  styles.secondary,
+                  saving && styles.imageBtnDisabled,
+                ]}
                 onPress={handleCancelWithWarning}
                 disabled={saving}
               >
@@ -346,14 +406,20 @@ export default function UserFormModal({
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.btn, styles.primary, saving && styles.imageBtnDisabled]}
+                style={[
+                  styles.btn,
+                  styles.primary,
+                  saving && styles.imageBtnDisabled,
+                ]}
                 onPress={validateAndSubmit}
                 disabled={saving}
               >
                 {saving ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <AppText style={styles.primaryTxt}>{isEdit ? "Save" : "Create"}</AppText>
+                  <AppText style={styles.primaryTxt}>
+                    {isEdit ? "Save" : "Create"}
+                  </AppText>
                 )}
               </TouchableOpacity>
             </View>
