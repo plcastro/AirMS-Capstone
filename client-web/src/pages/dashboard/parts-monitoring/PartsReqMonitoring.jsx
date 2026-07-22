@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
+import ResultPopup from "../../../components/common/ResultPopup";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
@@ -134,6 +135,12 @@ export default function PartsReqMonitoring() {
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const allowedRoles = [
     "superadmin",
     "warehouse staff",
@@ -505,8 +512,12 @@ export default function PartsReqMonitoring() {
       if (!response.ok) {
         throw new Error(data?.message || "Failed to create requisition");
       }
-
-      message.success(`${nextSlipNo} added successfully.`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "WRS " + nextSlipNo,
+        subTitle: `${nextSlipNo} added successfully.`,
+      });
       closeAddRequisitionModal();
       await handleAllRequisitions();
     } catch (err) {
@@ -734,6 +745,13 @@ export default function PartsReqMonitoring() {
           </Form.List>
         </Form>
       </Modal>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

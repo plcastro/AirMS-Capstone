@@ -18,7 +18,6 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tabs,
   Typography,
   DatePicker,
@@ -35,6 +34,8 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -447,6 +448,12 @@ export default function PreInspection() {
   const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
   const [createSelectAllState, setCreateSelectAllState] = useState({});
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
@@ -486,7 +493,12 @@ export default function PreInspection() {
         throw new Error(data.message || "Failed to load pre-inspections");
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load pre-inspections");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load pre-inspections",
+      });
     } finally {
       setLoading(false);
     }
@@ -637,14 +649,24 @@ export default function PreInspection() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "Failed to release pre-inspection");
-      message.success("Pre-inspection released");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-Inspection Released!",
+        subTitle: "The pre-inspection has been released successfully.",
+      });
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
       setCreateSelectAllState({});
       await load();
     } catch (error) {
       setCreating(false);
-      message.error(error.message || "Failed to release pre-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to release pre-inspection",
+      });
     }
   };
 
@@ -679,9 +701,19 @@ export default function PreInspection() {
         throw new Error(data.message || "Failed to update pre-inspection");
       setEditing(data.data);
       await load();
-      message.success("Pre-inspection updated");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-Inspection Updated!",
+        subTitle: "The pre-inspection has been updated successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to update pre-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update pre-inspection",
+      });
     }
   };
 
@@ -709,9 +741,19 @@ export default function PreInspection() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      message.success("Pre-inspection exported successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-Inspection Exported!",
+        subTitle: "The pre-inspection PDF has been exported successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to export pre-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to export pre-inspection",
+      });
     }
   };
 
@@ -917,9 +959,7 @@ export default function PreInspection() {
           {
             title: "Status",
             dataIndex: "status",
-            render: (value) => (
-              <Tag>{String(value || "pending").toUpperCase()}</Tag>
-            ),
+            render: (value) => renderStatusTag(value, "pending"),
           },
           {
             title: "Action",
@@ -1238,7 +1278,7 @@ export default function PreInspection() {
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
-                {editing.status}
+                {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
@@ -1308,6 +1348,13 @@ export default function PreInspection() {
         confirmDescription="Enter your 6-digit PIN to confirm this signature."
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

@@ -21,10 +21,8 @@ import {
   Space,
   Table,
   Tabs,
-  Tag,
   Typography,
   DatePicker,
-  App,
 } from "antd";
 import {
   DeleteOutlined,
@@ -36,6 +34,8 @@ import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 
 const { Text } = Typography;
@@ -174,7 +174,6 @@ const createCustomChecklistItem = (index = 0) => ({
 });
 
 export default function TaskAssignment() {
-  const { message: messageApi } = App.useApp();
   const { user, getAuthHeader } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
@@ -195,6 +194,12 @@ export default function TaskAssignment() {
   const [signatureState, setSignatureState] = useState({
     open: false,
     mode: null,
+  });
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
   });
   const role = String(user?.jobTitle || user?.access || "")
     .trim()
@@ -242,7 +247,12 @@ export default function TaskAssignment() {
         setUsers([]);
       }
     } catch (error) {
-      messageApi.error(error.message || "Failed to load tasks");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load tasks",
+      });
     } finally {
       setLoading(false);
     }
@@ -504,7 +514,12 @@ export default function TaskAssignment() {
         endDateTime: dayjs(addDaysToDate(start.toDate(), estimate.days)),
       });
     } catch (error) {
-      messageApi.error(error.message || "Failed to fetch inspection tasks");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to fetch inspection tasks",
+      });
       form.setFieldsValue({ checklistItems: [] });
     }
   };
@@ -554,10 +569,20 @@ export default function TaskAssignment() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(data.message || "Failed to delete task");
-      messageApi.success("Task deleted");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Deleted!",
+        subTitle: "The task has been deleted successfully.",
+      });
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to delete task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to delete task",
+      });
     }
   };
 
@@ -579,11 +604,21 @@ export default function TaskAssignment() {
     };
     try {
       await upsertTask(next);
-      messageApi.success("Task started");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Started!",
+        subTitle: "The task has been started successfully.",
+      });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to start task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to start task",
+      });
     }
   };
 
@@ -613,9 +648,12 @@ export default function TaskAssignment() {
         ? next.checklistState
         : [];
       if (checklist.length > 0 && checklist.some((value) => !value)) {
-        messageApi.error(
-          "Please complete all checklist items before turning in",
-        );
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: "Please complete all checklist items before turning in",
+        });
         return;
       }
     }
@@ -633,17 +671,26 @@ export default function TaskAssignment() {
 
     try {
       await upsertTask(next);
-      messageApi.success(
-        options.undo
-          ? "Turn in undone"
-          : turnIn
-            ? "Task turned in"
-            : "Draft saved",
-      );
+      const title = options.undo
+        ? "Turn In Undone!"
+        : turnIn
+          ? "Task Turned In!"
+          : "Draft Saved!";
+      setPopup({
+        open: true,
+        status: "success",
+        title,
+        subTitle: "The task has been updated successfully.",
+      });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to update task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update task",
+      });
     }
   };
 
@@ -732,20 +779,37 @@ export default function TaskAssignment() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to save task");
-      messageApi.success(editingTask ? "Task updated" : "Task created");
+      setPopup({
+        open: true,
+        status: "success",
+        title: editingTask ? "Task Updated!" : "Task Created!",
+        subTitle: editingTask
+          ? "The task has been updated successfully."
+          : "The task has been created successfully.",
+      });
       form.resetFields();
       setEditingTask(null);
       setCreateOpen(false);
       await load();
     } catch (error) {
       if (!error?.errorFields)
-        messageApi.error(error.message || "Failed to create task");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to create task",
+        });
     }
   };
 
   const submitReturn = async () => {
     if (!selectedTask || !reviewNote.trim()) {
-      messageApi.error("Return remarks are required");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Return remarks are required",
+      });
       return;
     }
 
@@ -777,14 +841,24 @@ export default function TaskAssignment() {
         reviewedAt: new Date().toISOString(),
         checklistState: nextChecklist,
       });
-      messageApi.success("Task returned");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Returned!",
+        subTitle: "The task has been returned successfully.",
+      });
       setReviewOpen(false);
       setChecklistOpen(false);
       setReviewNote("");
       setItemsToUncheck([]);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to return task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to return task",
+      });
     }
   };
 
@@ -804,12 +878,22 @@ export default function TaskAssignment() {
         approvedAt: new Date().toISOString(),
         reviewedAt: new Date().toISOString(),
       });
-      messageApi.success("Task approved");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Approved!",
+        subTitle: "The task has been approved successfully.",
+      });
       setSignatureState({ open: false, mode: null });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to approve task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to approve task",
+      });
     }
   };
 
@@ -918,7 +1002,7 @@ export default function TaskAssignment() {
           {
             title: "Status",
             dataIndex: "status",
-            render: (value) => <Tag>{value || "Pending"}</Tag>,
+            render: (value) => renderStatusTag(value, "Pending"),
           },
           {
             title: "Due",
@@ -1278,7 +1362,7 @@ export default function TaskAssignment() {
                 <div style={{ marginTop: 6 }}>
                   {isReviewed(selectedTask) ? (
                     <>
-                      <Tag color="green">Approved</Tag>
+                      {renderStatusTag("approved")}
                       <Text type="secondary">
                         {selectedTask.approvedBy
                           ? `Approved by ${selectedTask.approvedBy}`
@@ -1307,7 +1391,7 @@ export default function TaskAssignment() {
                     </>
                   ) : (
                     <>
-                      <Tag color="orange">Pending Approval</Tag>
+                      {renderStatusTag("pending approval")}
                       <Text type="secondary">
                         Pending review by Maintenance Manager
                       </Text>
@@ -1531,6 +1615,13 @@ export default function TaskAssignment() {
         confirmDescription="Enter your 6-digit PIN to approve this task."
         onCancel={() => setSignatureState({ open: false, mode: null })}
         onSave={submitApprove}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

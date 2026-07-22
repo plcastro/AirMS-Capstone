@@ -1582,7 +1582,6 @@ const updateUserImage = async (req, res) => {
       req.body?.removeImage === true ||
       req.body?.image === null ||
       req.body?.image === "null";
-
     if (req.file) {
       if (
         user.image &&
@@ -1593,8 +1592,6 @@ const updateUserImage = async (req, res) => {
       }
 
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
-
-      console.log("New image path ready for DB:", newImagePath);
     } else if (shouldRemoveImage) {
       if (user.image && typeof user.image === "string") {
         await deleteFile(user.image);

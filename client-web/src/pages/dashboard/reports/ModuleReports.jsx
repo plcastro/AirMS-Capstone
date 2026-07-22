@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Card, Col, Row, Segmented, Space, Table, Tag, Typography } from "antd";
+import { Card, Col, Row, Segmented, Space, Table, Typography } from "antd";
+import { renderStatusTag } from "../../../utils/statusTags";
 import {
   Bar,
   BarChart,
@@ -26,23 +27,6 @@ const COLORS = [
   "#eb2f96",
   "#52c41a",
 ];
-
-const STATUS_COLORS = {
-  completed: "success",
-  delivered: "success",
-  approved: "success",
-  accepted: "processing",
-  released: "processing",
-  "pending acceptance": "warning",
-  "pending release": "warning",
-  pending: "warning",
-  "parts requested": "processing",
-  "availability checked": "cyan",
-  "to be ordered": "gold",
-  ordered: "blue",
-  cancelled: "error",
-  rejected: "error",
-};
 
 const normalizeStatus = (value) =>
   String(value || "Unknown")
@@ -139,13 +123,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
 
 const StatusTag = ({ status }) => {
   const label = normalizeStatus(status);
-  const color = STATUS_COLORS[label.toLowerCase()] || "default";
-
-  return (
-    <Tag color={color} style={{ fontWeight: 600, borderRadius: 4 }}>
-      {label.toUpperCase()}
-    </Tag>
-  );
+  return renderStatusTag(label);
 };
 
 const EmptyChart = () => (

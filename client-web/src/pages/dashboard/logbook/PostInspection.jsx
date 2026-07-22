@@ -17,12 +17,10 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tabs,
   Typography,
   Grid,
   DatePicker,
-  message,
 } from "antd";
 import {
   EditOutlined,
@@ -31,6 +29,8 @@ import {
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -84,6 +84,12 @@ export default function PostInspection() {
   const [editing, setEditing] = useState(null);
   const [signatureMode, setSignatureMode] = useState(null);
   const [editTab, setEditTab] = useState("basic");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
@@ -109,7 +115,12 @@ export default function PostInspection() {
         throw new Error(data.message || "Failed to load post-inspections");
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load post-inspections");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load post-inspections",
+      });
     } finally {
       setLoading(false);
     }
@@ -250,9 +261,19 @@ export default function PostInspection() {
         throw new Error(data.message || "Failed to update post-inspection");
       setEditing(data.data);
       await load();
-      message.success("Post-inspection updated");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Inspection Updated!",
+        subTitle: "The post-inspection has been updated successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to update post-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update post-inspection",
+      });
     }
   };
 
@@ -280,9 +301,19 @@ export default function PostInspection() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      message.success("Post-inspection exported successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Inspection Exported!",
+        subTitle: "The post-inspection PDF has been exported successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to export post-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to export post-inspection",
+      });
     }
   };
 
@@ -350,9 +381,7 @@ export default function PostInspection() {
           {
             title: "Status",
             dataIndex: "status",
-            render: (value) => (
-              <Tag>{String(value || "pending").toUpperCase()}</Tag>
-            ),
+            render: (value) => renderStatusTag(value, "pending"),
           },
           {
             title: "Action",
@@ -525,7 +554,7 @@ export default function PostInspection() {
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
-                {editing.status}
+                {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
@@ -558,6 +587,13 @@ export default function PostInspection() {
         confirmDescription="Enter your 6-digit PIN to confirm completion."
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

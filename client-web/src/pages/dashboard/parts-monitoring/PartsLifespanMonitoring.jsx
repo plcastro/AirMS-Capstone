@@ -12,6 +12,7 @@ import {
   Modal,
   Alert,
   Space,
+  Checkbox,
   Table as AntTable,
 } from "antd";
 import {
@@ -21,7 +22,7 @@ import {
   PlusOutlined,
 } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
-
+import ResultPopup from "../../../components/common/ResultPopup";
 import {
   processDataWithFormulas as processAS350,
   getToday,
@@ -33,6 +34,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import { useSearchParams } from "react-router-dom";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -313,6 +315,7 @@ const columnHeader = [
 
 export default function PartsMonitoring() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
   const normalizedRole = String(user?.jobTitle || "").toLowerCase();
   const isOfficerInCharge = normalizedRole === "officer-in-charge";
   const canManageAircraft = ["maintenance manager", "superadmin"].includes(
@@ -332,6 +335,7 @@ export default function PartsMonitoring() {
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [showComponentsToUpdate, setShowComponentsToUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [loadingAircraft, setLoadingAircraft] = useState(false);
@@ -348,6 +352,13 @@ export default function PartsMonitoring() {
     creepDamage: "",
     serialNumber: "",
   });
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
   const formattedAircraftOptions = [
     {
       label: "Select aircraft",
@@ -385,6 +396,15 @@ export default function PartsMonitoring() {
     fetchAircraftList();
   }, []);
 
+  useEffect(() => {
+    const aircraftFromNotification =
+      searchParams.get("aircraft") || searchParams.get("targetAircraft");
+
+    if (aircraftFromNotification) {
+      setSelectedAircraft(aircraftFromNotification);
+    }
+  }, [searchParams]);
+
   // Save data to database
   const handleSaveToDatabase = async () => {
     const confirmed = await confirmAction({
@@ -417,7 +437,12 @@ export default function PartsMonitoring() {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        message.success("Data saved successfully!");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Aircraft data saved",
+          subTitle: "The aircraft data has been saved successfully.",
+        });
         setLastSaved(new Date());
       } else {
         message.error(data.message || "Failed to save data");
@@ -511,8 +536,13 @@ export default function PartsMonitoring() {
       if (!response.ok || !data.success) {
         throw new Error(data.message || "Failed to import aircraft workbook");
       }
-
-      message.success(data.message || "Aircraft imported successfully.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Aircraft data imported",
+        subTitle:
+          data.message || "The aircraft data has been imported successfully.",
+      });
       await fetchAircraftList();
       setSelectedAircraft(data.data.aircraft);
       setLastSaved(new Date());
@@ -623,6 +653,36 @@ export default function PartsMonitoring() {
     const processor = getFormulaProcessor(selectedAircraft);
     return removeLegendRows(processor(rawData, refs));
   }, [rawData, refs, selectedAircraft]);
+
+  const componentsToUpdate = useMemo(
+    () =>
+      computedData
+        .filter((row) => {
+          if (row.rowType === "header") return false;
+
+          const timeRemaining = Number(row.timeRemaining);
+          const daysRemaining = Number(row.daysRemaining);
+          const dueByHours =
+            row.timeRemaining !== null &&
+            row.timeRemaining !== "" &&
+            Number.isFinite(timeRemaining) &&
+            timeRemaining <= 0;
+          const dueByDays =
+            row.daysRemaining !== null &&
+            row.daysRemaining !== "" &&
+            Number.isFinite(daysRemaining) &&
+            daysRemaining <= 0;
+
+          return Boolean(row.due) || dueByHours || dueByDays;
+        })
+        .map((row) => ({
+          key: row._id || row.componentName,
+          componentName: row.componentName || "Unnamed component",
+          timeRemaining: row.timeRemaining,
+          daysRemaining: row.daysRemaining,
+        })),
+    [computedData],
+  );
 
   const isCellEditable = (record, dataIndex) => {
     if (record.rowType !== "part") return false;
@@ -888,10 +948,20 @@ export default function PartsMonitoring() {
         blob,
         `${sanitizeSheetFileName(selectedAircraft)}-Parts-Lifespan-Monitoring.xlsx`,
       );
-      message.success("Parts lifespan monitoring exported successfully.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Aircraft data exported",
+        subTitle: "The aircraft data has been exported successfully.",
+      });
     } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Aircraft data export failed",
+        subTitle: error.message || "The aircraft data export failed.",
+      });
       console.error("Parts lifespan export failed:", error);
-      message.error(`Export failed: ${error.message}`);
     }
   };
 
@@ -1206,6 +1276,49 @@ export default function PartsMonitoring() {
           </Row>
         </Space>
       </Card>
+      {/* <div style={{ marginBottom: 16 }}>
+        <Button onClick={() => setShowComponentsToUpdate((current) => !current)}>
+          {showComponentsToUpdate
+            ? "Hide Components to Update"
+            : "Show Components to Update"}
+        </Button>
+      </div>
+      {showComponentsToUpdate && (
+        <Card
+          className="aircraft-card"
+          title="Components to Update"
+          size="small"
+          style={{ marginBottom: 16 }}
+        >
+          {componentsToUpdate.length ? (
+            <Row gutter={[12, 8]}>
+              {componentsToUpdate.map((item) => (
+                <Col xs={24} sm={12} lg={8} key={item.key}>
+                  <Checkbox checked disabled>
+                    <Space size={6} wrap>
+                      <Text strong>{item.componentName}</Text>
+                      {item.timeRemaining !== "" &&
+                        item.timeRemaining !== null && (
+                          <Text type="secondary">{item.timeRemaining} FH</Text>
+                        )}
+                      {item.daysRemaining !== "" &&
+                        item.daysRemaining !== null && (
+                          <Text type="secondary">
+                            {item.daysRemaining} day(s)
+                          </Text>
+                        )}
+                    </Space>
+                  </Checkbox>
+                </Col>
+              ))}
+            </Row>
+          ) : (
+            <Text type="secondary">
+              No components are currently marked for update.
+            </Text>
+          )}
+        </Card>
+      )} */}
       <PMonitoringTable
         headers={columnHeader}
         data={computedData}
@@ -1379,6 +1492,13 @@ export default function PartsMonitoring() {
         confirmDescription="Enter your 6-digit PIN to confirm this aircraft import."
         onCancel={() => setSignatureImportOpen(false)}
         onSave={handleImportWorkbook}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

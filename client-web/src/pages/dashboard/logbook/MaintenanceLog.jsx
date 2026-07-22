@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography, Space, Tag } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -10,38 +10,12 @@ import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { renderStatusTag } from "../../../utils/statusTags";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
-const STATUS_TAG_COLORS = {
-  approved: "green",
-  verified: "green",
-  completed: "green",
-  complete: "green",
-  rectified: "green",
-  released: "green",
-  active: "green",
-  open: "blue",
-  pending: "gold",
-  "in progress": "processing",
-  ongoing: "processing",
-  assigned: "cyan",
-  submitted: "blue",
-  review: "purple",
-  "for review": "purple",
-  rejected: "red",
-  cancelled: "red",
-  canceled: "red",
-  failed: "red",
-  overdue: "volcano",
-  deferred: "orange",
-  inactive: "default",
-  closed: "default",
-  "n/a": "default",
-};
-
 const formatPdfValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
     ? fallback
@@ -52,18 +26,6 @@ const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
-
-const getStatusTagColor = (status) => {
-  const normalized = String(status || "N/A")
-    .trim()
-    .toLowerCase();
-  return STATUS_TAG_COLORS[normalized] || "default";
-};
-
-const renderStatusTag = (status) => {
-  const label = String(status || "N/A").trim() || "N/A";
-  return <Tag color={getStatusTagColor(label)}>{label.toUpperCase()}</Tag>;
-};
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {

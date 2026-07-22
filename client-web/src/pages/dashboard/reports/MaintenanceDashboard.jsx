@@ -29,6 +29,8 @@ import {
 import { SDMChart } from "../../../components/common/PieChart";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { renderStatusTag } from "../../../utils/statusTags";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -169,6 +171,12 @@ export default function MaintenanceDashboard() {
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
   const [taskDetailView, setTaskDetailView] = useState("dueSoon");
   const [activeKpi, setActiveKpi] = useState("dueSoon");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const statTitleStyle = {
     fontSize: 12,
     lineHeight: 1.25,
@@ -179,12 +187,6 @@ export default function MaintenanceDashboard() {
     lineHeight: 1.1,
     wordBreak: "break-word",
   };
-  const compactStatValueStyle = {
-    fontSize: 18,
-    lineHeight: 1.15,
-    wordBreak: "break-word",
-  };
-
   const isCompletedTask = (task = {}) => {
     const status = String(task.status || "")
       .trim()
@@ -604,15 +606,8 @@ export default function MaintenanceDashboard() {
       key: "status",
       width: 130,
       render: (value) => {
-        const normalized = String(value || "").toLowerCase();
-        const color =
-          taskDetailView === "overdue"
-            ? "red"
-            : ["completed", "turned in", "approved"].includes(normalized)
-              ? "green"
-              : "gold";
-
-        return <Tag color={color}>{String(value || "N/A").toUpperCase()}</Tag>;
+        if (taskDetailView === "overdue") return renderStatusTag("overdue");
+        return renderStatusTag(value);
       },
     },
     {
@@ -964,10 +959,21 @@ export default function MaintenanceDashboard() {
         blob,
         `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`,
       );
-      message.success("Reports and analytics Excel exported successfully.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Excel Exported!",
+        subTitle:
+          "Reports and analytics Excel has been exported successfully.",
+      });
     } catch (error) {
       console.error("Reports Excel export failed:", error);
-      message.error(`Excel export failed: ${error.message}`);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: `Excel export failed: ${error.message}`,
+      });
     }
   };
 
@@ -1187,10 +1193,20 @@ export default function MaintenanceDashboard() {
       });
 
       doc.save(`${buildSafeFileName("Reports and Analytics")} Numbers.pdf`);
-      message.success("Reports and analytics PDF exported successfully.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "PDF Exported!",
+        subTitle: "Reports and analytics PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Reports PDF export failed:", error);
-      message.error(`PDF export failed: ${error.message}`);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: `PDF export failed: ${error.message}`,
+      });
     }
   };
 
@@ -1597,6 +1613,13 @@ export default function MaintenanceDashboard() {
           </Row>
         </Card>
       ))}
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

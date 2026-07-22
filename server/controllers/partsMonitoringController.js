@@ -11,6 +11,7 @@ const {
   processDataWithFormulas,
 } = require("../utils/partsMonitoringFormulas");
 const { estimateInspectionSchedule } = require("../utils/inspectionTiming");
+const { publishTypedEvent } = require("../utils/realtimeEvents");
 
 const MAJOR_INSPECTION_HOURS = new Set([10, 150, 600, 750, 1200, 1500]);
 const TURNAROUND_TIE_HOURS = 15;
@@ -35,6 +36,16 @@ const DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT = {
     J2: 498.8,
     N3: 1130.8,
   },
+};
+
+const publishPartsMonitoringChanged = (aircraft, action = "updated") => {
+  publishTypedEvent("data-changed", {
+    module: "parts-monitoring",
+    entityType: "parts-monitoring",
+    aircraft,
+    action,
+    changedAt: new Date().toISOString(),
+  });
 };
 
 const normalizeAircraftModel = (value = "") => {
@@ -625,6 +636,7 @@ exports.updateAircraftTotals = async (req, res) => {
     partsData.updatedBy = req.body.updatedBy || "flight_log_system";
 
     await partsData.save();
+    publishPartsMonitoringChanged(aircraft, "totals-updated");
 
     res.status(200).json({
       success: true,
@@ -682,6 +694,7 @@ exports.savePartsMonitoring = async (req, res) => {
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
+      publishPartsMonitoringChanged(aircraft, "saved");
       res.status(200).json({ success: true, message: "Data updated successfully", data: existingData });
     } else {
       const newData = new PartsMonitoring({
@@ -695,6 +708,7 @@ exports.savePartsMonitoring = async (req, res) => {
         updatedBy: updatedBy || "system",
       });
       await newData.save();
+      publishPartsMonitoringChanged(aircraft, "saved");
       res.status(201).json({ success: true, message: "Data saved successfully", data: newData });
     }
   } catch (error) {
@@ -786,6 +800,7 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
         lastUpdated: new Date(),
         updatedBy,
       });
+      publishPartsMonitoringChanged(createdRecord.aircraft, "imported");
 
       return res.status(201).json({
         success: true,
@@ -800,6 +815,8 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
         },
       });
     }
+
+    publishPartsMonitoringChanged(savedRecord.aircraft, "imported");
 
     res.status(200).json({
       success: true,

@@ -11,9 +11,71 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
+import AirmsFavicon from "../../assets/favicon.ico";
 const { Header, Sider, Content } = Layout;
-const { AirmsFavicon } = "../assets/favicon.ico";
 const { useBreakpoint } = Grid;
+const WEB_SETTINGS_KEY = "webProfileSettings";
+const MODULE_NAMES = {
+  messages: "Messages",
+  tasks: "Tasks",
+  maintenance: "Maintenance",
+  "parts-requisition": "Parts Requisition",
+  "flight-log": "Flight Logs",
+  reports: "Reports",
+  users: "User Management",
+  "parts-monitoring": "Parts Lifespan Monitoring",
+};
+const AIRCRAFT_FH_WARNING_SEEN_KEY = "aircraftFhDueWarningSeen";
+const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
+const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
+
+const getAircraftFhDueSettings = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    return {
+      enabled: stored.aircraftFhDueNotificationsEnabled === true,
+      threshold:
+        typeof stored.aircraftFhDueThreshold === "number"
+          ? stored.aircraftFhDueThreshold
+          : 25,
+    };
+  } catch {
+    return { enabled: false, threshold: 25 };
+  }
+};
+
+const areBrowserNotificationsEnabled = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    return stored.notificationsEnabled === true;
+  } catch {
+    return false;
+  }
+};
+
+const getLocalDateKey = () => new Date().toISOString().slice(0, 10);
+
+const loadAircraftFhNotifications = () => {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(AIRCRAFT_FH_NOTIFICATIONS_KEY) || "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveAircraftFhNotifications = (notifications) => {
+  localStorage.setItem(
+    AIRCRAFT_FH_NOTIFICATIONS_KEY,
+    JSON.stringify(notifications.slice(0, 50)),
+  );
+  window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
+};
+
+const getAircraftFhUnreadCount = () =>
+  loadAircraftFhNotifications().filter((item) => !item.read).length;
 
 const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
   const initials = `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
@@ -29,6 +91,8 @@ const DashboardLayout = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const seenNotificationIdsRef = useRef(new Set());
+  const seenAircraftFhWarningsRef = useRef(new Set());
+  const serverUnreadCountRef = useRef(0);
   const initialSyncDoneRef = useRef(false);
   const { user, getAuthHeader } = useContext(AuthContext);
   const nav = useNavigate();
@@ -57,28 +121,200 @@ const DashboardLayout = () => {
 
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
-  const moduleNames = {
-    messages: "Messages",
-    tasks: "Tasks",
-    maintenance: "Maintenance",
-    "parts-requisition": "Parts Requisition",
-    "flight-log": "Flight Logs",
-    reports: "Reports",
-    users: "User Management",
-  };
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
+
+    const showNotification = ({
+      title = "New Notification",
+      description = "You have a new update.",
+      duration = 4,
+      onClick,
+    } = {}) => {
+      api.info({
+        message: title,
+        description,
+        placement: "topRight",
+        duration,
+        onClick,
+      });
+
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        areBrowserNotificationsEnabled()
+      ) {
+        const nativeNotification = new Notification(title, {
+          body: description,
+          icon: AirmsFavicon,
+        });
+
+        if (onClick) {
+          nativeNotification.onclick = () => {
+            window.focus?.();
+            onClick();
+            nativeNotification.close?.();
+          };
+        }
+      }
+    };
+
+    const goToAircraftMonitoring = (aircraft) => {
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        aircraft: String(aircraft || ""),
+      });
+      nav(`/dashboard/parts-lifespan-monitoring?${params.toString()}`);
+    };
+
+    const loadSeenAircraftFhWarnings = () => {
+      try {
+        const stored = JSON.parse(
+          localStorage.getItem(AIRCRAFT_FH_WARNING_SEEN_KEY) || "[]",
+        );
+        seenAircraftFhWarningsRef.current = new Set(
+          Array.isArray(stored) ? stored.map(String) : [],
+        );
+      } catch {
+        seenAircraftFhWarningsRef.current = new Set();
+      }
+    };
+
+    const saveSeenAircraftFhWarnings = () => {
+      try {
+        localStorage.setItem(
+          AIRCRAFT_FH_WARNING_SEEN_KEY,
+          JSON.stringify(Array.from(seenAircraftFhWarningsRef.current)),
+        );
+      } catch {
+        // Best effort only; repeated warnings are still bounded by the ref.
+      }
+    };
+
+    const syncUnreadBadge = (serverUnread = serverUnreadCountRef.current) => {
+      serverUnreadCountRef.current = serverUnread;
+      setUnreadCount(serverUnread + getAircraftFhUnreadCount());
+    };
+
+    const addAircraftFhBellNotification = (notification) => {
+      const currentNotifications = loadAircraftFhNotifications();
+      const existingIndex = currentNotifications.findIndex(
+        (item) => item._id === notification._id,
+      );
+      const nextNotifications =
+        existingIndex >= 0
+          ? currentNotifications.map((item, index) =>
+              index === existingIndex ? { ...item, ...notification } : item,
+            )
+          : [notification, ...currentNotifications];
+
+      saveAircraftFhNotifications(nextNotifications);
+      syncUnreadBadge();
+    };
+
+    const checkAircraftFhDueWarnings = async () => {
+      const settings = getAircraftFhDueSettings();
+
+      if (!settings.enabled) {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/inspection-remaining-hours`,
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const threshold = Math.max(1, Number(settings.threshold) || 25);
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        const dueSoonRows = rows
+          .filter((row) => {
+            if (row?.remainingHours === null || row?.remainingHours === "") {
+              return false;
+            }
+
+            const remainingHours = Number(row?.remainingHours);
+            return (
+              Number.isFinite(remainingHours) && remainingHours <= threshold
+            );
+          })
+          .sort(
+            (left, right) =>
+              Number(left.remainingHours) - Number(right.remainingHours),
+          );
+
+        if (!dueSoonRows.length) {
+          return;
+        }
+
+        const nextWarning = dueSoonRows.find((row) => {
+          const warningKey = [
+            getLocalDateKey(),
+            row.aircraft,
+            row.inspectionKey || row.inspectionName,
+            threshold,
+          ].join("|");
+          return !seenAircraftFhWarningsRef.current.has(warningKey);
+        });
+
+        if (!nextWarning) {
+          return;
+        }
+
+        const warningKey = [
+          getLocalDateKey(),
+          nextWarning.aircraft,
+          nextWarning.inspectionKey || nextWarning.inspectionName,
+          threshold,
+        ].join("|");
+        const remainingHours = Number(nextWarning.remainingHours);
+        const title =
+          remainingHours <= 0
+            ? `${nextWarning.aircraft} Due by FH`
+            : `${nextWarning.aircraft} Almost Due`;
+        const description =
+          remainingHours <= 0
+            ? `${nextWarning.inspectionName || "Inspection"} is due by flight hours.`
+            : `${nextWarning.inspectionName || "Inspection"} is within ${remainingHours.toFixed(1)} FH.`;
+
+        seenAircraftFhWarningsRef.current.add(warningKey);
+        saveSeenAircraftFhWarnings();
+        addAircraftFhBellNotification({
+          _id: `aircraft-fh|${warningKey}`,
+          title,
+          description,
+          module: "parts-monitoring",
+          entityType: "parts-monitoring",
+          entityId: nextWarning.aircraft,
+          read: false,
+          createdAt: new Date().toISOString(),
+          metadata: {
+            aircraft: nextWarning.aircraft,
+            inspectionName: nextWarning.inspectionName || "",
+            inspectionKey: nextWarning.inspectionKey || "",
+            remainingHours,
+            threshold,
+          },
+        });
+
+        showNotification({
+          title,
+          description,
+          duration: 8,
+          onClick: () => goToAircraftMonitoring(nextWarning.aircraft),
+        });
+      } catch (error) {
+        console.error("Aircraft FH due warning check failed:", error);
+      }
+    };
 
     const syncNotifications = async () => {
       if (!user?.id) {
         if (isMounted) {
-          setUnreadCount(0);
+          syncUnreadBadge(0);
         }
         return;
       }
@@ -97,7 +333,7 @@ const DashboardLayout = () => {
 
         if (!isMounted) return;
 
-        setUnreadCount(notifications.filter((item) => !item.read).length);
+        syncUnreadBadge(notifications.filter((item) => !item.read).length);
 
         const nextSeenIds = new Set(seenNotificationIdsRef.current);
 
@@ -113,52 +349,36 @@ const DashboardLayout = () => {
           }
         });
 
+        if (!initialSyncDoneRef.current) {
+          initialSyncDoneRef.current = true;
+          seenNotificationIdsRef.current = nextSeenIds;
+          return;
+        }
+
         if (newNotifications.length === 1) {
           const item = newNotifications[0];
 
-          api.info({
+          showNotification({
             title: item.title || "New Notification",
             description: item.description || "You have a new update.",
-            placement: "topRight",
             duration: 4,
           });
-
-          if (
-            "Notification" in window &&
-            Notification.permission === "granted"
-          ) {
-            new Notification(item.title || "New Notification", {
-              body: item.description || "You have a new update.",
-              icon: AirmsFavicon,
-            });
-          }
         } else if (newNotifications.length > 1) {
           // Group by module
           const modules = [
             ...new Set(
-              newNotifications.map((n) => moduleNames[n.module] || "System"),
+              newNotifications.map((n) => MODULE_NAMES[n.module] || "System"),
             ),
           ];
 
           const moduleText =
             modules.length === 1 ? modules[0] : modules.join(", ");
 
-          api.info({
+          showNotification({
             title: `${newNotifications.length} New Notifications`,
             description: `You have new updates from ${moduleText}.`,
-            placement: "topRight",
             duration: 5,
           });
-
-          if (
-            "Notification" in window &&
-            Notification.permission === "granted"
-          ) {
-            new Notification(`${newNotifications.length} New Notifications`, {
-              body: `You have new updates from ${moduleText}.`,
-              icon: AirmsFavicon,
-            });
-          }
         }
 
         seenNotificationIdsRef.current = nextSeenIds;
@@ -167,12 +387,56 @@ const DashboardLayout = () => {
       }
     };
 
+    loadSeenAircraftFhWarnings();
+
     setTimeout(syncNotifications, 500);
+    setTimeout(checkAircraftFhDueWarnings, 800);
+
+    const handleWebSettingsUpdated = () => {
+      loadSeenAircraftFhWarnings();
+      checkAircraftFhDueWarnings();
+    };
+    const handleAircraftFhNotificationsUpdated = () => {
+      syncUnreadBadge();
+    };
+
+    window.addEventListener("web-settings-updated", handleWebSettingsUpdated);
+    window.addEventListener(
+      AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+      handleAircraftFhNotificationsUpdated,
+    );
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
       // console.log("Realtime payload:", JSON.stringify(payload, null, 2));
 
       const nextEvent = String(payload?.event || "");
+
+      if (
+        nextEvent === "notification:new" ||
+        nextEvent === "notification-created"
+      ) {
+        if (nextEvent === "notification-created") {
+          const eventData = payload?.data || {};
+          const notificationId =
+            eventData?.data?.notificationId ||
+            eventData?.data?._id ||
+            eventData?.notificationId ||
+            eventData?._id;
+
+          if (notificationId) {
+            seenNotificationIdsRef.current.add(String(notificationId));
+          }
+
+          showNotification({
+            title: eventData.title || "New Notification",
+            description: eventData.description || "You have a new update.",
+          });
+          setUnreadCount((current) => current + 1);
+        }
+
+        syncNotifications();
+        return;
+      }
 
       if (
         nextEvent === "data-changed" ||
@@ -181,16 +445,31 @@ const DashboardLayout = () => {
         nextEvent === "chat:conversation" ||
         nextEvent === "logs:new"
       ) {
-        // console.log("Refreshing notifications...");
         setTimeout(syncNotifications, 500);
+        if (
+          nextEvent === "data-changed" &&
+          (!payload?.data?.module ||
+            payload.data.module === "parts-monitoring" ||
+            payload.data.module === "parts-lifespan-monitoring")
+        ) {
+          checkAircraftFhDueWarnings();
+        }
       }
     });
 
     return () => {
       isMounted = false;
+      window.removeEventListener(
+        "web-settings-updated",
+        handleWebSettingsUpdated,
+      );
+      window.removeEventListener(
+        AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+        handleAircraftFhNotificationsUpdated,
+      );
       unsubscribeRealtime();
     };
-  }, [user?.id, getAuthHeader, api]);
+  }, [user?.id, getAuthHeader, api, nav]);
 
   return (
     <>

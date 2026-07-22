@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
-  App,
   Card,
   Typography,
   Button,
@@ -13,6 +12,7 @@ import {
   Space,
   Slider,
   Switch,
+  InputNumber,
 } from "antd";
 import {
   LockOutlined,
@@ -23,26 +23,50 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
+import ResultPopup from "../../../components/common/ResultPopup";
 import DefaultAvatar from "../../../assets/images/default_avatar.jpg";
 const { Title, Text } = Typography;
 
 export default function Profile() {
-  const { message } = App.useApp();
-  const {
-    user,
-    setUser,
-    getValidToken,
-  } = useContext(AuthContext);
+  const { user, setUser, getValidToken } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const fileInputRef = useRef(null);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [aircraftFhDueNotificationsEnabled, setAircraftFhDueNotificationsEnabled] =
+    useState(false);
+  const [aircraftFhDueThreshold, setAircraftFhDueThreshold] = useState(25);
   const [browserPermission, setBrowserPermission] = useState("default");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
   const WEB_SETTINGS_KEY = "webProfileSettings";
 
   const WEB_FONT_RECOMMENDED = 1;
   const WEB_FONT_MAX = 1.3;
+  const userId = user?.id || user?._id;
+
+  const persistUser = (nextUser) => {
+    setUser(nextUser);
+    try {
+      const storedKeys = ["currentUser"];
+      storedKeys.forEach((key) => {
+        if (sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, JSON.stringify(nextUser));
+        }
+        if (localStorage.getItem(key)) {
+          localStorage.setItem(key, JSON.stringify(nextUser));
+        }
+      });
+    } catch {
+      // Storage persistence is best-effort; React state remains the source for this session.
+    }
+  };
 
   const applyWebFontSize = (scale = WEB_FONT_RECOMMENDED) => {
     const clamped = Math.min(
@@ -86,32 +110,62 @@ export default function Profile() {
               medium: 1,
               large: 1.1,
             }[storedFont] || WEB_FONT_RECOMMENDED;
+      const supportsBrowserNotifications =
+        typeof window !== "undefined" && "Notification" in window;
       const nextNotifications =
         typeof stored.notificationsEnabled === "boolean"
-          ? stored.notificationsEnabled
-          : true;
+          ? stored.notificationsEnabled && supportsBrowserNotifications
+          : false;
+      const nextFhDueNotifications =
+        typeof stored.aircraftFhDueNotificationsEnabled === "boolean"
+          ? stored.aircraftFhDueNotificationsEnabled
+          : false;
+      const nextFhDueThreshold =
+        typeof stored.aircraftFhDueThreshold === "number"
+          ? stored.aircraftFhDueThreshold
+          : 25;
       setFontScalePreference(nextFont);
       setNotificationsEnabled(nextNotifications);
+      setAircraftFhDueNotificationsEnabled(nextFhDueNotifications);
+      setAircraftFhDueThreshold(nextFhDueThreshold);
       applyWebFontSize(nextFont);
     } catch {
       setFontScalePreference(WEB_FONT_RECOMMENDED);
-      setNotificationsEnabled(true);
+      setNotificationsEnabled(false);
+      setAircraftFhDueNotificationsEnabled(false);
+      setAircraftFhDueThreshold(25);
       applyWebFontSize(WEB_FONT_RECOMMENDED);
     }
 
-    if (typeof Notification !== "undefined") {
-      setBrowserPermission(Notification.permission);
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setBrowserPermission(window.Notification.permission);
     }
   }, []);
 
   const persistWebSettings = (next) => {
+    let stored = {};
+    try {
+      stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    } catch {
+      stored = {};
+    }
+
     const payload = {
+      ...stored,
       fontSizePreference:
         next.fontSizePreference ?? fontScalePreference ?? WEB_FONT_RECOMMENDED,
       notificationsEnabled:
         typeof next.notificationsEnabled === "boolean"
           ? next.notificationsEnabled
           : notificationsEnabled,
+      aircraftFhDueNotificationsEnabled:
+        typeof next.aircraftFhDueNotificationsEnabled === "boolean"
+          ? next.aircraftFhDueNotificationsEnabled
+          : aircraftFhDueNotificationsEnabled,
+      aircraftFhDueThreshold:
+        typeof next.aircraftFhDueThreshold === "number"
+          ? next.aircraftFhDueThreshold
+          : aircraftFhDueThreshold,
     };
     localStorage.setItem(WEB_SETTINGS_KEY, JSON.stringify(payload));
     window.dispatchEvent(new Event("web-settings-updated"));
@@ -126,17 +180,28 @@ export default function Profile() {
 
   const handleSaveImage = async () => {
     if (!file) return;
+    if (!userId) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Unable to update image: user ID is missing.",
+      });
+      return;
+    }
 
     const formData = new FormData();
     formData.append("image", file);
+    formData.append("confirmAction", "true");
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/update-user-image/${user.id}`,
+        `${API_BASE}/api/user/update-user-image/${userId}`,
         {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${await getValidToken()}`,
+            "x-action-confirmed": "true",
           },
           body: formData,
         },
@@ -145,31 +210,53 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to upload");
 
-      setUser((prev) => ({
-        ...prev,
+      const nextUser = {
+        ...user,
         ...data.user,
-        id: data?.user?.id || data?.user?._id || prev?.id,
-      }));
+        id: data?.user?.id || data?.user?._id || userId,
+      };
+      persistUser(nextUser);
       const uploadedImagePath =
         data?.user?.image && data.user.image.startsWith("http")
           ? data.user.image
           : `${API_BASE}${data?.user?.image || ""}`;
       setPreviewUri(uploadedImagePath || DefaultAvatar);
       setFile(null);
-      message.success("Image updated!");
-    } catch (err) {
-      message.error(err.message);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Image Updated!",
+        subTitle: "Your profile image has been updated successfully.",
+      });
+    } catch {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Failed to update profile image.",
+      });
     }
   };
 
   const handleRemoveImage = async () => {
+    if (!userId) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Unable to remove image: user ID is missing.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(
-        `${API_BASE}/api/user/update-user-image/${user.id}`,
+        `${API_BASE}/api/user/update-user-image/${userId}`,
         {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${await getValidToken()}`,
+            "x-action-confirmed": "true",
           },
         },
       );
@@ -177,14 +264,29 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to remove image");
 
-      setUser((prev) => ({ ...prev, image: "" }));
+      persistUser({
+        ...user,
+        ...data.user,
+        id: data?.user?.id || data?.user?._id || userId,
+        image: "",
+      });
       setPreviewUri(DefaultAvatar);
       setFile(null);
 
-      message.success("Profile picture removed!");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Image Removed!",
+        subTitle: "Profile picture removed successfully.",
+      });
     } catch (err) {
       console.error("Error removing profile image:", err);
-      message.error(err.message || "Image removal failed");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Failed to remove profile image.",
+      });
     }
   };
 
@@ -269,27 +371,61 @@ export default function Profile() {
                 <Switch
                   checked={notificationsEnabled}
                   onChange={async (checked) => {
-                    if (checked && typeof Notification !== "undefined") {
-                      const permission = await Notification.requestPermission();
+                    if (
+                      checked &&
+                      (typeof window === "undefined" ||
+                        !("Notification" in window))
+                    ) {
+                      setNotificationsEnabled(false);
+                      persistWebSettings({ notificationsEnabled: false });
+                      setPopup({
+                        open: true,
+                        status: "error",
+                        title: "Operation failed!",
+                        subTitle:
+                          "Browser notifications are not supported in this browser.",
+                      });
+                      return;
+                    }
+
+                    if (checked) {
+                      const permission =
+                        await window.Notification.requestPermission();
                       setBrowserPermission(permission);
                       if (permission !== "granted") {
                         setNotificationsEnabled(false);
                         persistWebSettings({ notificationsEnabled: false });
-                        message.warning(
-                          "Notification permission not granted by browser.",
-                        );
+                        setPopup({
+                          open: true,
+                          status: "error",
+                          title: "Operation failed!",
+                          subTitle:
+                            permission === "denied"
+                              ? "Browser notification permission is blocked. Enable it in your browser site settings first."
+                              : "Notification permission was not granted by the browser.",
+                        });
                         return;
                       }
                     }
 
                     setNotificationsEnabled(checked);
                     persistWebSettings({ notificationsEnabled: checked });
-                    message.success("Notification preference saved.");
+                    setPopup({
+                      open: true,
+                      status: "success",
+                      title: "Settings Updated!",
+                      subTitle:
+                        "Your notification preference has been saved successfully.",
+                    });
                   }}
                 />
               </Space>
               <Text type="secondary">
-                Browser permission:{" "}
+                AirMS notifications:{" "}
+                <strong>{notificationsEnabled ? "Enabled" : "Disabled"}</strong>
+              </Text>
+              <Text type="secondary">
+                Browser permission available:{" "}
                 <strong>
                   {browserPermission === "granted"
                     ? "Granted"
@@ -298,9 +434,47 @@ export default function Profile() {
                       : "Default"}
                 </strong>
               </Text>
+
+              <Space wrap align="center">
+                <Text strong>Aircraft FH Due Alerts</Text>
+                <Switch
+                  checked={aircraftFhDueNotificationsEnabled}
+                  onChange={(checked) => {
+                    setAircraftFhDueNotificationsEnabled(checked);
+                    persistWebSettings({
+                      aircraftFhDueNotificationsEnabled: checked,
+                    });
+                    setPopup({
+                      open: true,
+                      status: "success",
+                      title: "Settings Updated!",
+                      subTitle: checked
+                        ? "Aircraft FH due alerts have been enabled."
+                        : "Aircraft FH due alerts have been disabled.",
+                    });
+                  }}
+                />
+              </Space>
+              <Space wrap align="center">
+                <Text type="secondary">Notify within</Text>
+                <InputNumber
+                  min={1}
+                  max={500}
+                  step={1}
+                  precision={0}
+                  value={aircraftFhDueThreshold}
+                  disabled={!aircraftFhDueNotificationsEnabled}
+                  addonAfter="FH"
+                  onChange={(value) => {
+                    const nextValue = Number(value) || 1;
+                    setAircraftFhDueThreshold(nextValue);
+                    persistWebSettings({ aircraftFhDueThreshold: nextValue });
+                  }}
+                  style={{ width: 140 }}
+                />
+              </Space>
             </Space>
           </Card>
-
         </Space>
       ),
     },
@@ -391,6 +565,13 @@ export default function Profile() {
           </Card>
         </Col>
       </Row>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

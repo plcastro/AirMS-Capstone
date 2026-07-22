@@ -32,6 +32,7 @@ import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import ResultPopup from "../../../components/common/ResultPopup";
 import "./flightlog.css";
 
 const { Text } = Typography;
@@ -83,6 +84,13 @@ export default function FlightLog() {
     open: false,
     action: null,
     log: null,
+  });
+
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
   });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
@@ -349,10 +357,20 @@ export default function FlightLog() {
 
       await fetchFlightLogs();
       setEntryModalVisible(false);
-      message.success("Flight log added successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Flight log added",
+        subTitle: "The flight log has been added successfully.",
+      });
     } catch (error) {
       console.error("Create flight log error:", error);
-      message.error(error.message || "Failed to add flight log");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Flight log added failed",
+        subTitle: "Failed to add flight log.",
+      });
     } finally {
       setSaving(false);
     }
@@ -396,10 +414,20 @@ export default function FlightLog() {
       await fetchFlightLogs();
       setEditModalVisible(false);
       setSelectedLog(null);
-      message.success("Flight log updated successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Flight log updated",
+        subTitle: "The flight log has been successfully updated.",
+      });
     } catch (error) {
       console.error("Update flight log error:", error);
-      message.error(error.message || "Failed to update flight log");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Updated failed",
+        subTitle: "Failed to update flight log.",
+      });
     } finally {
       setSaving(false);
     }
@@ -516,7 +544,12 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
         }
-        message.success("Flight log released");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Flight log released",
+          subTitle: "The flight log has been successfully released.",
+        });
       }
 
       if (action === "accept") {
@@ -540,14 +573,24 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
         }
-        message.success("Flight log accepted");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Flight log accepted",
+          subTitle: "The flight log has been successfully accepted.",
+        });
       }
 
       closeSignatureWorkflow();
       await fetchFlightLogs();
     } catch (error) {
       console.error("Signed workflow action error:", error);
-      message.error(error.message || "Flight log workflow action failed");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Workflow action failed",
+        subTitle: "Flight log workflow action failed.",
+      });
     } finally {
       setSaving(false);
     }
@@ -584,7 +627,13 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to notify mechanic");
         }
-        message.success("Mechanic notified for completion");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Mechanic notified",
+          subTitle:
+            "The flight log has been successfully notified for completion.",
+        });
       }
 
       if (action === "complete") {
@@ -641,14 +690,24 @@ export default function FlightLog() {
             completeData.message || "Failed to complete flight log",
           );
         }
-        message.success("Flight log completed");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Flight log completed",
+          subTitle: "The flight log has been successfully completed.",
+        });
       }
 
       closeWorkflowModal();
       await fetchFlightLogs();
     } catch (error) {
       console.error("Workflow action error:", error);
-      message.error(error.message || "Flight log workflow action failed");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Flight log failed",
+        subTitle: "Failed to complete flight log." || error.message,
+      });
     } finally {
       setSaving(false);
     }
@@ -1198,6 +1257,13 @@ export default function FlightLog() {
           </p>
         )}
       </Modal>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  App as AntdApp,
   Button,
   Card,
   Col,
@@ -17,6 +16,7 @@ import {
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import ResultPopup from "../../../components/common/ResultPopup";
 
 const { Title, Text } = Typography;
 
@@ -77,7 +77,6 @@ const formatDate = (value) => {
 };
 
 export default function MaintenancePriority() {
-  const { message } = AntdApp.useApp();
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
@@ -86,6 +85,12 @@ export default function MaintenancePriority() {
   const [rules, setRules] = useState(DEFAULT_RULES);
   const [draftRules, setDraftRules] = useState(DEFAULT_RULES);
   const [showControls, setShowControls] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchPriorityData = async (activeRules = rules) => {
     try {
@@ -114,7 +119,12 @@ export default function MaintenancePriority() {
       setMeta(result.meta || null);
     } catch (error) {
       console.error("Failed to fetch maintenance priority:", error);
-      message.error(error.message || "Failed to load maintenance priority");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load maintenance priority",
+      });
     } finally {
       setLoading(false);
     }
@@ -145,9 +155,13 @@ export default function MaintenancePriority() {
         await fetchPriorityData(loadedRules);
       } catch (error) {
         console.error("Failed to fetch maintenance priority rules:", error);
-        message.error(
-          error.message || "Failed to load maintenance priority rules",
-        );
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle:
+            error.message || "Failed to load maintenance priority rules",
+        });
         await fetchPriorityData(DEFAULT_RULES);
       }
     };
@@ -209,13 +223,22 @@ export default function MaintenancePriority() {
 
       setRules(savedRules);
       setDraftRules(savedRules);
-      message.success("Maintenance priority rules saved");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Priority Rules Saved!",
+        subTitle: "Maintenance priority rules have been saved successfully.",
+      });
       await fetchPriorityData(savedRules);
     } catch (error) {
       console.error("Failed to save maintenance priority rules:", error);
-      message.error(
-        error.message || "Failed to save maintenance priority rules",
-      );
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle:
+          error.message || "Failed to save maintenance priority rules",
+      });
     } finally {
       setSavingRules(false);
     }
@@ -581,6 +604,13 @@ export default function MaintenancePriority() {
         scroll={{ x: 1600 }}
         bordered
         size={"small"}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

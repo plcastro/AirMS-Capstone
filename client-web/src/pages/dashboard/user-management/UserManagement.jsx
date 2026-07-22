@@ -19,7 +19,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const accessLevelData = [
@@ -89,47 +89,6 @@ export default function UserManagement() {
     return counts;
   }, [allUsers]);
 
-  const roleCounts = useMemo(() => {
-    const counts = {};
-
-    allUsers.forEach((user) => {
-      const role = user.jobTitle || "Unknown";
-      counts[role] = (counts[role] || 0) + 1;
-    });
-
-    return counts;
-  }, [allUsers]);
-
-  const roleColors = [
-    "#1890ff",
-    "#52c41a",
-    "#faad14",
-    "#13c2c2",
-    "#f5222d",
-    "#722ed1",
-    "#eb2f96",
-  ];
-
-  const statusColorMap = {
-    active: "#52c41a",
-    inactive: "#faad14",
-    deactivated: "#f5222d",
-    unknown: "#d9d9d9",
-  };
-
-  const roleChartData = Object.entries(roleCounts).map(
-    ([name, value], index) => ({
-      name,
-      value,
-      fill: roleColors[index % roleColors.length],
-    }),
-  );
-
-  const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value,
-    fill: statusColorMap[name] || "#d9d9d9",
-  }));
   const maskEmail = (email) => {
     if (!email) return "";
 
@@ -222,7 +181,12 @@ export default function UserManagement() {
       }
     } catch (err) {
       console.error(err);
-      message.error(err.message || "Failed to load users");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to load users",
+      });
     } finally {
       setLoading(false);
     }
@@ -306,10 +270,20 @@ export default function UserManagement() {
         throw new Error(data.message || "Failed to deactivate user");
       }
 
-      message.success(`User ${user.username || user.fullname} deactivated`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Deactivated!",
+        subTitle: `User ${user.username || user.fullname} has been deactivated successfully.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to deactivate user");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to deactivate user",
+      });
     }
   };
 
@@ -345,10 +319,20 @@ export default function UserManagement() {
     if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/resend-activation/${user._id}`, "POST");
-      message.success(`Activation email resent to ${user.email}`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Email Sent!",
+        subTitle: `An invitation email has been sent to ${user.email}.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to resend invite");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to resend invite",
+      });
     }
   };
 
@@ -367,10 +351,20 @@ export default function UserManagement() {
           hours: 24,
         },
       );
-      message.success("Invitation expiry extended by 24 hours");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Invitation Extended!",
+        subTitle: "Invitation expiry has been extended by 24 hours.",
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to extend invitation");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to extend invitation",
+      });
     }
   };
 
@@ -384,10 +378,20 @@ export default function UserManagement() {
     if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/revoke-invitation/${user._id}`, "PUT");
-      message.success("Invitation revoked");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Invitation Revoked!",
+        subTitle: "The invitation has been revoked successfully.",
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to revoke invitation");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to revoke invitation",
+      });
     }
   };
 
@@ -418,10 +422,20 @@ export default function UserManagement() {
         throw new Error(data.message || "Failed to reactivate user");
       }
 
-      message.success(`User ${user.username || user.fullname} reactivated`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Reactivated!",
+        subTitle: `User ${user.username || user.fullname} has been reactivated successfully.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to reactivate user");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to reactivate user",
+      });
     }
   };
 
