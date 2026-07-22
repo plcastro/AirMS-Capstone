@@ -24,7 +24,11 @@ import {
   DatePicker,
   message,
 } from "antd";
-import { EditOutlined, ExportOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  EditOutlined,
+  ExportOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -51,7 +55,8 @@ const POST_TABS = [
 ];
 
 const signaturePayload = (user, signature) => {
-  const licenseNo = user?.licenseNo || user?.licenseNumber || user?.license || "";
+  const licenseNo =
+    user?.licenseNo || user?.licenseNumber || user?.license || "";
   return {
     name:
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -260,7 +265,9 @@ export default function PostInspection() {
       );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || data.error || "Failed to export post-inspection");
+        throw new Error(
+          data.message || data.error || "Failed to export post-inspection",
+        );
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -335,6 +342,7 @@ export default function PostInspection() {
         loading={loading}
         dataSource={filtered}
         pagination={{ pageSize: 10 }}
+        size={"small"}
         columns={[
           { title: "RP/C", dataIndex: "rpc" },
           { title: "Aircraft Type", dataIndex: "aircraftType" },
@@ -384,7 +392,9 @@ export default function PostInspection() {
         okText="Save"
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
-        styles={{ body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 } }}
+        styles={{
+          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+        }}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
@@ -403,7 +413,10 @@ export default function PostInspection() {
                           <Input
                             value={editing.rpc}
                             onChange={(e) =>
-                              setEditing((prev) => ({ ...prev, rpc: e.target.value }))
+                              setEditing((prev) => ({
+                                ...prev,
+                                rpc: e.target.value,
+                              }))
                             }
                             disabled={readOnly}
                           />
@@ -428,7 +441,9 @@ export default function PostInspection() {
                             style={{ width: "100%" }}
                             format="MM/DD/YYYY"
                             value={
-                              editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
+                              editing.date
+                                ? dayjs(editing.date, "MM/DD/YYYY")
+                                : null
                             }
                             onChange={(date) =>
                               setEditing((prev) => ({
@@ -454,7 +469,10 @@ export default function PostInspection() {
                         placeholder="Enter post-inspection notes, discrepancy signals, or remarks"
                         value={editing.notes || ""}
                         onChange={(e) =>
-                          setEditing((prev) => ({ ...prev, notes: e.target.value }))
+                          setEditing((prev) => ({
+                            ...prev,
+                            notes: e.target.value,
+                          }))
                         }
                         disabled={readOnly}
                       />
@@ -494,7 +512,9 @@ export default function PostInspection() {
                         ))
                       ) : (
                         <Col span={24}>
-                          <Text type="secondary">No checklist items in this section.</Text>
+                          <Text type="secondary">
+                            No checklist items in this section.
+                          </Text>
                         </Col>
                       )}
                     </Row>

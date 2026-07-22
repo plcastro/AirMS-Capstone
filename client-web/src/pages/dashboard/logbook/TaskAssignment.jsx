@@ -76,11 +76,36 @@ const estimateChecklistItemMinutes = (item = {}) => {
     .join(" ")
     .toLowerCase();
 
-  if (["soap", "hoist", "overhaul", "cargo swing"].some((key) => text.includes(key))) return 30;
-  if (["coupling", "mast", "reduction gear", "free wheel", "damper"].some((key) => text.includes(key))) return 20;
-  if (["rotor", "swash", "pitch change", "servocontrol", "drive shaft"].some((key) => text.includes(key))) return 15;
-  if (["fuel", "oil", "hydraulic", "brake", "gear", "structure"].some((key) => text.includes(key))) return 12.5;
-  if (["door", "window", "seat", "harness", "pitot", "camera", "light"].some((key) => text.includes(key))) return 10;
+  if (
+    ["soap", "hoist", "overhaul", "cargo swing"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 30;
+  if (
+    ["coupling", "mast", "reduction gear", "free wheel", "damper"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 20;
+  if (
+    ["rotor", "swash", "pitch change", "servocontrol", "drive shaft"].some(
+      (key) => text.includes(key),
+    )
+  )
+    return 15;
+  if (
+    ["fuel", "oil", "hydraulic", "brake", "gear", "structure"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 12.5;
+  if (
+    ["door", "window", "seat", "harness", "pitot", "camera", "light"].some(
+      (key) => text.includes(key),
+    )
+  )
+    return 10;
   return DEFAULT_ITEM_MINUTES;
 };
 
@@ -140,7 +165,11 @@ const createCustomChecklistItem = (index = 0) => ({
   correctiveAction: "",
   environmentalCondition: "",
   engineModel: "",
-  conditions: { modificationStatus: "", modificationNumbers: [], effectivity: [] },
+  conditions: {
+    modificationStatus: "",
+    modificationNumbers: [],
+    effectivity: [],
+  },
   interval: { flightHours: 0, calendarMonths: 0, specificInterval: "" },
 });
 
@@ -174,8 +203,7 @@ export default function TaskAssignment() {
     .trim()
     .toLowerCase();
   const isSuperadmin = role === "superadmin" || access === "superadmin";
-  const isManager =
-    role === "maintenance manager" || isSuperadmin;
+  const isManager = role === "maintenance manager" || isSuperadmin;
   const watchedInspectionType = Form.useWatch("inspectionType", form);
   const rawChecklistItems = Form.useWatch("checklistItems", form);
   const watchedChecklistItems = useMemo(
@@ -200,9 +228,12 @@ export default function TaskAssignment() {
       setTasks(Array.isArray(taskData.data) ? taskData.data : []);
 
       if (isManager) {
-        const userResponse = await fetch(`${API_BASE}/api/user/assignable-users`, {
-          headers,
-        });
+        const userResponse = await fetch(
+          `${API_BASE}/api/user/assignable-users`,
+          {
+            headers,
+          },
+        );
         const userData = await userResponse.json();
         if (!userResponse.ok)
           throw new Error(userData.message || "Failed to load users");
@@ -247,21 +278,25 @@ export default function TaskAssignment() {
 
         if (aircraftResponse.ok) {
           const aircraftData = await aircraftResponse.json();
-          setAircraftOptions(Array.isArray(aircraftData?.data) ? aircraftData.data : []);
+          setAircraftOptions(
+            Array.isArray(aircraftData?.data) ? aircraftData.data : [],
+          );
         }
 
         if (inspectionsResponse.ok) {
           const inspectionData = await inspectionsResponse.json();
           const options = Array.from(
             new Map(
-              (Array.isArray(inspectionData) ? inspectionData : []).map((inspection) => [
-                inspection._id,
-                {
-                  id: inspection._id,
-                  name: inspection.inspectionName,
-                  aircraftModel: inspection.aircraftModel,
-                },
-              ]),
+              (Array.isArray(inspectionData) ? inspectionData : []).map(
+                (inspection) => [
+                  inspection._id,
+                  {
+                    id: inspection._id,
+                    name: inspection.inspectionName,
+                    aircraftModel: inspection.aircraftModel,
+                  },
+                ],
+              ),
             ).values(),
           );
           setInspectionOptions(options);
@@ -321,7 +356,11 @@ export default function TaskAssignment() {
 
   const filteredByTab = useMemo(() => {
     return myTasks.filter((task) => {
-      if (!isManager && selectedAircraft !== "all" && task.aircraft !== selectedAircraft) {
+      if (
+        !isManager &&
+        selectedAircraft !== "all" &&
+        task.aircraft !== selectedAircraft
+      ) {
         return false;
       }
 
@@ -336,9 +375,13 @@ export default function TaskAssignment() {
       if (activeTab === "ongoing")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
       if (activeTab === "upcoming")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task);
+        return (
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task)
+        );
       if (activeTab === "past_due")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task);
+        return (
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task)
+        );
       if (activeTab === "completed")
         return normalizeStatus(task.status) === "completed" || isTurnedIn(task);
       return true;
@@ -373,13 +416,16 @@ export default function TaskAssignment() {
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
       upcoming: myTasks.filter(
-        (task) => ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task),
+        (task) =>
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task),
       ).length,
       pastDue: myTasks.filter(
-        (task) => ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task),
+        (task) =>
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task),
       ).length,
       completed: myTasks.filter(
-        (task) => normalizeStatus(task.status) === "completed" || isTurnedIn(task),
+        (task) =>
+          normalizeStatus(task.status) === "completed" || isTurnedIn(task),
       ).length,
     }),
     [myTasks],
@@ -400,7 +446,8 @@ export default function TaskAssignment() {
   };
 
   const ensureEndAfterStart = (task, startDate) => {
-    const nextStart = startDate instanceof Date ? startDate : new Date(startDate);
+    const nextStart =
+      startDate instanceof Date ? startDate : new Date(startDate);
     const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
     if (currentEnd && currentEnd > nextStart) return task.endDateTime;
     return addDaysToDate(nextStart, 1).toISOString();
@@ -409,7 +456,8 @@ export default function TaskAssignment() {
   const loadInspectionTasks = async (inspectionId) => {
     if (inspectionId === CUSTOM_INSPECTION_ID) {
       const items = [createCustomChecklistItem(0)];
-      const start = form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
+      const start =
+        form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
       const estimate = estimateInspectionSchedule(items);
       form.setFieldsValue({
         title: form.getFieldValue("title") || "Custom Task",
@@ -420,7 +468,9 @@ export default function TaskAssignment() {
       return;
     }
 
-    const inspection = inspectionOptions.find((item) => item.id === inspectionId);
+    const inspection = inspectionOptions.find(
+      (item) => item.id === inspectionId,
+    );
     if (!inspection) return;
 
     form.setFieldsValue({ title: inspection.name });
@@ -445,7 +495,8 @@ export default function TaskAssignment() {
           seen.add(key);
           return true;
         });
-      const start = form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
+      const start =
+        form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
       const estimate = estimateInspectionSchedule(items);
       form.setFieldsValue({
         checklistItems: items,
@@ -483,7 +534,9 @@ export default function TaskAssignment() {
       maintenanceType: task.maintenanceType || "Inspection",
       startDateTime: task.startDateTime ? dayjs(task.startDateTime) : null,
       endDateTime: task.endDateTime ? dayjs(task.endDateTime) : null,
-      checklistItems: Array.isArray(task.checklistItems) ? task.checklistItems : [],
+      checklistItems: Array.isArray(task.checklistItems)
+        ? task.checklistItems
+        : [],
       inspectionType: CUSTOM_INSPECTION_ID,
     });
     setCreateOpen(true);
@@ -491,12 +544,16 @@ export default function TaskAssignment() {
 
   const deleteTask = async (task) => {
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id || task._id}`, {
-        method: "DELETE",
-        headers: await getAuthHeader(),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/tasks/${task.id || task._id}`,
+        {
+          method: "DELETE",
+          headers: await getAuthHeader(),
+        },
+      );
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Failed to delete task");
+      if (!response.ok)
+        throw new Error(data.message || "Failed to delete task");
       messageApi.success("Task deleted");
       await load();
     } catch (error) {
@@ -535,8 +592,16 @@ export default function TaskAssignment() {
     const now = new Date().toISOString();
     const next = {
       ...selectedTask,
-      status: options.undo ? "Ongoing" : turnIn ? "Turned in" : selectedTask.status,
-      completedAt: options.undo ? null : turnIn ? now : selectedTask.completedAt,
+      status: options.undo
+        ? "Ongoing"
+        : turnIn
+          ? "Turned in"
+          : selectedTask.status,
+      completedAt: options.undo
+        ? null
+        : turnIn
+          ? now
+          : selectedTask.completedAt,
       endDateTime: ensureEndAfterStart(
         selectedTask,
         selectedTask.startDateTime || selectedTask.createdAt || new Date(),
@@ -548,7 +613,9 @@ export default function TaskAssignment() {
         ? next.checklistState
         : [];
       if (checklist.length > 0 && checklist.some((value) => !value)) {
-        messageApi.error("Please complete all checklist items before turning in");
+        messageApi.error(
+          "Please complete all checklist items before turning in",
+        );
         return;
       }
     }
@@ -566,7 +633,13 @@ export default function TaskAssignment() {
 
     try {
       await upsertTask(next);
-      messageApi.success(options.undo ? "Turn in undone" : turnIn ? "Task turned in" : "Draft saved");
+      messageApi.success(
+        options.undo
+          ? "Turn in undone"
+          : turnIn
+            ? "Task turned in"
+            : "Draft saved",
+      );
       setChecklistOpen(false);
       await load();
     } catch (error) {
@@ -658,8 +731,7 @@ export default function TaskAssignment() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.message || "Failed to save task");
+      if (!response.ok) throw new Error(data.message || "Failed to save task");
       messageApi.success(editingTask ? "Task updated" : "Task created");
       form.resetFields();
       setEditingTask(null);
@@ -679,7 +751,8 @@ export default function TaskAssignment() {
 
     const confirmed = await confirmAction({
       title: "Return Task",
-      content: "Return this task to the mechanic with the selected checklist changes?",
+      content:
+        "Return this task to the mechanic with the selected checklist changes?",
       okText: "Return",
       okButtonProps: { danger: true },
     });
@@ -812,6 +885,7 @@ export default function TaskAssignment() {
       <Table
         style={{ marginTop: 12 }}
         loading={loading}
+        size={"small"}
         rowKey={(record) => record._id || record.id}
         dataSource={displayedTasks}
         pagination={{ pageSize: 10 }}
@@ -832,7 +906,10 @@ export default function TaskAssignment() {
               const total = record.checklistItems?.length || 0;
               const done = record.checklistState?.filter(Boolean).length || 0;
               return total ? (
-                <Progress percent={Math.round((done / total) * 100)} size="small" />
+                <Progress
+                  percent={Math.round((done / total) * 100)}
+                  size="small"
+                />
               ) : (
                 "-"
               );
@@ -872,7 +949,11 @@ export default function TaskAssignment() {
                           okButtonProps={{ danger: true }}
                           onConfirm={() => deleteTask(record)}
                         >
-                          <Button size="small" danger icon={<DeleteOutlined />} />
+                          <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                          />
                         </Popconfirm>
                       </Space>
                     );
@@ -918,7 +999,9 @@ export default function TaskAssignment() {
                 <Form.Item
                   label="Inspection"
                   name="inspectionType"
-                  rules={[{ required: true, message: "Inspection is required" }]}
+                  rules={[
+                    { required: true, message: "Inspection is required" },
+                  ]}
                 >
                   <Select
                     size="large"
@@ -941,8 +1024,14 @@ export default function TaskAssignment() {
                     label="Custom Task Name"
                     name="title"
                     rules={[
-                      { required: true, message: "Custom task name is required" },
-                      { min: 3, message: "Task name must be at least 3 characters" },
+                      {
+                        required: true,
+                        message: "Custom task name is required",
+                      },
+                      {
+                        min: 3,
+                        message: "Task name must be at least 3 characters",
+                      },
                     ]}
                   >
                     <Input size="large" placeholder="Enter task name" />
@@ -958,16 +1047,22 @@ export default function TaskAssignment() {
                   <Select
                     size="large"
                     placeholder="Pick Mechanic"
-                    options={(editingTask ? mechanics : availableMechanics).map((item) => ({
-                      value: item.id,
-                      label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-                      disabled: !editingTask && item.isBusy,
-                    }))}
+                    options={(editingTask ? mechanics : availableMechanics).map(
+                      (item) => ({
+                        value: item.id,
+                        label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
+                        disabled: !editingTask && item.isBusy,
+                      }),
+                    )}
                   />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item label="Priority" name="priority" initialValue="Normal">
+                <Form.Item
+                  label="Priority"
+                  name="priority"
+                  initialValue="Normal"
+                >
                   <Select
                     size="large"
                     options={["Low", "Normal", "High"].map((value) => ({
@@ -1043,7 +1138,8 @@ export default function TaskAssignment() {
               <Col xs={24}>
                 <Divider titlePlacement="left">Checklist</Divider>
                 <Text type="secondary">
-                  Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
+                  Estimated duration:{" "}
+                  {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
                   {scheduleEstimate.itemCount} checklist item
                   {scheduleEstimate.itemCount === 1 ? "" : "s"}
                 </Text>
@@ -1062,17 +1158,28 @@ export default function TaskAssignment() {
                   ]}
                 >
                   {(fields, { add, remove }, { errors }) => (
-                    <Space orientation="vertical" style={{ width: "100%", marginTop: 12 }}>
+                    <Space
+                      orientation="vertical"
+                      style={{ width: "100%", marginTop: 12 }}
+                    >
                       {fields.map((field, index) => {
                         const item = watchedChecklistItems?.[index] || {};
                         return (
                           <Card
                             key={field.key}
                             size="small"
-                            title={[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ") || `Item ${index + 1}`}
+                            title={
+                              [item.taskId, item.inspectionTypeFull]
+                                .filter(Boolean)
+                                .join(" | ") || `Item ${index + 1}`
+                            }
                             extra={
                               watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                                <Button danger size="small" onClick={() => remove(field.name)}>
+                                <Button
+                                  danger
+                                  size="small"
+                                  onClick={() => remove(field.name)}
+                                >
                                   Remove
                                 </Button>
                               ) : null
@@ -1081,19 +1188,34 @@ export default function TaskAssignment() {
                             <Form.Item
                               {...field}
                               name={[field.name, "taskName"]}
-                              rules={[{ required: true, message: "Checklist item is required" }]}
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Checklist item is required",
+                                },
+                              ]}
                             >
                               <Input
                                 placeholder="Checklist item"
-                                disabled={watchedInspectionType !== CUSTOM_INSPECTION_ID}
+                                disabled={
+                                  watchedInspectionType !== CUSTOM_INSPECTION_ID
+                                }
                               />
                             </Form.Item>
                             {watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                              <Form.Item {...field} name={[field.name, "description"]}>
-                                <Input.TextArea rows={2} placeholder="Description / notes" />
+                              <Form.Item
+                                {...field}
+                                name={[field.name, "description"]}
+                              >
+                                <Input.TextArea
+                                  rows={2}
+                                  placeholder="Description / notes"
+                                />
                               </Form.Item>
                             ) : (
-                              <Text type="secondary">{item.description || item.documentation || ""}</Text>
+                              <Text type="secondary">
+                                {item.description || item.documentation || ""}
+                              </Text>
                             )}
                           </Card>
                         );
@@ -1101,7 +1223,9 @@ export default function TaskAssignment() {
                       {watchedInspectionType === CUSTOM_INSPECTION_ID && (
                         <Button
                           icon={<PlusOutlined />}
-                          onClick={() => add(createCustomChecklistItem(fields.length))}
+                          onClick={() =>
+                            add(createCustomChecklistItem(fields.length))
+                          }
                         >
                           Add Checklist Item
                         </Button>
@@ -1269,7 +1393,9 @@ export default function TaskAssignment() {
                         }))
                       }
                       placeholder="Enter findings, symptoms, affected parts, and inspection results here..."
-                      disabled={isReviewed(selectedTask) || isTurnedIn(selectedTask)}
+                      disabled={
+                        isReviewed(selectedTask) || isTurnedIn(selectedTask)
+                      }
                     />
                   </>
                 )}
@@ -1284,10 +1410,7 @@ export default function TaskAssignment() {
                     <Button danger onClick={() => setReviewOpen(true)}>
                       Return
                     </Button>
-                    <Button
-                      type="primary"
-                      onClick={requestApprove}
-                    >
+                    <Button type="primary" onClick={requestApprove}>
                       Approve
                     </Button>
                   </>
@@ -1306,12 +1429,16 @@ export default function TaskAssignment() {
                   <Button
                     type="primary"
                     onClick={() => {
-                      const checklist = Array.isArray(selectedTask.checklistState)
+                      const checklist = Array.isArray(
+                        selectedTask.checklistState,
+                      )
                         ? selectedTask.checklistState
                         : [];
                       const allChecked =
                         selectedTask.checklistItems?.length > 0 &&
-                        selectedTask.checklistItems.every((_, index) => checklist[index]);
+                        selectedTask.checklistItems.every(
+                          (_, index) => checklist[index],
+                        );
                       handleSaveDraftOrTurnIn(allChecked);
                     }}
                   >
@@ -1330,7 +1457,9 @@ export default function TaskAssignment() {
                 !isReviewed(selectedTask) && (
                   <Button
                     type="primary"
-                    onClick={() => handleSaveDraftOrTurnIn(false, { undo: true })}
+                    onClick={() =>
+                      handleSaveDraftOrTurnIn(false, { undo: true })
+                    }
                   >
                     Undo Turn In
                   </Button>
@@ -1357,7 +1486,11 @@ export default function TaskAssignment() {
                 ({ index }) => (selectedTask?.checklistState || [])[index],
               )
               .map(({ item, index }) => (
-                <Col xs={24} md={12} key={`${item.taskId || item.taskName}-${index}`}>
+                <Col
+                  xs={24}
+                  md={12}
+                  key={`${item.taskId || item.taskName}-${index}`}
+                >
                   <Checkbox
                     checked={!itemsToUncheck.includes(index)}
                     onChange={(e) => {
@@ -1402,4 +1535,3 @@ export default function TaskAssignment() {
     </div>
   );
 }
-

@@ -153,6 +153,7 @@ export default function WRSTable({
       rowKey={(record) => record._id}
       loading={loading}
       scroll={{ x: "max-content" }}
+      size={"small"}
       pagination={{
         pageSize,
         current: currentPage,

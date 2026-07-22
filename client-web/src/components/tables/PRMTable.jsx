@@ -235,9 +235,9 @@ export default function PRMTable({
         columns={columns}
         dataSource={data}
         rowKey={(record) => record._id}
-        size={isMobile ? "small" : "middle"}
         loading={loading}
         scroll={{ x: "max-content" }}
+        size={"small"}
         onRow={(record) => ({
           onClick: () => handleShowModal(record),
           style: { cursor: "pointer" },

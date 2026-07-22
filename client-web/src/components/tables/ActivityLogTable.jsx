@@ -84,7 +84,7 @@ export default function ActivityLogTable({ data = [], loading }) {
       dataSource={data}
       rowKey={(record) => record._id || record.index}
       loading={loading}
-      size={isMobile ? "small" : "middle"}
+      size={"small"}
       scroll={{ x: 980 }}
       pagination={{
         current: currentPage,

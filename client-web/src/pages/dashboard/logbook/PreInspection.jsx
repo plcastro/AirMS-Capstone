@@ -415,7 +415,8 @@ const sanitizeFileName = (value) =>
     .replace(/\s+/g, "-");
 
 const signaturePayload = (user, signature) => {
-  const licenseNo = user?.licenseNo || user?.licenseNumber || user?.license || "";
+  const licenseNo =
+    user?.licenseNo || user?.licenseNumber || user?.license || "";
   return {
     name:
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -467,7 +468,9 @@ export default function PreInspection() {
     getDisplayStatus(record?.status) === "released" &&
     !record?.acceptedBy?.name;
   const isRecordReadOnly = (record) =>
-    readOnly || isCompletedInspection(record) || getDisplayStatus(record?.status) === "released";
+    readOnly ||
+    isCompletedInspection(record) ||
+    getDisplayStatus(record?.status) === "released";
   const getRecordActionLabel = (record) =>
     isAcceptableByPilot(record) ? "Accept" : "View";
 
@@ -691,7 +694,9 @@ export default function PreInspection() {
       );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || data.error || "Failed to export pre-inspection");
+        throw new Error(
+          data.message || data.error || "Failed to export pre-inspection",
+        );
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -718,8 +723,7 @@ export default function PreInspection() {
 
     const confirmed = await confirmAction({
       title: "Release Pre-Inspection",
-      content:
-        "This will create and release the pre-inspection log. Continue?",
+      content: "This will create and release the pre-inspection log. Continue?",
       okText: "Release",
     });
     if (confirmed) setSignatureMode("create-release");
@@ -905,6 +909,7 @@ export default function PreInspection() {
         loading={loading}
         dataSource={filtered}
         pagination={{ pageSize: 10 }}
+        size={"small"}
         columns={[
           { title: "RP/C", dataIndex: "rpc" },
           { title: "Aircraft Type", dataIndex: "aircraftType" },
@@ -1157,9 +1162,7 @@ export default function PreInspection() {
           style: { display: editingReadOnly ? "none" : undefined },
         }}
         title={
-          editingCanAccept
-            ? "Accept Pre-Inspection"
-            : "View Pre-Inspection"
+          editingCanAccept ? "Accept Pre-Inspection" : "View Pre-Inspection"
         }
         okText="Save"
         cancelText="Close"
@@ -1270,20 +1273,14 @@ export default function PreInspection() {
                 editing.status === "pending" &&
                 !editing.releasedBy?.name &&
                 !editingReadOnly && (
-                  <Button
-                    type="primary"
-                    onClick={requestEditRelease}
-                  >
+                  <Button type="primary" onClick={requestEditRelease}>
                     Release
                   </Button>
                 )}
               {canAccept &&
                 editing.status === "released" &&
                 !editing.acceptedBy?.name && (
-                  <Button
-                    type="primary"
-                    onClick={requestAccept}
-                  >
+                  <Button type="primary" onClick={requestAccept}>
                     Accept / Complete
                   </Button>
                 )}

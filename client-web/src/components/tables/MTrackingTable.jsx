@@ -245,6 +245,7 @@ export default function MTrackingTable({
       rowKey={(record) => record._id}
       loading={loading}
       scroll={{ x: "max-content" }}
+      size={"small"}
       pagination={{
         pageSize: pageSize,
         showSizeChanger: true,

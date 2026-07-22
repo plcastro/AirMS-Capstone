@@ -228,7 +228,7 @@ export default function PMonitoringTable({
           },
           placement: "bottomEnd",
         }}
-        size="small"
+        size={"small"}
         bordered
         rowClassName={(record, index) =>
           index % 2 === 0 ? "table-row-light" : "table-row-dark"

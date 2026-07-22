@@ -16,6 +16,7 @@ export default function MSummaryTable({ headers = [], data = [], loading }) {
       rowKey={(record) => record.index || record._id}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
+      size={"small"}
       pagination={{
         current: currentPage,
         pageSize,
@@ -30,4 +31,3 @@ export default function MSummaryTable({ headers = [], data = [], loading }) {
     />
   );
 }
-

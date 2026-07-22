@@ -63,7 +63,10 @@ export default function UserTable({
                   danger: true,
                 });
               }
-            } else if (record.status === "active" && record._id !== currentUserId) {
+            } else if (
+              record.status === "active" &&
+              record._id !== currentUserId
+            ) {
               moreActions.push({
                 key: "deactivate",
                 label: "Deactivate",
@@ -95,7 +98,9 @@ export default function UserTable({
                   menu={{
                     items: menuItems,
                     onClick: ({ key }) => {
-                      const selected = moreActions.find((item) => item.key === key);
+                      const selected = moreActions.find(
+                        (item) => item.key === key,
+                      );
                       if (!selected) return;
 
                       Modal.confirm({
@@ -106,7 +111,11 @@ export default function UserTable({
                     },
                   }}
                 >
-                  <Button size="small" icon={<MoreOutlined />} disabled={!menuItems.length} />
+                  <Button
+                    size="small"
+                    icon={<MoreOutlined />}
+                    disabled={!menuItems.length}
+                  />
                 </Dropdown>
               </Space>
             );
@@ -204,7 +213,7 @@ export default function UserTable({
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}
-      size={isMobile ? "small" : "middle"}
+      size={"small"}
       loading={loading}
       scroll={{ x: "max-content" }}
       pagination={{

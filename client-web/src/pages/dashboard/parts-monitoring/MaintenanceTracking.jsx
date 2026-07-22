@@ -930,7 +930,7 @@ export default function MaintenanceTracking() {
               dataSource={scheduledTaskRows}
               rowKey={(record) => record.id || record.key}
               loading={loading}
-              size="small"
+              size={"small"}
               pagination={{ pageSize: 5 }}
               scroll={{ x: 1000 }}
             />
@@ -952,7 +952,7 @@ export default function MaintenanceTracking() {
             `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}`
           }
           loading={loading || inspectionRemainingLoading}
-          size="small"
+          size={"small"}
           pagination={{ pageSize: 8 }}
           scroll={{ x: 1100 }}
         />

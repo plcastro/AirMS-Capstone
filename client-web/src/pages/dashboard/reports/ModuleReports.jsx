@@ -287,6 +287,7 @@ export function FlightLogReport({ records = [], loading = false }) {
         </Col>
         <Col xs={24}>
           <Table
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,
@@ -387,6 +388,7 @@ export function InspectionReport({
         </Col>
         <Col xs={24}>
           <Table
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,
@@ -484,6 +486,7 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
         </Col>
         <Col xs={24}>
           <Table
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,

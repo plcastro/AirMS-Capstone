@@ -1435,6 +1435,7 @@ export default function MaintenanceDashboard() {
                   Task records for the selected operational KPI.
                 </Text>
                 <Table
+                  size={"small"}
                   columns={taskDetailColumns}
                   dataSource={taskDetailRows}
                   rowKey={(record) => record.key}
@@ -1454,6 +1455,7 @@ export default function MaintenanceDashboard() {
 
             {activeKpi === "baseDamage" && (
               <Table
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
                   { title: "Damage Reports", dataIndex: "value", key: "value" },
@@ -1469,6 +1471,7 @@ export default function MaintenanceDashboard() {
 
             {activeKpi === "baseRepair" && (
               <Table
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
                   {
@@ -1488,6 +1491,7 @@ export default function MaintenanceDashboard() {
 
             {activeKpi === "avgRectification" && (
               <Table
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
                   {
@@ -1509,6 +1513,7 @@ export default function MaintenanceDashboard() {
 
             {activeKpi === "sameDay" && (
               <Table
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
                   {
@@ -1530,6 +1535,7 @@ export default function MaintenanceDashboard() {
 
             {activeKpi === "modules" && (
               <Table
+                size={"small"}
                 columns={[
                   { title: "Category", dataIndex: "category", key: "category" },
                   { title: "Report Module", dataIndex: "title", key: "title" },

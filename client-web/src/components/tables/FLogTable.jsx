@@ -80,6 +80,7 @@ export default function FLogTable({
       columns={columns}
       dataSource={data}
       rowKey={(record) => record.index}
+      size={"small"}
       pagination={{
         current: currentPage,
         pageSize,
@@ -96,4 +97,3 @@ export default function FLogTable({
     />
   );
 }
-

@@ -17,6 +17,7 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
       rowKey={(record) => record.key}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
+      size={"small"}
       pagination={{
         current: currentPage,
         pageSize,
@@ -31,4 +32,3 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
     />
   );
 }
-

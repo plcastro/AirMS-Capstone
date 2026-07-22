@@ -78,7 +78,10 @@ export default function GeneralReports({
       <Row gutter={[12, 12]}>
         <Col xs={24} sm={12} lg={8}>
           <Card size="small">
-            <Statistic title="All Records" value={rows.reduce((s, r) => s + r.total, 0)} />
+            <Statistic
+              title="All Records"
+              value={rows.reduce((s, r) => s + r.total, 0)}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
@@ -102,7 +105,7 @@ export default function GeneralReports({
       </Row>
 
       <Table
-        size="small"
+        size={"small"}
         loading={loading}
         pagination={false}
         dataSource={rows}
@@ -121,7 +124,9 @@ export default function GeneralReports({
             width: 140,
             render: (_, row) => {
               const pct =
-                row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0;
+                row.total > 0
+                  ? Math.round((row.completed / row.total) * 100)
+                  : 0;
               const color = pct >= 70 ? "green" : pct >= 40 ? "gold" : "red";
               return <Tag color={color}>{pct}%</Tag>;
             },

@@ -18,6 +18,7 @@ import {
   DownloadOutlined,
   SearchOutlined,
   UploadOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import PMonitoringTable from "../../../components/tables/PMonitoringTable";
 
@@ -937,7 +938,7 @@ export default function PartsMonitoring() {
                   disabled={previewingAircraft || importingAircraft}
                 >
                   <Button
-                    icon={<UploadOutlined />}
+                    icon={<PlusOutlined />}
                     loading={previewingAircraft || importingAircraft}
                   >
                     Add Aircraft

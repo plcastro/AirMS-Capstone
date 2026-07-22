@@ -1094,6 +1094,7 @@ export default function FlightLog() {
           dataSource={filteredLogs}
           loading={loading}
           rowKey={(record) => record._id || record.id}
+          size={"small"}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
@@ -1111,7 +1112,6 @@ export default function FlightLog() {
                 ? "No flight logs found"
                 : "No flight logs yet",
           }}
-          size={isMobile ? "small" : "middle"}
         />
       )}
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>

@@ -85,11 +85,11 @@ const ensureConnection = () => {
   };
 
   socket.onmessage = (event) => {
-    console.log("RAW WS MESSAGE:", event.data);
+    // console.log("RAW WS MESSAGE:", event.data);
 
     try {
       const payload = JSON.parse(event.data || "{}");
-      console.log("PARSED WS:", payload);
+      // console.log("PARSED WS:", payload);
 
       notifyListeners(payload);
     } catch (error) {

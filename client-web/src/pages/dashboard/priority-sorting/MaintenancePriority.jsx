@@ -580,6 +580,7 @@ export default function MaintenancePriority() {
         pagination={false}
         scroll={{ x: 1600 }}
         bordered
+        size={"small"}
       />
     </div>
   );

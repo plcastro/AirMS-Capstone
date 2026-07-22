@@ -170,7 +170,7 @@ const DashboardLayout = () => {
     setTimeout(syncNotifications, 500);
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
-      console.log("Realtime payload:", JSON.stringify(payload, null, 2));
+      // console.log("Realtime payload:", JSON.stringify(payload, null, 2));
 
       const nextEvent = String(payload?.event || "");
 
@@ -181,7 +181,7 @@ const DashboardLayout = () => {
         nextEvent === "chat:conversation" ||
         nextEvent === "logs:new"
       ) {
-        console.log("Refreshing notifications...");
+        // console.log("Refreshing notifications...");
         setTimeout(syncNotifications, 500);
       }
     });
