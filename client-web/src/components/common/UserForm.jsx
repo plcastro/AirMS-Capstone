@@ -39,6 +39,7 @@ export default function UserForm({
   onUserSaved,
   user,
   allUsers,
+  onShowPopup,
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -197,14 +198,22 @@ export default function UserForm({
       const savedUser = await res.json();
       const savedUserData = savedUser?.data || savedUser?.user || null;
 
-      antMessage.success(
-        user ? "User updated successfully!" : "User added successfully!",
-      );
+      onShowPopup({
+        open: true,
+        status: "success",
+        title: user ? "User Updated!" : "User Added!",
+        subTitle: user
+          ? "The user has been updated successfully."
+          : "The user has been added successfully.",
+      });
 
       if (!user) {
-        Modal.success({
+        onShowPopup({
+          open: true,
+          status: "success",
           title: "Email Sent",
-          content: `An invitation email has been sent to ${values.email}.`,
+          subTitle: `An invitation email has been sent to ${values.email}.`,
+          status: "success",
         });
       }
 
@@ -229,7 +238,12 @@ export default function UserForm({
       onClose();
     } catch (err) {
       console.error("Error saving user:", err);
-      antMessage.error(err.message || "Server error. Please try again.");
+      onShowPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Something went wrong. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -240,8 +254,8 @@ export default function UserForm({
       const values = await form.validateFields();
       setPreviewData(values);
       setPreviewOpen(true);
-    } catch {
-      // validation errors are displayed by Form
+    } catch (err) {
+      console.log(err);
     }
   };
 

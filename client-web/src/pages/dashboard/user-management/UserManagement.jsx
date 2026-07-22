@@ -12,7 +12,7 @@ import {
   Col,
   Typography,
 } from "antd";
-import { SDMChart } from "../../../components/common/PieChart";
+import ResultPopup from "../../../components/common/ResultPopup";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -69,6 +69,13 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const statusCounts = useMemo(() => {
     const counts = { active: 0, inactive: 0, deactivated: 0, unknown: 0 };
@@ -593,8 +600,17 @@ export default function UserManagement() {
           onClose={handleModalClose}
           onUserSaved={handleUserSaved}
           allUsers={allUsers}
+          onShowPopup={setPopup}
         />
       )}
+
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
