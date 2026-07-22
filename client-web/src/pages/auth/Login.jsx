@@ -22,6 +22,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import AirMSLogo from "../../assets/AirMS_web.webp";
+import ResultPopup from "../../components/common/ResultPopup";
 const { Text } = Typography;
 
 const Login = () => {
@@ -32,6 +33,12 @@ const Login = () => {
     identifier: "",
     password: "",
     base: "",
+  });
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
   });
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -152,7 +159,12 @@ const Login = () => {
           localStorage.removeItem("rememberedIdentifier");
           localStorage.removeItem("rememberMe");
         }
-        message.success("Logged in successfully!");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Login successful",
+          subTitle: "You have been logged in successfully.",
+        });
         handleNavigate(data.user);
       } else {
         if (response.status === 429) {
@@ -301,6 +313,13 @@ const Login = () => {
           </Button>
         </Form>
       </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 };

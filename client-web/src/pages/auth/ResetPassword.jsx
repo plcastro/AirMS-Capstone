@@ -4,7 +4,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
 import { Button, Input, Card, Typography, Row, Col, Form, message } from "antd";
 import LoginLayout from "../../components/layout/LoginLayout";
-
+import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
 const ResetPassword = () => {
@@ -18,6 +18,12 @@ const ResetPassword = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -61,14 +67,27 @@ const ResetPassword = () => {
       const data = await res.json();
 
       if (res.ok) {
-        message.success("Password reset successfully! Redirecting to login...");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Password reset successful",
+          subTitle:
+            data.message ||
+            "Password has been reset successfully. Redirecting to login...",
+        });
         setTimeout(() => navigate("/login"), 3000);
       } else {
         setError(data.message || "Failed to reset password.");
       }
     } catch (err) {
       console.error(err);
-      setError("Network error. Please try again.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Password reset failed",
+        subTitle:
+          data.message || "Password has been reset failed. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -91,66 +110,75 @@ const ResetPassword = () => {
   }
 
   return (
-    <LoginLayout title="Reset Password" subtitle="Enter your new password">
-      <Form
-        layout="vertical"
-        className="reset-password-form"
-        onFinish={handleSubmit}
-      >
-        <Form.Item label="New Password" required>
-          <Input.Password
-            placeholder="New Password"
-            size="large"
-            value={formData.newPassword}
-            onChange={(e) => handleChange("newPassword", e.target.value)}
-            required
-            allowClear
-          />
-        </Form.Item>
-
-        <Form.Item label="Confirm Password" required>
-          <Input.Password
-            size="large"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={(e) => handleChange("confirmPassword", e.target.value)}
-            required
-            allowClear
-          />
-        </Form.Item>
-
-        <Row align={"middle"} justify={"center"} style={{ gap: 10 }}>
-          <Col span={24}>{error && <div className="error">{error}</div>}</Col>
-          <Col span={24}>
-            <Button
-              type="primary"
+    <>
+      <LoginLayout title="Reset Password" subtitle="Enter your new password">
+        <Form
+          layout="vertical"
+          className="reset-password-form"
+          onFinish={handleSubmit}
+        >
+          <Form.Item label="New Password" required>
+            <Input.Password
+              placeholder="New Password"
               size="large"
-              className="login-btn"
-              htmlType="submit"
-              disabled={
-                loading ||
-                !!error ||
-                !formData.newPassword ||
-                !formData.confirmPassword
-              }
-            >
-              {loading ? "Resetting..." : "RESET PASSWORD"}
-            </Button>
-          </Col>
-          <Col span={24}>
-            <Button
-              type="default"
+              value={formData.newPassword}
+              onChange={(e) => handleChange("newPassword", e.target.value)}
+              required
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
               size="large"
-              htmlType="button"
-              onClick={() => navigate("/login")}
-              style={{ width: "100%" }}
-            >
-              {loading ? "GOING TO LOGIN..." : "GO BACK TO LOGIN"}
-            </Button>
-          </Col>
-        </Row>
-      </Form>
-    </LoginLayout>
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={(e) => handleChange("confirmPassword", e.target.value)}
+              required
+              allowClear
+            />
+          </Form.Item>
+
+          <Row align={"middle"} justify={"center"} style={{ gap: 10 }}>
+            <Col span={24}>{error && <div className="error">{error}</div>}</Col>
+            <Col span={24}>
+              <Button
+                type="primary"
+                size="large"
+                className="login-btn"
+                htmlType="submit"
+                disabled={
+                  loading ||
+                  !!error ||
+                  !formData.newPassword ||
+                  !formData.confirmPassword
+                }
+              >
+                {loading ? "Resetting..." : "RESET PASSWORD"}
+              </Button>
+            </Col>
+            <Col span={24}>
+              <Button
+                type="default"
+                size="large"
+                htmlType="button"
+                onClick={() => navigate("/login")}
+                style={{ width: "100%" }}
+              >
+                {loading ? "GOING TO LOGIN..." : "GO BACK TO LOGIN"}
+              </Button>
+            </Col>
+          </Row>
+        </Form>
+      </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+    </>
   );
 };
 

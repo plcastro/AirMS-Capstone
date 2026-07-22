@@ -15,6 +15,7 @@ import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
 const { Title, Text } = Typography;
 import LoginLayout from "../../components/layout/LoginLayout";
+import ResultPopup from "../../components/common/ResultPopup";
 
 export default function ForgotPassword() {
   const nav = useNavigate();
@@ -23,6 +24,13 @@ export default function ForgotPassword() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
   const isEmailValid = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(value.trim());
@@ -68,69 +76,92 @@ export default function ForgotPassword() {
       setLoading(false);
 
       if (response.ok) {
-        Antmessage.success(
-          "Password reset email sent. Redirecting to OTP verification...",
-        );
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Reset Link Sent",
+          subTitle:
+            data.message ||
+            "Password reset email sent. Redirecting to OTP verification...",
+        });
         setTimeout(
           () => nav("/verification", { state: { token: data.token, email } }),
           2500,
         );
       } else {
-        setMessage(
-          data.message || "Failed to send reset link. Try again later.",
-        );
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Reset Link Failed",
+          subTitle:
+            data.message || "Failed to send reset link. Try again later.",
+        });
       }
     } catch (err) {
       console.error(err);
       setLoading(false);
-      setMessage("Failed to send reset link. Try again later.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Reset Link Failed",
+        subTitle: "Failed to send reset link. Try again later.",
+      });
     }
   };
 
   return (
-    <LoginLayout
-      title="Forgot Password"
-      subtitle="Please provide your email to proceed"
-    >
-      <Form
-        layout="vertical"
-        className="forgot-password-form"
-        onFinish={sendResetLink}
+    <>
+      <LoginLayout
+        title="Forgot Password"
+        subtitle="Please provide your email to proceed"
       >
-        <Form.Item label="Email" required>
-          <Input
-            type="email"
-            id="email"
-            placeholder="abcd@example.com"
-            inputMode="email"
-            onBlur={handleEmailBlur}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            maxLength={254}
-            size="large"
-            allowClear
-          />
-          <Row style={{ marginBottom: 10 }}>
-            {message && <Text type="danger">{message}</Text>}
-          </Row>
-          <Button
-            htmlType="submit"
-            type="primary"
-            size="large"
-            className="login-btn"
-            disabled={loading}
-          >
-            {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
-          </Button>
+        <Form
+          layout="vertical"
+          className="forgot-password-form"
+          onFinish={sendResetLink}
+        >
+          <Form.Item label="Email" required>
+            <Input
+              type="email"
+              id="email"
+              placeholder="abcd@example.com"
+              inputMode="email"
+              onBlur={handleEmailBlur}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={254}
+              size="large"
+              allowClear
+            />
+            <Row style={{ marginBottom: 10 }}>
+              {message && <Text type="danger">{message}</Text>}
+            </Row>
+            <Button
+              htmlType="submit"
+              type="primary"
+              size="large"
+              className="login-btn"
+              disabled={loading}
+            >
+              {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
+            </Button>
 
-          <div style={{ marginTop: "20px" }}>
-            Remembered your password?{" "}
-            <Link to="/login" className="link">
-              Log in
-            </Link>
-          </div>
-        </Form.Item>
-      </Form>
-    </LoginLayout>
+            <div style={{ marginTop: "20px" }}>
+              Remembered your password?{" "}
+              <Link to="/login" className="link">
+                Log in
+              </Link>
+            </div>
+          </Form.Item>
+        </Form>
+      </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+    </>
   );
 }

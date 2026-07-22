@@ -9,6 +9,7 @@ import { AuthContext } from "../../context/AuthContext";
 import "./login.css";
 import "../../App.css";
 import LoginLayout from "../../components/layout/LoginLayout";
+import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
 export default function OTP() {
@@ -26,6 +27,12 @@ export default function OTP() {
   const [resendTimer, setResendTimer] = useState(60);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [trustDevice, setTrustDevice] = useState(true);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const MAX_CODE_LENGTH = 6;
 
   const maskEmail = (email) => {
@@ -98,7 +105,13 @@ export default function OTP() {
             sessionId: data.sessionId || data.user?.sessionId,
           });
 
-          message.success("Login verified");
+          setPopup({
+            open: true,
+            status: "success",
+            title: "Login Verified",
+            subTitle: "You have been successfully logged in.",
+          });
+
           const role = String(data?.user?.jobTitle || "").toLowerCase();
           if (role === "superadmin")
             navigate("/dashboard/user-management/view-users");
@@ -114,15 +127,32 @@ export default function OTP() {
           return;
         }
 
-        message.success("OTP verified. Redirecting...");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Verification Successful",
+          subTitle: "OTP has been verified. Redirecting...",
+        });
+
         navigate(`/reset-password?token=${token}`);
       } else {
         message.error(data.message || "Invalid OTP");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Invalid OTP",
+          subTitle: data.message || "OTP is invalid.",
+        });
       }
     } catch (err) {
       console.error("OTP verification error:", err);
       setConfirmLoading(false);
-      message.error("Failed to verify OTP. Try again.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Invalid OTP",
+        subTitle: data.message || "Failed to verify OTP. Try again.",
+      });
     }
   };
 
@@ -149,67 +179,93 @@ export default function OTP() {
 
       const data = await res.json();
       if (res.ok) {
-        message.success("OTP resent to your email.");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "OTP Resent",
+          subTitle: "OTP resent to your email.",
+        });
+
         setResendTimer(60);
       } else {
-        message.error(data.message || "Failed to resend OTP.");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Resend OTP Failed",
+          subTitle: data.message || "Failed to resend OTP.",
+        });
       }
     } catch (err) {
       console.error("Resend OTP error:", err);
-      message.error("Failed to resend OTP. Try again.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Failed to Resend OTP ",
+        subTitle: "Failed to resend OTP. Please try again later",
+      });
     }
   };
 
   return (
-    <LoginLayout
-      title={
-        mode === "login-2fa" ? "Login Verification" : "Account Verification"
-      }
-      subtitle={`Enter the 6-digit code sent to ${maskedEmail || (email ? maskEmail(email) : "your email")}`}
-    >
-      <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Input.OTP
-            value={code}
-            onChange={setCode}
-            autoFocus
-            style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
-            length={6}
-            formatter={(str) => str.replace(/\D/g, "")}
-          />
-        </Col>
-      </Row>
+    <>
+      {" "}
+      <LoginLayout
+        title={
+          mode === "login-2fa" ? "Login Verification" : "Account Verification"
+        }
+        subtitle={`Enter the 6-digit code sent to ${maskedEmail || (email ? maskEmail(email) : "your email")}`}
+      >
+        <Row align={"middle"} justify={"center"} style={{ marginBottom: 20 }}>
+          <Col span={24} style={{ textAlign: "center" }}>
+            <Input.OTP
+              value={code}
+              onChange={setCode}
+              autoFocus
+              style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
+              length={6}
+              formatter={(str) => str.replace(/\D/g, "")}
+            />
+          </Col>
+        </Row>
 
-      <Button
-        type="primary"
-        size="large"
-        onClick={handleVerify}
-        disabled={!pinReady}
-        loading={confirmLoading}
-        style={{ width: "100%", marginBottom: 10 }}
-        className="login-btn"
-      >
-        Verify
-      </Button>
-      {mode === "login-2fa" && (
-        <div style={{ marginBottom: 10 }}>
-          <Checkbox
-            checked={trustDevice}
-            onChange={(e) => setTrustDevice(e.target.checked)}
-          >
-            Trust this device for 30 days
-          </Checkbox>
-        </div>
-      )}
-      <Button
-        type="default"
-        size="large"
-        onClick={handleResend}
-        disabled={resendTimer > 0}
-        style={{ width: "100%" }}
-      >
-        {resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
-      </Button>
-    </LoginLayout>
+        <Button
+          type="primary"
+          size="large"
+          onClick={handleVerify}
+          disabled={!pinReady}
+          loading={confirmLoading}
+          style={{ width: "100%", marginBottom: 10 }}
+          className="login-btn"
+        >
+          Verify
+        </Button>
+        {mode === "login-2fa" && (
+          <div style={{ marginBottom: 10 }}>
+            <Checkbox
+              checked={trustDevice}
+              onChange={(e) => setTrustDevice(e.target.checked)}
+            >
+              Trust this device for 30 days
+            </Checkbox>
+          </div>
+        )}
+        <Button
+          type="default"
+          size="large"
+          onClick={handleResend}
+          disabled={resendTimer > 0}
+          style={{ width: "100%" }}
+        >
+          {resendTimer > 0 ? `Resend code (${resendTimer}s)` : "Resend code"}
+        </Button>
+      </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+    </>
   );
 }

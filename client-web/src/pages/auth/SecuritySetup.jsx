@@ -13,7 +13,7 @@ import {
 import { API_BASE } from "../../utils/API_BASE";
 import "./login.css";
 import LoginLayout from "../../components/layout/LoginLayout";
-
+import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
 const SecuritySetup = () => {
@@ -29,7 +29,13 @@ const SecuritySetup = () => {
     pin: "",
     confirmPin: "",
   });
-  const [, setSetupSuccess] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+  const [setupSuccess, setSetupSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -97,13 +103,23 @@ const SecuritySetup = () => {
         throw new Error(data.message || "Activation failed");
       }
       setSetupSuccess(true);
-      antMessage.success(
-        "Password and PIN set successfully! Redirecting to login...",
-      );
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Security Setup Successful",
+        subTitle:
+          data.message ||
+          "Password and PIN set successfully! Redirecting to login...",
+      });
       setTimeout(() => navigate("/login"), 2500);
     } catch (err) {
       console.error(err);
-      antMessage.error(err.message || "Activation failed. Try again later.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Security Setup Failed",
+        subTitle: err.message || "Activation failed. Try again later.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -126,13 +142,28 @@ const SecuritySetup = () => {
       });
       const data = await res.json();
       if (res.ok) {
-        antMessage.success(data.message || "Activation link sent!");
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Link Resent",
+          subTitle: data.message || "Activation link sent!",
+        });
       } else {
-        antMessage.error(data.message || "Failed to resend activation link.");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Link Resent Failed",
+          subTitle: data.message || "Failed to resend activation link.",
+        });
       }
     } catch (err) {
       console.error(err);
-      antMessage.error("Failed to resend activation link. Try again later.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Link Resent Failed",
+        subTitle: "Failed to resend activation link. Try again later.",
+      });
     } finally {
       setResendLoading(false);
     }
@@ -145,99 +176,111 @@ const SecuritySetup = () => {
   });
 
   return (
-    <LoginLayout
-      title="Security Setup"
-      subtitle="Set your new password and PIN to proceed"
-    >
-      <Form layout="vertical" onFinish={validateAndSubmit}>
-        <Form.Item label="New Password" required>
-          <Input.Password
-            value={formData.newPassword}
-            onChange={(e) => changeHandler("newPassword", e.target.value)}
-          />
-        </Form.Item>
+    <>
+      <LoginLayout
+        title="Security Setup"
+        subtitle="Set your new password and PIN to proceed"
+      >
+        <Form layout="vertical" onFinish={validateAndSubmit}>
+          <Form.Item label="New Password" required>
+            <Input.Password
+              value={formData.newPassword}
+              onChange={(e) => changeHandler("newPassword", e.target.value)}
+            />
+          </Form.Item>
 
-        <Form.Item label="Confirm Password" required>
-          <Input.Password
-            value={formData.confirmPassword}
-            onChange={(e) => changeHandler("confirmPassword", e.target.value)}
-          />
-        </Form.Item>
+          <Form.Item label="Confirm Password" required>
+            <Input.Password
+              value={formData.confirmPassword}
+              onChange={(e) => changeHandler("confirmPassword", e.target.value)}
+            />
+          </Form.Item>
 
-        {/* Live password requirements */}
-        <div style={{ marginBottom: "15px" }}>
-          <span style={getRequirementStyle(passwordRequirements.minLength)}>
-            {passwordRequirements.minLength ? "✓" : "✗"} At least 8 characters
-          </span>
-          <br />
-          <span style={getRequirementStyle(passwordRequirements.hasUppercase)}>
-            {passwordRequirements.hasUppercase ? "✓" : "✗"} One uppercase letter
-          </span>
-          <br />
-          <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
-            {passwordRequirements.hasNumber ? "✓" : "✗"} One number
-          </span>
-        </div>
+          {/* Live password requirements */}
+          <div style={{ marginBottom: "15px" }}>
+            <span style={getRequirementStyle(passwordRequirements.minLength)}>
+              {passwordRequirements.minLength ? "✓" : "✗"} At least 8 characters
+            </span>
+            <br />
+            <span
+              style={getRequirementStyle(passwordRequirements.hasUppercase)}
+            >
+              {passwordRequirements.hasUppercase ? "✓" : "✗"} One uppercase
+              letter
+            </span>
+            <br />
+            <span style={getRequirementStyle(passwordRequirements.hasNumber)}>
+              {passwordRequirements.hasNumber ? "✓" : "✗"} One number
+            </span>
+          </div>
 
-        {/* PIN */}
-        <Form.Item label="Set 6-digit PIN" required>
-          <Input.Password
-            value={formData.pin}
-            inputMode="numeric"
-            maxLength={6}
-            onChange={(e) =>
-              changeHandler("pin", e.target.value.replace(/\D/g, ""))
-            }
-            placeholder="Enter 6-digit PIN"
-          />
-        </Form.Item>
+          {/* PIN */}
+          <Form.Item label="Set 6-digit PIN" required>
+            <Input.Password
+              value={formData.pin}
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) =>
+                changeHandler("pin", e.target.value.replace(/\D/g, ""))
+              }
+              placeholder="Enter 6-digit PIN"
+            />
+          </Form.Item>
 
-        <Form.Item label="Confirm PIN" required>
-          <Input.Password
-            value={formData.confirmPin}
-            maxLength={6}
-            inputMode="numeric"
-            onChange={(e) =>
-              changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
-            }
-            placeholder="Confirm 6-digit PIN"
-          />
-        </Form.Item>
+          <Form.Item label="Confirm PIN" required>
+            <Input.Password
+              value={formData.confirmPin}
+              maxLength={6}
+              inputMode="numeric"
+              onChange={(e) =>
+                changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
+              }
+              placeholder="Confirm 6-digit PIN"
+            />
+          </Form.Item>
 
-        <Form.Item>
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            disabled={!isFormValid}
-            loading={submitting}
-            block
-            className="login-btn"
-          >
-            {submitting ? "SETTING UP..." : "SET PASSWORD & PIN"}
-          </Button>
-        </Form.Item>
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              disabled={!isFormValid}
+              loading={submitting}
+              block
+              className="login-btn"
+            >
+              {submitting ? "SETTING UP..." : "SET PASSWORD & PIN"}
+            </Button>
+          </Form.Item>
 
-        <Form.Item>
-          <Button
-            type="default"
-            size="large"
-            onClick={handleResendActivation}
-            loading={resendLoading}
-            block
-          >
-            RESEND ACTIVATION LINK
-          </Button>
-        </Form.Item>
+          <Form.Item>
+            <Button
+              type="default"
+              size="large"
+              onClick={handleResendActivation}
+              loading={resendLoading}
+              block
+            >
+              RESEND ACTIVATION LINK
+            </Button>
+          </Form.Item>
 
-        <div style={{ marginTop: "20px" }}>
-          Already activated?{" "}
-          <Link to="/login" className="link">
-            Go to Login
-          </Link>
-        </div>
-      </Form>
-    </LoginLayout>
+          <div style={{ marginTop: "20px" }}>
+            Already activated?{" "}
+            <Link to="/login" className="link">
+              Go to Login
+            </Link>
+          </div>
+        </Form>
+      </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+    </>
   );
 };
 
