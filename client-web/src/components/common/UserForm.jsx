@@ -6,7 +6,6 @@ import {
   Button,
   Select,
   Divider,
-  message as antMessage,
   Col,
   Row,
   Typography,
@@ -45,6 +44,7 @@ export default function UserForm({
   const isMobile = !screens.md;
   const { getValidToken } = useContext(AuthContext);
   const [form] = Form.useForm();
+  const formValues = Form.useWatch([], form);
 
   const [joinedDate, setJoinedDate] = useState(new Date());
   const [imageUrl, setImageUrl] = useState(null);
@@ -121,17 +121,20 @@ export default function UserForm({
 
   useEffect(() => {
     form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
-    if (
-      ![
-        "maintenance manager",
-        "pilot",
-        "mechanic",
-        "officer-in-charge",
-      ].includes(jobTitleValue.toLowerCase())
-    ) {
+
+    const requiresLicense = [
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ].includes(jobTitleValue.toLowerCase());
+
+    if (!requiresLicense) {
       form.setFieldValue("licenseNo", "");
+    } else if (user) {
+      form.setFieldValue("licenseNo", user.licenseNo);
     }
-  }, [jobTitleValue, form]);
+  }, [jobTitleValue, user, form]);
 
   const handleSave = async (values) => {
     setLoading(true);
@@ -270,10 +273,30 @@ export default function UserForm({
     [jobTitleValue],
   );
   const actionLabel = user ? "update" : "create";
-  const hasUnsavedChanges = () => form.isFieldsTouched(true) || Boolean(file);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!visible) return false;
+
+    // New user
+    if (!user) {
+      return form.isFieldsTouched(true) || Boolean(file);
+    }
+
+    return (
+      formValues?.firstName !== (user.firstName || "") ||
+      formValues?.lastName !== (user.lastName || "") ||
+      formValues?.email !== (user.email || "") ||
+      formValues?.username !== (user.username || "") ||
+      formValues?.jobTitle !== (user.jobTitle || "") ||
+      formValues?.access !== (user.access || ROLE_MAP[user.jobTitle] || "") ||
+      (formValues?.licenseNo || "") !== (user.licenseNo || "") ||
+      Boolean(file)
+    );
+  }, [formValues, file, user, visible, form]);
+
   const handleCancelWithWarning = () => {
     if (loading) return;
-    if (hasUnsavedChanges()) {
+    if (hasUnsavedChanges) {
       Modal.confirm({
         title: "Discard changes?",
         content: "You have unsaved changes. Cancel and discard them?",
@@ -322,6 +345,7 @@ export default function UserForm({
             onClick={handlePreview}
             loading={loading}
             style={{ width: isMobile ? "48%" : "auto" }}
+            disabled={user ? !hasUnsavedChanges : false}
           >
             {user ? "Update" : "Create"}
           </Button>,
