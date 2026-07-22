@@ -15,6 +15,7 @@ const AUTH_SYNC_KEY = "authSyncEvent";
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
     useState(false);
   const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
@@ -23,7 +24,6 @@ export const AuthProvider = ({ children }) => {
   const [rememberMePreference, setRememberMePreferenceState] = useState(
     localStorage.getItem(REMEMBER_ME_KEY) === "true",
   );
-
   const syncChannelRef = useRef(null);
   const inactivityWarningTimeoutRef = useRef(null);
   const inactivityLogoutTimeoutRef = useRef(null);
@@ -323,7 +323,6 @@ export const AuthProvider = ({ children }) => {
     const sessionHeaders = buildSessionHeaders();
     try {
       sessionEndedRef.current = true;
-      setLoading(true);
       setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();

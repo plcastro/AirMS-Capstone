@@ -139,8 +139,10 @@ const AppRouter = () => {
     logoutUser,
   } = useContext(AuthContext);
 
-  const handleSignOutNow = async () => {
-    await logoutUser();
+  const handleSignOutNow = () => {
+    logoutUser().catch((error) => {
+      console.error("Sign out failed:", error);
+    });
     navigate("/login", { replace: true });
   };
 
@@ -152,26 +154,37 @@ const AppRouter = () => {
     <>
       <Modal
         open={showSessionTimeoutWarning}
+        title="Session Timeout Warning"
         closable={false}
         mask={{ closable: false }}
+        keyboard={false}
         centered
-        footer={[
-          <Button key="logout" onClick={handleSignOutNow}>
-            Sign out now
-          </Button>,
-          <Button key="continue" type="primary" onClick={continueSession}>
-            Continue session
-          </Button>,
-        ]}
-        title="Session Timeout Warning"
+        footer={null}
       >
         <p style={{ marginBottom: 8 }}>
           You&apos;ve been inactive for a while. For your security, you&apos;ll
           be signed out unless you continue.
         </p>
-        <p style={{ marginBottom: 0 }}>
+
+        <p style={{ marginBottom: 20 }}>
           Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
         </p>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+          }}
+        >
+          <Button danger href="/login" onClick={handleSignOutNow}>
+            Sign out now
+          </Button>
+
+          <Button type="primary" htmlType="button" onClick={continueSession}>
+            Continue session
+          </Button>
+        </div>
       </Modal>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
