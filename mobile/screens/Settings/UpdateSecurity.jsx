@@ -41,7 +41,6 @@ export default function UpdateSecurity() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [pinResetToken, setPinResetToken] = useState("");
 
-  const [validationMessage, setValidationMessage] = useState("");
   const [actionLoadingKey, setActionLoadingKey] = useState("");
 
   const runWithLoading = async (key, action) => {
@@ -120,7 +119,6 @@ export default function UpdateSecurity() {
     setOtpVerified(false);
     setPinResetToken("");
     setForgotPinMode(false);
-    setValidationMessage("");
     scrollToInput(0);
   };
 
@@ -130,7 +128,6 @@ export default function UpdateSecurity() {
 
   // --- Save Password or PIN ---
   const handleSave = async (type) => {
-    setValidationMessage("");
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const endpoint = type === "Password" ? "change-password" : "update-pin";
@@ -155,12 +152,9 @@ export default function UpdateSecurity() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Update failed.");
-
-      setValidationMessage(`${type} updated successfully!`);
-
+      showToast(`${type} updated successfully!`);
       resetAll();
     } catch (err) {
-      setValidationMessage(err.message);
       showToast(err.message);
     }
   };
@@ -188,9 +182,9 @@ export default function UpdateSecurity() {
 
       setOtpSent(true);
       setPinResetToken(data.token);
-      setValidationMessage("OTP sent to your email.");
+      showToast("OTP sent to your email.");
     } catch (err) {
-      setValidationMessage(err.message);
+      showToast(err.message);
     }
   };
 
@@ -211,7 +205,7 @@ export default function UpdateSecurity() {
       if (!res.ok) {
         if (message.toLowerCase().includes("expired")) {
           setOtpSent(false);
-          setValidationMessage("OTP expired! Request a new one.");
+          showToast("OTP expired! Request a new one.");
         } else {
           throw new Error(message || "OTP verification failed");
         }
@@ -219,9 +213,9 @@ export default function UpdateSecurity() {
       }
 
       setOtpVerified(true);
-      setValidationMessage("OTP verified! You can now reset your PIN.");
+      showToast("OTP verified! You can now reset your PIN.");
     } catch (err) {
-      setValidationMessage(err.message);
+      showToast(err.message);
     }
   };
 
@@ -328,20 +322,6 @@ export default function UpdateSecurity() {
                   onChangeText={setConfirmPassword}
                   style={styles.input}
                 />
-                {validationMessage ? (
-                  <Text
-                    style={[
-                      styles.validationText,
-                      {
-                        color: validationMessage.includes("successfully")
-                          ? "#00c88c"
-                          : "#ff4d4f",
-                      },
-                    ]}
-                  >
-                    {validationMessage}
-                  </Text>
-                ) : null}
                 <Button
                   mode="contained"
                   loading={actionLoadingKey === "save-password"}
@@ -413,11 +393,6 @@ export default function UpdateSecurity() {
                       onChangeText={setPasswordForPin}
                       style={styles.input}
                     />
-                    {validationMessage ? (
-                      <Text style={styles.validationText}>
-                        {validationMessage}
-                      </Text>
-                    ) : null}
                     <Button
                       mode="contained"
                       loading={actionLoadingKey === "send-otp"}
@@ -443,11 +418,6 @@ export default function UpdateSecurity() {
                 {forgotPinMode && otpSent && !otpVerified && (
                   <View style={styles.section}>
                     {renderCodeField("OTP", otp, setOtp)}
-                    {validationMessage ? (
-                      <Text style={styles.validationText}>
-                        {validationMessage}
-                      </Text>
-                    ) : null}
                     <Button
                       mode="contained"
                       loading={actionLoadingKey === "verify-otp"}
@@ -548,6 +518,5 @@ const styles = StyleSheet.create({
   pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
   pinCodeSection: { flex: 0, alignItems: "stretch", marginVertical: 0 },
   pinCodeContainer: { width: "100%" },
-  validationText: { color: "#ff4d4f", textAlign: "center", marginTop: 10 },
   hintText: { fontSize: 12, marginBottom: 10 },
 });
