@@ -7,7 +7,7 @@ const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export default function LoginLayout({
-  title = "Sign in to access your AirMS Account",
+  title = "Log in to access your AirMS Account",
   subtitle = "",
   children,
 }) {
