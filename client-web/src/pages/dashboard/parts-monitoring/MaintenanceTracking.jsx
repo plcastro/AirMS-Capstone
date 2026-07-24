@@ -1,16 +1,22 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   App,
   Alert,
   Button,
   Card,
+  Checkbox,
   Col,
   Modal,
   Row,
   Select,
   Space,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
@@ -18,6 +24,8 @@ import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
+import ResultPopup from "../../../components/common/ResultPopup";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const { Title, Text } = Typography;
 
@@ -72,6 +80,16 @@ const columnHeader = [
   },
 ];
 
+const optionalFindingColumnOptions = [
+  { label: "Recommended Action", value: "recommendedAction" },
+  { label: "AMM Summary", value: "procedureSummary" },
+  { label: "Reference", value: "manualReference" },
+];
+
+const optionalFindingColumnKeys = optionalFindingColumnOptions.map(
+  (option) => option.value,
+);
+
 const inferRectificationInspectionName = (item = {}) => {
   const text = [
     item.issueTitle,
@@ -96,9 +114,6 @@ const inferRectificationInspectionName = (item = {}) => {
 
   return "OC Inspection";
 };
-
-const getIndefiniteArticle = (value = "") =>
-  /^[aeiou]/i.test(String(value || "").trim()) ? "an" : "a";
 
 const buildNoMaintenanceIssueInsight = (item = {}) => ({
   ...item,
@@ -165,7 +180,24 @@ export default function MaintenanceTracking() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
+  const [visibleOptionalFindingColumns, setVisibleOptionalFindingColumns] =
+    useState(["recommendedAction"]);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const llmLimit = 0;
+
+  const showOperationError = useCallback((subTitle) => {
+    setPopup({
+      open: true,
+      status: "error",
+      title: "Operation failed!",
+      subTitle,
+    });
+  }, []);
 
   const refreshLlmHealth = async () => {
     const refreshedHealth = await fetch(`${API_BASE}/api/ai-insights/health`, {
@@ -267,7 +299,7 @@ export default function MaintenanceTracking() {
         await refreshLlmHealth();
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
-        message.error(
+        showOperationError(
           error.message || "Failed to load AI maintenance insights",
         );
       } finally {
@@ -277,7 +309,7 @@ export default function MaintenanceTracking() {
     };
 
     fetchInsights();
-  }, []);
+  }, [showOperationError]);
 
   const fetchLlmSummaries = async () => {
     const confirmed = await confirmAction({
@@ -344,7 +376,7 @@ export default function MaintenanceTracking() {
       }
     } catch (error) {
       console.error("Failed to load OpenAI summaries:", error);
-      message.error(error.message || "Failed to load OpenAI summaries");
+      showOperationError(error.message || "Failed to load OpenAI summaries");
     } finally {
       setSummaryLoading(false);
     }
@@ -451,7 +483,9 @@ export default function MaintenanceTracking() {
           message.success("Maintenance finding marked rectified.");
         } catch (error) {
           console.error("Failed to mark finding rectified:", error);
-          message.error(error.message || "Failed to mark finding rectified");
+          showOperationError(
+            error.message || "Failed to mark finding rectified",
+          );
         } finally {
           setRectifyingKey("");
         }
@@ -520,6 +554,16 @@ export default function MaintenanceTracking() {
         };
       }),
     [filteredInsights, rectifyingKey],
+  );
+
+  const visibleFindingHeaders = useMemo(
+    () =>
+      columnHeader.filter(
+        (header) =>
+          !optionalFindingColumnKeys.includes(header.key) ||
+          visibleOptionalFindingColumns.includes(header.key),
+      ),
+    [visibleOptionalFindingColumns],
   );
 
   const summarySourceCounts = useMemo(
@@ -785,7 +829,19 @@ export default function MaintenanceTracking() {
           </Col>
 
           <Col xs={24} md={12}>
-            <Space style={{ float: "right" }}>
+            <Space style={{ float: "right" }} wrap>
+              <Select
+                value={selectedAircraftFilter}
+                onChange={setSelectedAircraftFilter}
+                style={{ width: 180 }}
+                options={[
+                  { label: "All aircraft", value: "all" },
+                  ...aircraftFilterOptions.map((aircraft) => ({
+                    label: aircraft,
+                    value: aircraft,
+                  })),
+                ]}
+              />
               {!isOfficerInCharge && (
                 <Button
                   type="primary"
@@ -887,11 +943,21 @@ export default function MaintenanceTracking() {
       {/* ================= MAIN TABLE ================= */}
       <Card
         title="Condensed AI Findings"
+        extra={
+          <Space wrap>
+            <Text type="secondary">Columns</Text>
+            <Checkbox.Group
+              options={optionalFindingColumnOptions}
+              value={visibleOptionalFindingColumns}
+              onChange={setVisibleOptionalFindingColumns}
+            />
+          </Space>
+        }
         style={{ borderRadius: 12 }}
         styles={{ body: { padding: 12 } }}
       >
         <MTrackingTable
-          headers={columnHeader}
+          headers={visibleFindingHeaders}
           data={tableData}
           loading={loading || summaryLoading}
           onRectifyFinding={confirmFindingRectified}
@@ -925,7 +991,7 @@ export default function MaintenanceTracking() {
           </Col>
 
           <Col span={24}>
-            <Table
+            <ResponsiveTable
               columns={scheduledTaskColumns}
               dataSource={scheduledTaskRows}
               rowKey={(record) => record.id || record.key}
@@ -944,7 +1010,7 @@ export default function MaintenanceTracking() {
           Aircraft inspection lifecycle tracking and parts lifespan monitoring
         </Text>
 
-        <Table
+        <ResponsiveTable
           style={{ marginTop: 12 }}
           columns={inspectionRemainingColumns}
           dataSource={filteredInspectionRemainingRows}
@@ -957,6 +1023,13 @@ export default function MaintenanceTracking() {
           scroll={{ x: 1100 }}
         />
       </Card>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

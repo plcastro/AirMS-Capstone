@@ -5,7 +5,6 @@ import {
   Input,
   Button,
   Card,
-  message as antMessage,
   Typography,
   Row,
   Col,
@@ -35,7 +34,7 @@ const SecuritySetup = () => {
     title: "",
     subTitle: "",
   });
-  const [setupSuccess, setSetupSuccess] = useState(false);
+  const [fieldError, setFieldError] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,29 +59,36 @@ const SecuritySetup = () => {
 
   const changeHandler = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    setFieldError("");
   };
 
   const validateAndSubmit = async () => {
     // Password checks
     if (!passwordRequirements.minLength) {
-      return antMessage.error("Password must be at least 8 characters.");
+      setFieldError("Password must be at least 8 characters.");
+      return;
     }
     if (!passwordRequirements.hasUppercase) {
-      return antMessage.error("Password must contain an uppercase letter.");
+      setFieldError("Password must contain an uppercase letter.");
+      return;
     }
     if (!passwordRequirements.hasNumber) {
-      return antMessage.error("Password must contain a number.");
+      setFieldError("Password must contain a number.");
+      return;
     }
     if (formData.newPassword !== formData.confirmPassword) {
-      return antMessage.error("Passwords do not match.");
+      setFieldError("Passwords do not match.");
+      return;
     }
 
     // PIN checks
     if (!pinRequirements.isSixDigits) {
-      return antMessage.error("PIN must be exactly 6 digits.");
+      setFieldError("PIN must be exactly 6 digits.");
+      return;
     }
     if (!pinRequirements.match) {
-      return antMessage.error("PINs do not match.");
+      setFieldError("PINs do not match.");
+      return;
     }
 
     // Submit
@@ -99,10 +105,8 @@ const SecuritySetup = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        setSetupSuccess(false);
         throw new Error(data.message || "Activation failed");
       }
-      setSetupSuccess(true);
       setPopup({
         open: true,
         status: "success",
@@ -126,13 +130,17 @@ const SecuritySetup = () => {
   };
 
   const handleResendActivation = async () => {
-    if (!email)
-      return antMessage.error(
-        "No email provided for resending activation link.",
-      );
+    if (!email) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Link Resend Failed",
+        subTitle: "No email provided for resending activation link.",
+      });
+      return;
+    }
 
     setResendLoading(true);
-    antMessage.destroy(); // Clear previous messages
 
     try {
       const res = await fetch(`${API_BASE}/api/user/resend-activation`, {
@@ -152,7 +160,7 @@ const SecuritySetup = () => {
         setPopup({
           open: true,
           status: "error",
-          title: "Link Resent Failed",
+          title: "Link Resend Failed",
           subTitle: data.message || "Failed to resend activation link.",
         });
       }
@@ -161,7 +169,7 @@ const SecuritySetup = () => {
       setPopup({
         open: true,
         status: "error",
-        title: "Link Resent Failed",
+        title: "Link Resend Failed",
         subTitle: "Failed to resend activation link. Try again later.",
       });
     } finally {
@@ -238,6 +246,12 @@ const SecuritySetup = () => {
               placeholder="Confirm 6-digit PIN"
             />
           </Form.Item>
+
+          {fieldError && (
+            <Text type="danger" style={{ display: "block", marginBottom: 12 }}>
+              {fieldError}
+            </Text>
+          )}
 
           <Form.Item>
             <Button

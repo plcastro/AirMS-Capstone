@@ -2,6 +2,7 @@
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
   TouchableOpacity,
@@ -25,6 +26,7 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
@@ -88,8 +90,9 @@ export default function ResetPassword() {
 
       if (!res.ok) throw new Error(data.message || "Failed to reset password.");
 
-      setSuccessMessage("Password reset successfully! Redirecting to login...");
-      setTimeout(() => navigation.replace("login"), 3000);
+      setRedirecting(true);
+      setSuccessMessage("Password reset successfully. Taking you to login...");
+      setTimeout(() => navigation.replace("login"), 1600);
     } catch (err) {
       console.error("Reset password error:", err);
       setError(err.message || "Network error. Please try again.");
@@ -180,27 +183,46 @@ export default function ResetPassword() {
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
 
             {successMessage ? (
-              <AppText style={{ color: "green", marginTop: 5 }}>
-                {successMessage}
-              </AppText>
+              <View
+                style={{
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  marginTop: 5,
+                }}
+              >
+                {redirecting ? (
+                  <ActivityIndicator color="#26866F" size="small" />
+                ) : null}
+                <AppText style={{ color: "green", marginLeft: 8 }}>
+                  {successMessage}
+                </AppText>
+              </View>
             ) : null}
           </View>
 
           {/* BUTTON */}
           <View style={{ marginTop: 10 }}>
             <Button
-              label={loading ? "RESETTING..." : "RESET PASSWORD"}
+              label={
+                redirecting
+                  ? "REDIRECTING..."
+                  : loading
+                    ? "RESETTING..."
+                    : "RESET PASSWORD"
+              }
               onPress={handleSubmit}
               buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
               buttonTextStyle={styles.primaryBtnTxt}
-              disabled={loading || !isFormValid}
+              disabled={loading || redirecting || !isFormValid}
             />
           </View>
 
           {/* FOOTER LINK */}
           <TouchableOpacity
-            onPress={() => nav.replace("login")}
+            onPress={() => navigation.replace("login")}
             activeOpacity={0.8}
+            disabled={redirecting}
             style={{ marginTop: 25, alignItems: "center" }}
           >
             <AppText style={{ color: "#374151", textAlign: "center" }}>

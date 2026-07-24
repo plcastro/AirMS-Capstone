@@ -334,6 +334,12 @@ export default function MaintenanceLog() {
       } catch (error) {
         console.error("Failed to fetch maintenance logs:", error);
         setAllEntries([]);
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to fetch maintenance logs.",
+        });
       } finally {
         setLoading(false);
       }
@@ -555,6 +561,16 @@ export default function MaintenanceLog() {
     }
   };
 
+  const resultPopup = (
+    <ResultPopup
+      open={popup.open}
+      status={popup.status}
+      title={popup.title}
+      subTitle={popup.subTitle}
+      onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+    />
+  );
+
   if (viewLevel === "dashboard") {
     return (
       <div style={pageScrollStyle}>
@@ -564,16 +580,6 @@ export default function MaintenanceLog() {
             styles={{ body: { padding: 16 } }}
           >
             <Row gutter={[12, 12]} align="middle" justify="space-between">
-              <Col xs={24} md={10}>
-                <Space orientation="vertical" size={2}>
-                  <Text type="secondary" style={{ letterSpacing: 0.3 }}>
-                    MAINTENANCE LOGBOOK
-                  </Text>
-                  <Title level={4} style={{ margin: 0 }}>
-                    Aircraft Maintenance Logs
-                  </Title>
-                </Space>
-              </Col>
               <Col xs={24} md={10}>
                 <Input
                   size="large"
@@ -682,6 +688,7 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </div>
+        {resultPopup}
       </div>
     );
   }
@@ -741,7 +748,7 @@ export default function MaintenanceLog() {
                   <Row gutter={[12, 12]}>
                     {[
                       {
-                        label: "Reported By",
+                        label: "Last Reported By",
                         value: selectedAircraft?.reportedBy || "N/A",
                       },
                       {
@@ -881,6 +888,7 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </div>
+        {resultPopup}
       </div>
     );
   }
@@ -991,13 +999,7 @@ export default function MaintenanceLog() {
             />
           </Card>
         </div>
-        <ResultPopup
-          open={popup.open}
-          status={popup.status}
-          title={popup.title}
-          subTitle={popup.subTitle}
-          onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
-        />
+        {resultPopup}
       </div>
     );
   }

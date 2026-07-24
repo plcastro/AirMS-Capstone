@@ -10,7 +10,6 @@ import {
   Statistic,
   Typography,
   Segmented,
-  Table,
   Tag,
   Grid,
 } from "antd";
@@ -31,6 +30,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import ResultPopup from "../../../components/common/ResultPopup";
 import { renderStatusTag } from "../../../utils/statusTags";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -401,7 +401,7 @@ export default function MaintenanceDashboard() {
     {
       key: "flight-log",
       category: "Logbook",
-      title: "Flight Log Report",
+      title: "",
       component: (
         <FlightLogReport records={flightLogs} loading={loadingTasks} />
       ),
@@ -410,7 +410,7 @@ export default function MaintenanceDashboard() {
     {
       key: "pre-inspection",
       category: "Logbook",
-      title: "Pre-Inspection Report",
+      title: "",
       component: (
         <InspectionReport
           title="Pre-Inspection Report"
@@ -423,7 +423,7 @@ export default function MaintenanceDashboard() {
     {
       key: "post-inspection",
       category: "Logbook",
-      title: "Post-Inspection Report",
+      title: "",
       component: (
         <InspectionReport
           title="Post-Inspection Report"
@@ -963,8 +963,7 @@ export default function MaintenanceDashboard() {
         open: true,
         status: "success",
         title: "Excel Exported!",
-        subTitle:
-          "Reports and analytics Excel has been exported successfully.",
+        subTitle: "Reports and analytics Excel has been exported successfully.",
       });
     } catch (error) {
       console.error("Reports Excel export failed:", error);
@@ -1450,7 +1449,7 @@ export default function MaintenanceDashboard() {
                 >
                   Task records for the selected operational KPI.
                 </Text>
-                <Table
+                <ResponsiveTable
                   size={"small"}
                   columns={taskDetailColumns}
                   dataSource={taskDetailRows}
@@ -1470,7 +1469,7 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "baseDamage" && (
-              <Table
+              <ResponsiveTable
                 size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
@@ -1486,7 +1485,7 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "baseRepair" && (
-              <Table
+              <ResponsiveTable
                 size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
@@ -1506,7 +1505,7 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "avgRectification" && (
-              <Table
+              <ResponsiveTable
                 size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
@@ -1528,7 +1527,7 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "sameDay" && (
-              <Table
+              <ResponsiveTable
                 size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
@@ -1550,7 +1549,7 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "modules" && (
-              <Table
+              <ResponsiveTable
                 size={"small"}
                 columns={[
                   { title: "Category", dataIndex: "category", key: "category" },

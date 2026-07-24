@@ -470,6 +470,39 @@ const buildFlightLogHtml = (log = {}) => {
             margin: 0;
             page-break-inside: avoid;
           }
+          .flight-table col:nth-child(1) { width: 7%; }
+          .flight-table col:nth-child(2) { width: 41%; }
+          .flight-table col:nth-child(3),
+          .flight-table col:nth-child(4),
+          .flight-table col:nth-child(5),
+          .flight-table col:nth-child(6) { width: 8%; }
+          .flight-table col:nth-child(7),
+          .flight-table col:nth-child(8) { width: 10%; }
+          .passenger-table col:first-child { width: 13%; }
+          .passenger-table col:not(:first-child) { width: 10.875%; }
+          .component-table col:first-child { width: 8.5%; }
+          .component-table col:not(:first-child) { width: 9.15%; }
+          .fuel-table col:nth-child(1) { width: 6.5%; }
+          .fuel-table col:nth-child(2) { width: 9.5%; }
+          .fuel-table col:nth-child(3) { width: 12%; }
+          .fuel-table col:nth-child(4),
+          .fuel-table col:nth-child(6) { width: 12%; }
+          .fuel-table col:nth-child(5) { width: 11%; }
+          .fuel-table col:nth-child(7),
+          .fuel-table col:nth-child(8) { width: 10%; }
+          .fuel-table col:nth-child(9) { width: 17%; }
+          .oil-table col:nth-child(1) { width: 6%; }
+          .oil-table col:nth-child(2) { width: 8.5%; }
+          .oil-table col:nth-child(n+3):nth-child(-n+11) { width: 6.5%; }
+          .oil-table col:nth-child(12) { width: 16%; }
+          .oil-table col:nth-child(13) { width: 11%; }
+          .remarks-table col:first-child { width: 80%; }
+          .remarks-table col:last-child { width: 20%; }
+          .work-table col:nth-child(1) { width: 12.5%; }
+          .work-table col:nth-child(2) { width: 14.5%; }
+          .work-table col:nth-child(3) { width: 45.5%; }
+          .work-table col:nth-child(4) { width: 17%; }
+          .work-table col:nth-child(5) { width: 10.5%; }
           th, td {
             border: .8px solid #111;
             padding: 2px 3px;
@@ -554,16 +587,9 @@ const buildFlightLogHtml = (log = {}) => {
             <div class="field control">CONTROL NO.:<span class="line">${escapeHtml(flightValue(log.controlNo || log.control))}</span></div>
           </div>
 
-          <table>
+          <table class="flight-table">
             <colgroup>
-              <col style="width: 7%" />
-              <col style="width: 42%" />
-              <col style="width: 5%" />
-              <col style="width: 5%" />
-              <col style="width: 6%" />
-              <col style="width: 9%" />
-              <col style="width: 16%" />
-              <col style="width: 10%" />
+              ${Array.from({ length: 8 }, () => "<col />").join("")}
             </colgroup>
           <thead>
             <tr>
@@ -602,7 +628,8 @@ const buildFlightLogHtml = (log = {}) => {
           </tbody>
         </table>
 
-          <table class="section">
+          <table class="section passenger-table">
+          <colgroup>${Array.from({ length: 9 }, () => "<col />").join("")}</colgroup>
           <thead>
               <tr><th colspan="9">PASSENGERS</th></tr>
               <tr>
@@ -623,7 +650,8 @@ const buildFlightLogHtml = (log = {}) => {
           </tbody>
         </table>
 
-          <table>
+          <table class="component-table">
+            <colgroup>${Array.from({ length: 11 }, () => "<col />").join("")}</colgroup>
             <thead>
               <tr>
                 <th rowspan="2"></th>
@@ -658,7 +686,8 @@ const buildFlightLogHtml = (log = {}) => {
             <div>ENGINE NEXT INSP. DUE AT: ${escapeHtml(flightValue(tf.engineNextInsp || bf.engineNextInsp))}</div>
           </div>
 
-          <table class="section">
+          <table class="section fuel-table">
+            <colgroup>${Array.from({ length: 9 }, () => "<col />").join("")}</colgroup>
             <thead>
               <tr><th colspan="9">FUEL SERVICING</th></tr>
               <tr>
@@ -688,7 +717,8 @@ const buildFlightLogHtml = (log = {}) => {
             </tbody>
           </table>
 
-          <table class="section">
+          <table class="section oil-table">
+            <colgroup>${Array.from({ length: 13 }, () => "<col />").join("")}</colgroup>
             <thead>
               <tr><th colspan="13">OIL SERVICING</th></tr>
               <tr>
@@ -736,8 +766,9 @@ const buildFlightLogHtml = (log = {}) => {
             </div>
           </div>
 
-          <table class="section">
-            <thead><tr><th>DISCREPANCY / REMARKS</th><th style="width: 18%">SLING</th></tr></thead>
+          <table class="section remarks-table">
+            <colgroup><col /><col /></colgroup>
+            <thead><tr><th>DISCREPANCY / REMARKS</th><th>SLING</th></tr></thead>
             <tbody>
               <tr><td>${escapeHtml(flightValue(log.remarks))}</td><td>${escapeHtml(flightValue(log.sling))}</td></tr>
               <tr><td class="empty">.</td><td class="empty">.</td></tr>
@@ -753,7 +784,8 @@ const buildFlightLogHtml = (log = {}) => {
             <div><span class="box"></span>OTHERS</div>
           </div>
 
-          <table>
+          <table class="work-table">
+            <colgroup>${Array.from({ length: 5 }, () => "<col />").join("")}</colgroup>
             <thead>
               <tr><th>DATE</th><th>ACFT / T /</th><th>WORK DONE</th><th>NAME / SIGN</th><th>CERT. NO.</th></tr>
             </thead>

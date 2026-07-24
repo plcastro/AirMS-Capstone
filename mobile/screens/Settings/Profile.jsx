@@ -32,6 +32,8 @@ import { showToast } from "../../utilities/toast";
 import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
 import { useFontScale } from "../../Context/FontScaleContext";
 import { COLORS } from "../../stylesheets/colors";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 export default function Profile() {
   const { user, updateUser } = useContext(AuthContext);
   const {
@@ -45,6 +47,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
@@ -586,10 +590,53 @@ export default function Profile() {
                   </View>
                 </View>
 
+                <View style={[styles.settingRowCard, { marginTop: 12 }]}>
+                  <View style={styles.settingRow}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={[styles.settingLabel, { fontSize: scaled(14) }]}
+                      >
+                        Terms and Conditions
+                      </Text>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Review system access, records, privacy, and acceptable
+                        use documents.
+                      </Text>
+                    </View>
+                    <IconButton
+                      icon="file-document-outline"
+                      size={20}
+                      iconColor={COLORS.primaryLight}
+                      containerColor={COLORS.white}
+                      style={styles.iconActionButton}
+                      onPress={() => setTermsVisible(true)}
+                      accessibilityLabel="View terms and conditions"
+                    />
+                    <IconButton
+                      icon="shield-lock-outline"
+                      size={20}
+                      iconColor={COLORS.primaryLight}
+                      containerColor={COLORS.white}
+                      style={styles.iconActionButton}
+                      onPress={() => setPrivacyVisible(true)}
+                      accessibilityLabel="View privacy policy"
+                    />
+                  </View>
+                </View>
               </Card.Content>
             </Card>
           )}
         </Card>
+        <PrivacyPolicyModal
+          visible={privacyVisible}
+          onClose={() => setPrivacyVisible(false)}
+        />
+        <TermsAndConditionsModal
+          visible={termsVisible}
+          onClose={() => setTermsVisible(false)}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );

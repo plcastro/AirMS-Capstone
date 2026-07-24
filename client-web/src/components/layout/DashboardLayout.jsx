@@ -13,6 +13,7 @@ import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
+import ResultPopup from "../common/ResultPopup";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 const WEB_SETTINGS_KEY = "webProfileSettings";
@@ -84,6 +85,12 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [resultPopup, setResultPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const seenNotificationIdsRef = useRef(new Set());
   const seenAircraftFhWarningsRef = useRef(new Set());
   const serverUnreadCountRef = useRef(0);
@@ -115,6 +122,25 @@ const DashboardLayout = () => {
 
     return routeTitles[location.pathname] || "Dashboard";
   }, [location.pathname]);
+
+  useEffect(() => {
+    const nextPopup = location.state?.resultPopup;
+    if (!nextPopup) return;
+
+    setResultPopup({
+      open: true,
+      status: nextPopup.status || "success",
+      title: nextPopup.title || "Success",
+      subTitle: nextPopup.subTitle || "",
+    });
+
+    const { resultPopup: _resultPopup, ...restState } = location.state || {};
+    nav(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: Object.keys(restState).length ? restState : null,
+    });
+  }, [location.pathname, location.search, location.state, nav]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -507,7 +533,7 @@ const DashboardLayout = () => {
               justifyContent: "space-between",
               alignItems: "center",
               boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-              padding: "0 12px",
+              padding: screens.xs ? "0 6px" : "0 12px",
               position: "sticky",
               top: 0,
               zIndex: screens.xs ? 1100 : 100,
@@ -591,6 +617,7 @@ const DashboardLayout = () => {
           </Header>
 
           <Content
+            className="airms-dashboard-content"
             style={{
               height: "calc(100vh - 64px)",
               overflowY: "auto",
@@ -606,6 +633,15 @@ const DashboardLayout = () => {
         <PushNotificationsCard
           open={notificationsOpen}
           onClose={() => setNotificationsOpen(false)}
+        />
+        <ResultPopup
+          open={resultPopup.open}
+          status={resultPopup.status}
+          title={resultPopup.title}
+          subTitle={resultPopup.subTitle}
+          onClose={() =>
+            setResultPopup((prev) => ({ ...prev, open: false }))
+          }
         />
       </Layout>
     </>

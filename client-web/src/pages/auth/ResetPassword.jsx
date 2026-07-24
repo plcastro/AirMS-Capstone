@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import "./login.css";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
-import { Button, Input, Card, Typography, Row, Col, Form, message } from "antd";
+import { Button, Input, Card, Typography, Row, Col, Form, Spin } from "antd";
 import LoginLayout from "../../components/layout/LoginLayout";
 import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
@@ -18,6 +18,7 @@ const ResetPassword = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -54,7 +55,7 @@ const ResetPassword = () => {
     }
   }, [formData]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async () => {
     if (error) return;
 
     setLoading(true);
@@ -67,26 +68,31 @@ const ResetPassword = () => {
       const data = await res.json();
 
       if (res.ok) {
+        setRedirecting(true);
         setPopup({
           open: true,
           status: "success",
           title: "Password reset successful",
           subTitle:
             data.message ||
-            "Password has been reset successfully. Redirecting to login...",
+            "Password has been reset successfully. Taking you to login...",
         });
-        setTimeout(() => navigate("/login"), 3000);
+        setTimeout(() => navigate("/login"), 1600);
       } else {
-        setError(data.message || "Failed to reset password.");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Password Reset Failed",
+          subTitle: data.message || "Failed to reset password.",
+        });
       }
     } catch (err) {
       console.error(err);
       setPopup({
         open: true,
         status: "error",
-        title: "Password reset failed",
-        subTitle:
-          data.message || "Password has been reset failed. Please try again.",
+        title: "Password Reset Failed",
+        subTitle: "Password reset failed. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -142,6 +148,17 @@ const ResetPassword = () => {
           <Row align={"middle"} justify={"center"} style={{ gap: 10 }}>
             <Col span={24}>{error && <div className="error">{error}</div>}</Col>
             <Col span={24}>
+              {redirecting && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  <Spin size="small" />
+                </div>
+              )}
               <Button
                 type="primary"
                 size="large"
@@ -149,12 +166,17 @@ const ResetPassword = () => {
                 htmlType="submit"
                 disabled={
                   loading ||
+                  redirecting ||
                   !!error ||
                   !formData.newPassword ||
                   !formData.confirmPassword
                 }
               >
-                {loading ? "Resetting..." : "RESET PASSWORD"}
+                {redirecting
+                  ? "REDIRECTING..."
+                  : loading
+                    ? "RESETTING..."
+                    : "RESET PASSWORD"}
               </Button>
             </Col>
             <Col span={24}>
@@ -163,9 +185,10 @@ const ResetPassword = () => {
                 size="large"
                 htmlType="button"
                 onClick={() => navigate("/login")}
+                disabled={redirecting}
                 style={{ width: "100%" }}
               >
-                {loading ? "GOING TO LOGIN..." : "GO BACK TO LOGIN"}
+                {redirecting ? "GOING TO LOGIN..." : "GO BACK TO LOGIN"}
               </Button>
             </Col>
           </Row>

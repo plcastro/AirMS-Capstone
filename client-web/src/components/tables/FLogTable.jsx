@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Table, Button, Modal } from "antd";
+import { Button, Modal } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function FLogTable({
   headers = [],
@@ -76,7 +77,7 @@ export default function FLogTable({
   }));
 
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={data}
       rowKey={(record) => record.index}

@@ -92,8 +92,8 @@ export default function UserLogs() {
             : "N/A",
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
-          platform: log.platform || "UNKNOWN",
-          base: log.base || "UNKNOWN",
+          platform: log.platform || "",
+          base: log.base || "",
         }));
 
         setAllUserLogs(mappedLogs);
@@ -141,9 +141,8 @@ export default function UserLogs() {
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
       filtered = filtered.filter((log) =>
         selectedScope === "base"
-          ? String(log.base || "UNKNOWN").toUpperCase() === selectedScopeValue
-          : String(log.platform || "UNKNOWN").toUpperCase() ===
-            selectedScopeValue,
+          ? String(log.base || "").toUpperCase() === selectedScopeValue
+          : String(log.platform || "").toUpperCase() === selectedScopeValue,
       );
     }
 
@@ -160,7 +159,9 @@ export default function UserLogs() {
     if (selectedScope === "base") {
       const values = Array.from(
         new Set(
-          allUserLogs.map((log) => String(log.base || "UNKNOWN").toUpperCase()),
+          allUserLogs
+            .map((log) => String(log.base || "").trim().toUpperCase())
+            .filter(Boolean),
         ),
       ).sort();
       return [
@@ -172,9 +173,9 @@ export default function UserLogs() {
     if (selectedScope === "platform") {
       const values = Array.from(
         new Set(
-          allUserLogs.map((log) =>
-            String(log.platform || "UNKNOWN").toUpperCase(),
-          ),
+          allUserLogs
+            .map((log) => String(log.platform || "").trim().toUpperCase())
+            .filter(Boolean),
         ),
       ).sort();
       return [
@@ -361,7 +362,7 @@ export default function UserLogs() {
               <Tooltip
                 labelFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
               />
-              <Legend wrapperStyle={{ fontSize: 12, marginTop: 5 }} />
+              <Legend wrapperStyle={{ fontSize: 12, marginTop: 15 }} />
 
               {AUDIT_ACTION_CHART_CATEGORIES.filter(
                 (category) =>

@@ -99,6 +99,19 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeCreepDamage = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const parsed = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return "";
+  }
+
+  return Number.isInteger(parsed) ? String(parsed) : String(Math.round(parsed * 100) / 100);
+};
+
 const parseAircraftType = (value) => {
   const text = normalizeValue(value);
   const typeMatch = text.match(/ACFT\.\s*TYPE:\s*([^S]+?)(?:\s+SN:|$)/i);
@@ -130,25 +143,30 @@ const parseDateManufactured = (worksheet) => {
 };
 
 const parseCreepDamage = (worksheet) => {
-  const candidates = [
-    readCell(worksheet, 2, 14),
-    readCell(worksheet, 2, 15),
-    readCell(worksheet, 2, 16),
-    readCell(worksheet, 3, 14),
+  for (let rowNumber = 1; rowNumber <= 4; rowNumber += 1) {
+    for (let columnNumber = 1; columnNumber <= 16; columnNumber += 1) {
+      const candidate = readCell(worksheet, rowNumber, columnNumber);
+      if (!candidate) {
+        continue;
+      }
+
+      const embedded = String(candidate).match(/CREEP DAMAGE:?\s*([0-9.]+%?)/i)?.[1];
+      if (embedded) {
+        return normalizeCreepDamage(embedded);
+      }
+    }
+  }
+
+  const labeledCells = [
+    { label: readCell(worksheet, 3, 13), value: readCell(worksheet, 3, 14) },
+    { label: readCell(worksheet, 2, 13), value: readCell(worksheet, 2, 14) },
+    { label: readCell(worksheet, 2, 14), value: readCell(worksheet, 2, 15) },
+    { label: readCell(worksheet, 2, 15), value: readCell(worksheet, 2, 16) },
   ];
 
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-
-    const embedded = String(candidate).match(/CREEP DAMAGE:?\s*([0-9.]+%?)/i)?.[1];
-    if (embedded) {
-      return embedded.replace("%", "");
-    }
-
-    if (/^[0-9.]+$/.test(String(candidate))) {
-      return String(candidate);
+  for (const { label, value } of labeledCells) {
+    if (/CREEP DAMAGE/i.test(String(label || ""))) {
+      return normalizeCreepDamage(value);
     }
   }
 

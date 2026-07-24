@@ -30,8 +30,7 @@ export default function UpdateSecurity() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
-  const [passwordSubmitAttempted, setPasswordSubmitAttempted] =
-    useState(false);
+  const [passwordSubmitAttempted, setPasswordSubmitAttempted] = useState(false);
 
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -387,9 +386,7 @@ export default function UpdateSecurity() {
                 description={
                   <Space orientation="vertical" size={2}>
                     {failedPasswordRequirements.map((requirement) => (
-                      <Text key={requirement.key}>
-                        {requirement.label}
-                      </Text>
+                      <Text key={requirement.key}>{requirement.label}</Text>
                     ))}
                   </Space>
                 }
@@ -408,20 +405,29 @@ export default function UpdateSecurity() {
             )}
           </Space>
 
-          <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
-            <Col>
-              <Button
-                type="default"
-                onClick={resetAll}
-                icon={<ClearOutlined />}
+          <Row justify="end" style={{ marginTop: 16 }}>
+            <Col xs={24} sm="auto">
+              <Space
+                size={8}
+                wrap={false}
+                style={{ width: "100%", justifyContent: "flex-end" }}
               >
-                Clear
-              </Button>
-            </Col>
-            <Col>
-              <Button type="primary" onClick={savePassword}>
-                Save Password
-              </Button>
+                <Button
+                  type="default"
+                  onClick={resetAll}
+                  icon={<ClearOutlined />}
+                  style={{ flex: 1 }}
+                >
+                  Clear
+                </Button>
+                <Button
+                  type="primary"
+                  onClick={savePassword}
+                  style={{ flex: 1 }}
+                >
+                  Save Password
+                </Button>
+              </Space>
             </Col>
           </Row>
         </Form>
@@ -436,9 +442,7 @@ export default function UpdateSecurity() {
           <Tooltip title={showPinValues ? "Hide PIN" : "Peek PIN"}>
             <Button
               type="text"
-              icon={
-                showPinValues ? <EyeInvisibleOutlined /> : <EyeOutlined />
-              }
+              icon={showPinValues ? <EyeInvisibleOutlined /> : <EyeOutlined />}
               aria-label={showPinValues ? "Hide PIN" : "Peek PIN"}
               onClick={() => setShowPinValues((current) => !current)}
             />

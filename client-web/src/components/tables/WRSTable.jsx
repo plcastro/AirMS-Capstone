@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Table, InputNumber, Tag } from "antd";
+import { InputNumber, Tag } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function WRSTable({
   data = [],
@@ -147,7 +148,7 @@ export default function WRSTable({
   ];
 
   return (
-    <Table
+    <ResponsiveTable
       columns={tableColumns}
       dataSource={data}
       rowKey={(record) => record._id}

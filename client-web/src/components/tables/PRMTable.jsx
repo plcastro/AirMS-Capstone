@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Button, Grid, Space, Table, Tag, Typography } from "antd";
+import { Button, Grid, Space, Tag, Typography } from "antd";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -10,6 +10,7 @@ import {
   SyncOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 const { Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -231,7 +232,7 @@ export default function PRMTable({
 
   return (
     <>
-      <Table
+      <ResponsiveTable
         columns={columns}
         dataSource={data}
         rowKey={(record) => record._id}

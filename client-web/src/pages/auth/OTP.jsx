@@ -1,7 +1,7 @@
 // WEB
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button, message, Input, Typography, Row, Col, Checkbox } from "antd";
+import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
@@ -23,10 +23,10 @@ export default function OTP() {
   const maskedEmail = params.maskedEmail;
 
   const [code, setCode] = useState("");
-  const [pinReady, setPinReady] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [trustDevice, setTrustDevice] = useState(true);
+  const [fieldError, setFieldError] = useState("");
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -34,6 +34,7 @@ export default function OTP() {
     subTitle: "",
   });
   const MAX_CODE_LENGTH = 6;
+  const pinReady = code.length === MAX_CODE_LENGTH;
 
   const maskEmail = (email) => {
     const [localPart, domain] = email.split("@");
@@ -52,15 +53,16 @@ export default function OTP() {
     return () => clearTimeout(timer);
   }, [resendTimer]);
 
-  useEffect(() => {
-    setPinReady(code.length === MAX_CODE_LENGTH);
-  }, [code]);
-
   const handleVerify = async () => {
     if (!pinReady) return;
 
     if (!token) {
-      message.error("Missing verification token.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Verification Failed",
+        subTitle: "Missing verification token.",
+      });
       return;
     }
 
@@ -113,17 +115,30 @@ export default function OTP() {
           });
 
           const role = String(data?.user?.jobTitle || "").toLowerCase();
+          const loginSuccessState = {
+            state: {
+              resultPopup: {
+                status: "success",
+                title: "Login Verified",
+                subTitle: "You have been successfully logged in.",
+              },
+            },
+          };
           if (role === "superadmin")
-            navigate("/dashboard/user-management/view-users");
-          else if (role === "mechanic") navigate("/dashboard/maintenance-log");
+            navigate(
+              "/dashboard/user-management/view-users",
+              loginSuccessState,
+            );
+          else if (role === "mechanic")
+            navigate("/dashboard/maintenance-log", loginSuccessState);
           else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
           )
-            navigate("/dashboard/maintenance-dashboard");
+            navigate("/dashboard/maintenance-dashboard", loginSuccessState);
           else if (role === "warehouse staff")
-            navigate("/dashboard/parts-requisition");
-          else navigate("/dashboard/profile");
+            navigate("/dashboard/parts-requisition", loginSuccessState);
+          else navigate("/dashboard/profile", loginSuccessState);
           return;
         }
 
@@ -136,13 +151,7 @@ export default function OTP() {
 
         navigate(`/reset-password?token=${token}`);
       } else {
-        message.error(data.message || "Invalid OTP");
-        setPopup({
-          open: true,
-          status: "error",
-          title: "Invalid OTP",
-          subTitle: data.message || "OTP is invalid.",
-        });
+        setFieldError(data.message || "OTP is invalid.");
       }
     } catch (err) {
       console.error("OTP verification error:", err);
@@ -150,8 +159,8 @@ export default function OTP() {
       setPopup({
         open: true,
         status: "error",
-        title: "Invalid OTP",
-        subTitle: data.message || "Failed to verify OTP. Try again.",
+        title: "Verification Failed",
+        subTitle: "Failed to verify OTP. Try again.",
       });
     }
   };
@@ -160,7 +169,12 @@ export default function OTP() {
     if (resendTimer > 0) return;
 
     if (!email) {
-      message.error("Email not available to resend OTP.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Resend OTP Failed",
+        subTitle: "Email not available to resend OTP.",
+      });
       return;
     }
 
@@ -208,7 +222,6 @@ export default function OTP() {
 
   return (
     <>
-      {" "}
       <LoginLayout
         title={
           mode === "login-2fa" ? "Login Verification" : "Account Verification"
@@ -219,12 +232,20 @@ export default function OTP() {
           <Col span={24} style={{ textAlign: "center" }}>
             <Input.OTP
               value={code}
-              onChange={setCode}
+              onChange={(value) => {
+                setCode(value);
+                if (value.length) setFieldError("");
+              }}
               autoFocus
               style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}
               length={6}
               formatter={(str) => str.replace(/\D/g, "")}
             />
+            {fieldError && (
+              <Text type="danger" style={{ display: "block", marginTop: 10 }}>
+                {fieldError}
+              </Text>
+            )}
           </Col>
         </Row>
 

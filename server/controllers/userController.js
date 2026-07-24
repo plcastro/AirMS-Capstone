@@ -243,11 +243,42 @@ const getAssignableUsers = async (req, res) => {
     const users = await UserModel.find({
       status: "active",
       jobTitle: { $regex: /^mechanic$/i },
-    }).select(
-      "firstName lastName jobTitle status image isOnline online platform",
-    );
+    })
+      .select("firstName lastName jobTitle status image")
+      .lean();
 
-    res.status(200).json({ status: "Ok", data: users });
+    const userIds = users.map((user) => user._id);
+    const activeSince = new Date(Date.now() - SESSION_IDLE_LIMIT_MS);
+    const activeSessions = await UserSession.find({
+      userId: { $in: userIds },
+      isActive: true,
+      lastActivityAt: { $gte: activeSince },
+    })
+      .sort({ lastActivityAt: -1, loginAt: -1 })
+      .lean();
+
+    const latestSessionByUserId = new Map();
+    activeSessions.forEach((session) => {
+      const userId = String(session.userId);
+      if (!latestSessionByUserId.has(userId)) {
+        latestSessionByUserId.set(userId, session);
+      }
+    });
+
+    const usersWithLiveStatus = users.map((user) => {
+      const activeSession = latestSessionByUserId.get(String(user._id));
+      const isOnline = Boolean(activeSession);
+
+      return {
+        ...user,
+        isOnline,
+        online: isOnline,
+        platform: isOnline ? activeSession.platform || "unknown" : "offline",
+        lastActivityAt: activeSession?.lastActivityAt || null,
+      };
+    });
+
+    res.status(200).json({ status: "Ok", data: usersWithLiveStatus });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

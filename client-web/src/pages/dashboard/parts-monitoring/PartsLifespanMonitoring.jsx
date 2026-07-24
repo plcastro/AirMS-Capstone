@@ -148,6 +148,32 @@ const formatPreviewDate = (value) => {
   });
 };
 
+const formatCreepDamage = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "Not available";
+  }
+
+  const parsed = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return "Not available";
+  }
+
+  return `${Number.isInteger(parsed) ? parsed : Math.round(parsed * 100) / 100}%`;
+};
+
+const getValidCreepDamageValue = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const parsed = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return "";
+  }
+
+  return Number.isInteger(parsed) ? parsed : Math.round(parsed * 100) / 100;
+};
+
 const sanitizeSheetFileName = (value) =>
   String(value || "Parts-Lifespan-Monitoring")
     .replace(/[\\/:*?"<>|]+/g, "-")
@@ -359,6 +385,15 @@ export default function PartsMonitoring() {
     subTitle: "",
   });
 
+  const showOperationError = (subTitle) => {
+    setPopup({
+      open: true,
+      status: "error",
+      title: "Operation failed!",
+      subTitle,
+    });
+  };
+
   const formattedAircraftOptions = [
     {
       label: "Select aircraft",
@@ -382,11 +417,11 @@ export default function PartsMonitoring() {
       if (response.ok && data.success) {
         setAircraftOptions(data.data);
       } else {
-        message.error(data.message || "Failed to load aircraft list");
+        showOperationError(data.message || "Failed to load aircraft list");
       }
     } catch (error) {
       console.error("Error fetching aircraft list:", error);
-      message.error("Error loading aircraft list");
+      showOperationError("Error loading aircraft list");
     } finally {
       setLoadingAircraft(false);
     }
@@ -445,11 +480,11 @@ export default function PartsMonitoring() {
         });
         setLastSaved(new Date());
       } else {
-        message.error(data.message || "Failed to save data");
+        showOperationError(data.message || "Failed to save data");
       }
     } catch (error) {
       console.error("Error saving data:", error);
-      message.error("Error saving data to database");
+      showOperationError("Error saving data to database");
     } finally {
       setSaving(false);
     }
@@ -465,7 +500,7 @@ export default function PartsMonitoring() {
 
   const uploadWorkbookForPreview = async (file) => {
     if (!canManageAircraft) {
-      message.error(
+      showOperationError(
         "Only maintenance managers and superadmins can add aircraft.",
       );
       return Upload.LIST_IGNORE;
@@ -496,7 +531,9 @@ export default function PartsMonitoring() {
       setImportErrors(data.errors || []);
     } catch (error) {
       console.error("Aircraft workbook preview failed:", error);
-      message.error(error.message || "Failed to preview aircraft workbook.");
+      showOperationError(
+        error.message || "Failed to preview aircraft workbook.",
+      );
       resetImportPreview();
     } finally {
       setPreviewingAircraft(false);
@@ -507,7 +544,7 @@ export default function PartsMonitoring() {
 
   const handleImportWorkbook = async (approvalSignature) => {
     if (!pendingImportFile) {
-      message.error("Select a workbook before adding aircraft.");
+      showOperationError("Select a workbook before adding aircraft.");
       return;
     }
 
@@ -549,7 +586,9 @@ export default function PartsMonitoring() {
       resetImportPreview();
     } catch (error) {
       console.error("Aircraft workbook import failed:", error);
-      message.error(error.message || "Failed to import aircraft workbook.");
+      showOperationError(
+        error.message || "Failed to import aircraft workbook.",
+      );
     } finally {
       setImportingAircraft(false);
     }
@@ -622,12 +661,12 @@ export default function PartsMonitoring() {
       } else if (response.status === 404) {
         loadDefaultData(aircraft);
       } else {
-        message.error(data.message || "Error loading data");
+        showOperationError(data.message || "Error loading data");
         loadDefaultData(aircraft);
       }
     } catch (error) {
       console.error("Error loading data:", error);
-      message.error("Error loading data from database");
+      showOperationError("Error loading data from database");
       loadDefaultData(aircraft);
     } finally {
       setLoading(false);
@@ -653,6 +692,38 @@ export default function PartsMonitoring() {
     const processor = getFormulaProcessor(selectedAircraft);
     return removeLegendRows(processor(rawData, refs));
   }, [rawData, refs, selectedAircraft]);
+
+  const filteredData = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return computedData;
+
+    const searchableKeys = [
+      "componentName",
+      "hourLimit1",
+      "hourLimit2",
+      "hourLimit3",
+      "dayLimit",
+      "dayType",
+      "dateCW",
+      "hoursCW",
+      "daysRemaining",
+      "timeRemaining",
+      "dateDue",
+      "ttCycleDue",
+      "due",
+      "hd",
+      "timeSinceInstall",
+      "totalTimeSinceNew",
+    ];
+
+    return computedData.filter((row) =>
+      searchableKeys.some((key) =>
+        String(row?.[key] ?? "")
+          .toLowerCase()
+          .includes(query),
+      ),
+    );
+  }, [computedData, searchText]);
 
   const componentsToUpdate = useMemo(
     () =>
@@ -800,9 +871,12 @@ export default function PartsMonitoring() {
       worksheet.getCell("J3").value = refs.n2Cycles || "";
       worksheet.getCell("K3").value = "ACFT. TT:";
       worksheet.getCell("L3").value = refs.acftTT || "";
-      worksheet.getCell("N3").value = aircraftDetails.creepDamage || "";
+      worksheet.getCell("M3").value = "CREEP DAMAGE:";
+      worksheet.getCell("N3").value = getValidCreepDamageValue(
+        aircraftDetails.creepDamage,
+      );
 
-      ["G1", "I1", "K1", "G2", "I2", "K2", "G3", "I3", "K3"].forEach(
+      ["G1", "I1", "K1", "G2", "I2", "K2", "G3", "I3", "K3", "M3"].forEach(
         (address) => {
           worksheet.getCell(address).font = { bold: true, size: 10 };
           worksheet.getCell(address).alignment = {
@@ -1036,6 +1110,64 @@ export default function PartsMonitoring() {
           </Col>
         </Row>
       </Card>
+      <Card className="aircraft-card legend-card">
+        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
+          <Text strong>NOTE:</Text>
+
+          <Row gutter={[16, 12]}>
+            <Col xs={24} sm={12} md={4}>
+              <Space>
+                <Text strong>OC</Text>
+                <Text>- ON CONDITION</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={4}>
+              <Space>
+                <Text strong>H</Text>
+                <Text>- HOURS</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={4}>
+              <Space>
+                <Text strong>D</Text>
+                <Text>- DAY</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={4}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#ff4d4f",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>REMOVED</Text>
+              </Space>
+            </Col>
+
+            <Col xs={24} sm={12} md={4}>
+              <Space>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: "#52c41a",
+                    borderRadius: 2,
+                    display: "inline-block",
+                  }}
+                />
+                <Text>INSTALLED</Text>
+              </Space>
+            </Col>
+          </Row>
+        </Space>
+      </Card>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={24} md={6}>
           <Card>
@@ -1072,9 +1204,7 @@ export default function PartsMonitoring() {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <Text>Creep Damage:</Text>
                 <Text className="info-value">
-                  {aircraftDetails.creepDamage != null
-                    ? `${aircraftDetails.creepDamage}%`
-                    : "Not available"}
+                  {formatCreepDamage(aircraftDetails.creepDamage)}
                 </Text>
               </div>
             </div>
@@ -1218,70 +1348,15 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
-      <Card className="aircraft-card legend-card">
-        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
-          <Text strong>NOTE:</Text>
-
-          <Row gutter={[16, 12]}>
-            <Col xs={24} sm={12} md={8}>
-              <Space>
-                <Text strong>OC</Text>
-                <Text>- ON CONDITION</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={8}>
-              <Space>
-                <Text strong>H</Text>
-                <Text>- HOURS</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={8}>
-              <Space>
-                <Text strong>D</Text>
-                <Text>- DAY</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={8}>
-              <Space>
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: "#ff4d4f",
-                    borderRadius: 2,
-                    display: "inline-block",
-                  }}
-                />
-                <Text>REMOVED</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={8}>
-              <Space>
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: "#52c41a",
-                    borderRadius: 2,
-                    display: "inline-block",
-                  }}
-                />
-                <Text>INSTALLED</Text>
-              </Space>
-            </Col>
-          </Row>
-        </Space>
-      </Card>
       <div style={{ marginBottom: 16 }}>
-        <Button onClick={() => setShowComponentsToUpdate((current) => !current)}>
+        <Checkbox
+          checked={showComponentsToUpdate}
+          onChange={() => setShowComponentsToUpdate((current) => !current)}
+        >
           {showComponentsToUpdate
             ? "Hide Components to Update"
             : "Show Components to Update"}
-        </Button>
+        </Checkbox>
       </div>
       {showComponentsToUpdate && (
         <Card
@@ -1321,7 +1396,7 @@ export default function PartsMonitoring() {
       )}
       <PMonitoringTable
         headers={columnHeader}
-        data={computedData}
+        data={filteredData}
         loading={loading}
         editable={!!selectedAircraft && !isOfficerInCharge}
         isCellEditable={isCellEditable}
@@ -1418,9 +1493,7 @@ export default function PartsMonitoring() {
                     >
                       <Text>Creep Damage:</Text>
                       <Text className="info-value">
-                        {importPreview.creepDamage
-                          ? `${importPreview.creepDamage}%`
-                          : "Not available"}
+                        {formatCreepDamage(importPreview.creepDamage)}
                       </Text>
                     </div>
                   </div>
@@ -1471,9 +1544,9 @@ export default function PartsMonitoring() {
               sticky
               scroll={{ x: 1500, y: 420 }}
               pagination={{
-                pageSize: 10,
+                pageSize: 15,
                 showSizeChanger: true,
-                pageSizeOptions: ["10", "20", "50"],
+                pageSizeOptions: ["15", "30", "50"],
               }}
               rowKey={(row) => row._id || row.componentName}
               rowClassName={(record) =>

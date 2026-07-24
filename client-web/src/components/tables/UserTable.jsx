@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Grid, Dropdown, Modal } from "antd";
+import { Button, Tag, Space, Grid, Dropdown, Modal } from "antd";
 import { EditOutlined, MoreOutlined } from "@ant-design/icons";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 const { useBreakpoint } = Grid;
 
@@ -209,7 +210,7 @@ export default function UserTable({
   ]);
 
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}

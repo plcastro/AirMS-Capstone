@@ -1,5 +1,6 @@
-import { Table, Tag, Input } from "antd";
-import React, { useState } from "react";
+import { Tag, Input } from "antd";
+import React, { useEffect, useState } from "react";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 // Helper to format YYYY-MM-DD to MM/DD/YYYY for display
 const formatDateForDisplay = (dateStr) => {
@@ -20,7 +21,11 @@ export default function PMonitoringTable({
   rowKey = "_id",
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data]);
 
   const processColumns = (headers) => {
     return headers.map((header) => {
@@ -210,7 +215,7 @@ export default function PMonitoringTable({
         height: "calc(100vh - 180px)",
       }}
     >
-      <Table
+      <ResponsiveTable
         columns={columns}
         dataSource={data}
         rowKey={rowKey}
@@ -220,7 +225,7 @@ export default function PMonitoringTable({
         pagination={{
           pageSize: pageSize,
           showSizeChanger: true,
-          pageSizeOptions: ["10", "15", "30"],
+          pageSizeOptions: ["15", "30", "50"],
           current: currentPage,
           onChange: (page, size) => {
             setCurrentPage(page);

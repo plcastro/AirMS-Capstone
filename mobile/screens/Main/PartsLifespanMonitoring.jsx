@@ -86,6 +86,15 @@ const formatDateInput = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
+const formatCreepDamage = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+
+  const parsed = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) return "N/A";
+
+  return `${Number.isInteger(parsed) ? parsed : Math.round(parsed * 100) / 100}%`;
+};
+
 const parsePickerDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date() : date;
@@ -500,7 +509,10 @@ export default function PartsLifespanMonitoring() {
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Date Manufactured" value={formatDate(aircraftDetails.dateManufactured)} />
             <FieldRow label="Serial Number" value={aircraftDetails.serialNumber} />
-            <FieldRow label="Creep Damage" value={aircraftDetails.creepDamage ? `${aircraftDetails.creepDamage}%` : "N/A"} />
+            <FieldRow
+              label="Creep Damage"
+              value={formatCreepDamage(aircraftDetails.creepDamage)}
+            />
             <FieldRow label="Tracked Components" value={summary.total} />
             <FieldRow label="Due" value={summary.due} />
             <FieldRow label="Due Soon" value={summary.dueSoon} />
@@ -859,11 +871,7 @@ export default function PartsLifespanMonitoring() {
                     />
                     <FieldRow
                       label="Creep Damage"
-                      value={
-                        importPreview.creepDamage
-                          ? `${importPreview.creepDamage}%`
-                          : "N/A"
-                      }
+                      value={formatCreepDamage(importPreview.creepDamage)}
                     />
                   </View>
                   <View

@@ -16,7 +16,6 @@ import {
   Row,
   Select,
   Space,
-  Table,
   Tabs,
   Typography,
   Grid,
@@ -32,6 +31,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 
@@ -367,7 +367,7 @@ export default function PostInspection() {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}

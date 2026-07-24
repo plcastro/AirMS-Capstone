@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import dayjs from "dayjs";
 import { ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -12,22 +13,28 @@ import {
   Col,
   Input,
   Row,
-  Table,
   Tabs,
   Tag,
   Typography,
-  message,
   Space,
 } from "antd";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UserAvatar from "../../../components/common/UserAvatar";
+import ResultPopup from "../../../components/common/ResultPopup";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const { Text, Title } = Typography;
 const isCompletedTask = (task) =>
   ["completed", "turned in", "approved"].includes(
     String(task?.status || "").toLowerCase(),
   );
+const formatDueDateTime = (value) => {
+  if (!value) return "-";
+
+  const dueDate = dayjs(value);
+  return dueDate.isValid() ? dueDate.format("MMM DD, YYYY hh:mm A") : "-";
+};
 
 export default function MechanicList() {
   const { getAuthHeader } = useContext(AuthContext);
@@ -37,6 +44,22 @@ export default function MechanicList() {
   const [loading, setLoading] = useState(false);
   const [selectedMechanic, setSelectedMechanic] = useState(null);
   const [tab, setTab] = useState("ongoing");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
+  const resultPopup = (
+    <ResultPopup
+      open={popup.open}
+      status={popup.status}
+      title={popup.title}
+      subTitle={popup.subTitle}
+      onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+    />
+  );
 
   const load = useCallback(async () => {
     try {
@@ -55,7 +78,12 @@ export default function MechanicList() {
       setUsers(Array.isArray(usersData.data) ? usersData.data : []);
       setTasks(Array.isArray(tasksData.data) ? tasksData.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load mechanics");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load mechanics",
+      });
     } finally {
       setLoading(false);
     }
@@ -89,7 +117,7 @@ export default function MechanicList() {
             jobTitle: item.jobTitle,
             image: item.image || "",
             isOnline,
-            platform: item.platform || "unknown",
+            platform: isOnline ? item.platform || "unknown" : "-",
             activeTasks,
             status: isOnline
               ? activeTasks >= 3
@@ -157,8 +185,9 @@ export default function MechanicList() {
               </Title>
               <Text type="secondary">
                 {selectedMechanic.jobTitle} |{" "}
-                {selectedMechanic.isOnline ? "Online" : "Offline"} |{" "}
-                {selectedMechanic.platform}
+                {selectedMechanic.isOnline
+                  ? `Online | ${selectedMechanic.platform}`
+                  : "Offline"}
               </Text>
             </div>
           </Space>
@@ -180,7 +209,7 @@ export default function MechanicList() {
           ]}
         />
 
-        <Table
+        <ResponsiveTable
           loading={loading}
           rowKey={(record) => record._id || record.id}
           dataSource={selectedTasks}
@@ -192,7 +221,7 @@ export default function MechanicList() {
             {
               title: "Due",
               render: (_, record) =>
-                record.endDateTime || record.dueDate || "-",
+                formatDueDateTime(record.endDateTime || record.dueDate),
             },
             {
               title: "Status",
@@ -201,6 +230,7 @@ export default function MechanicList() {
             },
           ]}
         />
+        {resultPopup}
       </div>
     );
   }
@@ -220,7 +250,7 @@ export default function MechanicList() {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         loading={loading}
         dataSource={mechanics}
@@ -260,6 +290,7 @@ export default function MechanicList() {
           },
         ]}
       />
+      {resultPopup}
     </div>
   );
 }

@@ -127,6 +127,8 @@ const COMPONENT_TIME_FIELDS = [
   ["L'DING CYCLE", "landingCycle"],
 ];
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+const FLIGHT_LOG_TABLE_MARGIN = { left: 18, right: 18 };
+const FLIGHT_LOG_TABLE_WIDTH = 559;
 
 const flightValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
@@ -275,6 +277,7 @@ const drawFlightHeader = (doc, record, logoDataUrl = null) => {
 
 const flightTableTheme = {
   theme: "grid",
+  tableWidth: FLIGHT_LOG_TABLE_WIDTH,
   styles: {
     fontSize: 5.5,
     cellPadding: 1.2,
@@ -295,7 +298,7 @@ const flightTableTheme = {
   bodyStyles: {
     fillColor: [255, 255, 255],
   },
-  margin: { left: 18, right: 18 },
+  margin: FLIGHT_LOG_TABLE_MARGIN,
   pageBreak: "avoid",
 };
 
@@ -348,13 +351,13 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
       ]),
       columnStyles: {
         0: { cellWidth: 38, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 246 },
-        2: { cellWidth: 38, halign: "center" },
-        3: { cellWidth: 38, halign: "center" },
-        4: { cellWidth: 38, halign: "center" },
-        5: { cellWidth: 38, halign: "center" },
-        6: { cellWidth: 52, halign: "center" },
-        7: { cellWidth: 53, halign: "center" },
+        1: { cellWidth: 227 },
+        2: { cellWidth: 44, halign: "center" },
+        3: { cellWidth: 44, halign: "center" },
+        4: { cellWidth: 44, halign: "center" },
+        5: { cellWidth: 44, halign: "center" },
+        6: { cellWidth: 59, halign: "center" },
+        7: { cellWidth: 59, halign: "center" },
       },
     });
 
@@ -372,7 +375,15 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
         ),
       ]),
       columnStyles: {
-        0: { cellWidth: 46, halign: "center" },
+        0: { cellWidth: 71, halign: "center" },
+        1: { cellWidth: 61, halign: "center" },
+        2: { cellWidth: 61, halign: "center" },
+        3: { cellWidth: 61, halign: "center" },
+        4: { cellWidth: 61, halign: "center" },
+        5: { cellWidth: 61, halign: "center" },
+        6: { cellWidth: 61, halign: "center" },
+        7: { cellWidth: 61, halign: "center" },
+        8: { cellWidth: 61, halign: "center" },
       },
     });
 
@@ -464,14 +475,14 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
       ]),
       columnStyles: {
         0: { cellWidth: 36, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 52, halign: "center" },
-        2: { cellWidth: 70, halign: "center" },
-        3: { cellWidth: 76, halign: "center" },
+        1: { cellWidth: 54, halign: "center" },
+        2: { cellWidth: 68, halign: "center" },
+        3: { cellWidth: 68, halign: "center" },
         4: { cellWidth: 62, halign: "center" },
-        5: { cellWidth: 76, halign: "center" },
-        6: { cellWidth: 58, halign: "center" },
-        7: { cellWidth: 58, halign: "center" },
-        8: { cellWidth: 53 },
+        5: { cellWidth: 68, halign: "center" },
+        6: { cellWidth: 57, halign: "center" },
+        7: { cellWidth: 57, halign: "center" },
+        8: { cellWidth: 89 },
       },
       didDrawCell: ({ cell, column, row, section }) => {
         if (section === "body" && column.index === 8) {
@@ -530,19 +541,19 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
         { content: "", signatureData: oil.signature },
       ]),
       columnStyles: {
-        0: { cellWidth: 34, halign: "center", fontStyle: "bold" },
-        1: { cellWidth: 40, halign: "center" },
-        2: { cellWidth: 39, halign: "center" },
-        3: { cellWidth: 39, halign: "center" },
-        4: { cellWidth: 39, halign: "center" },
-        5: { cellWidth: 39, halign: "center" },
-        6: { cellWidth: 39, halign: "center" },
-        7: { cellWidth: 39, halign: "center" },
-        8: { cellWidth: 39, halign: "center" },
-        9: { cellWidth: 39, halign: "center" },
-        10: { cellWidth: 39, halign: "center" },
-        11: { cellWidth: 88 },
-        12: { cellWidth: 37, halign: "center" },
+        0: { cellWidth: 32, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: 48, halign: "center" },
+        2: { cellWidth: 35, halign: "center" },
+        3: { cellWidth: 35, halign: "center" },
+        4: { cellWidth: 35, halign: "center" },
+        5: { cellWidth: 35, halign: "center" },
+        6: { cellWidth: 35, halign: "center" },
+        7: { cellWidth: 35, halign: "center" },
+        8: { cellWidth: 35, halign: "center" },
+        9: { cellWidth: 35, halign: "center" },
+        10: { cellWidth: 35, halign: "center" },
+        11: { cellWidth: 90 },
+        12: { cellWidth: 74, halign: "center" },
       },
       didDrawCell: ({ cell, column, row, section }) => {
         if (section === "body" && column.index === 12) {
@@ -604,8 +615,8 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
         ["", ""],
       ],
       columnStyles: {
-        0: { cellWidth: 440 },
-        1: { cellWidth: 119 },
+        0: { cellWidth: 445 },
+        1: { cellWidth: 114 },
       },
     });
 
@@ -631,11 +642,11 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
         flightValue(item.certificateNumber),
       ]),
       columnStyles: {
-        0: { cellWidth: 72, halign: "center" },
-        1: { cellWidth: 95, halign: "center" },
-        2: { cellWidth: 238 },
-        3: { cellWidth: 93 },
-        4: { cellWidth: 61, halign: "center" },
+        0: { cellWidth: 70, halign: "center" },
+        1: { cellWidth: 80, halign: "center" },
+        2: { cellWidth: 255 },
+        3: { cellWidth: 96 },
+        4: { cellWidth: 58, halign: "center" },
       },
     });
 

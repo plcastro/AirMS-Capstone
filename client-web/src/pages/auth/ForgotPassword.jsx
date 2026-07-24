@@ -1,19 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import {
-  Input,
-  Button,
-  App,
-  message as Antmessage,
-  Form,
-  Typography,
-  Row,
-  Col,
-} from "antd";
+import { Input, Button, Form, Typography, Row } from "antd";
 import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
-const { Title, Text } = Typography;
+const { Text } = Typography;
 import LoginLayout from "../../components/layout/LoginLayout";
 import ResultPopup from "../../components/common/ResultPopup";
 
@@ -23,7 +14,6 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState(location.state?.email || "");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [touched, setTouched] = useState(false);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -37,8 +27,6 @@ export default function ForgotPassword() {
   };
 
   const handleEmailBlur = () => {
-    setTouched(true);
-
     if (!email.trim()) {
       setMessage("Email is required.");
       return;
@@ -52,7 +40,7 @@ export default function ForgotPassword() {
     setMessage("");
   };
 
-  const sendResetLink = async (e) => {
+  const sendResetLink = async () => {
     if (!email.trim()) {
       setMessage("Email is required.");
       return;
@@ -120,11 +108,11 @@ export default function ForgotPassword() {
           className="forgot-password-form"
           onFinish={sendResetLink}
         >
-          <Form.Item label="Email" required>
+          <Form.Item label="Email" required style={{ fontWeight: "bold" }}>
             <Input
               type="email"
               id="email"
-              placeholder="abcd@example.com"
+              placeholder="Enter your email"
               inputMode="email"
               onBlur={handleEmailBlur}
               value={email}
@@ -145,14 +133,13 @@ export default function ForgotPassword() {
             >
               {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
             </Button>
-
-            <div style={{ marginTop: "20px" }}>
-              Remembered your password?{" "}
-              <Link to="/login" className="link">
-                Log in
-              </Link>
-            </div>
           </Form.Item>
+          <div style={{ marginTop: "20px" }}>
+            Remembered your password?{" "}
+            <Link to="/login" className="link">
+              Log in
+            </Link>
+          </div>
         </Form>
       </LoginLayout>
       <ResultPopup

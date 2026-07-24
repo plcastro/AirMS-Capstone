@@ -1,21 +1,29 @@
 import React, { useState } from "react";
-import { Table, Grid, Tag } from "antd";
+import { Grid, Tag, Typography } from "antd";
 import dayjs from "dayjs";
+import ResponsiveTable from "../common/ResponsiveTable";
 const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 const getPlatformColor = (platform) => {
-  if (!platform) return "N/A";
   if (platform.toUpperCase().includes("WEB")) return "blue";
   if (platform.toUpperCase().includes("MOBILE")) return "purple";
   return "geekblue";
 };
 
 const getBaseColor = (base) => {
-  if (!base) return "N/A";
   if (base.toUpperCase().includes("MANILA")) return "green";
   if (base.toUpperCase().includes("CEBU")) return "orange";
   if (base.toUpperCase().includes("CDO")) return "brown";
   return "cyan";
+};
+
+const renderContextValue = (value, getColor) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) {
+    return <Text type="secondary">Not captured</Text>;
+  }
+  return <Tag color={getColor(normalized)}>{normalized}</Tag>;
 };
 
 const headers = [
@@ -45,14 +53,14 @@ const headers = [
     dataIndex: "platform",
     key: "platform",
     width: 100,
-    render: (text) => <Tag color={getPlatformColor(text)}>{text}</Tag>,
+    render: (text) => renderContextValue(text, getPlatformColor),
   },
   {
     title: "Base",
     dataIndex: "base",
     key: "base",
     width: 100,
-    render: (text) => <Tag color={getBaseColor(text)}>{text}</Tag>,
+    render: (text) => renderContextValue(text, getBaseColor),
   },
   {
     title: "Date and Time",
@@ -79,7 +87,7 @@ export default function ActivityLogTable({ data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) => record._id || record.index}

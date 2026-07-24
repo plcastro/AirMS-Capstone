@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Card, Col, Row, Segmented, Space, Table, Typography } from "antd";
+import { Card, Col, Row, Segmented, Space, Typography } from "antd";
 import { renderStatusTag } from "../../../utils/statusTags";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Pie,
   PieChart,
@@ -60,6 +60,37 @@ const countBy = (records, getKey) =>
 
 const toChartData = (counts) =>
   Object.entries(counts).map(([name, value]) => ({ name, value }));
+
+const getColorIndexForLabel = (label = "") => {
+  const hash = String(label).split("").reduce((sum, char) => {
+    return sum + char.charCodeAt(0);
+  }, 0);
+
+  return hash % COLORS.length;
+};
+
+const colorizeByLabel = (data, labelKey = "month") => {
+  const usedIndexes = new Set();
+
+  return data.map((entry, index) => {
+    const preferredIndex = getColorIndexForLabel(entry[labelKey] || entry.name);
+    const availableIndex = COLORS.findIndex(
+      (_, colorIndex) => !usedIndexes.has(colorIndex),
+    );
+    const colorIndex = usedIndexes.has(preferredIndex)
+      ? availableIndex >= 0
+        ? availableIndex
+        : index % COLORS.length
+      : preferredIndex;
+
+    usedIndexes.add(colorIndex);
+
+    return {
+      ...entry,
+      fill: COLORS[colorIndex],
+    };
+  });
+};
 
 const getWeekStart = (date) => {
   const next = new Date(date);
@@ -135,22 +166,23 @@ const EmptyChart = () => (
 const StatusPie = ({ data }) => {
   if (!data.length) return <EmptyChart />;
 
+  const colorizedData = data.map((entry, index) => ({
+    ...entry,
+    fill: COLORS[index % COLORS.length],
+  }));
+
   return (
     <ResponsiveContainer width="100%" height={230}>
       <PieChart>
         <Pie
-          data={data}
+          data={colorizedData}
           dataKey="value"
           nameKey="name"
           cx="50%"
           cy="50%"
           outerRadius={68}
           label
-        >
-          {data.map((entry, index) => (
-            <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
+        />
         <Tooltip />
         <Legend verticalAlign="bottom" height={36} />
       </PieChart>
@@ -158,12 +190,38 @@ const StatusPie = ({ data }) => {
   );
 };
 
-const MonthlyBar = ({ data, dataKey = "value", name = "Records" }) => {
+const ColorCodedBarShape = ({ fill, height, payload, width, x, y }) => {
+  if (x == null || y == null || width == null || height == null) return null;
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={4}
+      ry={4}
+      fill={payload?.fill || fill}
+    />
+  );
+};
+
+const MonthlyBar = ({
+  colorByEntry = false,
+  data,
+  dataKey = "value",
+  name = "Records",
+}) => {
   if (!data.length) return <EmptyChart />;
+
+  const chartData = colorByEntry ? colorizeByLabel(data) : data;
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
+      <BarChart
+        data={chartData}
+        margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="month" />
         <YAxis allowDecimals={false} />
@@ -174,6 +232,7 @@ const MonthlyBar = ({ data, dataKey = "value", name = "Records" }) => {
           name={name}
           fill="#26866f"
           radius={[4, 4, 0, 0]}
+          shape={colorByEntry ? <ColorCodedBarShape /> : undefined}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -259,12 +318,13 @@ export function FlightLogReport({ records = [], loading = false }) {
                 month: item.name,
                 value: item.value,
               }))}
+              colorByEntry
               name="Logs"
             />
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
             size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
@@ -360,12 +420,13 @@ export function InspectionReport({
                 month: item.name,
                 value: item.value,
               }))}
+              colorByEntry
               name="Inspections"
             />
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
             size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
@@ -463,7 +524,7 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
             size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({

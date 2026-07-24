@@ -19,7 +19,6 @@ import {
   Row,
   Select,
   Space,
-  Table,
   Tabs,
   Typography,
   DatePicker,
@@ -33,6 +32,7 @@ import {
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { confirmAction } from "../../../utils/confirmAction";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -356,6 +356,64 @@ export default function TaskAssignment() {
     [mechanics],
   );
 
+  const getTaskAssigneeId = useCallback((task = {}) => {
+    const assignee = task.assignedTo;
+    if (assignee && typeof assignee === "object") {
+      return assignee._id || assignee.id || "";
+    }
+    return assignee || "";
+  }, []);
+
+  const getTaskAssigneeName = useCallback((task = {}) => {
+    const assigneeId = getTaskAssigneeId(task);
+    const matchedMechanic = mechanics.find(
+      (item) => String(item.id) === String(assigneeId),
+    );
+
+    return (
+      task.assignedToName ||
+      matchedMechanic?.name ||
+      (task.assignedTo && typeof task.assignedTo === "object"
+        ? [task.assignedTo.firstName, task.assignedTo.lastName]
+            .filter(Boolean)
+            .join(" ")
+        : "") ||
+      "Assigned mechanic"
+    );
+  }, [getTaskAssigneeId, mechanics]);
+
+  const mechanicSelectOptions = useMemo(() => {
+    const source = editingTask ? mechanics : availableMechanics;
+    const options = source.map((item) => ({
+      value: item.id,
+      label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
+      disabled: !editingTask && item.isBusy,
+    }));
+
+    if (editingTask) {
+      const assignedTo = getTaskAssigneeId(editingTask);
+      const hasCurrentAssignee = options.some(
+        (option) => String(option.value) === String(assignedTo),
+      );
+
+      if (assignedTo && !hasCurrentAssignee) {
+        options.unshift({
+          value: assignedTo,
+          label: getTaskAssigneeName(editingTask),
+          disabled: false,
+        });
+      }
+    }
+
+    return options;
+  }, [
+    availableMechanics,
+    editingTask,
+    getTaskAssigneeId,
+    getTaskAssigneeName,
+    mechanics,
+  ]);
+
   const myTasks = useMemo(
     () =>
       isManager
@@ -539,12 +597,13 @@ export default function TaskAssignment() {
   };
 
   const openEditTask = (task) => {
+    const assignedTo = getTaskAssigneeId(task);
     setEditingTask(task);
     form.resetFields();
     form.setFieldsValue({
       title: task.title,
       aircraft: task.aircraft,
-      assignedTo: task.assignedTo,
+      assignedTo,
       priority: task.priority || "Normal",
       maintenanceType: task.maintenanceType || "Inspection",
       startDateTime: task.startDateTime ? dayjs(task.startDateTime) : null,
@@ -966,7 +1025,7 @@ export default function TaskAssignment() {
         />
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         loading={loading}
         size={"small"}
@@ -1131,13 +1190,9 @@ export default function TaskAssignment() {
                   <Select
                     size="large"
                     placeholder="Pick Mechanic"
-                    options={(editingTask ? mechanics : availableMechanics).map(
-                      (item) => ({
-                        value: item.id,
-                        label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-                        disabled: !editingTask && item.isBusy,
-                      }),
-                    )}
+                    showSearch
+                    optionFilterProp="label"
+                    options={mechanicSelectOptions}
                   />
                 </Form.Item>
               </Col>

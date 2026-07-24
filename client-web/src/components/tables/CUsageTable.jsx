@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function CUsageTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -11,7 +11,7 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) =>

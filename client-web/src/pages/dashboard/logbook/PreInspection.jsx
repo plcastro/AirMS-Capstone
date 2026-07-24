@@ -17,7 +17,6 @@ import {
   Row,
   Select,
   Space,
-  Table,
   Tabs,
   Typography,
   DatePicker,
@@ -33,6 +32,7 @@ import {
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { confirmAction } from "../../../utils/confirmAction";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -945,7 +945,7 @@ export default function PreInspection() {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
@@ -1103,6 +1103,7 @@ export default function PreInspection() {
                             }))
                           }
                           placeholder="Aircraft Type"
+                          readOnly={true}
                         />
                       </Col>
                       <Col xs={24} md={12}>

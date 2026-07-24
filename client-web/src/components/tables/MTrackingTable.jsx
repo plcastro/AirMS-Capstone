@@ -1,5 +1,6 @@
-import { Button, Space, Table, Tag, Typography } from "antd";
+import { Button, Space, Tag, Typography } from "antd";
 import React, { useState, useMemo } from "react";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 const { Text } = Typography;
 
@@ -239,7 +240,7 @@ export default function MTrackingTable({
     });
   }, [headers, onRectifyFinding]);
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}

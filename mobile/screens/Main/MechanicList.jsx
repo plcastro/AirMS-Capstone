@@ -74,15 +74,19 @@ export default function MechanicList() {
       setMechanics(
         (usersData.data || [])
           .filter((user) => isAssignableUser(user) && user.status === "active")
-          .map((user) => ({
-            id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
-            avatar: user.image || null,
-            jobTitle: user.jobTitle,
-            isOnline: Boolean(user?.isOnline ?? user?.online),
-            online: Boolean(user?.isOnline ?? user?.online),
-            platform: user?.platform || "unknown",
-          })),
+          .map((user) => {
+            const isOnline = Boolean(user?.isOnline ?? user?.online);
+
+            return {
+              id: user._id,
+              name: `${user.firstName} ${user.lastName}`,
+              avatar: user.image || null,
+              jobTitle: user.jobTitle,
+              isOnline,
+              online: isOnline,
+              platform: isOnline ? user?.platform || "unknown" : "",
+            };
+          }),
       );
     } catch (error) {
       console.error("Error fetching assignable user list:", error);

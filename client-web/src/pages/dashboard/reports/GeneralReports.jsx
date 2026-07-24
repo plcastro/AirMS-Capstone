@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Card, Col, Row, Statistic, Table, Tag } from "antd";
+import { Card, Col, Row, Statistic, Tag } from "antd";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const countCompletedLike = (records = [], statusKeys = ["status"]) =>
   records.filter((record) => {
@@ -104,7 +105,7 @@ export default function GeneralReports({
         </Col>
       </Row>
 
-      <Table
+      <ResponsiveTable
         size={"small"}
         loading={loading}
         pagination={false}

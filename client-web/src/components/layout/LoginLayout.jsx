@@ -7,8 +7,8 @@ const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export default function LoginLayout({
-  title = "Welcome back",
-  subtitle = "Sign in to access your AirMS Account",
+  title = "Sign in to access your AirMS Account",
+  subtitle = "",
   children,
 }) {
   const screens = useBreakpoint();
@@ -25,7 +25,7 @@ export default function LoginLayout({
     >
       {/* Desktop only */}
       {!isMobile && (
-        <Row justify="center" style={{ marginBottom: 24 }}>
+        <Row justify="center">
           <Col
             span={24}
             style={{

@@ -12,7 +12,6 @@ import {
   Button,
   Table,
   Space,
-  message,
   Modal,
   Typography,
   Select,
@@ -259,7 +258,12 @@ export default function FlightLog() {
         );
       } catch (error) {
         console.error("Fetch flight logs error:", error);
-        message.error(error.message || "Failed to fetch flight logs");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to fetch flight logs",
+        });
       } finally {
         if (!silent) {
           setLoading(false);
@@ -322,7 +326,12 @@ export default function FlightLog() {
       setFlightLogs(sortFlightLogsByDate(data.data || []));
     } catch (error) {
       console.error("Search flight logs error:", error);
-      message.error(error.message || "Failed to search flight logs");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to search flight logs",
+      });
     } finally {
       setLoading(false);
     }

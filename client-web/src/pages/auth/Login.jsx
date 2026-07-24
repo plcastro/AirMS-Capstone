@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import {
-  App,
   Input,
   Checkbox,
   Button,
@@ -16,6 +15,8 @@ import {
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
   EnvironmentOutlined,
   LockOutlined,
@@ -26,7 +27,6 @@ import ResultPopup from "../../components/common/ResultPopup";
 const { Text } = Typography;
 
 const Login = () => {
-  const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -43,6 +43,8 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
@@ -78,7 +80,7 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async () => {
     setError("");
 
     const identifier = formData.identifier?.trim();
@@ -159,12 +161,6 @@ const Login = () => {
           localStorage.removeItem("rememberedIdentifier");
           localStorage.removeItem("rememberMe");
         }
-        setPopup({
-          open: true,
-          status: "success",
-          title: "Login successful",
-          subTitle: "You have been logged in successfully.",
-        });
         handleNavigate(data.user);
       } else {
         if (response.status === 429) {
@@ -178,7 +174,12 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Network error. Please try again.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Login Failed",
+        subTitle: "Network error. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -186,25 +187,34 @@ const Login = () => {
 
   const handleNavigate = (loggedInUser) => {
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
+    const loginSuccessState = {
+      state: {
+        resultPopup: {
+          status: "success",
+          title: "Login Successful",
+          subTitle: "You have been logged in successfully.",
+        },
+      },
+    };
 
     switch (pos) {
       case "superadmin":
-        navigate("/dashboard/user-management/view-users");
+        navigate("/dashboard/user-management/view-users", loginSuccessState);
         break;
       case "mechanic":
-        navigate("/dashboard/maintenance-log");
+        navigate("/dashboard/maintenance-log", loginSuccessState);
         break;
       case "maintenance manager":
-        navigate("/dashboard/maintenance-dashboard");
+        navigate("/dashboard/maintenance-dashboard", loginSuccessState);
         break;
       case "officer-in-charge":
-        navigate("/dashboard/maintenance-dashboard");
+        navigate("/dashboard/maintenance-dashboard", loginSuccessState);
         break;
       case "warehouse staff":
-        navigate("/dashboard/parts-requisition");
+        navigate("/dashboard/parts-requisition", loginSuccessState);
         break;
       default:
-        navigate("/dashboard/profile");
+        navigate("/dashboard/profile", loginSuccessState);
         break;
     }
   };
@@ -229,12 +239,16 @@ const Login = () => {
 
       <LoginLayout>
         <Form layout="vertical" onFinish={handleSubmit}>
-          <Form.Item label="Username or Email" required>
+          <Form.Item
+            label="Username or Email"
+            required
+            style={{ fontWeight: "bold" }}
+          >
             <Input
               type="text"
               id="identifier"
               size="large"
-              placeholder="Enter username or email"
+              placeholder="Enter your username or email"
               value={formData.identifier}
               onChange={handleInputChange}
               autoComplete="username"
@@ -244,10 +258,10 @@ const Login = () => {
             />
           </Form.Item>
 
-          <Form.Item label="Password" required>
+          <Form.Item label="Password" required style={{ fontWeight: "bold" }}>
             <Input.Password
               id="password"
-              placeholder="Enter password"
+              placeholder="Enter your password"
               size="large"
               value={formData.password}
               onChange={handleInputChange}
@@ -311,8 +325,45 @@ const Login = () => {
           >
             {loading ? "PLEASE WAIT..." : "LOGIN"}
           </Button>
+          <Text
+            type="secondary"
+            style={{
+              display: "block",
+              marginTop: 16,
+              textAlign: "center",
+              fontSize: 13,
+            }}
+          >
+            By signing in, you agree to the{" "}
+            <Button
+              type="link"
+              size="small"
+              onClick={() => setTermsOpen(true)}
+              style={{ height: "auto", padding: 0, fontSize: 13 }}
+            >
+              Terms and Conditions
+            </Button>{" "}
+            and{" "}
+            <Button
+              type="link"
+              size="small"
+              onClick={() => setPrivacyOpen(true)}
+              style={{ height: "auto", padding: 0, fontSize: 13 }}
+            >
+              Privacy Policy
+            </Button>
+            .
+          </Text>
         </Form>
       </LoginLayout>
+      <PrivacyPolicyModal
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+      />
+      <TermsAndConditionsModal
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+      />
       <ResultPopup
         open={popup.open}
         status={popup.status}

@@ -502,8 +502,8 @@ const createMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },
@@ -620,8 +620,8 @@ const updateMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },
@@ -652,8 +652,8 @@ const deleteMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },

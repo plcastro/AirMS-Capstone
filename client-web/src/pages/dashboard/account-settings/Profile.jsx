@@ -14,16 +14,21 @@ import {
   InputNumber,
 } from "antd";
 import {
+  FileTextOutlined,
   LockOutlined,
   UserOutlined,
   DeleteOutlined,
   SettingOutlined,
+  EditOutlined,
+  SaveOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import ResultPopup from "../../../components/common/ResultPopup";
 import UserAvatar from "../../../components/common/UserAvatar";
+import PrivacyPolicyModal from "../../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../../components/common/TermsAndConditionsModal";
 const { Title, Text } = Typography;
 
 export default function Profile() {
@@ -39,6 +44,8 @@ export default function Profile() {
   ] = useState(false);
   const [aircraftFhDueThreshold, setAircraftFhDueThreshold] = useState(25);
   const [browserPermission, setBrowserPermission] = useState("default");
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -469,6 +476,29 @@ export default function Profile() {
               </Space>
             </Space>
           </Card>
+
+          <Card size="small" title="Legal">
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              <Text type="secondary">
+                Review the AirMS legal documents for system access, records,
+                privacy, and acceptable use.
+              </Text>
+              <Space wrap>
+                <Button
+                  icon={<FileTextOutlined />}
+                  onClick={() => setTermsOpen(true)}
+                >
+                  View Terms and Conditions
+                </Button>
+                <Button
+                  icon={<FileTextOutlined />}
+                  onClick={() => setPrivacyOpen(true)}
+                >
+                  View Privacy Policy
+                </Button>
+              </Space>
+            </Space>
+          </Card>
         </Space>
       ),
     },
@@ -479,13 +509,9 @@ export default function Profile() {
   return (
     <div style={{ padding: 24, minHeight: "calc(100vh - 64px)" }}>
       <Row justify="center">
-        <Col xs={24} style={{ maxWidth: 1200 }}>
+        <Col xs={24}>
           <Card>
-            <Space
-              orientation="vertical"
-              size="large"
-              style={{ width: "100%" }}
-            >
+            <Space orientation="vertical" style={{ width: "100%" }}>
               <Space orientation="vertical" size={4}>
                 <Title level={3} style={{ margin: 0 }}>
                   Profile Settings
@@ -527,6 +553,7 @@ export default function Profile() {
                               ? handleSaveImage()
                               : fileInputRef.current.click()
                           }
+                          icon={file ? <SaveOutlined /> : <EditOutlined />}
                         >
                           {file ? "Save Picture" : "Change Picture"}
                         </Button>
@@ -567,6 +594,14 @@ export default function Profile() {
         title={popup.title}
         subTitle={popup.subTitle}
         onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+      <PrivacyPolicyModal
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+      />
+      <TermsAndConditionsModal
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
       />
     </div>
   );

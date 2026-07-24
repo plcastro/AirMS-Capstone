@@ -90,6 +90,32 @@ const parseNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const normalizeCreepDamage = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const parsed = Number(String(value).replace("%", "").trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return "";
+  }
+
+  return Number.isInteger(parsed)
+    ? String(parsed)
+    : String(Math.round(parsed * 100) / 100);
+};
+
+const serializePartsMonitoringRecord = (record) => {
+  if (!record) return record;
+  const plainRecord =
+    typeof record.toObject === "function" ? record.toObject() : { ...record };
+
+  return {
+    ...plainRecord,
+    creepDamage: normalizeCreepDamage(plainRecord.creepDamage),
+  };
+};
+
 const calculateRemainingDays = (dueDate, referenceDate = getToday()) => {
   if (!dueDate) {
     return null;
@@ -686,7 +712,7 @@ exports.savePartsMonitoring = async (req, res) => {
         existingData.aircraftType = aircraftType || existingData.aircraftType || "";
       }
       if (creepDamage !== undefined) {
-        existingData.creepDamage = creepDamage || "";
+        existingData.creepDamage = normalizeCreepDamage(creepDamage);
       }
       if (serialNumber !== undefined) {
         existingData.serialNumber = serialNumber || "";
@@ -695,13 +721,17 @@ exports.savePartsMonitoring = async (req, res) => {
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
       publishPartsMonitoringChanged(aircraft, "saved");
-      res.status(200).json({ success: true, message: "Data updated successfully", data: existingData });
+      res.status(200).json({
+        success: true,
+        message: "Data updated successfully",
+        data: serializePartsMonitoringRecord(existingData),
+      });
     } else {
       const newData = new PartsMonitoring({
         aircraft,
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
-        creepDamage: creepDamage || "",
+        creepDamage: normalizeCreepDamage(creepDamage),
         serialNumber: serialNumber || "",
         referenceData,
         parts,
@@ -709,7 +739,11 @@ exports.savePartsMonitoring = async (req, res) => {
       });
       await newData.save();
       publishPartsMonitoringChanged(aircraft, "saved");
-      res.status(201).json({ success: true, message: "Data saved successfully", data: newData });
+      res.status(201).json({
+        success: true,
+        message: "Data saved successfully",
+        data: serializePartsMonitoringRecord(newData),
+      });
     }
   } catch (error) {
     console.error("Error saving data:", error);
@@ -744,6 +778,9 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
       sheetName: req.body?.sheetName || "STATUS",
     });
     importedRecord.aircraft = normalizeAircraftName(importedRecord.aircraft);
+    importedRecord.creepDamage = normalizeCreepDamage(
+      importedRecord.creepDamage,
+    );
 
     const validation = await validateImportedAircraftRecord(importedRecord);
     if (validation.errors.length > 0) {
@@ -866,6 +903,9 @@ exports.previewPartsMonitoringWorkbook = async (req, res) => {
       sheetName: req.body?.sheetName || "STATUS",
     });
     importedRecord.aircraft = normalizeAircraftName(importedRecord.aircraft);
+    importedRecord.creepDamage = normalizeCreepDamage(
+      importedRecord.creepDamage,
+    );
 
     const validation = await validateImportedAircraftRecord(importedRecord);
 
@@ -881,7 +921,7 @@ exports.previewPartsMonitoringWorkbook = async (req, res) => {
         aircraftType: importedRecord.aircraftType,
         serialNumber: importedRecord.serialNumber,
         dateManufactured: importedRecord.dateManufactured,
-        creepDamage: importedRecord.creepDamage,
+        creepDamage: normalizeCreepDamage(importedRecord.creepDamage),
         referenceData: importedRecord.referenceData,
         partsCount: importedRecord.parts.length,
         partRowsCount: validation.partRowsCount,
@@ -923,7 +963,7 @@ exports.getPartsMonitoring = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data,
+      data: serializePartsMonitoringRecord(data),
     });
   } catch (error) {
     console.error("Error fetching parts monitoring data:", error);
@@ -949,7 +989,7 @@ exports.getAllPartsMonitoring = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data,
+      data: data.map(serializePartsMonitoringRecord),
       total,
       page: parseInt(page),
       pages: Math.ceil(total / limit),

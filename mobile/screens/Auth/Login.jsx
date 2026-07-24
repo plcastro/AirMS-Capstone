@@ -19,6 +19,8 @@ import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
   readPendingRedirect,
   clearPendingRedirect,
@@ -35,6 +37,8 @@ export default function Login() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -313,8 +317,34 @@ export default function Login() {
             buttonStyle={[styles.primaryBtn]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
+          <View style={{ marginTop: 16, alignItems: "center" }}>
+            <AppText style={{ color: "gray", textAlign: "center" }}>
+              By signing in, you agree to the
+            </AppText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+              <TouchableOpacity onPress={() => setTermsVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Terms and Conditions
+                </AppText>
+              </TouchableOpacity>
+              <AppText style={{ color: "gray" }}> and </AppText>
+              <TouchableOpacity onPress={() => setPrivacyVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Privacy Policy
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
         </LoginLayout>
       </ScrollView>
+      <PrivacyPolicyModal
+        visible={privacyVisible}
+        onClose={() => setPrivacyVisible(false)}
+      />
+      <TermsAndConditionsModal
+        visible={termsVisible}
+        onClose={() => setTermsVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

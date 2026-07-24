@@ -9,7 +9,6 @@ import {
   Row,
   Space,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
@@ -17,6 +16,7 @@ import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import ResultPopup from "../../../components/common/ResultPopup";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const { Title, Text } = Typography;
 
@@ -585,7 +585,7 @@ export default function MaintenancePriority() {
         />
       )}
 
-      <Table
+      <ResponsiveTable
         rowKey={(record) =>
           [
             record.inspectionKey,

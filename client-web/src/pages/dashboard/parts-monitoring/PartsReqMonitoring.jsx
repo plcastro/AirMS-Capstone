@@ -6,7 +6,6 @@ import React, {
   useEffect,
 } from "react";
 import {
-  App as AntdApp,
   Alert,
   Button,
   Col,
@@ -118,7 +117,6 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
-  const { message } = AntdApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -155,38 +153,7 @@ export default function PartsReqMonitoring() {
     "officer-in-charge",
   ].includes(userRole);
   const isWarehouseStaff = userRole === "warehouse staff";
-  const canRequestParts = ![
-    "superadmin",
-    "maintenance manager",
-    "officer-in-charge",
-    "warehouse staff",
-  ].includes(userRole);
-
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
-
-  const stats = useMemo(
-    () => ({
-      total: warehouseRequisitions.length,
-      pending: warehouseRequisitions.filter(
-        (record) =>
-          !["approved", "delivered", "cancelled"].includes(
-            normalizeStatus(record.status),
-          ),
-      ).length,
-      approved: warehouseRequisitions.filter((record) =>
-        ["approved"].includes(normalizeStatus(record.status)),
-      ).length,
-      forReview: warehouseRequisitions.filter((record) =>
-        ["availability checked", "ordered"].includes(
-          normalizeStatus(record.status),
-        ),
-      ).length,
-      closed: warehouseRequisitions.filter((record) =>
-        ["delivered", "cancelled"].includes(normalizeStatus(record.status)),
-      ).length,
-    }),
-    [warehouseRequisitions],
-  );
 
   const statusFilters = useMemo(() => {
     if (isManager) {
@@ -523,7 +490,12 @@ export default function PartsReqMonitoring() {
     } catch (err) {
       if (err?.errorFields) return;
       console.error("Create requisition error:", err);
-      message.error(err.message || "Failed to create requisition.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to create requisition.",
+      });
     } finally {
       setIsSubmittingEntry(false);
     }
