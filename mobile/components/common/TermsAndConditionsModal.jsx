@@ -67,7 +67,10 @@ export default function TermsAndConditionsModal({ visible, onClose }) {
             </TouchableOpacity>
           </View>
           <ScrollView
-            showsVerticalScrollIndicator={false}
+            style={styles.scrollBody}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
             <AppText style={styles.intro}>
@@ -98,6 +101,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: COLORS.white,
     overflow: "hidden",
+  },
+  scrollBody: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   header: {
     flexDirection: "row",

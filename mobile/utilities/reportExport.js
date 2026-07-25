@@ -1,6 +1,7 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
+import { requestStoragePermissionForDownload } from "./storagePermission";
 
 const safe = (value) =>
   String(value ?? "")
@@ -108,6 +109,11 @@ const buildCsv = (sections) =>
     .join("\n");
 
 export const exportReportPdf = async ({ title = "Analytics Report", sections = [] }) => {
+  const canUseStorage = await requestStoragePermissionForDownload();
+  if (!canUseStorage) {
+    throw new Error("Storage permission is required to download files.");
+  }
+
   const normalizedSections = normalizeSections(sections);
   const html = buildHtml(title, normalizedSections);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
@@ -126,6 +132,11 @@ export const exportReportPdf = async ({ title = "Analytics Report", sections = [
 };
 
 export const exportReportCsv = async ({ title = "analytics-report", sections = [] }) => {
+  const canUseStorage = await requestStoragePermissionForDownload();
+  if (!canUseStorage) {
+    throw new Error("Storage permission is required to download files.");
+  }
+
   const normalizedSections = normalizeSections(sections);
   const csv = buildCsv(normalizedSections);
   const fileName = `${buildSafeFileName(title)} Numbers.csv`;

@@ -66,6 +66,57 @@ export default function Profile() {
     hasNavAccess(userRole, "partsLifespan") &&
     hasNavAccess(userRole, "maintenanceTracking");
 
+  const profileTabs = [
+    {
+      value: "info",
+      label: "Information",
+      icon: "account-details-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "info" && styles.segmentLabelActive,
+        { fontSize: scaled(12) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "info" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+    {
+      value: "security",
+      label: "Security",
+      icon: "shield-check-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "security" && styles.segmentLabelActive,
+        { fontSize: scaled(12) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "security" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+    {
+      value: "settings",
+      label: "Settings",
+      icon: "cog-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "settings" && styles.segmentLabelActive,
+        { fontSize: scaled(12) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "settings" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+  ];
+
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString("en-PH", {
@@ -457,35 +508,7 @@ export default function Profile() {
             <SegmentedButtons
               value={activeTab}
               onValueChange={setActiveTab}
-              buttons={[
-                {
-                  value: "info",
-                  label: "Information",
-                  icon: "account-details-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-                {
-                  value: "security",
-                  label: "Security",
-                  icon: "shield-check-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-                {
-                  value: "settings",
-                  label: "Settings",
-                  icon: "cog-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-              ]}
+              buttons={profileTabs}
               style={styles.segmented}
             />
           </Card.Content>
@@ -782,6 +805,15 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderBottomWidth: 0,
     backgroundColor: COLORS.white,
+  },
+  segmentButtonActive: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  segmentLabel: {
+    fontWeight: "700",
+  },
+  segmentLabelActive: {
+    color: COLORS.white,
   },
   sectionTitle: { fontWeight: "700", color: COLORS.black, marginBottom: 14 },
   input: { marginBottom: 16, backgroundColor: COLORS.white },

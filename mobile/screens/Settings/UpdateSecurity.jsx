@@ -36,6 +36,34 @@ export default function UpdateSecurity() {
 
   const [actionLoadingKey, setActionLoadingKey] = useState("");
 
+  const securityTabs = [
+    {
+      value: "password",
+      label: "Password",
+      style: [
+        styles.tabButton,
+        activeTab === "password" && styles.tabButtonActive,
+      ],
+      labelStyle: [
+        styles.tabLabel,
+        activeTab === "password" && styles.tabLabelActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+    {
+      value: "pin",
+      label: "PIN",
+      style: [styles.tabButton, activeTab === "pin" && styles.tabButtonActive],
+      labelStyle: [
+        styles.tabLabel,
+        activeTab === "pin" && styles.tabLabelActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+  ];
+
   const runWithLoading = async (key, action) => {
     if (actionLoadingKey) return;
     setActionLoadingKey(key);
@@ -252,22 +280,7 @@ export default function UpdateSecurity() {
           setActiveTab(val);
           resetAll();
         }}
-        buttons={[
-          {
-            value: "password",
-            label: "Password",
-            style: styles.tabButton,
-            checkedColor: COLORS.white,
-            uncheckedColor: COLORS.grayDark,
-          },
-          {
-            value: "pin",
-            label: "PIN",
-            style: styles.tabButton,
-            checkedColor: COLORS.white,
-            uncheckedColor: COLORS.grayDark,
-          },
-        ]}
+        buttons={securityTabs}
         style={styles.tabs}
         density="regular"
       />
@@ -507,6 +520,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderColor: COLORS.border,
     backgroundColor: COLORS.white,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primaryLight,
+  },
+  tabLabel: {
+    fontWeight: "700",
+  },
+  tabLabelActive: {
+    color: COLORS.white,
   },
   section: { rowGap: 4 },
   input: { marginBottom: 12, backgroundColor: "#fff" },

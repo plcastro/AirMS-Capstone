@@ -2,6 +2,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { Alert } from "react-native";
+import { requestStoragePermissionForDownload } from "./storagePermission";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
   "_id",
@@ -1485,6 +1486,11 @@ const buildPostInspectionHtml = (inspection = {}) => `
 
 const exportRecordToPdf = async ({ title, subtitle, record, html }) => {
   try {
+    const canUseStorage = await requestStoragePermissionForDownload();
+    if (!canUseStorage) {
+      throw new Error("Storage permission is required to download files.");
+    }
+
     let finalHtml = html;
 
     if (!finalHtml) {

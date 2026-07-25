@@ -3,7 +3,7 @@ const path = require("path");
 const AIRMS_LOGO_CID = "airms-logo";
 const logoPath = path.resolve(
   __dirname,
-  "../../client-web/src/assets/airmslogo_dark.webp",
+  "../../client-web/src/assets/airmslogo_dark.png",
 );
 
 const palette = {

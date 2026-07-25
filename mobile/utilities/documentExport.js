@@ -3,6 +3,7 @@ import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 import { API_BASE } from "./API_BASE";
+import { requestStoragePermissionForDownload } from "./storagePermission";
 
 const sanitizeFileName = (value) =>
   String(value || "N-A")
@@ -35,6 +36,11 @@ const downloadInspectionDocument = async (
   try {
     if (!inspectionId) {
       throw new Error("Inspection ID is required");
+    }
+
+    const canUseStorage = await requestStoragePermissionForDownload();
+    if (!canUseStorage) {
+      throw new Error("Storage permission is required to download files.");
     }
 
     const token = await AsyncStorage.getItem("currentUserToken");
