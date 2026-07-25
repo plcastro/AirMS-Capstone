@@ -108,11 +108,9 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(
-  cors(corsOptions),
-);
+app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-app.use(responseTimeLogger);
+// app.use(responseTimeLogger);
 
 app.get("/api/events/stream", subscribeSSE);
 
