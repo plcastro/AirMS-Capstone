@@ -16,6 +16,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 import AreaChart from "../../components/common/AreaChart";
+import { exportReportPdf } from "../../utilities/reportExport";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
 const DATE_RANGE_OPTIONS = [
@@ -109,6 +110,7 @@ export default function ActivityLogs() {
   const [scopeFilter, setScopeFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("30");
   const [currentPage, setCurrentPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -352,7 +354,7 @@ export default function ActivityLogs() {
     ];
   }, [logs]);
 
-  const formatDisplayDate = (dateValue) => {
+  const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
     if (Number.isNaN(parsedDate.getTime())) return "N/A";
 
@@ -363,7 +365,40 @@ export default function ActivityLogs() {
       hour: "numeric",
       minute: "2-digit",
     });
-  };
+  }, []);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!filteredLogs.length) {
+      showToast("No activity logs available to export.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      await exportReportPdf({
+        title: "Activity Logs Report",
+        sections: [
+          {
+            title: "Activity Logs",
+            columns: ["Date / Time", "User", "Action", "Platform", "Base"],
+            rows: filteredLogs.map((log) => ({
+              "Date / Time": formatDisplayDate(log.dateTime),
+              User: log.username || "Unknown",
+              Action: log.actionMade || "N/A",
+              Platform: log.platform || "Not captured",
+              Base: log.base || "Not captured",
+            })),
+          },
+        ],
+      });
+      showToast("Activity logs exported as PDF.");
+    } catch (error) {
+      console.error("Activity logs PDF export failed:", error);
+      showToast(error.message || "Failed to export activity logs.");
+    } finally {
+      setExporting(false);
+    }
+  }, [filteredLogs, formatDisplayDate]);
 
   if (loading) {
     return (
@@ -450,6 +485,30 @@ export default function ActivityLogs() {
             </Picker>
           </View>
         </View>
+
+        <TouchableOpacity
+          activeOpacity={0.86}
+          disabled={exporting || filteredLogs.length === 0}
+          onPress={handleExportPdf}
+          style={[
+            styles.exportButton,
+            (exporting || filteredLogs.length === 0) &&
+              styles.exportButtonDisabled,
+          ]}
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <MaterialCommunityIcons
+              name="file-pdf-box"
+              size={18}
+              color={COLORS.white}
+            />
+          )}
+          <AppText style={styles.exportButtonText}>
+            {exporting ? "Exporting..." : "Export PDF"}
+          </AppText>
+        </TouchableOpacity>
 
         <View style={styles.analyticsCard}>
           <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
@@ -650,6 +709,31 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 12,
     paddingTop: 8,
+  },
+  exportButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    columnGap: 8,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  exportButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+    opacity: 0.75,
+  },
+  exportButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: "700",
   },
   analyticsCard: {
     backgroundColor: COLORS.white,

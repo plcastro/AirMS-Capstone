@@ -51,7 +51,6 @@ export default function UserLogs() {
   const [selectedActionType, setSelectedActionType] = useState("all");
   const [selectedScope, setSelectedScope] = useState("all");
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
-  const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [exporting, setExporting] = useState(false);
 
   const fetchUserLogs = useCallback(
@@ -241,78 +240,37 @@ export default function UserLogs() {
     try {
       setExporting(true);
       const fileBaseName = buildSafeFileName("Activity Logs Report");
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF("l", "pt", "a4");
+      const columns = Object.keys(exportRows[0]);
 
-      if (selectedFileType === "Excel") {
-        const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
-          import("exceljs"),
-          import("file-saver"),
-        ]);
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = "AirMS";
-        workbook.created = new Date();
-        const worksheet = workbook.addWorksheet("Activity Logs");
-        const columns = Object.keys(exportRows[0]);
+      doc.setFontSize(16);
+      doc.text("Activity Logs Report", 40, 42);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`, 40, 60);
+      autoTable(doc, {
+        head: [columns],
+        body: exportRows.map((row) => columns.map((column) => row[column])),
+        startY: 78,
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          overflow: "linebreak",
+          valign: "top",
+        },
+        headStyles: { fillColor: [38, 134, 111] },
+        columnStyles: {
+          2: { cellWidth: 300 },
+        },
+        margin: { left: 40, right: 40 },
+      });
+      doc.save(`${fileBaseName}.pdf`);
 
-        worksheet.addRow(columns);
-        exportRows.forEach((row) => {
-          worksheet.addRow(columns.map((column) => row[column]));
-        });
-        worksheet.getRow(1).font = { bold: true };
-        worksheet.getRow(1).fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FFD9EAD3" },
-        };
-        worksheet.columns = columns.map((column) => ({
-          header: column,
-          key: column,
-          width: column === "Action" ? 58 : 22,
-        }));
-
-        const buffer = await workbook.xlsx.writeBuffer();
-        saveAs(
-          new Blob([buffer], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }),
-          `${fileBaseName}.xlsx`,
-        );
-      } else {
-        const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-          import("jspdf"),
-          import("jspdf-autotable"),
-        ]);
-        const doc = new jsPDF("l", "pt", "a4");
-        const columns = Object.keys(exportRows[0]);
-
-        doc.setFontSize(16);
-        doc.text("Activity Logs Report", 40, 42);
-        doc.setFontSize(10);
-        doc.text(
-          `Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`,
-          40,
-          60,
-        );
-        autoTable(doc, {
-          head: [columns],
-          body: exportRows.map((row) => columns.map((column) => row[column])),
-          startY: 78,
-          theme: "grid",
-          styles: {
-            fontSize: 8,
-            cellPadding: 4,
-            overflow: "linebreak",
-            valign: "top",
-          },
-          headStyles: { fillColor: [38, 134, 111] },
-          columnStyles: {
-            2: { cellWidth: 300 },
-          },
-          margin: { left: 40, right: 40 },
-        });
-        doc.save(`${fileBaseName}.pdf`);
-      }
-
-      message.success(`Activity logs exported as ${selectedFileType}.`);
+      message.success("Activity logs exported as PDF.");
     } catch (error) {
       console.error("Activity logs export failed:", error);
       message.error(error.message || "Failed to export activity logs.");
@@ -455,27 +413,16 @@ export default function UserLogs() {
             style={{ width: isMobile ? "100%" : 180 }}
           />
         )}
-        <Space.Compact style={{ width: isMobile ? "100%" : "auto" }}>
-          <Select
-            value={selectedFileType}
-            onChange={setSelectedFileType}
-            size="large"
-            options={[
-              { label: "PDF", value: "PDF" },
-              { label: "Excel", value: "Excel" },
-            ]}
-            style={{ width: isMobile ? "35%" : 110 }}
-          />
-          <Button
-            type="primary"
-            size="large"
-            icon={<ExportOutlined />}
-            loading={exporting}
-            onClick={handleExportLogs}
-          >
-            Export
-          </Button>
-        </Space.Compact>
+        <Button
+          type="primary"
+          size="large"
+          icon={<ExportOutlined />}
+          loading={exporting}
+          onClick={handleExportLogs}
+          style={{ width: isMobile ? "100%" : "auto" }}
+        >
+          Export PDF
+        </Button>
       </Space>
       <div style={{ marginBottom: 20 }}>
         <Card title="Activity Trends" size="small" loading={loading}>

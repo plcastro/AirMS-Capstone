@@ -976,8 +976,26 @@ export function NotificationProvider({ children }) {
         (item) => item?.data && Object.keys(item.data).length > 0,
       );
       if (latestNavigable?.data) {
+        const payload = normalizePushData(latestNavigable.data);
+        const title =
+          latestNavigable?.notification?.title ||
+          payload?.title ||
+          "New notification received";
+        const body =
+          latestNavigable?.notification?.body ||
+          payload?.description ||
+          payload?.body ||
+          "You have a new update.";
+
+        pushInAppNotification({
+          title,
+          description: body,
+          module: getModuleName(payload) || "parts-requisition",
+          entityType: payload?.entityType || "system",
+        });
+
         const moduleName = String(
-          latestNavigable.data?.module || "",
+          payload?.module || "",
         ).toLowerCase();
         if (moduleName === "messages") {
           showToast("You received new chat messages.");
@@ -986,7 +1004,7 @@ export function NotificationProvider({ children }) {
         }
       }
     },
-    [scheduleRefresh],
+    [pushInAppNotification, scheduleRefresh],
   );
 
   useEffect(() => {
@@ -1175,6 +1193,12 @@ export function NotificationProvider({ children }) {
             remoteMessage?.notification?.body ||
             "You have a new update. Tap view to open.";
 
+          pushInAppNotification({
+            title,
+            description: body,
+            module: getModuleName(payload) || "parts-requisition",
+            entityType: payload?.entityType || "system",
+          });
           showForegroundBanner({ title, body, payload });
         }
       },
@@ -1216,6 +1240,7 @@ export function NotificationProvider({ children }) {
   }, [
     handleQueuedBackgroundMessages,
     openNotificationTarget,
+    pushInAppNotification,
     showForegroundBanner,
   ]);
 
