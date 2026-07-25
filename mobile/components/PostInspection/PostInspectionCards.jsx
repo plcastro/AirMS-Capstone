@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
 import {
-  ActivityIndicator,
   View,
   TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
 
 export default function PostInspectionCards({
   inspections,
@@ -155,20 +155,16 @@ export default function PostInspectionCards({
                   </View>
 
                   {/* Export */}
-                  <TouchableOpacity
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
                     onPress={() => handleExportPress(inspection)}
                     disabled={Boolean(exportingInspectionId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={21}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
                 </View>
               </View>
 
@@ -198,10 +194,13 @@ export default function PostInspectionCards({
                   right: 8,
                 }}
               >
-                <MaterialCommunityIcons
-                  name={isOfficerInCharge ? "eye-outline" : "pencil"}
-                  size={21}
+                <ActionIconButton
+                  icon={isOfficerInCharge ? "eye-outline" : "pencil"}
+                  tooltip={isOfficerInCharge ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
                   color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={21}
                 />
               </View>
             </View>

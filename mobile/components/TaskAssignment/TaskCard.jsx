@@ -3,10 +3,9 @@ import {
   TouchableOpacity
 } from "react-native";
 import AppText from "../common/AppText";
-import React, { useContext } from "react";
+import React from "react";
 import * as Progress from "react-native-progress";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { AuthContext } from "../../Context/AuthContext";
+import ActionIconButton from "../common/ActionIconButton";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskCard({
@@ -29,7 +28,6 @@ export default function TaskCard({
     returnComments,
     checklistItems,
     checklistState,
-    completedAt,
   } = data;
 
   const deadline = endDateTime || dueDate;
@@ -131,9 +129,14 @@ export default function TaskCard({
           </AppText>
         </View>
         {showEditDelete && (
-          <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
-            <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
-          </TouchableOpacity>
+          <ActionIconButton
+            icon="delete"
+            tooltip="Delete"
+            onPress={() => onDeleteTask?.(data)}
+            color="#F45B5B"
+            size={32}
+            iconSize={21}
+          />
         )}
       </View>
 
@@ -241,9 +244,14 @@ export default function TaskCard({
             marginTop: 10,
           }}
         >
-          <TouchableOpacity onPress={() => onEditTask?.(data)}>
-            <MaterialCommunityIcons name="pencil" size={21} color="#777" />
-          </TouchableOpacity>
+          <ActionIconButton
+            icon="pencil"
+            tooltip="Edit"
+            onPress={() => onEditTask?.(data)}
+            color="#777"
+            size={32}
+            iconSize={21}
+          />
         </View>
       )}
     </Card>

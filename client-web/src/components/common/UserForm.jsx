@@ -257,7 +257,6 @@ export default function UserForm({
           status: "success",
           title: "Email Sent",
           subTitle: `An invitation email has been sent to ${values.email}.`,
-          status: "success",
         });
       }
 
@@ -343,6 +342,7 @@ export default function UserForm({
         content: "You have unsaved changes. Cancel and discard them?",
         okText: "Discard",
         cancelText: "Keep editing",
+        centered: true,
         okButtonProps: { danger: true },
         onOk: () => {
           setPreviewOpen(false);
@@ -585,7 +585,6 @@ export default function UserForm({
         title={user ? "Preview Updated User" : "Preview New User"}
         onCancel={() => setPreviewOpen(false)}
         width={isMobile ? "94vw" : 640}
-        centered
         footer={[
           <Button key="back" onClick={() => setPreviewOpen(false)}>
             Back

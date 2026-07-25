@@ -3,10 +3,10 @@ import AppText from "../common/AppText";
 import {
   Image,
   StyleSheet,
-  TouchableOpacity,
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserImageUri } from "../../utilities/avatar";
 
@@ -108,48 +108,59 @@ export default function UserCard({
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => onEdit(item)} style={[styles.actionBtn, styles.btnEdit]}>
-          <MaterialCommunityIcons name="account-edit-outline" size={16} color="white" />
-          <AppText style={styles.actionBtnText}> Edit</AppText>
-        </TouchableOpacity>
-        <TouchableOpacity
+        <ActionIconButton
+          icon="account-edit-outline"
+          tooltip="Edit"
+          onPress={() => onEdit(item)}
+          color="white"
+          backgroundColor="#1565C0"
+          borderColor="#1565C0"
+        />
+        <ActionIconButton
+          icon={isActive ? "account-remove" : "account-check"}
+          tooltip={isActive ? "Deactivate" : "Reactivate"}
           onPress={() => onToggleStatus(item, isActive ? "deactivated" : "active")}
-          style={[styles.actionBtn, isActive ? styles.btnDanger : styles.btnSuccess, isCurrentUser && styles.btnDisabled]}
           disabled={isCurrentUser}
-        >
-          <MaterialCommunityIcons name={isActive ? "account-remove" : "account-check"} size={16} color="white" />
-          <AppText style={styles.actionBtnText}>{isActive ? " Deactivate" : " Reactivate"}</AppText>
-        </TouchableOpacity>
+          color="white"
+          backgroundColor={isActive ? "#FF5252" : "#4CAF50"}
+          borderColor={isActive ? "#FF5252" : "#4CAF50"}
+        />
       </View>
 
       {canShowInviteActions && (
         <View style={styles.inviteActions}>
           {(invitationStatus === "pending" || invitationStatus === "expired") && (
             <>
-              <TouchableOpacity
+              <ActionIconButton
+                icon="email-send-outline"
+                tooltip={inviteActionLoading ? "Working..." : "Resend"}
                 onPress={() => onResendInvite?.(item)}
-                style={[styles.actionBtn, styles.btnInfo]}
                 disabled={inviteActionLoading}
-              >
-                <AppText style={styles.actionBtnText}>{inviteActionLoading ? "Working..." : "Resend"}</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
+                color="white"
+                backgroundColor="#1976D2"
+                borderColor="#1976D2"
+              />
+              <ActionIconButton
+                icon="clock-plus-outline"
+                tooltip="Extend 24h"
                 onPress={() => onExtendInvite?.(item)}
-                style={[styles.actionBtn, styles.btnWarn]}
                 disabled={inviteActionLoading}
-              >
-                <AppText style={styles.actionBtnText}>Extend +24h</AppText>
-              </TouchableOpacity>
+                color="white"
+                backgroundColor="#D97706"
+                borderColor="#D97706"
+              />
             </>
           )}
           {invitationStatus !== "revoked" && (
-            <TouchableOpacity
+            <ActionIconButton
+              icon="email-remove-outline"
+              tooltip="Revoke"
               onPress={() => onRevokeInvite?.(item)}
-              style={[styles.actionBtn, styles.btnDangerOutline]}
               disabled={inviteActionLoading}
-            >
-              <AppText style={styles.actionBtnText}>Revoke</AppText>
-            </TouchableOpacity>
+              color="white"
+              backgroundColor="#B91C1C"
+              borderColor="#B91C1C"
+            />
           )}
         </View>
       )}
@@ -209,22 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 8,
+    gap: 10,
     flexWrap: "wrap",
   },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  btnEdit: { backgroundColor: "#1565C0" },
-  btnDanger: { backgroundColor: "#FF5252" },
-  btnSuccess: { backgroundColor: "#4CAF50" },
-  btnInfo: { backgroundColor: "#1976D2" },
-  btnWarn: { backgroundColor: "#D97706" },
-  btnDangerOutline: { backgroundColor: "#B91C1C" },
-  btnDisabled: { opacity: 0.5 },
-  actionBtnText: { color: "white", fontWeight: "bold", fontSize: 12 },
 });

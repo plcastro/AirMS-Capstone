@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
 import {
-  ActivityIndicator,
   View,
   TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
 
 export default function FlightLogCards({
   logs,
@@ -172,20 +171,16 @@ export default function FlightLogCards({
                     </AppText>
                   </View>
 
-                  <TouchableOpacity
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
                     onPress={() => handleExportPress(log)}
                     disabled={Boolean(exportingLogId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={21}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
                 </View>
               </View>
 
@@ -214,10 +209,13 @@ export default function FlightLogCards({
                   right: 8,
                 }}
               >
-                <MaterialCommunityIcons
-                  name={readOnly ? "eye-outline" : "pencil"}
-                  size={21}
+                <ActionIconButton
+                  icon={readOnly ? "eye-outline" : "pencil"}
+                  tooltip={readOnly ? "View" : "Edit"}
+                  onPress={() => onEdit(log)}
                   color={readOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={21}
                 />
               </View>
             </View>

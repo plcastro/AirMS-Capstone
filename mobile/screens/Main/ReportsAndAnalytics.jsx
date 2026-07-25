@@ -231,7 +231,28 @@ export default function ReportsAndAnalytics() {
         rows: topRows(countBy(dueComponents, (part) => part.aircraft)),
       },
     ];
-  }, [flightLogs, partsRecords, partsRequisitions, postInspections, preInspections, tasks]);
+  }, [
+    flightLogs,
+    partsRecords,
+    partsRequisitions,
+    postInspections,
+    preInspections,
+    tasks,
+  ]);
+
+  const getPreviewLabel = (section, row) => {
+    if (row?.label !== undefined) return row.label;
+    if (Array.isArray(row)) return row[0] || "N/A";
+    const firstColumn = section.columns?.[0];
+    return row?.[firstColumn] || "N/A";
+  };
+
+  const getPreviewValue = (section, row) => {
+    if (row?.value !== undefined) return row.value;
+    if (Array.isArray(row)) return row[1] || "";
+    const secondColumn = section.columns?.[1];
+    return row?.[secondColumn] || "";
+  };
 
   const tabs = [
     ["completed", `Completed (${stats.completed})`],
@@ -247,7 +268,7 @@ export default function ReportsAndAnalytics() {
         <StatCard label="Completed Tasks" value={stats.completed} />
         <StatCard label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
         <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
-        <StatCard label="Module Reports" value={stats.moduleReports} />
+        <StatCard label="Module Reports" value={reportSections.length} />
       </View>
 
       <ExportFile title="Reports and Analytics" sections={reportSections} />
@@ -314,9 +335,9 @@ export default function ReportsAndAnalytics() {
           {section.rows.length === 0 ? (
             <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</AppText>
           ) : (
-            section.rows.map((row) => (
+            section.rows.slice(0, 8).map((row, index) => (
               <View
-                key={row.label}
+                key={`${section.title}-${getPreviewLabel(section, row)}-${index}`}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -327,11 +348,11 @@ export default function ReportsAndAnalytics() {
                 }}
               >
                 <AppText style={{ color: COLORS.black, flex: 1, fontSize: 12 }}>
-                  {row.label}
+                  {getPreviewLabel(section, row)}
                 </AppText>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
-                    {row.value}
+                    {getPreviewValue(section, row)}
                   </AppText>
                   <MaterialCommunityIcons
                     name="chart-bar"

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import { ActivityIndicator, View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
 
 export default function PreInspectionCards({
   inspections,
@@ -155,20 +156,16 @@ export default function PreInspectionCards({
                     </AppText>
                   </View>
 
-                  <TouchableOpacity
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
                     onPress={() => handleExportPress(inspection)}
                     disabled={Boolean(exportingInspectionId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={18}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={18}
+                  />
                 </View>
               </View>
 
@@ -196,10 +193,13 @@ export default function PreInspectionCards({
                   right: 8,
                 }}
               >
-                <MaterialCommunityIcons
-                  name={isViewOnly ? "eye-outline" : "pencil"}
-                  size={18}
+                <ActionIconButton
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
                   color={isViewOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={18}
                 />
               </View>
             </View>

@@ -5,6 +5,7 @@ import {
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
 import { COLORS } from "../../stylesheets/colors";
 
 const getStatusStyle = (status) => {
@@ -239,29 +240,23 @@ export default function PartsRequisitionCards({
                     gap: 8,
                   }}
                 >
-                  <TouchableOpacity
-                    activeOpacity={editDisabled ? 1 : 0.7}
+                  <ActionIconButton
+                    icon="pencil"
+                    tooltip="Edit"
                     onPress={() => onEdit?.(item)}
                     disabled={editDisabled}
-                  >
-                    <MaterialCommunityIcons
-                      name="pencil"
-                      size={18}
-                      color={editDisabled ? "#C8C8C8" : "#777"}
-                    />
-                  </TouchableOpacity>
+                    color="#777"
+                    disabledColor="#C8C8C8"
+                  />
 
-                  <TouchableOpacity
-                    activeOpacity={deleteDisabled ? 1 : 0.7}
+                  <ActionIconButton
+                    icon="delete"
+                    tooltip="Delete"
                     onPress={() => onDelete?.(item)}
                     disabled={deleteDisabled}
-                  >
-                    <MaterialCommunityIcons
-                      name="delete"
-                      size={18}
-                      color={deleteDisabled ? "#F1B6B6" : "#F45B5B"}
-                    />
-                  </TouchableOpacity>
+                    color="#F45B5B"
+                    disabledColor="#F1B6B6"
+                  />
                 </View>
               )}
             </View>

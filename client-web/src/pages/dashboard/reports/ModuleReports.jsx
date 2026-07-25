@@ -197,7 +197,7 @@ const ColorCodedBarShape = ({ fill, height, payload, width, x, y }) => {
 };
 
 const MonthlyBar = ({
-  colorByEntry = false,
+  colorByEntry = true,
   data,
   dataKey = "value",
   name = "Records",

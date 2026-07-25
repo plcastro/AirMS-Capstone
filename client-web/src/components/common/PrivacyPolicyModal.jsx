@@ -46,6 +46,13 @@ export default function PrivacyPolicyModal({ open, onClose }) {
       footer={null}
       width={720}
       centered
+      styles={{
+        body: {
+          height: "min(62vh, 560px)",
+          overflowY: "auto",
+          paddingRight: 8,
+        },
+      }}
     >
       <Paragraph type="secondary">
         This policy explains how AirMS handles user and operational information.

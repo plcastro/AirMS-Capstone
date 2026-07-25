@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { Card, Empty, Grid, Pagination, Spin, Space, Table, Typography } from "antd";
+import {
+  Card,
+  Empty,
+  Grid,
+  Pagination,
+  Spin,
+  Space,
+  Table,
+  Typography,
+} from "antd";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -14,7 +23,9 @@ const getTitleText = (title) =>
 
 const getValueByPath = (record, dataIndex) => {
   if (!dataIndex) return undefined;
-  const path = Array.isArray(dataIndex) ? dataIndex : String(dataIndex).split(".");
+  const path = Array.isArray(dataIndex)
+    ? dataIndex
+    : String(dataIndex).split(".");
   return path.reduce((value, key) => value?.[key], record);
 };
 
@@ -46,7 +57,7 @@ const isActionColumn = (column, index, columns) => {
   return (
     ACTION_KEYS.has(key) ||
     ACTION_KEYS.has(title) ||
-    index === columns.length - 1 && ACTION_KEYS.has(title)
+    (index === columns.length - 1 && ACTION_KEYS.has(title))
   );
 };
 
@@ -68,7 +79,9 @@ export default function ResponsiveTable({
     mobileBreakpoint === "sm" ? !screens.md : !screens.sm || screens.xs;
   const [localPage, setLocalPage] = useState(1);
   const [localPageSize, setLocalPageSize] = useState(
-    typeof pagination === "object" && pagination.pageSize ? pagination.pageSize : 10,
+    typeof pagination === "object" && pagination.pageSize
+      ? pagination.pageSize
+      : 10,
   );
 
   const flatColumns = useMemo(() => flattenColumns(columns), [columns]);
@@ -111,11 +124,13 @@ export default function ResponsiveTable({
       : dataSource.slice((current - 1) * pageSize, current * pageSize);
 
   const preferredPrimary =
-    detailColumns.find((column) => getColumnKey(column) === mobilePrimaryColumn) ||
-    detailColumns[0];
+    detailColumns.find(
+      (column) => getColumnKey(column) === mobilePrimaryColumn,
+    ) || detailColumns[0];
   const preferredSecondary =
-    detailColumns.find((column) => getColumnKey(column) === mobileSecondaryColumn) ||
-    detailColumns.find((column) => column !== preferredPrimary);
+    detailColumns.find(
+      (column) => getColumnKey(column) === mobileSecondaryColumn,
+    ) || detailColumns.find((column) => column !== preferredPrimary);
 
   const handlePageChange = (page, nextPageSize) => {
     setLocalPage(page);
@@ -127,7 +142,7 @@ export default function ResponsiveTable({
 
   return (
     <Spin spinning={Boolean(loading)}>
-      <Space direction="vertical" size={10} style={{ width: "100%" }}>
+      <Space orientation="vertical" size={10} style={{ width: "100%" }}>
         {pagedData.length ? (
           pagedData.map((record, index) => {
             const absoluteIndex =
