@@ -116,7 +116,10 @@ export default function OTP() {
                 String(params.identifier).trim(),
               );
             }
-            localStorage.setItem("rememberedBase", data.user?.base || params.base || "");
+            localStorage.setItem(
+              "rememberedBase",
+              data.user?.base || params.base || "",
+            );
           } else {
             localStorage.removeItem("rememberedIdentifier");
             localStorage.removeItem("rememberedBase");
@@ -140,7 +143,8 @@ export default function OTP() {
             role === "maintenance manager" ||
             role === "officer-in-charge"
           ) {
-            pendingDashboardPathRef.current = "/dashboard/maintenance-dashboard";
+            pendingDashboardPathRef.current =
+              "/dashboard/maintenance-dashboard";
           } else if (role === "warehouse staff") {
             pendingDashboardPathRef.current = "/dashboard/parts-requisition";
           } else {
@@ -155,8 +159,9 @@ export default function OTP() {
           title: "Verification Successful",
           subTitle: "OTP has been verified. Redirecting...",
         });
-
-        navigate(`/reset-password?token=${token}`);
+        setTimeout(() => {
+          navigate(`/reset-password?token=${token}`);
+        }, 1000);
       } else {
         setFieldError(data.message || "OTP is invalid.");
       }

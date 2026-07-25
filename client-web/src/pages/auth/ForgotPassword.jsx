@@ -74,26 +74,15 @@ export default function ForgotPassword() {
         });
         setTimeout(
           () => nav("/verification", { state: { token: data.token, email } }),
-          2500,
+          1000,
         );
       } else {
-        setPopup({
-          open: true,
-          status: "error",
-          title: "Reset Link Failed",
-          subTitle:
-            data.message || "Failed to send reset link. Try again later.",
-        });
+        setMessage("The email you entered does not correspond to any account.");
       }
     } catch (err) {
       console.error(err);
       setLoading(false);
-      setPopup({
-        open: true,
-        status: "error",
-        title: "Reset Link Failed",
-        subTitle: "Failed to send reset link. Try again later.",
-      });
+      setMessage("Failed to send reset link. Try again later.");
     }
   };
 
@@ -121,7 +110,7 @@ export default function ForgotPassword() {
               size="large"
               allowClear
             />
-            <Row style={{ marginBottom: 10 }}>
+            <Row style={{ marginBottom: 10, fontWeight: "normal" }}>
               {message && <Text type="danger">{message}</Text>}
             </Row>
             <Button
