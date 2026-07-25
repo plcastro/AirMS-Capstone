@@ -336,7 +336,7 @@ export default function UserFormModal({
                 style={[styles.input, styles.disabledInput]}
                 value={form.username}
                 onChangeText={(value) => updateField("username", value)}
-                editable={isEdit}
+                editable={false}
                 placeholder="Auto-generated"
               />
 
