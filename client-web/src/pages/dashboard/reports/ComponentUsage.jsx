@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Row, Col, Card, Typography, Space, Tag } from "antd";
 
 import { FailureAnalysisChart } from "../../../components/common/FailureAnalysisChart";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import CUsageTable from "../../../components/tables/CUsageTable";
 
 const { Title, Text } = Typography;
@@ -96,6 +97,9 @@ export default function ComponentUsage({ records = [], loading = false }) {
       title: "Date Installed",
       dataIndex: "dateInstalled",
       key: "dateInstalled",
+      render: (value) => (
+        <DateOnlyCell value={value} fallback={value || "N/A"} />
+      ),
     },
     {
       title: "Component",

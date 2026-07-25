@@ -26,6 +26,8 @@ import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
 import ResultPopup from "../../../components/common/ResultPopup";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 
 const { Title, Text } = Typography;
 
@@ -133,21 +135,6 @@ const buildNoMaintenanceIssueInsight = (item = {}) => ({
   defectDetails: null,
   defectDetailsSource: "none",
 });
-
-const formatScheduleDate = (value) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
 
 const getTaskScheduleState = (task = {}) => {
   const status = String(task.status || "").toLowerCase();
@@ -690,7 +677,7 @@ export default function MaintenanceTracking() {
       dataIndex: "startDateTime",
       key: "startDateTime",
       width: 180,
-      render: formatScheduleDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "End / Due",
@@ -698,7 +685,7 @@ export default function MaintenanceTracking() {
       key: "endDateTime",
       width: 180,
       render: (_, record) =>
-        formatScheduleDate(record.endDateTime || record.dueDate),
+        <DateTimeCell value={record.endDateTime || record.dueDate} />,
     },
     {
       title: "Priority",
@@ -772,17 +759,7 @@ export default function MaintenanceTracking() {
       dataIndex: "dueDate",
       key: "dueDate",
       width: 150,
-      render: (value) => {
-        if (!value) return "N/A";
-        const date = new Date(value);
-        return Number.isNaN(date.getTime())
-          ? "N/A"
-          : date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
-      },
+      render: (value) => <DateOnlyCell value={value} />,
     },
     {
       title: "Due At",

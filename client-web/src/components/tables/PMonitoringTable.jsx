@@ -1,15 +1,7 @@
 import { Tag, Input } from "antd";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import DateOnlyCell from "../common/DateOnlyCell";
 import ResponsiveTable from "../common/ResponsiveTable";
-
-// Helper to format YYYY-MM-DD to MM/DD/YYYY for display
-const formatDateForDisplay = (dateStr) => {
-  if (!dateStr || dateStr === "N/A") return dateStr || "";
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return dateStr;
-  const [year, month, day] = parts;
-  return `${month}/${day}/${year}`;
-};
 
 export default function PMonitoringTable({
   headers = [],
@@ -22,10 +14,8 @@ export default function PMonitoringTable({
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [data]);
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const processColumns = (headers) => {
     return headers.map((header) => {
@@ -136,7 +126,7 @@ export default function PMonitoringTable({
         if (!editable) {
           // Non-editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
+            return <DateOnlyCell value={value} fallback={value} />;
           }
           return value || "";
         }
@@ -144,7 +134,7 @@ export default function PMonitoringTable({
         if (!isCellEditable(record, header.key)) {
           // Not editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
+            return <DateOnlyCell value={value} fallback={value} />;
           }
           return value || "";
         }
@@ -226,7 +216,7 @@ export default function PMonitoringTable({
           pageSize: pageSize,
           showSizeChanger: true,
           pageSizeOptions: ["15", "30", "50"],
-          current: currentPage,
+          current: safeCurrentPage,
           onChange: (page, size) => {
             setCurrentPage(page);
             setPageSize(size);

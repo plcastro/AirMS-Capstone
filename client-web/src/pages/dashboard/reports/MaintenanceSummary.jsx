@@ -3,6 +3,7 @@ import { Row, Col, Button, Tag, DatePicker, Space } from "antd";
 import { CheckCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import MSummaryTable from "../../../components/tables/MSummaryTable";
 
 import RepairFrequencyChart from "../../../components/common/RepairFrequencyChart";
@@ -10,19 +11,6 @@ import RepairFrequencyChart from "../../../components/common/RepairFrequencyChar
 dayjs.extend(isBetween);
 
 const { RangePicker } = DatePicker;
-
-const formatDate = (value) => {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "";
-
-  return date.toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-};
 
 export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const [searchText, setSearchText] = useState("");
@@ -48,7 +36,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const mappedTasks = tasks.map((task, index) => ({
     key: task._id || task.id || `${task.title}-${index}`,
     aircraft: task.aircraft || "---",
-    date: formatDate(getReportDate(task)),
+    date: getReportDate(task) || "",
     task: task.title || task.summary?.category || "---",
     assignedMechanic:
       task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
@@ -114,6 +102,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       title: "Date",
       dataIndex: "date",
       key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
     },
     {
       title: "Task",

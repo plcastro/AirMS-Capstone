@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
 const sendEmail = require("../utils/sendEmail");
+const { buildOtpEmail } = require("../utils/emailTemplates");
 const generateOTP = require("../utils/generateOTP");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) =>
@@ -43,25 +44,20 @@ const requestPasswordReset = async (req, res) => {
 
     await user.save();
 
+    const emailMessage = buildOtpEmail({
+      title: "Password Reset Request",
+      intro:
+        "We received a request to reset the password for your AirMS account. Use this one-time code to continue.",
+      otp,
+      validityMinutes: 15,
+      warning:
+        "If you did not request this change, ignore this email or contact support if you have concerns.",
+    });
+
     await sendEmail({
       to: user.email,
       subject: "Reset your password",
-      html: `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-      <h2 style="color: #333;">Password Reset Request</h2>
-      <p>Hello,</p>
-      <p>We received a request to reset the password for your account. Use the following One-Time Password (OTP) to proceed:</p>
-      
-      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
-      </div>
-
-      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
-      
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
-    </div>
-  `,
+      ...emailMessage,
     });
 
     const audit = withActorId(
@@ -147,25 +143,20 @@ const requestPinReset = async (req, res) => {
     user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
     await user.save();
 
+    const emailMessage = buildOtpEmail({
+      title: "PIN Reset Request",
+      intro:
+        "We received a request to reset the PIN for your AirMS account. Use this one-time code to continue.",
+      otp,
+      validityMinutes: 15,
+      warning:
+        "If you did not request this change, ignore this email or contact support if you have concerns.",
+    });
+
     await sendEmail({
       to: user.email,
       subject: "Reset your PIN",
-      html: `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-      <h2 style="color: #333;">PIN Reset Request</h2>
-      <p>Hello,</p>
-      <p>We received a request to reset the PIN for your account. Use the following One-Time Password (OTP) to proceed:</p>
-      
-      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
-      </div>
-
-      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
-      
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
-    </div>
-  `,
+      ...emailMessage,
     });
 
     const audit = withActorId(

@@ -1,7 +1,16 @@
 import React, { useMemo, useState } from "react";
-import { Button, Tag, Space, Grid, Dropdown, Modal } from "antd";
+import {
+  Button,
+  Tag,
+  Space,
+  Grid,
+  Dropdown,
+  Modal,
+  Tooltip,
+} from "antd";
 import { EditOutlined, MoreOutlined } from "@ant-design/icons";
 import ResponsiveTable from "../common/ResponsiveTable";
+import DateTimeCell from "../common/DateTimeCell";
 
 const { useBreakpoint } = Grid;
 
@@ -84,15 +93,16 @@ export default function UserTable({
             }));
 
             return (
-              <Space>
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<EditOutlined />}
-                  onClick={() => onEditUser?.(record)}
-                >
-                  Edit
-                </Button>
+              <Space size={12}>
+                <Tooltip title="Edit">
+                  <Button
+                    type="primary"
+                    size="small"
+                    aria-label="Edit"
+                    icon={<EditOutlined />}
+                    onClick={() => onEditUser?.(record)}
+                  />
+                </Tooltip>
 
                 <Dropdown
                   trigger={["click"]}
@@ -112,11 +122,14 @@ export default function UserTable({
                     },
                   }}
                 >
-                  <Button
-                    size="small"
-                    icon={<MoreOutlined />}
-                    disabled={!menuItems.length}
-                  />
+                  <Tooltip title="More actions">
+                    <Button
+                      size="small"
+                      aria-label="More actions"
+                      icon={<MoreOutlined />}
+                      disabled={!menuItems.length}
+                    />
+                  </Tooltip>
                 </Dropdown>
               </Space>
             );
@@ -172,19 +185,23 @@ export default function UserTable({
           key: "invitationExpiresAt",
           render: (value, record) => {
             if (record.status === "active") return "N/A";
-            return value
-              ? new Date(value).toLocaleString("en-US", {
-                  month: "2-digit",
-                  day: "2-digit",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })
-              : "N/A";
+            return <DateTimeCell value={value} />;
           },
           sorter: (a, b) =>
             new Date(a.invitationExpiresAt || 0).getTime() -
             new Date(b.invitationExpiresAt || 0).getTime(),
+        };
+      }
+
+      if (header.key === "dateCreated") {
+        return {
+          title: header.label,
+          dataIndex: "dateCreated",
+          key: "dateCreated",
+          render: (value) => <DateTimeCell value={value} />,
+          sorter: (a, b) =>
+            new Date(a.dateCreated || 0).getTime() -
+            new Date(b.dateCreated || 0).getTime(),
         };
       }
 

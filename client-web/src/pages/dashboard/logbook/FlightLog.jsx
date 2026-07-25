@@ -17,13 +17,18 @@ import {
   Select,
   Card,
   Grid,
+  Tooltip,
 } from "antd";
 import {
+  CheckCircleOutlined,
+  CheckOutlined,
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
   EyeOutlined,
   EditOutlined,
+  NotificationOutlined,
+  SendOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -918,60 +923,72 @@ export default function FlightLog() {
       key: "action",
       width: 120,
       render: (_, record) => (
-        <Space size={4} wrap>
-          <Button
-            type={isOfficerInCharge ? "default" : "primary"}
-            size="small"
-            onClick={() => handleEdit(record)}
-            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
-          >
-            {isOfficerInCharge ? "View" : "Edit"}
-          </Button>
+        <Space size={12} wrap>
+          <Tooltip title={isOfficerInCharge ? "View" : "Edit"}>
+            <Button
+              type={isOfficerInCharge ? "default" : "primary"}
+              size="small"
+              aria-label={isOfficerInCharge ? "View" : "Edit"}
+              onClick={() => handleEdit(record)}
+              icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
+            />
+          </Tooltip>
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "pending_release" && (
-              <Button
-                size="small"
-                onClick={() => openWorkflowModal("release", record)}
-              >
-                Release
-              </Button>
+              <Tooltip title="Release">
+                <Button
+                  size="small"
+                  aria-label="Release"
+                  icon={<SendOutlined />}
+                  onClick={() => openWorkflowModal("release", record)}
+                />
+              </Tooltip>
             )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button
-              size="small"
-              onClick={() => openWorkflowModal("accept", record)}
-            >
-              Accept
-            </Button>
+            <Tooltip title="Accept">
+              <Button
+                size="small"
+                aria-label="Accept"
+                icon={<CheckOutlined />}
+                onClick={() => openWorkflowModal("accept", record)}
+              />
+            </Tooltip>
           )}
           {isPilot &&
             record.status === "accepted" &&
             !record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={() => openWorkflowModal("notify", record)}
-              >
-                Notify
-              </Button>
+              <Tooltip title="Notify">
+                <Button
+                  size="small"
+                  aria-label="Notify"
+                  icon={<NotificationOutlined />}
+                  onClick={() => openWorkflowModal("notify", record)}
+                />
+              </Tooltip>
             )}
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={() => openWorkflowModal("complete", record)}
-              >
-                Complete
-              </Button>
+              <Tooltip title="Complete">
+                <Button
+                  size="small"
+                  aria-label="Complete"
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => openWorkflowModal("complete", record)}
+                />
+              </Tooltip>
             )}
-          <Button
-            type="text"
-            size="small"
-            icon={<ExportOutlined />}
-            onClick={() => handleExport(record)}
-          />
+          <Tooltip title="Export">
+            <Button
+              type="text"
+              size="small"
+              aria-label="Export"
+              icon={<ExportOutlined />}
+              onClick={() => handleExport(record)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
@@ -1015,78 +1032,90 @@ export default function FlightLog() {
           Control: {record.controlNo || record.control || "N/A"}
         </div>
 
-        <Space size={4} wrap style={{ marginTop: 10 }}>
-          <Button
-            type={isOfficerInCharge ? "default" : "primary"}
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(record);
-            }}
-            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
-          >
-            {isOfficerInCharge ? "View" : "Edit"}
-          </Button>
+        <Space size={12} wrap style={{ marginTop: 10 }}>
+          <Tooltip title={isOfficerInCharge ? "View" : "Edit"}>
+            <Button
+              type={isOfficerInCharge ? "default" : "primary"}
+              size="small"
+              aria-label={isOfficerInCharge ? "View" : "Edit"}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(record);
+              }}
+              icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
+            />
+          </Tooltip>
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "pending_release" && (
-              <Button
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openWorkflowModal("release", record);
-                }}
-              >
-                Release
-              </Button>
+              <Tooltip title="Release">
+                <Button
+                  size="small"
+                  aria-label="Release"
+                  icon={<SendOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("release", record);
+                  }}
+                />
+              </Tooltip>
             )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWorkflowModal("accept", record);
-              }}
-            >
-              Accept
-            </Button>
+            <Tooltip title="Accept">
+              <Button
+                size="small"
+                aria-label="Accept"
+                icon={<CheckOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openWorkflowModal("accept", record);
+                }}
+              />
+            </Tooltip>
           )}
           {isPilot &&
             record.status === "accepted" &&
             !record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openWorkflowModal("notify", record);
-                }}
-              >
-                Notify
-              </Button>
+              <Tooltip title="Notify">
+                <Button
+                  size="small"
+                  aria-label="Notify"
+                  icon={<NotificationOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("notify", record);
+                  }}
+                />
+              </Tooltip>
             )}
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openWorkflowModal("complete", record);
-                }}
-              >
-                Complete
-              </Button>
+              <Tooltip title="Complete">
+                <Button
+                  size="small"
+                  aria-label="Complete"
+                  icon={<CheckCircleOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("complete", record);
+                  }}
+                />
+              </Tooltip>
             )}
-          <Button
-            type="text"
-            size="small"
-            icon={<ExportOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleExport(record);
-            }}
-          />
+          <Tooltip title="Export">
+            <Button
+              type="text"
+              size="small"
+              aria-label="Export"
+              icon={<ExportOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExport(record);
+              }}
+            />
+          </Tooltip>
         </Space>
       </Card>
     );

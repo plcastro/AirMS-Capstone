@@ -207,7 +207,7 @@ export default function ResponsiveTable({
 
                 {actionColumns.length ? (
                   <Space
-                    size={4}
+                    size={12}
                     wrap
                     style={{ marginTop: 10 }}
                     onClick={(event) => event.stopPropagation()}

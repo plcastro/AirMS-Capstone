@@ -1,6 +1,7 @@
 const AdminSecurityAlert = require("../models/adminSecurityAlertModel");
 const UserModel = require("../models/userModel");
 const sendEmail = require("../utils/sendEmail");
+const { buildSecurityAlertEmail } = require("../utils/emailTemplates");
 
 /**
  * Create a security alert for critical operations
@@ -54,8 +55,12 @@ const notifyAdmins = async (alert) => {
     for (const admin of admins) {
       // Send email notification
       try {
-        const emailBody = generateAlertEmailBody(alert, admin);
-        await sendEmail(admin.email, alert.title, emailBody);
+        const emailMessage = generateAlertEmailBody(alert, admin);
+        await sendEmail({
+          to: admin.email,
+          subject: alert.title,
+          ...emailMessage,
+        });
 
         // Update notification status
         if (!alert.notificationsSent) {
@@ -92,55 +97,7 @@ const notifyAdmins = async (alert) => {
  * Generate alert email body
  */
 const generateAlertEmailBody = (alert, admin) => {
-  const severityColor = {
-    INFO: "blue",
-    WARNING: "orange",
-    CRITICAL: "red",
-  };
-
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px;">
-      <h2 style="color: ${severityColor[alert.severity] || "black"};">
-        🔔 Security Alert: ${alert.title}
-      </h2>
-      
-      <p><strong>Severity:</strong> <span style="color: ${severityColor[alert.severity]}">${alert.severity}</span></p>
-      <p><strong>Description:</strong> ${alert.description}</p>
-      
-      ${
-        alert.affectedUser
-          ? `<p><strong>Affected User:</strong> ${alert.affectedUser.username} (${alert.affectedUser.email})</p>`
-          : ""
-      }
-      
-      ${
-        alert.triggeredBy
-          ? `<p><strong>Triggered By:</strong> ${alert.triggeredBy.username} (${alert.triggeredBy.email})</p>`
-          : ""
-      }
-      
-      ${
-        alert.details?.ipAddress
-          ? `<p><strong>IP Address:</strong> <code>${alert.details.ipAddress}</code></p>`
-          : ""
-      }
-      
-      <p><strong>Time:</strong> ${new Date(alert.createdAt).toLocaleString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })}</p>
-      
-      <p>Please review this alert and take appropriate action if necessary.</p>
-      
-      <hr />
-      <p style="color: #666; font-size: 12px;">
-        This is an automated security alert. Do not reply to this email.
-      </p>
-    </div>
-  `;
+  return buildSecurityAlertEmail({ alert, admin });
 };
 
 /**
@@ -352,3 +309,4 @@ module.exports = {
   resolveAlert,
   getUnacknowledgedCount,
 };
+

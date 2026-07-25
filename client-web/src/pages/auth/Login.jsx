@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
@@ -29,6 +29,7 @@ const { Text } = Typography;
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const pendingDashboardPathRef = useRef("");
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
@@ -187,35 +188,40 @@ const Login = () => {
 
   const handleNavigate = (loggedInUser) => {
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
-    const loginSuccessState = {
-      state: {
-        resultPopup: {
-          status: "success",
-          title: "Login Successful",
-          subTitle: "You have been logged in successfully.",
-        },
-      },
-    };
+    let dashboardPath = "/dashboard/profile";
 
     switch (pos) {
       case "superadmin":
-        navigate("/dashboard/user-management/view-users", loginSuccessState);
+        dashboardPath = "/dashboard/user-management/view-users";
         break;
       case "mechanic":
-        navigate("/dashboard/maintenance-log", loginSuccessState);
+        dashboardPath = "/dashboard/maintenance-log";
         break;
       case "maintenance manager":
-        navigate("/dashboard/maintenance-dashboard", loginSuccessState);
-        break;
       case "officer-in-charge":
-        navigate("/dashboard/maintenance-dashboard", loginSuccessState);
+        dashboardPath = "/dashboard/maintenance-dashboard";
         break;
       case "warehouse staff":
-        navigate("/dashboard/parts-requisition", loginSuccessState);
+        dashboardPath = "/dashboard/parts-requisition";
         break;
-      default:
-        navigate("/dashboard/profile", loginSuccessState);
-        break;
+    }
+
+    pendingDashboardPathRef.current = dashboardPath;
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Login Successful",
+      subTitle: "You have been logged in successfully.",
+    });
+  };
+
+  const handlePopupClose = () => {
+    setPopup((prev) => ({ ...prev, open: false }));
+
+    if (pendingDashboardPathRef.current) {
+      const dashboardPath = pendingDashboardPathRef.current;
+      pendingDashboardPathRef.current = "";
+      navigate(dashboardPath);
     }
   };
   return (
@@ -369,7 +375,7 @@ const Login = () => {
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}
-        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+        onClose={handlePopupClose}
       />
     </>
   );

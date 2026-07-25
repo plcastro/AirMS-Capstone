@@ -16,6 +16,7 @@ import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import ResultPopup from "../../../components/common/ResultPopup";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const { Title, Text } = Typography;
@@ -61,19 +62,6 @@ const formatDueBasis = (basis) => {
     default:
       return "N/A";
   }
-};
-
-const formatDate = (value) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 };
 
 export default function MaintenancePriority() {
@@ -347,7 +335,7 @@ export default function MaintenancePriority() {
       width: 120,
       render: (value, record) => (
         <span>
-          {formatDate(value)}
+          <DateOnlyCell value={value} />
           {record.dueBasis === "hours" && (
             <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
               not calendar overdue

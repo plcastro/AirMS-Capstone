@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Grid, Tag, Typography } from "antd";
-import dayjs from "dayjs";
 import ResponsiveTable from "../common/ResponsiveTable";
+import DateTimeCell from "../common/DateTimeCell";
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
 
@@ -19,7 +19,9 @@ const getBaseColor = (base) => {
 };
 
 const renderContextValue = (value, getColor) => {
-  const normalized = String(value || "").trim().toUpperCase();
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
   if (!normalized) {
     return <Text type="secondary">Not captured</Text>;
   }
@@ -69,10 +71,12 @@ const headers = [
     sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
     width: 100,
     render: (_, record) =>
-      record.displayDateTime ||
-      (record.dateTime
-        ? dayjs(record.dateTime).format("MM/DD/YYYY hh:mm A")
-        : "N/A"),
+      (
+        <DateTimeCell
+          value={record.dateTime}
+          fallback={record.displayDateTime || "N/A"}
+        />
+      ),
   },
 ];
 export default function ActivityLogTable({ data = [], loading }) {

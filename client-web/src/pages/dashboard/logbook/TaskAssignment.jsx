@@ -20,6 +20,7 @@ import {
   Select,
   Space,
   Tabs,
+  Tooltip,
   Typography,
   DatePicker,
 } from "antd";
@@ -33,6 +34,7 @@ import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 import { confirmAction } from "../../../utils/confirmAction";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -1066,7 +1068,12 @@ export default function TaskAssignment() {
           {
             title: "Due",
             render: (_, record) =>
-              formatDisplayDateTime(record.endDateTime || record.dueDate),
+              (
+                <DateTimeCell
+                  value={record.endDateTime || record.dueDate}
+                  fallback="Not set"
+                />
+              ),
           },
           ...(isManager
             ? [
@@ -1079,25 +1086,34 @@ export default function TaskAssignment() {
                       (isSuperadmin || status === "pending");
                     if (!canEditDelete) return null;
                     return (
-                      <Space onClick={(event) => event.stopPropagation()}>
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => openEditTask(record)}
-                        />
-                        <Popconfirm
-                          title="Delete task?"
-                          description="This task assignment will be removed permanently."
-                          okText="Delete"
-                          okButtonProps={{ danger: true }}
-                          onConfirm={() => deleteTask(record)}
-                        >
+                      <Space
+                        size={12}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Tooltip title="Edit">
                           <Button
                             size="small"
-                            danger
-                            icon={<DeleteOutlined />}
+                            aria-label="Edit"
+                            icon={<EditOutlined />}
+                            onClick={() => openEditTask(record)}
                           />
-                        </Popconfirm>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <Popconfirm
+                            title="Delete task?"
+                            description="This task assignment will be removed permanently."
+                            okText="Delete"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => deleteTask(record)}
+                          >
+                            <Button
+                              size="small"
+                              danger
+                              aria-label="Delete"
+                              icon={<DeleteOutlined />}
+                            />
+                          </Popconfirm>
+                        </Tooltip>
                       </Space>
                     );
                   },

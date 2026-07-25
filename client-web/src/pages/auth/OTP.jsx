@@ -1,5 +1,5 @@
 // WEB
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
@@ -17,6 +17,7 @@ export default function OTP() {
   const location = useLocation();
   const params = location.state || {};
   const { loginUser } = useContext(AuthContext);
+  const pendingDashboardPathRef = useRef("");
   const mode = params.mode || "password-reset";
   const token = params.token;
   const email = params.email;
@@ -115,30 +116,21 @@ export default function OTP() {
           });
 
           const role = String(data?.user?.jobTitle || "").toLowerCase();
-          const loginSuccessState = {
-            state: {
-              resultPopup: {
-                status: "success",
-                title: "Login Verified",
-                subTitle: "You have been successfully logged in.",
-              },
-            },
-          };
-          if (role === "superadmin")
-            navigate(
-              "/dashboard/user-management/view-users",
-              loginSuccessState,
-            );
-          else if (role === "mechanic")
-            navigate("/dashboard/maintenance-log", loginSuccessState);
-          else if (
+          if (role === "superadmin") {
+            pendingDashboardPathRef.current =
+              "/dashboard/user-management/view-users";
+          } else if (role === "mechanic") {
+            pendingDashboardPathRef.current = "/dashboard/maintenance-log";
+          } else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
-          )
-            navigate("/dashboard/maintenance-dashboard", loginSuccessState);
-          else if (role === "warehouse staff")
-            navigate("/dashboard/parts-requisition", loginSuccessState);
-          else navigate("/dashboard/profile", loginSuccessState);
+          ) {
+            pendingDashboardPathRef.current = "/dashboard/maintenance-dashboard";
+          } else if (role === "warehouse staff") {
+            pendingDashboardPathRef.current = "/dashboard/parts-requisition";
+          } else {
+            pendingDashboardPathRef.current = "/dashboard/profile";
+          }
           return;
         }
 
@@ -162,6 +154,16 @@ export default function OTP() {
         title: "Verification Failed",
         subTitle: "Failed to verify OTP. Try again.",
       });
+    }
+  };
+
+  const handlePopupClose = () => {
+    setPopup((prev) => ({ ...prev, open: false }));
+
+    if (pendingDashboardPathRef.current) {
+      const dashboardPath = pendingDashboardPathRef.current;
+      pendingDashboardPathRef.current = "";
+      navigate(dashboardPath);
     }
   };
 
@@ -285,7 +287,7 @@ export default function OTP() {
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}
-        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+        onClose={handlePopupClose}
       />
     </>
   );

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Button, Grid, Space, Tag, Typography } from "antd";
+import { Button, Grid, Space, Tag, Tooltip, Typography } from "antd";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -10,6 +10,7 @@ import {
   SyncOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
+import DateOnlyCell from "../common/DateOnlyCell";
 import ResponsiveTable from "../common/ResponsiveTable";
 
 const { Paragraph } = Typography;
@@ -140,6 +141,9 @@ export default function PRMTable({
         width: 150,
         sorter: (a, b) =>
           parseTableDate(a.dateRequested) - parseTableDate(b.dateRequested),
+        render: (value) => (
+          <DateOnlyCell value={value} fallback={value || "N/A"} />
+        ),
       },
       {
         title: "Items",
@@ -213,17 +217,18 @@ export default function PRMTable({
         width: 120,
         fixed: screens.lg ? "right" : undefined,
         render: (_, record) => (
-          <Button
-            type="primary"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={(event) => {
-              event.stopPropagation();
-              handleShowModal(record);
-            }}
-          >
-            Review
-          </Button>
+          <Tooltip title="Review">
+            <Button
+              type="primary"
+              size="small"
+              aria-label="Review"
+              icon={<EyeOutlined />}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleShowModal(record);
+              }}
+            />
+          </Tooltip>
         ),
       },
     ],

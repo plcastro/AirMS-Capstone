@@ -31,6 +31,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import ResultPopup from "../../../components/common/ResultPopup";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -580,14 +581,14 @@ export default function MaintenanceDashboard() {
       dataIndex: "dueDate",
       key: "dueDate",
       width: 140,
-      render: formatDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "Completed",
       dataIndex: "completedDate",
       key: "completedDate",
       width: 140,
-      render: formatDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "Priority",

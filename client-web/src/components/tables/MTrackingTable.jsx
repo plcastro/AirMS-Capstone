@@ -1,4 +1,5 @@
-import { Button, Space, Tag, Typography } from "antd";
+import { Button, Space, Tag, Tooltip, Typography } from "antd";
+import { ToolOutlined } from "@ant-design/icons";
 import React, { useState, useMemo } from "react";
 import ResponsiveTable from "../common/ResponsiveTable";
 
@@ -164,15 +165,17 @@ export default function MTrackingTable({
           key: "rectifyAction",
           width: 130,
           render: (draft) => (
-            <Button
-              type="primary"
-              size="small"
-              disabled={!draft}
-              loading={Boolean(draft?.rectifying)}
-              onClick={() => draft && onRectifyFinding?.(draft)}
-            >
-              Rectify
-            </Button>
+            <Tooltip title="Rectify">
+              <Button
+                type="primary"
+                size="small"
+                aria-label="Rectify"
+                disabled={!draft}
+                loading={Boolean(draft?.rectifying)}
+                icon={<ToolOutlined />}
+                onClick={() => draft && onRectifyFinding?.(draft)}
+              />
+            </Tooltip>
           ),
         };
       }

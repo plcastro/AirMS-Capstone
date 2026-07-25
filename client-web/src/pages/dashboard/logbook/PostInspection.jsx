@@ -17,6 +17,7 @@ import {
   Select,
   Space,
   Tabs,
+  Tooltip,
   Typography,
   Grid,
   DatePicker,
@@ -24,6 +25,7 @@ import {
 import {
   EditOutlined,
   ExportOutlined,
+  EyeOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
@@ -386,19 +388,21 @@ export default function PostInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Space>
-                <Button
-                  icon={<EditOutlined />}
-                  onClick={() => setEditing(record)}
-                >
-                  {readOnly ? "View" : "Edit"}
-                </Button>
-                <Button
-                  icon={<ExportOutlined />}
-                  onClick={() => exportInspectionPdf(record)}
-                >
-                  Export
-                </Button>
+              <Space size={12}>
+                <Tooltip title={readOnly ? "View" : "Edit"}>
+                  <Button
+                    aria-label={readOnly ? "View" : "Edit"}
+                    icon={readOnly ? <EyeOutlined /> : <EditOutlined />}
+                    onClick={() => setEditing(record)}
+                  />
+                </Tooltip>
+                <Tooltip title="Export">
+                  <Button
+                    aria-label="Export"
+                    icon={<ExportOutlined />}
+                    onClick={() => exportInspectionPdf(record)}
+                  />
+                </Tooltip>
               </Space>
             ),
           },

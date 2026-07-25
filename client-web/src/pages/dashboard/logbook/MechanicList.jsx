@@ -5,7 +5,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import dayjs from "dayjs";
 import { ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -23,19 +22,13 @@ import { API_BASE } from "../../../utils/API_BASE";
 import UserAvatar from "../../../components/common/UserAvatar";
 import ResultPopup from "../../../components/common/ResultPopup";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 
 const { Text, Title } = Typography;
 const isCompletedTask = (task) =>
   ["completed", "turned in", "approved"].includes(
     String(task?.status || "").toLowerCase(),
   );
-const formatDueDateTime = (value) => {
-  if (!value) return "-";
-
-  const dueDate = dayjs(value);
-  return dueDate.isValid() ? dueDate.format("MMM DD, YYYY hh:mm A") : "-";
-};
-
 export default function MechanicList() {
   const { getAuthHeader } = useContext(AuthContext);
   const [query, setQuery] = useState("");
@@ -221,7 +214,12 @@ export default function MechanicList() {
             {
               title: "Due",
               render: (_, record) =>
-                formatDueDateTime(record.endDateTime || record.dueDate),
+                (
+                  <DateTimeCell
+                    value={record.endDateTime || record.dueDate}
+                    fallback="-"
+                  />
+                ),
             },
             {
               title: "Status",

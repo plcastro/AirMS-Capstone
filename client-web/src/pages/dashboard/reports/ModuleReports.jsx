@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Card, Col, Row, Segmented, Space, Typography } from "antd";
 import { renderStatusTag } from "../../../utils/statusTags";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import {
   Bar,
@@ -32,17 +33,6 @@ const normalizeStatus = (value) =>
   String(value || "Unknown")
     .replace(/_/g, " ")
     .trim();
-
-const formatDate = (value) => {
-  if (!value) return "---";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "---";
-  return date.toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-};
 
 const getRecordDate = (record = {}) =>
   record.date ||
@@ -275,7 +265,12 @@ export function FlightLogReport({ records = [], loading = false }) {
   const columns = [
     { title: "Control No.", dataIndex: "controlNo", key: "controlNo" },
     { title: "Aircraft", dataIndex: "rpc", key: "rpc" },
-    { title: "Date", dataIndex: "date", key: "date", render: formatDate },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -376,7 +371,12 @@ export function InspectionReport({
   const columns = [
     { title: "Aircraft", dataIndex: aircraftLabel, key: "aircraft" },
     { title: "Aircraft Type", dataIndex: "aircraftType", key: "aircraftType" },
-    { title: "Date", dataIndex: "date", key: "date", render: formatDate },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -476,7 +476,7 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
       title: "Requested",
       dataIndex: "dateRequested",
       key: "dateRequested",
-      render: formatDate,
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
     },
     {
       title: "Status",

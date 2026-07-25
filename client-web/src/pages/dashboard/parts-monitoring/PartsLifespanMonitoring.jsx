@@ -1348,7 +1348,7 @@ export default function PartsMonitoring() {
           </Card>
         </Col>
       </Row>
-      <div style={{ marginBottom: 16 }}>
+      {/* <div style={{ marginBottom: 16 }}>
         <Checkbox
           checked={showComponentsToUpdate}
           onChange={() => setShowComponentsToUpdate((current) => !current)}
@@ -1393,7 +1393,7 @@ export default function PartsMonitoring() {
             </Text>
           )}
         </Card>
-      )}
+      )} */}
       <PMonitoringTable
         headers={columnHeader}
         data={filteredData}

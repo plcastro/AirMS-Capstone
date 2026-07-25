@@ -1,6 +1,10 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
+const {
+  buildActivationEmail,
+  buildOtpEmail,
+} = require("../utils/emailTemplates");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
@@ -167,42 +171,20 @@ const sendActivationCredentialsEmail = async ({
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";
+  const email = buildActivationEmail({
+    firstName,
+    username,
+    tempPassword,
+    jobTitle,
+    portalUrlWeb,
+    portalUrlMobile,
+    isResend,
+  });
 
   await sendEmail({
     to,
     subject,
-    html: `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #26866f; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
-      </div>
-
-      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your AirMS account credentials are ready. Use the temporary credentials below to sign in and finish setup.</p>
-
-        <div style="background: #f8f9fa; border-left: 4px solid #26866f; padding: 15px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
-          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
-        </div>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrlWeb}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Web</a>
-        </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrlMobile}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Mobile</a>
-        </div>
-
-        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
-          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>.
-        </p>
-      </div>
-
-      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
-        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
-      </p>
-    </div>
-  `,
+    ...email,
   });
 };
 
@@ -308,20 +290,19 @@ const findValidTrustedDevice = (user, rawToken) => {
 };
 
 const sendLoginOtpEmail = async (to, otp) => {
+  const email = buildOtpEmail({
+    title: "AirMS Login Verification",
+    intro: "Use this one-time code to complete your sign in.",
+    otp,
+    validityMinutes: 10,
+    warning:
+      "If you did not attempt to log in, please contact your administrator.",
+  });
+
   await sendEmail({
     to,
     subject: "Your AirMS Login Verification Code",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; color: #1f2937;">
-        <h2 style="color:#26866f;">AirMS 2FA Verification</h2>
-        <p>Use this one-time code to complete your sign in:</p>
-        <div style="background:#f3f4f6;padding:18px;border-radius:8px;text-align:center;letter-spacing:6px;font-size:30px;font-weight:700;color:#111827;">
-          ${otp}
-        </div>
-        <p style="margin-top:16px;">This code expires in 10 minutes.</p>
-        <p style="font-size:12px;color:#6b7280;">If you did not attempt to log in, please contact your administrator.</p>
-      </div>
-    `,
+    ...email,
   });
 };
 

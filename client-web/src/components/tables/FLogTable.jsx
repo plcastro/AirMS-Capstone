@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { Button, Modal } from "antd";
+import { Button, Modal, Space, Tooltip } from "antd";
+import {
+  DeleteOutlined,
+  EditOutlined,
+  FileSearchOutlined,
+} from "@ant-design/icons";
 import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function FLogTable({
@@ -13,60 +18,57 @@ export default function FLogTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [logToModify, setLogToModify] = useState(null);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-
   const handlePageChange = (page, pageSize) => {
     setCurrentPage(page);
     setPageSize(pageSize);
   };
 
   const handleDelete = (row) => {
-    setLogToModify(row);
     Modal.confirm({
       title: "Confirm Delete",
       content: "Are you sure you want to delete this log?",
       okText: "Yes",
       cancelText: "Cancel",
-      onOk: () => setShowApproveModal(true),
+      onOk: () => onDeleteLog?.(row),
     });
-  };
-
-  const handleApproveDelete = (username, password) => {
-    console.log("Delete approved with:", { username, password });
-    if (logToModify) onDeleteLog?.(logToModify);
-    setShowApproveModal(false);
-    setLogToModify(null);
-  };
-
-  const handleApproveCancel = () => {
-    setShowApproveModal(false);
-    setLogToModify(null);
   };
 
   const renderActions = (row) => {
     if (userJobTitle === "pilot") {
       return (
-        <>
-          <Button type="primary" size="small" onClick={() => onEditLog?.(row)}>
-            Edit
-          </Button>
-          <Button
-            type="danger"
-            size="small"
-            style={{ marginLeft: 6 }}
-            onClick={() => handleDelete(row)}
-          >
-            Delete
-          </Button>
-        </>
+        <Space size={12}>
+          <Tooltip title="Edit">
+            <Button
+              type="primary"
+              size="small"
+              aria-label="Edit"
+              icon={<EditOutlined />}
+              onClick={() => onEditLog?.(row)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete">
+            <Button
+              danger
+              size="small"
+              aria-label="Delete"
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(row)}
+            />
+          </Tooltip>
+        </Space>
       );
     }
 
     return (
-      <Button type="default" size="small" onClick={() => onShowLog?.(row)}>
-        Verify Details
-      </Button>
+      <Tooltip title="Verify Details">
+        <Button
+          type="default"
+          size="small"
+          aria-label="Verify Details"
+          icon={<FileSearchOutlined />}
+          onClick={() => onShowLog?.(row)}
+        />
+      </Tooltip>
     );
   };
 

@@ -18,6 +18,7 @@ import {
   Select,
   Space,
   Tabs,
+  Tooltip,
   Typography,
   DatePicker,
   Grid,
@@ -964,25 +965,27 @@ export default function PreInspection() {
           {
             title: "Action",
             render: (_, record) => (
-              <Space>
-                <Button
-                  icon={
-                    isAcceptableByPilot(record) ? (
-                      <CheckOutlined />
-                    ) : (
-                      <EyeOutlined />
-                    )
-                  }
-                  onClick={() => setEditing(record)}
-                >
-                  {getRecordActionLabel(record)}
-                </Button>
-                <Button
-                  icon={<ExportOutlined />}
-                  onClick={() => exportInspectionPdf(record)}
-                >
-                  Export
-                </Button>
+              <Space size={12}>
+                <Tooltip title={getRecordActionLabel(record)}>
+                  <Button
+                    aria-label={getRecordActionLabel(record)}
+                    icon={
+                      isAcceptableByPilot(record) ? (
+                        <CheckOutlined />
+                      ) : (
+                        <EyeOutlined />
+                      )
+                    }
+                    onClick={() => setEditing(record)}
+                  />
+                </Tooltip>
+                <Tooltip title="Export">
+                  <Button
+                    aria-label="Export"
+                    icon={<ExportOutlined />}
+                    onClick={() => exportInspectionPdf(record)}
+                  />
+                </Tooltip>
               </Space>
             ),
           },
