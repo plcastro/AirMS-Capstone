@@ -3,7 +3,7 @@ const path = require("path");
 const AIRMS_LOGO_CID = "airms-logo";
 const logoPath = path.resolve(
   __dirname,
-  "../../client-web/src/assets/AirMS_web.webp",
+  "../../client-web/src/assets/airmslogo_dark.webp",
 );
 
 const palette = {
@@ -50,7 +50,13 @@ const renderButton = (label, url) => {
   `;
 };
 
-const renderLayout = ({ title, eyebrow, preview, children, tone = "default" }) => {
+const renderLayout = ({
+  title,
+  eyebrow,
+  preview,
+  children,
+  tone = "default",
+}) => {
   const accent = tone === "danger" ? palette.danger : palette.primary;
 
   return `
