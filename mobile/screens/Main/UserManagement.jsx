@@ -243,6 +243,25 @@ export default function UserManagement() {
     }
   };
 
+  const handleUnlockUser = async (targetUser) => {
+    const confirmed = await confirmAction({
+      title: "Unlock User",
+      message: `Unlock ${targetUser?.username || targetUser?.firstName || "this user"}? They will be able to try logging in again.`,
+      confirmText: "Unlock",
+    });
+    if (!confirmed) return;
+
+    try {
+      await withInviteActionLoading(targetUser?._id, async () => {
+        await runInviteAction(`/api/user/unlock-user/${targetUser._id}`, "PUT");
+      });
+      showToast("User unlocked. They can log in again.");
+      fetchUsers({ silent: true });
+    } catch (error) {
+      showToast(error.message);
+    }
+  };
+
   const openCreateModal = () => {
     setUserToEdit(null);
     setFormVisible(true);
@@ -458,6 +477,7 @@ export default function UserManagement() {
               onResendInvite={handleResendInvite}
               onExtendInvite={handleExtendInvite}
               onRevokeInvite={handleRevokeInvite}
+              onUnlockUser={handleUnlockUser}
               inviteActionLoading={Boolean(inviteActionLoadingByUser[String(item._id)])}
             />
           ))

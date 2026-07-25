@@ -90,8 +90,16 @@ const Login = () => {
     const password = formData.password?.trim();
     const base = formData.base?.trim();
 
-    if (!identifier || !password) {
+    if (!identifier && !password) {
       setError("Username/email and password are required");
+      return;
+    }
+    if (!identifier && password) {
+      setError("Username/email are required");
+      return;
+    }
+    if (identifier && !password) {
+      setError("Password is required");
       return;
     }
     if (!base) {
@@ -106,7 +114,11 @@ const Login = () => {
 
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-base": base },
+        headers: {
+          "Content-Type": "application/json",
+          "x-platform": "WEB",
+          "x-base": base,
+        },
         body: JSON.stringify({
           identifier,
           password,
@@ -263,7 +275,6 @@ const Login = () => {
               value={formData.identifier}
               onChange={handleInputChange}
               autoComplete="username"
-              required
               allowClear
               prefix={<UserOutlined />}
             />
@@ -277,7 +288,6 @@ const Login = () => {
               value={formData.password}
               onChange={handleInputChange}
               autoComplete="current-password"
-              required
               allowClear
               prefix={<LockOutlined />}
             />

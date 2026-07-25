@@ -455,6 +455,9 @@ export default function App() {
         fontSizeLG: Math.round(16 * fontScale),
       },
       components: {
+        Modal: {
+          colorBgTextActive: "#26866f",
+        },
         Table: {
           headerBg: "#26866f",
           headerColor: "#fff",

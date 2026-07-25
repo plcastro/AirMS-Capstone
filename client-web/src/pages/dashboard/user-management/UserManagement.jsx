@@ -387,6 +387,50 @@ export default function UserManagement() {
     }
   };
 
+  const handleUnlockUser = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Unlock User",
+      content: `Unlock ${user.username || user.fullname}? They will be able to try logging in again.`,
+      okText: "Unlock",
+    });
+    if (!confirmed) return;
+    try {
+      const token = await getValidToken();
+      const response = await fetch(
+        `${API_BASE}/api/user/unlock-user/${user._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
+          },
+          body: JSON.stringify({ confirmAction: true }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to unlock user");
+      }
+
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Unlocked!",
+        subTitle: `User ${user.username || user.fullname} can log in again.`,
+      });
+      fetchUsers();
+    } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to unlock user",
+      });
+    }
+  };
+
   const handleReactivateUser = async (user) => {
     const confirmed = await confirmAction({
       title: "Reactivate User",
@@ -586,6 +630,7 @@ export default function UserManagement() {
         onResendInvite={handleResendInvite}
         onExtendInvite={handleExtendInvite}
         onRevokeInvite={handleRevokeInvite}
+        onUnlockUser={handleUnlockUser}
         currentUserId={currentUserId}
         loading={loading}
       />

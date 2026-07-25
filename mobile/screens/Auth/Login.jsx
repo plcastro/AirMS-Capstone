@@ -104,6 +104,7 @@ export default function Login() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-platform": "MOBILE",
           "x-base": selectedBase,
         },
         body: JSON.stringify({

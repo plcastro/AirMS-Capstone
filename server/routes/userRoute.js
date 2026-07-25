@@ -27,6 +27,7 @@ const {
   resendLoginOtp,
   refreshToken,
   updateSessionPreference,
+  unlockUser,
   logoutUser,
   registerMobilePushDevice,
   createUser,
@@ -148,6 +149,15 @@ router.put(
   requirePermission(permissions.USERS_UPDATE),
   requireActionConfirmation,
   updateUserStatus,
+);
+
+router.put(
+  "/unlock-user/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  unlockUser,
 );
 
 /* =========================================

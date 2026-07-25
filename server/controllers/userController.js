@@ -459,7 +459,9 @@ const loginUser = async (req, res) => {
     if (user.status === "deactivated") {
       return res
         .status(403)
-        .json({ message: "Account deactivated. Contact support." });
+        .json({
+          message: "This account is deactivated. Please contact support",
+        });
     }
 
     // Check lock
@@ -737,17 +739,28 @@ const resendLoginOtp = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(req.body.id);
+  try {
+    const id = req.params.id || req.body.id;
+    const user = await UserModel.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  user.failedLoginAttempts = 0;
-  user.isLocked = false;
-  user.lockUntil = undefined;
+    user.failedLoginAttempts = 0;
+    user.isLocked = false;
+    user.lockUntil = undefined;
 
-  await user.save();
-  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
-  await auditLog(audit.action, audit.actorId);
+    await user.save();
+    const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
 
-  res.json({ message: "Account unlocked successfully" });
+    res.json({
+      message: "Account unlocked successfully",
+      user,
+      data: user,
+    });
+  } catch (err) {
+    console.error("unlockUser error:", err);
+    res.status(500).json({ message: err.message || "Failed to unlock user" });
+  }
 };
 
 const refreshToken = async (req, res) => {

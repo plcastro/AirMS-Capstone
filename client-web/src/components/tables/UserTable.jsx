@@ -1,13 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  Button,
-  Tag,
-  Space,
-  Grid,
-  Dropdown,
-  Modal,
-  Tooltip,
-} from "antd";
+import { Button, Tag, Space, Grid, Dropdown, Tooltip } from "antd";
 import { EditOutlined, MoreOutlined } from "@ant-design/icons";
 import ResponsiveTable from "../common/ResponsiveTable";
 import DateTimeCell from "../common/DateTimeCell";
@@ -23,6 +15,7 @@ export default function UserTable({
   onResendInvite,
   onExtendInvite,
   onRevokeInvite,
+  onUnlockUser,
   currentUserId,
   loading = false,
 }) {
@@ -40,18 +33,24 @@ export default function UserTable({
           render: (_, record) => {
             const moreActions = [];
 
+            if (record.isLocked) {
+              moreActions.push({
+                key: "unlock",
+                label: "Unlock User",
+                action: () => onUnlockUser?.(record),
+              });
+            }
+
             if (record.status === "deactivated") {
               moreActions.push({
                 key: "reactivate",
                 label: "Reactivate",
-                title: "Reactivate this user?",
                 action: () => onReactivateUser?.(record),
               });
             } else if (record.status === "inactive") {
               moreActions.push({
                 key: "resend",
                 label: "Resend",
-                title: "Resend activation credentials?",
                 action: () => onResendInvite?.(record),
               });
 
@@ -59,7 +58,6 @@ export default function UserTable({
                 moreActions.push({
                   key: "extend",
                   label: "Extend 24h",
-                  title: "Extend invitation expiry by 24 hours?",
                   action: () => onExtendInvite?.(record),
                 });
               }
@@ -68,7 +66,6 @@ export default function UserTable({
                 moreActions.push({
                   key: "revoke",
                   label: "Revoke Invite",
-                  title: "Revoke this invitation?",
                   action: () => onRevokeInvite?.(record),
                   danger: true,
                 });
@@ -80,7 +77,6 @@ export default function UserTable({
               moreActions.push({
                 key: "deactivate",
                 label: "Deactivate",
-                title: "Deactivate this user?",
                 action: () => onDeactivateUser?.(record),
                 danger: true,
               });
@@ -113,12 +109,7 @@ export default function UserTable({
                         (item) => item.key === key,
                       );
                       if (!selected) return;
-
-                      Modal.confirm({
-                        title: selected.title,
-                        onOk: selected.action,
-                        okText: "Confirm",
-                      });
+                      selected.action();
                     },
                   }}
                 >
@@ -224,6 +215,7 @@ export default function UserTable({
     onResendInvite,
     onExtendInvite,
     onRevokeInvite,
+    onUnlockUser,
   ]);
 
   return (

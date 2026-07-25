@@ -28,6 +28,7 @@ export default function UserCard({
   onResendInvite,
   onExtendInvite,
   onRevokeInvite,
+  onUnlockUser,
   inviteActionLoading,
 }) {
   const status = String(item.status || "inactive").toLowerCase();
@@ -125,6 +126,17 @@ export default function UserCard({
           backgroundColor={isActive ? "#FF5252" : "#4CAF50"}
           borderColor={isActive ? "#FF5252" : "#4CAF50"}
         />
+        {item.isLocked && (
+          <ActionIconButton
+            icon="lock-open-outline"
+            tooltip={inviteActionLoading ? "Working..." : "Unlock"}
+            onPress={() => onUnlockUser?.(item)}
+            disabled={inviteActionLoading}
+            color="white"
+            backgroundColor="#7C3AED"
+            borderColor="#7C3AED"
+          />
+        )}
       </View>
 
       {canShowInviteActions && (
