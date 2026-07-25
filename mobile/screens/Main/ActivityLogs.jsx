@@ -109,6 +109,93 @@ const buildEmptyDailyCategories = () => ({
   other: 0,
 });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_TREND_BUCKETS = 8;
+
+const startOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
+const formatTrendLabel = (start, end) => {
+  const formatOptions = { month: "short", day: "numeric" };
+  const startLabel = start.toLocaleDateString("en-US", formatOptions);
+  const endLabel = end.toLocaleDateString("en-US", formatOptions);
+  return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
+};
+
+const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
+  const timestamps = items
+    .map((item) => new Date(item.dateTime).getTime())
+    .filter(Number.isFinite);
+  const todayEnd = endOfDay(new Date());
+  let rangeStart;
+  let rangeEnd = todayEnd;
+
+  if (dateRangeFilter === "all") {
+    if (!timestamps.length) return [];
+    rangeStart = startOfDay(new Date(Math.min(...timestamps)));
+    rangeEnd = endOfDay(new Date(Math.max(...timestamps)));
+  } else {
+    const days = Number(dateRangeFilter);
+    if (!Number.isFinite(days) || days <= 0) return [];
+    rangeStart = startOfDay(new Date(todayEnd.getTime() - (days - 1) * DAY_MS));
+  }
+
+  const spanDays = Math.max(
+    Math.ceil((rangeEnd.getTime() - rangeStart.getTime() + 1) / DAY_MS),
+    1,
+  );
+  const bucketCount = Math.min(spanDays, MAX_TREND_BUCKETS);
+  const bucketSizeDays = Math.max(Math.ceil(spanDays / bucketCount), 1);
+  const buckets = [];
+
+  for (let index = 0; index < bucketCount; index += 1) {
+    const bucketStart = startOfDay(
+      new Date(rangeStart.getTime() + index * bucketSizeDays * DAY_MS),
+    );
+    const bucketEnd = endOfDay(
+      new Date(
+        Math.min(
+          bucketStart.getTime() + bucketSizeDays * DAY_MS - 1,
+          rangeEnd.getTime(),
+        ),
+      ),
+    );
+
+    buckets.push({
+      date: bucketStart.toISOString().slice(0, 10),
+      label: formatTrendLabel(bucketStart, bucketEnd),
+      value: 0,
+      startMs: bucketStart.getTime(),
+      endMs: bucketEnd.getTime(),
+      ...buildEmptyDailyCategories(),
+    });
+  }
+
+  items.forEach((log) => {
+    const timestamp = new Date(log.dateTime).getTime();
+    if (!Number.isFinite(timestamp)) return;
+    const bucket = buckets.find(
+      (entry) => timestamp >= entry.startMs && timestamp <= entry.endMs,
+    );
+    if (!bucket) return;
+
+    const category = getActionCategory(log.actionMade);
+    bucket[category] += 1;
+    bucket.value += 1;
+  });
+
+  return buckets.map(({ startMs, endMs, ...bucket }) => bucket);
+};
+
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -262,47 +349,8 @@ export default function ActivityLogs() {
   }, [filteredLogs]);
 
   const trendSeries = useMemo(() => {
-    const dailyStats = {};
-
-    filteredLogs.forEach((log) => {
-      const parsedDate = new Date(log.dateTime);
-      if (Number.isNaN(parsedDate.getTime())) return;
-      const dateKey = parsedDate.toISOString().slice(0, 10);
-
-      if (!dailyStats[dateKey]) {
-        dailyStats[dateKey] = {
-          date: dateKey,
-          ...buildEmptyDailyCategories(),
-        };
-      }
-
-      const category = getActionCategory(log.actionMade);
-      dailyStats[dateKey][category] += 1;
-    });
-
-    const sortedKeys = Object.keys(dailyStats).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    const windowKeys = sortedKeys.slice(-8);
-
-    return windowKeys.map((dateKey) => {
-      const row = dailyStats[dateKey];
-      const labelDate = new Date(`${dateKey}T00:00:00`);
-      return {
-        date: dateKey,
-        label: Number.isNaN(labelDate.getTime())
-          ? dateKey
-          : labelDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-        value: Object.values(row)
-          .filter((value) => typeof value === "number")
-          .reduce((sum, value) => sum + value, 0),
-        ...row,
-      };
-    });
-  }, [filteredLogs]);
+    return buildTrendBuckets(filteredLogs, dateRangeFilter);
+  }, [dateRangeFilter, filteredLogs]);
   const groupedSummary = useMemo(() => {
     const byUser = {};
     const byModule = {};

@@ -1,6 +1,6 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
-import Svg, { Circle, Text as SvgText } from "react-native-svg";
+import { StyleSheet, View } from "react-native";
+import { PieChart as ChartKitPieChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -17,97 +17,87 @@ export const CHART_PALETTE = [
 
 const EMPTY_DATA = [{ label: "No data", name: "No data", value: 1, fill: "#d9d9d9" }];
 
+const chartConfig = {
+  backgroundColor: COLORS.white,
+  backgroundGradientFrom: COLORS.white,
+  backgroundGradientTo: COLORS.white,
+  color: (opacity = 1) => `rgba(38, 134, 111, ${opacity})`,
+  labelColor: () => COLORS.grayDark,
+};
+
 export default function PieChart({
   data = [],
-  size = 176,
+  size = 196,
   innerRadius = 0,
   centerValue,
   centerLabel,
 }) {
-  const radius = size / 2 - 18;
-  const center = size / 2;
-  const strokeWidth = innerRadius > 0 ? radius - innerRadius : radius;
   const normalizedData = (Array.isArray(data) && data.length ? data : EMPTY_DATA)
     .map((item, index) => ({
-      ...item,
+      name: item.label || item.name || `Item ${index + 1}`,
       label: item.label || item.name || `Item ${index + 1}`,
       value: Number(item.value) || 0,
-      fill: item.fill || CHART_PALETTE[index % CHART_PALETTE.length],
+      color: item.fill || item.color || CHART_PALETTE[index % CHART_PALETTE.length],
+      legendFontColor: COLORS.grayDark,
+      legendFontSize: 11,
     }))
     .filter((item) => item.value > 0);
-  const chartData = normalizedData.length ? normalizedData : EMPTY_DATA;
+  const chartData = normalizedData.length ? normalizedData : EMPTY_DATA.map((item) => ({
+    ...item,
+    color: item.fill,
+    legendFontColor: COLORS.grayDark,
+    legendFontSize: 11,
+  }));
   const total = chartData.reduce((sum, item) => sum + item.value, 0);
-  const circleRadius = innerRadius > 0 ? innerRadius + strokeWidth / 2 : radius / 2;
-  const circumference = 2 * Math.PI * circleRadius;
-  let cumulative = 0;
+  const showDonutCenter = centerValue || innerRadius > 0;
+  const holeSize = Math.max(innerRadius * 1.72, 74);
 
   return (
     <View style={styles.wrap}>
-      <Svg width={size} height={size}>
-        <Circle
-          cx={center}
-          cy={center}
-          r={circleRadius}
-          fill="transparent"
-          stroke="#eef0f2"
-          strokeWidth={strokeWidth}
+      <View style={[styles.chartFrame, { width: size, height: size }]}>
+        <ChartKitPieChart
+          data={chartData}
+          width={size}
+          height={size}
+          chartConfig={chartConfig}
+          accessor="value"
+          backgroundColor="transparent"
+          paddingLeft="0"
+          center={[size / 4, 0]}
+          absolute
+          hasLegend={false}
         />
-        {chartData.map((item, index) => {
-          const dash = (item.value / total) * circumference;
-          const gap = circumference - dash;
-          const rotation = cumulative - 90;
-          cumulative += (item.value / total) * 360;
 
-          return (
-            <Circle
-              key={`${item.label}-${index}`}
-              cx={center}
-              cy={center}
-              r={circleRadius}
-              fill="transparent"
-              stroke={item.fill}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${dash} ${gap}`}
-              strokeLinecap="butt"
-              originX={center}
-              originY={center}
-              rotation={rotation}
-            />
-          );
-        })}
-        {(centerValue || innerRadius > 0) && (
-          <>
-            <SvgText
-              x={center}
-              y={center - 2}
-              fill={COLORS.primaryLight}
-              fontSize="17"
-              fontWeight="700"
-              textAnchor="middle"
-            >
-              {centerValue || total}
-            </SvgText>
+        {showDonutCenter && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.centerLabel,
+              {
+                width: holeSize,
+                height: holeSize,
+                borderRadius: holeSize / 2,
+                marginLeft: -holeSize / 2,
+                marginTop: -holeSize / 2,
+              },
+            ]}
+          >
+            <AppText style={styles.centerValue}>{centerValue || total}</AppText>
             {!!centerLabel && (
-              <SvgText
-                x={center}
-                y={center + 14}
-                fill={COLORS.grayDark}
-                fontSize="8.5"
-                textAnchor="middle"
-              >
-                {String(centerLabel).slice(0, 18)}
-              </SvgText>
+              <AppText style={styles.centerCaption} numberOfLines={2}>
+                {centerLabel}
+              </AppText>
             )}
-          </>
+          </View>
         )}
-      </Svg>
+      </View>
 
       <View style={styles.legendWrap}>
         {chartData.map((item) => {
           const percent = total ? Math.round((item.value / total) * 100) : 0;
           return (
             <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.fill }]} />
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
               <AppText style={styles.legendText}>
                 {item.label}: {item.value} ({percent}%)
               </AppText>
@@ -128,6 +118,32 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: "center",
     width: "100%",
+  },
+  chartFrame: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  centerLabel: {
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    justifyContent: "center",
+    left: "50%",
+    paddingHorizontal: 8,
+    position: "absolute",
+    top: "50%",
+  },
+  centerValue: {
+    color: COLORS.primaryLight,
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  centerCaption: {
+    color: COLORS.grayDark,
+    fontSize: 8.5,
+    marginTop: 1,
+    textAlign: "center",
   },
   legendWrap: {
     width: "100%",

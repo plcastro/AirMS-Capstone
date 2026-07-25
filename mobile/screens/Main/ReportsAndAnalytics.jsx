@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getArrayData, getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
@@ -21,6 +20,16 @@ import {
 } from "../../components/common/MobileModule";
 import ExportFile from "../../components/common/ExportFile";
 import { COLORS } from "../../stylesheets/colors";
+import MaintenancePerformance from "../../components/reports/MaintenancePerformance";
+import MaintenanceHistory from "../../components/reports/MaintenanceHistory";
+import MaintenanceSummary from "../../components/reports/MaintenanceSummary";
+import ComponentUsage from "../../components/reports/ComponentUsage";
+import GeneralReports from "../../components/reports/GeneralReports";
+import {
+  FlightLogReport,
+  InspectionReport,
+  PartsRequisitionReport,
+} from "../../components/reports/ModuleReports";
 
 const normalizeStatus = (value) =>
   String(value || "Unknown")
@@ -240,20 +249,6 @@ export default function ReportsAndAnalytics() {
     tasks,
   ]);
 
-  const getPreviewLabel = (section, row) => {
-    if (row?.label !== undefined) return row.label;
-    if (Array.isArray(row)) return row[0] || "N/A";
-    const firstColumn = section.columns?.[0];
-    return row?.[firstColumn] || "N/A";
-  };
-
-  const getPreviewValue = (section, row) => {
-    if (row?.value !== undefined) return row.value;
-    if (Array.isArray(row)) return row[1] || "";
-    const secondColumn = section.columns?.[1];
-    return row?.[secondColumn] || "";
-  };
-
   const tabs = [
     ["completed", `Completed (${stats.completed})`],
     ["dueSoon", `Due Soon (${stats.dueSoon})`],
@@ -329,43 +324,31 @@ export default function ReportsAndAnalytics() {
         </InfoCard>
       ))}
 
-      <SectionTitle title="Module Reports" subtitle="Compact mobile summaries from web analytics" />
-      {reportSections.map((section) => (
-        <InfoCard key={section.title} title={section.title}>
-          {section.rows.length === 0 ? (
-            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No data available.</AppText>
-          ) : (
-            section.rows.slice(0, 8).map((row, index) => (
-              <View
-                key={`${section.title}-${getPreviewLabel(section, row)}-${index}`}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderTopWidth: 1,
-                  borderTopColor: COLORS.border,
-                  paddingVertical: 9,
-                }}
-              >
-                <AppText style={{ color: COLORS.black, flex: 1, fontSize: 12 }}>
-                  {getPreviewLabel(section, row)}
-                </AppText>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
-                    {getPreviewValue(section, row)}
-                  </AppText>
-                  <MaterialCommunityIcons
-                    name="chart-bar"
-                    size={16}
-                    color={COLORS.primaryLight}
-                    style={{ marginLeft: 6 }}
-                  />
-                </View>
-              </View>
-            ))
-          )}
-        </InfoCard>
-      ))}
+      <SectionTitle title="Module Reports" subtitle="Mobile charts aligned with web analytics" />
+      <GeneralReports
+        tasks={tasks}
+        flightLogs={flightLogs}
+        preInspections={preInspections}
+        postInspections={postInspections}
+        partsRequisitions={partsRequisitions}
+        loading={loading}
+      />
+      <MaintenancePerformance tasks={tasks} />
+      <MaintenanceHistory tasks={tasks} loading={loading} />
+      <MaintenanceSummary tasks={tasks} loading={loading} />
+      <ComponentUsage records={partsRecords} loading={loading} />
+      <FlightLogReport records={flightLogs} loading={loading} />
+      <InspectionReport
+        title="Pre-Inspection Report"
+        records={preInspections}
+        loading={loading}
+      />
+      <InspectionReport
+        title="Post-Inspection Report"
+        records={postInspections}
+        loading={loading}
+      />
+      <PartsRequisitionReport records={partsRequisitions} loading={loading} />
     </ModuleContainer>
   );
 }
