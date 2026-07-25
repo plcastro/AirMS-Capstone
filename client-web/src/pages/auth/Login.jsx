@@ -281,7 +281,6 @@ const Login = () => {
               allowClear
               prefix={<LockOutlined />}
             />
-            {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
           <Form.Item label="Logging in from" required>
@@ -289,6 +288,7 @@ const Login = () => {
               id="base"
               size="large"
               placeholder="Select base"
+              required
               value={formData.base || undefined}
               onChange={(value) =>
                 setFormData((prevState) => ({ ...prevState, base: value }))
@@ -300,6 +300,7 @@ const Login = () => {
                 { value: "CDO", label: "CDO" },
               ]}
             />
+            {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
           <Row style={{ marginBottom: 20 }}>
