@@ -92,6 +92,13 @@ const ACTION_TAG_COLORS = {
   logout: { bg: "#FFF2E8", text: "#AD4E00" },
   other: { bg: "#F2F4F7", text: "#344054" },
 };
+const ACTIVITY_TREND_SERIES = [
+  { key: "create", name: "Create", color: "#26866f" },
+  { key: "update", name: "Update", color: "#1890ff" },
+  { key: "delete", name: "Delete", color: "#ff4d4f" },
+  { key: "login", name: "Login", color: "#13c2c2" },
+  { key: "logout", name: "Logout", color: "#faad14" },
+];
 
 const buildEmptyDailyCategories = () => ({
   create: 0,
@@ -442,7 +449,11 @@ export default function ActivityLogs() {
         <View style={styles.filtersRow}>
           <View style={styles.filterCard}>
             <AppText style={styles.filterLabel}>Action Type</AppText>
-            <Picker selectedValue={actionType} onValueChange={setActionType}>
+            <Picker
+              selectedValue={actionType}
+              onValueChange={setActionType}
+              style={styles.filterPicker}
+            >
               {ACTION_TYPES.map((type) => (
                 <Picker.Item
                   key={type}
@@ -462,6 +473,7 @@ export default function ActivityLogs() {
             <Picker
               selectedValue={dateRangeFilter}
               onValueChange={setDateRangeFilter}
+              style={styles.filterPicker}
             >
               {DATE_RANGE_OPTIONS.map((value) => (
                 <Picker.Item
@@ -475,7 +487,11 @@ export default function ActivityLogs() {
 
           <View style={styles.filterCard}>
             <AppText style={styles.filterLabel}>Scope</AppText>
-            <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
+            <Picker
+              selectedValue={scopeFilter}
+              onValueChange={setScopeFilter}
+              style={styles.filterPicker}
+            >
               {scopeOptions.map((value) => (
                 <Picker.Item
                   key={value.value}
@@ -513,14 +529,12 @@ export default function ActivityLogs() {
 
         <View style={styles.analyticsCard}>
           <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
-          <AreaChart data={trendSeries} height={130} />
-          <View style={styles.trendLabelsRow}>
-            {trendSeries.map((point) => (
-              <AppText key={point.date} style={styles.trendLabel}>
-                {point.label}
-              </AppText>
-            ))}
-          </View>
+          <AreaChart
+            data={trendSeries}
+            height={160}
+            series={ACTIVITY_TREND_SERIES}
+            xKey="label"
+          />
           <View style={styles.kpiRow}>
             <View style={styles.kpiChip}>
               <AppText style={styles.kpiLabel}>Create</AppText>
@@ -685,14 +699,15 @@ const styles = StyleSheet.create({
     height: 40,
   },
   filtersRow: {
-    flexDirection: "column",
-    rowGap: 8,
+    flexDirection: "row",
+    columnGap: 6,
     marginBottom: 10,
   },
   filterCard: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: "hidden",
@@ -701,15 +716,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 1,
-    minHeight: 56,
+    minHeight: 50,
     justifyContent: "center",
   },
   filterLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: COLORS.grayDark,
     fontWeight: "700",
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+  },
+  filterPicker: {
+    width: "100%",
+    height: 34,
+    color: COLORS.black,
+    marginTop: -4,
   },
   exportButton: {
     minHeight: 46,
@@ -749,16 +770,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.black,
     marginBottom: 8,
-  },
-  trendLabelsRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    columnGap: 4,
-  },
-  trendLabel: {
-    color: COLORS.grayDark,
-    fontSize: 10,
   },
   kpiRow: {
     marginTop: 8,

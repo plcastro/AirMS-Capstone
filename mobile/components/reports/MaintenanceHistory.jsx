@@ -3,6 +3,14 @@ import { InfoCard } from "../common/MobileModule";
 import FailureAnalysisChart from "../common/FailureAnalysisChart";
 
 const normalizeStatus = (value) => String(value || "Unknown").replace(/_/g, " ").trim();
+const statusColor = (status) => {
+  const text = String(status || "").toLowerCase();
+  if (text.includes("complete") || text.includes("repair")) return "#26866f";
+  if (text.includes("pending") || text.includes("progress")) return "#faad14";
+  if (text.includes("overdue") || text.includes("critical")) return "#ff4d4f";
+  if (text.includes("assigned")) return "#1890ff";
+  return "#722ed1";
+};
 
 export default function MaintenanceHistory({ tasks = [], loading = false }) {
   const rows = useMemo(() => {
@@ -13,7 +21,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
     }, {});
 
     return Object.entries(counts)
-      .map(([label, value]) => ({ label, value }))
+      .map(([label, value]) => ({ label, value, fill: statusColor(label) }))
       .sort((a, b) => b.value - a.value);
   }, [tasks]);
 
