@@ -29,6 +29,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import UserAvatar from "../../../components/common/UserAvatar";
 import PrivacyPolicyModal from "../../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../../components/common/TermsAndConditionsModal";
+import { hasNavAccess } from "../../../../../shared/navigationAccess";
 const { Title, Text } = Typography;
 
 export default function Profile() {
@@ -58,6 +59,12 @@ export default function Profile() {
   const WEB_FONT_RECOMMENDED = 1;
   const WEB_FONT_MAX = 1.3;
   const userId = user?.id || user?._id;
+  const userRole = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canManageAircraftFhDueAlerts =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
 
   const persistUser = (nextUser) => {
     setUser(nextUser);
@@ -436,44 +443,50 @@ export default function Profile() {
                 </strong>
               </Text>
 
-              <Space wrap align="center">
-                <Text strong>Aircraft FH Due Alerts</Text>
-                <Switch
-                  checked={aircraftFhDueNotificationsEnabled}
-                  onChange={(checked) => {
-                    setAircraftFhDueNotificationsEnabled(checked);
-                    persistWebSettings({
-                      aircraftFhDueNotificationsEnabled: checked,
-                    });
-                    setPopup({
-                      open: true,
-                      status: "success",
-                      title: "Settings Updated!",
-                      subTitle: checked
-                        ? "Aircraft FH due alerts have been enabled."
-                        : "Aircraft FH due alerts have been disabled.",
-                    });
-                  }}
-                />
-              </Space>
-              <Space wrap align="center">
-                <Text type="secondary">Notify within</Text>
-                <InputNumber
-                  min={1}
-                  max={500}
-                  step={1}
-                  precision={0}
-                  value={aircraftFhDueThreshold}
-                  disabled={!aircraftFhDueNotificationsEnabled}
-                  addonAfter="FH"
-                  onChange={(value) => {
-                    const nextValue = Number(value) || 1;
-                    setAircraftFhDueThreshold(nextValue);
-                    persistWebSettings({ aircraftFhDueThreshold: nextValue });
-                  }}
-                  style={{ width: 140 }}
-                />
-              </Space>
+              {canManageAircraftFhDueAlerts && (
+                <>
+                  <Space wrap align="center">
+                    <Text strong>Aircraft FH Due Alerts</Text>
+                    <Switch
+                      checked={aircraftFhDueNotificationsEnabled}
+                      onChange={(checked) => {
+                        setAircraftFhDueNotificationsEnabled(checked);
+                        persistWebSettings({
+                          aircraftFhDueNotificationsEnabled: checked,
+                        });
+                        setPopup({
+                          open: true,
+                          status: "success",
+                          title: "Settings Updated!",
+                          subTitle: checked
+                            ? "Aircraft FH due alerts have been enabled."
+                            : "Aircraft FH due alerts have been disabled.",
+                        });
+                      }}
+                    />
+                  </Space>
+                  <Space wrap align="center">
+                    <Text type="secondary">Notify within</Text>
+                    <InputNumber
+                      min={1}
+                      max={500}
+                      step={1}
+                      precision={0}
+                      value={aircraftFhDueThreshold}
+                      disabled={!aircraftFhDueNotificationsEnabled}
+                      addonAfter="FH"
+                      onChange={(value) => {
+                        const nextValue = Number(value) || 1;
+                        setAircraftFhDueThreshold(nextValue);
+                        persistWebSettings({
+                          aircraftFhDueThreshold: nextValue,
+                        });
+                      }}
+                      style={{ width: 140 }}
+                    />
+                  </Space>
+                </>
+              )}
             </Space>
           </Card>
 

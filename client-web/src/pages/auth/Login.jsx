@@ -49,13 +49,14 @@ const Login = () => {
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
+    const savedBase = localStorage.getItem("rememberedBase") || "";
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
         password: "",
-        base: "",
+        base: savedBase,
       });
       setRememberMe(true);
     }
@@ -76,6 +77,7 @@ const Login = () => {
     if (!isChecked) {
       localStorage.setItem("rememberMe", "false");
       localStorage.removeItem("rememberedIdentifier");
+      localStorage.removeItem("rememberedBase");
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -137,6 +139,7 @@ const Login = () => {
               token: data.verification.token,
               email: data.verification.email,
               maskedEmail: data.verification.maskedEmail,
+              identifier,
               rememberMe,
               base,
               client: "web",
@@ -158,8 +161,10 @@ const Login = () => {
           );
 
           localStorage.setItem("rememberMe", "true");
+          localStorage.setItem("rememberedBase", data.user?.base || base);
         } else {
           localStorage.removeItem("rememberedIdentifier");
+          localStorage.removeItem("rememberedBase");
           localStorage.removeItem("rememberMe");
         }
         handleNavigate(data.user);

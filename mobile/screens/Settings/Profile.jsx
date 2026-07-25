@@ -34,6 +34,7 @@ import { useFontScale } from "../../Context/FontScaleContext";
 import { COLORS } from "../../stylesheets/colors";
 import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
+import { hasNavAccess } from "../../../shared/navigationAccess";
 export default function Profile() {
   const { user, updateUser } = useContext(AuthContext);
   const {
@@ -47,12 +48,23 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [
+    aircraftFhDueNotificationsEnabled,
+    setAircraftFhDueNotificationsEnabled,
+  ] = useState(false);
+  const [aircraftFhDueThreshold, setAircraftFhDueThreshold] = useState(25);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
   const MOBILE_FONT_MAX = 1.3;
+  const userRole = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canManageAircraftFhDueAlerts =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -82,6 +94,16 @@ export default function Profile() {
             ? stored.notificationsEnabled
             : true,
         );
+        setAircraftFhDueNotificationsEnabled(
+          typeof stored.aircraftFhDueNotificationsEnabled === "boolean"
+            ? stored.aircraftFhDueNotificationsEnabled
+            : false,
+        );
+        setAircraftFhDueThreshold(
+          typeof stored.aircraftFhDueThreshold === "number"
+            ? stored.aircraftFhDueThreshold
+            : 25,
+        );
       } catch {}
     };
 
@@ -98,6 +120,14 @@ export default function Profile() {
         typeof next.notificationsEnabled === "boolean"
           ? next.notificationsEnabled
           : notificationsEnabled,
+      aircraftFhDueNotificationsEnabled:
+        typeof next.aircraftFhDueNotificationsEnabled === "boolean"
+          ? next.aircraftFhDueNotificationsEnabled
+          : aircraftFhDueNotificationsEnabled,
+      aircraftFhDueThreshold:
+        typeof next.aircraftFhDueThreshold === "number"
+          ? next.aircraftFhDueThreshold
+          : aircraftFhDueThreshold,
     };
     await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
   };
@@ -590,6 +620,71 @@ export default function Profile() {
                   </View>
                 </View>
 
+                {canManageAircraftFhDueAlerts && (
+                  <View style={[styles.settingRowCard, { marginTop: 12 }]}>
+                    <View style={styles.settingRow}>
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text
+                          style={[
+                            styles.settingLabel,
+                            { fontSize: scaled(14) },
+                          ]}
+                        >
+                          Aircraft FH Due Alerts
+                        </Text>
+                        <Text
+                          style={[styles.settingSub, { fontSize: scaled(12) }]}
+                        >
+                          Notify when an aircraft inspection is near its flight
+                          hour limit.
+                        </Text>
+                      </View>
+                      <Switch
+                        value={aircraftFhDueNotificationsEnabled}
+                        onValueChange={async (value) => {
+                          setAircraftFhDueNotificationsEnabled(value);
+                          await saveSettings({
+                            aircraftFhDueNotificationsEnabled: value,
+                          });
+                          showToast(
+                            value
+                              ? "Aircraft FH due alerts enabled."
+                              : "Aircraft FH due alerts disabled.",
+                          );
+                        }}
+                      />
+                    </View>
+                    <View style={styles.thresholdRow}>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Notify within
+                      </Text>
+                      <AppPaperInput
+                        mode="outlined"
+                        value={String(aircraftFhDueThreshold)}
+                        editable={aircraftFhDueNotificationsEnabled}
+                        keyboardType="number-pad"
+                        onChangeText={async (value) => {
+                          const digits = value.replace(/\D/g, "").slice(0, 3);
+                          const nextValue = Math.max(1, Number(digits) || 1);
+                          setAircraftFhDueThreshold(nextValue);
+                          await saveSettings({
+                            aircraftFhDueThreshold: nextValue,
+                          });
+                        }}
+                        style={styles.thresholdInput}
+                        contentStyle={{ fontSize: scaled(13) }}
+                      />
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        FH
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 <View style={[styles.settingRowCard, { marginTop: 12 }]}>
                   <View style={styles.settingRow}>
                     <View style={{ flex: 1, paddingRight: 12 }}>
@@ -731,5 +826,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  thresholdRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 8,
+  },
+  thresholdInput: {
+    width: 88,
+    backgroundColor: COLORS.white,
   },
 });

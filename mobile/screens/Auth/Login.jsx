@@ -242,7 +242,7 @@ export default function Login() {
           <AppInput
             style={styles.formInput}
             maxLength={256}
-            placeholder="Username or Email"
+            placeholder="Enter your username or email"
             placeholderTextColor="gray"
             autoCapitalize="none"
             keyboardType="default"
@@ -254,7 +254,7 @@ export default function Login() {
             <AppInput
               style={[styles.formInput, { paddingRight: 50 }]}
               maxLength={256}
-              placeholder="Password"
+              placeholder="Enter your password"
               placeholderTextColor="gray"
               autoCapitalize="none"
               secureTextEntry={!showPassword} // Toggle based on state
@@ -321,7 +321,13 @@ export default function Login() {
             <AppText style={{ color: "gray", textAlign: "center" }}>
               By signing in, you agree to the
             </AppText>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
               <TouchableOpacity onPress={() => setTermsVisible(true)}>
                 <AppText style={{ color: "#059670", fontWeight: "700" }}>
                   Terms and Conditions

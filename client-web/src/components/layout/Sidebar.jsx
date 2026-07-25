@@ -427,6 +427,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         centered
         zIndex={2100}
         onOk={handleOk}
+        okText={"Yes, logout"}
         confirmLoading={confirmLoading}
         onCancel={handleCancel}
       >

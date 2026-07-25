@@ -108,6 +108,21 @@ export default function OTP() {
             sessionId: data.sessionId || data.user?.sessionId,
           });
 
+          if (params.rememberMe) {
+            localStorage.setItem("rememberMe", "true");
+            if (params.identifier) {
+              localStorage.setItem(
+                "rememberedIdentifier",
+                String(params.identifier).trim(),
+              );
+            }
+            localStorage.setItem("rememberedBase", data.user?.base || params.base || "");
+          } else {
+            localStorage.removeItem("rememberedIdentifier");
+            localStorage.removeItem("rememberedBase");
+            localStorage.removeItem("rememberMe");
+          }
+
           setPopup({
             open: true,
             status: "success",

@@ -14,6 +14,7 @@ import { subscribeRealtime } from "../../utils/realtimeSocket";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
 import ResultPopup from "../common/ResultPopup";
+import { hasNavAccess } from "../../../../shared/navigationAccess";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 const WEB_SETTINGS_KEY = "webProfileSettings";
@@ -96,6 +97,12 @@ const DashboardLayout = () => {
   const serverUnreadCountRef = useRef(0);
   const initialSyncDoneRef = useRef(false);
   const { user, getAuthHeader } = useContext(AuthContext);
+  const userRole = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canReceiveAircraftFhDueAlerts =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
   const nav = useNavigate();
   const location = useLocation();
   const {
@@ -234,6 +241,10 @@ const DashboardLayout = () => {
     };
 
     const checkAircraftFhDueWarnings = async () => {
+      if (!canReceiveAircraftFhDueAlerts) {
+        return;
+      }
+
       const settings = getAircraftFhDueSettings();
 
       if (!settings.enabled) {
@@ -491,7 +502,7 @@ const DashboardLayout = () => {
       );
       unsubscribeRealtime();
     };
-  }, [user?.id, getAuthHeader, api, nav]);
+  }, [user?.id, canReceiveAircraftFhDueAlerts, getAuthHeader, api, nav]);
 
   return (
     <>

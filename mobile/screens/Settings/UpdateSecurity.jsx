@@ -1,13 +1,7 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { Button, SegmentedButtons, Card, Text } from "react-native-paper";
+import { View, StyleSheet } from "react-native";
+import { Button, SegmentedButtons, Text } from "react-native-paper";
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -16,7 +10,6 @@ import { COLORS } from "../../stylesheets/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function UpdateSecurity() {
   const { user } = useContext(AuthContext);
-  const scrollRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("password");
 
@@ -119,11 +112,6 @@ export default function UpdateSecurity() {
     setOtpVerified(false);
     setPinResetToken("");
     setForgotPinMode(false);
-    scrollToInput(0);
-  };
-
-  const scrollToInput = (y) => {
-    scrollRef.current?.scrollTo({ y: y, animated: true });
   };
 
   // --- Save Password or PIN ---
@@ -249,274 +237,311 @@ export default function UpdateSecurity() {
     }
   };
 
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 16}
-    >
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        automaticallyAdjustKeyboardInsets
-      >
-        <Card style={styles.card}>
-          <Card.Content>
-            <SegmentedButtons
-              value={activeTab}
-              onValueChange={(val) => {
-                setActiveTab(val);
-                resetAll();
-              }}
-              buttons={[
-                {
-                  value: "password",
-                  label: "Password",
-                  style: styles.tabButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-                {
-                  value: "pin",
-                  label: "PIN",
-                  style: styles.tabButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-              ]}
-              style={styles.tabs}
-            />
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Update Security</Text>
+        <Text style={styles.subtitle}>
+          Manage your account password and six-digit security PIN.
+        </Text>
+      </View>
 
-            {activeTab === "password" && (
-              <View style={styles.section}>
-                <AppPaperInput
-                  label="Current Password *"
-                  mode="outlined"
-                  secureTextEntry
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  style={styles.input}
-                />
-                <AppPaperInput
-                  label="New Password *"
-                  mode="outlined"
-                  secureTextEntry
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  style={styles.input}
-                />
-                {newPassword ? (
-                  <Text style={[styles.hintText, { color: strength.color }]}>
-                    {strength.text}
-                  </Text>
-                ) : null}
-                <AppPaperInput
-                  label="Confirm Password *"
-                  mode="outlined"
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  style={styles.input}
-                />
+      <SegmentedButtons
+        value={activeTab}
+        onValueChange={(val) => {
+          setActiveTab(val);
+          resetAll();
+        }}
+        buttons={[
+          {
+            value: "password",
+            label: "Password",
+            style: styles.tabButton,
+            checkedColor: COLORS.white,
+            uncheckedColor: COLORS.grayDark,
+          },
+          {
+            value: "pin",
+            label: "PIN",
+            style: styles.tabButton,
+            checkedColor: COLORS.white,
+            uncheckedColor: COLORS.grayDark,
+          },
+        ]}
+        style={styles.tabs}
+        density="regular"
+      />
+
+      {activeTab === "password" && (
+        <View style={styles.section}>
+          <AppPaperInput
+            label="Current Password *"
+            mode="outlined"
+            secureTextEntry
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            style={styles.input}
+          />
+          <AppPaperInput
+            label="New Password *"
+            mode="outlined"
+            secureTextEntry
+            value={newPassword}
+            onChangeText={setNewPassword}
+            style={styles.input}
+          />
+          {newPassword ? (
+            <Text style={[styles.hintText, { color: strength.color }]}>
+              {strength.text}
+            </Text>
+          ) : null}
+          <AppPaperInput
+            label="Confirm Password *"
+            mode="outlined"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            style={styles.input}
+          />
+          <Button
+            mode="contained"
+            loading={actionLoadingKey === "save-password"}
+            disabled={!Object.values(passwordErrors).every(Boolean)}
+            onPress={() =>
+              runWithLoading("save-password", () => handleSave("Password"))
+            }
+            style={styles.mainBtn}
+            contentStyle={styles.buttonContent}
+            labelStyle={styles.buttonLabel}
+          >
+            Save Password
+          </Button>
+        </View>
+      )}
+
+      {activeTab === "pin" && (
+        <View style={styles.section}>
+          {!forgotPinMode && (
+            <>
+              {renderCodeField("Current PIN", currentPin, setCurrentPin, {
+                secure: !showPin,
+              })}
+              {renderCodeField("New PIN", newPin, setNewPin, {
+                secure: !showPin,
+              })}
+              {renderCodeField("Confirm PIN", confirmPin, setConfirmPin, {
+                secure: !showPin,
+              })}
+              <View style={styles.inlineActions}>
                 <Button
-                  mode="contained"
-                  loading={actionLoadingKey === "save-password"}
-                  disabled={!Object.values(passwordErrors).every(Boolean)}
-                  onPress={() =>
-                    runWithLoading("save-password", () =>
-                      handleSave("Password"),
-                    )
-                  }
-                  style={styles.mainBtn}
+                  mode="text"
+                  loading={actionLoadingKey === "forgot-pin"}
+                  onPress={() => setForgotPinMode(true)}
+                  compact
+                  style={styles.linkButton}
                 >
-                  Save Password
+                  Forgot PIN?
+                </Button>
+                <Button
+                  mode="text"
+                  loading={actionLoadingKey === "toggle-pin-1"}
+                  onPress={() => setShowPin((current) => !current)}
+                  compact
+                  style={styles.linkButton}
+                >
+                  {showPin ? "Hide PIN" : "Show PIN"}
                 </Button>
               </View>
-            )}
+              <Button
+                mode="contained"
+                loading={actionLoadingKey === "save-pin"}
+                disabled={!Object.values(pinErrors).every(Boolean)}
+                onPress={() =>
+                  runWithLoading("save-pin", () => handleSave("PIN"))
+                }
+                style={styles.mainBtn}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+              >
+                Save PIN
+              </Button>
+            </>
+          )}
 
-            {activeTab === "pin" && (
-              <View style={styles.section}>
-                {!forgotPinMode && (
-                  <>
-                    {renderCodeField("Current PIN", currentPin, setCurrentPin, {
-                      secure: !showPin,
-                    })}
-                    <Button
-                      mode="text"
-                      loading={actionLoadingKey === "forgot-pin"}
-                      onPress={() => setForgotPinMode(true)}
-                      compact
-                      style={styles.linkButton}
-                    >
-                      Forgot PIN?
-                    </Button>
-                    {renderCodeField("New PIN", newPin, setNewPin, {
-                      secure: !showPin,
-                    })}
-                    {renderCodeField("Confirm PIN", confirmPin, setConfirmPin, {
-                      secure: !showPin,
-                    })}
-                    <Button
-                      mode="text"
-                      loading={actionLoadingKey === "toggle-pin-1"}
-                      onPress={() => setShowPin((current) => !current)}
-                      compact
-                      style={styles.linkButton}
-                    >
-                      {showPin ? "Hide PIN" : "Show PIN"}
-                    </Button>
-                    <Button
-                      mode="contained"
-                      loading={actionLoadingKey === "save-pin"}
-                      disabled={!Object.values(pinErrors).every(Boolean)}
-                      onPress={() =>
-                        runWithLoading("save-pin", () => handleSave("PIN"))
-                      }
-                      style={styles.mainBtn}
-                    >
-                      Save PIN
-                    </Button>
-                  </>
-                )}
+          {forgotPinMode && !otpSent && (
+            <View style={styles.section}>
+              <Text style={styles.flowTitle}>Reset PIN</Text>
+              <AppPaperInput
+                label="Current Password *"
+                mode="outlined"
+                secureTextEntry
+                value={passwordForPin}
+                onChangeText={setPasswordForPin}
+                style={styles.input}
+              />
+              <Button
+                mode="contained"
+                loading={actionLoadingKey === "send-otp"}
+                onPress={() => runWithLoading("send-otp", () => requestOtp())}
+                disabled={!passwordForPin}
+                style={styles.mainBtn}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+              >
+                Send OTP
+              </Button>
+              <Button
+                mode="outlined"
+                loading={actionLoadingKey === "cancel-otp"}
+                onPress={resetAll}
+                style={styles.secondaryBtn}
+                contentStyle={styles.buttonContent}
+              >
+                Cancel
+              </Button>
+            </View>
+          )}
 
-                {forgotPinMode && !otpSent && (
-                  <View style={styles.section}>
-                    <AppPaperInput
-                      label="Current Password *"
-                      mode="outlined"
-                      secureTextEntry
-                      value={passwordForPin}
-                      onChangeText={setPasswordForPin}
-                      style={styles.input}
-                    />
-                    <Button
-                      mode="contained"
-                      loading={actionLoadingKey === "send-otp"}
-                      onPress={() =>
-                        runWithLoading("send-otp", () => requestOtp())
-                      }
-                      disabled={!passwordForPin}
-                      style={styles.mainBtn}
-                    >
-                      Send OTP
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      loading={actionLoadingKey === "cancel-otp"}
-                      onPress={resetAll}
-                      style={styles.secondaryBtn}
-                    >
-                      Cancel
-                    </Button>
-                  </View>
-                )}
+          {forgotPinMode && otpSent && !otpVerified && (
+            <View style={styles.section}>
+              <Text style={styles.flowTitle}>Verify OTP</Text>
+              {renderCodeField("OTP", otp, setOtp)}
+              <Button
+                mode="contained"
+                loading={actionLoadingKey === "verify-otp"}
+                onPress={() => runWithLoading("verify-otp", () => verifyOtp())}
+                disabled={!otp}
+                style={styles.mainBtn}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+              >
+                Verify OTP
+              </Button>
+              <Button
+                mode="outlined"
+                loading={actionLoadingKey === "otp-back"}
+                onPress={() => setOtpSent(false)}
+                style={styles.secondaryBtn}
+                contentStyle={styles.buttonContent}
+              >
+                Back
+              </Button>
+            </View>
+          )}
 
-                {forgotPinMode && otpSent && !otpVerified && (
-                  <View style={styles.section}>
-                    {renderCodeField("OTP", otp, setOtp)}
-                    <Button
-                      mode="contained"
-                      loading={actionLoadingKey === "verify-otp"}
-                      onPress={() =>
-                        runWithLoading("verify-otp", () => verifyOtp())
-                      }
-                      disabled={!otp}
-                      style={styles.mainBtn}
-                    >
-                      Verify OTP
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      loading={actionLoadingKey === "otp-back"}
-                      onPress={() => setOtpSent(false)}
-                      style={styles.secondaryBtn}
-                    >
-                      Back
-                    </Button>
-                  </View>
-                )}
-
-                {forgotPinMode && otpVerified && (
-                  <View style={styles.section}>
-                    {renderCodeField("New PIN", newPin, setNewPin, {
-                      secure: !showPin,
-                    })}
-                    {renderCodeField(
-                      "Confirm New PIN",
-                      confirmPin,
-                      setConfirmPin,
-                      {
-                        secure: !showPin,
-                      },
-                    )}
-                    <Button
-                      mode="text"
-                      loading={actionLoadingKey === "toggle-pin-2"}
-                      onPress={() => setShowPin((current) => !current)}
-                      compact
-                      style={styles.linkButton}
-                    >
-                      {showPin ? "Hide PIN" : "Show PIN"}
-                    </Button>
-                    <Button
-                      mode="contained"
-                      loading={actionLoadingKey === "reset-pin"}
-                      disabled={!Object.values(pinErrors).every(Boolean)}
-                      onPress={() =>
-                        runWithLoading("reset-pin", () => handleReset("PIN"))
-                      }
-                      style={styles.mainBtn}
-                    >
-                      Reset PIN
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      loading={actionLoadingKey === "cancel-otp"}
-                      onPress={resetAll}
-                      style={styles.secondaryBtn}
-                    >
-                      Cancel
-                    </Button>
-                  </View>
-                )}
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {forgotPinMode && otpVerified && (
+            <View style={styles.section}>
+              <Text style={styles.flowTitle}>Create New PIN</Text>
+              {renderCodeField("New PIN", newPin, setNewPin, {
+                secure: !showPin,
+              })}
+              {renderCodeField("Confirm New PIN", confirmPin, setConfirmPin, {
+                secure: !showPin,
+              })}
+              <Button
+                mode="text"
+                loading={actionLoadingKey === "toggle-pin-2"}
+                onPress={() => setShowPin((current) => !current)}
+                compact
+                style={styles.linkButton}
+              >
+                {showPin ? "Hide PIN" : "Show PIN"}
+              </Button>
+              <Button
+                mode="contained"
+                loading={actionLoadingKey === "reset-pin"}
+                disabled={!Object.values(pinErrors).every(Boolean)}
+                onPress={() =>
+                  runWithLoading("reset-pin", () => handleReset("PIN"))
+                }
+                style={styles.mainBtn}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+              >
+                Reset PIN
+              </Button>
+              <Button
+                mode="outlined"
+                loading={actionLoadingKey === "cancel-otp"}
+                onPress={resetAll}
+                style={styles.secondaryBtn}
+                contentStyle={styles.buttonContent}
+              >
+                Cancel
+              </Button>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1 },
-  card: { backgroundColor: "#fff" },
-  tabs: {
-    marginBottom: 20,
-    borderRadius: 0,
+  container: {
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 18,
+  },
+  header: {
+    marginBottom: 14,
+  },
+  title: {
+    color: COLORS.black,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  subtitle: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  tabs: {
+    marginBottom: 18,
+    borderRadius: 10,
+    backgroundColor: COLORS.white,
   },
   tabButton: {
-    borderRadius: 0,
-    borderWidth: 0,
-    borderBottomWidth: 0,
+    borderRadius: 10,
+    borderColor: COLORS.border,
     backgroundColor: COLORS.white,
   },
-  section: { marginBottom: 16 },
+  section: { rowGap: 4 },
   input: { marginBottom: 12, backgroundColor: "#fff" },
-  mainBtn: { marginTop: 15 },
-  secondaryBtn: { marginTop: 10 },
-  linkButton: { alignSelf: "flex-start", marginBottom: 10 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
-  pinInputGroup: { marginBottom: 12 },
-  pinLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  mainBtn: { marginTop: 12, borderRadius: 10 },
+  secondaryBtn: { marginTop: 8, borderRadius: 10 },
+  buttonContent: { minHeight: 46 },
+  buttonLabel: { fontWeight: "700" },
+  inlineActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: -2,
+  },
+  linkButton: { alignSelf: "flex-start" },
+  pinInputGroup: {
+    marginBottom: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    backgroundColor: "#FAFBFC",
+  },
+  pinLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.black,
+    marginBottom: 8,
+  },
   pinCodeSection: { flex: 0, alignItems: "stretch", marginVertical: 0 },
   pinCodeContainer: { width: "100%" },
   hintText: { fontSize: 12, marginBottom: 10 },
+  flowTitle: {
+    color: COLORS.black,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
 });
