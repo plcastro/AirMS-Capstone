@@ -52,9 +52,11 @@ const toChartData = (counts) =>
   Object.entries(counts).map(([name, value]) => ({ name, value }));
 
 const getColorIndexForLabel = (label = "") => {
-  const hash = String(label).split("").reduce((sum, char) => {
-    return sum + char.charCodeAt(0);
-  }, 0);
+  const hash = String(label)
+    .split("")
+    .reduce((sum, char) => {
+      return sum + char.charCodeAt(0);
+    }, 0);
 
   return hash % COLORS.length;
 };
@@ -162,7 +164,7 @@ const StatusPie = ({ data }) => {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={230}>
+    <ResponsiveContainer width="100%" height={250}>
       <PieChart>
         <Pie
           data={colorizedData}
@@ -174,7 +176,16 @@ const StatusPie = ({ data }) => {
           label
         />
         <Tooltip />
-        <Legend verticalAlign="bottom" height={36} />
+        <Legend
+          verticalAlign="bottom"
+          align="center"
+          height={52}
+          wrapperStyle={{
+            fontSize: 12,
+            lineHeight: "18px",
+            paddingTop: 8,
+          }}
+        />
       </PieChart>
     </ResponsiveContainer>
   );

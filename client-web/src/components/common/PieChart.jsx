@@ -12,7 +12,12 @@ export const SDMChart = ({
   const chartData = data.length > 0 ? data : EMPTY_DATA;
 
   return (
-    <ResponsiveContainer width="100%" height={height} minWidth={0} minHeight={220}>
+    <ResponsiveContainer
+      width="100%"
+      height={height}
+      minWidth={0}
+      minHeight={220}
+    >
       <PieChart>
         <Pie
           data={chartData}
@@ -57,7 +62,12 @@ export const ARTChart = ({
 
   return (
     <div style={{ position: "relative", minHeight: 350 }}>
-      <ResponsiveContainer width="100%" height={350} minWidth={0} minHeight={280}>
+      <ResponsiveContainer
+        width="100%"
+        height={350}
+        minWidth={0}
+        minHeight={280}
+      >
         <PieChart>
           <Pie
             data={chartData}

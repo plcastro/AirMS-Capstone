@@ -12,6 +12,7 @@ import {
   Segmented,
   Tag,
   Grid,
+  Masonry,
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
@@ -206,6 +207,14 @@ export default function MaintenanceDashboard() {
     fontSize: 24,
     lineHeight: 1.1,
     wordBreak: "break-word",
+  };
+  const reportMasonryColumns = {
+    xs: 2,
+    sm: 2,
+    md: 2,
+    lg: 2,
+    xl: 2,
+    xxl: 2,
   };
   const isCompletedTask = (task = {}) => {
     const status = String(task.status || "")
@@ -975,10 +984,7 @@ export default function MaintenanceDashboard() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(
-        blob,
-        buildReportFileName("Reports and Analytics", "xlsx"),
-      );
+      saveAs(blob, buildReportFileName("Reports and Analytics", "xlsx"));
       setPopup({
         open: true,
         status: "success",
@@ -1616,20 +1622,23 @@ export default function MaintenanceDashboard() {
             body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 },
           }}
         >
-          <Row gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}>
-            {categoryCards.map((card) => (
-              <Col xs={24} xl={12} key={card.key}>
-                <Card
-                  size="small"
-                  title={card.title}
-                  style={{ height: "100%" }}
-                  styles={{ body: { padding: isMobile ? 10 : 12 } }}
-                >
-                  {card.component}
-                </Card>
-              </Col>
-            ))}
-          </Row>
+          <Masonry
+            columns={reportMasonryColumns}
+            gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}
+            items={categoryCards.map((card) => ({
+              key: card.key,
+              data: card,
+            }))}
+            itemRender={({ data: card }) => (
+              <Card
+                size="small"
+                title={card.title}
+                styles={{ body: { padding: isMobile ? 10 : 12 } }}
+              >
+                {card.component}
+              </Card>
+            )}
+          />
         </Card>
       ))}
       <ResultPopup
