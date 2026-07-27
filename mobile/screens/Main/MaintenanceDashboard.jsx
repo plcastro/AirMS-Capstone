@@ -701,7 +701,7 @@ export default function MaintenanceDashboard() {
                 <AppText
                   style={{
                     color: selected ? COLORS.white : COLORS.grayDark,
-                    fontSize: 11,
+                    fontSize: 9,
                     fontWeight: "700",
                   }}
                   numberOfLines={2}

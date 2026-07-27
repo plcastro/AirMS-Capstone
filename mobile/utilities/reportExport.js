@@ -18,10 +18,29 @@ const asDate = () =>
     hour: "numeric",
     minute: "2-digit",
   });
-const buildSafeFileName = (value) =>
-  String(value || "reports-analytics")
+const buildModuleName = (value) =>
+  String(value || "Reports and Analytics")
+    .trim()
+    .replace(/\bReport\b/gi, "")
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (title, extension) =>
+  `${buildModuleName(title)}_${formatFileDate()}.${extension}`;
 
 const normalizeSection = (section = {}) => {
   const rows = Array.isArray(section.rows) ? section.rows : [];
@@ -117,7 +136,7 @@ export const exportReportPdf = async ({ title = "Analytics Report", sections = [
   const normalizedSections = normalizeSections(sections);
   const html = buildHtml(title, normalizedSections);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(title)} Numbers.pdf`;
+  const finalUri = `${FileSystem.cacheDirectory}${buildReportFileName(title, "pdf")}`;
   await FileSystem.copyAsync({ from: uri, to: finalUri });
 
   if (await Sharing.isAvailableAsync()) {
@@ -139,7 +158,7 @@ export const exportReportCsv = async ({ title = "analytics-report", sections = [
 
   const normalizedSections = normalizeSections(sections);
   const csv = buildCsv(normalizedSections);
-  const fileName = `${buildSafeFileName(title)} Numbers.csv`;
+  const fileName = buildReportFileName(title, "csv");
   const uri = `${FileSystem.cacheDirectory}${fileName}`;
 
   await FileSystem.writeAsStringAsync(uri, csv, {

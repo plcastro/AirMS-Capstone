@@ -31,10 +31,29 @@ import { AuthContext } from "../../../context/AuthContext";
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
-const buildSafeFileName = (value) =>
-  String(value || "activity-logs")
+const buildModuleName = (value) =>
+  String(value || "Activity Logs")
+    .trim()
+    .replace(/\bReport\b/gi, "")
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (moduleName, extension) =>
+  `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
 
 export default function UserLogs() {
   const screens = useBreakpoint();
@@ -239,7 +258,7 @@ export default function UserLogs() {
 
     try {
       setExporting(true);
-      const fileBaseName = buildSafeFileName("Activity Logs Report");
+      const fileName = buildReportFileName("Activity Logs", "pdf");
       const [{ jsPDF }, { default: autoTable }] = await Promise.all([
         import("jspdf"),
         import("jspdf-autotable"),
@@ -268,7 +287,7 @@ export default function UserLogs() {
         },
         margin: { left: 40, right: 40 },
       });
-      doc.save(`${fileBaseName}.pdf`);
+      doc.save(fileName);
 
       message.success("Activity logs exported as PDF.");
     } catch (error) {

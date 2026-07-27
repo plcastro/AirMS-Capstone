@@ -45,8 +45,42 @@ const formatValue = (value) => {
 
 const buildSafeFileName = (value, fallback = "export") =>
   String(value || fallback)
+    .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
+
+const buildSafeFileToken = (value, fallback = "Unknown") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/[^A-Za-z0-9.-]+/g, "")
+    || fallback;
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getFlightLogFileName = (log = {}) => {
+  const aircraft = log.rpc || log.aircraft || log.aircraftNo || "Aircraft";
+  const date = log.date || log.dateAdded || log.createdAt || log.updatedAt;
+  return `FlightLog_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
+
+const getMaintenanceLogFileName = (log = {}) => {
+  const aircraft = log.aircraft || log.rpc || log.aircraftNo || "Aircraft";
+  const date =
+    log.dateDefectRectified ||
+    log.dateRectified ||
+    log.completedAt ||
+    log.updatedAt ||
+    log.createdAt;
+  return `WorkDoneReport_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
 
 const flattenRecord = (value, prefix = "") => {
   if (value === null || value === undefined) {
@@ -1484,7 +1518,7 @@ const buildPostInspectionHtml = (inspection = {}) => `
   </html>
 `;
 
-const exportRecordToPdf = async ({ title, subtitle, record, html }) => {
+const exportRecordToPdf = async ({ title, subtitle, record, html, fileName }) => {
   try {
     const canUseStorage = await requestStoragePermissionForDownload();
     if (!canUseStorage) {
@@ -1507,7 +1541,7 @@ const exportRecordToPdf = async ({ title, subtitle, record, html }) => {
       html: finalHtml,
       base64: false,
     });
-    const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(title)}.pdf`;
+    const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(fileName || title)}.pdf`;
     await FileSystem.copyAsync({ from: uri, to: finalUri });
 
     const canShare = await Sharing.isAvailableAsync();
@@ -1545,11 +1579,13 @@ export const exportPostInspectionPdf = (inspection) =>
 export const exportFlightLogPdf = (log) =>
   exportRecordToPdf({
     title: "Flight Log",
+    fileName: getFlightLogFileName(log),
     html: buildFlightLogHtml(log),
   });
 
 export const exportMaintenanceLogPdf = (log) =>
   exportRecordToPdf({
     title: "Work Done Report",
+    fileName: getMaintenanceLogFileName(log),
     html: buildMaintenanceLogHtml(log),
   });

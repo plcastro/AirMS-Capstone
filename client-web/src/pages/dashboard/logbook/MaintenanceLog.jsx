@@ -22,11 +22,31 @@ const formatPdfValue = (value, fallback = "") =>
     ? fallback
     : String(value);
 
-const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
+const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9.-]+/g, "") || fallback;
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildWorkDoneReportFileName = (record = {}) => {
+  const aircraft = record.aircraft || record.rpc || record.aircraftNo || "Aircraft";
+  const date =
+    record.dateDefectRectified ||
+    record.dateRectified ||
+    record.completedAt ||
+    record.updatedAt ||
+    record.createdAt;
+  return `WorkDoneReport_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -484,9 +504,7 @@ export default function MaintenanceLog() {
       ]);
 
       const doc = new jsPDF("p", "pt", "a4");
-      const fileName = buildSafeFileName(
-        `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
-      );
+      const fileName = buildWorkDoneReportFileName(selectedWO);
       const bodyRows = (
         Array.isArray(selectedWO.workDetails) &&
         selectedWO.workDetails.length > 0

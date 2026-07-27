@@ -65,10 +65,29 @@ const getRecordDate = (record = {}) =>
   record.createdAt ||
   record.updatedAt;
 
-const buildSafeFileName = (value) =>
-  String(value || "reports-analytics")
+const buildModuleName = (value) =>
+  String(value || "Reports and Analytics")
+    .trim()
+    .replace(/\bReport\b/gi, "")
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (moduleName, extension) =>
+  `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
 
 const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
 
@@ -958,7 +977,7 @@ export default function MaintenanceDashboard() {
       });
       saveAs(
         blob,
-        `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`,
+        buildReportFileName("Reports and Analytics", "xlsx"),
       );
       setPopup({
         open: true,
@@ -1192,7 +1211,7 @@ export default function MaintenanceDashboard() {
         y = doc.lastAutoTable.finalY + 22;
       });
 
-      doc.save(`${buildSafeFileName("Reports and Analytics")} Numbers.pdf`);
+      doc.save(buildReportFileName("Reports and Analytics", "pdf"));
       setPopup({
         open: true,
         status: "success",

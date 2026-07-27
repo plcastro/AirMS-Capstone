@@ -103,6 +103,27 @@ const buildSafeFileName = (value, fallback) =>
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
+const buildSafeFileToken = (value, fallback = "Unknown") =>
+  String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/[^A-Za-z0-9.-]+/g, "") || fallback;
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildFlightLogFileName = (record = {}) => {
+  const aircraft = record.rpc || record.aircraft || record.aircraftNo || "Aircraft";
+  const date = record.date || record.dateAdded || record.createdAt || record.updatedAt;
+  return `FlightLog_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
+
 const FLIGHT_LEG_LABELS = ["1ST", "2ND", "3RD", "4TH", "5TH", "6TH"];
 const PASSENGER_LEG_LABELS = [
   "1ST LEG",
@@ -310,10 +331,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
       import("jspdf-autotable"),
     ]);
     const doc = new jsPDF("p", "pt", "a4");
-    const fileName = buildSafeFileName(
-      `FlightLog-${record?.rpc || record?._id || "record"}`,
-      "FlightLog",
-    );
+    const fileName = buildFlightLogFileName(record);
 
     let logoDataUrl = null;
     try {
