@@ -68,7 +68,7 @@ const formatFileDate = (value = new Date()) => {
 const getFlightLogFileName = (log = {}) => {
   const aircraft = log.rpc || log.aircraft || log.aircraftNo || "Aircraft";
   const date = log.date || log.dateAdded || log.createdAt || log.updatedAt;
-  return `FlightLog_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+  return `Flight Log_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
 };
 
 const getMaintenanceLogFileName = (log = {}) => {
@@ -447,101 +447,113 @@ const buildFlightLogHtml = (log = {}) => {
       <head>
         <meta charset="utf-8" />
         <style>
-          @page { size: A4 portrait; margin: 14px; }
+          @page { size: A4 portrait; margin: 14pt 18pt; }
           * { box-sizing: border-box; }
           body {
             font-family: Arial, Helvetica, sans-serif;
             color: #111;
             margin: 0;
-            font-size: 7px;
+            font-size: 5.5pt;
+            line-height: 1.05;
           }
-          .sheet { width: 100%; }
+          .sheet {
+            width: 559pt;
+            max-width: 100%;
+            margin: 0 auto;
+          }
           .header {
             position: relative;
-            min-height: 100px;
-            padding-top: 18px;
+            height: 118pt;
           }
           .logo {
             position: absolute;
-            left: 4px;
-            top: 48px;
-            font-size: 26px;
+            left: 4pt;
+            top: 46pt;
+            font-size: 18pt;
             line-height: 1;
             font-weight: 900;
-            letter-spacing: -2px;
+            letter-spacing: -1.5pt;
           }
           .logo span:first-child,
           .logo span:last-child { color: #068345; }
           .title {
+            padding-top: 24pt;
             text-align: center;
             font-weight: 800;
-            font-size: 12px;
-            line-height: 1.45;
-            letter-spacing: .2px;
+            font-size: 12pt;
+            line-height: 1.35;
+            letter-spacing: .2pt;
           }
           .field {
             position: absolute;
             display: flex;
             align-items: flex-end;
-            gap: 4px;
-            font-size: 8px;
+            gap: 4pt;
+            font-size: 8.5pt;
             font-weight: 800;
           }
           .field .line {
             display: inline-block;
-            min-width: 112px;
-            border-bottom: 1px solid #111;
-            padding: 0 4px 2px;
+            min-width: 104pt;
+            border-bottom: .6pt solid #111;
+            padding: 0 4pt 1pt;
             font-weight: 400;
           }
-          .aircraft-type { left: 4px; top: 86px; }
-          .rpc { left: 4px; top: 102px; }
-          .date { right: 28px; top: 78px; }
-          .control { right: 28px; top: 94px; }
+          .aircraft-type { left: 4pt; top: 86pt; }
+          .rpc { left: 4pt; top: 102pt; }
+          .date { right: 25pt; top: 78pt; }
+          .control { right: 25pt; top: 94pt; }
           table {
-            width: 100%;
+            width: 559pt;
             border-collapse: collapse;
             table-layout: fixed;
             margin: 0;
             page-break-inside: avoid;
           }
-          .flight-table col:nth-child(1) { width: 7%; }
-          .flight-table col:nth-child(2) { width: 41%; }
+          table + table,
+          .due-row + table,
+          .signature + table,
+          .checks + table {
+            margin-top: 3pt;
+          }
+          .flight-table col:nth-child(1) { width: 38pt; }
+          .flight-table col:nth-child(2) { width: 227pt; }
           .flight-table col:nth-child(3),
           .flight-table col:nth-child(4),
           .flight-table col:nth-child(5),
-          .flight-table col:nth-child(6) { width: 8%; }
+          .flight-table col:nth-child(6) { width: 44pt; }
           .flight-table col:nth-child(7),
-          .flight-table col:nth-child(8) { width: 10%; }
-          .passenger-table col:first-child { width: 13%; }
-          .passenger-table col:not(:first-child) { width: 10.875%; }
-          .component-table col:first-child { width: 8.5%; }
-          .component-table col:not(:first-child) { width: 9.15%; }
-          .fuel-table col:nth-child(1) { width: 6.5%; }
-          .fuel-table col:nth-child(2) { width: 9.5%; }
-          .fuel-table col:nth-child(3) { width: 12%; }
+          .flight-table col:nth-child(8) { width: 59pt; }
+          .passenger-table col:first-child { width: 71pt; }
+          .passenger-table col:not(:first-child) { width: 61pt; }
+          .component-table col:first-child { width: 48pt; }
+          .component-table col:nth-child(n+2):nth-child(-n+10) { width: 51pt; }
+          .component-table col:nth-child(11) { width: 52pt; }
+          .fuel-table col:nth-child(1) { width: 36pt; }
+          .fuel-table col:nth-child(2) { width: 54pt; }
+          .fuel-table col:nth-child(3),
           .fuel-table col:nth-child(4),
-          .fuel-table col:nth-child(6) { width: 12%; }
-          .fuel-table col:nth-child(5) { width: 11%; }
+          .fuel-table col:nth-child(6) { width: 68pt; }
+          .fuel-table col:nth-child(5) { width: 62pt; }
           .fuel-table col:nth-child(7),
-          .fuel-table col:nth-child(8) { width: 10%; }
-          .fuel-table col:nth-child(9) { width: 17%; }
-          .oil-table col:nth-child(1) { width: 6%; }
-          .oil-table col:nth-child(2) { width: 8.5%; }
-          .oil-table col:nth-child(n+3):nth-child(-n+11) { width: 6.5%; }
-          .oil-table col:nth-child(12) { width: 16%; }
-          .oil-table col:nth-child(13) { width: 11%; }
-          .remarks-table col:first-child { width: 80%; }
-          .remarks-table col:last-child { width: 20%; }
-          .work-table col:nth-child(1) { width: 12.5%; }
-          .work-table col:nth-child(2) { width: 14.5%; }
-          .work-table col:nth-child(3) { width: 45.5%; }
-          .work-table col:nth-child(4) { width: 17%; }
-          .work-table col:nth-child(5) { width: 10.5%; }
+          .fuel-table col:nth-child(8) { width: 57pt; }
+          .fuel-table col:nth-child(9) { width: 89pt; }
+          .oil-table col:nth-child(1) { width: 32pt; }
+          .oil-table col:nth-child(2) { width: 48pt; }
+          .oil-table col:nth-child(n+3):nth-child(-n+11) { width: 35pt; }
+          .oil-table col:nth-child(12) { width: 90pt; }
+          .oil-table col:nth-child(13) { width: 74pt; }
+          .remarks-table col:first-child { width: 445pt; }
+          .remarks-table col:last-child { width: 114pt; }
+          .work-table col:nth-child(1) { width: 70pt; }
+          .work-table col:nth-child(2) { width: 80pt; }
+          .work-table col:nth-child(3) { width: 255pt; }
+          .work-table col:nth-child(4) { width: 96pt; }
+          .work-table col:nth-child(5) { width: 58pt; }
           th, td {
-            border: .8px solid #111;
-            padding: 2px 3px;
-            min-height: 10px;
+            border: .45pt solid #111;
+            padding: 1.2pt;
+            height: 8.4pt;
             vertical-align: middle;
             overflow-wrap: anywhere;
           }
@@ -553,57 +565,60 @@ const buildFlightLogHtml = (log = {}) => {
           .center { text-align: center; }
           .bold { font-weight: 800; }
           .section th {
-            font-size: 8px;
-            letter-spacing: .2px;
-            padding: 3px;
+            font-size: 5.5pt;
+            letter-spacing: 0;
+            padding: 1.2pt;
           }
           .empty { color: transparent; }
           .due-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            border-left: .8px solid #111;
-            border-right: .8px solid #111;
+            border-left: .45pt solid #111;
+            border-right: .45pt solid #111;
+            margin-top: 3pt;
             font-weight: 800;
           }
           .due-row div {
-            min-height: 13px;
-            padding: 2px 4px;
+            min-height: 13pt;
+            padding: 2pt 4pt;
           }
           .signature {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            border-left: .8px solid #111;
-            border-right: .8px solid #111;
-            border-bottom: .8px solid #111;
+            border-left: .45pt solid #111;
+            border-right: .45pt solid #111;
+            border-bottom: .45pt solid #111;
+            margin-top: 3pt;
           }
           .signature > div {
-            min-height: 34px;
-            padding: 4px;
+            min-height: 28pt;
+            padding: 3pt;
             text-align: center;
             font-weight: 800;
           }
           .signature .name {
-            margin: 8px 42px 2px;
-            border-bottom: .8px solid #111;
-            min-height: 9px;
+            margin: 8pt 42pt 2pt;
+            border-bottom: .45pt solid #111;
+            min-height: 9pt;
             font-weight: 400;
           }
           .checks {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            border-left: .8px solid #111;
-            border-right: .8px solid #111;
-            border-bottom: .8px solid #111;
-            padding: 4px 2px;
+            border-left: .45pt solid #111;
+            border-right: .45pt solid #111;
+            border-bottom: .45pt solid #111;
+            padding: 3pt 2pt;
+            margin-top: 3pt;
             font-weight: 800;
           }
           .box {
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            border: .8px solid #111;
-            margin-right: 4px;
-            vertical-align: -1px;
+            width: 8pt;
+            height: 8pt;
+            border: .45pt solid #111;
+            margin-right: 4pt;
+            vertical-align: -1pt;
           }
         </style>
       </head>
