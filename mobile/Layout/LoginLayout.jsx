@@ -7,16 +7,22 @@ import {
   Animated,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const HERO_IMAGE = require("../assets/mobile_hero.png");
+const HERO_IMAGE_SIZE = Image.resolveAssetSource(HERO_IMAGE);
 
 export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmall = width < 390;
   const isShort = height < 680;
-  const sheetMaxHeight = Math.min(
+  const sheetHeight = Math.min(
     Math.max(390, Math.round(height * 0.72)),
     height - 144,
+  );
+  const heroImageHeight = Math.round(
+    width * (HERO_IMAGE_SIZE.height / HERO_IMAGE_SIZE.width),
   );
   const logoWidth = isSmall || isShort ? 168 : 220;
   const logoHeight = isSmall || isShort ? 76 : 96;
@@ -24,23 +30,23 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const parallaxTranslate = scrollY.interpolate({
-    inputRange: [0, sheetMaxHeight],
+    inputRange: [0, sheetHeight],
     outputRange: [0, -Math.round(height * 0.04)],
     extrapolate: "clamp",
   });
 
   return (
-    <SafeAreaView style={[styles.safeArea, { minHeight: height }]}>
+    <View style={[styles.safeArea, { height }]}>
       <Animated.Image
-        source={require("../assets/mobile_hero.png")}
+        source={HERO_IMAGE}
         style={[
           styles.backgroundImage,
           {
-            height,
+            height: heroImageHeight,
             transform: [{ translateY: parallaxTranslate }],
           },
         ]}
-        resizeMode="contain"
+        resizeMode="cover"
       />
       <View style={styles.scrim} />
 
@@ -50,7 +56,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           styles.brandLayer,
           {
             paddingTop: Math.max(insets.top + 20, 34),
-            bottom: sheetMaxHeight,
+            bottom: sheetHeight,
           },
         ]}
       >
@@ -66,7 +72,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         </AppText>
       </View>
 
-      <View style={[styles.sheet, { height: sheetMaxHeight }]}>
+      <View style={[styles.sheet, { height: sheetHeight }]}>
         <View style={styles.sheetHandle} />
         <Animated.ScrollView
           style={styles.sheetScroll}
@@ -95,7 +101,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           {children}
         </Animated.ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
