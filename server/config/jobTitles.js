@@ -7,6 +7,7 @@ const jobTitles = {
     permissions.TASKS_UPDATE_OWN,
     permissions.MAINTENANCELOG_CREATE,
     permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
   ],
@@ -15,6 +16,7 @@ const jobTitles = {
     permissions.FLIGHTLOG_CREATE,
     permissions.FLIGHTLOG_READ,
     permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
   ],
@@ -26,6 +28,8 @@ const jobTitles = {
     permissions.WAREHOUSE_CREATE,
     permissions.WAREHOUSE_UPDATE,
     permissions.WAREHOUSE_CANCEL,
+    permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
   ],
 
   "officer-in-charge": [
@@ -36,6 +40,9 @@ const jobTitles = {
     permissions.WAREHOUSE_CREATE,
     permissions.WAREHOUSE_UPDATE,
     permissions.WAREHOUSE_CANCEL,
+
+    permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
 
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
@@ -51,6 +58,7 @@ const jobTitles = {
     permissions.MECHANICS_READ,
     permissions.MECHANICS_ASSIGN,
     permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
 
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
@@ -70,6 +78,9 @@ const jobTitles = {
     permissions.TASKS_DELETE,
 
     permissions.ACTIVITYLOGS_READ,
+
+    permissions.PROFILE_READ,
+    permissions.PROFILE_UPDATE,
 
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
