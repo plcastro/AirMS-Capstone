@@ -684,8 +684,9 @@ export default function MaintenanceTracking() {
       dataIndex: "endDateTime",
       key: "endDateTime",
       width: 180,
-      render: (_, record) =>
-        <DateTimeCell value={record.endDateTime || record.dueDate} />,
+      render: (_, record) => (
+        <DateTimeCell value={record.endDateTime || record.dueDate} />
+      ),
     },
     {
       title: "Priority",
@@ -862,7 +863,7 @@ export default function MaintenanceTracking() {
             value: summarySourceCounts.fallback,
           },
         ].map((item) => (
-          <Col xs={12} md={4} key={item.title}>
+          <Col xs={12} sm={12} md={4} key={item.title}>
             <Card
               style={{
                 borderRadius: 10,

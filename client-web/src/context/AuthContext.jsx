@@ -569,6 +569,7 @@ export const AuthProvider = ({ children }) => {
                 email: payload.email,
                 jobTitle: payload.jobTitle,
                 access: payload.access,
+                licenseNo: payload.licenseNo,
                 base: payload.base,
                 sessionId: payload.sessionId,
               }

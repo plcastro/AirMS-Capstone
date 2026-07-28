@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
-import { Menu, Button, Modal, Grid } from "antd";
+import { Menu, Button, Modal, Grid, Tooltip } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ScheduleOutlined,
@@ -42,6 +42,17 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
+
+  const menuIcon = (title, icon) =>
+    collapsed ? (
+      <Tooltip title={title} placement="right" mouseEnterDelay={0.2}>
+        <span style={{ display: "inline-flex", alignItems: "center" }}>
+          {icon}
+        </span>
+      </Tooltip>
+    ) : (
+      icon
+    );
 
   const wrapLabel = (text) => {
     if (collapsed) return null;
@@ -86,13 +97,16 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "13",
           label: wrapLabelSub("Maintenance Reports and Analytics"),
-          icon: <AreaChartOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Maintenance Reports and Analytics",
+            <AreaChartOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "reports",
         },
         {
           key: "15",
           label: "Messages",
-          icon: <MessageOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Messages", <MessageOutlined style={{ fontSize: 24 }} />),
           accessKey: "messages",
         },
       ],
@@ -106,13 +120,13 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "1",
           label: "Manage Users",
-          icon: <TeamOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Manage Users", <TeamOutlined style={{ fontSize: 24 }} />),
           accessKey: "userManagement",
         },
         {
           key: "2",
           label: "Activity Logs",
-          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Activity Logs", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "activityLogs",
         },
       ],
@@ -126,25 +140,28 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "3",
           label: "Flight Logs",
-          icon: <RocketOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Flight Logs", <RocketOutlined style={{ fontSize: 24 }} />),
           accessKey: "flightLogs",
         },
         {
           key: "4",
           label: "Maintenance Logs",
-          icon: <ToolOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Maintenance Logs",
+            <ToolOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "maintenanceLogs",
         },
         {
           key: "5",
           label: "Pre-Inspection",
-          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Pre-Inspection", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "preInspection",
         },
         {
           key: "6",
           label: "Post-Inspection",
-          icon: <AuditOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Post-Inspection", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "postInspection",
         },
       ],
@@ -158,13 +175,13 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "7",
           label: "Tasks",
-          icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Tasks", <ScheduleOutlined style={{ fontSize: 24 }} />),
           accessKey: "tasks",
         },
         {
           key: "8",
           label: "Mechanics",
-          icon: <TeamOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Mechanics", <TeamOutlined style={{ fontSize: 24 }} />),
           accessKey: "mechanics",
         },
       ],
@@ -180,19 +197,28 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "9",
           label: wrapLabelSub("Parts Lifespan Monitoring"),
-          icon: <DashboardOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Parts Lifespan Monitoring",
+            <DashboardOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "partsLifespan",
         },
         {
           key: "10",
           label: wrapLabelSub("Maintenance Tracking"),
-          icon: <ScheduleOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Maintenance Tracking",
+            <ScheduleOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "maintenanceTracking",
         },
         {
           key: "11",
           label: wrapLabelSub("Maintenance Priority Sorting"),
-          icon: <FlagOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Maintenance Priority Sorting",
+            <FlagOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "maintenancePriority",
         },
       ],
@@ -206,7 +232,10 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "12",
           label: wrapLabelSub("Parts Requisition Monitoring"),
-          icon: <InboxOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon(
+            "Parts Requisition Monitoring",
+            <InboxOutlined style={{ fontSize: 24 }} />,
+          ),
           accessKey: "partsRequisition",
         },
       ],
@@ -218,7 +247,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         {
           key: "14",
           label: "Profile",
-          icon: <UserOutlined style={{ fontSize: 24 }} />,
+          icon: menuIcon("Profile", <UserOutlined style={{ fontSize: 24 }} />),
           accessKey: "profile",
         },
       ],
@@ -404,20 +433,26 @@ const Sidebar = ({ collapsed, onNavigate }) => {
           background: "#ffffff",
         }}
       >
-        <Button
-          type="primary"
-          danger
-          block
-          icon={<LogoutOutlined />}
-          onClick={showModal}
-          style={{
-            height: 40,
-            borderRadius: 8,
-            fontWeight: 500,
-          }}
+        <Tooltip
+          title={collapsed ? "Logout" : ""}
+          placement="right"
+          mouseEnterDelay={0.2}
         >
-          {!collapsed && "Logout"}
-        </Button>
+          <Button
+            type="primary"
+            danger
+            block
+            icon={<LogoutOutlined />}
+            onClick={showModal}
+            style={{
+              height: 40,
+              borderRadius: 8,
+              fontWeight: 500,
+            }}
+          >
+            {!collapsed && "Logout"}
+          </Button>
+        </Tooltip>
       </div>
 
       {/* MODAL */}

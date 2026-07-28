@@ -6,6 +6,7 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const sharp = require("sharp");
 const PDFDocument = require("pdfkit");
+const UserModel = require("../models/userModel");
 
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
 const EXPORT_TMP_DIR = path.join(__dirname, "../tmp/inspection-exports");
@@ -317,13 +318,65 @@ const normalizeFob = (value) => {
   return String(value).includes("%") ? String(value) : `${value}%`;
 };
 
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
+
+const resolveSignatureLicenseNo = async (signature = {}) => {
+  const explicitLicense =
+    signature.licenseNo ||
+    signature.licenseNumber ||
+    signature.apLicenseNumber ||
+    signature.chplNumber ||
+    signature.chplNo ||
+    "";
+
+  if (explicitLicense && !isObjectIdLike(explicitLicense)) {
+    return explicitLicense;
+  }
+
+  const userIdCandidate = signature.userId || signature.id || "";
+  if (!isObjectIdLike(userIdCandidate)) {
+    return "";
+  }
+
+  try {
+    const user = await UserModel.findById(userIdCandidate)
+      .select("licenseNo")
+      .lean();
+    return user?.licenseNo || "";
+  } catch (error) {
+    console.error("Signature license lookup failed:", error.message);
+    return "";
+  }
+};
+
+const withResolvedSignatureLicenses = async (inspection = {}) => {
+  const [releasedLicenseNo, acceptedLicenseNo] = await Promise.all([
+    resolveSignatureLicenseNo(inspection.releasedBy),
+    resolveSignatureLicenseNo(inspection.acceptedBy),
+  ]);
+
+  return {
+    ...inspection,
+    releasedBy: {
+      ...(inspection.releasedBy || {}),
+      licenseNo: releasedLicenseNo,
+      id: releasedLicenseNo,
+    },
+    acceptedBy: {
+      ...(inspection.acceptedBy || {}),
+      licenseNo: acceptedLicenseNo,
+      id: acceptedLicenseNo,
+    },
+  };
+};
+
 const formatSignatureSummary = (signature = {}) => {
   if (!signature?.name) return "N/A";
 
   const parts = [
     signature.name,
     signature.title ? `Title: ${signature.title}` : "",
-    signature.id ? `ID: ${signature.id}` : "",
+    signature.licenseNo ? `License: ${signature.licenseNo}` : "",
     signature.timestamp ? `Signed: ${signature.timestamp}` : "",
   ].filter(Boolean);
 
@@ -1040,16 +1093,17 @@ const formatInspectionItems = (inspection) => {
  */
 const generateDocument = async (templateName, inspection) => {
   try {
+    const normalizedInspection = await withResolvedSignatureLicenses(inspection);
     const zip = loadTemplate(templateName);
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
     });
 
-    const data = formatInspectionData(inspection);
+    const data = formatInspectionData(normalizedInspection);
     doc.render(data);
     if (templateName === "pre-inspection.docx") {
-      await fillPreInspectionTemplate(doc.getZip(), inspection);
+      await fillPreInspectionTemplate(doc.getZip(), normalizedInspection);
     }
 
     return doc.getZip().generate({ type: "nodebuffer" });
@@ -1130,6 +1184,7 @@ const drawSignature = (doc, signatureBuffer, x, y, width = 78, height = 28) => {
 };
 
 const getPreInspectionPdfDirect = async (inspection = {}) => {
+  inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.releasedBy));
   const acceptedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.acceptedBy));
   const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
@@ -1284,6 +1339,7 @@ const POST_INSPECTION_PDF_SECTIONS = [
 ];
 
 const getPostInspectionPdfDirect = async (inspection = {}) => {
+  inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
   );

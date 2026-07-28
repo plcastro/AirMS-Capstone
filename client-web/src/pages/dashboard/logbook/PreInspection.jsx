@@ -1220,11 +1220,15 @@ export default function PreInspection() {
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
-                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                <Text
+                  strong
+                  style={{ display: "block", marginBottom: 6, width: "100%" }}
+                >
                   RP/C
                 </Text>
                 <Select
                   size="large"
+                  style={{ width: "100%" }}
                   value={editing.rpc}
                   onChange={async (value) => {
                     const aircraftType = await resolveAircraftTypeByRpc(value);
@@ -1329,10 +1333,6 @@ export default function PreInspection() {
                   </Button>
                 )}
             </Space>
-            <Text type="secondary">
-              Mobile parity note: signatures and role-based release/accept are
-              now enforced on web too.
-            </Text>
           </Space>
         )}
       </Modal>

@@ -1420,9 +1420,14 @@ const getSignatureName = (signature) =>
   typeof signature === "string" ? signature : signature?.name || "";
 const getSignatureTitle = (signature, fallback = "__________________") =>
   (typeof signature === "object" && signature?.title) || fallback;
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
 const getSignatureLicense = (signature, ...keys) => {
   if (!signature || typeof signature !== "object") return "";
-  return keys.map((key) => signature?.[key]).find(Boolean) || "";
+  return (
+    keys
+      .map((key) => signature?.[key])
+      .find((value) => value && !isObjectIdLike(value)) || ""
+  );
 };
 
 const buildPreInspectionHtml = (inspection = {}) => `

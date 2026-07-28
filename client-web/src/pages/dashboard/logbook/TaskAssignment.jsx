@@ -1034,6 +1034,11 @@ export default function TaskAssignment() {
         rowKey={(record) => record._id || record.id}
         dataSource={displayedTasks}
         pagination={{ pageSize: 10 }}
+        scroll={{ x: "max-content" }}
+        mobileBreakpoint="sm"
+        mobilePrimaryColumn="title"
+        mobileSecondaryColumn="id"
+        mobileMetaLimit={5}
         onRow={(record) => ({
           onClick: () => {
             setSelectedTask(record);

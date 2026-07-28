@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View
 } from "react-native";
@@ -62,7 +63,7 @@ const previewColumns = [
   ["totalTimeSinceNew", "Total Time Since New", 150],
 ];
 
-const COMPONENT_DISPLAY_LIMIT = 10;
+const COMPONENT_PAGE_SIZE = 10;
 
 const parseApiResponse = async (response) => {
   const responseText = await response.text();
@@ -79,11 +80,15 @@ const parseApiResponse = async (response) => {
   }
 };
 
-const formatDateInput = (value) => {
-  if (!value) return "";
+const formatLifespanDate = (value) => {
+  if (!value) return "N/A";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString().slice(0, 10);
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+  });
 };
 
 const formatCreepDamage = (value) => {
@@ -148,7 +153,10 @@ export default function PartsLifespanMonitoring() {
   const [parts, setParts] = useState([]);
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
+  const [activeTab, setActiveTab] = useState("overview");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [componentPage, setComponentPage] = useState(0);
+  const [selectedPartIndex, setSelectedPartIndex] = useState(null);
   const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const fetchAircraftList = useCallback(async () => {
@@ -210,11 +218,16 @@ export default function PartsLifespanMonitoring() {
     loadAircraftData(selectedAircraft);
   }, [loadAircraftData, selectedAircraft]);
 
+  const cleanParts = useMemo(
+    () =>
+      parts
+        .map((part, index) => ({ ...part, __sourceIndex: index }))
+        .filter((part) => part.rowType !== "header"),
+    [parts],
+  );
+
   const filteredParts = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const cleanParts = parts
-      .map((part, index) => ({ ...part, __sourceIndex: index }))
-      .filter((part) => part.rowType !== "header");
     if (!needle) return cleanParts;
     return cleanParts.filter((part) =>
       [
@@ -228,11 +241,11 @@ export default function PartsLifespanMonitoring() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle)),
     );
-  }, [parts, search]);
+  }, [cleanParts, search]);
 
   const summary = useMemo(
     () =>
-      filteredParts.reduce(
+      cleanParts.reduce(
         (totals, part) => {
           const status = getPartStatus(part).label;
           totals.total += 1;
@@ -242,24 +255,79 @@ export default function PartsLifespanMonitoring() {
         },
         { total: 0, due: 0, dueSoon: 0 },
       ),
-    [filteredParts],
+    [cleanParts],
   );
-  const visibleParts = useMemo(
-    () =>
-      filteredParts.slice(
-        componentPage * COMPONENT_DISPLAY_LIMIT,
-        (componentPage + 1) * COMPONENT_DISPLAY_LIMIT,
-      ),
-    [componentPage, filteredParts],
+
+  const summaryChips = useMemo(
+    () => [
+      { key: "due", label: "Due", value: summary.due, color: "#cf1322" },
+      {
+        key: "dueSoon",
+        label: "Due Soon",
+        value: summary.dueSoon,
+        color: "#d46b08",
+      },
+      {
+        key: "ok",
+        label: "OK",
+        value: Math.max(summary.total - summary.due - summary.dueSoon, 0),
+        color: COLORS.primaryLight,
+      },
+      { key: "total", label: "Total", value: summary.total, color: COLORS.primary },
+    ],
+    [summary],
   );
+
+  const statusFilters = useMemo(
+    () => [
+      { key: "all", label: "All", value: summary.total },
+      { key: "due", label: "Due", value: summary.due },
+      { key: "dueSoon", label: "Due Soon", value: summary.dueSoon },
+      {
+        key: "ok",
+        label: "OK",
+        value: Math.max(summary.total - summary.due - summary.dueSoon, 0),
+      },
+    ],
+    [summary],
+  );
+
+  const statusFilteredParts = useMemo(() => {
+    if (statusFilter === "all") return filteredParts;
+    return filteredParts.filter((part) => {
+      const label = getPartStatus(part).label;
+      if (statusFilter === "due") return label === "Due";
+      if (statusFilter === "dueSoon") return label === "Due Soon";
+      return label === "OK";
+    });
+  }, [filteredParts, statusFilter]);
+
   const totalComponentPages = Math.max(
     1,
-    Math.ceil(filteredParts.length / COMPONENT_DISPLAY_LIMIT),
+    Math.ceil(statusFilteredParts.length / COMPONENT_PAGE_SIZE),
+  );
+
+  const paginatedParts = useMemo(
+    () =>
+      statusFilteredParts.slice(
+        componentPage * COMPONENT_PAGE_SIZE,
+        (componentPage + 1) * COMPONENT_PAGE_SIZE,
+      ),
+    [componentPage, statusFilteredParts],
+  );
+
+  const selectedPart = useMemo(
+    () =>
+      selectedPartIndex === null
+        ? null
+        : cleanParts.find((part) => part.__sourceIndex === selectedPartIndex),
+    [cleanParts, selectedPartIndex],
   );
 
   useEffect(() => {
+    setSelectedPartIndex(null);
     setComponentPage(0);
-  }, [search, selectedAircraft]);
+  }, [search, selectedAircraft, statusFilter]);
 
   const updatePartField = (sourceIndex, field, value) => {
     setParts((currentParts) =>
@@ -455,15 +523,7 @@ export default function PartsLifespanMonitoring() {
   return (
     <ModuleContainer>
       <InfoCard title="Parts Lifespan Monitoring" subtitle="Aircraft component status">
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            borderRadius: 8,
-            marginTop: 10,
-            overflow: "hidden",
-          }}
-        >
+        <View style={styles.pickerWrap}>
           <Picker
             selectedValue={selectedAircraft}
             onValueChange={setSelectedAircraft}
@@ -502,12 +562,71 @@ export default function PartsLifespanMonitoring() {
         )}
       </InfoCard>
 
+      {!!selectedAircraft && (
+        <View style={styles.summaryGrid}>
+          {summaryChips.map((chip) => (
+            <TouchableOpacity
+              key={chip.key}
+              activeOpacity={0.82}
+              style={[styles.summaryChip, { borderColor: `${chip.color}55` }]}
+              onPress={() => {
+                setStatusFilter(chip.key === "total" ? "all" : chip.key);
+                setActiveTab("components");
+              }}
+            >
+              <AppText style={[styles.summaryValue, { color: chip.color }]}>
+                {chip.value}
+              </AppText>
+              <AppText style={styles.summaryLabel}>{chip.label}</AppText>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search components" />
 
       {!!selectedAircraft && (
-        <InfoCard title={selectedAircraft} subtitle={aircraftDetails.aircraftType || "Aircraft details"}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Date Manufactured" value={formatDate(aircraftDetails.dateManufactured)} />
+        <View style={styles.tabBar}>
+          {[
+            ["overview", "Overview"],
+            ["components", "Components"],
+            ["reference", "Reference"],
+          ].map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              activeOpacity={0.82}
+              onPress={() => setActiveTab(key)}
+              style={[
+                styles.tabButton,
+                activeTab === key ? styles.tabButtonActive : null,
+              ]}
+            >
+              <AppText
+                style={[
+                  styles.tabText,
+                  activeTab === key ? styles.tabTextActive : null,
+                ]}
+              >
+                {label}
+              </AppText>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {loading && <LoadingState />}
+      {!loading && !selectedAircraft && <EmptyState text="Select an aircraft to view components." />}
+
+      {!loading && !!selectedAircraft && activeTab === "overview" && (
+        <InfoCard
+          title={selectedAircraft}
+          subtitle={aircraftDetails.aircraftType || "Aircraft details"}
+        >
+          <View style={styles.fieldGrid}>
+            <FieldRow
+              label="Date Manufactured"
+              value={formatLifespanDate(aircraftDetails.dateManufactured)}
+            />
             <FieldRow label="Serial Number" value={aircraftDetails.serialNumber} />
             <FieldRow
               label="Creep Damage"
@@ -520,28 +639,23 @@ export default function PartsLifespanMonitoring() {
         </InfoCard>
       )}
 
-      {!!selectedAircraft && (
+      {!loading && !!selectedAircraft && activeTab === "reference" && (
         <InfoCard title="Reference Values" subtitle="Used by web formulas and saved workbook data">
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View style={styles.inputGrid}>
             {referenceFields.map(([key, label]) => (
-              <View key={key} style={{ width: "48%" }}>
+              <View key={key} style={styles.inputCell}>
                 <AppText style={moduleStyles.label}>{label}</AppText>
                 {key === "today" ? (
                   <TouchableOpacity
                     disabled={!canEditParts}
                     onPress={() => openDatePicker({ type: "ref", key })}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: COLORS.grayMedium,
-                      borderRadius: 8,
-                      paddingHorizontal: 10,
-                      paddingVertical: 10,
-                      marginTop: 5,
-                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                    }}
+                    style={[
+                      styles.inputLike,
+                      !canEditParts ? styles.inputDisabled : null,
+                    ]}
                   >
                     <AppText style={{ color: refs[key] ? COLORS.black : COLORS.grayDark }}>
-                      {formatDateInput(refs[key]) || "Select date"}
+                      {formatLifespanDate(refs[key]) || "Select date"}
                     </AppText>
                   </TouchableOpacity>
                 ) : (
@@ -552,15 +666,10 @@ export default function PartsLifespanMonitoring() {
                     onChangeText={(value) =>
                       setRefs((current) => ({ ...current, [key]: value }))
                     }
-                    style={{
-                      borderWidth: 1,
-                      borderColor: COLORS.grayMedium,
-                      borderRadius: 8,
-                      paddingHorizontal: 10,
-                      paddingVertical: 8,
-                      marginTop: 5,
-                      backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                    }}
+                    style={[
+                      styles.inputLike,
+                      !canEditParts ? styles.inputDisabled : null,
+                    ]}
                   />
                 )}
               </View>
@@ -585,130 +694,139 @@ export default function PartsLifespanMonitoring() {
         </InfoCard>
       )}
 
-      <SectionTitle
-        title="Components"
-        subtitle={
-          selectedAircraft
-            ? `Showing ${
-                filteredParts.length === 0
-                  ? 0
-                  : componentPage * COMPONENT_DISPLAY_LIMIT + 1
-              }-${Math.min(
-                (componentPage + 1) * COMPONENT_DISPLAY_LIMIT,
-                filteredParts.length,
-              )} of ${filteredParts.length} component row(s)`
-            : ""
-        }
-      />
-      {loading && <LoadingState />}
-      {!loading && !selectedAircraft && <EmptyState text="Select an aircraft to view components." />}
-      {!loading && selectedAircraft && filteredParts.length === 0 && (
-        <EmptyState text="No component rows found." />
-      )}
-      {visibleParts.map((part, index) => {
-        const status = getPartStatus(part);
-        return (
-          <InfoCard
-            key={part._id || `${part.componentName}-${index}`}
-            title={part.componentName || "Unnamed component"}
-            subtitle={part.hd || "Component interval"}
-            right={<StatusChip label={status.label} color={status.color} />}
+      {!loading && !!selectedAircraft && activeTab === "components" && (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
           >
-            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              <FieldRow label="Days Remaining" value={part.daysRemaining} />
-              <FieldRow label="Time Remaining" value={part.timeRemaining} />
-              <FieldRow label="Date Due" value={part.dateDue} />
-              <FieldRow label="TT/CYC Due" value={part.ttCycleDue} />
-              <View style={{ width: "48%" }}>
-                <AppText style={moduleStyles.label}>HRS C/W</AppText>
-                <AppInput
-                  value={String(part.hoursCW ?? "")}
-                  editable={canEditParts}
-                  keyboardType="numeric"
-                  onChangeText={(value) =>
-                    updatePartField(part.__sourceIndex, "hoursCW", value)
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
-                />
-              </View>
-              <View style={{ width: "48%" }}>
-                <AppText style={moduleStyles.label}>TIME SINCE INSTALLATION</AppText>
-                <AppInput
-                  value={String(part.timeSinceInstall ?? "")}
-                  editable={canEditParts}
-                  keyboardType="numeric"
-                  onChangeText={(value) =>
-                    updatePartField(part.__sourceIndex, "timeSinceInstall", value)
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
-                />
-              </View>
-              <View style={{ width: "48%" }}>
-                <AppText style={moduleStyles.label}>TOTAL TIME SINCE NEW</AppText>
-                <AppInput
-                  value={String(part.totalTimeSinceNew ?? "")}
-                  editable={canEditParts}
-                  keyboardType="numeric"
-                  onChangeText={(value) =>
-                    updatePartField(part.__sourceIndex, "totalTimeSinceNew", value)
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
-                />
-              </View>
-              <View style={{ width: "48%" }}>
-                <AppText style={moduleStyles.label}>DATE C/W</AppText>
-                <TouchableOpacity
-                  disabled={!canEditParts}
-                  onPress={() =>
-                    openDatePicker({
-                      type: "part",
-                      sourceIndex: part.__sourceIndex,
-                      field: "dateCW",
-                    })
-                  }
-                  style={{
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 10,
-                    marginTop: 5,
-                    backgroundColor: canEditParts ? COLORS.white : COLORS.grayLight,
-                  }}
+            {statusFilters.map((filter) => (
+              <TouchableOpacity
+                key={filter.key}
+                activeOpacity={0.82}
+                onPress={() => setStatusFilter(filter.key)}
+                style={[
+                  styles.filterChip,
+                  statusFilter === filter.key ? styles.filterChipActive : null,
+                ]}
+              >
+                <AppText
+                  style={[
+                    styles.filterText,
+                    statusFilter === filter.key ? styles.filterTextActive : null,
+                  ]}
                 >
-                  <AppText style={{ color: part.dateCW ? COLORS.black : COLORS.grayDark }}>
-                    {formatDateInput(part.dateCW) || "Select date"}
-                  </AppText>
-                </TouchableOpacity>
+                  {filter.label} {filter.value}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {statusFilteredParts.length === 0 && (
+            <EmptyState text="No component rows found." />
+          )}
+          {statusFilteredParts.length > 0 && (
+            <AppText style={styles.pageSummary}>
+              Showing {componentPage * COMPONENT_PAGE_SIZE + 1}-
+              {Math.min(
+                (componentPage + 1) * COMPONENT_PAGE_SIZE,
+                statusFilteredParts.length,
+              )} of {statusFilteredParts.length}
+            </AppText>
+          )}
+          {paginatedParts.map((part, index) => {
+            const status = getPartStatus(part);
+            return (
+              <TouchableOpacity
+                key={part._id || `${part.componentName}-${part.__sourceIndex}-${index}`}
+                activeOpacity={0.86}
+                style={styles.componentRow}
+                onPress={() => setSelectedPartIndex(part.__sourceIndex)}
+              >
+                <View style={styles.componentHeader}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <AppText numberOfLines={2} style={styles.componentName}>
+                      {part.componentName || "Unnamed component"}
+                    </AppText>
+                    <AppText style={styles.componentMeta}>
+                      Due {formatLifespanDate(part.dateDue)}
+                    </AppText>
+                  </View>
+                  <StatusChip label={status.label} color={status.color} />
+                </View>
+                <View style={styles.metricRow}>
+                  <View style={styles.metricCell}>
+                    <AppText style={styles.metricLabel}>Days</AppText>
+                    <AppText style={styles.metricValue}>{part.daysRemaining ?? "N/A"}</AppText>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <AppText style={styles.metricLabel}>Time/Cyc</AppText>
+                    <AppText style={styles.metricValue}>{part.timeRemaining ?? "N/A"}</AppText>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <AppText style={styles.metricLabel}>H/D</AppText>
+                    <AppText style={styles.metricValue}>{part.hd || "N/A"}</AppText>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {statusFilteredParts.length > COMPONENT_PAGE_SIZE && (
+            <View style={styles.paginationRow}>
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={[
+                  moduleStyles.button,
+                  styles.paginationButton,
+                  componentPage === 0 ? styles.paginationButtonDisabled : null,
+                ]}
+                disabled={componentPage === 0}
+                onPress={() => setComponentPage((page) => Math.max(0, page - 1))}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={18}
+                  color={COLORS.white}
+                />
+                <AppText style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
+                  Previous
+                </AppText>
+              </TouchableOpacity>
+              <View style={styles.pageCounter}>
+                <AppText style={styles.pageCounterText}>
+                  {componentPage + 1}/{totalComponentPages}
+                </AppText>
               </View>
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={[
+                  moduleStyles.button,
+                  styles.paginationButton,
+                  componentPage >= totalComponentPages - 1
+                    ? styles.paginationButtonDisabled
+                    : null,
+                ]}
+                disabled={componentPage >= totalComponentPages - 1}
+                onPress={() =>
+                  setComponentPage((page) =>
+                    Math.min(totalComponentPages - 1, page + 1),
+                  )
+                }
+              >
+                <AppText style={[moduleStyles.buttonText, { marginRight: 4 }]}>
+                  Next
+                </AppText>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={18}
+                  color={COLORS.white}
+                />
+              </TouchableOpacity>
             </View>
-          </InfoCard>
-        );
-      })}
+          )}
+        </>
+      )}
+
       {datePickerTarget && (
         <DateTimePicker
           value={parsePickerDate(
@@ -721,74 +839,124 @@ export default function PartsLifespanMonitoring() {
           onChange={handleDatePickerChange}
         />
       )}
-      {selectedAircraft && filteredParts.length > COMPONENT_DISPLAY_LIMIT && (
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
-          <TouchableOpacity
-            style={[
-              moduleStyles.button,
-              {
-                flex: 1,
-                backgroundColor:
-                  componentPage === 0 ? COLORS.grayMedium : COLORS.primary,
-              },
-            ]}
-            disabled={componentPage === 0}
-            onPress={() => setComponentPage((page) => Math.max(0, page - 1))}
-          >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={18}
-              color={COLORS.white}
-            />
-            <AppText style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
-              Previous
-            </AppText>
-          </TouchableOpacity>
-          <View
-            style={[
-              moduleStyles.card,
-              {
-                marginBottom: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: 74,
-                padding: 8,
-              },
-            ]}
-          >
-            <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
-              {componentPage + 1}/{totalComponentPages}
-            </AppText>
+      <Modal
+        visible={Boolean(selectedPart)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedPartIndex(null)}
+      >
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            {!!selectedPart && (
+              <>
+                <View style={styles.sheetHandle} />
+                <View style={styles.sheetHeader}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <AppText style={styles.sheetTitle}>
+                      {selectedPart.componentName || "Unnamed component"}
+                    </AppText>
+                    <AppText style={styles.componentMeta}>
+                      {selectedPart.hd || "Component interval"}
+                    </AppText>
+                  </View>
+                  <StatusChip
+                    label={getPartStatus(selectedPart).label}
+                    color={getPartStatus(selectedPart).color}
+                  />
+                </View>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 18 }}
+                >
+                  <View style={styles.fieldGrid}>
+                    <FieldRow label="Days Remaining" value={selectedPart.daysRemaining} />
+                    <FieldRow label="Time/Cyc Remaining" value={selectedPart.timeRemaining} />
+                    <FieldRow label="Date Due" value={formatLifespanDate(selectedPart.dateDue)} />
+                    <FieldRow label="Due" value={selectedPart.due} />
+                  </View>
+                  <View style={styles.inputGrid}>
+                    {[
+                      ["hoursCW", "HRS C/W", "numeric"],
+                      ["timeSinceInstall", "Time Since Installation", "numeric"],
+                      ["totalTimeSinceNew", "Total Time Since New", "numeric"],
+                      ["ttCycleDue", "TT/CYC Due", "numeric"],
+                      ["hourLimit1", "Hour Limit", "numeric"],
+                      ["hourLimit2", "H/C/OC", "default"],
+                      ["dayLimit", "Day Limit", "numeric"],
+                      ["dayType", "D/OC", "default"],
+                    ].map(([field, label, keyboardType]) => (
+                      <View key={field} style={styles.inputCell}>
+                        <AppText style={moduleStyles.label}>{label}</AppText>
+                        <AppInput
+                          value={String(selectedPart[field] ?? "")}
+                          editable={canEditParts}
+                          keyboardType={keyboardType}
+                          onChangeText={(value) =>
+                            updatePartField(selectedPart.__sourceIndex, field, value)
+                          }
+                          style={[
+                            styles.inputLike,
+                            !canEditParts ? styles.inputDisabled : null,
+                          ]}
+                        />
+                      </View>
+                    ))}
+                    <View style={styles.inputCell}>
+                      <AppText style={moduleStyles.label}>Date C/W</AppText>
+                      <TouchableOpacity
+                        disabled={!canEditParts}
+                        onPress={() =>
+                          openDatePicker({
+                            type: "part",
+                            sourceIndex: selectedPart.__sourceIndex,
+                            field: "dateCW",
+                          })
+                        }
+                        style={[
+                          styles.inputLike,
+                          !canEditParts ? styles.inputDisabled : null,
+                        ]}
+                      >
+                        <AppText
+                          style={{
+                            color: selectedPart.dateCW ? COLORS.black : COLORS.grayDark,
+                          }}
+                        >
+                          {formatLifespanDate(selectedPart.dateCW)}
+                        </AppText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity
+                    style={[moduleStyles.button, styles.sheetButton, { backgroundColor: COLORS.grayMedium }]}
+                    onPress={() => setSelectedPartIndex(null)}
+                  >
+                    <AppText style={moduleStyles.buttonText}>Close</AppText>
+                  </TouchableOpacity>
+                  {canEditParts && (
+                    <TouchableOpacity
+                      style={[moduleStyles.button, styles.sheetButton]}
+                      onPress={saveToDatabase}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <ActivityIndicator size="small" color={COLORS.white} />
+                      ) : (
+                        <MaterialCommunityIcons name="content-save" size={18} color={COLORS.white} />
+                      )}
+                      <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+                        {saving ? "Saving..." : "Save"}
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
           </View>
-          <TouchableOpacity
-            style={[
-              moduleStyles.button,
-              {
-                flex: 1,
-                backgroundColor:
-                  componentPage >= totalComponentPages - 1
-                    ? COLORS.grayMedium
-                    : COLORS.primaryLight,
-              },
-            ]}
-            disabled={componentPage >= totalComponentPages - 1}
-            onPress={() =>
-              setComponentPage((page) =>
-                Math.min(totalComponentPages - 1, page + 1),
-              )
-            }
-          >
-            <AppText style={[moduleStyles.buttonText, { marginRight: 4 }]}>
-              Next
-            </AppText>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={18}
-              color={COLORS.white}
-            />
-          </TouchableOpacity>
         </View>
-      )}
+      </Modal>
       <Modal
         visible={Boolean(importPreview)}
         transparent
@@ -1040,3 +1208,238 @@ export default function PartsLifespanMonitoring() {
     </ModuleContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  pickerWrap: {
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 10,
+    overflow: "hidden",
+  },
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  summaryChip: {
+    width: "48%",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  summaryLabel: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    textTransform: "uppercase",
+  },
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginBottom: 10,
+    padding: 3,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: 6,
+    paddingVertical: 9,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  tabText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  tabTextActive: {
+    color: COLORS.white,
+  },
+  fieldGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  inputGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  inputCell: {
+    width: "48%",
+    marginTop: 8,
+  },
+  inputLike: {
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    marginTop: 5,
+    backgroundColor: COLORS.white,
+    minHeight: 42,
+  },
+  inputDisabled: {
+    backgroundColor: COLORS.grayLight,
+  },
+  filterRow: {
+    gap: 8,
+    paddingBottom: 10,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 999,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primaryLight,
+  },
+  filterText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  filterTextActive: {
+    color: COLORS.white,
+  },
+  componentRow: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  componentHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  componentName: {
+    color: COLORS.black,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  componentMeta: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  metricRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  metricCell: {
+    flex: 1,
+    borderRadius: 8,
+    backgroundColor: COLORS.grayLight,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  metricLabel: {
+    color: COLORS.grayDark,
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  metricValue: {
+    color: COLORS.black,
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  pageSummary: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  paginationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  paginationButton: {
+    flex: 1,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+  },
+  pageCounter: {
+    minWidth: 68,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  pageCounterText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    maxHeight: "88%",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: COLORS.grayMedium,
+    marginBottom: 10,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  sheetTitle: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 14,
+    paddingTop: 8,
+  },
+  sheetButton: {
+    flex: 1,
+  },
+});

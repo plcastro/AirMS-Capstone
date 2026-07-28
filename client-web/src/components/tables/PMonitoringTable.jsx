@@ -126,7 +126,7 @@ export default function PMonitoringTable({
         if (!editable) {
           // Non-editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return <DateOnlyCell value={value} fallback={value} />;
+            return <DateOnlyCell value={value} fallback={value} format="MM/DD/YY" />;
           }
           return value || "";
         }
@@ -134,7 +134,7 @@ export default function PMonitoringTable({
         if (!isCellEditable(record, header.key)) {
           // Not editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return <DateOnlyCell value={value} fallback={value} />;
+            return <DateOnlyCell value={value} fallback={value} format="MM/DD/YY" />;
           }
           return value || "";
         }

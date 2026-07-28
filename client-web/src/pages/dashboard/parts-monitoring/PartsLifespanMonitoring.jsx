@@ -14,6 +14,9 @@ import {
   Space,
   Checkbox,
   Table as AntTable,
+  Grid,
+  Tabs,
+  Tag,
 } from "antd";
 import {
   DownloadOutlined,
@@ -106,6 +109,8 @@ const getFormulaProcessor = (aircraft) => {
 };
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
+const MOBILE_COMPONENT_PAGE_SIZE = 10;
 
 const exportColumns = [
   {
@@ -144,8 +149,26 @@ const formatPreviewDate = (value) => {
   return date.toLocaleDateString("en-US", {
     month: "2-digit",
     day: "2-digit",
-    year: "numeric",
+    year: "2-digit",
   });
+};
+
+const formatShortDate = (value, fallback = "N/A") => {
+  if (!value || value === "N/A") return fallback;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+  });
+};
+
+const toDateInputValue = (value) => {
+  if (!value || value === "N/A") return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().split("T")[0];
 };
 
 const formatCreepDamage = (value) => {
@@ -342,6 +365,8 @@ const columnHeader = [
 export default function PartsMonitoring() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
+  const screens = useBreakpoint();
+  const isMobileLayout = !screens.md;
   const normalizedRole = String(user?.jobTitle || "").toLowerCase();
   const isOfficerInCharge = normalizedRole === "officer-in-charge";
   const canManageAircraft = ["maintenance manager", "superadmin"].includes(
@@ -360,6 +385,10 @@ export default function PartsMonitoring() {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [mobileActiveTab, setMobileActiveTab] = useState("overview");
+  const [mobileStatusFilter, setMobileStatusFilter] = useState("all");
+  const [mobileComponentPage, setMobileComponentPage] = useState(0);
+  const [mobileDetailId, setMobileDetailId] = useState(null);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [showComponentsToUpdate, setShowComponentsToUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -755,6 +784,84 @@ export default function PartsMonitoring() {
     [computedData],
   );
 
+  const getComponentStatus = (row = {}) => {
+    const dueText = String(row.due || "").toLowerCase();
+    const days = Number(row.daysRemaining);
+    const time = Number(row.timeRemaining);
+
+    if (
+      dueText.includes("due") ||
+      (Number.isFinite(days) && days <= 0) ||
+      (Number.isFinite(time) && time <= 0)
+    ) {
+      return { key: "due", label: "Due", color: "#cf1322" };
+    }
+
+    if (
+      (Number.isFinite(days) && days <= 30) ||
+      (Number.isFinite(time) && time <= 30)
+    ) {
+      return { key: "dueSoon", label: "Due Soon", color: "#d46b08" };
+    }
+
+    return { key: "ok", label: "OK", color: "#26866f" };
+  };
+
+  const mobileComponentRows = useMemo(
+    () =>
+      filteredData.filter(
+        (row) => row.rowType !== "header" && row.componentName,
+      ),
+    [filteredData],
+  );
+
+  const mobileSummary = useMemo(
+    () =>
+      computedData
+        .filter((row) => row.rowType !== "header" && row.componentName)
+        .reduce(
+          (summary, row) => {
+            const status = getComponentStatus(row).key;
+            summary.total += 1;
+            summary[status] += 1;
+            return summary;
+          },
+          { total: 0, due: 0, dueSoon: 0, ok: 0 },
+        ),
+    [computedData],
+  );
+
+  const mobileFilteredRows = useMemo(() => {
+    if (mobileStatusFilter === "all") return mobileComponentRows;
+    return mobileComponentRows.filter(
+      (row) => getComponentStatus(row).key === mobileStatusFilter,
+    );
+  }, [mobileComponentRows, mobileStatusFilter]);
+
+  const mobileComponentPageCount = Math.max(
+    1,
+    Math.ceil(mobileFilteredRows.length / MOBILE_COMPONENT_PAGE_SIZE),
+  );
+
+  const mobilePaginatedRows = useMemo(
+    () =>
+      mobileFilteredRows.slice(
+        mobileComponentPage * MOBILE_COMPONENT_PAGE_SIZE,
+        (mobileComponentPage + 1) * MOBILE_COMPONENT_PAGE_SIZE,
+      ),
+    [mobileComponentPage, mobileFilteredRows],
+  );
+
+  const mobileDetailPart = useMemo(
+    () => computedData.find((row) => row._id === mobileDetailId) || null,
+    [computedData, mobileDetailId],
+  );
+
+  useEffect(() => {
+    setMobileComponentPage(0);
+    setMobileDetailId(null);
+  }, [mobileStatusFilter, searchText, selectedAircraft]);
+
   const isCellEditable = (record, dataIndex) => {
     if (record.rowType !== "part") return false;
     const nonEditable = [
@@ -1039,6 +1146,490 @@ export default function PartsMonitoring() {
     }
   };
 
+  const referenceDateValue =
+    refs.today instanceof Date && !Number.isNaN(refs.today.getTime())
+      ? refs.today.toISOString().split("T")[0]
+      : "";
+  const referenceFields = [
+    ["engTT", "Engine Cycle"],
+    ["today", "Date"],
+    ["n1Cycles", "N1"],
+    ["n2Cycles", "N2"],
+    ["acftTT", "Acft. TT"],
+    ["landings", "Landings"],
+  ];
+  const filterOptions = [
+    ["all", "All", mobileSummary.total, "#26866f"],
+    ["due", "Due", mobileSummary.due, "#cf1322"],
+    ["dueSoon", "Due Soon", mobileSummary.dueSoon, "#d46b08"],
+    ["ok", "OK", mobileSummary.ok, "#26866f"],
+  ];
+  const renderMobileReferenceFields = () => (
+    <Form layout="vertical" colon={false}>
+      <Row gutter={[12, 8]}>
+        {referenceFields.map(([key, label]) => (
+          <Col xs={24} sm={12} key={key}>
+            <Form.Item label={label} style={{ marginBottom: 8 }}>
+              <Input
+                size="large"
+                type={key === "today" ? "date" : "number"}
+                step="0.01"
+                inputMode={key === "today" ? undefined : "decimal"}
+                value={key === "today" ? referenceDateValue : refs[key]}
+                onChange={(e) =>
+                  setRefs((prev) => ({
+                    ...prev,
+                    [key]:
+                      key === "today"
+                        ? new Date(e.target.value)
+                        : parseFloat(e.target.value) || 0,
+                  }))
+                }
+                disabled={!selectedAircraft || isOfficerInCharge}
+              />
+            </Form.Item>
+          </Col>
+        ))}
+      </Row>
+    </Form>
+  );
+
+  if (isMobileLayout) {
+    return (
+      <div className="parts-monitoring-container parts-monitoring-mobile">
+        <Card className="mobile-control-card">
+          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            <Select
+              value={selectedAircraft}
+              onChange={(value) => setSelectedAircraft(value)}
+              loading={loadingAircraft}
+              placeholder="Select aircraft"
+              options={formattedAircraftOptions}
+              size="large"
+              style={{ width: "100%" }}
+            />
+            <Input
+              placeholder="Search components"
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              size="large"
+            />
+          </Space>
+        </Card>
+
+        <Tabs
+          className="mobile-parts-tabs"
+          activeKey={mobileActiveTab}
+          onChange={setMobileActiveTab}
+          items={[
+            {
+              key: "overview",
+              label: "Overview",
+              children: (
+                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                  <Card className="mobile-aircraft-summary">
+                    <Space
+                      direction="vertical"
+                      size={8}
+                      style={{ width: "100%" }}
+                    >
+                      <div className="mobile-aircraft-title">
+                        {selectedAircraft || "Select an aircraft"}
+                      </div>
+                      <div className="mobile-info-row">
+                        <Text type="secondary">Type</Text>
+                        <Text strong>
+                          {aircraftDetails.aircraftType || "Not available"}
+                        </Text>
+                      </div>
+                      <div className="mobile-info-row">
+                        <Text type="secondary">Serial Number</Text>
+                        <Text strong>
+                          {aircraftDetails.serialNumber || "Not available"}
+                        </Text>
+                      </div>
+                      <div className="mobile-info-row">
+                        <Text type="secondary">Date Manufactured</Text>
+                        <Text strong>
+                          {formatShortDate(
+                            aircraftDetails.dateManufactured,
+                            "Not available",
+                          )}
+                        </Text>
+                      </div>
+                      <div className="mobile-info-row">
+                        <Text type="secondary">Creep Damage</Text>
+                        <Text strong>
+                          {formatCreepDamage(aircraftDetails.creepDamage)}
+                        </Text>
+                      </div>
+                    </Space>
+                  </Card>
+                  <div className="mobile-summary-grid">
+                    {filterOptions.map(([key, label, value, color]) => (
+                      <button
+                        type="button"
+                        key={key}
+                        className="mobile-summary-chip"
+                        onClick={() => {
+                          setMobileStatusFilter(key);
+                          setMobileActiveTab("components");
+                        }}
+                      >
+                        <span style={{ color }}>{value}</span>
+                        <small>{label}</small>
+                      </button>
+                    ))}
+                  </div>
+                </Space>
+              ),
+            },
+            {
+              key: "components",
+              label: "Components",
+              children: (
+                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                  <div className="mobile-filter-row">
+                    {filterOptions.map(([key, label, value, color]) => (
+                      <button
+                        type="button"
+                        key={key}
+                        className={
+                          mobileStatusFilter === key
+                            ? "mobile-filter-chip active"
+                            : "mobile-filter-chip"
+                        }
+                        onClick={() => setMobileStatusFilter(key)}
+                      >
+                        <span>{label}</span>
+                        <b style={{ color }}>{value}</b>
+                      </button>
+                    ))}
+                  </div>
+                  {loading && <Card loading />}
+                  {!loading && !selectedAircraft && (
+                    <Card>
+                      <Text type="secondary">
+                        Select an aircraft to view components.
+                      </Text>
+                    </Card>
+                  )}
+                  {!loading &&
+                    selectedAircraft &&
+                    mobileFilteredRows.length === 0 && (
+                      <Card>
+                        <Text type="secondary">No component rows found.</Text>
+                      </Card>
+                    )}
+                  {!loading &&
+                    selectedAircraft &&
+                    mobileFilteredRows.length > 0 && (
+                      <Text className="mobile-page-summary" type="secondary">
+                        Showing{" "}
+                        {mobileComponentPage * MOBILE_COMPONENT_PAGE_SIZE + 1}-
+                        {Math.min(
+                          (mobileComponentPage + 1) *
+                            MOBILE_COMPONENT_PAGE_SIZE,
+                          mobileFilteredRows.length,
+                        )}{" "}
+                        of {mobileFilteredRows.length}
+                      </Text>
+                    )}
+                  {mobilePaginatedRows.map((part) => {
+                    const status = getComponentStatus(part);
+                    return (
+                      <button
+                        type="button"
+                        key={part._id || part.componentName}
+                        className="mobile-component-card"
+                        onClick={() => setMobileDetailId(part._id)}
+                      >
+                        <div className="mobile-component-card-head">
+                          <strong>
+                            {part.componentName || "Unnamed component"}
+                          </strong>
+                          <Tag color={status.color}>{status.label}</Tag>
+                        </div>
+                        <div className="mobile-component-metrics">
+                          <span>
+                            <small>Days</small>
+                            <b>{part.daysRemaining ?? "N/A"}</b>
+                          </span>
+                          <span>
+                            <small>Time/Cyc</small>
+                            <b>{part.timeRemaining ?? "N/A"}</b>
+                          </span>
+                          <span>
+                            <small>Date Due</small>
+                            <b>{formatShortDate(part.dateDue)}</b>
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {mobileFilteredRows.length > MOBILE_COMPONENT_PAGE_SIZE && (
+                    <div className="mobile-pagination-row">
+                      <Button
+                        block
+                        disabled={mobileComponentPage === 0}
+                        onClick={() =>
+                          setMobileComponentPage((page) =>
+                            Math.max(0, page - 1),
+                          )
+                        }
+                      >
+                        Previous
+                      </Button>
+                      <div className="mobile-page-counter">
+                        {mobileComponentPage + 1}/{mobileComponentPageCount}
+                      </div>
+                      <Button
+                        block
+                        disabled={
+                          mobileComponentPage >= mobileComponentPageCount - 1
+                        }
+                        onClick={() =>
+                          setMobileComponentPage((page) =>
+                            Math.min(mobileComponentPageCount - 1, page + 1),
+                          )
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </Space>
+              ),
+            },
+            {
+              key: "reference",
+              label: "Reference",
+              children: (
+                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                  <Card className="aircraft-card">
+                    {renderMobileReferenceFields()}
+                  </Card>
+                  <Space
+                    direction="vertical"
+                    size={8}
+                    style={{ width: "100%" }}
+                  >
+                    {!isOfficerInCharge && (
+                      <Button
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        onClick={handleSaveToDatabase}
+                        loading={saving}
+                        disabled={!selectedAircraft}
+                        block
+                        size="large"
+                      >
+                        Save to Database
+                      </Button>
+                    )}
+                    {canManageAircraft && (
+                      <Upload
+                        accept=".xlsx,.xlsm"
+                        beforeUpload={uploadWorkbookForPreview}
+                        showUploadList={false}
+                        disabled={previewingAircraft || importingAircraft}
+                      >
+                        <Button
+                          icon={<PlusOutlined />}
+                          loading={previewingAircraft || importingAircraft}
+                          block
+                          size="large"
+                        >
+                          Add Aircraft
+                        </Button>
+                      </Upload>
+                    )}
+                    <Button
+                      icon={<DownloadOutlined />}
+                      onClick={handleExportExcel}
+                      disabled={
+                        !selectedAircraft ||
+                        loading ||
+                        computedData.length === 0
+                      }
+                      block
+                      size="large"
+                    >
+                      Export
+                    </Button>
+                    {lastSaved && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Last saved: {lastSaved.toLocaleTimeString()}
+                      </Text>
+                    )}
+                  </Space>
+                </Space>
+              ),
+            },
+          ]}
+        />
+
+        <Modal
+          open={Boolean(mobileDetailPart)}
+          title={mobileDetailPart?.componentName || "Component Details"}
+          onCancel={() => setMobileDetailId(null)}
+          footer={null}
+          className="mobile-component-detail-modal"
+          wrapClassName="mobile-component-detail-modal-wrap"
+          destroyOnHidden
+        >
+          {mobileDetailPart && (
+            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+              <Tag color={getComponentStatus(mobileDetailPart).color}>
+                {getComponentStatus(mobileDetailPart).label}
+              </Tag>
+              <Row gutter={[10, 8]}>
+                {[
+                  ["hourLimit1", "Hour Limit"],
+                  ["hourLimit2", "H/C/OC"],
+                  ["dayLimit", "Day Limit"],
+                  ["dayType", "D/OC"],
+                  ["ttCycleDue", "TT/CYC Due"],
+                  ["hd", "H/D"],
+                ].map(([key, label]) => (
+                  <Col xs={12} key={key}>
+                    <Text type="secondary">{label}</Text>
+                    <div className="mobile-detail-value">
+                      {mobileDetailPart[key] || "N/A"}
+                    </div>
+                  </Col>
+                ))}
+              </Row>
+              <Form layout="vertical">
+                {[
+                  ["hoursCW", "HRS C/W", "text"],
+                  ["dateCW", "Date C/W", "date"],
+                  ["timeSinceInstall", "Time Since Installation", "text"],
+                  ["totalTimeSinceNew", "Total Time Since New", "text"],
+                ].map(([key, label, type]) => (
+                  <Form.Item key={key} label={label}>
+                    <Input
+                      type={type}
+                      value={
+                        type === "date"
+                          ? toDateInputValue(mobileDetailPart[key])
+                          : mobileDetailPart[key] || ""
+                      }
+                      disabled={
+                        !selectedAircraft ||
+                        isOfficerInCharge ||
+                        !isCellEditable(mobileDetailPart, key)
+                      }
+                      onChange={(e) =>
+                        handleCellEdit(
+                          mobileDetailPart._id,
+                          key,
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </Form.Item>
+                ))}
+                <Row gutter={[10, 8]}>
+                  <Col xs={12}>
+                    <Text type="secondary">Days Remaining</Text>
+                    <div className="mobile-detail-value">
+                      {mobileDetailPart.daysRemaining ?? "N/A"}
+                    </div>
+                  </Col>
+                  <Col xs={12}>
+                    <Text type="secondary">Time/Cyc Remaining</Text>
+                    <div className="mobile-detail-value">
+                      {mobileDetailPart.timeRemaining ?? "N/A"}
+                    </div>
+                  </Col>
+                  <Col xs={12}>
+                    <Text type="secondary">Date Due</Text>
+                    <div className="mobile-detail-value">
+                      {formatShortDate(mobileDetailPart.dateDue)}
+                    </div>
+                  </Col>
+                  <Col xs={12}>
+                    <Text type="secondary">Due</Text>
+                    <div className="mobile-detail-value">
+                      {mobileDetailPart.due || "N/A"}
+                    </div>
+                  </Col>
+                </Row>
+              </Form>
+            </Space>
+          )}
+        </Modal>
+
+        <Modal
+          open={Boolean(importPreview)}
+          title="Preview Aircraft Import"
+          onCancel={resetImportPreview}
+          onOk={() => setSignatureImportOpen(true)}
+          okText="Confirm and Sign"
+          cancelText="Discard"
+          okButtonProps={{
+            disabled: importErrors.length > 0 || importingAircraft,
+          }}
+          confirmLoading={importingAircraft}
+          width="94vw"
+          centered
+          destroyOnHidden
+        >
+          {importErrors.map((error) => (
+            <Alert
+              key={error}
+              type="error"
+              title={error}
+              showIcon
+              style={{ marginBottom: 8 }}
+            />
+          ))}
+          {importWarnings.map((warning) => (
+            <Alert
+              key={warning}
+              type="warning"
+              title={warning}
+              showIcon
+              style={{ marginBottom: 8 }}
+            />
+          ))}
+          {importPreview && (
+            <AntTable
+              size="small"
+              bordered
+              scroll={{ x: 1500, y: 360 }}
+              pagination={false}
+              rowKey={(row) => row._id || row.componentName}
+              rowClassName={(record) =>
+                record.rowType === "header" ? "preview-import-header-row" : ""
+              }
+              dataSource={importPreview.parts || []}
+              columns={columnHeader}
+            />
+          )}
+        </Modal>
+        <PinVerifiedSignatureModal
+          open={signatureImportOpen}
+          title="Sign Aircraft Import"
+          description={`Draw your signature to add ${importPreview?.aircraft || "this aircraft"} to parts lifespan monitoring.`}
+          confirmDescription="Enter your 6-digit PIN to confirm this aircraft import."
+          onCancel={() => setSignatureImportOpen(false)}
+          onSave={handleImportWorkbook}
+        />
+        <ResultPopup
+          open={popup.open}
+          status={popup.status}
+          title={popup.title}
+          subTitle={popup.subTitle}
+          onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="parts-monitoring-container">
       {" "}
@@ -1047,7 +1638,7 @@ export default function PartsMonitoring() {
           <Col flex="auto">
             <div className="header-left">
               <Input
-                placeholder="Search..."
+                placeholder="Search components, "
                 prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -1115,28 +1706,28 @@ export default function PartsMonitoring() {
           <Text strong>NOTE:</Text>
 
           <Row gutter={[16, 12]}>
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={6}>
               <Space>
                 <Text strong>OC</Text>
                 <Text>- ON CONDITION</Text>
               </Space>
             </Col>
 
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={6}>
               <Space>
                 <Text strong>H</Text>
                 <Text>- HOURS</Text>
               </Space>
             </Col>
 
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={6}>
               <Space>
                 <Text strong>D</Text>
                 <Text>- DAY</Text>
               </Space>
             </Col>
 
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={6}>
               <Space>
                 <span
                   style={{
@@ -1151,7 +1742,7 @@ export default function PartsMonitoring() {
               </Space>
             </Col>
 
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={6}>
               <Space>
                 <span
                   style={{
@@ -1169,7 +1760,7 @@ export default function PartsMonitoring() {
         </Space>
       </Card>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={24} md={6}>
+        <Col xs={24} sm={24} md={8}>
           <Card>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -1183,13 +1774,7 @@ export default function PartsMonitoring() {
                 <Text>Date Manufactured:</Text>
                 <Text className="info-value">
                   {aircraftDetails.dateManufactured
-                    ? new Date(
-                        aircraftDetails.dateManufactured,
-                      ).toLocaleDateString("en-US", {
-                        month: "2-digit",
-                        day: "2-digit",
-                        year: "numeric",
-                      })
+                    ? formatShortDate(aircraftDetails.dateManufactured)
                     : "Not available"}
                 </Text>
               </div>
@@ -1212,10 +1797,10 @@ export default function PartsMonitoring() {
         </Col>
 
         {/* Right Card - Inputs */}
-        <Col xs={24} md={18}>
+        <Col sm={24} md={16}>
           <Card className="aircraft-card">
             <Form layout="vertical" colon={false}>
-              <Row gutter={[12, 6]}>
+              <Row gutter={[12, 12]}>
                 {/* Engine Cycle */}
                 <Col xs={24} sm={12} md={6}>
                   <Form.Item label="Engine Cycle" style={{ marginBottom: 8 }}>

@@ -1,31 +1,8 @@
-import { Alert, PermissionsAndroid, Platform } from "react-native";
+import { PermissionsAndroid, Platform } from "react-native";
 
-const askUserConsent = ({
-  title = "Allow File Download?",
-  message = "AirMS needs your permission to prepare this file in app storage and open your device's save or share options.",
-} = {}) =>
-  new Promise((resolve) => {
-    Alert.alert(title, message, [
-      {
-        text: "Cancel",
-        style: "cancel",
-        onPress: () => resolve(false),
-      },
-      {
-        text: "Allow",
-        onPress: () => resolve(true),
-      },
-    ]);
-  });
-
-export const requestStoragePermissionForDownload = async (options = {}) => {
+export const requestStoragePermissionForDownload = async () => {
   if (Platform.OS === "web") {
     return true;
-  }
-
-  const consentGranted = await askUserConsent(options);
-  if (!consentGranted) {
-    return false;
   }
 
   if (Platform.OS !== "android") {
