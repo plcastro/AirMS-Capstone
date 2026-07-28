@@ -18,6 +18,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
     Math.max(390, Math.round(height * 0.72)),
     height - 144,
   );
+  const heroHeight = height - sheetMaxHeight;
   const logoWidth = isSmall || isShort ? 168 : 220;
   const logoHeight = isSmall || isShort ? 76 : 96;
 
@@ -25,7 +26,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 
   const parallaxTranslate = scrollY.interpolate({
     inputRange: [0, sheetMaxHeight],
-    outputRange: [0, -Math.round(height * 0.04)],
+    outputRange: [0, -Math.round(heroHeight * 0.18)],
     extrapolate: "clamp",
   });
 
@@ -36,13 +37,13 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         style={[
           styles.backgroundImage,
           {
-            height,
+            height: heroHeight + 36,
             transform: [{ translateY: parallaxTranslate }],
           },
         ]}
-        resizeMode="contain"
+        resizeMode="cover"
       />
-      <View style={styles.scrim} />
+      <View style={[styles.scrim, { height: heroHeight }]} />
 
       <View
         pointerEvents="none"
