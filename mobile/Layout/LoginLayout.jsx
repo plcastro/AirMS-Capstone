@@ -18,7 +18,6 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
     Math.max(390, Math.round(height * 0.72)),
     height - 144,
   );
-  const heroHeight = height - sheetMaxHeight;
   const logoWidth = isSmall || isShort ? 168 : 220;
   const logoHeight = isSmall || isShort ? 76 : 96;
 
@@ -26,7 +25,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 
   const parallaxTranslate = scrollY.interpolate({
     inputRange: [0, sheetMaxHeight],
-    outputRange: [0, -Math.round(heroHeight * 0.18)],
+    outputRange: [0, -Math.round(height * 0.04)],
     extrapolate: "clamp",
   });
 
@@ -37,13 +36,13 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         style={[
           styles.backgroundImage,
           {
-            height: heroHeight + 36,
+            height,
             transform: [{ translateY: parallaxTranslate }],
           },
         ]}
-        resizeMode="cover"
+        resizeMode="contain"
       />
-      <View style={[styles.scrim, { height: heroHeight }]} />
+      <View style={styles.scrim} />
 
       <View
         pointerEvents="none"
@@ -67,33 +66,35 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         </AppText>
       </View>
 
-      <Animated.ScrollView
-        style={[styles.sheet, { height: sheetMaxHeight }]}
-        contentContainerStyle={[
-          styles.sheetContent,
-          { paddingHorizontal: isSmall ? 16 : 25 },
-          { paddingBottom: Math.max(insets.bottom + 28, 44) },
-        ]}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
-        scrollEventThrottle={16}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={[styles.sheet, { height: sheetMaxHeight }]}>
         <View style={styles.sheetHandle} />
-        <View style={styles.cardHeader}>
-          <AppText style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
-            {cardTitle}
-          </AppText>
-          <AppText style={styles.cardSubTitle}>{cardsubTitle}</AppText>
-        </View>
+        <Animated.ScrollView
+          style={styles.sheetScroll}
+          contentContainerStyle={[
+            styles.sheetContent,
+            { paddingHorizontal: isSmall ? 16 : 25 },
+            { paddingBottom: Math.max(insets.bottom + 28, 44) },
+          ]}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true },
+          )}
+          scrollEventThrottle={16}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.cardHeader}>
+            <AppText style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
+              {cardTitle}
+            </AppText>
+            <AppText style={styles.cardSubTitle}>{cardsubTitle}</AppText>
+          </View>
 
-        {children}
-      </Animated.ScrollView>
+          {children}
+        </Animated.ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     backgroundColor: "#071611",
+    zIndex: 0,
   },
 
   scrim: {
@@ -121,6 +123,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.26)",
+    zIndex: 1,
   },
 
   brandLayer: {
@@ -131,6 +134,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
+    zIndex: 2,
   },
 
   logo: {
@@ -158,10 +162,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 14,
     elevation: 10,
+    zIndex: 3,
   },
 
   sheetContent: {
-    paddingTop: 12,
+    paddingTop: 0,
+  },
+
+  sheetScroll: {
+    flex: 1,
   },
 
   sheetHandle: {
