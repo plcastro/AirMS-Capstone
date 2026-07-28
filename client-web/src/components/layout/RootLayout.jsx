@@ -1,6 +1,7 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
+import "../../pages/auth/login.css";
 const AirMS_Hero = "/images/airms_hero.webp";
 const AirMS_Hero640 = "/images/airms-hero_680.webp";
 const AirMS_Hero412 = "/images/airms-hero_412.webp";
@@ -15,54 +16,26 @@ const RootLayout = () => {
 
   if (isMobile) {
     return (
-      <Layout
-        style={{
-          minHeight: "100dvh",
-          backgroundImage: `url(${AirMS_Hero412})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "top center",
-          backgroundSize: "100% auto",
-          backgroundColor: "#074134",
-        }}
-      >
-        <div
-          style={{
-            height: "32vh",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            color: "#fff",
-            background: "rgba(0,0,0,.35)",
-            padding: "24px",
-            textAlign: "center",
-          }}
-        >
-          {/* Logo */}
-          <img src={Airms_LogoDark} alt="AirMS" style={{ width: 180 }} />
+      <Layout className="auth-mobile-shell">
+        <picture className="auth-mobile-bg" aria-hidden="true">
+          <source media="(max-width: 480px)" srcSet={AirMS_Hero412} />
+          <source media="(max-width: 768px)" srcSet={AirMS_Hero640} />
+          <img src={AirMS_Hero640} alt="" />
+        </picture>
+        <div className="auth-mobile-scrim" />
 
-          <h2 style={{ color: "#fff", margin: 0 }}>
+        <div className="auth-mobile-brand" aria-label="AirMS">
+          <img src={Airms_LogoDark} alt="AirMS" />
+          <h2>
             Aircraft Maintenance Made{" "}
-            <span style={{ color: "#0ab973" }}>Smarter</span>
+            <span>Smarter</span>
           </h2>
         </div>
 
-        <Card
-          style={{
-            flex: 1,
-            borderRadius: "32px 32px 0 0",
-            marginTop: "-10px",
-            border: "none",
-            boxShadow: "none",
-          }}
-          styles={{
-            body: {
-              height: "100%",
-            },
-          }}
-        >
+        <section className="auth-mobile-sheet" aria-label="Authentication">
+          <div className="auth-mobile-sheet-handle" />
           <Outlet />
-        </Card>
+        </section>
       </Layout>
     );
   }

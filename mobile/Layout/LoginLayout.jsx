@@ -25,7 +25,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 
   const parallaxTranslate = scrollY.interpolate({
     inputRange: [0, sheetMaxHeight],
-    outputRange: [0, -Math.round(height * 0.08)],
+    outputRange: [0, -Math.round(height * 0.04)],
     extrapolate: "clamp",
   });
 
@@ -36,11 +36,11 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         style={[
           styles.backgroundImage,
           {
-            height: height + Math.round(height * 0.12),
+            height,
             transform: [{ translateY: parallaxTranslate }],
           },
         ]}
-        resizeMode="cover"
+        resizeMode="contain"
       />
       <View style={styles.scrim} />
 
@@ -50,6 +50,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           styles.brandLayer,
           {
             paddingTop: Math.max(insets.top + 20, 34),
+            bottom: sheetMaxHeight,
           },
         ]}
       >
@@ -109,6 +110,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
+    backgroundColor: "#071611",
   },
 
   scrim: {
@@ -126,6 +128,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
 
