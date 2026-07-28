@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import {
@@ -134,6 +135,7 @@ const getPartStatus = (part = {}) => {
 };
 
 export default function PartsLifespanMonitoring() {
+  const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
   const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
@@ -928,7 +930,12 @@ export default function PartsLifespanMonitoring() {
                     </View>
                   </View>
                 </ScrollView>
-                <View style={styles.sheetActions}>
+                <View
+                  style={[
+                    styles.sheetActions,
+                    { paddingBottom: Math.max(insets.bottom + 12, 24) },
+                  ]}
+                >
                   <TouchableOpacity
                     style={[moduleStyles.button, styles.sheetButton, { backgroundColor: COLORS.grayMedium }]}
                     onPress={() => setSelectedPartIndex(null)}

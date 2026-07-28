@@ -52,7 +52,7 @@ const withDashboard = (loadScreen) => {
 
 const Screens = {
   ReportsAndAnalytics: withDashboard(
-    () => require("./screens/Main/MaintenanceDashboard").default,
+    () => require("./screens/Main/ReportsAndAnalytics").default,
   ),
   Messages: withDashboard(() => require("./screens/Main/Messaging").default),
   ManageUsers: withDashboard(
