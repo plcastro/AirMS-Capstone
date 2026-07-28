@@ -44,7 +44,7 @@ const {
   updateUserImage,
   updatePIN,
   verifyPIN,
-  updateSignature,
+  // updateSignature,
   activateUser,
   resendActivation,
   resendActivationByAdmin,
@@ -246,16 +246,16 @@ router.delete(
   updateUserImage,
 );
 
-router.put(
-  "/updateSignature/:id",
-  verifyToken,
-  touchSessionActivity,
-  requireOwnProfileUpdate,
-  requireActionConfirmation,
-  upload.single("signature"),
-  processImage,
-  updateSignature,
-);
+// router.put(
+//   "/updateSignature/:id",
+//   verifyToken,
+//   touchSessionActivity,
+//   requireOwnProfileUpdate,
+//   requireActionConfirmation,
+//   upload.single("signature"),
+//   processImage,
+//   updateSignature,
+// );
 
 /* =========================================
    ACTIVATION

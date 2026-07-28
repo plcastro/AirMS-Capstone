@@ -41,10 +41,10 @@ const routeLabels = [
     pattern: /^\/api\/user\/update-user-image\//,
     action: "User image updated",
   },
-  {
-    pattern: /^\/api\/user\/updateSignature\//,
-    action: "User signature updated",
-  },
+  // {
+  //   pattern: /^\/api\/user\/updateSignature\//,
+  //   action: "User signature updated",
+  // },
   { pattern: /^\/api\/user\/activate$/, action: "User activated" },
   {
     pattern: /^\/api\/user\/resend-activation/,

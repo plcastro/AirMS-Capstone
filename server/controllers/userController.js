@@ -390,7 +390,7 @@ const buildLoginSuccessPayload = async ({
       access: user.access,
       status: user.status,
       image: user.image,
-      signature: user.signature,
+      // signature: user.signature,
       securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
       isOnline: user.isOnline,
@@ -1831,41 +1831,41 @@ const verifyPIN = async (req, res) => {
   }
 };
 
-const updateSignature = async (req, res) => {
-  try {
-    const user = await UserModel.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (user.signature) {
-      return res.status(400).json({
-        message: "Signature specimen has already been uploaded.",
-      });
-    }
-
-    const signature = req.file?.savedPath || req.body.signature;
-    if (!signature) {
-      return res.status(400).json({ message: "Signature is required" });
-    }
-
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      req.params.id,
-      { signature },
-      { returnDocument: "after" },
-    );
-
-    const audit = withActorId(
-      req,
-      `Signature updated for ${updatedUser.username}`,
-      updatedUser._id,
-    );
-    await auditLog(audit.action, audit.actorId);
-
-    res.status(200).json({ message: "Signature updated", user: updatedUser });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+// const updateSignature = async (req, res) => {
+//   try {
+//     const user = await UserModel.findById(req.params.id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+//
+//     if (user.signature) {
+//       return res.status(400).json({
+//         message: "Signature specimen has already been uploaded.",
+//       });
+//     }
+//
+//     const signature = req.file?.savedPath || req.body.signature;
+//     if (!signature) {
+//       return res.status(400).json({ message: "Signature is required" });
+//     }
+//
+//     const updatedUser = await UserModel.findByIdAndUpdate(
+//       req.params.id,
+//       { signature },
+//       { returnDocument: "after" },
+//     );
+//
+//     const audit = withActorId(
+//       req,
+//       `Signature updated for ${updatedUser.username}`,
+//       updatedUser._id,
+//     );
+//     await auditLog(audit.action, audit.actorId);
+//
+//     res.status(200).json({ message: "Signature updated", user: updatedUser });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 
 const activateUser = async (req, res) => {
   try {
@@ -2106,7 +2106,7 @@ module.exports = {
   updatePIN,
   verifyPIN,
   updateUserImage,
-  updateSignature,
+  // updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,
