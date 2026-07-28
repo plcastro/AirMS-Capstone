@@ -176,8 +176,7 @@
   position: relative;
   z-index: 3;
   width: 100%;
-  max-height: min(72dvh, calc(100dvh - 144px));
-  min-height: 390px;
+  height: min(72dvh, calc(100dvh - 144px));
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -203,8 +202,7 @@
 
 @media (max-width: 480px) {
   .auth-mobile-sheet {
-    max-height: min(74dvh, calc(100dvh - 128px));
-    min-height: 380px;
+    height: min(74dvh, calc(100dvh - 128px));
     border-radius: 26px 26px 0 0;
   }
 
@@ -231,8 +229,7 @@
 
 @media (max-height: 540px) {
   .auth-mobile-sheet {
-    max-height: calc(100dvh - 112px);
-    min-height: 320px;
+    height: calc(100dvh - 112px);
   }
 
   .auth-mobile-brand {

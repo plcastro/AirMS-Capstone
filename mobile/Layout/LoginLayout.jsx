@@ -67,7 +67,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
       </View>
 
       <Animated.ScrollView
-        style={[styles.sheet, { maxHeight: sheetMaxHeight }]}
+        style={[styles.sheet, { height: sheetMaxHeight }]}
         contentContainerStyle={[
           styles.sheetContent,
           { paddingHorizontal: isSmall ? 16 : 25 },
