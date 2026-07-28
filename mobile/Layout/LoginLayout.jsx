@@ -7,54 +7,70 @@ import {
   Animated,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isSmall = width < 390;
-  const heroHeight = Math.max(220, Math.min(340, Math.round(height * 0.38)));
+  const isShort = height < 680;
+  const sheetMaxHeight = Math.min(
+    Math.max(390, Math.round(height * 0.72)),
+    height - 144,
+  );
+  const logoWidth = isSmall || isShort ? 168 : 220;
+  const logoHeight = isSmall || isShort ? 76 : 96;
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const parallaxTranslate = scrollY.interpolate({
-    inputRange: [0, heroHeight],
-    outputRange: [0, heroHeight * 0.3],
+    inputRange: [0, sheetMaxHeight],
+    outputRange: [0, -Math.round(height * 0.08)],
     extrapolate: "clamp",
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* HERO (NOT SCROLLABLE) */}
-      <View style={[styles.imageContainer, { height: heroHeight }]}>
-        <Animated.Image
-          source={require("../assets/mobile_hero.png")}
-          style={[
-            styles.topImage,
-            {
-              transform: [{ translateY: parallaxTranslate }],
-            },
-          ]}
-          resizeMode="cover"
+    <SafeAreaView style={[styles.safeArea, { minHeight: height }]}>
+      <Animated.Image
+        source={require("../assets/mobile_hero.png")}
+        style={[
+          styles.backgroundImage,
+          {
+            height: height + Math.round(height * 0.12),
+            transform: [{ translateY: parallaxTranslate }],
+          },
+        ]}
+        resizeMode="cover"
+      />
+      <View style={styles.scrim} />
+
+      <View
+        pointerEvents="none"
+        style={[
+          styles.brandLayer,
+          {
+            paddingTop: Math.max(insets.top + 20, 34),
+          },
+        ]}
+      >
+        <Image
+          source={require("../assets/airmslogo_dark.png")}
+          style={[styles.logo, { width: logoWidth, height: logoHeight }]}
+          resizeMode="contain"
         />
 
-        <View style={styles.overlay}>
-          <Image
-            source={require("../assets/airmslogo_dark.png")}
-            style={[styles.logo, { width: isSmall ? 180 : 230 }]}
-          />
-
-          <AppText style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
-            Aircraft Maintenance Made{" "}
-            <AppText style={styles.highlight}>Smarter</AppText>
-          </AppText>
-        </View>
+        <AppText style={[styles.title, { fontSize: isSmall ? 16 : 18 }]}>
+          Aircraft Maintenance Made{" "}
+          <AppText style={styles.highlight}>Smarter</AppText>
+        </AppText>
       </View>
+
       <Animated.ScrollView
-        style={styles.cardScroll}
+        style={[styles.sheet, { maxHeight: sheetMaxHeight }]}
         contentContainerStyle={[
-          styles.card,
-          { flexGrow: 1 },
+          styles.sheetContent,
           { paddingHorizontal: isSmall ? 16 : 25 },
+          { paddingBottom: Math.max(insets.bottom + 28, 44) },
         ]}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -62,7 +78,11 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
         )}
         scrollEventThrottle={16}
         bounces={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
+        <View style={styles.sheetHandle} />
         <View style={styles.cardHeader}>
           <AppText style={[styles.cardTitle, { fontSize: isSmall ? 20 : 24 }]}>
             {cardTitle}
@@ -79,38 +99,38 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff00",
-  },
-
-  imageContainer: {
-    width: "100%",
-    position: "relative",
+    backgroundColor: "#071611",
+    justifyContent: "flex-end",
     overflow: "hidden",
-    backgroundColor: "#000",
   },
 
-  topImage: {
+  backgroundImage: {
     width: "100%",
-    height: "100%",
     position: "absolute",
     top: 0,
     left: 0,
   },
 
-  overlay: {
+  scrim: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    bottom: 40,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.26)",
+  },
+
+  brandLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 20,
   },
 
   logo: {
-    width: 230,
-    height: 100,
+    height: 96,
   },
 
   title: {
@@ -124,22 +144,29 @@ const styles = StyleSheet.create({
     color: "#0ef3ae",
   },
 
-  cardScroll: {
-    flex: 1,
-    marginTop: -50,
+  sheet: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 10,
   },
 
-  card: {
-    paddingTop: 30,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
+  sheetContent: {
+    paddingTop: 12,
+  },
+
+  sheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#d7ddd9",
+    marginBottom: 18,
   },
 
   cardHeader: {
