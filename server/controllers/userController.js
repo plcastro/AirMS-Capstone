@@ -26,6 +26,18 @@ const {
 } = require("../middleware/rateLimiter");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
+const MOBILE_APK_URL = process.env.MOBILE_APK_URL;
+
+const buildLoginPortalUrl = (baseUrl) => {
+  if (!baseUrl) return "";
+
+  const trimmedUrl = String(baseUrl).trim();
+  if (!trimmedUrl) return "";
+  if (/\.apk(?:[?#].*)?$/i.test(trimmedUrl)) return trimmedUrl;
+  if (/\/login\/?$/i.test(trimmedUrl)) return trimmedUrl;
+
+  return `${trimmedUrl.replace(/\/+$/, "")}/login`;
+};
 
 const getAuditActorId = (req, fallbackId = null) =>
   req.user?.id || req.userRecord?._id || fallbackId;
@@ -170,8 +182,8 @@ const sendActivationCredentialsEmail = async ({
   jobTitle,
   isResend = false,
 }) => {
-  const portalUrlWeb = `${WEB_URL}/login`;
-  const portalUrlMobile = `${MOBILE_URL}/login`;
+  const portalUrlWeb = buildLoginPortalUrl(WEB_URL);
+  const portalUrlMobile = MOBILE_APK_URL || buildLoginPortalUrl(MOBILE_URL);
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";

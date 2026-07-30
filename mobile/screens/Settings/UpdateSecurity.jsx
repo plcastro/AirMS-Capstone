@@ -499,6 +499,8 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 14,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
   },
   title: {
     color: COLORS.black,

@@ -260,16 +260,30 @@ export default function ChatView({
                           }}
                         >
                           {isImage && url ? (
-                            <Image
-                              source={{ uri: url }}
-                              style={{
-                                width: 210,
-                                height: 150,
-                                borderRadius: 12,
-                                backgroundColor: "#DDE5E2",
-                              }}
-                              resizeMode="cover"
-                            />
+                            <View>
+                              <Image
+                                source={{ uri: url }}
+                                style={{
+                                  width: 210,
+                                  height: 150,
+                                  borderRadius: 12,
+                                  backgroundColor: "#DDE5E2",
+                                }}
+                                resizeMode="cover"
+                              />
+                              <AppText
+                                numberOfLines={1}
+                                style={{
+                                  marginTop: 5,
+                                  maxWidth: 210,
+                                  color: mine ? COLORS.white : COLORS.black,
+                                  fontSize: 12,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {attachment.name || "Attachment"}
+                              </AppText>
+                            </View>
                           ) : (
                             <View
                               style={{

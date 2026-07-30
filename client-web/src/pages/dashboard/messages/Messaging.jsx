@@ -629,6 +629,9 @@ export default function Messaging() {
               alt={attachment.name || "Attachment"}
               className="message-attachment-image"
             />
+            <span className="message-attachment-image-name">
+              {attachment.name || "Attachment"}
+            </span>
           </a>
         );
       }

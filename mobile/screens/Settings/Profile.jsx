@@ -438,7 +438,9 @@ export default function Profile() {
         <Card style={styles.headerCard}>
           <Card.Content style={styles.avatarContainer}>
             <TouchableOpacity
-              onPress={() => runWithLoading("pick-image", () => handleImagePick())}
+              onPress={() =>
+                runWithLoading("pick-image", () => handleImagePick())
+              }
               style={styles.avatarTapTarget}
             >
               {previewUri ? (
@@ -490,8 +492,12 @@ export default function Profile() {
                 iconColor={COLORS.dangerBorder}
                 containerColor={COLORS.white}
                 style={[styles.iconActionButton, styles.removeIconActionButton]}
-                onPress={() => runWithLoading("remove-image", () => handleRemoveImage())}
-                disabled={(!user?.image && !previewUri) || Boolean(actionLoadingKey)}
+                onPress={() =>
+                  runWithLoading("remove-image", () => handleRemoveImage())
+                }
+                disabled={
+                  (!user?.image && !previewUri) || Boolean(actionLoadingKey)
+                }
                 accessibilityLabel="Remove profile image"
               />
             </View>
@@ -766,12 +772,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 14,
     marginBottom: 10,
-    borderRadius: 14,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     elevation: 2,
     backgroundColor: COLORS.white,
   },
   formCard: {
-    // elevation: 2,
     backgroundColor: COLORS.white,
   },
   avatarContainer: {
