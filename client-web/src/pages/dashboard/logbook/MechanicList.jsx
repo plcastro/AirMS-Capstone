@@ -213,13 +213,12 @@ export default function MechanicList() {
             { title: "Aircraft", dataIndex: "aircraft" },
             {
               title: "Due",
-              render: (_, record) =>
-                (
-                  <DateTimeCell
-                    value={record.endDateTime || record.dueDate}
-                    fallback="-"
-                  />
-                ),
+              render: (_, record) => (
+                <DateTimeCell
+                  value={record.endDateTime || record.dueDate}
+                  fallback="-"
+                />
+              ),
             },
             {
               title: "Status",
@@ -243,6 +242,7 @@ export default function MechanicList() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search mechanic"
               prefix={<SearchOutlined />}
+              size="large"
             />
           </Col>
         </Row>

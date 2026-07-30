@@ -366,23 +366,26 @@ export default function TaskAssignment() {
     return assignee || "";
   }, []);
 
-  const getTaskAssigneeName = useCallback((task = {}) => {
-    const assigneeId = getTaskAssigneeId(task);
-    const matchedMechanic = mechanics.find(
-      (item) => String(item.id) === String(assigneeId),
-    );
+  const getTaskAssigneeName = useCallback(
+    (task = {}) => {
+      const assigneeId = getTaskAssigneeId(task);
+      const matchedMechanic = mechanics.find(
+        (item) => String(item.id) === String(assigneeId),
+      );
 
-    return (
-      task.assignedToName ||
-      matchedMechanic?.name ||
-      (task.assignedTo && typeof task.assignedTo === "object"
-        ? [task.assignedTo.firstName, task.assignedTo.lastName]
-            .filter(Boolean)
-            .join(" ")
-        : "") ||
-      "Assigned mechanic"
-    );
-  }, [getTaskAssigneeId, mechanics]);
+      return (
+        task.assignedToName ||
+        matchedMechanic?.name ||
+        (task.assignedTo && typeof task.assignedTo === "object"
+          ? [task.assignedTo.firstName, task.assignedTo.lastName]
+              .filter(Boolean)
+              .join(" ")
+          : "") ||
+        "Assigned mechanic"
+      );
+    },
+    [getTaskAssigneeId, mechanics],
+  );
 
   const mechanicSelectOptions = useMemo(() => {
     const source = editingTask ? mechanics : availableMechanics;
@@ -989,6 +992,7 @@ export default function TaskAssignment() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
+              size="large"
             />
           </Col>
           {isManager && (
@@ -997,6 +1001,7 @@ export default function TaskAssignment() {
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={openCreateTask}
+                size="large"
               >
                 Task
               </Button>
@@ -1072,13 +1077,12 @@ export default function TaskAssignment() {
           },
           {
             title: "Due",
-            render: (_, record) =>
-              (
-                <DateTimeCell
-                  value={record.endDateTime || record.dueDate}
-                  fallback="Not set"
-                />
-              ),
+            render: (_, record) => (
+              <DateTimeCell
+                value={record.endDateTime || record.dueDate}
+                fallback="Not set"
+              />
+            ),
           },
           ...(isManager
             ? [

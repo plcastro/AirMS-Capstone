@@ -31,6 +31,7 @@ import {
   InspectionReport,
   PartsRequisitionReport,
 } from "../../components/reports/ModuleReports";
+import { CHART_PALETTE, SDMChart } from "../../components/common/PieChart";
 
 const normalizeStatus = (value) =>
   String(value || "Unknown")
@@ -80,6 +81,76 @@ const getTaskCategory = (task = {}) => {
   return "other";
 };
 
+const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
+
+const normalizeBaseValue = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
+
+const isKnownBase = (value) =>
+  !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
+
+const firstKnownBase = (...values) => {
+  const match = values.find(isKnownBase);
+  return match ? normalizeBaseValue(match) : "";
+};
+
+const buildAircraftBaseLookup = (records = []) =>
+  records.reduce((lookup, aircraft) => {
+    const tailNum = normalizeBaseValue(aircraft?.tailNum || aircraft?.aircraft);
+    const base = normalizeBaseValue(aircraft?.base);
+    if (tailNum && isKnownBase(base)) {
+      lookup[tailNum] = base;
+    }
+    return lookup;
+  }, {});
+
+const inferTaskBase = (task = {}, aircraftBaseByTail = {}) =>
+  firstKnownBase(
+    task.base,
+    task.locationBase,
+    task.assignedBase,
+    task.stationBase,
+    aircraftBaseByTail[normalizeBaseValue(task.aircraft)],
+  ) || "UNKNOWN";
+
+const isDamageRelatedTask = (task = {}) => {
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return ["damage", "damaged", "defect", "crack", "fault", "issue"].some((k) =>
+    text.includes(k),
+  );
+};
+
+const isRepairedTask = (task = {}) => {
+  if (isCompletedTask(task)) return true;
+  const text = [
+    task.status,
+    task.title,
+    task.findings,
+    task.defects,
+    task.maintenanceType,
+    task.summary?.remarks,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return ["repair", "repaired", "rectified", "fixed", "resolved"].some((k) =>
+    text.includes(k),
+  );
+};
+
 export default function ReportsAndAnalytics() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -90,6 +161,8 @@ export default function ReportsAndAnalytics() {
   const [preInspections, setPreInspections] = useState([]);
   const [postInspections, setPostInspections] = useState([]);
   const [partsRequisitions, setPartsRequisitions] = useState([]);
+  const [baseAnalytics, setBaseAnalytics] = useState(null);
+  const [aircraftBaseByTail, setAircraftBaseByTail] = useState({});
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -97,6 +170,15 @@ export default function ReportsAndAnalytics() {
       const headers = await getAuthHeaders();
       const requests = {
         tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
+        baseAnalytics: fetch(
+          `${API_BASE}/api/tasks/analytics/base-maintenance`,
+          {
+            headers,
+          },
+        ),
+        aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, {
+          headers,
+        }),
         parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
           headers,
         }),
@@ -133,6 +215,10 @@ export default function ReportsAndAnalytics() {
       const resultMap = Object.fromEntries(entries);
 
       setTasks(getArrayData(resultMap.tasks));
+      setBaseAnalytics(resultMap.baseAnalytics?.data || null);
+      setAircraftBaseByTail(
+        buildAircraftBaseLookup(getArrayData(resultMap.aircraftBases)),
+      );
       setPartsRecords(getArrayData(resultMap.parts));
       setFlightLogs(getArrayData(resultMap.flightLogs));
       setPreInspections(getArrayData(resultMap.preInspections));
@@ -186,6 +272,81 @@ export default function ReportsAndAnalytics() {
         return leftDate - rightDate;
       });
   }, [search, taskView, tasks]);
+
+  const baseDamageRepairSummary = useMemo(() => {
+    const knownAnalyticsRows = (baseAnalytics?.byBase || []).filter((row) =>
+      isKnownBase(row.base),
+    );
+
+    if (knownAnalyticsRows.length > 0) {
+      const damageRows = knownAnalyticsRows
+        .map((row) => ({ label: row.base, value: row.damagedCount || 0 }))
+        .sort((a, b) => b.value - a.value);
+      const repairRows = knownAnalyticsRows
+        .map((row) => ({ label: row.base, value: row.repairedCount || 0 }))
+        .sort((a, b) => b.value - a.value);
+
+      return {
+        topDamagedBase: baseAnalytics.topDamagedBase
+          ? {
+              label: baseAnalytics.topDamagedBase.base,
+              value: baseAnalytics.topDamagedBase.damagedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        topRepairedBase: baseAnalytics.topRepairedBase
+          ? {
+              label: baseAnalytics.topRepairedBase.base,
+              value: baseAnalytics.topRepairedBase.repairedCount || 0,
+            }
+          : { label: "N/A", value: 0 },
+        damageRows,
+        repairRows,
+      };
+    }
+
+    const damageCounts = {};
+    const repairCounts = {};
+
+    tasks.forEach((task) => {
+      const base = inferTaskBase(task, aircraftBaseByTail);
+      if (isDamageRelatedTask(task)) {
+        damageCounts[base] = (damageCounts[base] || 0) + 1;
+      }
+      if (isRepairedTask(task)) {
+        repairCounts[base] = (repairCounts[base] || 0) + 1;
+      }
+    });
+
+    const damageRows = topRows(damageCounts, 10);
+    const repairRows = topRows(repairCounts, 10);
+
+    return {
+      topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
+      topRepairedBase: repairRows[0] || { label: "N/A", value: 0 },
+      damageRows,
+      repairRows,
+    };
+  }, [tasks, baseAnalytics, aircraftBaseByTail]);
+
+  const damageBasePieData = useMemo(
+    () =>
+      baseDamageRepairSummary.damageRows.map((row, index) => ({
+        label: row.label,
+        value: row.value,
+        fill: CHART_PALETTE[index % CHART_PALETTE.length],
+      })),
+    [baseDamageRepairSummary.damageRows],
+  );
+
+  const repairedBasePieData = useMemo(
+    () =>
+      baseDamageRepairSummary.repairRows.map((row, index) => ({
+        label: row.label,
+        value: row.value,
+        fill: CHART_PALETTE[index % CHART_PALETTE.length],
+      })),
+    [baseDamageRepairSummary.repairRows],
+  );
 
   const reportSections = useMemo(() => {
     const componentRows = partsRecords.flatMap((record) =>
@@ -278,6 +439,24 @@ export default function ReportsAndAnalytics() {
         <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
         <StatCard label="Module Reports" value={reportSections.length} />
       </View>
+
+      <InfoCard
+        title="Base Damage Distribution"
+        subtitle={`Top: ${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`}
+      >
+        <View style={{ marginTop: 12 }}>
+          <SDMChart data={damageBasePieData} size={218} />
+        </View>
+      </InfoCard>
+
+      <InfoCard
+        title="Base Repaired Distribution"
+        subtitle={`Top: ${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`}
+      >
+        <View style={{ marginTop: 12 }}>
+          <SDMChart data={repairedBasePieData} size={218} />
+        </View>
+      </InfoCard>
 
       <ExportFile title="Reports and Analytics" sections={reportSections} />
 

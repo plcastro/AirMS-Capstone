@@ -13,6 +13,7 @@ import {
   Tag,
   Grid,
   Masonry,
+  Space,
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
@@ -175,6 +176,7 @@ const isRepairedTask = (task = {}) => {
 export default function MaintenanceDashboard() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isCompactReports = !screens.lg;
   const { message } = App.useApp();
   const { getValidToken } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
@@ -209,9 +211,9 @@ export default function MaintenanceDashboard() {
     wordBreak: "break-word",
   };
   const reportMasonryColumns = {
-    xs: 2,
-    sm: 2,
-    md: 2,
+    xs: 1,
+    sm: 1,
+    md: 1,
     lg: 2,
     xl: 2,
     xxl: 2,
@@ -1298,7 +1300,7 @@ export default function MaintenanceDashboard() {
                 Operations
               </Title>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1322,7 +1324,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1345,7 +1347,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1368,7 +1370,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1410,8 +1412,8 @@ export default function MaintenanceDashboard() {
               >
                 <SDMChart
                   data={damageBasePieData}
-                  height={190}
-                  outerRadius={58}
+                  height={290}
+                  outerRadius={78}
                 />
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topDamagedBase.label} (
@@ -1433,8 +1435,8 @@ export default function MaintenanceDashboard() {
               >
                 <SDMChart
                   data={repairedBasePieData}
-                  height={190}
-                  outerRadius={58}
+                  height={290}
+                  outerRadius={78}
                 />
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topRepairedBase.label} (
@@ -1444,7 +1446,11 @@ export default function MaintenanceDashboard() {
             </Col>
           </Row>
 
-          <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
+          <Card
+            style={{ marginBottom: 20 }}
+            title="Insight Drilldown"
+            styles={{ body: { padding: isMobile ? 10 : 24 } }}
+          >
             {(activeKpi === "completed" ||
               activeKpi === "dueSoon" ||
               activeKpi === "overdue") && (
@@ -1489,7 +1495,11 @@ export default function MaintenanceDashboard() {
                       `${range[0]}-${range[1]} of ${total}`,
                     placement: "bottomEnd",
                   }}
-                  scroll={{ x: isMobile ? 980 : 1300 }}
+                  scroll={isMobile ? undefined : { x: 1300 }}
+                  mobilePrimaryColumn="aircraft"
+                  mobileSecondaryColumn="dueDate"
+                  mobileMetaLimit={6}
+                  mobileStackMeta
                 />
               </>
             )}
@@ -1619,26 +1629,43 @@ export default function MaintenanceDashboard() {
           title={`${category} Reports`}
           style={{ marginBottom: 16 }}
           styles={{
-            body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 },
+            body: { paddingTop: 10, paddingInline: isCompactReports ? 10 : 16 },
           }}
         >
-          <Masonry
-            columns={reportMasonryColumns}
-            gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}
-            items={categoryCards.map((card) => ({
-              key: card.key,
-              data: card,
-            }))}
-            itemRender={({ data: card }) => (
-              <Card
-                size="small"
-                title={card.title}
-                styles={{ body: { padding: isMobile ? 10 : 12 } }}
-              >
-                {card.component}
-              </Card>
-            )}
-          />
+          {isCompactReports ? (
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              {categoryCards.map((card) => (
+                <Card
+                  key={card.key}
+                  size="small"
+                  title={card.title}
+                  style={{ width: "100%" }}
+                  styles={{ body: { padding: 10 } }}
+                >
+                  {card.component}
+                </Card>
+              ))}
+            </Space>
+          ) : (
+            <Masonry
+              columns={reportMasonryColumns}
+              gutter={[16, 16]}
+              items={categoryCards.map((card) => ({
+                key: card.key,
+                data: card,
+              }))}
+              itemRender={({ data: card }) => (
+                <Card
+                  size="small"
+                  title={card.title}
+                  style={{ width: "100%" }}
+                  styles={{ body: { padding: 12 } }}
+                >
+                  {card.component}
+                </Card>
+              )}
+            />
+          )}
         </Card>
       ))}
       <ResultPopup

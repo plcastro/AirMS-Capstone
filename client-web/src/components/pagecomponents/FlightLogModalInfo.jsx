@@ -133,6 +133,7 @@ export default function FlightLogModalInfo({
                 placeholder="Select RP/C"
                 onChange={handleRPCSelect}
                 disabled={!isEditable || !isRPCEditable}
+                aria-required="true"
                 showSearch
                 optionFilterProp="label"
                 popupMatchSelectWidth
@@ -151,7 +152,7 @@ export default function FlightLogModalInfo({
           </div>
 
           <div className="fl-field-row">
-            <span className="fl-label">Date:</span>
+            <span className="fl-label">Date: *</span>
             <DatePicker
               className="fl-input"
               style={{ width: "100%" }}
@@ -164,6 +165,8 @@ export default function FlightLogModalInfo({
                 )
               }
               disabled={!isEditable}
+              required
+              aria-required="true"
             />
           </div>
 

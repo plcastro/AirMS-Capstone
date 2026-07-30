@@ -155,6 +155,60 @@ const EmptyChart = () => (
   </div>
 );
 
+const ColorCodedLegend = ({ items, payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: "8px 14px",
+      margin: 0,
+      padding: "10px 6px 0",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {(items || payload).map((entry) => {
+      const color = entry.color || entry.payload?.fill || "#8c8c8c";
+      const label = entry.value || entry.payload?.name || "Item";
+
+      return (
+        <li
+          key={`${label}-${color}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: 150,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 10,
+              height: 10,
+              flex: "0 0 10px",
+              borderRadius: 2,
+              background: color,
+            }}
+          />
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={String(label)}
+          >
+            {label}
+          </span>
+        </li>
+      );
+    })}
+  </ul>
+);
+
 const StatusPie = ({ data }) => {
   if (!data.length) return <EmptyChart />;
 
@@ -179,12 +233,8 @@ const StatusPie = ({ data }) => {
         <Legend
           verticalAlign="bottom"
           align="center"
-          height={52}
-          wrapperStyle={{
-            fontSize: 12,
-            lineHeight: "18px",
-            paddingTop: 8,
-          }}
+          height={78}
+          content={<ColorCodedLegend />}
         />
       </PieChart>
     </ResponsiveContainer>
@@ -227,7 +277,21 @@ const MonthlyBar = ({
         <XAxis dataKey="month" />
         <YAxis allowDecimals={false} />
         <Tooltip />
-        <Legend />
+        <Legend
+          verticalAlign="bottom"
+          align="center"
+          height={colorByEntry ? 78 : 36}
+          content={
+            colorByEntry ? (
+              <ColorCodedLegend
+                items={chartData.map((row) => ({
+                  value: row.month,
+                  color: row.fill,
+                }))}
+              />
+            ) : undefined
+          }
+        />
         <Bar
           dataKey={dataKey}
           name={name}

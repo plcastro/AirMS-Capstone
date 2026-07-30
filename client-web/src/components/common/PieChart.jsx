@@ -3,6 +3,60 @@ import { ResponsiveContainer, PieChart, Pie, Tooltip, Legend } from "recharts";
 
 const EMPTY_DATA = [{ name: "No data", value: 1, fill: "#d9d9d9" }];
 
+const ColorCodedLegend = ({ payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: "8px 14px",
+      margin: 0,
+      padding: "10px 6px 0",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {payload.map((entry) => {
+      const color = entry.color || entry.payload?.fill || "#8c8c8c";
+      const label = entry.value || entry.payload?.name || "Item";
+
+      return (
+        <li
+          key={`${label}-${color}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: 150,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 10,
+              height: 10,
+              flex: "0 0 10px",
+              borderRadius: 2,
+              background: color,
+            }}
+          />
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={String(label)}
+          >
+            {label}
+          </span>
+        </li>
+      );
+    })}
+  </ul>
+);
+
 export const SDMChart = ({
   data = [],
   height = 350,
@@ -22,7 +76,7 @@ export const SDMChart = ({
         <Pie
           data={chartData}
           cx="50%"
-          cy="55%"
+          cy="42%"
           outerRadius={outerRadius}
           paddingAngle={0}
           dataKey="value"
@@ -40,12 +94,8 @@ export const SDMChart = ({
         <Legend
           verticalAlign="bottom"
           align="center"
-          height={72}
-          wrapperStyle={{
-            fontSize: 12,
-            lineHeight: "18px",
-            paddingTop: 12,
-          }}
+          height={50}
+          content={<ColorCodedLegend />}
         />
       </PieChart>
     </ResponsiveContainer>
@@ -91,12 +141,8 @@ export const ARTChart = ({
           <Legend
             verticalAlign="bottom"
             align="center"
-            height={72}
-            wrapperStyle={{
-              fontSize: 12,
-              lineHeight: "18px",
-              paddingTop: 8,
-            }}
+            height={86}
+            content={<ColorCodedLegend />}
           />
         </PieChart>
       </ResponsiveContainer>

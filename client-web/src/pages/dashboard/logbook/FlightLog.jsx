@@ -10,7 +10,6 @@ import {
   Row,
   Col,
   Button,
-  Table,
   Space,
   Modal,
   Typography,
@@ -37,6 +36,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import ResultPopup from "../../../components/common/ResultPopup";
+import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
 
 const { Text } = Typography;
@@ -45,6 +45,15 @@ const { useBreakpoint } = Grid;
 export default function FlightLog() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const actionButtonStyles = {
+    accept: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    complete: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    edit: { background: "#faad14", borderColor: "#faad14", color: "#1f1f1f" },
+    export: { background: "#1677ff", borderColor: "#1677ff", color: "#fff" },
+    notify: { background: "#fa8c16", borderColor: "#fa8c16", color: "#fff" },
+    release: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    view: { background: "#1677ff", borderColor: "#1677ff", color: "#fff" },
+  };
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
 
@@ -929,6 +938,11 @@ export default function FlightLog() {
               type={isOfficerInCharge ? "default" : "primary"}
               size="small"
               aria-label={isOfficerInCharge ? "View" : "Edit"}
+              style={
+                isOfficerInCharge
+                  ? actionButtonStyles.view
+                  : actionButtonStyles.edit
+              }
               onClick={() => handleEdit(record)}
               icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
             />
@@ -940,6 +954,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Release"
+                  style={actionButtonStyles.release}
                   icon={<SendOutlined />}
                   onClick={() => openWorkflowModal("release", record)}
                 />
@@ -950,6 +965,7 @@ export default function FlightLog() {
               <Button
                 size="small"
                 aria-label="Accept"
+                style={actionButtonStyles.accept}
                 icon={<CheckOutlined />}
                 onClick={() => openWorkflowModal("accept", record)}
               />
@@ -962,6 +978,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Notify"
+                  style={actionButtonStyles.notify}
                   icon={<NotificationOutlined />}
                   onClick={() => openWorkflowModal("notify", record)}
                 />
@@ -975,6 +992,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Complete"
+                  style={actionButtonStyles.complete}
                   icon={<CheckCircleOutlined />}
                   onClick={() => openWorkflowModal("complete", record)}
                 />
@@ -982,9 +1000,9 @@ export default function FlightLog() {
             )}
           <Tooltip title="Export">
             <Button
-              type="text"
               size="small"
               aria-label="Export"
+              style={actionButtonStyles.export}
               icon={<ExportOutlined />}
               onClick={() => handleExport(record)}
             />
@@ -1038,6 +1056,11 @@ export default function FlightLog() {
               type={isOfficerInCharge ? "default" : "primary"}
               size="small"
               aria-label={isOfficerInCharge ? "View" : "Edit"}
+              style={
+                isOfficerInCharge
+                  ? actionButtonStyles.view
+                  : actionButtonStyles.edit
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 handleEdit(record);
@@ -1052,6 +1075,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Release"
+                  style={actionButtonStyles.release}
                   icon={<SendOutlined />}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1065,6 +1089,7 @@ export default function FlightLog() {
               <Button
                 size="small"
                 aria-label="Accept"
+                style={actionButtonStyles.accept}
                 icon={<CheckOutlined />}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1080,6 +1105,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Notify"
+                  style={actionButtonStyles.notify}
                   icon={<NotificationOutlined />}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1096,6 +1122,7 @@ export default function FlightLog() {
                 <Button
                   size="small"
                   aria-label="Complete"
+                  style={actionButtonStyles.complete}
                   icon={<CheckCircleOutlined />}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1106,9 +1133,9 @@ export default function FlightLog() {
             )}
           <Tooltip title="Export">
             <Button
-              type="text"
               size="small"
               aria-label="Export"
+              style={actionButtonStyles.export}
               icon={<ExportOutlined />}
               onClick={(e) => {
                 e.stopPropagation();
@@ -1136,7 +1163,7 @@ export default function FlightLog() {
               allowClear
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
+          <Col xs={12} sm={12} md={4}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1151,7 +1178,7 @@ export default function FlightLog() {
               }))}
             />
           </Col>
-          <Col xs={24} sm={12} md={5}>
+          <Col xs={12} sm={12} md={5}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1161,7 +1188,7 @@ export default function FlightLog() {
             />
           </Col>
           {!isOfficerInCharge && (
-            <Col xs={24} md={7} style={{ textAlign: "right" }}>
+            <Col xs={12} md={7}>
               <Button
                 type="primary"
                 size="large"
@@ -1175,42 +1202,31 @@ export default function FlightLog() {
         </Row>
       </Card>
 
-      {screens.xs ? (
-        <div>
-          {filteredLogs.length ? (
-            filteredLogs.map(renderCard)
-          ) : (
-            <Card style={{ borderRadius: 10 }}>
-              <Text type="secondary">No flight logs found</Text>
-            </Card>
-          )}
-        </div>
-      ) : (
-        <Table
-          columns={columns}
-          dataSource={filteredLogs}
-          loading={loading}
-          rowKey={(record) => record._id || record.id}
-          size={"small"}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50"],
-            current: currentPage,
-            onChange: (page) => setCurrentPage(page),
-            showLessItems: isMobile,
-            size: isMobile ? "small" : "default",
-            placement: isMobile ? "bottom" : "bottomEnd",
-          }}
-          scroll={{ x: "max-content" }}
-          locale={{
-            emptyText:
-              searchQuery || selectedAircraft || selectedStatus !== "all"
-                ? "No flight logs found"
-                : "No flight logs yet",
-          }}
-        />
-      )}
+      <FLogTable
+        columns={columns}
+        dataSource={filteredLogs}
+        loading={loading}
+        rowKey={(record) => record._id || record.id}
+        renderCard={renderCard}
+        mobileCardBreakpoint="xs"
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50"],
+          current: currentPage,
+          onChange: (page) => setCurrentPage(page),
+          showLessItems: isMobile,
+          size: isMobile ? "small" : "default",
+          placement: isMobile ? "bottom" : "bottomEnd",
+        }}
+        scroll={{ x: "max-content" }}
+        locale={{
+          emptyText:
+            searchQuery || selectedAircraft || selectedStatus !== "all"
+              ? "No flight logs found"
+              : "No flight logs yet",
+        }}
+      />
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">

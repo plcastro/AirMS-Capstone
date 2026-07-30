@@ -98,7 +98,7 @@ export default function PieChart({
           return (
             <View key={item.label} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <AppText style={styles.legendText}>
+              <AppText style={styles.legendText} numberOfLines={2}>
                 {item.label}: {item.value} ({percent}%)
               </AppText>
             </View>
@@ -147,18 +147,23 @@ const styles = StyleSheet.create({
   },
   legendWrap: {
     width: "100%",
-    marginTop: 4,
-    rowGap: 6,
+    marginTop: 12,
+    rowGap: 8,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    columnGap: 7,
+    columnGap: 8,
+    minHeight: 28,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#F7FAF9",
   },
   legendDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
+    width: 10,
+    height: 10,
+    borderRadius: 3,
   },
   legendText: {
     flex: 1,

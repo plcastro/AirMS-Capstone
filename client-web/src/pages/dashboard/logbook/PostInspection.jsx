@@ -342,7 +342,7 @@ export default function PostInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={7}>
+          <Col xs={12} md={7}>
             <Select
               style={{ width: "100%" }}
               value={aircraft}
@@ -354,7 +354,7 @@ export default function PostInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={6}>
+          <Col xs={12} md={6}>
             <Select
               style={{ width: "100%" }}
               value={status}

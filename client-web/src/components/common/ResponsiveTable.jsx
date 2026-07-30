@@ -14,6 +14,38 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const ACTION_KEYS = new Set(["action", "actions", "operation", "operations"]);
+const ACTION_BUTTON_COLORS = {
+  danger: {
+    background: "#ff4d4f",
+    borderColor: "#ff4d4f",
+    color: "#fff",
+  },
+  edit: {
+    background: "#faad14",
+    borderColor: "#faad14",
+    color: "#1f1f1f",
+  },
+  more: {
+    background: "#f0f2f5",
+    borderColor: "#d9d9d9",
+    color: "#344054",
+  },
+  primary: {
+    background: "#1677ff",
+    borderColor: "#1677ff",
+    color: "#fff",
+  },
+  success: {
+    background: "#048a25",
+    borderColor: "#048a25",
+    color: "#fff",
+  },
+  warning: {
+    background: "#fa8c16",
+    borderColor: "#fa8c16",
+    color: "#fff",
+  },
+};
 
 const getColumnKey = (column, index) =>
   column.key || column.dataIndex || `column-${index}`;
@@ -61,6 +93,169 @@ const isActionColumn = (column, index, columns) => {
   );
 };
 
+const getActionTone = (label = "") => {
+  const text = String(label || "").toLowerCase();
+
+  if (
+    ["delete", "remove", "revoke", "cancel", "deactivate", "return"].some(
+      (keyword) => text.includes(keyword),
+    )
+  ) {
+    return "danger";
+  }
+
+  if (["edit", "update", "save"].some((keyword) => text.includes(keyword))) {
+    return "edit";
+  }
+
+  if (
+    ["approve", "accept", "unlock", "reactivate", "rectify", "complete"].some(
+      (keyword) => text.includes(keyword),
+    )
+  ) {
+    return "success";
+  }
+
+  if (
+    ["resend", "extend", "retry", "regenerate"].some((keyword) =>
+      text.includes(keyword),
+    )
+  ) {
+    return "warning";
+  }
+
+  if (["more"].some((keyword) => text.includes(keyword))) {
+    return "more";
+  }
+
+  if (
+    ["view", "review", "verify", "details", "export", "download"].some(
+      (keyword) => text.includes(keyword),
+    )
+  ) {
+    return "primary";
+  }
+
+  return "primary";
+};
+
+const isButtonLikeElement = (node) =>
+  React.isValidElement(node) &&
+  (node.type?.__ANT_BUTTON ||
+    node.type?.displayName === "Button" ||
+    node.type?.name === "Button" ||
+    (node.props?.icon && Object.prototype.hasOwnProperty.call(node.props, "onClick")));
+
+const colorizeActionNode = (node, inheritedLabel = "") => {
+  if (Array.isArray(node)) {
+    return node.map((child) => colorizeActionNode(child, inheritedLabel));
+  }
+
+  if (!React.isValidElement(node)) return node;
+
+  const label =
+    node.props?.["aria-label"] ||
+    getTitleText(node.props?.title) ||
+    inheritedLabel;
+
+  if (isButtonLikeElement(node)) {
+    const tone = getActionTone(label);
+    const toneStyle = ACTION_BUTTON_COLORS[tone] || ACTION_BUTTON_COLORS.primary;
+
+    return React.cloneElement(node, {
+      style: {
+        ...toneStyle,
+        ...node.props?.style,
+      },
+    });
+  }
+
+  const nextLabel =
+    getTitleText(node.props?.title) ||
+    node.props?.["aria-label"] ||
+    inheritedLabel;
+  const children = colorizeActionNode(node.props?.children, nextLabel);
+
+  return React.cloneElement(node, undefined, children);
+};
+
+const colorizeActionColumns = (sourceColumns = []) =>
+  sourceColumns.map((column, index) => {
+    if (Array.isArray(column.children) && column.children.length) {
+      return {
+        ...column,
+        children: colorizeActionColumns(column.children),
+      };
+    }
+
+    if (!isActionColumn(column, index, sourceColumns)) return column;
+
+    return {
+      ...column,
+      render: (value, record, rowIndex) =>
+        colorizeActionNode(renderColumnValue(column, record, rowIndex)),
+    };
+  });
+
+const getColumnOutput = (column, record, index) => {
+  const value = getValueByPath(record, column.dataIndex);
+  if (typeof column.render === "function") {
+    return column.render(value, record, index);
+  }
+  return value;
+};
+
+const isEmptyNode = (value) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === false ||
+    value === ""
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isEmptyNode);
+  }
+
+  if (React.isValidElement(value)) {
+    if (value.type === React.Fragment) {
+      return isEmptyNode(value.props?.children);
+    }
+
+    const hasVisualProps = Boolean(
+      value.props?.icon ||
+        value.props?.src ||
+        value.props?.title ||
+        value.props?.href,
+    );
+
+    return isEmptyNode(value.props?.children) && !hasVisualProps;
+  }
+
+  return false;
+};
+
+const pruneEmptyActionColumns = (sourceColumns = [], records = []) =>
+  sourceColumns
+    .map((column, index) => {
+      if (Array.isArray(column.children) && column.children.length) {
+        const children = pruneEmptyActionColumns(column.children, records);
+        return children.length ? { ...column, children } : null;
+      }
+
+      const hasEmptyActionCells =
+        records.length > 0 &&
+        isActionColumn(column, index, sourceColumns) &&
+        records.every((record, rowIndex) =>
+          isEmptyNode(getColumnOutput(column, record, rowIndex)),
+        );
+
+      return hasEmptyActionCells ? null : column;
+    })
+    .filter(Boolean);
+
 export default function ResponsiveTable({
   columns = [],
   dataSource = [],
@@ -72,6 +267,7 @@ export default function ResponsiveTable({
   mobilePrimaryColumn,
   mobileSecondaryColumn,
   mobileMetaLimit = 6,
+  mobileStackMeta = false,
   ...tableProps
 }) {
   const screens = useBreakpoint();
@@ -84,7 +280,14 @@ export default function ResponsiveTable({
       : 10,
   );
 
-  const flatColumns = useMemo(() => flattenColumns(columns), [columns]);
+  const displayColumns = useMemo(
+    () => colorizeActionColumns(pruneEmptyActionColumns(columns, dataSource)),
+    [columns, dataSource],
+  );
+  const flatColumns = useMemo(
+    () => flattenColumns(displayColumns),
+    [displayColumns],
+  );
   const visibleColumns = flatColumns.filter((column) => !column.hidden);
   const actionColumns = visibleColumns.filter(isActionColumn);
   const detailColumns = visibleColumns.filter(
@@ -94,7 +297,7 @@ export default function ResponsiveTable({
   if (!isMobile) {
     return (
       <Table
-        columns={columns}
+        columns={displayColumns}
         dataSource={dataSource}
         rowKey={rowKey}
         pagination={pagination}
@@ -168,7 +371,13 @@ export default function ResponsiveTable({
                 hoverable={Boolean(rowClick)}
                 size="small"
                 styles={{ body: { padding: 12 } }}
-                style={{ borderRadius: 10, ...rowProps.style }}
+                style={{
+                  width: "100%",
+                  maxWidth: "100%",
+                  overflow: "hidden",
+                  borderRadius: 10,
+                  ...rowProps.style,
+                }}
                 onClick={rowClick}
               >
                 <div
@@ -179,12 +388,26 @@ export default function ResponsiveTable({
                     gap: 10,
                   }}
                 >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                  <div style={{ minWidth: 0, width: "100%" }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {primaryValue}
                     </div>
                     {secondaryValue ? (
-                      <div style={{ color: "#667085", fontSize: 12 }}>
+                      <div
+                        style={{
+                          color: "#667085",
+                          fontSize: 12,
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                        }}
+                      >
                         {secondaryValue}
                       </div>
                     ) : null}
@@ -195,8 +418,8 @@ export default function ResponsiveTable({
                   <div
                     style={{
                       display: "grid",
-                      gap: 6,
-                      marginTop: 10,
+                      gap: mobileStackMeta ? 10 : 6,
+                      marginTop: mobileStackMeta ? 12 : 10,
                     }}
                   >
                     {metaColumns.map((column, metaIndex) => (
@@ -204,15 +427,31 @@ export default function ResponsiveTable({
                         key={getColumnKey(column, metaIndex)}
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "minmax(92px, 36%) 1fr",
-                          gap: 8,
+                          gridTemplateColumns: mobileStackMeta
+                            ? "minmax(0, 1fr)"
+                            : "minmax(86px, 34%) minmax(0, 1fr)",
+                          gap: mobileStackMeta ? 3 : 8,
                           alignItems: "start",
+                          minWidth: 0,
+                          paddingTop: mobileStackMeta ? 10 : 0,
+                          borderTop: mobileStackMeta
+                            ? "1px solid #eef2f1"
+                            : "none",
                         }}
                       >
                         <Text type="secondary" style={{ fontSize: 12 }}>
                           {getTitleText(column.title)}
                         </Text>
-                        <div style={{ minWidth: 0, fontSize: 12 }}>
+                        <div
+                          style={{
+                            minWidth: 0,
+                            maxWidth: "100%",
+                            fontSize: 12,
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                          }}
+                        >
                           {renderColumnValue(column, record, absoluteIndex)}
                         </div>
                       </div>

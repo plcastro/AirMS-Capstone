@@ -906,7 +906,7 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={4}>
+          <Col xs={12} md={4}>
             <Select
               style={{ width: "100%" }}
               value={aircraft}
@@ -918,7 +918,7 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={4}>
+          <Col xs={12} md={4}>
             <Select
               style={{ width: "100%" }}
               value={status}

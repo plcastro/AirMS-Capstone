@@ -132,6 +132,8 @@ const WORK_DONE_TAB = {
   icon: <CheckSquareOutlined />,
 };
 
+const REQUIRED_DESTINATION_FIELDS = [["date", "Date"]];
+
 export default function FlightLogEntry({
   visible,
   onClose,
@@ -454,16 +456,27 @@ export default function FlightLogEntry({
       return;
     }
     if (canEditDestinations) {
-      const hasInvalidLeg = (formData.legs || []).some((leg) => {
-        const hasRoute = (leg.stations || []).some(
+      const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
+        const hasInvalidRoute = (leg.stations || []).some(
           (station) =>
             !String(station?.from || "").trim() ||
             !String(station?.to || "").trim(),
         );
-        return hasRoute || !String(leg.date || "").trim();
+        const hasMissingField = REQUIRED_DESTINATION_FIELDS.some(([key]) =>
+          !String(leg?.[key] || "").trim(),
+        );
+        return hasInvalidRoute || hasMissingField;
       });
-      if (hasInvalidLeg) {
-        message.error("Each leg must include complete station route and date");
+      if (invalidLegIndex >= 0) {
+        const leg = (formData.legs || [])[invalidLegIndex] || {};
+        const missingField = REQUIRED_DESTINATION_FIELDS.find(([key]) =>
+          !String(leg?.[key] || "").trim(),
+        );
+        message.error(
+          missingField
+            ? `Leg ${invalidLegIndex + 1}: ${missingField[1]} is required`
+            : `Leg ${invalidLegIndex + 1}: complete station route is required`,
+        );
         return;
       }
     }
