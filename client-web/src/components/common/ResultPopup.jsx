@@ -7,7 +7,7 @@ export default function ResultPopup({
   title,
   subTitle,
   status = "success",
-  duration = 3000,
+  duration = 2000,
   autoClose = true,
 }) {
   useEffect(() => {

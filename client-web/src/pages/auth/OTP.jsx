@@ -1,5 +1,5 @@
 // WEB
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
@@ -177,7 +177,7 @@ export default function OTP() {
     }
   };
 
-  const handlePopupClose = () => {
+  const handlePopupClose = useCallback(() => {
     setPopup((prev) => ({ ...prev, open: false }));
 
     if (pendingDashboardPathRef.current) {
@@ -185,7 +185,7 @@ export default function OTP() {
       pendingDashboardPathRef.current = "";
       navigate(dashboardPath);
     }
-  };
+  }, [navigate]);
 
   const handleResend = async () => {
     if (resendTimer > 0) return;

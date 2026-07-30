@@ -20,6 +20,10 @@ const {
   normalizePlatform,
   normalizeBase,
 } = require("../middleware/requestContext");
+const {
+  resetLoginRateLimitForIdentifiers,
+  resetOtpRateLimitForValues,
+} = require("../middleware/rateLimiter");
 const WEB_URL = process.env.WEB_URL;
 const MOBILE_URL = process.env.MOBILE_URL;
 
@@ -746,11 +750,20 @@ const unlockUser = async (req, res) => {
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const previousLoginOtpToken = user.loginOtpToken;
+
     user.failedLoginAttempts = 0;
     user.isLocked = false;
     user.lockUntil = undefined;
+    user.loginOtp = undefined;
+    user.loginOtpExpires = undefined;
+    user.loginOtpToken = undefined;
+    user.loginOtpAttempts = 0;
+    user.loginOtpLockUntil = undefined;
 
     await user.save();
+    resetLoginRateLimitForIdentifiers([user.username, user.email]);
+    resetOtpRateLimitForValues([previousLoginOtpToken, user.email]);
     const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
     await auditLog(audit.action, audit.actorId);
 
