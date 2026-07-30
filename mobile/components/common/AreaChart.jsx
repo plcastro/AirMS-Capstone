@@ -1,13 +1,24 @@
 import React from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
 
 const DEFAULT_SERIES = [{ key: "value", color: "#26866f", name: "Value" }];
 const MIN_WIDTH = 280;
+const POINT_SLOT_WIDTH = 72;
+const CHART_SIDE_PADDING = 80;
 
 const getPointValue = (item, key) => Number(item?.[key]) || 0;
+const formatAxisLabel = (value) => {
+  const label = String(value || "").trim();
+  if (label.length <= 12) return label;
+
+  return label
+    .replace(/aircraft/gi, "AC")
+    .replace(/component/gi, "Comp.")
+    .slice(0, 12);
+};
 
 const buildChartConfig = (series) => ({
   backgroundColor: COLORS.white,
@@ -38,15 +49,19 @@ export default function AreaChart({
   const { width: windowWidth } = useWindowDimensions();
   const safeData = Array.isArray(data) ? data.slice(0, 8) : [];
   const safeSeries = Array.isArray(series) && series.length ? series : DEFAULT_SERIES;
-  const chartWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
-  const chartHeight = Math.max(height, 160);
+  const viewportWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
+  const chartWidth = Math.max(
+    viewportWidth,
+    safeData.length * POINT_SLOT_WIDTH + CHART_SIDE_PADDING,
+  );
+  const chartHeight = Math.max(height, 176);
 
   if (!safeData.length) {
     return <AppText style={styles.emptyText}>No chart data</AppText>;
   }
 
   const labels = safeData.map((item) =>
-    String(item?.[xKey] || item?.label || item?.month || item?.date || "").slice(0, 8),
+    formatAxisLabel(item?.[xKey] || item?.label || item?.month || item?.date),
   );
   const datasets = safeSeries.map((entry) => ({
     data: safeData.map((item) => getPointValue(item, entry.key)),
@@ -58,19 +73,28 @@ export default function AreaChart({
 
   return (
     <View style={styles.wrap}>
-      <LineChart
-        data={{ labels, datasets }}
-        width={chartWidth}
-        height={chartHeight}
-        chartConfig={buildChartConfig(safeSeries)}
-        bezier
-        fromZero
-        withShadow
-        withInnerLines
-        withOuterLines={false}
-        segments={4}
-        style={styles.chart}
-      />
+      <ScrollView
+        horizontal
+        bounces={false}
+        showsHorizontalScrollIndicator={chartWidth > viewportWidth}
+        contentContainerStyle={styles.chartScroller}
+        style={{ maxWidth: viewportWidth }}
+      >
+        <LineChart
+          data={{ labels, datasets }}
+          width={chartWidth}
+          height={chartHeight}
+          chartConfig={buildChartConfig(safeSeries)}
+          bezier
+          fromZero
+          withShadow
+          withInnerLines
+          withOuterLines={false}
+          segments={4}
+          verticalLabelRotation={18}
+          style={styles.chart}
+        />
+      </ScrollView>
 
       <View style={styles.legendRow}>
         {safeSeries.map((entry) => (
@@ -92,6 +116,9 @@ const styles = StyleSheet.create({
   chart: {
     borderRadius: 8,
     marginLeft: -8,
+  },
+  chartScroller: {
+    paddingBottom: 4,
   },
   emptyText: {
     color: COLORS.grayDark,

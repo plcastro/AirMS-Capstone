@@ -383,6 +383,18 @@ export default function ChatView({
                   borderColor: "#ECEFEE",
                 }}
               >
+                <AppText
+                  style={{
+                    width: "100%",
+                    marginBottom: 2,
+                    color: COLORS.grayDark,
+                    fontSize: 11,
+                    fontWeight: "800",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Attached files
+                </AppText>
                 {attachments.map((file, index) => (
                   <View
                     key={`${file.name}-${file.uri}-${index}`}

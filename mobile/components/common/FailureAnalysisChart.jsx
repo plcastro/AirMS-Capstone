@@ -1,11 +1,24 @@
 import React from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
 
 const BAR_COLOR = "#ff4d4f";
 const MIN_WIDTH = 280;
+const BAR_SLOT_WIDTH = 76;
+const CHART_SIDE_PADDING = 72;
+
+const formatAxisLabel = (value) => {
+  const label = String(value || "Unknown").trim();
+  if (label.length <= 12) return label;
+
+  return label
+    .replace(/requisition/gi, "Req.")
+    .replace(/maintenance/gi, "Maint.")
+    .replace(/aircraft/gi, "AC")
+    .slice(0, 12);
+};
 
 const chartConfig = {
   backgroundColor: COLORS.white,
@@ -34,7 +47,11 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
-  const chartWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
+  const viewportWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
+  const chartWidth = Math.max(
+    viewportWidth,
+    safeRows.length * BAR_SLOT_WIDTH + CHART_SIDE_PADDING,
+  );
 
   if (!safeRows.length) {
     return <AppText style={styles.emptyText}>No critical component data available</AppText>;
@@ -49,23 +66,32 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
         </View>
       </View>
 
-      <BarChart
-        data={{
-          labels: safeRows.map((row) => String(row.label).slice(0, 8)),
-          datasets: [{ data: safeRows.map((row) => row.value) }],
-        }}
-        width={chartWidth}
-        height={220}
-        chartConfig={chartConfig}
-        fromZero
-        showValuesOnTopOfBars
-        withInnerLines
-        withHorizontalLabels
-        withVerticalLabels
-        yAxisLabel=""
-        yAxisSuffix=""
-        style={styles.chart}
-      />
+      <ScrollView
+        horizontal
+        bounces={false}
+        showsHorizontalScrollIndicator={chartWidth > viewportWidth}
+        contentContainerStyle={styles.chartScroller}
+        style={{ maxWidth: viewportWidth }}
+      >
+        <BarChart
+          data={{
+            labels: safeRows.map((row) => formatAxisLabel(row.label)),
+            datasets: [{ data: safeRows.map((row) => row.value) }],
+          }}
+          width={chartWidth}
+          height={236}
+          chartConfig={chartConfig}
+          fromZero
+          showValuesOnTopOfBars
+          withInnerLines
+          withHorizontalLabels
+          withVerticalLabels
+          verticalLabelRotation={18}
+          yAxisLabel=""
+          yAxisSuffix=""
+          style={styles.chart}
+        />
+      </ScrollView>
     </View>
   );
 }
@@ -79,6 +105,9 @@ const styles = StyleSheet.create({
   chart: {
     borderRadius: 8,
     marginLeft: -8,
+  },
+  chartScroller: {
+    paddingBottom: 4,
   },
   emptyText: {
     color: COLORS.grayDark,

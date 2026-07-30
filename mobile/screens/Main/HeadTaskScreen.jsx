@@ -1,12 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
-import {
-  View,
-  FlatList,
-  Dimensions,
-  RefreshControl
-} from "react-native";
+import { View, FlatList, Dimensions, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -608,7 +603,7 @@ export default function HeadTaskScreen({
               activeTab === tab
                 ? styles.primaryBtnTxt
                 : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
-              { fontSize: 12 },
+              { fontSize: 10 },
             ]}
           />
         ))}
