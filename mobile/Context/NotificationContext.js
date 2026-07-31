@@ -757,10 +757,6 @@ export function NotificationProvider({ children }) {
           return;
         }
 
-        if (nextSnapshot.messagesUnread > previousSnapshot.messagesUnread) {
-          showToast("You have new message updates.");
-        }
-
         if (
           nextSnapshot.taskCount > previousSnapshot.taskCount ||
           (nextSnapshot.latestTaskUpdatedAt &&
@@ -994,12 +990,8 @@ export function NotificationProvider({ children }) {
           entityType: payload?.entityType || "system",
         });
 
-        const moduleName = String(
-          payload?.module || "",
-        ).toLowerCase();
-        if (moduleName === "messages") {
-          showToast("You received new chat messages.");
-        } else {
+        const moduleName = String(payload?.module || "").toLowerCase();
+        if (moduleName !== "messages") {
           showToast("You received new notifications.");
         }
       }

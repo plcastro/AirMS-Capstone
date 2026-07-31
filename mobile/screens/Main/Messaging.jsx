@@ -250,19 +250,8 @@ export default function Messaging({ navigation, route }) {
       const messageId = String(messagePayload?._id || "");
       if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
       notifiedMessageIdsRef.current.add(messageId);
-
-      const senderId = String(getEntityId(messagePayload?.sender));
-      if (!senderId || senderId === String(currentUserId)) return;
-
-      const senderUser = usersById.get(senderId) || {};
-      const senderName = getDisplayName(senderUser);
-      const preview =
-        String(messagePayload?.body || "").trim() ||
-        getAttachmentLabel(messagePayload?.attachments || []) ||
-        "sent a message";
-      showToast(`${senderName}: ${preview}`);
     },
-    [currentUserId, usersById],
+    [],
   );
 
   useEffect(() => {
