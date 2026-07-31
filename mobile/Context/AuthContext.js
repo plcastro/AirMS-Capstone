@@ -28,7 +28,6 @@ export const AuthProvider = ({ children }) => {
       "currentUserToken",
       "refreshToken",
       "authSessionMeta",
-      "rememberMe",
       REMEMBERED_SESSION_STARTED_AT_KEY,
     ]);
     await secureDeleteItem("accessToken");
@@ -75,8 +74,8 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         accessTokenRef.current = null;
         refreshTokenRef.current = null;
-        setRememberMePreference(false);
         await clearStoredAuth();
+        setRememberMePreference((await AsyncStorage.getItem("rememberMe")) === "true");
       }
     },
     [clearStoredAuth],
@@ -187,9 +186,9 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setToken(null);
         accessTokenRef.current = null;
-        setRememberMePreference(false);
         refreshTokenRef.current = null;
         await clearStoredAuth();
+        setRememberMePreference((await AsyncStorage.getItem("rememberMe")) === "true");
       } else {
         await logoutUser();
       }
@@ -218,8 +217,8 @@ export const AuthProvider = ({ children }) => {
             setToken(null);
             accessTokenRef.current = null;
             refreshTokenRef.current = null;
-            setRememberMePreference(false);
             await clearStoredAuth();
+            setRememberMePreference(true);
             return;
           }
         }

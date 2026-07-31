@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
+import { Input, Row, Col, Card, Button, Typography } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -37,8 +37,19 @@ const formatFileDate = (value = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatReportDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatReportDate();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const buildWorkDoneReportFileName = (record = {}) => {
-  const aircraft = record.aircraft || record.rpc || record.aircraftNo || "Aircraft";
+  const aircraft =
+    record.aircraft || record.rpc || record.aircraftNo || "Aircraft";
   const date =
     record.dateDefectRectified ||
     record.dateRectified ||
@@ -51,12 +62,22 @@ const buildWorkDoneReportFileName = (record = {}) => {
 const getMechanicInCharge = (record = {}) =>
   record.mechanicInCharge || record.reportedBy || "";
 
-const getInspector = (record = {}) => record.inspector || record.approvedBy || "";
+const getInspector = (record = {}) =>
+  record.inspector || record.approvedBy || "";
 
 const getMechanicLicenseNo = (record = {}) =>
   record.mechanicLicenseNo || record.licenseNo || "";
 
 const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+
+const getReportDate = (record = {}) =>
+  formatReportDate(
+    record.dateDefectRectified ||
+      record.dateRectified ||
+      record.completedAt ||
+      record.updatedAt ||
+      record.createdAt,
+  );
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -154,7 +175,7 @@ const drawMaintenanceReportHeader = (
 
   doc.setDrawColor(25, 25, 25);
   doc.setLineWidth(0.9);
-  doc.rect(marginX, topY, contentWidth, 186);
+  doc.rect(marginX, topY, contentWidth, 150);
   doc.rect(marginX, topY, contentWidth, 16);
 
   const leftRows = [
@@ -229,52 +250,7 @@ const drawMaintenanceReportHeader = (
     { bold: true, fontSize: 10, align: "center" },
   );
 
-  const signoffY = reportTitleY + 32;
-  const signoffColumnWidth = contentWidth / 2;
-  const signoffLabelWidth = 96;
-  drawLabeledRow(
-    doc,
-    "MECHANIC-IN-CHARGE:",
-    getMechanicInCharge(record),
-    marginX,
-    signoffY,
-    signoffLabelWidth,
-    signoffColumnWidth - signoffLabelWidth,
-    18,
-  );
-  drawLabeledRow(
-    doc,
-    "INSPECTOR:",
-    getInspector(record),
-    marginX + signoffColumnWidth,
-    signoffY,
-    62,
-    signoffColumnWidth - 62,
-    18,
-  );
-  const licenseY = signoffY + 18;
-  drawLabeledRow(
-    doc,
-    "LICENSE NO.:",
-    getMechanicLicenseNo(record),
-    marginX,
-    licenseY,
-    signoffLabelWidth,
-    signoffColumnWidth - signoffLabelWidth,
-    18,
-  );
-  drawLabeledRow(
-    doc,
-    "LICENSE NO.:",
-    getInspectorLicenseNo(record),
-    marginX + signoffColumnWidth,
-    licenseY,
-    62,
-    signoffColumnWidth - 62,
-    18,
-  );
-
-  const descriptionY = licenseY + 18;
+  const descriptionY = reportTitleY + 32;
   doc.rect(marginX, descriptionY, contentWidth, 16);
   drawTextInBox(
     doc,
@@ -296,6 +272,75 @@ const drawMaintenanceReportHeader = (
     contentWidth,
     numberColumnWidth: 50,
   };
+};
+
+const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const bottomMargin = 28;
+  const certificationHeight = 44;
+  const signoffHeight = 66;
+  const totalHeight = certificationHeight + signoffHeight;
+  let y = startY + 8;
+
+  if (y + totalHeight > pageHeight - bottomMargin) {
+    doc.addPage();
+    y = bottomMargin;
+  }
+
+  doc.setDrawColor(25, 25, 25);
+  doc.setLineWidth(0.9);
+  doc.rect(header.marginX, y, header.contentWidth, totalHeight);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const certificationLines = doc.splitTextToSize(
+    "I hereby certify that unless otherwise specified, the work has been carried out in accordance with the current rules of CAAP and in respect to that work the aircraft or aircraft component is considered fit for return to service.",
+    header.contentWidth - 24,
+  );
+  doc.text(certificationLines, header.marginX + 12, y + 16);
+
+  const dateY = y + certificationHeight + 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(
+    `Date: ${getReportDate(record)}`,
+    header.marginX + header.contentWidth / 2,
+    dateY,
+    {
+      align: "center",
+    },
+  );
+
+  const signoffY = dateY + 22;
+  const signoffColumnWidth = header.contentWidth / 2;
+  const leftCenterX = header.marginX + signoffColumnWidth / 2;
+  const rightCenterX =
+    header.marginX + signoffColumnWidth + signoffColumnWidth / 2;
+  const mechanicLicense = getMechanicLicenseNo(record)
+    ? `${getMechanicLicenseNo(record)} - AMT`
+    : "";
+  const inspectorLicense = getInspectorLicenseNo(record)
+    ? `${getInspectorLicenseNo(record)} - AMT`
+    : "";
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(
+    `Mechanic in-charge: ${formatPdfValue(getMechanicInCharge(record))}`,
+    leftCenterX,
+    signoffY,
+    { align: "center" },
+  );
+  doc.text(
+    `Inspector: ${formatPdfValue(getInspector(record))}`,
+    rightCenterX,
+    signoffY,
+    { align: "center" },
+  );
+
+  doc.setFontSize(10);
+  doc.text(mechanicLicense, leftCenterX, signoffY + 22, { align: "center" });
+  doc.text(inspectorLicense, rightCenterX, signoffY + 22, { align: "center" });
 };
 
 export default function MaintenanceLog() {
@@ -502,34 +547,50 @@ export default function MaintenanceLog() {
   };
 
   const renderReadOnlyField = (label, value, isTag = false) => {
+    const labelStyle = {
+      width: 170,
+      flex: "0 0 170px",
+      padding: "0 11px",
+      fontWeight: 600,
+      lineHeight: "32px",
+      border: "1px solid #d9d9d9",
+      borderRight: 0,
+      background: "#fafafa",
+      whiteSpace: "normal",
+    };
+    const fieldStyle = {
+      display: "flex",
+      alignItems: "stretch",
+      width: "100%",
+    };
+
     if (isTag) {
       return (
-        <Space.Compact style={{ width: "100%" }}>
-          <span
+        <div style={fieldStyle}>
+          <span style={labelStyle}>{label}</span>
+          <div
             style={{
-              minWidth: 120,
+              flex: 1,
+              minWidth: 0,
+              minHeight: 32,
+              display: "flex",
+              alignItems: "center",
               padding: "0 11px",
+              border: "1px solid #d9d9d9",
+              background: "#fff",
             }}
           >
-            {label}
-          </span>
-          {renderStatusTag(value)}
-        </Space.Compact>
+            {renderStatusTag(value)}
+          </div>
+        </div>
       );
     }
 
     return (
-      <Space.Compact style={{ width: "100%" }}>
-        <span
-          style={{
-            minWidth: 120,
-            padding: "0 11px",
-          }}
-        >
-          {label}
-        </span>
+      <div style={fieldStyle}>
+        <span style={labelStyle}>{label}</span>
         <Input value={value || ""} readOnly />
-      </Space.Compact>
+      </div>
     );
   };
   const fetchAircraftExportData = async (aircraft) => {
@@ -577,7 +638,7 @@ export default function MaintenanceLog() {
       )
         .map((item) => formatPdfValue(item?.description || item, "").trim())
         .filter(Boolean)
-        .map((description, index) => ["", `${index + 1}. ${description}`]);
+        .map((description, index) => [String(index + 1), description]);
 
       const drawPageHeader = () =>
         drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
@@ -607,7 +668,7 @@ export default function MaintenanceLog() {
           minCellHeight: 16,
         },
         columnStyles: {
-          0: { cellWidth: header.numberColumnWidth },
+          0: { cellWidth: header.numberColumnWidth, halign: "center" },
           1: { cellWidth: header.contentWidth - header.numberColumnWidth },
         },
         didDrawPage: (data) => {
@@ -617,6 +678,13 @@ export default function MaintenanceLog() {
           }
         },
       });
+
+      drawMaintenanceReportSignoff(
+        doc,
+        selectedWO,
+        header,
+        doc.lastAutoTable?.finalY || header.startY,
+      );
 
       doc.save(`${fileName}.pdf`);
       setPopup({
@@ -1022,17 +1090,11 @@ export default function MaintenanceLog() {
               </Col>
 
               <Col xs={24} md={12}>
-                {renderReadOnlyField(
-                  "Mechanic License No.:",
-                  getMechanicLicenseNo(selectedWO),
-                )}
+                {renderReadOnlyField("AMT:", getMechanicLicenseNo(selectedWO))}
               </Col>
 
               <Col xs={24} md={12}>
-                {renderReadOnlyField(
-                  "Inspector License No.:",
-                  getInspectorLicenseNo(selectedWO),
-                )}
+                {renderReadOnlyField("AMT:", getInspectorLicenseNo(selectedWO))}
               </Col>
 
               <Col xs={24} md={12}>
@@ -1046,35 +1108,16 @@ export default function MaintenanceLog() {
                 )}
               </Col>
 
-              {/* Bottom row */}
               <Col xs={24} md={12}>
-                <Space.Compact style={{ width: "100%" }}>
-                  <span
-                    style={{
-                      minWidth: 120,
-                      padding: "0 11px",
-                    }}
-                  >
-                    Task Status:
-                  </span>
-
-                  {renderStatusTag(selectedWO?.sourceTaskStatus)}
-                </Space.Compact>
+                {renderReadOnlyField(
+                  "Task Status:",
+                  selectedWO?.sourceTaskStatus,
+                  true,
+                )}
               </Col>
 
               <Col xs={24} md={12}>
-                <Space.Compact style={{ width: "100%" }}>
-                  <span
-                    style={{
-                      minWidth: 120,
-                      padding: "0 11px",
-                    }}
-                  >
-                    Log Status:
-                  </span>
-
-                  {renderStatusTag(selectedWO?.status)}
-                </Space.Compact>
+                {renderReadOnlyField("Log Status:", selectedWO?.status, true)}
               </Col>
             </Row>
           </Card>

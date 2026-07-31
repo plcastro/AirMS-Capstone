@@ -64,6 +64,16 @@ const formatFileDate = (value = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatReportDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatReportDate();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const getFlightLogFileName = (log = {}) => {
   const aircraft = log.rpc || log.aircraft || log.aircraftNo || "Aircraft";
   const date = log.date || log.dateAdded || log.createdAt || log.updatedAt;
@@ -92,6 +102,15 @@ const getMaintenanceLogMechanicLicenseNo = (log = {}) =>
 
 const getMaintenanceLogInspectorLicenseNo = (log = {}) =>
   log.inspectorLicenseNo || "";
+
+const getMaintenanceLogReportDate = (log = {}) =>
+  formatReportDate(
+    log.dateDefectRectified ||
+      log.dateRectified ||
+      log.completedAt ||
+      log.updatedAt ||
+      log.createdAt,
+  );
 
 const flattenRecord = (value, prefix = "") => {
   if (value === null || value === undefined) {
@@ -243,13 +262,20 @@ const buildMaintenanceLogHtml = (log = {}) => {
   const inspector = getMaintenanceLogInspector(log);
   const mechanicLicenseNo = getMaintenanceLogMechanicLicenseNo(log);
   const inspectorLicenseNo = getMaintenanceLogInspectorLicenseNo(log);
+  const reportDate = getMaintenanceLogReportDate(log);
+  const mechanicLicenseText = mechanicLicenseNo
+    ? `${mechanicLicenseNo} - AMT`
+    : "";
+  const inspectorLicenseText = inspectorLicenseNo
+    ? `${inspectorLicenseNo} - AMT`
+    : "";
 
   const detailRows = (workItems.length ? workItems : [""])
     .map(
       (description, index) => `
         <tr class="work-row">
-          <td class="signoff"></td>
-          <td class="description">${index + 1}. ${escapeHtml(description)}</td>
+          <td class="signoff">${index + 1}</td>
+          <td class="description">${escapeHtml(description)}</td>
         </tr>`,
     )
     .join("");
@@ -275,7 +301,16 @@ const buildMaintenanceLogHtml = (log = {}) => {
             font-size: 9pt;
           }
           .report { width: 100%; border: 1.5px solid #111; }
-          .blank-top { height: 9mm; border-bottom: 1.5px solid #111; }
+          .certification {
+            padding: 6mm 5mm 2mm;
+            line-height: 1.3;
+          }
+          .certification-date {
+            margin-top: 3mm;
+            font-weight: 700;
+            text-align: center;
+            font-size: 11pt;
+          }
           .metadata {
             display: grid;
             grid-template-columns: 27% 46% 27%;
@@ -331,28 +366,27 @@ const buildMaintenanceLogHtml = (log = {}) => {
             font-weight: 700;
             border-bottom: 1.5px solid #111;
           }
+          .footer {
+            border: 1.5px solid #111;
+          }
           .signoff-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            border-bottom: 1.5px solid #111;
+            column-gap: 8mm;
+            padding: 5mm 2mm 0;
           }
           .signoff-cell {
-            min-height: 8mm;
-            display: flex;
-            border-right: 1px solid #111;
+            min-height: 18mm;
+            text-align: center;
           }
-          .signoff-cell:last-child { border-right: 0; }
-          .signoff-cell.license { border-top: 1px solid #111; }
           .signoff-label {
-            width: 39%;
-            padding: 2px 3px;
-            border-right: 1px solid #111;
-            font-weight: 700;
+            font-size: 12pt;
+            font-weight: 400;
+            text-align: center;
           }
-          .signoff-value {
-            flex: 1;
-            padding: 2px 4px;
-            overflow-wrap: anywhere;
+          .license-line {
+            margin-top: 2mm;
+            font-size: 12pt;
           }
           .work-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
           .work-table td {
@@ -361,7 +395,7 @@ const buildMaintenanceLogHtml = (log = {}) => {
             page-break-inside: avoid;
           }
           .work-table tr:last-child td { border-bottom: 0; }
-          .signoff { width: 10%; border-right: 1px solid #111; }
+          .signoff { width: 10%; border-right: 1px solid #111; text-align: center; }
           .description {
             padding: 3px 4px;
             line-height: 1.25;
@@ -393,22 +427,21 @@ const buildMaintenanceLogHtml = (log = {}) => {
           <div class="title">WORK DONE REPORT /<br />CERTIFICATE OF RETURN TO SERVICE</div>
           <div class="section-title">DESCRIPTION OF WORK:</div>
           <table class="work-table"><tbody>${detailRows}</tbody></table>
-          <div class="blank-top"></div>
+          <div class="footer">
+          <div class="certification">
+            I hereby certify that unless otherwise specified, the work has been carried out in accordance with the current rules of CAAP and in respect to that work the aircraft or aircraft component is considered fit for return to service
+            <div class="certification-date">Date: ${escapeHtml(reportDate)}</div>
+          </div>
           <div class="signoff-grid">
             <div class="signoff-cell">
-              <span class="signoff-label">Mechanic-in-charge:</span>
-              <span class="signoff-value">${escapeHtml(mechanicInCharge)}</span>
+              <div class="signoff-label">Mechanic in-charge: ${escapeHtml(mechanicInCharge)}</div>
+              <div class="license-line">${escapeHtml(mechanicLicenseText)}</div>
             </div>
             <div class="signoff-cell">
-              <span class="signoff-label">Inspector:</span>
-              <span class="signoff-value">${escapeHtml(inspector)}</span>
+              <div class="signoff-label">Inspector: ${escapeHtml(inspector)}</div>
+              <div class="license-line">${escapeHtml(inspectorLicenseText)}</div>
             </div>
-            <div class="signoff-cell license">
-              <span class="signoff-value">${escapeHtml(mechanicLicenseNo)}- AMT</span>
-            </div>
-            <div class="signoff-cell license">
-              <span class="signoff-value">${escapeHtml(inspectorLicenseNo)} - AMT</span>
-            </div>
+          </div>
           </div>
         </div>
       </body>

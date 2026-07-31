@@ -15,7 +15,11 @@ const normalizeTaskCompletionStatus = (status) =>
 
 const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
 
-const normalizeIdentity = (value) => String(value || "").trim().toLowerCase();
+const normalizeIdentity = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
 const getUserFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim();
@@ -105,40 +109,50 @@ const buildUserLicenseMap = async (identities = []) => {
     return new Map();
   }
 
+  const normalizedIdentitySet = new Set(normalizedIdentities.map(normalizeIdentity));
   const objectIds = normalizedIdentities.filter(isObjectIdLike);
+  const directMatches = normalizedIdentities.filter((identity) => !isObjectIdLike(identity));
   const query = [];
 
   if (objectIds.length) {
     query.push({ _id: { $in: objectIds } });
   }
 
-  query.push(
-    { username: { $in: normalizedIdentities } },
-    { email: { $in: normalizedIdentities } },
-    { licenseNo: { $in: normalizedIdentities } },
-    {
-      $expr: {
-        $in: [
-          {
-            $trim: {
-              input: { $concat: ["$firstName", " ", "$lastName"] },
-            },
-          },
-          normalizedIdentities,
-        ],
-      },
-    },
-  );
+  if (directMatches.length) {
+    query.push(
+      { username: { $in: directMatches } },
+      { email: { $in: directMatches } },
+      { licenseNo: { $in: directMatches } },
+    );
+  }
 
-  const users = await UserModel.find(
-    { $or: query },
+  const directlyMatchedUsers = query.length
+    ? await UserModel.find(
+        { $or: query },
+        "firstName lastName username email licenseNo",
+      ).lean()
+    : [];
+  const licensedUsers = await UserModel.find(
+    { licenseNo: { $exists: true, $nin: [null, ""] } },
     "firstName lastName username email licenseNo",
   ).lean();
   const licenseByIdentity = new Map();
 
-  users.forEach((user) => {
+  [...directlyMatchedUsers, ...licensedUsers].forEach((user) => {
     const licenseNo = user?.licenseNo || "";
-    [user?._id, user?.username, user?.email, user?.licenseNo, getUserFullName(user)]
+    const possibleIdentities = [
+      user?._id,
+      user?.username,
+      user?.email,
+      user?.licenseNo,
+      getUserFullName(user),
+    ];
+
+    if (!possibleIdentities.some((identity) => normalizedIdentitySet.has(normalizeIdentity(identity)))) {
+      return;
+    }
+
+    possibleIdentities
       .map(normalizeIdentity)
       .filter(Boolean)
       .forEach((key) => licenseByIdentity.set(key, licenseNo));

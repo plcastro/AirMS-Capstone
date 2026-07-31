@@ -32,7 +32,7 @@ export default function Login() {
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [selectedBase, setSelectedBase] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +44,7 @@ export default function Login() {
     const loadSavedCredentials = async () => {
       try {
         const savedRememberMe = await AsyncStorage.getItem("rememberMe");
+        setRememberMe(savedRememberMe === "true");
         if (savedRememberMe === "true") {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
@@ -54,7 +55,6 @@ export default function Login() {
             password: "",
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
-          setRememberMe(true);
         }
       } catch (err) {
         console.error(err);

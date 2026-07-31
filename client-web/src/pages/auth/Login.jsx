@@ -52,13 +52,14 @@ const Login = () => {
     const savedBase = localStorage.getItem("rememberedBase") || "";
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
+    setRememberMe(savedRememberMe);
+
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
         password: "",
         base: savedBase,
       });
-      setRememberMe(true);
     }
   }, []);
 

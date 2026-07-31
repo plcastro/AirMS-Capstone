@@ -97,7 +97,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem(SESSION_META_KEY);
     localStorage.removeItem(SESSION_TIMING_KEY);
-    localStorage.setItem(REMEMBER_ME_KEY, "false");
   };
 
   const isTokenValid = (token) => {
@@ -224,7 +223,7 @@ export const AuthProvider = ({ children }) => {
     clearTokenExpiryTimer();
     setUser(null);
     clearAuthStorage();
-    setRememberMePreferenceState(false);
+    setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
     if (broadcast) {
       publishAuthSync({ type: "LOGOUT" });
     }
@@ -328,7 +327,7 @@ export const AuthProvider = ({ children }) => {
       clearTokenExpiryTimer();
       setUser(null);
       clearAuthStorage();
-      setRememberMePreferenceState(false);
+      setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
       if (broadcast) {
         publishAuthSync({ type: "LOGOUT" });
       }
@@ -481,7 +480,7 @@ export const AuthProvider = ({ children }) => {
           sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(false);
+          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
         }
         if (payload.type === "TOKEN_REFRESH" && payload.token) {
           if (sessionEndedRef.current) return;
@@ -502,7 +501,7 @@ export const AuthProvider = ({ children }) => {
           sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(false);
+          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
           return;
         }
         if (payload.type === "LOGIN" && payload.user && payload.token) {
