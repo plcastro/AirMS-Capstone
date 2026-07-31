@@ -21,7 +21,11 @@ export function FlightLogReport({ records = [], loading = false }) {
   const rows = useMemo(() => countRows(records, (item) => item.rpc || item.aircraft), [records]);
   return (
     <InfoCard title="Flight Log Report" subtitle={loading ? "Loading records..." : "Flight logs by aircraft"}>
-      <FailureAnalysisChart rows={rows} />
+      <FailureAnalysisChart
+        rows={rows}
+        legendLabel="Flight Log Count"
+        emptyText="No flight log data available"
+      />
     </InfoCard>
   );
 }
@@ -30,7 +34,11 @@ export function InspectionReport({ title = "Inspection Report", records = [], lo
   const rows = useMemo(() => countRows(records, (item) => normalizeStatus(item.status)), [records]);
   return (
     <InfoCard title={title} subtitle={loading ? "Loading records..." : "Inspection status distribution"}>
-      <FailureAnalysisChart rows={rows} />
+      <FailureAnalysisChart
+        rows={rows}
+        legendLabel="Inspection Count"
+        emptyText="No inspection data available"
+      />
     </InfoCard>
   );
 }
@@ -39,7 +47,11 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
   const rows = useMemo(() => countRows(records, (item) => normalizeStatus(item.status)), [records]);
   return (
     <InfoCard title="Parts Requisition Report" subtitle={loading ? "Loading records..." : "Request status distribution"}>
-      <FailureAnalysisChart rows={rows} />
+      <FailureAnalysisChart
+        rows={rows}
+        legendLabel="Parts Request Count"
+        emptyText="No parts requisition data available"
+      />
     </InfoCard>
   );
 }

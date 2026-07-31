@@ -3,6 +3,10 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { Alert } from "react-native";
 import { requestStoragePermissionForDownload } from "./storagePermission";
+import {
+  exportPostInspectionTemplatePdf,
+  exportPreInspectionTemplatePdf,
+} from "./documentExport";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
   "_id",
@@ -77,7 +81,7 @@ const formatReportDate = (value = new Date()) => {
 const getFlightLogFileName = (log = {}) => {
   const aircraft = log.rpc || log.aircraft || log.aircraftNo || "Aircraft";
   const date = log.date || log.dateAdded || log.createdAt || log.updatedAt;
-  return `Flight Log_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+  return `FlightLog_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
 };
 
 const getMaintenanceLogFileName = (log = {}) => {
@@ -247,7 +251,7 @@ const simpleTable = (rows = []) => `
   </table>
 `;
 
-const buildMaintenanceLogHtml = (log = {}) => {
+const buildMaintenanceLogHtml = (log = {}, aircraftData = null) => {
   const workItems = (
     Array.isArray(log?.workDetails) && log.workDetails.length
       ? log.workDetails
@@ -256,8 +260,12 @@ const buildMaintenanceLogHtml = (log = {}) => {
     .map((item) => String(item?.description || item || "").trim())
     .filter(Boolean);
   const serialNumber =
-    log?.sn || String(log?.aircraft || "").replace(/[^\d]/g, "") || "";
+    aircraftData?.serialNumber ||
+    log?.sn ||
+    String(log?.aircraft || "").replace(/[^\d]/g, "") ||
+    "";
   const workOrder = log?.sourceTaskId || log?.id || log?._id || "";
+  const ref = aircraftData?.referenceData || {};
   const mechanicInCharge = getMaintenanceLogMechanicInCharge(log);
   const inspector = getMaintenanceLogInspector(log);
   const mechanicLicenseNo = getMaintenanceLogMechanicLicenseNo(log);
@@ -301,20 +309,25 @@ const buildMaintenanceLogHtml = (log = {}) => {
             font-size: 9pt;
           }
           .report { width: 100%; border: 1.5px solid #111; }
+          .top-strip {
+            height: 16pt;
+            border-bottom: 1.5px solid #111;
+          }
           .certification {
-            padding: 6mm 5mm 2mm;
+            padding: 12pt 12pt 0;
             line-height: 1.3;
+            font-size: 9pt;
           }
           .certification-date {
-            margin-top: 3mm;
+            margin-top: 8pt;
             font-weight: 700;
             text-align: center;
-            font-size: 11pt;
+            font-size: 10pt;
           }
           .metadata {
             display: grid;
             grid-template-columns: 27% 46% 27%;
-            min-height: 30mm;
+            min-height: 60pt;
             border-bottom: 1.5px solid #111;
           }
           .meta-side { display: grid; grid-template-rows: repeat(4, 1fr); }
@@ -338,55 +351,57 @@ const buildMaintenanceLogHtml = (log = {}) => {
             overflow: hidden;
           }
           .ngcp {
-            font-size: 36pt;
-            line-height: .85;
+            font-size: 32pt;
+            line-height: .9;
             font-weight: 900;
-            letter-spacing: -4px;
+            letter-spacing: -2pt;
             color: #222;
           }
           .ngcp .accent { color: #087d4b; }
           .tagline {
-            margin-top: 4px;
-            font-size: 8pt;
+            margin-top: 2pt;
+            font-size: 7pt;
             font-weight: 700;
-            letter-spacing: .4px;
+            letter-spacing: .2pt;
           }
           .title {
-            padding: 5mm 2mm 4mm;
+            min-height: 32pt;
+            padding: 7pt 2mm 4pt;
             text-align: center;
-            font-size: 11pt;
+            font-size: 10pt;
             line-height: 1.35;
             font-weight: 700;
             border-bottom: 1.5px solid #111;
           }
           .section-title {
-            height: 8mm;
-            padding: 2px 3px;
-            font-size: 10pt;
+            height: 16pt;
+            padding: 2pt 3pt;
+            font-size: 9pt;
             font-weight: 700;
             border-bottom: 1.5px solid #111;
           }
           .footer {
-            border: 1.5px solid #111;
+            border-top: 1.5px solid #111;
           }
           .signoff-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             column-gap: 8mm;
-            padding: 5mm 2mm 0;
+            min-height: 66pt;
+            padding: 18pt 2mm 0;
           }
           .signoff-cell {
-            min-height: 18mm;
+            min-height: 38pt;
             text-align: center;
           }
           .signoff-label {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: 400;
             text-align: center;
           }
           .license-line {
-            margin-top: 2mm;
-            font-size: 12pt;
+            margin-top: 12pt;
+            font-size: 10pt;
           }
           .work-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
           .work-table td {
@@ -406,9 +421,10 @@ const buildMaintenanceLogHtml = (log = {}) => {
       </head>
       <body>
         <div class="report">
+          <div class="top-strip"></div>
           <div class="metadata">
             <div class="meta-side">
-              ${labeledCell("ACFT TYPE:", log?.aircraftType || "AS350 B3")}
+              ${labeledCell("ACFT TYPE:", aircraftData?.aircraftType || log?.aircraftType || "AS350 B3")}
               ${labeledCell("ACFT REG:", log?.aircraft)}
               ${labeledCell("ACFT S/N:", serialNumber)}
               ${labeledCell("W.O. #:", workOrder)}
@@ -418,10 +434,10 @@ const buildMaintenanceLogHtml = (log = {}) => {
               <div class="tagline">BRIDGING POWER &amp; PROGRESS</div>
             </div>
             <div class="meta-side">
-              ${labeledCell("AIRCRAFT TT:", log?.aircraftTT || log?.acftTT)}
-              ${labeledCell("LANDING CYC:", log?.landingCycles || log?.landings)}
-              ${labeledCell("ENGINE: TT:", log?.engineTT || log?.engTT)}
-              ${labeledCell("ENGINE CYC:", log?.engineCycles || log?.n2Cycles)}
+              ${labeledCell("AIRCRAFT TT:", ref.acftTT ?? log?.aircraftTT ?? log?.acftTT)}
+              ${labeledCell("LANDING CYC:", ref.landings ?? log?.landingCycles ?? log?.landings)}
+              ${labeledCell("ENGINE: TT:", ref.engTT ?? ref.acftTT ?? log?.engineTT ?? log?.engTT)}
+              ${labeledCell("ENGINE CYC:", ref.n2Cycles ? `N2: ${ref.n2Cycles}` : log?.engineCycles || log?.n2Cycles)}
             </div>
           </div>
           <div class="title">WORK DONE REPORT /<br />CERTIFICATE OF RETURN TO SERVICE</div>
@@ -452,6 +468,15 @@ const flightValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
     ? fallback
     : String(value);
+
+const isDrawableImageDataUrl = (value) =>
+  typeof value === "string" &&
+  /^data:image\/(png|jpe?g|webp);base64,/i.test(value);
+
+const signatureImage = (signature, className = "signature-image") =>
+  isDrawableImageDataUrl(signature)
+    ? `<img class="${className}" src="${signature}" alt="" />`
+    : "";
 
 const formatFlightLogDate = (value) => {
   if (!value) return "";
@@ -692,6 +717,21 @@ const buildFlightLogHtml = (log = {}) => {
             min-height: 9pt;
             font-weight: 400;
           }
+          .signature-image {
+            display: block;
+            max-width: 68pt;
+            max-height: 14pt;
+            margin: 0 auto 1pt;
+            object-fit: contain;
+          }
+          .signature .signature-image {
+            max-width: 138pt;
+            max-height: 16pt;
+            margin-top: 2pt;
+          }
+          .name-sign {
+            text-align: center;
+          }
           .checks {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -849,7 +889,7 @@ const buildFlightLogHtml = (log = {}) => {
                       <td class="center">${escapeHtml(flightValue(fuel.mainTotal))}</td>
                       <td class="center">${fuel.fuelType === "drum" ? "/" : ""}</td>
                       <td class="center">${fuel.fuelType === "truck" || fuel.fuelType === "bowser" ? "/" : ""}</td>
-                      <td class="center">${escapeHtml(flightValue(fuel.refuelerName))}</td>
+                      <td class="center name-sign">${signatureImage(fuel.signature)}${escapeHtml(flightValue(fuel.refuelerName))}</td>
                     </tr>
                   `,
                 )
@@ -885,7 +925,7 @@ const buildFlightLogHtml = (log = {}) => {
                       <td class="center">${escapeHtml(flightValue(oil.trGboxAdd))}</td>
                       <td class="center">${escapeHtml(flightValue(oil.trGboxTot))}</td>
                       <td>${escapeHtml(flightValue(oil.remarks))}</td>
-                      <td></td>
+                      <td class="center name-sign">${signatureImage(oil.signature)}</td>
                     </tr>
                   `,
                 )
@@ -896,11 +936,13 @@ const buildFlightLogHtml = (log = {}) => {
           <div class="signature">
             <div>
               RELEASED BY:
+              ${signatureImage(log.releasedBy?.signature)}
               <div class="name">${escapeHtml(flightValue(log.releasedBy?.name))}</div>
               ENGINEER / CERTIFICATE
             </div>
             <div>
               ACCEPTED BY:
+              ${signatureImage(log.acceptedBy?.signature)}
               <div class="name">${escapeHtml(flightValue(log.acceptedBy?.name))}</div>
               PILOT-IN-COMMAND / CERTIFICATE
             </div>
@@ -937,7 +979,7 @@ const buildFlightLogHtml = (log = {}) => {
                       <td class="center">${escapeHtml(formatFlightLogDate(item.date))}</td>
                       <td class="center">${escapeHtml(flightValue(item.aircraft || log.rpc))}</td>
                       <td>${escapeHtml(flightValue(item.workDone || item.description))}</td>
-                      <td>${escapeHtml(flightValue(item.name || item.performedBy))}</td>
+                      <td class="name-sign">${signatureImage(item.signature)}${escapeHtml(flightValue(item.name || item.performedBy))}</td>
                       <td class="center">${escapeHtml(flightValue(item.certificateNumber))}</td>
                     </tr>
                   `,
@@ -2045,16 +2087,10 @@ const exportRecordToPdf = async ({
 };
 
 export const exportPreInspectionPdf = (inspection) =>
-  exportRecordToPdf({
-    title: "Pre-Inspection",
-    html: buildPreInspectionHtml(inspection),
-  });
+  exportPreInspectionTemplatePdf(inspection);
 
 export const exportPostInspectionPdf = (inspection) =>
-  exportRecordToPdf({
-    title: "Post-Inspection",
-    html: buildPostInspectionHtml(inspection),
-  });
+  exportPostInspectionTemplatePdf(inspection);
 
 export const exportFlightLogPdf = (log) =>
   exportRecordToPdf({
@@ -2063,9 +2099,9 @@ export const exportFlightLogPdf = (log) =>
     html: buildFlightLogHtml(log),
   });
 
-export const exportMaintenanceLogPdf = (log) =>
+export const exportMaintenanceLogPdf = (log, options = {}) =>
   exportRecordToPdf({
     title: "Work Done Report",
     fileName: getMaintenanceLogFileName(log),
-    html: buildMaintenanceLogHtml(log),
+    html: buildMaintenanceLogHtml(log, options.aircraftData),
   });

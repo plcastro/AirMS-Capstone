@@ -30,7 +30,11 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       title="Maintenance History"
       subtitle={loading ? "Loading task history..." : "Status distribution of maintenance tasks"}
     >
-      <FailureAnalysisChart rows={rows} />
+      <FailureAnalysisChart
+        rows={rows}
+        legendLabel="Maintenance Task Count"
+        emptyText="No maintenance history data available"
+      />
     </InfoCard>
   );
 }

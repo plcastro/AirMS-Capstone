@@ -1,10 +1,9 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
 import { API_BASE } from "./API_BASE";
 import { requestStoragePermissionForDownload } from "./storagePermission";
-
+import { showToast } from "./toast";
 const sanitizeFileName = (value) =>
   String(value || "N-A")
     .replace(/[\\/:*?"<>|]+/g, "-")
@@ -51,10 +50,7 @@ const downloadInspectionDocument = async (
 
     const fileUri = FileSystem.documentDirectory + safeFileName;
 
-    Alert.alert(
-      "Exporting",
-      "Generating PDF...",
-    );
+    showToast("Generating PDF...");
 
     // Fetch file
     const response = await fetch(apiUrl, {
@@ -78,7 +74,7 @@ const downloadInspectionDocument = async (
     const canShare = await Sharing.isAvailableAsync();
 
     if (!canShare) {
-      Alert.alert("Export Ready", `Saved to:\n${fileUri}`);
+      showToast(`PDF exported. Saved to: ${fileUri}`);
       return fileUri;
     }
 
@@ -87,13 +83,13 @@ const downloadInspectionDocument = async (
       dialogTitle: fileName,
     });
 
+    showToast("PDF exported successfully.");
     return fileUri;
   } catch (error) {
     console.error("Download error:", error);
 
-    Alert.alert(
-      "Export Failed",
-      error.message || "Unable to generate document",
+    showToast(
+      error.message || "Unable to generate document. Please try again later.",
     );
 
     throw error;
@@ -102,7 +98,7 @@ const downloadInspectionDocument = async (
 
 export const exportPreInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
+    showToast("Invalid inspection data.");
     return;
   }
 
@@ -115,7 +111,7 @@ export const exportPreInspectionTemplatePdf = (inspection) => {
 
 export const exportPostInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
-    Alert.alert("Error", "Invalid inspection data");
+    showToast("Invalid inspection data.");
     return;
   }
 

@@ -74,7 +74,7 @@ export default function Profile() {
       labelStyle: [
         styles.segmentLabel,
         activeTab === "info" && styles.segmentLabelActive,
-        { fontSize: scaled(12) },
+        { fontSize: scaled(10) },
       ],
       style: [
         styles.segmentButton,
@@ -90,7 +90,7 @@ export default function Profile() {
       labelStyle: [
         styles.segmentLabel,
         activeTab === "security" && styles.segmentLabelActive,
-        { fontSize: scaled(12) },
+        { fontSize: scaled(10) },
       ],
       style: [
         styles.segmentButton,
@@ -106,7 +106,7 @@ export default function Profile() {
       labelStyle: [
         styles.segmentLabel,
         activeTab === "settings" && styles.segmentLabelActive,
-        { fontSize: scaled(12) },
+        { fontSize: scaled(10) },
       ],
       style: [
         styles.segmentButton,

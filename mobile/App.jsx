@@ -185,7 +185,7 @@ function DrawerNav({ navigation }) {
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: scale(10),
+      fontSize: scale(11),
       fontWeight: 200,
     },
   };

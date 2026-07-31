@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { PieChart as ChartKitPieChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
@@ -32,6 +32,7 @@ export default function PieChart({
   centerValue,
   centerLabel,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
   const normalizedData = (Array.isArray(data) && data.length ? data : EMPTY_DATA)
     .map((item, index) => ({
       name: item.label || item.name || `Item ${index + 1}`,
@@ -51,60 +52,78 @@ export default function PieChart({
   const total = chartData.reduce((sum, item) => sum + item.value, 0);
   const showDonutCenter = centerValue || innerRadius > 0;
   const holeSize = Math.max(innerRadius * 1.72, 74);
+  const viewportWidth = Math.min(Math.max(windowWidth - 68, 260), 560);
+  const contentWidth = Math.max(
+    320,
+    viewportWidth,
+    size + 76,
+    Math.min(620, Math.max(size + 76, chartData.length * 132)),
+  );
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.chartFrame, { width: size, height: size }]}>
-        <ChartKitPieChart
-          data={chartData}
-          width={size}
-          height={size}
-          chartConfig={chartConfig}
-          accessor="value"
-          backgroundColor="transparent"
-          paddingLeft="0"
-          center={[size / 4, 0]}
-          absolute
-          hasLegend={false}
-        />
+      <ScrollView
+        horizontal
+        bounces={false}
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={contentWidth > viewportWidth}
+        style={{ maxWidth: viewportWidth }}
+        contentContainerStyle={styles.scroller}
+      >
+        <View style={[styles.content, { width: contentWidth }]}>
+          <View style={[styles.chartFrame, { width: size, height: size }]}>
+            <ChartKitPieChart
+              data={chartData}
+              width={size}
+              height={size}
+              chartConfig={chartConfig}
+              accessor="value"
+              backgroundColor="transparent"
+              paddingLeft="0"
+              center={[size / 4, 0]}
+              absolute
+              hasLegend={false}
+            />
 
-        {showDonutCenter && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.centerLabel,
-              {
-                width: holeSize,
-                height: holeSize,
-                borderRadius: holeSize / 2,
-                marginLeft: -holeSize / 2,
-                marginTop: -holeSize / 2,
-              },
-            ]}
-          >
-            <AppText style={styles.centerValue}>{centerValue || total}</AppText>
-            {!!centerLabel && (
-              <AppText style={styles.centerCaption} numberOfLines={2}>
-                {centerLabel}
-              </AppText>
+            {showDonutCenter && (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.centerLabel,
+                  {
+                    width: holeSize,
+                    height: holeSize,
+                    borderRadius: holeSize / 2,
+                    marginLeft: -holeSize / 2,
+                    marginTop: -holeSize / 2,
+                  },
+                ]}
+              >
+                <AppText style={styles.centerValue}>{centerValue || total}</AppText>
+                {!!centerLabel && (
+                  <AppText style={styles.centerCaption} numberOfLines={2}>
+                    {centerLabel}
+                  </AppText>
+                )}
+              </View>
             )}
           </View>
-        )}
-      </View>
 
-      <View style={styles.legendWrap}>
-        {chartData.map((item) => {
-          const percent = total ? Math.round((item.value / total) * 100) : 0;
-          return (
-            <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <AppText style={styles.legendText} numberOfLines={2}>
-                {item.label}: {item.value} ({percent}%)
-              </AppText>
-            </View>
-          );
-        })}
-      </View>
+          <View style={styles.legendWrap}>
+            {chartData.map((item) => {
+              const percent = total ? Math.round((item.value / total) * 100) : 0;
+              return (
+                <View key={item.label} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                  <AppText style={styles.legendText}>
+                    {item.label}: {item.value} ({percent}%)
+                  </AppText>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -118,6 +137,15 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: "center",
     width: "100%",
+  },
+  scroller: {
+    paddingBottom: 8,
+    paddingRight: 8,
+  },
+  content: {
+    alignItems: "center",
+    paddingLeft: 0,
+    paddingRight: 8,
   },
   chartFrame: {
     alignItems: "center",
@@ -147,12 +175,12 @@ const styles = StyleSheet.create({
   },
   legendWrap: {
     width: "100%",
-    marginTop: 12,
+    marginTop: 14,
     rowGap: 8,
   },
   legendItem: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     columnGap: 8,
     minHeight: 28,
     paddingVertical: 5,
@@ -164,6 +192,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 3,
+    marginTop: 3,
   },
   legendText: {
     flex: 1,

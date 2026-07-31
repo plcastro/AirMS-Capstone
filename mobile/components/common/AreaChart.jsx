@@ -5,19 +5,19 @@ import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
 
 const DEFAULT_SERIES = [{ key: "value", color: "#26866f", name: "Value" }];
-const MIN_WIDTH = 280;
-const POINT_SLOT_WIDTH = 72;
-const CHART_SIDE_PADDING = 80;
+const MIN_CHART_WIDTH = 320;
+const POINT_SLOT_WIDTH = 92;
+const CHART_SIDE_PADDING = 128;
 
 const getPointValue = (item, key) => Number(item?.[key]) || 0;
 const formatAxisLabel = (value) => {
   const label = String(value || "").trim();
-  if (label.length <= 12) return label;
-
-  return label
+  const compactLabel = label
     .replace(/aircraft/gi, "AC")
-    .replace(/component/gi, "Comp.")
-    .slice(0, 12);
+    .replace(/component/gi, "Comp.");
+  if (compactLabel.length <= 18) return compactLabel;
+
+  return `${compactLabel.slice(0, 17)}...`;
 };
 
 const buildChartConfig = (series) => ({
@@ -49,12 +49,13 @@ export default function AreaChart({
   const { width: windowWidth } = useWindowDimensions();
   const safeData = Array.isArray(data) ? data.slice(0, 8) : [];
   const safeSeries = Array.isArray(series) && series.length ? series : DEFAULT_SERIES;
-  const viewportWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
+  const viewportWidth = Math.min(Math.max(windowWidth - 68, 260), 560);
   const chartWidth = Math.max(
+    MIN_CHART_WIDTH,
     viewportWidth,
     safeData.length * POINT_SLOT_WIDTH + CHART_SIDE_PADDING,
   );
-  const chartHeight = Math.max(height, 176);
+  const chartHeight = Math.max(height + 42, 216);
 
   if (!safeData.length) {
     return <AppText style={styles.emptyText}>No chart data</AppText>;
@@ -76,6 +77,7 @@ export default function AreaChart({
       <ScrollView
         horizontal
         bounces={false}
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={chartWidth > viewportWidth}
         contentContainerStyle={styles.chartScroller}
         style={{ maxWidth: viewportWidth }}
@@ -92,6 +94,7 @@ export default function AreaChart({
           withOuterLines={false}
           segments={4}
           verticalLabelRotation={18}
+          xLabelsOffset={4}
           style={styles.chart}
         />
       </ScrollView>
@@ -115,10 +118,12 @@ const styles = StyleSheet.create({
   },
   chart: {
     borderRadius: 8,
-    marginLeft: -8,
+    marginLeft: -18,
   },
   chartScroller: {
-    paddingBottom: 4,
+    paddingLeft: 0,
+    paddingRight: 14,
+    paddingBottom: 18,
   },
   emptyText: {
     color: COLORS.grayDark,

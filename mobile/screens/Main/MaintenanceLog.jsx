@@ -99,6 +99,22 @@ export default function MaintenanceLog() {
     fetchLogs();
   }, [fetchLogs]);
 
+  const fetchAircraftExportData = async (aircraft) => {
+    if (!aircraft) return null;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}`,
+        { headers: await getAuthHeaders() },
+      );
+      const payload = await response.json();
+      return response.ok ? payload?.data || null : null;
+    } catch (error) {
+      console.warn("Unable to load aircraft export details:", error);
+      return null;
+    }
+  };
+
   const baseOptions = useMemo(
     () => [
       "all",
@@ -179,7 +195,12 @@ export default function MaintenanceLog() {
             onPress={async () => {
               setExportingWorkOrder(true);
               try {
-                await exportMaintenanceLogPdf(selectedWorkOrder);
+                const aircraftData = await fetchAircraftExportData(
+                  selectedWorkOrder.aircraft,
+                );
+                await exportMaintenanceLogPdf(selectedWorkOrder, {
+                  aircraftData,
+                });
               } finally {
                 setExportingWorkOrder(false);
               }

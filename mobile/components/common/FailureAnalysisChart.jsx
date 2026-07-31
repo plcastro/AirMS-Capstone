@@ -5,19 +5,19 @@ import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
 
 const BAR_COLOR = "#ff4d4f";
-const MIN_WIDTH = 280;
-const BAR_SLOT_WIDTH = 76;
-const CHART_SIDE_PADDING = 72;
+const MIN_CHART_WIDTH = 320;
+const BAR_SLOT_WIDTH = 98;
+const CHART_SIDE_PADDING = 128;
 
 const formatAxisLabel = (value) => {
   const label = String(value || "Unknown").trim();
-  if (label.length <= 12) return label;
-
-  return label
+  const compactLabel = label
     .replace(/requisition/gi, "Req.")
     .replace(/maintenance/gi, "Maint.")
-    .replace(/aircraft/gi, "AC")
-    .slice(0, 12);
+    .replace(/aircraft/gi, "AC");
+  if (compactLabel.length <= 18) return compactLabel;
+
+  return `${compactLabel.slice(0, 17)}...`;
 };
 
 const chartConfig = {
@@ -36,7 +36,12 @@ const chartConfig = {
   barPercentage: 0.62,
 };
 
-export default function FailureAnalysisChart({ rows = [], data = [] }) {
+export default function FailureAnalysisChart({
+  rows = [],
+  data = [],
+  legendLabel = "Record Count",
+  emptyText = "No chart data available",
+}) {
   const { width: windowWidth } = useWindowDimensions();
   const source = Array.isArray(data) && data.length ? data : rows;
   const safeRows = source
@@ -47,14 +52,15 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
-  const viewportWidth = Math.max(MIN_WIDTH, Math.min(windowWidth - 44, 560));
+  const viewportWidth = Math.min(Math.max(windowWidth - 68, 260), 560);
   const chartWidth = Math.max(
+    MIN_CHART_WIDTH,
     viewportWidth,
     safeRows.length * BAR_SLOT_WIDTH + CHART_SIDE_PADDING,
   );
 
   if (!safeRows.length) {
-    return <AppText style={styles.emptyText}>No critical component data available</AppText>;
+    return <AppText style={styles.emptyText}>{emptyText}</AppText>;
   }
 
   return (
@@ -62,13 +68,14 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: BAR_COLOR }]} />
-          <AppText style={styles.legendText}>Critical Component Count</AppText>
+          <AppText style={styles.legendText}>{legendLabel}</AppText>
         </View>
       </View>
 
       <ScrollView
         horizontal
         bounces={false}
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={chartWidth > viewportWidth}
         contentContainerStyle={styles.chartScroller}
         style={{ maxWidth: viewportWidth }}
@@ -79,7 +86,7 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
             datasets: [{ data: safeRows.map((row) => row.value) }],
           }}
           width={chartWidth}
-          height={236}
+          height={276}
           chartConfig={chartConfig}
           fromZero
           showValuesOnTopOfBars
@@ -89,6 +96,7 @@ export default function FailureAnalysisChart({ rows = [], data = [] }) {
           verticalLabelRotation={18}
           yAxisLabel=""
           yAxisSuffix=""
+          xLabelsOffset={4}
           style={styles.chart}
         />
       </ScrollView>
@@ -104,10 +112,12 @@ const styles = StyleSheet.create({
   },
   chart: {
     borderRadius: 8,
-    marginLeft: -8,
+    marginLeft: -18,
   },
   chartScroller: {
-    paddingBottom: 4,
+    paddingLeft: 0,
+    paddingRight: 14,
+    paddingBottom: 20,
   },
   emptyText: {
     color: COLORS.grayDark,
