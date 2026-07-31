@@ -111,7 +111,6 @@ const buildActivationEmail = ({
   tempPassword,
   jobTitle,
   portalUrlWeb,
-  portalUrlMobile,
   isResend = false,
 }) =>
   buildEmail({
@@ -130,9 +129,9 @@ const buildActivationEmail = ({
       <div style="margin: 24px 0 10px; text-align: center;">
         ${renderButton("Access AirMS Web", portalUrlWeb)}
       </div>
-      <div style="margin: 10px 0 24px; text-align: center;">
-        ${renderButton("Access AirMS Mobile", portalUrlMobile)}
-      </div>
+      <p style="margin: 14px 0 24px; color: ${palette.muted}; font-size: 13px; line-height: 1.6; text-align: center;">
+        You can also access AirMS through the mobile app.
+      </p>
       <div style="background: ${palette.warningBg}; border: 1px solid ${palette.warningBorder}; border-radius: 6px; padding: 12px 14px; color: ${palette.text}; font-size: 13px; line-height: 1.6;">
         <strong>Security note:</strong> This temporary password expires in <strong>1 hour</strong>.
       </div>

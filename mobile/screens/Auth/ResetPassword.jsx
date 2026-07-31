@@ -5,11 +5,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { styles } from "../../stylesheets/styles";
+import { COLORS } from "../../stylesheets/colors";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
 import LoginLayout from "../../Layout/LoginLayout";
@@ -106,7 +109,39 @@ export default function ResetPassword() {
       <LoginLayout
         cardTitle="Invalid Reset Link"
         cardsubTitle="This password reset link is invalid or has expired."
-      />
+      >
+        <View style={invalidStyles.container}>
+          <View style={invalidStyles.iconWrap}>
+            <MaterialCommunityIcons
+              name="link-variant-off"
+              size={38}
+              color="#cf1322"
+            />
+          </View>
+
+          <AppText style={invalidStyles.message}>
+            Request a new password reset link to continue. For your account
+            security, old or incomplete links cannot be used.
+          </AppText>
+
+          <Button
+            label="REQUEST NEW LINK"
+            onPress={() => navigation.replace("forgotPassword")}
+            buttonStyle={[styles.primaryBtn, invalidStyles.primaryButton]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+
+          <Button
+            label="BACK TO LOGIN"
+            onPress={() => navigation.replace("login")}
+            buttonStyle={[styles.secondaryBtn, invalidStyles.secondaryButton]}
+            buttonTextStyle={[
+              styles.secondaryBtnTxt,
+              invalidStyles.secondaryButtonText,
+            ]}
+          />
+        </View>
+      </LoginLayout>
     );
   }
 
@@ -238,3 +273,40 @@ export default function ResetPassword() {
     </KeyboardAvoidingView>
   );
 }
+
+const invalidStyles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  iconWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff2f0",
+    borderWidth: 1,
+    borderColor: "#ffccc7",
+    marginBottom: 16,
+  },
+  message: {
+    maxWidth: 330,
+    color: COLORS.grayDark,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  primaryButton: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  secondaryButton: {
+    width: "100%",
+    borderColor: COLORS.primaryLight,
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+  },
+});

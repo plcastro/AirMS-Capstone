@@ -44,6 +44,56 @@
   border-radius: 10px;
 }
 
+.invalid-reset-state {
+  width: 100%;
+  padding: 10px 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.invalid-reset-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  background: #fff2f0;
+  color: #cf1322;
+  font-size: 34px;
+  border: 1px solid #ffccc7;
+}
+
+.invalid-reset-message {
+  display: block;
+  max-width: 440px;
+  color: #4d5c54;
+  line-height: 1.55;
+}
+
+.invalid-reset-actions {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.invalid-reset-secondary-btn {
+  width: 100%;
+  border-color: #26866f;
+  color: #244d3b;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.invalid-reset-secondary-btn:hover {
+  border-color: #244d3b !important;
+  color: #244d3b !important;
+}
+
 .error {
   color: red;
 }

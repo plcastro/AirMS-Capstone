@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import "./login.css";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { API_BASE } from "../../utils/API_BASE";
-import { Button, Input, Card, Typography, Row, Col, Form, Spin } from "antd";
+import { Button, Input, Typography, Row, Col, Form, Spin } from "antd";
+import {
+  CloseCircleOutlined,
+  LoginOutlined,
+  MailOutlined,
+} from "@ant-design/icons";
 import LoginLayout from "../../components/layout/LoginLayout";
 import ResultPopup from "../../components/common/ResultPopup";
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -101,17 +106,43 @@ const ResetPassword = () => {
 
   if (!token) {
     return (
-      <Card className="reset-password-container">
-        <Row></Row>
-        <Title level={2}>Invalid Reset Link</Title>
-        <Text type="danger">
-          This password reset link is invalid or has expired.
-        </Text>
-        <div className="signup-link">
-          <Link to="/forgot">Request a new reset link</Link> or{" "}
-          <Link to="/login">Return to login</Link>
+      <LoginLayout
+        title="Invalid Reset Link"
+        subtitle="This password reset link is invalid or has expired."
+      >
+        <div className="invalid-reset-state">
+          <div className="invalid-reset-icon" aria-hidden="true">
+            <CloseCircleOutlined />
+          </div>
+          <Text className="invalid-reset-message">
+            Request a new password reset link to continue. For your account
+            security, old or incomplete links cannot be used.
+          </Text>
+          <Row gutter={[12, 12]} className="invalid-reset-actions">
+            <Col xs={24} sm={12}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<MailOutlined />}
+                className="login-btn"
+                onClick={() => navigate("/forgot")}
+              >
+                REQUEST NEW LINK
+              </Button>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Button
+                size="large"
+                icon={<LoginOutlined />}
+                className="invalid-reset-secondary-btn"
+                onClick={() => navigate("/login")}
+              >
+                BACK TO LOGIN
+              </Button>
+            </Col>
+          </Row>
         </div>
-      </Card>
+      </LoginLayout>
     );
   }
 

@@ -25,8 +25,6 @@ const {
   resetOtpRateLimitForValues,
 } = require("../middleware/rateLimiter");
 const WEB_URL = process.env.WEB_URL;
-const MOBILE_URL = process.env.MOBILE_URL;
-const MOBILE_APK_URL = process.env.MOBILE_APK_URL;
 
 const buildLoginPortalUrl = (baseUrl) => {
   if (!baseUrl) return "";
@@ -183,7 +181,6 @@ const sendActivationCredentialsEmail = async ({
   isResend = false,
 }) => {
   const portalUrlWeb = buildLoginPortalUrl(WEB_URL);
-  const portalUrlMobile = MOBILE_APK_URL || buildLoginPortalUrl(MOBILE_URL);
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";
@@ -193,7 +190,6 @@ const sendActivationCredentialsEmail = async ({
     tempPassword,
     jobTitle,
     portalUrlWeb,
-    portalUrlMobile,
     isResend,
   });
 
