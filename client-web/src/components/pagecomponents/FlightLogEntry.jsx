@@ -745,9 +745,11 @@ export default function FlightLogEntry({
               Close
             </Button>
           )}
-          <Button className="fl-nav-btn" onClick={onClose}>
-            Cancel
-          </Button>
+          {canSaveCurrentTab && (
+            <Button className="fl-nav-btn" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
         </div>
       </Spin>
     </Modal>
