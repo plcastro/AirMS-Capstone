@@ -54,6 +54,16 @@ const normalizeLog = (entry) => {
   };
 };
 
+const getMechanicInCharge = (record = {}) =>
+  record.mechanicInCharge || record.reportedBy || "";
+
+const getInspector = (record = {}) => record.inspector || record.approvedBy || "";
+
+const getMechanicLicenseNo = (record = {}) =>
+  record.mechanicLicenseNo || record.licenseNo || "";
+
+const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+
 export default function MaintenanceLog() {
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState("");
@@ -190,7 +200,19 @@ export default function MaintenanceLog() {
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Aircraft" value={selectedWorkOrder.aircraft} />
             <FieldRow label="Base" value={selectedWorkOrder.base} />
-            <FieldRow label="Reported By" value={selectedWorkOrder.reportedBy} />
+            <FieldRow
+              label="Mechanic-in-charge"
+              value={getMechanicInCharge(selectedWorkOrder)}
+            />
+            <FieldRow label="Inspector" value={getInspector(selectedWorkOrder)} />
+            <FieldRow
+              label="Mechanic License No."
+              value={getMechanicLicenseNo(selectedWorkOrder)}
+            />
+            <FieldRow
+              label="Inspector License No."
+              value={getInspectorLicenseNo(selectedWorkOrder)}
+            />
             <FieldRow
               label="Rectified"
               value={formatDate(selectedWorkOrder.dateDefectRectified)}

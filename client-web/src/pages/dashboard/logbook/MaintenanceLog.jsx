@@ -48,6 +48,16 @@ const buildWorkDoneReportFileName = (record = {}) => {
   return `WorkDoneReport_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
 };
 
+const getMechanicInCharge = (record = {}) =>
+  record.mechanicInCharge || record.reportedBy || "";
+
+const getInspector = (record = {}) => record.inspector || record.approvedBy || "";
+
+const getMechanicLicenseNo = (record = {}) =>
+  record.mechanicLicenseNo || record.licenseNo || "";
+
+const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -144,7 +154,7 @@ const drawMaintenanceReportHeader = (
 
   doc.setDrawColor(25, 25, 25);
   doc.setLineWidth(0.9);
-  doc.rect(marginX, topY, contentWidth, 150);
+  doc.rect(marginX, topY, contentWidth, 186);
   doc.rect(marginX, topY, contentWidth, 16);
 
   const leftRows = [
@@ -219,7 +229,52 @@ const drawMaintenanceReportHeader = (
     { bold: true, fontSize: 10, align: "center" },
   );
 
-  const descriptionY = reportTitleY + 32;
+  const signoffY = reportTitleY + 32;
+  const signoffColumnWidth = contentWidth / 2;
+  const signoffLabelWidth = 96;
+  drawLabeledRow(
+    doc,
+    "MECHANIC-IN-CHARGE:",
+    getMechanicInCharge(record),
+    marginX,
+    signoffY,
+    signoffLabelWidth,
+    signoffColumnWidth - signoffLabelWidth,
+    18,
+  );
+  drawLabeledRow(
+    doc,
+    "INSPECTOR:",
+    getInspector(record),
+    marginX + signoffColumnWidth,
+    signoffY,
+    62,
+    signoffColumnWidth - 62,
+    18,
+  );
+  const licenseY = signoffY + 18;
+  drawLabeledRow(
+    doc,
+    "LICENSE NO.:",
+    getMechanicLicenseNo(record),
+    marginX,
+    licenseY,
+    signoffLabelWidth,
+    signoffColumnWidth - signoffLabelWidth,
+    18,
+  );
+  drawLabeledRow(
+    doc,
+    "LICENSE NO.:",
+    getInspectorLicenseNo(record),
+    marginX + signoffColumnWidth,
+    licenseY,
+    62,
+    signoffColumnWidth - 62,
+    18,
+  );
+
+  const descriptionY = licenseY + 18;
   doc.rect(marginX, descriptionY, contentWidth, 16);
   drawTextInBox(
     doc,
@@ -392,6 +447,10 @@ export default function MaintenanceLog() {
         entry.defects,
         entry.correctiveActionDone,
         entry.reportedBy,
+        entry.mechanicInCharge,
+        entry.mechanicLicenseNo,
+        entry.inspector,
+        entry.inspectorLicenseNo,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle)),
@@ -952,7 +1011,28 @@ export default function MaintenanceLog() {
               </Col>
 
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
+                {renderReadOnlyField(
+                  "Mechanic-in-charge:",
+                  getMechanicInCharge(selectedWO),
+                )}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("Inspector:", getInspector(selectedWO))}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField(
+                  "Mechanic License No.:",
+                  getMechanicLicenseNo(selectedWO),
+                )}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField(
+                  "Inspector License No.:",
+                  getInspectorLicenseNo(selectedWO),
+                )}
               </Col>
 
               <Col xs={24} md={12}>
