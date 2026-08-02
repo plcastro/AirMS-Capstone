@@ -13,7 +13,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import DashboardLayout from "./components/layout/DashboardLayout";
 import RootLayout from "./components/layout/RootLayout";
 import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
@@ -38,6 +37,9 @@ const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const OTP = lazy(() => import("./pages/auth/OTP"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const SecuritySetup = lazy(() => import("./pages/auth/SecuritySetup"));
+const DashboardLayout = lazy(
+  () => import("./components/layout/DashboardLayout"),
+);
 const UserManagement = lazy(
   () => import("./pages/dashboard/user-management/UserManagement"),
 );

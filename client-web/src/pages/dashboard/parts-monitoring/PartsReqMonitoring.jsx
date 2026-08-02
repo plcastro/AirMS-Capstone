@@ -10,6 +10,7 @@ import {
   Button,
   Col,
   Form,
+  Grid,
   Input,
   InputNumber,
   Modal,
@@ -33,6 +34,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 const normalizeStatus = (value) => {
   const raw = String(value || "")
@@ -117,6 +119,7 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
+  const screens = useBreakpoint();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -523,7 +526,7 @@ export default function PartsReqMonitoring() {
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
-        <Col xs={24} md={6} lg={4}>
+        <Col xs={24} md={6} lg={6}>
           <Select
             size="large"
             value={dateSortOrder}
@@ -536,12 +539,18 @@ export default function PartsReqMonitoring() {
           />
         </Col>
         {!isManager && (
-          <Col xs={24} md={10} lg={12} style={{ textAlign: "right" }}>
+          <Col
+            xs={24}
+            md={10}
+            lg={12}
+            style={{ textAlign: screens.xs ? "left" : "right" }}
+          >
             <Button
               size="large"
               type="primary"
               icon={<PlusOutlined />}
               onClick={openAddRequisitionModal}
+              style={{ width: screens.xs ? "100%" : undefined }}
             >
               Add Requisition
             </Button>
@@ -551,7 +560,18 @@ export default function PartsReqMonitoring() {
 
       <Row style={{ marginBottom: 10, marginTop: 20 }}>
         <Col span={24}>
-          <Space size={[8, 8]} wrap>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              gap: 8,
+              width: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              paddingBottom: 4,
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             {statusFilters.map((filter) => {
               const isSelected = selectedStatus === filter.key;
 
@@ -561,14 +581,21 @@ export default function PartsReqMonitoring() {
                   type={isSelected ? "primary" : "default"}
                   icon={filter.icon}
                   onClick={() => setSelectedStatus(filter.key)}
-                  style={{ fontWeight: 600 }}
+                  style={{
+                    flex: "0 0 auto",
+                    minWidth: screens.xs ? 132 : 150,
+                    height: "auto",
+                    minHeight: 40,
+
+                    whiteSpace: "nowrap",
+                  }}
                   size="large"
                 >
                   {filter.title} ({filter.count})
                 </Button>
               );
             })}
-          </Space>
+          </div>
         </Col>
       </Row>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Card, Col, DatePicker, Form, Input, Modal, Row, Select, Typography } from "antd";
+import { App as AntdApp, Button, Card, Col, DatePicker, Form, Input, Modal, Row, Select, Typography } from "antd";
 import { estimateInspectionSchedule, formatEstimatedDuration } from "../../utils/inspectionTiming";
 import dayjs from "dayjs";
 
@@ -7,6 +7,22 @@ const { Text, Title } = Typography;
 
 const CUSTOM_INSPECTION_ID = "custom-task";
 const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
+
+const toUniqueSelectOptions = (items = [], getValue, getLabel = getValue) => {
+  const seen = new Set();
+  return items.reduce((options, item, index) => {
+    const value = getValue(item, index);
+    if (value === null || value === undefined || value === "") return options;
+    const key = String(value);
+    if (seen.has(key)) return options;
+    seen.add(key);
+    options.push({
+      value,
+      label: getLabel(item, index),
+    });
+    return options;
+  }, []);
+};
 
 export default function CreateTaskModal({
   open,
@@ -30,6 +46,7 @@ export default function CreateTaskModal({
   messageApi,
   endDateManuallyAdjusted,
 }) {
+  const { modal } = AntdApp.useApp();
   const scheduleEstimate = estimateInspectionSchedule(checklistDraftItems);
   const hasUnsavedChanges =
     (open && form?.isFieldsTouched(true)) ||
@@ -41,7 +58,7 @@ export default function CreateTaskModal({
       onCancel?.();
       return;
     }
-    Modal.confirm({
+    modal.confirm({
       title: "Discard changes?",
       content: "You have unsaved changes. Cancel and discard them?",
       okText: "Discard",
@@ -69,10 +86,7 @@ export default function CreateTaskModal({
               <Select
                 showSearch
                 size="large"
-                options={aircraftList.map((aircraft) => ({
-                  value: aircraft,
-                  label: aircraft,
-                }))}
+                options={toUniqueSelectOptions(aircraftList, (aircraft) => aircraft)}
               />
             </Form.Item>
           </Col>
@@ -112,10 +126,14 @@ export default function CreateTaskModal({
                 }}
                 options={[
                   { value: CUSTOM_INSPECTION_ID, label: "Custom Task" },
-                  ...inspectionOptions.map((inspection) => ({
-                    value: inspection.id,
-                    label: inspection.name,
-                  })),
+                  ...toUniqueSelectOptions(
+                    inspectionOptions,
+                    (inspection) => inspection.id,
+                    (inspection) =>
+                      inspection.aircraftModel
+                        ? `${inspection.name} (${inspection.aircraftModel})`
+                        : inspection.name,
+                  ),
                 ]}
               />
             </Form.Item>
@@ -135,6 +153,7 @@ export default function CreateTaskModal({
           <Col xs={24} md={12}>
             <Form.Item label="Base" name="base" rules={[{ required: true, message: "Base is required" }]}>
               <Select
+                aria-label="Base"
                 size="large"
                 options={BASE_OPTIONS.map((base) => ({
                   value: base,
@@ -147,10 +166,13 @@ export default function CreateTaskModal({
             <Form.Item label="Assign Mechanic" name="assignedTo" rules={[{ required: true, message: "Assignee is required" }]}>
               <Select
                 size="large"
-                options={mechanics.map((item) => ({
-                  value: item._id,
-                  label: `${item.firstName} ${item.lastName}`,
-                }))}
+                options={toUniqueSelectOptions(
+                  mechanics,
+                  (item) => item._id || item.id,
+                  (item) =>
+                    item.name ||
+                    `${item.firstName || ""} ${item.lastName || ""}`.trim(),
+                )}
               />
             </Form.Item>
           </Col>
@@ -225,7 +247,7 @@ export default function CreateTaskModal({
             </Text>
           </Col>
           <Col xs={24} style={{ marginTop: 10 }}>
-            <Title level={5} style={{ marginBottom: 8 }}>
+            <Title level={3} style={{ marginBottom: 8, fontSize: 18 }}>
               Checklist
             </Title>
             {checklistDraftItems.map((item, index) => (

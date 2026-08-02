@@ -26,10 +26,10 @@ const RootLayout = () => {
 
         <div className="auth-mobile-brand" aria-label="AirMS">
           <img src={Airms_LogoDark} alt="AirMS" />
-          <h2>
+          <p className="auth-mobile-brand-title">
             Aircraft Maintenance Made{" "}
             <span>Smarter</span>
-          </h2>
+          </p>
         </div>
 
         <section className="auth-mobile-sheet" aria-label="Authentication">

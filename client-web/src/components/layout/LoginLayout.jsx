@@ -38,6 +38,8 @@ export default function LoginLayout({
             <img
               src={AirMS_web}
               alt="AirMS Logo"
+              loading="lazy"
+              decoding="async"
               style={{ width: 200, marginBottom: 8 }}
             />
 
@@ -51,10 +53,11 @@ export default function LoginLayout({
       <Row style={{ marginBottom: 20 }}>
         <Col span={24}>
           <Title
-            level={3}
+            level={2}
             style={{
               marginBottom: 6,
               textAlign: isMobile ? "center" : "left",
+              fontSize: isMobile ? 24 : 28,
             }}
           >
             {title}

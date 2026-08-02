@@ -1198,7 +1198,7 @@ export default function PartsMonitoring() {
     return (
       <div className="parts-monitoring-container parts-monitoring-mobile">
         <Card className="mobile-control-card">
-          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+          <Space orientation="vertical" size={10} style={{ width: "100%" }}>
             <Select
               value={selectedAircraft}
               onChange={(value) => setSelectedAircraft(value)}
@@ -1228,10 +1228,14 @@ export default function PartsMonitoring() {
               key: "overview",
               label: "Overview",
               children: (
-                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                <Space
+                  orientation="vertical"
+                  size={10}
+                  style={{ width: "100%" }}
+                >
                   <Card className="mobile-aircraft-summary">
                     <Space
-                      direction="vertical"
+                      orientation="vertical"
                       size={8}
                       style={{ width: "100%" }}
                     >
@@ -1290,7 +1294,11 @@ export default function PartsMonitoring() {
               key: "components",
               label: "Components",
               children: (
-                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                <Space
+                  orientation="vertical"
+                  size={10}
+                  style={{ width: "100%" }}
+                >
                   <div className="mobile-filter-row">
                     {filterOptions.map(([key, label, value, color]) => (
                       <button
@@ -1407,12 +1415,16 @@ export default function PartsMonitoring() {
               key: "reference",
               label: "Reference",
               children: (
-                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                <Space
+                  orientation="vertical"
+                  size={10}
+                  style={{ width: "100%" }}
+                >
                   <Card className="aircraft-card">
                     {renderMobileReferenceFields()}
                   </Card>
                   <Space
-                    direction="vertical"
+                    orientation="vertical"
                     size={8}
                     style={{ width: "100%" }}
                   >
@@ -1481,7 +1493,7 @@ export default function PartsMonitoring() {
           destroyOnHidden
         >
           {mobileDetailPart && (
-            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            <Space orientation="vertical" size={10} style={{ width: "100%" }}>
               <Tag color={getComponentStatus(mobileDetailPart).color}>
                 {getComponentStatus(mobileDetailPart).label}
               </Tag>

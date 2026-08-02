@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -23,6 +24,7 @@ import {
   Tooltip,
   Typography,
   DatePicker,
+  App as AntdApp,
 } from "antd";
 import {
   DeleteOutlined,
@@ -31,6 +33,7 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
@@ -152,6 +155,49 @@ const isPastDueTask = (task) => {
 
 const getDefaultStart = () => addMinutesToDate(new Date(), 5);
 
+const getScheduleDraftDates = (dueDate) => {
+  const fallbackStart = getDefaultStart();
+  const parsedDue = dueDate ? dayjs(dueDate) : null;
+
+  if (!parsedDue?.isValid()) {
+    return {
+      startDateTime: dayjs(fallbackStart),
+      endDateTime: dayjs(addDaysToDate(fallbackStart, 1)),
+    };
+  }
+
+  const endDateTime = parsedDue.hour(17).minute(0).second(0).millisecond(0);
+  if (endDateTime.isBefore(dayjs())) {
+    return {
+      startDateTime: dayjs(fallbackStart),
+      endDateTime: dayjs(addDaysToDate(fallbackStart, 1)),
+    };
+  }
+
+  return {
+    startDateTime: endDateTime.subtract(1, "day").hour(8).minute(0),
+    endDateTime,
+  };
+};
+
+const findInspectionOptionForDraft = (inspectionOptions = [], draft = {}) => {
+  const draftName = String(draft.inspectionName || "").trim().toLowerCase();
+  const draftModel = String(draft.aircraftModel || "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  return inspectionOptions.find((inspection) => {
+    const optionName = String(inspection.name || "").trim().toLowerCase();
+    const optionModel = String(inspection.aircraftModel || "")
+      .replace(/\s+/g, "")
+      .toLowerCase();
+    return (
+      optionName === draftName &&
+      (!draftModel || !optionModel || optionModel === draftModel)
+    );
+  });
+};
+
 const createCustomChecklistItem = (index = 0) => ({
   inspectionName: "Custom Task",
   aircraftModel: "",
@@ -175,12 +221,100 @@ const createCustomChecklistItem = (index = 0) => ({
   interval: { flightHours: 0, calendarMonths: 0, specificInterval: "" },
 });
 
+const getChecklistItemKey = (item = {}) =>
+  [
+    String(item.taskId || "").trim(),
+    String(item.taskName || "").trim().toLowerCase(),
+    String(item.inspectionTypeFull || item.inspectionName || "")
+      .trim()
+      .toLowerCase(),
+  ]
+    .filter(Boolean)
+    .join("|");
+
+const normalizeChecklistItems = (
+  rawItems = [],
+  { title = "", inspectionType = "", selectedInspection = null } = {},
+) =>
+  (Array.isArray(rawItems) ? rawItems : [])
+    .filter((item) => String(item?.taskName || "").trim())
+    .map((item, index) => {
+      const isCustom = inspectionType === CUSTOM_INSPECTION_ID;
+      const taskId = String(item.taskId || "").trim();
+      return {
+        ...item,
+        taskId: taskId || `custom-${Date.now()}-${index + 1}`,
+        taskName: String(item.taskName || "").trim(),
+        description: String(item.description || "").trim(),
+        documentation: String(item.documentation || "").trim(),
+        inspectionName: isCustom
+          ? title || "Custom Task"
+          : item.inspectionName || selectedInspection?.name || title,
+        inspectionType: isCustom ? "Custom" : item.inspectionType || "",
+        inspectionTypeFull: isCustom
+          ? "Custom Task"
+          : item.inspectionTypeFull ||
+            item.inspectionName ||
+            selectedInspection?.name ||
+            "",
+      };
+    });
+
+const buildChecklistState = (items = [], previousItems = [], previousState = []) => {
+  const previousByKey = new Map();
+  previousItems.forEach((item, index) => {
+    const key = getChecklistItemKey(item);
+    if (key) previousByKey.set(key, Boolean(previousState[index]));
+  });
+
+  return items.map((item) => {
+    const key = getChecklistItemKey(item);
+    return key && previousByKey.has(key) ? previousByKey.get(key) : false;
+  });
+};
+
+const getChecklistCounts = (task = {}) => {
+  const total = Array.isArray(task.checklistItems)
+    ? task.checklistItems.length
+    : 0;
+  const done = Array.isArray(task.checklistState)
+    ? task.checklistState.slice(0, total).filter(Boolean).length
+    : 0;
+
+  return { done, total };
+};
+
+const getChecklistMeta = (item = {}) =>
+  [item.taskId, item.inspectionTypeFull || item.inspectionName]
+    .filter(Boolean)
+    .join(" | ");
+
+const toUniqueSelectOptions = (items = [], getValue, getLabel = getValue) => {
+  const seen = new Set();
+  return items.reduce((options, item, index) => {
+    const value = getValue(item, index);
+    if (value === null || value === undefined || value === "") return options;
+    const key = String(value);
+    if (seen.has(key)) return options;
+    seen.add(key);
+    options.push({
+      value,
+      label: getLabel(item, index),
+    });
+    return options;
+  }, []);
+};
+
 export default function TaskAssignment() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const { modal } = AntdApp.useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
+  const [auxiliaryDataLoaded, setAuxiliaryDataLoaded] = useState(false);
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -203,6 +337,7 @@ export default function TaskAssignment() {
     title: "",
     subTitle: "",
   });
+  const consumedCreateDraftRef = useRef("");
   const role = String(user?.jobTitle || user?.access || "")
     .trim()
     .toLowerCase();
@@ -316,6 +451,8 @@ export default function TaskAssignment() {
       } catch {
         setAircraftOptions([]);
         setInspectionOptions([]);
+      } finally {
+        setAuxiliaryDataLoaded(true);
       }
     };
 
@@ -389,11 +526,19 @@ export default function TaskAssignment() {
 
   const mechanicSelectOptions = useMemo(() => {
     const source = editingTask ? mechanics : availableMechanics;
-    const options = source.map((item) => ({
-      value: item.id,
-      label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-      disabled: !editingTask && item.isBusy,
-    }));
+    const seen = new Set();
+    const options = source.reduce((list, item) => {
+      if (!item.id) return list;
+      const key = String(item.id);
+      if (seen.has(key)) return list;
+      seen.add(key);
+      list.push({
+        value: item.id,
+        label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
+        disabled: !editingTask && item.isBusy,
+      });
+      return list;
+    }, []);
 
     if (editingTask) {
       const assignedTo = getTaskAssigneeId(editingTask);
@@ -418,6 +563,26 @@ export default function TaskAssignment() {
     getTaskAssigneeName,
     mechanics,
   ]);
+
+  const aircraftSelectOptions = useMemo(
+    () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
+    [aircraftOptions],
+  );
+
+  const inspectionSelectOptions = useMemo(
+    () => [
+      { value: CUSTOM_INSPECTION_ID, label: "Custom Task" },
+      ...toUniqueSelectOptions(
+        inspectionOptions,
+        (inspection) => inspection.id,
+        (inspection) =>
+          inspection.aircraftModel
+            ? `${inspection.name} (${inspection.aircraftModel})`
+            : inspection.name,
+      ),
+    ],
+    [inspectionOptions],
+  );
 
   const myTasks = useMemo(
     () =>
@@ -587,7 +752,7 @@ export default function TaskAssignment() {
     }
   };
 
-  const openCreateTask = () => {
+  const openCreateTask = async (draft = null) => {
     const start = getDefaultStart();
     form.resetFields();
     form.setFieldsValue({
@@ -599,7 +764,94 @@ export default function TaskAssignment() {
     });
     setEditingTask(null);
     setCreateOpen(true);
+
+    if (!draft) return;
+
+    const matchedInspection = findInspectionOptionForDraft(
+      inspectionOptions,
+      draft,
+    );
+    const scheduleDates = getScheduleDraftDates(draft.dueDate);
+    const inspectionType = matchedInspection?.id || CUSTOM_INSPECTION_ID;
+    const remaining = [
+      draft.remainingHours !== null && draft.remainingHours !== undefined
+        ? `${draft.remainingHours} FH remaining`
+        : "",
+      draft.remainingDays !== null && draft.remainingDays !== undefined
+        ? `${draft.remainingDays} day(s) remaining`
+        : "",
+      draft.dueAtHours !== null && draft.dueAtHours !== undefined
+        ? `Due at ${draft.dueAtHours} FH`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    form.setFieldsValue({
+      aircraft: draft.aircraft || undefined,
+      inspectionType,
+      title: draft.inspectionName
+        ? `Schedule ${draft.inspectionName}`
+        : "Schedule inspection",
+      priority: draft.priority || "Normal",
+      maintenanceType: "Preventive Maintenance",
+      ...scheduleDates,
+      checklistItems: matchedInspection
+        ? []
+        : [
+            {
+              ...createCustomChecklistItem(0),
+              taskName: draft.inspectionName || "Inspection planning",
+              inspectionName: draft.inspectionName || "Inspection planning",
+              inspectionTypeFull: draft.inspectionName || "Inspection planning",
+              description: [
+                draft.dueStatus ? `Due status: ${draft.dueStatus}` : "",
+                remaining,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+    });
+
+    if (matchedInspection) {
+      await loadInspectionTasks(matchedInspection.id);
+      form.setFieldsValue({
+        aircraft: draft.aircraft || undefined,
+        inspectionType: matchedInspection.id,
+        priority: draft.priority || "Normal",
+        maintenanceType: "Preventive Maintenance",
+        ...scheduleDates,
+      });
+    }
   };
+
+  useEffect(() => {
+    const draft = location.state?.createTaskFromInspectionLimit;
+    if (!draft || !auxiliaryDataLoaded) return;
+
+    const draftKey = [
+      draft.aircraft,
+      draft.inspectionName,
+      draft.dueDate,
+      draft.dueAtHours,
+    ].join("|");
+    if (consumedCreateDraftRef.current === draftKey) return;
+    consumedCreateDraftRef.current = draftKey;
+
+    openCreateTask(draft);
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [
+    auxiliaryDataLoaded,
+    inspectionOptions,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ]);
 
   const openEditTask = (task) => {
     const assignedTo = getTaskAssigneeId(task);
@@ -656,6 +908,7 @@ export default function TaskAssignment() {
       title: "Start Task",
       content: "Start this task now?",
       okText: "Start",
+      modal,
     });
     if (!confirmed) return;
 
@@ -729,6 +982,7 @@ export default function TaskAssignment() {
           ? "Move this task back to ongoing?"
           : "Turn in this completed task for review?",
         okText: options.undo ? "Undo" : "Turn In",
+        modal,
       });
       if (!confirmed) return;
     }
@@ -767,6 +1021,7 @@ export default function TaskAssignment() {
           ? "Save changes to this task assignment?"
           : "Create this task assignment?",
         okText: editingTask ? "Save" : "Create",
+        modal,
       });
       if (!confirmed) return;
 
@@ -776,27 +1031,11 @@ export default function TaskAssignment() {
       const selectedInspection = inspectionOptions.find(
         (item) => String(item.id) === String(values.inspectionType),
       );
-      const checklistItems = Array.isArray(values.checklistItems)
-        ? values.checklistItems
-            .filter((item) => String(item?.taskName || "").trim())
-            .map((item, index) => ({
-              ...item,
-              taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
-              taskName: String(item.taskName || "").trim(),
-              inspectionName:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? values.title || "Custom Task"
-                  : item.inspectionName || values.title,
-              inspectionType:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? "Custom"
-                  : item.inspectionType,
-              inspectionTypeFull:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? "Custom Task"
-                  : item.inspectionTypeFull,
-            }))
-        : [];
+      const checklistItems = normalizeChecklistItems(values.checklistItems, {
+        title: values.title,
+        inspectionType: values.inspectionType,
+        selectedInspection,
+      });
       const taskTitle = String(
         values.title ||
           selectedInspection?.name ||
@@ -824,9 +1063,11 @@ export default function TaskAssignment() {
           estimatedHours: estimateInspectionSchedule(checklistItems).hours,
         },
         checklistItems,
-        checklistState: Array.isArray(editingTask?.checklistState)
-          ? editingTask.checklistState.slice(0, checklistItems.length)
-          : checklistItems.map(() => false),
+        checklistState: buildChecklistState(
+          checklistItems,
+          editingTask?.checklistItems,
+          editingTask?.checklistState,
+        ),
         confirmAction: true,
       };
 
@@ -883,6 +1124,7 @@ export default function TaskAssignment() {
         "Return this task to the mechanic with the selected checklist changes?",
       okText: "Return",
       okButtonProps: { danger: true },
+      modal,
     });
     if (!confirmed) return;
 
@@ -966,6 +1208,7 @@ export default function TaskAssignment() {
       title: "Approve Task",
       content: "Approve this turned-in task?",
       okText: "Approve",
+      modal,
     });
     if (confirmed) setSignatureState({ open: true, mode: "approve" });
   };
@@ -1036,7 +1279,9 @@ export default function TaskAssignment() {
         style={{ marginTop: 12 }}
         loading={loading}
         size={"small"}
-        rowKey={(record) => record._id || record.id}
+        rowKey={(record, index) =>
+          `${record._id || record.id || "task"}-${index}`
+        }
         dataSource={displayedTasks}
         pagination={{ pageSize: 10 }}
         scroll={{ x: "max-content" }}
@@ -1058,8 +1303,7 @@ export default function TaskAssignment() {
           {
             title: "Progress",
             render: (_, record) => {
-              const total = record.checklistItems?.length || 0;
-              const done = record.checklistState?.filter(Boolean).length || 0;
+              const { done, total } = getChecklistCounts(record);
               return total ? (
                 <Progress
                   percent={Math.round((done / total) * 100)}
@@ -1156,10 +1400,7 @@ export default function TaskAssignment() {
                     size="large"
                     placeholder="Tail No."
                     showSearch
-                    options={aircraftOptions.map((aircraft) => ({
-                      value: aircraft,
-                      label: aircraft,
-                    }))}
+                    options={aircraftSelectOptions}
                   />
                 </Form.Item>
               </Col>
@@ -1176,13 +1417,7 @@ export default function TaskAssignment() {
                     placeholder="Pick Inspection"
                     disabled={Boolean(editingTask)}
                     onChange={loadInspectionTasks}
-                    options={[
-                      { value: CUSTOM_INSPECTION_ID, label: "Custom Task" },
-                      ...inspectionOptions.map((inspection) => ({
-                        value: inspection.id,
-                        label: inspection.name,
-                      })),
-                    ]}
+                    options={inspectionSelectOptions}
                   />
                 </Form.Item>
               </Col>
@@ -1301,12 +1536,33 @@ export default function TaskAssignment() {
               </Col>
               <Col xs={24}>
                 <Divider titlePlacement="left">Checklist</Divider>
-                <Text type="secondary">
-                  Estimated duration:{" "}
-                  {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
-                  {scheduleEstimate.itemCount} checklist item
-                  {scheduleEstimate.itemCount === 1 ? "" : "s"}
-                </Text>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Text type="secondary">
+                    Estimated duration:{" "}
+                    {formatEstimatedDuration(scheduleEstimate.minutes)}
+                  </Text>
+                  <Text
+                    strong
+                    style={{
+                      background: "#f0f7f5",
+                      border: "1px solid #cfe5de",
+                      borderRadius: 999,
+                      color: "#155f4e",
+                      padding: "3px 10px",
+                    }}
+                  >
+                    {scheduleEstimate.itemCount} item
+                    {scheduleEstimate.itemCount === 1 ? "" : "s"}
+                  </Text>
+                </div>
                 <Form.List
                   name="checklistItems"
                   rules={[
@@ -1326,64 +1582,129 @@ export default function TaskAssignment() {
                       orientation="vertical"
                       style={{ width: "100%", marginTop: 12 }}
                     >
-                      {fields.map((field, index) => {
-                        const item = watchedChecklistItems?.[index] || {};
-                        return (
-                          <Card
-                            key={field.key}
-                            size="small"
-                            title={
-                              [item.taskId, item.inspectionTypeFull]
-                                .filter(Boolean)
-                                .join(" | ") || `Item ${index + 1}`
-                            }
-                            extra={
-                              watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                                <Button
-                                  danger
-                                  size="small"
-                                  onClick={() => remove(field.name)}
-                                >
-                                  Remove
-                                </Button>
-                              ) : null
-                            }
-                          >
-                            <Form.Item
-                              {...field}
-                              name={[field.name, "taskName"]}
-                              rules={[
-                                {
-                                  required: true,
-                                  message: "Checklist item is required",
-                                },
-                              ]}
-                            >
-                              <Input
-                                placeholder="Checklist item"
-                                disabled={
-                                  watchedInspectionType !== CUSTOM_INSPECTION_ID
+                      <Row gutter={[8, 8]}>
+                        {fields.map((field, index) => {
+                          const item = watchedChecklistItems?.[index] || {};
+                          const { key: fieldKey, ...fieldProps } = field;
+                          return (
+                            <Col xs={24} lg={12} key={fieldKey}>
+                              <Card
+                                size="small"
+                                styles={{
+                                  header: {
+                                    minHeight: 34,
+                                    padding: "0 10px",
+                                  },
+                                  body: { padding: "8px 10px" },
+                                }}
+                                title={
+                                  <Space
+                                    size={8}
+                                    style={{ maxWidth: "100%", minWidth: 0 }}
+                                  >
+                                    <Text strong style={{ fontSize: 12 }}>
+                                      #{index + 1}
+                                    </Text>
+                                    <Text
+                                      type="secondary"
+                                      style={{
+                                        fontSize: 12,
+                                        maxWidth: 360,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {getChecklistMeta(item) ||
+                                        "Checklist item"}
+                                    </Text>
+                                  </Space>
                                 }
-                              />
-                            </Form.Item>
-                            {watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                              <Form.Item
-                                {...field}
-                                name={[field.name, "description"]}
+                                extra={
+                                  watchedInspectionType ===
+                                  CUSTOM_INSPECTION_ID ? (
+                                    <Tooltip title="Remove item">
+                                      <Button
+                                        danger
+                                        size="small"
+                                        aria-label="Remove checklist item"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => remove(field.name)}
+                                      />
+                                    </Tooltip>
+                                  ) : null
+                                }
+                                style={{ borderRadius: 8, height: "100%" }}
                               >
-                                <Input.TextArea
-                                  rows={2}
-                                  placeholder="Description / notes"
-                                />
-                              </Form.Item>
-                            ) : (
-                              <Text type="secondary">
-                                {item.description || item.documentation || ""}
-                              </Text>
-                            )}
-                          </Card>
-                        );
-                      })}
+                                <Form.Item
+                                  {...fieldProps}
+                                  name={[field.name, "taskName"]}
+                                  style={{ marginBottom: 6 }}
+                                  rules={[
+                                    {
+                                      required: true,
+                                      message: "Checklist item is required",
+                                    },
+                                  ]}
+                                >
+                                  <Input
+                                    placeholder="Checklist item"
+                                    disabled={
+                                      watchedInspectionType !==
+                                      CUSTOM_INSPECTION_ID
+                                    }
+                                  />
+                                </Form.Item>
+                                {watchedInspectionType ===
+                                CUSTOM_INSPECTION_ID ? (
+                                  <Form.Item
+                                    {...fieldProps}
+                                    name={[field.name, "description"]}
+                                    style={{ marginBottom: 0 }}
+                                  >
+                                    <Input.TextArea
+                                      rows={1}
+                                      placeholder="Description / notes"
+                                    />
+                                  </Form.Item>
+                                ) : (
+                                  <div
+                                    style={{
+                                      background: "#fafafa",
+                                      border: "1px solid #f0f0f0",
+                                      borderRadius: 6,
+                                      padding: "5px 8px",
+                                    }}
+                                  >
+                                    {item.description ? (
+                                      <Text
+                                        type="secondary"
+                                        style={{ fontSize: 12 }}
+                                      >
+                                        {item.description}
+                                      </Text>
+                                    ) : item.documentation ? (
+                                      <Text
+                                        type="secondary"
+                                        style={{ fontSize: 12 }}
+                                      >
+                                        Reference: {item.documentation}
+                                      </Text>
+                                    ) : (
+                                      <Text
+                                        type="secondary"
+                                        style={{ fontSize: 12 }}
+                                      >
+                                        No additional notes.
+                                      </Text>
+                                    )}
+                                  </div>
+                                )}
+                              </Card>
+                            </Col>
+                          );
+                        })}
+                      </Row>
                       {watchedInspectionType === CUSTOM_INSPECTION_ID && (
                         <Button
                           icon={<PlusOutlined />}
@@ -1412,11 +1733,70 @@ export default function TaskAssignment() {
         footer={null}
       >
         {selectedTask && (
-          <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            <Text type="secondary">
-              Aircraft: {selectedTask.aircraft} | Due:{" "}
-              {selectedTask.endDateTime || selectedTask.dueDate || "-"}
-            </Text>
+          <Space orientation="vertical" style={{ width: "100%" }} size={8}>
+            {(() => {
+              const { done, total } = getChecklistCounts(selectedTask);
+              const percent = total ? Math.round((done / total) * 100) : 0;
+
+              return (
+                <Card
+                  size="small"
+                  styles={{ body: { padding: "8px 10px" } }}
+                  style={{ background: "#fbfcfc", borderRadius: 8 }}
+                >
+                  <Space
+                    orientation="vertical"
+                    size={4}
+                    style={{ width: "100%" }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <Text strong>{selectedTask.aircraft || "Aircraft"}</Text>
+                        <div>
+                          <Text type="secondary">
+                            Due:{" "}
+                            {formatDisplayDateTime(
+                              selectedTask.endDateTime ||
+                                selectedTask.dueDate,
+                            )}
+                          </Text>
+                        </div>
+                      </div>
+                      <Text
+                        strong
+                        style={{
+                          background: done === total && total ? "#e8f5e9" : "#eef6ff",
+                          border:
+                            done === total && total
+                              ? "1px solid #b7eb8f"
+                              : "1px solid #cfe3ff",
+                          borderRadius: 999,
+                          color: done === total && total ? "#2e7d32" : "#1554ad",
+                          padding: "3px 10px",
+                        }}
+                      >
+                        {done}/{total} done
+                      </Text>
+                    </div>
+                    {total > 0 && (
+                      <Progress
+                        percent={percent}
+                        size="small"
+                        strokeColor="#26866F"
+                      />
+                    )}
+                  </Space>
+                </Card>
+              );
+            })()}
             {!!selectedTask.returnComments && (
               <Card
                 size="small"
@@ -1481,59 +1861,142 @@ export default function TaskAssignment() {
               </Card>
             )}
 
-            {(selectedTask.checklistItems || []).map((item, index) => {
-              const isDone = Array.isArray(selectedTask.checklistState)
-                ? Boolean(selectedTask.checklistState[index])
-                : false;
-              const readOnly =
-                isManager ||
-                isReviewed(selectedTask) ||
-                isTurnedIn(selectedTask) ||
-                normalizeStatus(selectedTask.status) === "completed";
-              return (
-                <div
-                  key={`${item.taskId || item.taskName}-${index}`}
-                  style={{ display: "flex", gap: 8 }}
-                >
-                  <Checkbox
-                    checked={isDone}
-                    disabled={readOnly}
-                    onChange={(e) => {
-                      const state = Array.isArray(selectedTask.checklistState)
-                        ? [...selectedTask.checklistState]
-                        : (selectedTask.checklistItems || []).map(() => false);
-                      state[index] = e.target.checked;
-                      setSelectedTask((prev) => ({
-                        ...prev,
-                        checklistState: state,
-                      }));
-                    }}
-                  />
-                  <div>
-                    {!isManager && (
-                      <div>
-                        <Text type="secondary">
-                          {[item.taskId, item.inspectionTypeFull]
-                            .filter(Boolean)
-                            .join(" | ")}
-                        </Text>
-                      </div>
-                    )}
-                    <Text strong>{item.taskName || "Checklist item"}</Text>
-                    {!!item.documentation && (
-                      <div>
-                        <Text type="secondary">AMM: {item.documentation}</Text>
-                      </div>
-                    )}
-                    {item.description && (
-                      <div>
-                        <Text type="secondary">{item.description}</Text>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {selectedTask.checklistItems?.length ? (
+              <Row gutter={[8, 8]}>
+                {selectedTask.checklistItems.map((item, index) => {
+                  const isDone = Array.isArray(selectedTask.checklistState)
+                    ? Boolean(selectedTask.checklistState[index])
+                    : false;
+                  const readOnly =
+                    isManager ||
+                    isReviewed(selectedTask) ||
+                    isTurnedIn(selectedTask) ||
+                    normalizeStatus(selectedTask.status) === "completed";
+                  return (
+                    <Col
+                      xs={24}
+                      lg={12}
+                      key={`${item.taskId || item.taskName}-${index}`}
+                    >
+                      <Card
+                        size="small"
+                        styles={{ body: { padding: "8px 10px" } }}
+                        style={{
+                          borderRadius: 8,
+                          borderColor: isDone ? "#b7eb8f" : "#eaecf0",
+                          background: isDone ? "#f6ffed" : "#ffffff",
+                          height: "100%",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "24px minmax(0, 1fr)",
+                            gap: 8,
+                            alignItems: "start",
+                          }}
+                        >
+                          <Checkbox
+                            checked={isDone}
+                            disabled={readOnly}
+                            aria-label={`Checklist item ${index + 1}`}
+                            onChange={(e) => {
+                              const state = Array.isArray(
+                                selectedTask.checklistState,
+                              )
+                                ? [...selectedTask.checklistState]
+                                : (selectedTask.checklistItems || []).map(
+                                    () => false,
+                                  );
+                              state[index] = e.target.checked;
+                              setSelectedTask((prev) => ({
+                                ...prev,
+                                checklistState: state,
+                              }));
+                            }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                Item {index + 1}
+                              </Text>
+                              <Text
+                                strong
+                                style={{
+                                  color: isDone ? "#2e7d32" : "#667085",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {isDone ? "Done" : "Open"}
+                              </Text>
+                            </div>
+                            {!!getChecklistMeta(item) && (
+                              <div>
+                                <Text
+                                  type="secondary"
+                                  style={{ fontSize: 12 }}
+                                >
+                                  {getChecklistMeta(item)}
+                                </Text>
+                              </div>
+                            )}
+                            <div style={{ marginTop: 2 }}>
+                              <Text
+                                strong
+                                style={{ overflowWrap: "anywhere" }}
+                              >
+                                {item.taskName || "Checklist item"}
+                              </Text>
+                            </div>
+                            {!!item.documentation && (
+                              <div style={{ marginTop: 2 }}>
+                                <Text
+                                  type="secondary"
+                                  style={{ fontSize: 12 }}
+                                >
+                                  Reference: {item.documentation}
+                                </Text>
+                              </div>
+                            )}
+                            {!!item.description && (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  background: "#fafafa",
+                                  border: "1px solid #f0f0f0",
+                                  borderRadius: 6,
+                                  padding: "5px 8px",
+                                }}
+                              >
+                                <Text
+                                  type="secondary"
+                                  style={{ fontSize: 12 }}
+                                >
+                                  {item.description}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    </Col>
+                  );
+                })}
+              </Row>
+            ) : (
+              <Card size="small" style={{ background: "#fafafa" }}>
+                <Text type="secondary">
+                  No checklist items were added to this task.
+                </Text>
+              </Card>
+            )}
 
             {!isManager && (
               <>

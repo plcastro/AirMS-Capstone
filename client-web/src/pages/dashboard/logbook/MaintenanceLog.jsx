@@ -67,7 +67,6 @@ const getInspector = (record = {}) =>
 
 const getMechanicLicenseNo = (record = {}) =>
   record.mechanicLicenseNo || record.licenseNo || "";
-
 const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
 
 const getReportDate = (record = {}) =>
@@ -319,6 +318,7 @@ const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
   const mechanicLicense = getMechanicLicenseNo(record)
     ? `${getMechanicLicenseNo(record)} - AMT`
     : "";
+  console.log(mechanicLicense);
   const inspectorLicense = getInspectorLicenseNo(record)
     ? `${getInspectorLicenseNo(record)} - AMT`
     : "";

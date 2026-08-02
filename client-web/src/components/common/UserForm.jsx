@@ -606,7 +606,7 @@ export default function UserForm({
           <Row justify="center">
             <Col style={{ textAlign: "center" }}>
               {imageUrl ? (
-                <Avatar size={84} src={imageUrl} />
+                <Avatar size={84} src={imageUrl} alt="User profile preview" />
               ) : (
                 <div
                   style={{

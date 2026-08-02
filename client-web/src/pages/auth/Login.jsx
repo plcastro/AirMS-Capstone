@@ -297,6 +297,7 @@ const Login = () => {
           <Form.Item label="Logging in from" required>
             <Select
               id="base"
+              aria-label="Logging in from"
               size="large"
               placeholder="Select base"
               required

@@ -1,6 +1,6 @@
 :root {
   --color-primary: #244d3b;
-  --color-primary-light: #26866f;
+  --color-primary-light: #1f5f49;
   --color-white: #ffffff;
   --color-gray-light: #dfdede;
 }
@@ -22,7 +22,7 @@
 .login-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #1f7a5a, #2ca87f);
+  background: linear-gradient(135deg, #1f7a5a, #167052);
   color: var(--color-white);
   border: none;
   border-radius: 5px;
@@ -33,7 +33,7 @@
 }
 
 .login-btn:hover {
-  background-color: #37755ab4;
+  background: #185f47;
   color: var(--color-white);
 }
 
@@ -210,7 +210,7 @@
   height: auto;
 }
 
-.auth-mobile-brand h2 {
+.auth-mobile-brand-title {
   margin: 0;
   color: #fff;
   font-size: clamp(16px, 4.8vw, 18px);
@@ -291,7 +291,7 @@
     width: 142px;
   }
 
-  .auth-mobile-brand h2 {
+  .auth-mobile-brand-title {
     font-size: 15px;
   }
 

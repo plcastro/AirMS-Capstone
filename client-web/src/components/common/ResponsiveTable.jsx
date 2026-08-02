@@ -279,6 +279,50 @@ export default function ResponsiveTable({
       ? pagination.pageSize
       : 10,
   );
+  const paginationConfig = pagination === false ? false : pagination || {};
+  const hasPaginationHandler =
+    paginationConfig &&
+    (typeof paginationConfig.onChange === "function" ||
+      typeof paginationConfig.onShowSizeChange === "function");
+  const current =
+    hasPaginationHandler && paginationConfig.current
+      ? paginationConfig.current
+      : localPage;
+  const pageSize =
+    hasPaginationHandler && paginationConfig.pageSize
+      ? paginationConfig.pageSize
+      : localPageSize;
+  const total =
+    paginationConfig && paginationConfig.total
+      ? paginationConfig.total
+      : dataSource.length;
+
+  const handlePageChange = (page, nextPageSize) => {
+    const sizeChanged = nextPageSize !== pageSize;
+    const nextPage = sizeChanged ? 1 : page;
+    setLocalPage(nextPage);
+    setLocalPageSize(nextPageSize);
+    if (
+      sizeChanged &&
+      typeof paginationConfig?.onShowSizeChange === "function"
+    ) {
+      paginationConfig.onShowSizeChange(page, nextPageSize);
+    }
+    if (typeof paginationConfig?.onChange === "function") {
+      paginationConfig.onChange(nextPage, nextPageSize);
+    }
+  };
+
+  const resolvedPagination =
+    pagination === false
+      ? false
+      : {
+          ...paginationConfig,
+          current,
+          pageSize,
+          total,
+          onChange: handlePageChange,
+        };
 
   const displayColumns = useMemo(
     () => colorizeActionColumns(pruneEmptyActionColumns(columns, dataSource)),
@@ -300,7 +344,7 @@ export default function ResponsiveTable({
         columns={displayColumns}
         dataSource={dataSource}
         rowKey={rowKey}
-        pagination={pagination}
+        pagination={resolvedPagination}
         loading={loading}
         onRow={onRow}
         {...tableProps}
@@ -308,19 +352,6 @@ export default function ResponsiveTable({
     );
   }
 
-  const paginationConfig = pagination === false ? false : pagination || {};
-  const current =
-    typeof paginationConfig === "object" && paginationConfig.current
-      ? paginationConfig.current
-      : localPage;
-  const pageSize =
-    typeof paginationConfig === "object" && paginationConfig.pageSize
-      ? paginationConfig.pageSize
-      : localPageSize;
-  const total =
-    typeof paginationConfig === "object" && paginationConfig.total
-      ? paginationConfig.total
-      : dataSource.length;
   const pagedData =
     pagination === false
       ? dataSource
@@ -334,14 +365,6 @@ export default function ResponsiveTable({
     detailColumns.find(
       (column) => getColumnKey(column) === mobileSecondaryColumn,
     ) || detailColumns.find((column) => column !== preferredPrimary);
-
-  const handlePageChange = (page, nextPageSize) => {
-    setLocalPage(page);
-    setLocalPageSize(nextPageSize);
-    if (typeof paginationConfig?.onChange === "function") {
-      paginationConfig.onChange(page, nextPageSize);
-    }
-  };
 
   return (
     <Spin spinning={Boolean(loading)}>

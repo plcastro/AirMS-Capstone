@@ -56,9 +56,15 @@ export default function UserAvatar({
   ...avatarProps
 }) {
   const imageSrc = getUserImageSrc(image) || undefined;
+  const altText =
+    avatarProps.alt ||
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    name ||
+    "User avatar";
 
   return (
     <Avatar
+      alt={altText}
       size={size}
       src={imageSrc}
       style={{ ...avatarFallbackStyle, ...style }}

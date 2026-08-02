@@ -772,6 +772,7 @@ export default function Messaging() {
                         >
                           <Badge count={item.unreadCount || 0} size="small">
                             <Avatar
+                              alt={item.title || "Conversation avatar"}
                               src={
                                 item.type === "direct"
                                   ? getImageUrl(item.user?.image)
@@ -846,6 +847,10 @@ export default function Messaging() {
                       />
                     )}
                     <Avatar
+                      alt={
+                        selectedConversationDetails.title ||
+                        "Conversation avatar"
+                      }
                       src={
                         selectedConversationDetails.type === "direct"
                           ? getImageUrl(selectedConversationDetails.user?.image)
@@ -1105,6 +1110,7 @@ export default function Messaging() {
                 }}
               >
                 <Avatar
+                  alt={getDisplayFullName(member) || "Group member avatar"}
                   src={getImageUrl(member.image)}
                   icon={<UserOutlined />}
                 />

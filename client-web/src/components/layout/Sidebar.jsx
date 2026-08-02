@@ -43,16 +43,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [openKeys, setOpenKeys] = useState([]);
 
-  const menuIcon = (title, icon) =>
-    collapsed ? (
-      <Tooltip title={title} placement="right" mouseEnterDelay={0.2}>
-        <span style={{ display: "inline-flex", alignItems: "center" }}>
-          {icon}
-        </span>
-      </Tooltip>
-    ) : (
-      icon
-    );
+  const menuIcon = (_title, icon) => icon;
 
   const wrapLabel = (text) => {
     if (collapsed) return null;
@@ -96,6 +87,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "13",
+          title: "Maintenance Reports and Analytics",
           label: wrapLabelSub("Maintenance Reports and Analytics"),
           icon: menuIcon(
             "Maintenance Reports and Analytics",
@@ -105,6 +97,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
         {
           key: "15",
+          title: "Messages",
           label: "Messages",
           icon: menuIcon("Messages", <MessageOutlined style={{ fontSize: 24 }} />),
           accessKey: "messages",
@@ -119,12 +112,14 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "1",
+          title: "Manage Users",
           label: "Manage Users",
           icon: menuIcon("Manage Users", <TeamOutlined style={{ fontSize: 24 }} />),
           accessKey: "userManagement",
         },
         {
           key: "2",
+          title: "Activity Logs",
           label: "Activity Logs",
           icon: menuIcon("Activity Logs", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "activityLogs",
@@ -139,12 +134,14 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "3",
+          title: "Flight Logs",
           label: "Flight Logs",
           icon: menuIcon("Flight Logs", <RocketOutlined style={{ fontSize: 24 }} />),
           accessKey: "flightLogs",
         },
         {
           key: "4",
+          title: "Maintenance Logs",
           label: "Maintenance Logs",
           icon: menuIcon(
             "Maintenance Logs",
@@ -154,12 +151,14 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
         {
           key: "5",
+          title: "Pre-Inspection",
           label: "Pre-Inspection",
           icon: menuIcon("Pre-Inspection", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "preInspection",
         },
         {
           key: "6",
+          title: "Post-Inspection",
           label: "Post-Inspection",
           icon: menuIcon("Post-Inspection", <AuditOutlined style={{ fontSize: 24 }} />),
           accessKey: "postInspection",
@@ -174,12 +173,14 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "7",
+          title: "Tasks",
           label: "Tasks",
           icon: menuIcon("Tasks", <ScheduleOutlined style={{ fontSize: 24 }} />),
           accessKey: "tasks",
         },
         {
           key: "8",
+          title: "Mechanics",
           label: "Mechanics",
           icon: menuIcon("Mechanics", <TeamOutlined style={{ fontSize: 24 }} />),
           accessKey: "mechanics",
@@ -196,6 +197,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "9",
+          title: "Parts Lifespan Monitoring",
           label: wrapLabelSub("Parts Lifespan Monitoring"),
           icon: menuIcon(
             "Parts Lifespan Monitoring",
@@ -205,6 +207,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
         {
           key: "10",
+          title: "Maintenance Tracking",
           label: wrapLabelSub("Maintenance Tracking"),
           icon: menuIcon(
             "Maintenance Tracking",
@@ -214,6 +217,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         },
         {
           key: "11",
+          title: "Maintenance Priority Sorting",
           label: wrapLabelSub("Maintenance Priority Sorting"),
           icon: menuIcon(
             "Maintenance Priority Sorting",
@@ -231,6 +235,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "12",
+          title: "Parts Requisition Monitoring",
           label: wrapLabelSub("Parts Requisition Monitoring"),
           icon: menuIcon(
             "Parts Requisition Monitoring",
@@ -246,6 +251,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
       children: [
         {
           key: "14",
+          title: "Profile",
           label: "Profile",
           icon: menuIcon("Profile", <UserOutlined style={{ fontSize: 24 }} />),
           accessKey: "profile",
