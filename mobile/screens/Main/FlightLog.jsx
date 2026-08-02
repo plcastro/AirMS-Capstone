@@ -233,7 +233,9 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
-      const authHeaders = await getAuthHeaders();
+      const authHeaders = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
         headers: authHeaders,
@@ -273,7 +275,9 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
-      const authHeaders = await getAuthHeaders();
+      const authHeaders = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
         {

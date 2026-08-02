@@ -29,11 +29,12 @@ const resolveRole = (role = "") => {
     r === "engineer" ||
     r === "maintenance manager" ||
     r === "head of maintenance" ||
+    r === "superadmin" ||
     r === "admin" ||
     r === "officer in charge"
   )
     return "mechanic";
-  return "pilot";
+  return "viewer";
 };
 
 const isReleasedFlightLogStatus = (status = "") =>
