@@ -318,7 +318,6 @@ const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
   const mechanicLicense = getMechanicLicenseNo(record)
     ? `${getMechanicLicenseNo(record)} - AMT`
     : "";
-  console.log(mechanicLicense);
   const inspectorLicense = getInspectorLicenseNo(record)
     ? `${getInspectorLicenseNo(record)} - AMT`
     : "";
@@ -450,6 +449,13 @@ export default function MaintenanceLog() {
           };
         });
 
+        // console.log(
+        //   "Maintenance log mechanic license numbers:",
+        //   normalized.map((entry) => ({
+        //     id: entry.sourceTaskId || entry._id || entry.id,
+        //     mechanicLicenseNo: getMechanicLicenseNo(entry),
+        //   })),
+        // );
         setAllEntries(normalized);
       } catch (error) {
         console.error("Failed to fetch maintenance logs:", error);
@@ -467,6 +473,14 @@ export default function MaintenanceLog() {
 
     fetchMaintenanceLogs();
   }, [getAuthHeader]);
+
+  // useEffect(() => {
+  //   if (!selectedWO) return;
+  //   console.log(
+  //     "Selected maintenance log mechanicLicenseNo:",
+  //     getMechanicLicenseNo(selectedWO),
+  //   );
+  // }, [selectedWO]);
 
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
