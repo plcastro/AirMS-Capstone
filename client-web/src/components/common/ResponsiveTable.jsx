@@ -124,12 +124,12 @@ const getActionTone = (label = "") => {
     return "warning";
   }
 
-  if (["more"].some((keyword) => text.includes(keyword))) {
+  if (["more", "view"].some((keyword) => text.includes(keyword))) {
     return "more";
   }
 
   if (
-    ["view", "review", "verify", "details", "export", "download"].some(
+    ["review", "verify", "details", "export", "download"].some(
       (keyword) => text.includes(keyword),
     )
   ) {

@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 
 export default function FlightLogCards({
   logs,
@@ -148,9 +149,7 @@ export default function FlightLogCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   {/* Status */}
                   <View
                     style={{
@@ -170,17 +169,6 @@ export default function FlightLogCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  <ActionIconButton
-                    icon="export-variant"
-                    tooltip="Export"
-                    onPress={() => handleExportPress(log)}
-                    disabled={Boolean(exportingLogId)}
-                    loading={exportLoading}
-                    color="#444"
-                    size={32}
-                    iconSize={21}
-                  />
                 </View>
               </View>
 
@@ -201,14 +189,17 @@ export default function FlightLogCards({
                 </AppText>
               </View>
 
-              {/* Icon */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                <ActionIconButton
+                  icon="export-variant"
+                  tooltip="Export"
+                  onPress={() => handleExportPress(log)}
+                  disabled={Boolean(exportingLogId)}
+                  loading={exportLoading}
+                  color="#444"
+                  size={32}
+                  iconSize={21}
+                />
                 <ActionIconButton
                   icon={readOnly ? "eye-outline" : "pencil"}
                   tooltip={readOnly ? "View" : "Edit"}
@@ -217,7 +208,7 @@ export default function FlightLogCards({
                   size={32}
                   iconSize={21}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );

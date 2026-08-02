@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import AppText from "./AppText";
 import AppInput from "./AppInput";
 import {
@@ -175,6 +175,98 @@ export function InfoCard({ title, subtitle, right, children, onPress }) {
       </View>
       {children}
     </Wrapper>
+  );
+}
+
+export function CardActionRow({ children, style }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const actionItems = React.Children.toArray(children).filter(Boolean);
+  const shouldCollapse = actionItems.length > 2;
+  const visibleActions = shouldCollapse ? actionItems.slice(0, 1) : actionItems;
+  const overflowActions = shouldCollapse ? actionItems.slice(1) : [];
+
+  const renderOverflowAction = (action, index) => {
+    if (!React.isValidElement(action)) return action;
+
+    const handlePress = (...args) => {
+      setMenuOpen(false);
+      action.props?.onPress?.(...args);
+    };
+
+    return React.cloneElement(action, {
+      key: action.key || `overflow-action-${index}`,
+      onPress: handlePress,
+      tooltip: "",
+    });
+  };
+
+  return (
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 10,
+          width: "100%",
+          flexWrap: "wrap",
+        },
+        style,
+      ]}
+    >
+      {visibleActions}
+      {shouldCollapse && (
+        <View style={{ position: "relative" }}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={menuOpen ? "Close actions" : "More actions"}
+            onPress={() => setMenuOpen((current) => !current)}
+            style={{
+              alignItems: "center",
+              backgroundColor: "#f0f2f5",
+              borderColor: "#d9d9d9",
+              borderRadius: 18,
+              borderWidth: 1,
+              height: 36,
+              justifyContent: "center",
+              width: 36,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="dots-horizontal"
+              size={21}
+              color="#344054"
+            />
+          </TouchableOpacity>
+          {menuOpen && (
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: COLORS.white,
+                borderColor: COLORS.grayMedium,
+                borderRadius: 10,
+                borderWidth: 1,
+                bottom: 42,
+                elevation: 6,
+                flexDirection: "row",
+                gap: 8,
+                padding: 8,
+                position: "absolute",
+                right: 0,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                zIndex: 20,
+              }}
+            >
+              {overflowActions.map(renderOverflowAction)}
+            </View>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 

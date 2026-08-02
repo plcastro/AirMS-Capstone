@@ -8,6 +8,7 @@ import {
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDateTime, getAuthHeaders } from "../../utilities/mobileApi";
@@ -16,10 +17,12 @@ import AlertComp from "../../components/AlertComp";
 import {
   EmptyState,
   FieldRow,
+  CardActionRow,
   InfoCard,
   LoadingState,
   ModuleContainer,
   SectionTitle,
+  SearchBar,
   StatCard,
   StatusChip,
   moduleStyles,
@@ -31,6 +34,71 @@ const RISK_COLORS = {
   High: "#d46b08",
   Medium: "#c98a00",
   Low: "#26866F",
+};
+
+const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
+
+const normalizeStatus = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const getInspectionDueState = (row = {}) => {
+  const remainingHours = Number(row.remainingHours);
+  const remainingDays = Number(row.remainingDays);
+  const hourDue = Number.isFinite(remainingHours) && remainingHours <= 0;
+  const dayDue = Number.isFinite(remainingDays) && remainingDays <= 0;
+
+  if (hourDue || dayDue) {
+    return { label: "Overdue", color: "#cf1322" };
+  }
+
+  if (
+    (Number.isFinite(remainingHours) && remainingHours <= 25) ||
+    (Number.isFinite(remainingDays) && remainingDays <= 30)
+  ) {
+    return { label: "Due Soon", color: "#d46b08" };
+  }
+
+  return { label: "Monitor", color: COLORS.primaryLight };
+};
+
+const formatRemainingLimit = (row = {}) => {
+  const parts = [];
+  if (row.remainingHours !== null && row.remainingHours !== undefined) {
+    parts.push(`${row.remainingHours} FH`);
+  }
+  if (row.remainingDays !== null && row.remainingDays !== undefined) {
+    parts.push(`${row.remainingDays} day(s)`);
+  }
+  return parts.length ? parts.join(" / ") : "N/A";
+};
+
+const matchesInspectionLimitSearch = (row = {}, query = "") => {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const dueState = getInspectionDueState(row);
+  const haystack = [
+    row.aircraft,
+    row.aircraftModel,
+    dueState.label,
+    row.inspectionName,
+    row.inspectionKey,
+    formatRemainingLimit(row),
+    row.remainingHours,
+    row.remainingDays,
+    row.dueDate,
+    row.dueAtHours,
+    row.flightHourInterval,
+    row.calendarMonthInterval,
+    row.sourceRow,
+  ]
+    .filter((value) => value !== null && value !== undefined)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(needle);
 };
 
 const getTaskScheduleState = (task = {}) => {
@@ -57,8 +125,19 @@ const buildClearedInsight = (item) => ({
 
 export default function MaintenanceTracking() {
   const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
   const isOfficerInCharge =
     user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const access = String(user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canScheduleInspectionTasks =
+    role === "maintenance manager" ||
+    role === "superadmin" ||
+    access === "superadmin";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
@@ -66,6 +145,7 @@ export default function MaintenanceTracking() {
   const [health, setHealth] = useState(null);
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
+  const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
@@ -179,13 +259,16 @@ export default function MaintenanceTracking() {
     [aircraftFilter, insights],
   );
 
-  const filteredRemainingRows = useMemo(
-    () =>
+  const filteredRemainingRows = useMemo(() => {
+    const aircraftFiltered =
       aircraftFilter === "all"
         ? remainingRows
-        : remainingRows.filter((item) => item.aircraft === aircraftFilter),
-    [aircraftFilter, remainingRows],
-  );
+        : remainingRows.filter((item) => item.aircraft === aircraftFilter);
+
+    return aircraftFiltered.filter((item) =>
+      matchesInspectionLimitSearch(item, inspectionLimitSearch),
+    );
+  }, [aircraftFilter, inspectionLimitSearch, remainingRows]);
 
   const scheduledTasks = useMemo(() => {
     const rows = filteredInsights.flatMap((insight) =>
@@ -230,6 +313,49 @@ export default function MaintenanceTracking() {
         { total: 0, high: 0, openai: 0 },
       ),
     [filteredInsights],
+  );
+
+  const scheduledInspectionTaskKeys = useMemo(() => {
+    const keys = new Set();
+    scheduledTasks.forEach((task) => {
+      if (!ACTIVE_OPEN.has(normalizeStatus(task.status))) return;
+      const aircraft = String(task.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const title = String(task.title || "")
+        .trim()
+        .toLowerCase();
+      const checklistNames = Array.isArray(task.checklistItems)
+        ? task.checklistItems
+            .map((item) => item.inspectionName || item.inspectionTypeFull)
+            .filter(Boolean)
+            .map((value) => String(value).trim().toLowerCase())
+        : [];
+
+      [title, ...checklistNames].forEach((inspectionName) => {
+        if (aircraft && inspectionName) {
+          keys.add(`${aircraft}|${inspectionName}`);
+        }
+      });
+    });
+    return keys;
+  }, [scheduledTasks]);
+
+  const hasScheduledInspectionTask = useCallback(
+    (row = {}) => {
+      const aircraft = String(row.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const inspectionName = String(row.inspectionName || "")
+        .trim()
+        .toLowerCase();
+      return Boolean(
+        aircraft &&
+          inspectionName &&
+          scheduledInspectionTaskKeys.has(`${aircraft}|${inspectionName}`),
+      );
+    },
+    [scheduledInspectionTaskKeys],
   );
 
   const aircraftFilterLabel =
@@ -343,6 +469,22 @@ export default function MaintenanceTracking() {
     }
   };
 
+  const scheduleInspectionTask = (row = {}) => {
+    const state = getInspectionDueState(row);
+    navigation.navigate("Tasks", {
+      openAddTask: true,
+      draftType: "inspectionLimit",
+      aircraft: row.aircraft || "",
+      aircraftModel: row.aircraftModel || "",
+      inspectionName: row.inspectionName || "",
+      dueDate: row.dueDate || "",
+      dueAtHours: row.dueAtHours ?? null,
+      remainingHours: row.remainingHours ?? null,
+      remainingDays: row.remainingDays ?? null,
+      dueStatus: state.label,
+    });
+  };
+
   return (
     <ModuleContainer>
       <InfoCard title="AI Maintenance Tracking" subtitle={meta?.llmEnabled ? `${meta.activeModel} summaries available` : "Rule-based findings"}>
@@ -450,39 +592,93 @@ export default function MaintenanceTracking() {
             </AppText>
           )}
           {!isOfficerInCharge && (item.matchedRules || []).length > 0 && (
-            <TouchableOpacity
-              style={[moduleStyles.button, { marginTop: 12 }]}
-              onPress={() => markRectified(item)}
-              disabled={Boolean(actionLoadingKey)}
-            >
-              {rectifyingKey === `${item.aircraft}-${item.issueTitle}` ? (
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+            <CardActionRow>
+              <TouchableOpacity
+                style={[styles.compactActionButton, Boolean(actionLoadingKey) && styles.disabledActionButton]}
+                onPress={() => markRectified(item)}
+                disabled={Boolean(actionLoadingKey)}
+              >
+                {rectifyingKey === `${item.aircraft}-${item.issueTitle}` ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
-                  <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>Processing...</AppText>
-                </View>
-              ) : (
-                <AppText style={moduleStyles.buttonText}>Mark Rectified</AppText>
-              )}
-            </TouchableOpacity>
+                ) : (
+                  <MaterialCommunityIcons
+                    name="check-circle-outline"
+                    size={16}
+                    color={COLORS.white}
+                  />
+                )}
+                <AppText style={styles.compactActionButtonText}>
+                  {rectifyingKey === `${item.aircraft}-${item.issueTitle}`
+                    ? "Processing"
+                    : "Mark Rectified"}
+                </AppText>
+              </TouchableOpacity>
+            </CardActionRow>
           )}
         </InfoCard>
       ))}
 
       <SectionTitle title="Remaining Flight Hours" />
-      {filteredRemainingRows.slice(0, 20).map((row) => (
-        <InfoCard
-          key={`${row.aircraft}-${row.inspectionKey || row.inspectionName}`}
-          title={row.aircraft}
-          subtitle={row.inspectionName}
-        >
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Remaining FH" value={row.remainingHours !== null && row.remainingHours !== undefined ? `${row.remainingHours} FH` : "N/A"} />
-            <FieldRow label="Remaining Days" value={row.remainingDays !== null && row.remainingDays !== undefined ? `${row.remainingDays} day(s)` : "N/A"} />
-            <FieldRow label="Due At" value={row.dueAtHours ? `${row.dueAtHours} FH` : "N/A"} />
-            <FieldRow label="Due / End" value={formatDateTime(row.dueDate)} />
-          </View>
-        </InfoCard>
-      ))}
+      <SearchBar
+        value={inspectionLimitSearch}
+        onChangeText={setInspectionLimitSearch}
+        placeholder="Search aircraft, status, inspection, remaining..."
+        containerStyle={{ marginBottom: 8 }}
+      />
+      {!loading && filteredRemainingRows.length === 0 && (
+        <EmptyState text="No inspection limits match your search." />
+      )}
+      {filteredRemainingRows.slice(0, 20).map((row, index) => {
+        const dueState = getInspectionDueState(row);
+        const isScheduled = hasScheduledInspectionTask(row);
+        return (
+          <InfoCard
+            key={`${row.aircraft}-${row.inspectionKey || row.inspectionName}-${index}`}
+            title={row.aircraft}
+            subtitle={row.inspectionName}
+            right={<StatusChip label={dueState.label} color={dueState.color} />}
+          >
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              <FieldRow label="Remaining FH" value={row.remainingHours !== null && row.remainingHours !== undefined ? `${row.remainingHours} FH` : "N/A"} />
+              <FieldRow label="Remaining Days" value={row.remainingDays !== null && row.remainingDays !== undefined ? `${row.remainingDays} day(s)` : "N/A"} />
+              <FieldRow label="Due At" value={row.dueAtHours ? `${row.dueAtHours} FH` : "N/A"} />
+              <FieldRow label="Due / End" value={formatDateTime(row.dueDate)} />
+            </View>
+            <CardActionRow>
+              {isScheduled ? (
+                <View style={styles.scheduledPill}>
+                  <MaterialCommunityIcons
+                    name="calendar-check"
+                    size={15}
+                    color={COLORS.primaryLight}
+                  />
+                  <AppText style={styles.scheduledPillText}>
+                    Task Scheduled
+                  </AppText>
+                </View>
+              ) : canScheduleInspectionTasks ? (
+                <TouchableOpacity
+                  style={styles.compactActionButton}
+                  onPress={() => scheduleInspectionTask(row)}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-plus"
+                    size={16}
+                    color={COLORS.white}
+                  />
+                  <AppText style={styles.compactActionButtonText}>
+                    Schedule Task
+                  </AppText>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.mutedPill}>
+                  <AppText style={styles.mutedPillText}>Not scheduled</AppText>
+                </View>
+              )}
+            </CardActionRow>
+          </InfoCard>
+        );
+      })}
 
       <SectionTitle title="Scheduled Tasks" />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -563,5 +759,58 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     fontSize: 12,
     fontWeight: "500",
+  },
+  compactActionButton: {
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    minHeight: 34,
+    minWidth: 132,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  compactActionButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+  disabledActionButton: {
+    opacity: 0.65,
+  },
+  scheduledPill: {
+    alignItems: "center",
+    borderColor: COLORS.primaryLight,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 32,
+    minWidth: 132,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  scheduledPillText: {
+    color: COLORS.primaryLight,
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+  mutedPill: {
+    alignItems: "center",
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 999,
+    minHeight: 32,
+    minWidth: 132,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  mutedPillText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

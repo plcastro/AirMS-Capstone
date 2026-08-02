@@ -100,6 +100,26 @@ const scoreToPriority = (score = 0) => {
   return "Low";
 };
 
+const getInspectionDraftDates = (draft = {}) => {
+  const fallbackStart = getDefaultStartDate();
+  const due = draft.dueDate ? new Date(draft.dueDate) : null;
+
+  if (!due || Number.isNaN(due.getTime()) || due < new Date()) {
+    return {
+      start: fallbackStart,
+      end: addDaysToDate(fallbackStart, 1),
+    };
+  }
+
+  const end = new Date(due);
+  end.setHours(17, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 1);
+  start.setHours(8, 0, 0, 0);
+
+  return { start: clampToNow(start), end };
+};
+
 export default function AddTask({
   visible,
   onClose,
@@ -142,7 +162,9 @@ export default function AddTask({
   const derivedMaintenanceType = isCustomTask
     ? "Custom Task"
     : initialDraft
-      ? "Corrective Maintenance"
+      ? initialDraft.draftType === "inspectionLimit"
+        ? "Preventive Maintenance"
+        : "Corrective Maintenance"
       : "Inspection";
   const suggestedPriorityScore = computePriorityScore({
     riskLevel: initialDraft?.riskLevel,
@@ -158,6 +180,11 @@ export default function AddTask({
         inspectionName: initialDraft.inspectionName || "",
         issueTitle: initialDraft.issueTitle || "",
         manualReference: initialDraft.manualReference || "",
+        draftType: initialDraft.draftType || "",
+        dueDate: initialDraft.dueDate || "",
+        dueAtHours: initialDraft.dueAtHours ?? null,
+        remainingHours: initialDraft.remainingHours ?? null,
+        remainingDays: initialDraft.remainingDays ?? null,
       })
     : "";
 
@@ -192,6 +219,60 @@ export default function AddTask({
       specificInterval: draft.inspectionName || "",
     },
   });
+
+  const buildInspectionLimitChecklistItem = (draft = {}, inspection = {}) => {
+    const remaining = [
+      draft.remainingHours !== null && draft.remainingHours !== undefined
+        ? `${draft.remainingHours} FH remaining`
+        : "",
+      draft.remainingDays !== null && draft.remainingDays !== undefined
+        ? `${draft.remainingDays} day(s) remaining`
+        : "",
+      draft.dueAtHours !== null && draft.dueAtHours !== undefined
+        ? `Due at ${draft.dueAtHours} FH`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    return {
+      inspectionName:
+        inspection.name || draft.inspectionName || "Inspection planning",
+      aircraftModel: inspection.aircraftModel || draft.aircraftModel || "",
+      ata: {
+        chapter: 0,
+        chapterName: "",
+        section: 0,
+        sectionName: "",
+      },
+      taskId: `inspection-limit-${Date.now()}`,
+      taskName: draft.inspectionName || "Inspection planning",
+      component: "",
+      componentModel: "",
+      inspectionType: "Inspection",
+      inspectionTypeFull: draft.inspectionName || "Inspection planning",
+      documentation: "",
+      description: [
+        draft.dueStatus ? `Due status: ${draft.dueStatus}` : "",
+        remaining,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      correctiveAction: "",
+      environmentalCondition: "",
+      engineModel: "",
+      conditions: {
+        modificationStatus: "",
+        modificationNumbers: [],
+        effectivity: [],
+      },
+      interval: {
+        flightHours: draft.dueAtHours || 0,
+        calendarMonths: 0,
+        specificInterval: draft.inspectionName || "",
+      },
+    };
+  };
 
   const buildCustomChecklistItem = (index = checklistItems.length) => ({
     inspectionName: customTaskTitle || "Custom Task",
@@ -296,16 +377,29 @@ export default function AddTask({
   };
 
   const applyDraft = async (draft = {}) => {
-    setSelectedPriority(
-      scoreToPriority(
-        computePriorityScore({
-          riskLevel: draft?.riskLevel,
-          maintenanceType: "Corrective Maintenance",
-          checklistCount: checklistItems.length,
-          startDate,
-        }),
-      ),
-    );
+    const isInspectionLimitDraft = draft.draftType === "inspectionLimit";
+
+    if (isInspectionLimitDraft) {
+      const draftDates = getInspectionDraftDates(draft);
+      setStartDate(draftDates.start);
+      setEndDate(draftDates.end);
+      setSelectedPriority(
+        ["Overdue", "Due Soon"].includes(draft.dueStatus)
+          ? "High"
+          : "Normal",
+      );
+    } else {
+      setSelectedPriority(
+        scoreToPriority(
+          computePriorityScore({
+            riskLevel: draft?.riskLevel,
+            maintenanceType: "Corrective Maintenance",
+            checklistCount: checklistItems.length,
+            startDate,
+          }),
+        ),
+      );
+    }
     const matchedInspection = findInspectionForDraft(draft);
 
     if (draft.aircraft) {
@@ -313,7 +407,17 @@ export default function AddTask({
     }
 
     if (!matchedInspection) {
-      setChecklistItems([buildRectificationChecklistItem(draft)]);
+      setInspectionType(CUSTOM_INSPECTION_ID);
+      setCustomTaskTitle(
+        isInspectionLimitDraft
+          ? draft.inspectionName || "Inspection planning"
+          : draft.issueTitle || "Rectify maintenance finding",
+      );
+      setChecklistItems([
+        isInspectionLimitDraft
+          ? buildInspectionLimitChecklistItem(draft)
+          : buildRectificationChecklistItem(draft),
+      ]);
       return;
     }
 
@@ -324,6 +428,14 @@ export default function AddTask({
     try {
       setLoading(true);
       const tasks = await fetchInspectionTasks(matchedInspection);
+      if (isInspectionLimitDraft) {
+        setChecklistItems(
+          tasks.length
+            ? tasks
+            : [buildInspectionLimitChecklistItem(draft, matchedInspection)],
+        );
+        return;
+      }
       const rankedTasks = [...tasks].sort(
         (left, right) =>
           getTaskMatchScore(right, draft) - getTaskMatchScore(left, draft),
@@ -344,9 +456,15 @@ export default function AddTask({
     } catch (error) {
       console.error("Error applying AI rectification draft:", error);
       setChecklistItems([
-        buildRectificationChecklistItem(draft, matchedInspection),
+        isInspectionLimitDraft
+          ? buildInspectionLimitChecklistItem(draft, matchedInspection)
+          : buildRectificationChecklistItem(draft, matchedInspection),
       ]);
-      showToast("Opened task with AI rectification item");
+      showToast(
+        isInspectionLimitDraft
+          ? "Opened task with inspection planning item"
+          : "Opened task with AI rectification item",
+      );
     } finally {
       setLoading(false);
     }

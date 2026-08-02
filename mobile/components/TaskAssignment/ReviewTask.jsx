@@ -304,7 +304,7 @@ export default function ReviewTask({
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   borderRadius: 8,
-                  height: 180,
+                  height: 220,
                   marginBottom: 12,
                   overflow: "hidden",
                   backgroundColor: COLORS.white,
@@ -324,24 +324,6 @@ export default function ReviewTask({
                   penColor="#000000"
                   backgroundColor="#ffffff"
                   imageType="image/png"
-                />
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginBottom: 24,
-                }}
-              >
-                <Button
-                  label="CLEAR"
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  buttonStyle={[styles.dangerBtn, { width: 90 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
                 />
               </View>
             </>
@@ -391,12 +373,26 @@ export default function ReviewTask({
               gap: 12,
             }}
           >
-            <Button
-              label="CANCEL"
-              onPress={handleCancel}
-              buttonStyle={[styles.secondaryBtn, { width: 100 }]}
-              buttonTextStyle={styles.secondaryBtnTxt}
-            />
+            {!(mode === "approve" && step === "signature") && (
+              <Button
+                label="CANCEL"
+                onPress={handleCancel}
+                buttonStyle={[styles.secondaryBtn, { width: 100 }]}
+                buttonTextStyle={styles.secondaryBtnTxt}
+              />
+            )}
+            {mode === "approve" && step === "signature" && (
+              <Button
+                label="CLEAR"
+                iconName="clear"
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                }}
+                buttonStyle={[styles.dangerBtn, { width: 90 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            )}
             <Button
               label={
                 submitting

@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserImageUri } from "../../utilities/avatar";
 
@@ -108,7 +109,7 @@ export default function UserCard({
         )}
       </View>
 
-      <View style={styles.cardActions}>
+      <CardActionRow style={styles.cardActions}>
         <ActionIconButton
           icon="account-edit-outline"
           tooltip="Edit"
@@ -137,10 +138,10 @@ export default function UserCard({
             borderColor="#7C3AED"
           />
         )}
-      </View>
+      </CardActionRow>
 
       {canShowInviteActions && (
-        <View style={styles.inviteActions}>
+        <CardActionRow style={styles.inviteActions}>
           {(invitationStatus === "pending" || invitationStatus === "expired") && (
             <>
               <ActionIconButton
@@ -174,7 +175,7 @@ export default function UserCard({
               borderColor="#B91C1C"
             />
           )}
-        </View>
+        </CardActionRow>
       )}
     </View>
   );
@@ -224,15 +225,8 @@ const styles = StyleSheet.create({
   inviteExpiryText: { fontSize: 11, color: COLORS.grayDark },
   cardActions: {
     marginTop: 15,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
   },
   inviteActions: {
     marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 10,
-    flexWrap: "wrap",
   },
 });

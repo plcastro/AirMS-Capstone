@@ -542,7 +542,7 @@ export default function PartsReqMonitoring() {
           <Col
             xs={24}
             md={10}
-            lg={12}
+            lg={10}
             style={{ textAlign: screens.xs ? "left" : "right" }}
           >
             <Button

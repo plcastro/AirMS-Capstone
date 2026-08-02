@@ -4,6 +4,7 @@ import { View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 
 export default function PreInspectionCards({
   inspections,
@@ -134,9 +135,7 @@ export default function PreInspectionCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   <View
                     style={{
                       backgroundColor: statusStyle.backgroundColor,
@@ -155,17 +154,6 @@ export default function PreInspectionCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  <ActionIconButton
-                    icon="export-variant"
-                    tooltip="Export"
-                    onPress={() => handleExportPress(inspection)}
-                    disabled={Boolean(exportingInspectionId)}
-                    loading={exportLoading}
-                    color="#444"
-                    size={32}
-                    iconSize={18}
-                  />
                 </View>
               </View>
 
@@ -186,13 +174,17 @@ export default function PreInspectionCards({
                 </AppText>
               </View>
 
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                <ActionIconButton
+                  icon="export-variant"
+                  tooltip="Export"
+                  onPress={() => handleExportPress(inspection)}
+                  disabled={Boolean(exportingInspectionId)}
+                  loading={exportLoading}
+                  color="#444"
+                  size={32}
+                  iconSize={18}
+                />
                 <ActionIconButton
                   icon={isViewOnly ? "eye-outline" : "pencil"}
                   tooltip={isViewOnly ? "View" : "Edit"}
@@ -201,7 +193,7 @@ export default function PreInspectionCards({
                   size={32}
                   iconSize={18}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );

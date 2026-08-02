@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Input, Button, Typography, DatePicker } from "antd";
+import { ClearOutlined } from "@ant-design/icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 
@@ -50,7 +51,12 @@ function LegSignaturePad({ value, onChange, disabled }) {
               Replace
             </Button>
           )}
-          <Button size="small" danger onClick={handleClear}>
+          <Button
+            size="small"
+            danger
+            icon={<ClearOutlined />}
+            onClick={handleClear}
+          >
             Clear
           </Button>
         </div>

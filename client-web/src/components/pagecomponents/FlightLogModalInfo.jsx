@@ -18,19 +18,60 @@ export default function FlightLogModalInfo({
       .trim()
       .toUpperCase();
 
+  const normalizeAircraftOptions = (payload) => {
+    const source = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+    return [
+      ...new Set(
+        source
+          .map((item) =>
+            typeof item === "string"
+              ? item
+              : item?.tailNum || item?.aircraft || item?.rpc || "",
+          )
+          .map(normalizeRpc)
+          .filter(Boolean),
+      ),
+    ].sort();
+  };
+
   useEffect(() => {
     const fetchAircraftOptions = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/api/parts-monitoring/aircraft-list`,
-        );
-        const data = await response.json();
+        const [partsResult, aircraftResult, aircraftWithBasesResult] =
+          await Promise.allSettled([
+            fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`).then(
+              (response) => response.json(),
+            ),
+          ]);
+        const partsData =
+          partsResult.status === "fulfilled" ? partsResult.value : null;
+        const aircraftData =
+          aircraftResult.status === "fulfilled" ? aircraftResult.value : null;
+        const aircraftWithBasesData =
+          aircraftWithBasesResult.status === "fulfilled"
+            ? aircraftWithBasesResult.value
+            : null;
+        const options = [
+          ...normalizeAircraftOptions(partsData),
+          ...normalizeAircraftOptions(aircraftData),
+          ...normalizeAircraftOptions(aircraftWithBasesData),
+        ];
 
-        if (response.ok && Array.isArray(data.data)) {
-          setAircraftOptions(data.data);
-        }
+        setAircraftOptions([...new Set(options)].sort());
       } catch (error) {
         console.error("Error fetching aircraft options:", error);
+        setAircraftOptions([]);
       }
     };
 
@@ -84,13 +125,20 @@ export default function FlightLogModalInfo({
     [formData.aircraftType],
   );
 
-  const availableAircraftOptions = useMemo(() => {
+  const aircraftSelectOptions = useMemo(() => {
     const ongoingSet = new Set(ongoingAircraftRpcs);
     const currentRpc = normalizeRpc(formData.rpc);
 
-    return aircraftOptions.filter((rpc) => {
+    return aircraftOptions.map((rpc) => {
       const normalizedRpc = normalizeRpc(rpc);
-      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+      const disabled =
+        ongoingSet.has(normalizedRpc) && normalizedRpc !== currentRpc;
+
+      return {
+        disabled,
+        label: disabled ? `${rpc} (ongoing flight log)` : rpc,
+        value: rpc,
+      };
     });
   }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
@@ -138,10 +186,7 @@ export default function FlightLogModalInfo({
                 optionFilterProp="label"
                 popupMatchSelectWidth
                 getPopupContainer={() => document.body}
-                options={availableAircraftOptions.map((rpc) => ({
-                  value: rpc,
-                  label: rpc,
-                }))}
+                options={aircraftSelectOptions}
               />
             </div>
           </div>

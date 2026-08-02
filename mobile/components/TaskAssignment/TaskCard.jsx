@@ -6,6 +6,7 @@ import AppText from "../common/AppText";
 import React from "react";
 import * as Progress from "react-native-progress";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskCard({
@@ -128,16 +129,6 @@ export default function TaskCard({
             {status}
           </AppText>
         </View>
-        {showEditDelete && (
-          <ActionIconButton
-            icon="delete"
-            tooltip="Delete"
-            onPress={() => onDeleteTask?.(data)}
-            color="#F45B5B"
-            size={32}
-            iconSize={21}
-          />
-        )}
       </View>
 
       <View style={{ flexDirection: "row", marginBottom: 6 }}>
@@ -237,13 +228,7 @@ export default function TaskCard({
 
       {/* ACTIONS */}
       {showEditDelete && (
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            marginTop: 10,
-          }}
-        >
+        <CardActionRow>
           <ActionIconButton
             icon="pencil"
             tooltip="Edit"
@@ -252,7 +237,15 @@ export default function TaskCard({
             size={32}
             iconSize={21}
           />
-        </View>
+          <ActionIconButton
+            icon="delete"
+            tooltip="Delete"
+            onPress={() => onDeleteTask?.(data)}
+            color="#F45B5B"
+            size={32}
+            iconSize={21}
+          />
+        </CardActionRow>
       )}
     </Card>
   );

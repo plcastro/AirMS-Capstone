@@ -12,6 +12,7 @@ import {
   Card,
   Checkbox,
   Col,
+  Input,
   Modal,
   Row,
   Select,
@@ -20,6 +21,7 @@ import {
   Tag,
   Typography,
 } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
@@ -218,6 +220,34 @@ const formatRemainingLimit = (record = {}) => {
   return parts.length ? parts.join(" / ") : "N/A";
 };
 
+const matchesInspectionLimitSearch = (record = {}, query = "") => {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const dueState = getInspectionDueState(record);
+  const haystack = [
+    record.aircraft,
+    record.aircraftModel,
+    dueState.label,
+    dueState.note,
+    record.inspectionName,
+    record.inspectionKey,
+    formatRemainingLimit(record),
+    record.remainingHours,
+    record.remainingDays,
+    record.dueDate,
+    record.dueAtHours,
+    record.flightHourInterval,
+    record.calendarMonthInterval,
+    record.sourceRow,
+  ]
+    .filter((value) => value !== null && value !== undefined)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(needle);
+};
+
 export default function MaintenanceTracking() {
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -243,6 +273,7 @@ export default function MaintenanceTracking() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
+  const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
   const [visibleOptionalFindingColumns, setVisibleOptionalFindingColumns] =
     useState(["recommendedAction"]);
   const [popup, setPopup] = useState({
@@ -466,15 +497,18 @@ export default function MaintenanceTracking() {
     [insights, selectedAircraftFilter],
   );
 
-  const filteredInspectionRemainingRows = useMemo(
-    () =>
+  const filteredInspectionRemainingRows = useMemo(() => {
+    const aircraftFiltered =
       selectedAircraftFilter === "all"
         ? inspectionRemainingRows
         : inspectionRemainingRows.filter(
             (row) => row.aircraft === selectedAircraftFilter,
-          ),
-    [inspectionRemainingRows, selectedAircraftFilter],
-  );
+          );
+
+    return aircraftFiltered.filter((row) =>
+      matchesInspectionLimitSearch(row, inspectionLimitSearch),
+    );
+  }, [inspectionLimitSearch, inspectionRemainingRows, selectedAircraftFilter]);
 
   const summary = useMemo(
     () =>
@@ -963,7 +997,7 @@ export default function MaintenanceTracking() {
     },
     {
       title: "Task",
-      key: "taskAction",
+      key: "actions",
       fixed: "right",
       width: 150,
       render: (_, record) =>
@@ -1167,21 +1201,39 @@ export default function MaintenanceTracking() {
 
       {/* ================= INSPECTION TABLE ================= */}
       <Card title="Upcoming Inspection Limits" style={{ borderRadius: 12 }}>
-        <Text type="secondary">
-          Use this to see which aircraft inspection limits need immediate action
-          or upcoming schedule planning.
-        </Text>
+        <Space
+          orientation="vertical"
+          size={12}
+          style={{ width: "100%", marginBottom: 12 }}
+        >
+          <Text type="secondary">
+            Use this to see which aircraft inspection limits need immediate
+            action or upcoming schedule planning.
+          </Text>
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Search aircraft, due status, inspection, remaining, due date..."
+            value={inspectionLimitSearch}
+            onChange={(event) => setInspectionLimitSearch(event.target.value)}
+            size="large"
+            style={{ width: "100%", maxWidth: 460 }}
+          />
+        </Space>
 
         <ResponsiveTable
-          style={{ marginTop: 12 }}
           columns={inspectionRemainingColumns}
           dataSource={filteredInspectionRemainingRows}
-          rowKey={(record) =>
-            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}`
+          rowKey={(record, index) =>
+            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}-${index}`
           }
           loading={loading || inspectionRemainingLoading}
           size={"small"}
           pagination={{ pageSize: 8 }}
+          mobileBreakpoint="sm"
+          mobilePrimaryColumn="inspectionName"
+          mobileSecondaryColumn="aircraft"
+          mobileMetaLimit={5}
           scroll={{ x: 1200 }}
         />
       </Card>

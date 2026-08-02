@@ -190,7 +190,7 @@ export default function PostInspectionSignatureModal({
             <>
               <View
                 style={{
-                  height: 190,
+                  height: 230,
                   borderWidth: 1,
                   borderColor: COLORS.grayMedium,
                   borderRadius: 8,
@@ -214,46 +214,6 @@ export default function PostInspectionSignatureModal({
                   backgroundColor="#ffffff"
                   imageType="image/png"
                 />
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={handleClose}
-                  disabled={submitting}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    opacity: submitting ? 0.6 : 1,
-                  }}
-                >
-                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                    Cancel
-                  </AppText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#D9534F",
-                  }}
-                >
-                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Clear
-                  </AppText>
-                </TouchableOpacity>
               </View>
             </>
           ) : (
@@ -303,9 +263,29 @@ export default function PostInspectionSignatureModal({
               marginTop: 20,
             }}
           >
+            {step === "signature" && (
+              <TouchableOpacity
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                }}
+                disabled={submitting}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 8,
+                  backgroundColor: "#D9534F",
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+                  Clear
+                </AppText>
+              </TouchableOpacity>
+            )}
             {step === "pin" && (
               <TouchableOpacity
-                onPress={handleClose}
+                onPress={() => setStep("signature")}
                 disabled={submitting}
                 style={{
                   paddingVertical: 10,
@@ -317,7 +297,7 @@ export default function PostInspectionSignatureModal({
                 }}
               >
                 <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                  Cancel
+                  Redraw
                 </AppText>
               </TouchableOpacity>
             )}

@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 
 const getStatusStyle = (status) => {
@@ -231,14 +232,8 @@ export default function PartsRequisitionCards({
 
               {/* ✅ ACTIONS (aligned right like you asked earlier) */}
               {showActions && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "flex-end",
-                    paddingHorizontal: 10,
-                    paddingBottom: 10,
-                    gap: 8,
-                  }}
+                <CardActionRow
+                  style={{ paddingHorizontal: 10, paddingBottom: 10 }}
                 >
                   <ActionIconButton
                     icon="pencil"
@@ -257,7 +252,7 @@ export default function PartsRequisitionCards({
                     color="#F45B5B"
                     disabledColor="#F1B6B6"
                   />
-                </View>
+                </CardActionRow>
               )}
             </View>
           </TouchableOpacity>

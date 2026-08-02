@@ -3,6 +3,7 @@ const PartsMonitoring = require("../models/partsMonitoringModel");
 const InspectionSchedule = require("../models/inspectionScheduleModel");
 const InspectionTask = require("../models/inspectionTaskModel");
 const TaskModel = require("../models/taskModel");
+const AircraftModel = require("../models/aircraftModel");
 const { readWorkbookData } = require("../utils/partsMonitoringExcelImport");
 const MaintenancePriorityRule = require("../models/maintenancePriorityRuleModel");
 const {
@@ -1551,7 +1552,21 @@ const deleteAircraftData = async (req, res) => {
 // Get all unique aircraft list
 const getAircraftList = async (req, res) => {
   try {
-    const aircraft = await PartsMonitoring.distinct("aircraft");
+    const [partsMonitoringAircraft, aircraftTailNumbers] = await Promise.all([
+      PartsMonitoring.distinct("aircraft"),
+      AircraftModel.distinct("tailNum"),
+    ]);
+    const aircraft = [
+      ...new Set(
+        [...partsMonitoringAircraft, ...aircraftTailNumbers]
+          .map((value) =>
+            String(value || "")
+              .trim()
+              .toUpperCase(),
+          )
+          .filter(Boolean),
+      ),
+    ].sort();
 
     res.status(200).json({
       success: true,

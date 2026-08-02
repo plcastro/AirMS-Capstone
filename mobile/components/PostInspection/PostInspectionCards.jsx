@@ -7,6 +7,7 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 
 export default function PostInspectionCards({
   inspections,
@@ -131,9 +132,7 @@ export default function PostInspectionCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   {/* Status */}
                   <View
                     style={{
@@ -153,18 +152,6 @@ export default function PostInspectionCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  {/* Export */}
-                  <ActionIconButton
-                    icon="export-variant"
-                    tooltip="Export"
-                    onPress={() => handleExportPress(inspection)}
-                    disabled={Boolean(exportingInspectionId)}
-                    loading={exportLoading}
-                    color="#444"
-                    size={32}
-                    iconSize={21}
-                  />
                 </View>
               </View>
 
@@ -186,14 +173,17 @@ export default function PostInspectionCards({
                 </AppText>
               </View>
 
-              {/* ICON (bottom-right like logs style) */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                <ActionIconButton
+                  icon="export-variant"
+                  tooltip="Export"
+                  onPress={() => handleExportPress(inspection)}
+                  disabled={Boolean(exportingInspectionId)}
+                  loading={exportLoading}
+                  color="#444"
+                  size={32}
+                  iconSize={21}
+                />
                 <ActionIconButton
                   icon={isOfficerInCharge ? "eye-outline" : "pencil"}
                   tooltip={isOfficerInCharge ? "View" : "Edit"}
@@ -202,7 +192,7 @@ export default function PostInspectionCards({
                   size={32}
                   iconSize={21}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );

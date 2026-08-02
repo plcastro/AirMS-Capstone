@@ -52,7 +52,7 @@ export default function FlightLog() {
     export: { background: "#1677ff", borderColor: "#1677ff", color: "#fff" },
     notify: { background: "#fa8c16", borderColor: "#fa8c16", color: "#fff" },
     release: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
-    view: { background: "#1677ff", borderColor: "#1677ff", color: "#fff" },
+    view: { background: "#f0f2f5", borderColor: "#d9d9d9", color: "#344054" },
   };
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
@@ -862,6 +862,9 @@ export default function FlightLog() {
       normalizeFlightLogStatus(status),
     );
 
+  const isCompletedFlightLog = (record = {}) =>
+    normalizeFlightLogStatus(record.status) === "completed";
+
   const getStatusMeta = (record = {}) => {
     const status = normalizeFlightLogStatus(record.status);
 
@@ -931,20 +934,22 @@ export default function FlightLog() {
       title: "Action",
       key: "action",
       width: 120,
-      render: (_, record) => (
-        <Space size={12} wrap>
-          <Tooltip title={isOfficerInCharge ? "View" : "Edit"}>
+      render: (_, record) => {
+        const isViewOnly = isOfficerInCharge || isCompletedFlightLog(record);
+        return (
+          <Space size={12} wrap>
+          <Tooltip title={isViewOnly ? "View" : "Edit"}>
             <Button
-              type={isOfficerInCharge ? "default" : "primary"}
+              type={isViewOnly ? "default" : "primary"}
               size="small"
-              aria-label={isOfficerInCharge ? "View" : "Edit"}
+              aria-label={isViewOnly ? "View" : "Edit"}
               style={
-                isOfficerInCharge
+                isViewOnly
                   ? actionButtonStyles.view
                   : actionButtonStyles.edit
               }
               onClick={() => handleEdit(record)}
-              icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
+              icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
             />
           </Tooltip>
           {!isOfficerInCharge &&
@@ -1008,12 +1013,14 @@ export default function FlightLog() {
             />
           </Tooltip>
         </Space>
-      ),
+        );
+      },
     },
   ];
 
   const renderCard = (record) => {
     const statusMeta = getStatusMeta(record);
+    const isViewOnly = isOfficerInCharge || isCompletedFlightLog(record);
     return (
       <Card
         key={record._id || record.id}
@@ -1051,13 +1058,13 @@ export default function FlightLog() {
         </div>
 
         <Space size={12} wrap style={{ marginTop: 10 }}>
-          <Tooltip title={isOfficerInCharge ? "View" : "Edit"}>
+          <Tooltip title={isViewOnly ? "View" : "Edit"}>
             <Button
-              type={isOfficerInCharge ? "default" : "primary"}
+              type={isViewOnly ? "default" : "primary"}
               size="small"
-              aria-label={isOfficerInCharge ? "View" : "Edit"}
+              aria-label={isViewOnly ? "View" : "Edit"}
               style={
-                isOfficerInCharge
+                isViewOnly
                   ? actionButtonStyles.view
                   : actionButtonStyles.edit
               }
@@ -1065,7 +1072,7 @@ export default function FlightLog() {
                 e.stopPropagation();
                 handleEdit(record);
               }}
-              icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
+              icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
             />
           </Tooltip>
           {!isOfficerInCharge &&
@@ -1255,7 +1262,7 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
-          readOnly={isOfficerInCharge}
+          readOnly={isOfficerInCharge || isCompletedFlightLog(selectedLog)}
           onRelease={(log) => runSignedWorkflowForLog("release", log)}
           onAccept={(log) => runSignedWorkflowForLog("accept", log)}
           onNotify={runNotifyWorkflowForLog}

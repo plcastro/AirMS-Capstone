@@ -17,6 +17,12 @@ export default function TaskAssignment({ route }) {
           riskLevel: route?.params?.riskLevel || "",
           recommendedAction: route?.params?.recommendedAction || "",
           manualReference: route?.params?.manualReference || "",
+          draftType: route?.params?.draftType || "",
+          dueDate: route?.params?.dueDate || "",
+          dueAtHours: route?.params?.dueAtHours ?? null,
+          remainingHours: route?.params?.remainingHours ?? null,
+          remainingDays: route?.params?.remainingDays ?? null,
+          dueStatus: route?.params?.dueStatus || "",
         }
       : null;
 

@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { Button, Card, Grid, Modal, Space, Tooltip, Typography } from "antd";
+import {
+  Button,
+  Card,
+  Grid,
+  Modal,
+  Pagination,
+  Space,
+  Tooltip,
+  Typography,
+} from "antd";
 import {
   DeleteOutlined,
   EditOutlined,
@@ -36,9 +45,11 @@ export default function FLogTable({
     Boolean(renderCard) &&
     (mobileCardBreakpoint === "xs" ? screens.xs : !screens.md);
 
-  const handlePageChange = (page, pageSize) => {
-    setCurrentPage(page);
-    setPageSize(pageSize);
+  const handlePageChange = (page, nextPageSize = pageSize) => {
+    const nextPage = nextPageSize !== pageSize ? 1 : page;
+    setCurrentPage(nextPage);
+    setPageSize(nextPageSize);
+    pagination?.onChange?.(nextPage, nextPageSize);
   };
 
   const handleDelete = (row) => {
@@ -112,10 +123,38 @@ export default function FLogTable({
       showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
       placement: "bottomEnd",
     };
+  const resolvedCurrent = paginationConfig?.current || currentPage;
+  const resolvedPageSize = paginationConfig?.pageSize || pageSize;
+  const resolvedTotal = paginationConfig?.total || records.length;
+  const maxPage = Math.max(1, Math.ceil(resolvedTotal / resolvedPageSize));
+  const effectiveCurrent = Math.min(resolvedCurrent, maxPage);
+  const pagedRecords =
+    paginationConfig === false
+      ? records
+      : records.slice(
+          (effectiveCurrent - 1) * resolvedPageSize,
+          effectiveCurrent * resolvedPageSize,
+        );
 
   if (isCardView) {
     return records.length ? (
-      <div>{records.map(renderCard)}</div>
+      <Space orientation="vertical" size={10} style={{ width: "100%" }}>
+        {pagedRecords.map(renderCard)}
+        {paginationConfig !== false && resolvedTotal > resolvedPageSize ? (
+          <Pagination
+            current={effectiveCurrent}
+            pageSize={resolvedPageSize}
+            total={resolvedTotal}
+            showLessItems
+            showSizeChanger={paginationConfig.showSizeChanger}
+            pageSizeOptions={paginationConfig.pageSizeOptions}
+            size={paginationConfig.size || "small"}
+            align="end"
+            onChange={handlePageChange}
+            onShowSizeChange={handlePageChange}
+          />
+        ) : null}
+      </Space>
     ) : (
       <Card style={{ borderRadius: 10 }}>
         <Text type="secondary">{locale?.emptyText || "No flight logs found"}</Text>
