@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import {
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
 import { exportMaintenanceLogPdf } from "../../utilities/pdfExport";
@@ -71,6 +72,7 @@ export default function MaintenanceLog() {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [selectedBase, setSelectedBase] = useState("all");
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
 
   const fetchLogs = useCallback(async () => {
@@ -167,6 +169,13 @@ export default function MaintenanceLog() {
       sample: rows[0],
     }));
   }, [filteredEntries]);
+
+  const selectedBaseLabel = selectedBase === "all" ? "All Bases" : selectedBase;
+
+  const selectBase = (base) => {
+    setSelectedBase(base);
+    setShowBaseDropdown(false);
+  };
 
   if (selectedWorkOrder) {
     return (
@@ -308,25 +317,44 @@ export default function MaintenanceLog() {
         onChangeText={setSearch}
         placeholder="Search maintenance logs"
       />
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          borderRadius: 8,
-          marginBottom: 12,
-          overflow: "hidden",
-          backgroundColor: COLORS.white,
-        }}
-      >
-        <Picker selectedValue={selectedBase} onValueChange={setSelectedBase}>
-          {baseOptions.map((base) => (
-            <Picker.Item
-              key={base}
-              label={base === "all" ? "All Bases" : base}
-              value={base}
-            />
-          ))}
-        </Picker>
+      <View style={{ marginBottom: 12 }}>
+        <TouchableOpacity
+          style={styles.unifiedFilterButton}
+          activeOpacity={0.82}
+          onPress={() => setShowBaseDropdown((open) => !open)}
+        >
+          <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+            {selectedBaseLabel}
+          </AppText>
+          <MaterialCommunityIcons
+            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+
+        {showBaseDropdown && (
+          <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+            <ScrollView nestedScrollEnabled>
+              {baseOptions.map((base, index) => (
+                <TouchableOpacity
+                  key={base}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    index < baseOptions.length - 1
+                      ? styles.unifiedDropdownItemBordered
+                      : null,
+                  ]}
+                  onPress={() => selectBase(base)}
+                >
+                  <AppText style={styles.unifiedDropdownItemText}>
+                    {base === "all" ? "All Bases" : base}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
       {loading && <LoadingState />}
       {!loading && aircraftGroups.length === 0 && (
@@ -350,3 +378,47 @@ export default function MaintenanceLog() {
     </ModuleContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

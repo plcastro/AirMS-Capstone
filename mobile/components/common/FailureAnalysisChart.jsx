@@ -58,6 +58,7 @@ export default function FailureAnalysisChart({
     viewportWidth,
     safeRows.length * BAR_SLOT_WIDTH + CHART_SIDE_PADDING,
   );
+  const canScrollHorizontally = chartWidth > viewportWidth;
 
   if (!safeRows.length) {
     return <AppText style={styles.emptyText}>{emptyText}</AppText>;
@@ -75,8 +76,13 @@ export default function FailureAnalysisChart({
       <ScrollView
         horizontal
         bounces={false}
+        alwaysBounceHorizontal={false}
+        disableScrollViewPanResponder
+        directionalLockEnabled
+        keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
-        showsHorizontalScrollIndicator={chartWidth > viewportWidth}
+        scrollEnabled={canScrollHorizontally}
+        showsHorizontalScrollIndicator={canScrollHorizontally}
         contentContainerStyle={styles.chartScroller}
         style={{ maxWidth: viewportWidth }}
       >

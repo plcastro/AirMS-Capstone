@@ -267,7 +267,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Reports and Analytics"
           component={Screens.ReportsAndAnalytics}
-          options={navLabel}
+          options={{ ...navLabel, swipeEnabled: false }}
         />
       )}
 

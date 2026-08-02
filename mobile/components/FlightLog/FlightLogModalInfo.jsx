@@ -288,6 +288,8 @@ export default function FlightLogModalInfo({
             backgroundColor: COLORS.primaryLight,
             paddingVertical: 14,
             paddingHorizontal: 16,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
           }}
         >
           <AppText

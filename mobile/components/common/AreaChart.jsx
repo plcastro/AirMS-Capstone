@@ -56,6 +56,7 @@ export default function AreaChart({
     safeData.length * POINT_SLOT_WIDTH + CHART_SIDE_PADDING,
   );
   const chartHeight = Math.max(height + 42, 216);
+  const canScrollHorizontally = chartWidth > viewportWidth;
 
   if (!safeData.length) {
     return <AppText style={styles.emptyText}>No chart data</AppText>;
@@ -77,8 +78,13 @@ export default function AreaChart({
       <ScrollView
         horizontal
         bounces={false}
+        alwaysBounceHorizontal={false}
+        disableScrollViewPanResponder
+        directionalLockEnabled
+        keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
-        showsHorizontalScrollIndicator={chartWidth > viewportWidth}
+        scrollEnabled={canScrollHorizontally}
+        showsHorizontalScrollIndicator={canScrollHorizontally}
         contentContainerStyle={styles.chartScroller}
         style={{ maxWidth: viewportWidth }}
       >

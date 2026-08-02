@@ -82,7 +82,12 @@ export function ModuleContainer({ children, contentStyle }) {
   return (
     <View style={moduleStyles.screen}>
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        overScrollMode="never"
         contentContainerStyle={[{ paddingBottom: 110 }, contentStyle]}
       >
         {children}

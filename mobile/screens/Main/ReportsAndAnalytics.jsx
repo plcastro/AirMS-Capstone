@@ -51,6 +51,81 @@ const topRows = (counts, limit = 4) =>
     .sort((a, b) => b.value - a.value)
     .slice(0, limit);
 
+const collectSearchText = (value, depth = 0) => {
+  if (value == null || depth > 4) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    return value.map((item) => collectSearchText(item, depth + 1)).join(" ");
+  }
+  if (typeof value === "object") {
+    return Object.values(value)
+      .map((item) => collectSearchText(item, depth + 1))
+      .join(" ");
+  }
+  return "";
+};
+
+const matchesSearch = (record, needle) =>
+  !needle || collectSearchText(record).toLowerCase().includes(needle);
+
+const REPORT_CATEGORY_ORDER = ["Performance", "Inventory", "Logbook"];
+
+const rankReportCards = (cards, searchText) => {
+  const query = searchText.trim().toLowerCase();
+
+  return cards
+    .map((card) => {
+      if (!query) return { ...card, relevance: 1 };
+
+      const tokens = query
+        .split(/[\s\-_/]+/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+      const haystack = [
+        card.title,
+        card.category,
+        ...(Array.isArray(card.keywords) ? card.keywords : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      let relevance = 0;
+      tokens.forEach((token) => {
+        if (haystack.includes(token)) relevance += 1;
+      });
+      if (haystack.includes(query)) relevance += 2;
+
+      return { ...card, relevance };
+    })
+    .filter((card) => card.relevance > 0)
+    .sort(
+      (a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title),
+    );
+};
+
+const groupReportCards = (cards) => {
+  const groupedCards = cards.reduce((acc, card) => {
+    const category = card.category || "Other";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(card);
+    return acc;
+  }, {});
+
+  const knownGroups = REPORT_CATEGORY_ORDER.filter(
+    (category) => groupedCards[category]?.length,
+  ).map((category) => [category, groupedCards[category]]);
+  const otherGroups = Object.entries(groupedCards).filter(
+    ([category]) => !REPORT_CATEGORY_ORDER.includes(category),
+  );
+
+  return [...knownGroups, ...otherGroups];
+};
+
 const isCompletedTask = (task = {}) => {
   const status = String(task.status || "")
     .toLowerCase()
@@ -163,6 +238,8 @@ export default function ReportsAndAnalytics() {
   const [partsRequisitions, setPartsRequisitions] = useState([]);
   const [baseAnalytics, setBaseAnalytics] = useState(null);
   const [aircraftBaseByTail, setAircraftBaseByTail] = useState({});
+  const searchNeedle = search.trim().toLowerCase();
+  const hasActiveSearch = searchNeedle.length > 0;
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -236,47 +313,65 @@ export default function ReportsAndAnalytics() {
     fetchReportData();
   }, [fetchReportData]);
 
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => matchesSearch(task, searchNeedle)),
+    [tasks, searchNeedle],
+  );
+
+  const filteredPartsRecords = useMemo(
+    () => partsRecords.filter((record) => matchesSearch(record, searchNeedle)),
+    [partsRecords, searchNeedle],
+  );
+
+  const filteredFlightLogs = useMemo(
+    () => flightLogs.filter((record) => matchesSearch(record, searchNeedle)),
+    [flightLogs, searchNeedle],
+  );
+
+  const filteredPreInspections = useMemo(
+    () =>
+      preInspections.filter((record) => matchesSearch(record, searchNeedle)),
+    [preInspections, searchNeedle],
+  );
+
+  const filteredPostInspections = useMemo(
+    () =>
+      postInspections.filter((record) => matchesSearch(record, searchNeedle)),
+    [postInspections, searchNeedle],
+  );
+
+  const filteredPartsRequisitions = useMemo(
+    () =>
+      partsRequisitions.filter((record) => matchesSearch(record, searchNeedle)),
+    [partsRequisitions, searchNeedle],
+  );
+
   const stats = useMemo(
     () => ({
-      completed: tasks.filter(isCompletedTask).length,
-      dueSoon: tasks.filter((task) => getTaskCategory(task) === "dueSoon")
+      completed: filteredTasks.filter(isCompletedTask).length,
+      dueSoon: filteredTasks.filter((task) => getTaskCategory(task) === "dueSoon")
         .length,
-      overdue: tasks.filter((task) => getTaskCategory(task) === "overdue")
+      overdue: filteredTasks.filter((task) => getTaskCategory(task) === "overdue")
         .length,
       moduleReports: 8,
     }),
-    [tasks],
+    [filteredTasks],
   );
 
   const taskRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return tasks
+    return filteredTasks
       .filter((task) => getTaskCategory(task) === taskView)
-      .filter((task) => {
-        if (!needle) return true;
-        return [
-          task.aircraft,
-          task.title,
-          task.assignedToName,
-          task.assignedMechanic,
-          task.maintenanceType,
-          task.priority,
-          task.status,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(needle));
-      })
       .sort((left, right) => {
         const leftDate = getTaskDueDate(left)?.getTime() || Infinity;
         const rightDate = getTaskDueDate(right)?.getTime() || Infinity;
         return leftDate - rightDate;
       });
-  }, [search, taskView, tasks]);
+  }, [filteredTasks, taskView]);
 
   const baseDamageRepairSummary = useMemo(() => {
-    const knownAnalyticsRows = (baseAnalytics?.byBase || []).filter((row) =>
-      isKnownBase(row.base),
-    );
+    const knownAnalyticsRows = searchNeedle
+      ? []
+      : (baseAnalytics?.byBase || []).filter((row) => isKnownBase(row.base));
 
     if (knownAnalyticsRows.length > 0) {
       const damageRows = knownAnalyticsRows
@@ -307,7 +402,7 @@ export default function ReportsAndAnalytics() {
     const damageCounts = {};
     const repairCounts = {};
 
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       const base = inferTaskBase(task, aircraftBaseByTail);
       if (isDamageRelatedTask(task)) {
         damageCounts[base] = (damageCounts[base] || 0) + 1;
@@ -326,7 +421,7 @@ export default function ReportsAndAnalytics() {
       damageRows,
       repairRows,
     };
-  }, [tasks, baseAnalytics, aircraftBaseByTail]);
+  }, [filteredTasks, baseAnalytics, aircraftBaseByTail, searchNeedle]);
 
   const damageBasePieData = useMemo(
     () =>
@@ -349,7 +444,7 @@ export default function ReportsAndAnalytics() {
   );
 
   const reportSections = useMemo(() => {
-    const componentRows = partsRecords.flatMap((record) =>
+    const componentRows = filteredPartsRecords.flatMap((record) =>
       (record.parts || [])
         .filter((part) => part.rowType !== "header" && part.componentName)
         .map((part) => ({
@@ -375,32 +470,42 @@ export default function ReportsAndAnalytics() {
     return [
       {
         title: "Maintenance History",
-        rows: topRows(countBy(tasks, (task) => normalizeStatus(task.status))),
+        rows: topRows(
+          countBy(filteredTasks, (task) => normalizeStatus(task.status)),
+        ),
       },
       {
         title: "Tasks by Aircraft",
-        rows: topRows(countBy(tasks, (task) => task.aircraft || "Unknown")),
+        rows: topRows(
+          countBy(filteredTasks, (task) => task.aircraft || "Unknown"),
+        ),
       },
       {
         title: "Flight Logs by Aircraft",
-        rows: topRows(countBy(flightLogs, (record) => record.rpc || "Unknown")),
+        rows: topRows(
+          countBy(filteredFlightLogs, (record) => record.rpc || "Unknown"),
+        ),
       },
       {
         title: "Pre-Inspection Status",
         rows: topRows(
-          countBy(preInspections, (record) => normalizeStatus(record.status)),
+          countBy(filteredPreInspections, (record) =>
+            normalizeStatus(record.status),
+          ),
         ),
       },
       {
         title: "Post-Inspection Status",
         rows: topRows(
-          countBy(postInspections, (record) => normalizeStatus(record.status)),
+          countBy(filteredPostInspections, (record) =>
+            normalizeStatus(record.status),
+          ),
         ),
       },
       {
         title: "Parts Requisition Status",
         rows: topRows(
-          countBy(partsRequisitions, (record) =>
+          countBy(filteredPartsRequisitions, (record) =>
             normalizeStatus(record.status),
           ),
         ),
@@ -411,13 +516,135 @@ export default function ReportsAndAnalytics() {
       },
     ];
   }, [
-    flightLogs,
-    partsRecords,
-    partsRequisitions,
-    postInspections,
-    preInspections,
-    tasks,
+    filteredFlightLogs,
+    filteredPartsRecords,
+    filteredPartsRequisitions,
+    filteredPostInspections,
+    filteredPreInspections,
+    filteredTasks,
   ]);
+
+  const reportCards = useMemo(
+    () => [
+      {
+        key: "general-reports",
+        category: "Performance",
+        title: "General Reports",
+        component: (
+          <GeneralReports
+            tasks={filteredTasks}
+            flightLogs={filteredFlightLogs}
+            preInspections={filteredPreInspections}
+            postInspections={filteredPostInspections}
+            partsRequisitions={filteredPartsRequisitions}
+            loading={loading}
+          />
+        ),
+        keywords: ["general", "reports", "overview", "cross-module"],
+      },
+      {
+        key: "performance",
+        category: "Performance",
+        title: "Performance Overview",
+        component: <MaintenancePerformance tasks={filteredTasks} />,
+        keywords: ["performance", "overview"],
+      },
+      {
+        key: "history",
+        category: "Performance",
+        title: "Maintenance History",
+        component: <MaintenanceHistory tasks={filteredTasks} loading={loading} />,
+        keywords: ["history", "maintenance", "record"],
+      },
+      {
+        key: "summary",
+        category: "Performance",
+        title: "Maintenance Insights",
+        component: <MaintenanceSummary tasks={filteredTasks} loading={loading} />,
+        keywords: ["summary", "insights", "repair"],
+      },
+      {
+        key: "component",
+        category: "Inventory",
+        title: "Component Analysis",
+        component: <ComponentUsage records={filteredPartsRecords} loading={loading} />,
+        keywords: ["component", "usage", "analysis"],
+      },
+      {
+        key: "flight-log",
+        category: "Logbook",
+        title: "Flight Log Report",
+        component: <FlightLogReport records={filteredFlightLogs} loading={loading} />,
+        keywords: ["flight", "log", "aircraft", "release"],
+      },
+      {
+        key: "pre-inspection",
+        category: "Logbook",
+        title: "Pre-Inspection Report",
+        component: (
+          <InspectionReport
+            title="Pre-Inspection Report"
+            records={filteredPreInspections}
+            loading={loading}
+          />
+        ),
+        keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+      },
+      {
+        key: "post-inspection",
+        category: "Logbook",
+        title: "Post-Inspection Report",
+        component: (
+          <InspectionReport
+            title="Post-Inspection Report"
+            records={filteredPostInspections}
+            loading={loading}
+          />
+        ),
+        keywords: ["post", "inspection", "post-inspection", "aircraft"],
+      },
+      {
+        key: "parts-requisition",
+        category: "Inventory",
+        title: "Parts Requisition Report",
+        component: (
+          <PartsRequisitionReport
+            records={filteredPartsRequisitions}
+            loading={loading}
+          />
+        ),
+        keywords: ["parts", "requisition", "warehouse", "wrs", "stock"],
+      },
+    ],
+    [
+      filteredFlightLogs,
+      filteredPartsRecords,
+      filteredPartsRequisitions,
+      filteredPostInspections,
+      filteredPreInspections,
+      filteredTasks,
+      loading,
+    ],
+  );
+
+  const filteredReportCards = useMemo(
+    () => rankReportCards(reportCards, search),
+    [reportCards, search],
+  );
+  const groupedFilteredReportCards = useMemo(
+    () => groupReportCards(filteredReportCards),
+    [filteredReportCards],
+  );
+  const topMatchedCard = hasActiveSearch ? filteredReportCards[0] || null : null;
+  const remainingReportGroups = useMemo(() => {
+    if (!topMatchedCard) return groupedFilteredReportCards;
+    return groupedFilteredReportCards
+      .map(([category, categoryCards]) => [
+        category,
+        categoryCards.filter((card) => card.key !== topMatchedCard.key),
+      ])
+      .filter(([, categoryCards]) => categoryCards.length > 0);
+  }, [groupedFilteredReportCards, topMatchedCard]);
 
   const tabs = [
     ["completed", `Completed (${stats.completed})`],
@@ -430,135 +657,169 @@ export default function ReportsAndAnalytics() {
       <SearchBar
         value={search}
         onChangeText={setSearch}
-        placeholder="Search task details"
+        placeholder="Search Report details"
       />
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        <StatCard label="Completed Tasks" value={stats.completed} />
-        <StatCard label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
-        <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
-        <StatCard label="Module Reports" value={reportSections.length} />
-      </View>
+      {!hasActiveSearch && (
+        <>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <StatCard label="Completed Tasks" value={stats.completed} />
+            <StatCard label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
+            <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
+            <StatCard label="Module Reports" value={reportSections.length} />
+          </View>
 
-      <InfoCard
-        title="Base Damage Distribution"
-        subtitle={`Top: ${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`}
-      >
-        <View style={{ marginTop: 12 }}>
-          <SDMChart data={damageBasePieData} size={218} />
-        </View>
-      </InfoCard>
+          <InfoCard
+            title="Base Damage Distribution"
+            subtitle={`Top: ${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`}
+          >
+            <View style={{ marginTop: 12 }}>
+              <SDMChart data={damageBasePieData} size={218} />
+            </View>
+          </InfoCard>
 
-      <InfoCard
-        title="Base Repaired Distribution"
-        subtitle={`Top: ${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`}
-      >
-        <View style={{ marginTop: 12 }}>
-          <SDMChart data={repairedBasePieData} size={218} />
-        </View>
-      </InfoCard>
+          <InfoCard
+            title="Base Repaired Distribution"
+            subtitle={`Top: ${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`}
+          >
+            <View style={{ marginTop: 12 }}>
+              <SDMChart data={repairedBasePieData} size={218} />
+            </View>
+          </InfoCard>
+        </>
+      )}
 
       <ExportFile title="Reports and Analytics" sections={reportSections} />
 
-      <InfoCard
-        title="Task Details"
-        subtitle="Records behind the summary cards"
-      >
-        <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-          {tabs.map(([key, label]) => {
-            const selected = taskView === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => setTaskView(key)}
-                style={{
-                  flex: 1,
-                  borderRadius: 8,
-                  paddingVertical: 9,
-                  paddingHorizontal: 6,
-                  backgroundColor: selected
-                    ? COLORS.primaryLight
-                    : COLORS.grayLight,
-                  alignItems: "center",
-                }}
-              >
-                <AppText
-                  style={{
-                    color: selected ? COLORS.white : COLORS.grayDark,
-                    fontSize: 9,
-                    fontWeight: "700",
-                  }}
-                  numberOfLines={2}
-                >
-                  {label}
-                </AppText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </InfoCard>
+      {!hasActiveSearch && (
+        <>
+          <InfoCard
+            title="Task Details"
+            subtitle="Records behind the summary cards"
+          >
+            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+              {tabs.map(([key, label]) => {
+                const selected = taskView === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => setTaskView(key)}
+                    style={{
+                      flex: 1,
+                      borderRadius: 8,
+                      paddingVertical: 9,
+                      paddingHorizontal: 6,
+                      backgroundColor: selected
+                        ? COLORS.primaryLight
+                        : COLORS.grayLight,
+                      alignItems: "center",
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        color: selected ? COLORS.white : COLORS.grayDark,
+                        fontSize: 9,
+                        fontWeight: "700",
+                      }}
+                      numberOfLines={2}
+                    >
+                      {label}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </InfoCard>
 
-      {loading && <LoadingState text="Loading reports..." />}
-      {!loading && taskRows.length === 0 && (
-        <EmptyState text="No task records for this view." />
-      )}
-      {taskRows.slice(0, 12).map((task) => (
-        <InfoCard
-          key={task._id || task.id}
-          title={task.aircraft || "N/A"}
-          subtitle={task.title || task.summary?.category || "Untitled task"}
-          right={
-            <StatusChip
-              label={task.status || "Pending"}
-              color={taskView === "overdue" ? "#cf1322" : COLORS.primaryLight}
-            />
-          }
-        >
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow
-              label="Mechanic"
-              value={
-                task.assignedToName || task.assignedMechanic || "Unassigned"
+          {loading && <LoadingState text="Loading reports..." />}
+          {!loading && taskRows.length === 0 && (
+            <EmptyState text="No task records for this view." />
+          )}
+          {taskRows.slice(0, 12).map((task) => (
+            <InfoCard
+              key={task._id || task.id}
+              title={task.aircraft || "N/A"}
+              subtitle={task.title || task.summary?.category || "Untitled task"}
+              right={
+                <StatusChip
+                  label={task.status || "Pending"}
+                  color={
+                    taskView === "overdue" ? "#cf1322" : COLORS.primaryLight
+                  }
+                />
               }
-            />
-            <FieldRow label="Type" value={task.maintenanceType} />
-            <FieldRow
-              label="Due Date"
-              value={formatDate(task.dueDate || task.endDateTime)}
-            />
-            <FieldRow label="Priority" value={task.priority || "Normal"} />
-          </View>
-        </InfoCard>
-      ))}
+            >
+              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                <FieldRow
+                  label="Mechanic"
+                  value={
+                    task.assignedToName ||
+                    task.assignedMechanic ||
+                    "Unassigned"
+                  }
+                />
+                <FieldRow label="Type" value={task.maintenanceType} />
+                <FieldRow
+                  label="Due Date"
+                  value={formatDate(task.dueDate || task.endDateTime)}
+                />
+                <FieldRow label="Priority" value={task.priority || "Normal"} />
+              </View>
+            </InfoCard>
+          ))}
+        </>
+      )}
 
       <SectionTitle
-        title="Module Reports"
-        subtitle="Mobile charts aligned with web analytics"
+        title={hasActiveSearch ? "Search Results" : "Module Reports"}
+        subtitle={
+          hasActiveSearch
+            ? "Showing matched report modules first, then related modules."
+            : "Mobile charts aligned with web analytics"
+        }
       />
-      <GeneralReports
-        tasks={tasks}
-        flightLogs={flightLogs}
-        preInspections={preInspections}
-        postInspections={postInspections}
-        partsRequisitions={partsRequisitions}
-        loading={loading}
-      />
-      <MaintenancePerformance tasks={tasks} />
-      <MaintenanceHistory tasks={tasks} loading={loading} />
-      <MaintenanceSummary tasks={tasks} loading={loading} />
-      <ComponentUsage records={partsRecords} loading={loading} />
-      <FlightLogReport records={flightLogs} loading={loading} />
-      <InspectionReport
-        title="Pre-Inspection Report"
-        records={preInspections}
-        loading={loading}
-      />
-      <InspectionReport
-        title="Post-Inspection Report"
-        records={postInspections}
-        loading={loading}
-      />
-      <PartsRequisitionReport records={partsRequisitions} loading={loading} />
+      {loading && hasActiveSearch && <LoadingState text="Loading reports..." />}
+      {!loading && hasActiveSearch && filteredReportCards.length === 0 && (
+        <EmptyState text="No matching report modules found." />
+      )}
+      {topMatchedCard && (
+        <>
+          <AppText
+            style={{
+              color: COLORS.primaryLight,
+              fontSize: 12,
+              fontWeight: "700",
+              marginBottom: -4,
+              marginTop: 2,
+            }}
+          >
+            Top Match: {topMatchedCard.title}
+          </AppText>
+          {topMatchedCard.component}
+        </>
+      )}
+      {(hasActiveSearch ? remainingReportGroups : groupedFilteredReportCards).map(
+        ([category, categoryCards]) => (
+          <View key={category}>
+            {hasActiveSearch && (
+              <AppText
+                style={{
+                  color: COLORS.grayDark,
+                  fontSize: 12,
+                  fontWeight: "700",
+                  marginBottom: 2,
+                  marginTop: 4,
+                }}
+              >
+                {category} Reports
+              </AppText>
+            )}
+            {categoryCards.map((card) => (
+              <View key={card.key}>{card.component}</View>
+            ))}
+          </View>
+        ),
+      )}
     </ModuleContainer>
   );
 }

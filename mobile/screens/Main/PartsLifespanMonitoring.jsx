@@ -10,7 +10,6 @@ import {
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -141,6 +140,7 @@ export default function PartsLifespanMonitoring() {
   const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [search, setSearch] = useState("");
   const [loadingAircraft, setLoadingAircraft] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -415,6 +415,11 @@ export default function PartsLifespanMonitoring() {
     setSignatureImportVisible(false);
   };
 
+  const selectAircraft = (aircraft) => {
+    setSelectedAircraft(aircraft);
+    setShowAircraftDropdown(false);
+  };
+
   const appendWorkbookToForm = (formData, asset) => {
     formData.append("workbook", {
       uri: asset.uri,
@@ -525,22 +530,66 @@ export default function PartsLifespanMonitoring() {
   return (
     <ModuleContainer>
       <InfoCard title="Parts Lifespan Monitoring" subtitle="Aircraft component status">
-        <View style={styles.pickerWrap}>
-          <Picker
-            selectedValue={selectedAircraft}
-            onValueChange={setSelectedAircraft}
-            enabled={!loadingAircraft}
+        <View style={{ marginTop: 10 }}>
+          <TouchableOpacity
+            style={[
+              styles.unifiedFilterButton,
+              loadingAircraft ? styles.unifiedFilterButtonDisabled : null,
+            ]}
+            activeOpacity={0.82}
+            disabled={loadingAircraft}
+            onPress={() => setShowAircraftDropdown((open) => !open)}
           >
-            <Picker.Item
-              label={loadingAircraft ? "Loading aircraft..." : "Select Aircraft"}
-              value=""
-              enabled={false}
+            <AppText
+              style={[
+                styles.unifiedFilterButtonText,
+                { color: selectedAircraft ? COLORS.black : COLORS.grayDark },
+              ]}
+              numberOfLines={1}
+            >
+              {loadingAircraft
+                ? "Loading aircraft..."
+                : selectedAircraft
+                  ? `RP/C: ${selectedAircraft}`
+                  : "Choose Aircraft"}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
               color={COLORS.grayDark}
             />
-            {aircraftOptions.map((aircraft) => (
-              <Picker.Item label={aircraft} value={aircraft} key={aircraft} />
-            ))}
-          </Picker>
+          </TouchableOpacity>
+
+          {showAircraftDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {aircraftOptions.length === 0 ? (
+                  <View style={styles.unifiedDropdownItem}>
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      No aircraft available
+                    </AppText>
+                  </View>
+                ) : (
+                  aircraftOptions.map((aircraft, index) => (
+                    <TouchableOpacity
+                      key={aircraft}
+                      style={[
+                        styles.unifiedDropdownItem,
+                        index < aircraftOptions.length - 1
+                          ? styles.unifiedDropdownItemBordered
+                          : null,
+                      ]}
+                      onPress={() => selectAircraft(aircraft)}
+                    >
+                      <AppText style={styles.unifiedDropdownItemText}>
+                        RP/C: {aircraft}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          )}
         </View>
         {canEditParts && (
           <TouchableOpacity
@@ -1217,12 +1266,48 @@ export default function PartsLifespanMonitoring() {
 }
 
 const styles = StyleSheet.create({
-  pickerWrap: {
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
     borderRadius: 8,
-    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  unifiedFilterButtonDisabled: {
+    backgroundColor: COLORS.grayLight,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
     overflow: "hidden",
+    zIndex: 1000,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
   },
   summaryGrid: {
     flexDirection: "row",

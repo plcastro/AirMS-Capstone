@@ -8,11 +8,11 @@ import React, {
 } from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
-import { Picker } from "@react-native-picker/picker";
 import {
   RefreshControl,
   ScrollView,
   StatusBar,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -337,6 +337,7 @@ export default function PartsRequisition({ route, navigation }) {
   const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState("Pending");
+  const [showTabDropdown, setShowTabDropdown] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -1132,6 +1133,11 @@ export default function PartsRequisition({ route, navigation }) {
     );
   };
 
+  const selectTab = (label) => {
+    setSelectedTab(label);
+    setShowTabDropdown(false);
+  };
+
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
@@ -1247,29 +1253,42 @@ export default function PartsRequisition({ route, navigation }) {
         </View>
 
         {tabLabels.length > 3 ? (
-          <View
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              marginBottom: 20,
-              overflow: "hidden",
-            }}
-          >
-            <Picker
-              selectedValue={selectedTab}
-              onValueChange={setSelectedTab}
-              style={{ color: COLORS.black }}
+          <View style={{ marginBottom: 20 }}>
+            <TouchableOpacity
+              style={styles.unifiedFilterButton}
+              activeOpacity={0.82}
+              onPress={() => setShowTabDropdown((open) => !open)}
             >
-              {tabLabels.map((label) => (
-                <Picker.Item
-                  key={label}
-                  label={`${label} (${tabCounts[label] || 0})`}
-                  value={label}
-                />
-              ))}
-            </Picker>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+                {selectedTab} ({tabCounts[selectedTab] || 0})
+              </AppText>
+              <MaterialCommunityIcons
+                name={showTabDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            {showTabDropdown && (
+              <View style={styles.unifiedDropdownMenu}>
+                {tabLabels.map((label, index) => (
+                  <TouchableOpacity
+                    key={label}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < tabLabels.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectTab(label)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {label} ({tabCounts[label] || 0})
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         ) : (
           <View
@@ -1356,3 +1375,47 @@ export default function PartsRequisition({ route, navigation }) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

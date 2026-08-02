@@ -2,10 +2,11 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from "re
 import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
@@ -65,6 +66,7 @@ export default function MaintenanceTracking() {
   const [health, setHealth] = useState(null);
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [rectifyingKey, setRectifyingKey] = useState("");
@@ -230,6 +232,14 @@ export default function MaintenanceTracking() {
     [filteredInsights],
   );
 
+  const aircraftFilterLabel =
+    aircraftFilter === "all" ? "All Aircraft" : `RP/C: ${aircraftFilter}`;
+
+  const selectAircraftFilter = (aircraft) => {
+    setAircraftFilter(aircraft);
+    setShowAircraftDropdown(false);
+  };
+
   const regenerateSummaries = async () => {
     if (actionLoadingKey) return;
     if (health?.configured === false) {
@@ -336,21 +346,44 @@ export default function MaintenanceTracking() {
   return (
     <ModuleContainer>
       <InfoCard title="AI Maintenance Tracking" subtitle={meta?.llmEnabled ? `${meta.activeModel} summaries available` : "Rule-based findings"}>
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            borderRadius: 8,
-            overflow: "hidden",
-            marginTop: 10,
-          }}
-        >
-          <Picker selectedValue={aircraftFilter} onValueChange={setAircraftFilter}>
-            <Picker.Item label="All Aircraft" value="all" />
-            {aircraftOptions.map((aircraft) => (
-              <Picker.Item key={aircraft} label={aircraft} value={aircraft} />
-            ))}
-          </Picker>
+        <View style={{ marginTop: 10 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowAircraftDropdown((open) => !open)}
+          >
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {aircraftFilterLabel}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
+
+          {showAircraftDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {["all", ...aircraftOptions].map((aircraft, index, options) => (
+                  <TouchableOpacity
+                    key={aircraft}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < options.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectAircraftFilter(aircraft)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
         {!isOfficerInCharge && (
           <TouchableOpacity
@@ -488,3 +521,47 @@ export default function MaintenanceTracking() {
     </ModuleContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

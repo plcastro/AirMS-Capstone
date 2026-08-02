@@ -5,11 +5,11 @@ import {
   View,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { secureGetItem } from "../../utilities/secureStorage";
-import { Picker } from "@react-native-picker/picker";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -26,6 +26,12 @@ import {
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
 
+const BASE_OPTIONS = [
+  { label: "Manila", value: "MANILA" },
+  { label: "Cebu", value: "CEBU" },
+  { label: "CDO", value: "CDO" },
+];
+
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
@@ -37,6 +43,7 @@ export default function Login() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
   // Load saved credentials on mount
@@ -220,6 +227,15 @@ export default function Login() {
     nav.navigate("forgotPassword", { email });
   };
 
+  const selectedBaseLabel =
+    BASE_OPTIONS.find((option) => option.value === selectedBase)?.label ||
+    "Select base";
+
+  const selectBase = (base) => {
+    setSelectedBase(base);
+    setShowBaseDropdown(false);
+  };
+
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
   }
@@ -281,17 +297,48 @@ export default function Login() {
             </TouchableOpacity>
           </View>
           <AppText style={styles.label}>Logging in from</AppText>
-          <View style={styles.loginPickerContainer}>
-            <Picker
-              selectedValue={selectedBase}
-              onValueChange={setSelectedBase}
-              style={styles.loginPicker}
+          <View style={loginDropdownStyles.wrap}>
+            <TouchableOpacity
+              style={loginDropdownStyles.button}
+              activeOpacity={0.82}
+              onPress={() => setShowBaseDropdown((open) => !open)}
             >
-              <Picker.Item label="Select base" value="" />
-              <Picker.Item label="Manila" value="MANILA" />
-              <Picker.Item label="Cebu" value="CEBU" />
-              <Picker.Item label="CDO" value="CDO" />
-            </Picker>
+              <AppText
+                style={[
+                  loginDropdownStyles.buttonText,
+                  { color: selectedBase ? "#111827" : "gray" },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedBaseLabel}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color="gray"
+              />
+            </TouchableOpacity>
+
+            {showBaseDropdown && (
+              <View style={loginDropdownStyles.menu}>
+                {BASE_OPTIONS.map((option, index) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      loginDropdownStyles.item,
+                      index < BASE_OPTIONS.length - 1
+                        ? loginDropdownStyles.itemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectBase(option.value)}
+                  >
+                    <AppText style={loginDropdownStyles.itemText}>
+                      {option.label}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>
@@ -355,3 +402,49 @@ export default function Login() {
     </KeyboardAvoidingView>
   );
 }
+
+const loginDropdownStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  buttonText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  menu: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  item: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  itemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#d1d5db",
+  },
+  itemText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

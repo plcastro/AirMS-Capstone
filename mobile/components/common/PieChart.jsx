@@ -59,14 +59,20 @@ export default function PieChart({
     size + 76,
     Math.min(620, Math.max(size + 76, chartData.length * 132)),
   );
+  const canScrollHorizontally = contentWidth > viewportWidth;
 
   return (
     <View style={styles.wrap}>
       <ScrollView
         horizontal
         bounces={false}
+        alwaysBounceHorizontal={false}
+        disableScrollViewPanResponder
+        directionalLockEnabled
+        keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
-        showsHorizontalScrollIndicator={contentWidth > viewportWidth}
+        scrollEnabled={canScrollHorizontally}
+        showsHorizontalScrollIndicator={canScrollHorizontally}
         style={{ maxWidth: viewportWidth }}
         contentContainerStyle={styles.scroller}
       >
