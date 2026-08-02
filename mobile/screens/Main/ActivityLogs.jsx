@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -17,6 +16,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 import AreaChart from "../../components/common/AreaChart";
+import { SearchBar } from "../../components/common/MobileModule";
 import { exportReportPdf } from "../../utilities/reportExport";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
@@ -466,20 +466,11 @@ export default function ActivityLogs() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={COLORS.grayDark}
-        />
-        <AppInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search logs"
-          placeholderTextColor={COLORS.grayDark}
-          style={styles.searchInput}
-        />
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search logs"
+      />
 
       <ScrollView
         contentContainerStyle={styles.listContent}
@@ -723,28 +714,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.grayLight,
     padding: 10,
     height: "100%",
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-    shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  searchInput: {
-    flex: 1,
-    color: COLORS.black,
-    fontSize: 12,
-    marginLeft: 6,
-    height: 40,
   },
   filtersRow: {
     flexDirection: "row",

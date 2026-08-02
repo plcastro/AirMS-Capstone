@@ -7,7 +7,6 @@ import React, {
   useState,
 } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   RefreshControl,
   ScrollView,
@@ -26,6 +25,7 @@ import PartsRequisitionCards from "../../components/PartsRequisition/PartsRequis
 import PartsRequisitionEntry from "../../components/PartsRequisition/PartsRequisitionEntry";
 import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequisitionDetails";
 import AlertComp from "../../components/AlertComp";
+import { SearchBar } from "../../components/common/MobileModule";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 const formatDate = (dateValue) => {
@@ -1186,38 +1186,12 @@ export default function PartsRequisition({ route, navigation }) {
 
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
         <View style={{ flexDirection: "row", marginBottom: 14, gap: 12 }}>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              height: 48,
-              paddingHorizontal: 12,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <AppInput
-              placeholder="Search by WRS#"
-              placeholderTextColor={COLORS.grayDark}
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 12,
-                color: COLORS.black,
-                padding: 0,
-              }}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search by WRS#"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
 
           {canRequestParts && (
             <TouchableOpacity

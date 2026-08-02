@@ -7,7 +7,7 @@ const statusColor = (status) => {
   const text = String(status || "").toLowerCase();
   if (text.includes("complete") || text.includes("repair")) return "#26866f";
   if (text.includes("pending") || text.includes("progress")) return "#faad14";
-  if (text.includes("overdue") || text.includes("critical")) return "#ff4d4f";
+  if (text.includes("overdue") || text.includes("critical")) return "#f5222d";
   if (text.includes("assigned")) return "#1890ff";
   return "#722ed1";
 };

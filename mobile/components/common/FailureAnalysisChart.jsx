@@ -3,8 +3,9 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native"
 import { BarChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
+import { CHART_PALETTE } from "./PieChart";
 
-const BAR_COLOR = "#ff4d4f";
+const DEFAULT_BAR_COLOR = CHART_PALETTE[0];
 const MIN_CHART_WIDTH = 320;
 const BAR_SLOT_WIDTH = 98;
 const CHART_SIDE_PADDING = 128;
@@ -25,7 +26,7 @@ const chartConfig = {
   backgroundGradientFrom: COLORS.white,
   backgroundGradientTo: COLORS.white,
   decimalPlaces: 0,
-  color: (opacity = 1) => `${BAR_COLOR}${Math.round(opacity * 255)
+  color: (opacity = 1) => `${DEFAULT_BAR_COLOR}${Math.round(opacity * 255)
     .toString(16)
     .padStart(2, "0")}`,
   labelColor: () => COLORS.grayDark,
@@ -45,9 +46,10 @@ export default function FailureAnalysisChart({
   const { width: windowWidth } = useWindowDimensions();
   const source = Array.isArray(data) && data.length ? data : rows;
   const safeRows = source
-    .map((row) => ({
+    .map((row, index) => ({
       label: row.label || row.name || "Unknown",
       value: Number(row.value ?? row.failures) || 0,
+      fill: row.fill || row.color || CHART_PALETTE[index % CHART_PALETTE.length],
     }))
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value)
@@ -68,7 +70,12 @@ export default function FailureAnalysisChart({
     <View style={styles.wrap}>
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: BAR_COLOR }]} />
+          <View
+            style={[
+              styles.legendDot,
+              { backgroundColor: safeRows[0]?.fill || DEFAULT_BAR_COLOR },
+            ]}
+          />
           <AppText style={styles.legendText}>{legendLabel}</AppText>
         </View>
       </View>
@@ -89,13 +96,25 @@ export default function FailureAnalysisChart({
         <BarChart
           data={{
             labels: safeRows.map((row) => formatAxisLabel(row.label)),
-            datasets: [{ data: safeRows.map((row) => row.value) }],
+            datasets: [
+              {
+                data: safeRows.map((row) => row.value),
+                colors: safeRows.map(
+                  (row) => (opacity = 1) =>
+                    `${row.fill}${Math.round(opacity * 255)
+                      .toString(16)
+                      .padStart(2, "0")}`,
+                ),
+              },
+            ],
           }}
           width={chartWidth}
           height={276}
           chartConfig={chartConfig}
           fromZero
           showValuesOnTopOfBars
+          withCustomBarColorFromData
+          flatColor
           withInnerLines
           withHorizontalLabels
           withVerticalLabels

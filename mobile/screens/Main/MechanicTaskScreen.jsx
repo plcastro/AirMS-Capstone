@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
-import AppInput from "../../components/common/AppInput";
 import {
-  View
+  View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
@@ -12,6 +11,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
 import AlertComp from "../../components/AlertComp";
+import { SearchBar } from "../../components/common/MobileModule";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -403,15 +403,12 @@ export default function MechanicTaskScreen({
           },
         ]}
       >
-        <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
-          <AppInput
-            placeholder="Search tasks"
-            placeholderTextColor="#666"
-            style={styles.unifiedSearchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search tasks"
+          containerStyle={{ flex: 0.58, height: 48, marginBottom: 0 }}
+        />
 
         <View
           style={{

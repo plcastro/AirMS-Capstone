@@ -53,7 +53,11 @@ const topRows = (counts, limit = 4) =>
 
 const collectSearchText = (value, depth = 0) => {
   if (value == null || depth > 4) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   if (value instanceof Date) return value.toISOString();
@@ -99,6 +103,7 @@ const rankReportCards = (cards, searchText) => {
         if (haystack.includes(token)) relevance += 1;
       });
       if (haystack.includes(query)) relevance += 2;
+      relevance += Math.min(card.recordMatchCount || 0, 10);
 
       return { ...card, relevance };
     })
@@ -349,10 +354,12 @@ export default function ReportsAndAnalytics() {
   const stats = useMemo(
     () => ({
       completed: filteredTasks.filter(isCompletedTask).length,
-      dueSoon: filteredTasks.filter((task) => getTaskCategory(task) === "dueSoon")
-        .length,
-      overdue: filteredTasks.filter((task) => getTaskCategory(task) === "overdue")
-        .length,
+      dueSoon: filteredTasks.filter(
+        (task) => getTaskCategory(task) === "dueSoon",
+      ).length,
+      overdue: filteredTasks.filter(
+        (task) => getTaskCategory(task) === "overdue",
+      ).length,
       moduleReports: 8,
     }),
     [filteredTasks],
@@ -532,50 +539,117 @@ export default function ReportsAndAnalytics() {
         title: "General Reports",
         component: (
           <GeneralReports
-            tasks={filteredTasks}
-            flightLogs={filteredFlightLogs}
-            preInspections={filteredPreInspections}
-            postInspections={filteredPostInspections}
-            partsRequisitions={filteredPartsRequisitions}
+            tasks={
+              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+            }
+            flightLogs={
+              hasActiveSearch && filteredFlightLogs.length
+                ? filteredFlightLogs
+                : flightLogs
+            }
+            preInspections={
+              hasActiveSearch && filteredPreInspections.length
+                ? filteredPreInspections
+                : preInspections
+            }
+            postInspections={
+              hasActiveSearch && filteredPostInspections.length
+                ? filteredPostInspections
+                : postInspections
+            }
+            partsRequisitions={
+              hasActiveSearch && filteredPartsRequisitions.length
+                ? filteredPartsRequisitions
+                : partsRequisitions
+            }
             loading={loading}
           />
         ),
         keywords: ["general", "reports", "overview", "cross-module"],
+        recordMatchCount:
+          filteredTasks.length +
+          filteredFlightLogs.length +
+          filteredPreInspections.length +
+          filteredPostInspections.length +
+          filteredPartsRequisitions.length,
       },
       {
         key: "performance",
         category: "Performance",
         title: "Performance Overview",
-        component: <MaintenancePerformance tasks={filteredTasks} />,
+        component: (
+          <MaintenancePerformance
+            tasks={
+              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+            }
+          />
+        ),
         keywords: ["performance", "overview"],
+        recordMatchCount: filteredTasks.length,
       },
       {
         key: "history",
         category: "Performance",
         title: "Maintenance History",
-        component: <MaintenanceHistory tasks={filteredTasks} loading={loading} />,
+        component: (
+          <MaintenanceHistory
+            tasks={
+              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+            }
+            loading={loading}
+          />
+        ),
         keywords: ["history", "maintenance", "record"],
+        recordMatchCount: filteredTasks.length,
       },
       {
         key: "summary",
         category: "Performance",
         title: "Maintenance Insights",
-        component: <MaintenanceSummary tasks={filteredTasks} loading={loading} />,
+        component: (
+          <MaintenanceSummary
+            tasks={
+              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+            }
+            loading={loading}
+          />
+        ),
         keywords: ["summary", "insights", "repair"],
+        recordMatchCount: filteredTasks.length,
       },
       {
         key: "component",
         category: "Inventory",
         title: "Component Analysis",
-        component: <ComponentUsage records={filteredPartsRecords} loading={loading} />,
+        component: (
+          <ComponentUsage
+            records={
+              hasActiveSearch && filteredPartsRecords.length
+                ? filteredPartsRecords
+                : partsRecords
+            }
+            loading={loading}
+          />
+        ),
         keywords: ["component", "usage", "analysis"],
+        recordMatchCount: filteredPartsRecords.length,
       },
       {
         key: "flight-log",
         category: "Logbook",
         title: "Flight Log Report",
-        component: <FlightLogReport records={filteredFlightLogs} loading={loading} />,
+        component: (
+          <FlightLogReport
+            records={
+              hasActiveSearch && filteredFlightLogs.length
+                ? filteredFlightLogs
+                : flightLogs
+            }
+            loading={loading}
+          />
+        ),
         keywords: ["flight", "log", "aircraft", "release"],
+        recordMatchCount: filteredFlightLogs.length,
       },
       {
         key: "pre-inspection",
@@ -584,11 +658,16 @@ export default function ReportsAndAnalytics() {
         component: (
           <InspectionReport
             title="Pre-Inspection Report"
-            records={filteredPreInspections}
+            records={
+              hasActiveSearch && filteredPreInspections.length
+                ? filteredPreInspections
+                : preInspections
+            }
             loading={loading}
           />
         ),
         keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+        recordMatchCount: filteredPreInspections.length,
       },
       {
         key: "post-inspection",
@@ -597,11 +676,16 @@ export default function ReportsAndAnalytics() {
         component: (
           <InspectionReport
             title="Post-Inspection Report"
-            records={filteredPostInspections}
+            records={
+              hasActiveSearch && filteredPostInspections.length
+                ? filteredPostInspections
+                : postInspections
+            }
             loading={loading}
           />
         ),
         keywords: ["post", "inspection", "post-inspection", "aircraft"],
+        recordMatchCount: filteredPostInspections.length,
       },
       {
         key: "parts-requisition",
@@ -609,11 +693,16 @@ export default function ReportsAndAnalytics() {
         title: "Parts Requisition Report",
         component: (
           <PartsRequisitionReport
-            records={filteredPartsRequisitions}
+            records={
+              hasActiveSearch && filteredPartsRequisitions.length
+                ? filteredPartsRequisitions
+                : partsRequisitions
+            }
             loading={loading}
           />
         ),
         keywords: ["parts", "requisition", "warehouse", "wrs", "stock"],
+        recordMatchCount: filteredPartsRequisitions.length,
       },
     ],
     [
@@ -623,7 +712,14 @@ export default function ReportsAndAnalytics() {
       filteredPostInspections,
       filteredPreInspections,
       filteredTasks,
+      flightLogs,
+      hasActiveSearch,
       loading,
+      partsRecords,
+      partsRequisitions,
+      postInspections,
+      preInspections,
+      tasks,
     ],
   );
 
@@ -635,7 +731,9 @@ export default function ReportsAndAnalytics() {
     () => groupReportCards(filteredReportCards),
     [filteredReportCards],
   );
-  const topMatchedCard = hasActiveSearch ? filteredReportCards[0] || null : null;
+  const topMatchedCard = hasActiveSearch
+    ? filteredReportCards[0] || null
+    : null;
   const remainingReportGroups = useMemo(() => {
     if (!topMatchedCard) return groupedFilteredReportCards;
     return groupedFilteredReportCards
@@ -753,9 +851,7 @@ export default function ReportsAndAnalytics() {
                 <FieldRow
                   label="Mechanic"
                   value={
-                    task.assignedToName ||
-                    task.assignedMechanic ||
-                    "Unassigned"
+                    task.assignedToName || task.assignedMechanic || "Unassigned"
                   }
                 />
                 <FieldRow label="Type" value={task.maintenanceType} />
@@ -789,7 +885,7 @@ export default function ReportsAndAnalytics() {
               color: COLORS.primaryLight,
               fontSize: 12,
               fontWeight: "700",
-              marginBottom: -4,
+              marginBottom: 2,
               marginTop: 2,
             }}
           >
@@ -798,28 +894,29 @@ export default function ReportsAndAnalytics() {
           {topMatchedCard.component}
         </>
       )}
-      {(hasActiveSearch ? remainingReportGroups : groupedFilteredReportCards).map(
-        ([category, categoryCards]) => (
-          <View key={category}>
-            {hasActiveSearch && (
-              <AppText
-                style={{
-                  color: COLORS.grayDark,
-                  fontSize: 12,
-                  fontWeight: "700",
-                  marginBottom: 2,
-                  marginTop: 4,
-                }}
-              >
-                {category} Reports
-              </AppText>
-            )}
-            {categoryCards.map((card) => (
-              <View key={card.key}>{card.component}</View>
-            ))}
-          </View>
-        ),
-      )}
+      {(hasActiveSearch
+        ? remainingReportGroups
+        : groupedFilteredReportCards
+      ).map(([category, categoryCards]) => (
+        <View key={category}>
+          {hasActiveSearch && (
+            <AppText
+              style={{
+                color: COLORS.grayDark,
+                fontSize: 12,
+                fontWeight: "700",
+                marginBottom: 2,
+                marginTop: 4,
+              }}
+            >
+              {category} Reports
+            </AppText>
+          )}
+          {categoryCards.map((card) => (
+            <View key={card.key}>{card.component}</View>
+          ))}
+        </View>
+      ))}
     </ModuleContainer>
   );
 }

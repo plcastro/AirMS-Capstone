@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   View,
   FlatList,
@@ -9,6 +8,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import MechanicAssignment from "./MechanicAssignment";
+import { SearchBar } from "../../components/common/MobileModule";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -232,21 +232,11 @@ export default function MechanicList() {
               marginBottom: 15,
             }}
           >
-            <AppInput
-              placeholder="Search by mechanic"
-              placeholderTextColor={COLORS.grayDark}
-              style={[
-                styles.searchInput,
-                {
-                  flex: 1,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  height: 48,
-                },
-              ]}
+            <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
+              placeholder="Search by mechanic"
+              containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
             />
           </View>
           <View style={{ marginBottom: 15 }}>

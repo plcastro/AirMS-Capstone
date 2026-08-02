@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   View,
   ScrollView,
@@ -22,6 +21,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
+import { SearchBar } from "../../components/common/MobileModule";
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -469,20 +469,12 @@ export default function FlightLog({ route, navigation }) {
       <View style={{ flex: 1, paddingHorizontal: 7, marginTop: 10 }}>
         {/* Search Bar Row with New Entry Button */}
         <View style={styles.unifiedControlRow}>
-          <View style={styles.unifiedSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <AppInput
-              placeholder="Search"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder="Search"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
 
           {!isOfficerInCharge && (
             <TouchableOpacity

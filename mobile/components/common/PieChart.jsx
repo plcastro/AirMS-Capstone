@@ -8,11 +8,11 @@ export const CHART_PALETTE = [
   "#26866f",
   "#1890ff",
   "#faad14",
-  "#ff4d4f",
+  "#f5222d",
   "#722ed1",
   "#13c2c2",
-  "#52c41a",
   "#eb2f96",
+  "#52c41a",
 ];
 
 const EMPTY_DATA = [{ label: "No data", name: "No data", value: 1, fill: "#d9d9d9" }];

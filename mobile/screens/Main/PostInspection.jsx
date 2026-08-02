@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   View,
   ScrollView,
@@ -17,6 +16,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { exportPostInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
+import { SearchBar } from "../../components/common/MobileModule";
 const getDisplayStatus = (status) =>
   status === "completed"
     ? "completed"
@@ -179,20 +179,12 @@ export default function PostInspection({ route }) {
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
         {/* Search Bar Row */}
         <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
-          <View style={styles.unifiedSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <AppInput
-              placeholder="Search aircraft"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder="Search aircraft"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
         </View>
 
         {/* Filters */}

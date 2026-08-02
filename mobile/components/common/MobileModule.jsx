@@ -96,20 +96,31 @@ export function ModuleContainer({ children, contentStyle }) {
   );
 }
 
-export function SearchBar({ value, onChangeText, placeholder = "Search" }) {
+export function SearchBar({
+  value,
+  onChangeText,
+  placeholder = "Search",
+  containerStyle,
+  inputStyle,
+}) {
+  const hasValue = String(value || "").length > 0;
+
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: COLORS.white,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: COLORS.grayMedium,
-        height: 46,
-        paddingHorizontal: 12,
-        marginBottom: 10,
-      }}
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: COLORS.white,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          height: 46,
+          paddingHorizontal: 12,
+          marginBottom: 10,
+        },
+        containerStyle,
+      ]}
     >
       <MaterialCommunityIcons name="magnify" size={21} color={COLORS.grayDark} />
       <AppInput
@@ -117,8 +128,31 @@ export function SearchBar({ value, onChangeText, placeholder = "Search" }) {
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={COLORS.grayDark}
-        style={{ flex: 1, marginLeft: 9, fontSize: 12, color: COLORS.black }}
+        style={[
+          { flex: 1, marginLeft: 9, fontSize: 12, color: COLORS.black },
+          inputStyle,
+        ]}
       />
+      {hasValue && (
+        <TouchableOpacity
+          onPress={() => onChangeText?.("")}
+          accessibilityLabel="Clear search"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 15,
+            alignItems: "center",
+            justifyContent: "center",
+            marginLeft: 6,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="close-circle"
+            size={19}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

@@ -6,7 +6,6 @@ import React, {
   useState,
 } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -28,6 +27,7 @@ import { confirmAction } from "../../utilities/confirmAction";
 import UserStatsRow from "../../components/UserManagement/UserStatsRow";
 import UserCard from "../../components/UserManagement/UserCard";
 import UserFormModal from "../../components/UserManagement/UserFormModal";
+import { SearchBar } from "../../components/common/MobileModule";
 import { JOB_TITLE_OPTIONS } from "../../components/UserManagement/constants";
 
 const parseJsonResponse = async (response, fallbackMessage) => {
@@ -415,20 +415,11 @@ export default function UserManagement() {
         onStatusPress={setStatusFilter}
       />
 
-      <View style={ui.searchBar}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={COLORS.grayDark}
-        />
-        <AppInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search name, email, role, or base..."
-          placeholderTextColor={COLORS.grayDark}
-          style={ui.searchInput}
-        />
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search name, email, role, or base..."
+      />
 
       <View style={ui.filterDropdownWrap}>
         <Picker selectedValue={jobTitleFilter} onValueChange={setJobTitleFilter}>
@@ -505,18 +496,6 @@ const ui = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
   listContent: { paddingBottom: 92 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 45,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginBottom: 10,
-  },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 14 },
   filterDropdownWrap: {
     height: 50,
     backgroundColor: COLORS.white,

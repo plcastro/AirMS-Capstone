@@ -1,7 +1,11 @@
 import React, { useContext, useState, useEffect } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
-import { View, FlatList, Dimensions, RefreshControl } from "react-native";
+import {
+  View,
+  FlatList,
+  Dimensions,
+  RefreshControl,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -9,6 +13,7 @@ import AddTask from "../../components/TaskAssignment/AddTask";
 import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import AlertComp from "../../components/AlertComp";
+import { SearchBar } from "../../components/common/MobileModule";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -550,22 +555,11 @@ export default function HeadTaskScreen({
       <View
         style={[styles.searchRow, { marginBottom: 10, flexWrap: "nowrap" }]}
       >
-        <AppInput
-          placeholder="Search tasks"
-          placeholderTextColor={COLORS.grayDark}
-          style={[
-            styles.searchInput,
-            {
-              flex: 1,
-              minWidth: 0,
-              width: "auto",
-              marginRight: 0,
-              height: 48,
-              borderRadius: 10,
-            },
-          ]}
+        <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholder="Search tasks"
+          containerStyle={{ flex: 1, minWidth: 0, height: 48, marginBottom: 0 }}
         />
         <Button
           label="+ Task"
