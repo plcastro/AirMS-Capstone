@@ -102,14 +102,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlayDark,
   },
   modalCard: {
-    maxHeight: "82%",
+    height: "85%",
     borderRadius: 14,
     backgroundColor: COLORS.white,
     overflow: "hidden",
   },
   scrollBody: {
-    flexGrow: 0,
-    flexShrink: 1,
+    flex: 1,
   },
   header: {
     flexDirection: "row",

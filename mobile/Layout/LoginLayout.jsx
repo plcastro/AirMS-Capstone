@@ -79,7 +79,7 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
           contentContainerStyle={[
             styles.sheetContent,
             { paddingHorizontal: isSmall ? 16 : 25 },
-            { paddingBottom: Math.max(insets.bottom + 28, 44) },
+            { paddingBottom: Math.max(insets.bottom + 8, 16) },
           ]}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
