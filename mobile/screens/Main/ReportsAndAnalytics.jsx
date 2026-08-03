@@ -52,6 +52,35 @@ const topRows = (counts, limit = 4) =>
     .sort((a, b) => b.value - a.value)
     .slice(0, limit);
 
+const REPORT_UNKNOWN_LABELS = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
+const REPORT_TOTAL_LABELS = new Set(["ALL", "OVERALL", "TOTAL", "TOTALS"]);
+
+const isKnownReportLabel = (value) => {
+  const normalized = String(value || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .toUpperCase();
+  return (
+    normalized &&
+    !REPORT_UNKNOWN_LABELS.has(normalized) &&
+    !REPORT_TOTAL_LABELS.has(normalized)
+  );
+};
+
+const topKnownReportRows = (counts, limit = 4) =>
+  Object.entries(counts)
+    .filter(([label]) => isKnownReportLabel(label))
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+
+const topKnownBaseRows = (counts, limit = 10) =>
+  Object.entries(counts)
+    .filter(([label]) => isKnownBase(label))
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+
 const matchesSearch = (record, needle) =>
   recordMatchesSearch(needle, record);
 
@@ -370,18 +399,8 @@ export default function ReportsAndAnalytics() {
         .sort((a, b) => b.value - a.value);
 
       return {
-        topDamagedBase: baseAnalytics.topDamagedBase
-          ? {
-              label: baseAnalytics.topDamagedBase.base,
-              value: baseAnalytics.topDamagedBase.damagedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
-        topRepairedBase: baseAnalytics.topRepairedBase
-          ? {
-              label: baseAnalytics.topRepairedBase.base,
-              value: baseAnalytics.topRepairedBase.repairedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
+        topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
+        topRepairedBase: repairRows[0] || { label: "N/A", value: 0 },
         damageRows,
         repairRows,
       };
@@ -400,8 +419,8 @@ export default function ReportsAndAnalytics() {
       }
     });
 
-    const damageRows = topRows(damageCounts, 10);
-    const repairRows = topRows(repairCounts, 10);
+    const damageRows = topKnownBaseRows(damageCounts);
+    const repairRows = topKnownBaseRows(repairCounts);
 
     return {
       topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
@@ -470,13 +489,13 @@ export default function ReportsAndAnalytics() {
       },
       {
         title: "Flight Logs by Aircraft",
-        rows: topRows(
-          countBy(filteredFlightLogs, (record) => record.rpc || "Unknown"),
+        rows: topKnownReportRows(
+          countBy(filteredFlightLogs, (record) => record.rpc || record.aircraft),
         ),
       },
       {
         title: "Pre-Inspection Status",
-        rows: topRows(
+        rows: topKnownReportRows(
           countBy(filteredPreInspections, (record) =>
             normalizeStatus(record.status),
           ),
@@ -484,7 +503,7 @@ export default function ReportsAndAnalytics() {
       },
       {
         title: "Post-Inspection Status",
-        rows: topRows(
+        rows: topKnownReportRows(
           countBy(filteredPostInspections, (record) =>
             normalizeStatus(record.status),
           ),
@@ -492,7 +511,7 @@ export default function ReportsAndAnalytics() {
       },
       {
         title: "Parts Requisition Status",
-        rows: topRows(
+        rows: topKnownReportRows(
           countBy(filteredPartsRequisitions, (record) =>
             normalizeStatus(record.status),
           ),

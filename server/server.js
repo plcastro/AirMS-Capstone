@@ -31,6 +31,9 @@ const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
 const {
+  startSessionRetentionJob,
+} = require("./utils/sessionRetentionService");
+const {
   subscribeSSE,
   publishEvent,
   initWebSocket,
@@ -173,6 +176,7 @@ connectToDatabase()
   .then(() => {
     console.log("Connected to MongoDB");
     startInvitationLifecycleJob();
+    startSessionRetentionJob();
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);

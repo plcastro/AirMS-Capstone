@@ -52,6 +52,7 @@ const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
@@ -64,6 +65,12 @@ const hashTrustedDeviceToken = (token = "") =>
 
 const getRefreshTokenTtlMs = (isPersistent) =>
   isPersistent ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS : REFRESH_TOKEN_TTL_MS;
+
+const getRefreshTokenCleanupDate = (expiresAt) =>
+  new Date(new Date(expiresAt).getTime() + REFRESH_TOKEN_RECORD_RETENTION_MS);
+
+const getRevokedRefreshTokenCleanupDate = () =>
+  new Date(Date.now() + REFRESH_TOKEN_RECORD_RETENTION_MS);
 
 const issueRefreshToken = (userId, isPersistent = false) => {
   const jti = crypto.randomUUID();
@@ -105,13 +112,15 @@ const storeRefreshToken = async ({
   req,
 }) => {
   const tokenHash = hashRefreshToken(refreshToken);
+  const expiresAt = new Date(
+    Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent)),
+  );
   return RefreshToken.create({
     userId,
     tokenHash,
     jti,
-    expiresAt: new Date(
-      Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent)),
-    ),
+    expiresAt,
+    cleanupAt: getRefreshTokenCleanupDate(expiresAt),
     isPersistent: Boolean(isPersistent),
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
@@ -129,6 +138,7 @@ const revokeRefreshTokenByHash = async (
       revokedAt: new Date(),
       revokedReason: reason,
       replacedByTokenHash,
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
     },
     { returnDocument: "after" },
   );
@@ -137,16 +147,28 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
   if (!userId) return;
   await RefreshToken.updateMany(
     { userId, revokedAt: null },
-    { revokedAt: new Date(), revokedReason: reason },
+    {
+      revokedAt: new Date(),
+      revokedReason: reason,
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
+    },
   );
 };
 
 const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
   if (!userId || !keepTokenHash) return;
-  await RefreshToken.deleteMany({
-    userId,
-    tokenHash: { $ne: keepTokenHash },
-  });
+  await RefreshToken.updateMany(
+    {
+      userId,
+      tokenHash: { $ne: keepTokenHash },
+      revokedAt: null,
+    },
+    {
+      revokedAt: new Date(),
+      revokedReason: "Superseded by newer refresh token",
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
+    },
+  );
 };
 
 const createUserSession = async (req, userId, platform) => {
@@ -1001,6 +1023,7 @@ const updateSessionPreference = async (req, res) => {
       await RefreshToken.updateMany(persistentFilter, {
         revokedAt: new Date(),
         revokedReason: "Remember me disabled",
+        cleanupAt: getRevokedRefreshTokenCleanupDate(),
       });
     }
 

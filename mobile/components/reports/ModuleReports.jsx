@@ -4,21 +4,26 @@ import { InfoCard } from "../common/MobileModule";
 import PieChart, { CHART_PALETTE } from "../common/PieChart";
 import { COLORS } from "../../stylesheets/colors";
 
-const normalizeStatus = (value) => String(value || "Unknown").replace(/_/g, " ").trim();
+const normalizeStatus = (value) => String(value || "").replace(/_/g, " ").trim();
 const OVERALL_LABELS = new Set(["all", "overall", "total", "totals"]);
+const UNKNOWN_LABELS = new Set(["", "unknown", "n/a", "na", "unassigned"]);
 
-const isOverallLabel = (value) => {
-  const label = String(value || "")
+const normalizeLabel = (value) =>
+  String(value || "")
     .replace(/[_-]+/g, " ")
     .trim()
     .toLowerCase();
-  return OVERALL_LABELS.has(label);
+
+const isOverallLabel = (value) => {
+  return OVERALL_LABELS.has(normalizeLabel(value));
 };
+
+const isKnownLabel = (value) => !UNKNOWN_LABELS.has(normalizeLabel(value));
 
 const countRows = (records, getLabel) => {
   const counts = records.reduce((acc, record) => {
-    const label = getLabel(record) || "Unknown";
-    if (isOverallLabel(label)) return acc;
+    const label = String(getLabel(record) || "").trim();
+    if (!isKnownLabel(label) || isOverallLabel(label)) return acc;
     acc[label] = (acc[label] || 0) + 1;
     return acc;
   }, {});
@@ -33,7 +38,7 @@ const countRows = (records, getLabel) => {
     .slice(0, 6);
 };
 
-const ReportPieChart = ({ rows = [], emptyText }) => {
+const ReportPieChart = ({ rows = [], emptyText, fitToWidth = false }) => {
   if (!rows.length) {
     return (
       <AppText
@@ -49,7 +54,7 @@ const ReportPieChart = ({ rows = [], emptyText }) => {
     );
   }
 
-  return <PieChart data={rows} size={190} />;
+  return <PieChart data={rows} size={190} fitToWidth={fitToWidth} />;
 };
 
 export function FlightLogReport({ records = [], loading = false }) {
@@ -59,6 +64,7 @@ export function FlightLogReport({ records = [], loading = false }) {
       <ReportPieChart
         rows={rows}
         emptyText="No flight log data available"
+        fitToWidth
       />
     </InfoCard>
   );
@@ -83,6 +89,7 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
       <ReportPieChart
         rows={rows}
         emptyText="No parts requisition data available"
+        fitToWidth
       />
     </InfoCard>
   );

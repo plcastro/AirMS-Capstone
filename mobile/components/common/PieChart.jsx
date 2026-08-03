@@ -31,6 +31,7 @@ export default function PieChart({
   innerRadius = 0,
   centerValue,
   centerLabel,
+  fitToWidth = false,
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const normalizedData = (Array.isArray(data) && data.length ? data : EMPTY_DATA)
@@ -53,12 +54,14 @@ export default function PieChart({
   const showDonutCenter = centerValue || innerRadius > 0;
   const holeSize = Math.max(innerRadius * 1.72, 74);
   const viewportWidth = Math.min(Math.max(windowWidth - 68, 260), 560);
-  const contentWidth = Math.max(
-    320,
-    viewportWidth,
-    size + 76,
-    Math.min(620, Math.max(size + 76, chartData.length * 132)),
-  );
+  const contentWidth = fitToWidth
+    ? Math.max(260, viewportWidth)
+    : Math.max(
+        320,
+        viewportWidth,
+        size + 76,
+        Math.min(620, Math.max(size + 76, chartData.length * 132)),
+      );
   const canScrollHorizontally = contentWidth > viewportWidth;
 
   return (
