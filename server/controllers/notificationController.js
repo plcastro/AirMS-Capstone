@@ -46,6 +46,8 @@ const getNotifications = async (req, res) => {
     }
 
     const notifications = await NotificationModel.find(recipientQuery)
+      .where("clearedBy")
+      .ne(userId)
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -132,8 +134,44 @@ const markAllNotificationsRead = async (req, res) => {
   }
 };
 
+const clearReadNotifications = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const role = await getUserRole(userId, req.user?.jobTitle);
+    const recipientQuery = buildRecipientQuery(userId, role);
+    if (!recipientQuery) {
+      return res.status(200).json({ success: true, clearedCount: 0 });
+    }
+
+    const result = await NotificationModel.updateMany(
+      {
+        ...recipientQuery,
+        readBy: userId,
+        clearedBy: { $ne: userId },
+      },
+      {
+        $addToSet: { clearedBy: userId },
+      },
+    );
+
+    res.status(200).json({
+      success: true,
+      clearedCount: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    console.error("Failed to clear read notifications:", error);
+    res.status(500).json({ message: "Failed to clear read notifications" });
+  }
+};
+
 module.exports = {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearReadNotifications,
 };

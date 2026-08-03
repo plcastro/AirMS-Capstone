@@ -53,6 +53,7 @@ export const NotificationContext = createContext({
   fetchNotifications: async () => {},
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  clearReadNotifications: async () => {},
   openNotificationTarget: async () => {},
   refreshPushRegistration: async () => {},
 });
@@ -913,6 +914,49 @@ export function NotificationProvider({ children }) {
     }
   }, [logoutUser]);
 
+  const clearReadNotifications = useCallback(async () => {
+    const authToken = await getStoredToken();
+    if (!authToken) return;
+
+    try {
+      const hasServerReadNotifications = notifications.some(
+        (notification) =>
+          notification?.read &&
+          !String(notification?._id || "").startsWith("local-"),
+      );
+
+      if (hasServerReadNotifications) {
+        const response = await fetch(
+          `${API_BASE}/api/notifications/clear-read`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          },
+        );
+
+        if (response.status === 401 || response.status === 403) {
+          await logoutUser?.();
+          return;
+        }
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null);
+          throw new Error(
+            errorBody?.message ||
+              `Failed to clear read notifications (${response.status})`,
+          );
+        }
+      }
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.filter((notification) => !notification.read),
+      );
+    } catch (error) {
+      console.error("Error clearing read notifications:", error);
+      showToast("Failed to clear read notifications.");
+    }
+  }, [logoutUser, notifications]);
+
   const openNotificationTarget = useCallback(
     async (notificationPayload) => {
       try {
@@ -1275,10 +1319,12 @@ export function NotificationProvider({ children }) {
       },
       markAsRead,
       markAllAsRead,
+      clearReadNotifications,
       openNotificationTarget,
       refreshPushRegistration: registerPushTokenWithServer,
     }),
     [
+      clearReadNotifications,
       loadingNotifications,
       markAllAsRead,
       markAsRead,

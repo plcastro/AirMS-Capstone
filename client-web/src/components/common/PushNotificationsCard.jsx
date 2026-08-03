@@ -320,6 +320,53 @@ export default function PushNotificationsCard({ open, onClose }) {
     }
   };
 
+  const clearReadNotifications = async () => {
+    try {
+      const serverReadNotifications = notifications.filter(
+        (notification) =>
+          !isAircraftFhNotification(notification?._id) && notification.read,
+      );
+
+      if (serverReadNotifications.length > 0) {
+        const response = await fetch(
+          `${API_BASE}/api/notifications/clear-read`,
+          {
+            method: "POST",
+            headers: await getAuthHeader(),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to clear read notifications");
+        }
+      }
+
+      saveAircraftFhNotifications(
+        loadAircraftFhNotifications().filter((notification) => !notification.read),
+      );
+      setNotifications((currentNotifications) =>
+        currentNotifications.filter((notification) => !notification.read),
+      );
+      message.success("Read notifications cleared");
+    } catch (error) {
+      console.error("Error clearing read notifications:", error);
+      message.error("Failed to clear read notifications");
+    }
+  };
+
+  const confirmClearReadNotifications = () => {
+    Modal.confirm({
+      title: "Clear read notifications?",
+      content:
+        "This will remove all notifications you have already read from your notification list.",
+      okText: "Clear Read",
+      okButtonProps: { danger: true },
+      cancelText: "Cancel",
+      zIndex: 2000,
+      onOk: clearReadNotifications,
+    });
+  };
+
   const handleNotificationClick = async (notification) => {
     await markNotificationRead(notification._id);
     onClose?.();
@@ -402,6 +449,7 @@ export default function PushNotificationsCard({ open, onClose }) {
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const readCount = notifications.length - unreadCount;
 
   const renderNotificationsList = () => {
     if (loading) {
@@ -486,10 +534,20 @@ export default function PushNotificationsCard({ open, onClose }) {
           marginTop: 16,
           display: "flex",
           justifyContent: "space-between",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
         <Button type="link" onClick={markAllAsRead}>
           Mark all as read
+        </Button>
+        <Button
+          danger
+          type="link"
+          onClick={confirmClearReadNotifications}
+          disabled={readCount === 0}
+        >
+          Clear read
         </Button>
         <Button danger type="link" onClick={fetchNotifications}>
           Refresh

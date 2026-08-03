@@ -2,11 +2,12 @@ import React, { useContext, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { NotificationContext } from "../../Context/NotificationContext";
@@ -72,6 +73,7 @@ export default function NotificationBell({ navigation }) {
     loadingNotifications,
     fetchNotifications,
     markAllAsRead,
+    clearReadNotifications,
     openNotificationTarget,
   } = useContext(NotificationContext);
 
@@ -89,6 +91,8 @@ export default function NotificationBell({ navigation }) {
     setVisible(true);
   };
 
+  const readCount = sortedNotifications.length - unreadCount;
+
   const runWithLoading = async (key, action) => {
     if (actionLoadingKey) return;
     setActionLoadingKey(key);
@@ -102,6 +106,22 @@ export default function NotificationBell({ navigation }) {
   const handleNotificationPress = async (notification) => {
     setVisible(false);
     await openNotificationTarget(notification);
+  };
+
+  const confirmClearReadNotifications = () => {
+    Alert.alert(
+      "Clear read notifications?",
+      "This will remove all notifications you have already read from your notification list.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Read",
+          style: "destructive",
+          onPress: () =>
+            runWithLoading("clear-read", () => clearReadNotifications()),
+        },
+      ],
+    );
   };
 
   return (
@@ -384,6 +404,23 @@ export default function NotificationBell({ navigation }) {
                   style={{ color: "#26866F", fontSize: 14, fontWeight: "600" }}
                 >
                   {actionLoadingKey === "mark-all" ? "Processing..." : "Mark all as read"}
+                </AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={confirmClearReadNotifications}
+                disabled={Boolean(actionLoadingKey) || readCount === 0}
+              >
+                <AppText
+                  style={{
+                    color: readCount === 0 ? "#A0A0A0" : "#D9534F",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  {actionLoadingKey === "clear-read"
+                    ? "Clearing..."
+                    : "Clear read"}
                 </AppText>
               </TouchableOpacity>
 
