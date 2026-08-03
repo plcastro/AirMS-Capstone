@@ -650,7 +650,7 @@ export default function FlightLogEditEntry({
           >
             <View>
               <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Flight Log
+                {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
               </AppText>
               <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section

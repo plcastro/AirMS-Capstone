@@ -251,7 +251,7 @@ export default function PostInspectionEditEntry({
           >
             <View>
               <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Post-Inspection
+                {readOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
               </AppText>
               <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section

@@ -624,7 +624,11 @@ export default function FlightLogEntry({
       <Spin spinning={submitting}>
         <div className="fl-modal-header-block">
           <div className="fl-modal-title-main">
-            {editMode ? "Edit Entry - Flight Log" : "Add Entry - Flight Log"}
+            {readOnly
+              ? "View Entry - Flight Log"
+              : editMode
+                ? "Edit Entry - Flight Log"
+                : "Add Entry - Flight Log"}
           </div>
           <div className="fl-modal-title-sub">Select Section</div>
         </div>

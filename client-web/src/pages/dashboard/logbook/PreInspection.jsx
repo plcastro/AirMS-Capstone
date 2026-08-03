@@ -1200,7 +1200,11 @@ export default function PreInspection() {
           style: { display: editingReadOnly ? "none" : undefined },
         }}
         title={
-          editingCanAccept ? "Accept Pre-Inspection" : "View Pre-Inspection"
+          editingCanAccept
+            ? "Accept Pre-Inspection"
+            : editingReadOnly
+              ? "View Entry - Pre-Inspection"
+              : "Edit Entry - Pre-Inspection"
         }
         okText="Save"
         cancelText="Close"

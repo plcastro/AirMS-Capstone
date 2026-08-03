@@ -415,7 +415,11 @@ export default function PostInspection() {
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
         okButtonProps={{ disabled: readOnly }}
-        title={readOnly ? "View Post-Inspection" : "Edit Post-Inspection"}
+        title={
+          readOnly
+            ? "View Entry - Post-Inspection"
+            : "Edit Entry - Post-Inspection"
+        }
         okText="Save"
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
