@@ -5,13 +5,25 @@ const DATE_FORMAT_OPTIONS = [
   { month: "long", day: "numeric", year: "numeric" },
 ];
 
+const SEARCH_INDEX_CACHE =
+  typeof WeakMap === "undefined" ? null : new WeakMap();
+
+const isPotentialDateValue = (value) => {
+  if (value instanceof Date) return true;
+  if (typeof value !== "string") return false;
+
+  const raw = value.trim();
+  return (
+    /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(raw) ||
+    /^\d{4}-\d{1,2}-\d{1,2}/.test(raw) ||
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/i.test(raw)
+  );
+};
+
 const tryParseDate = (value) => {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  if (typeof value === "number") {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
+  if (!isPotentialDateValue(value)) return null;
 
   const raw = String(value).trim();
   const slashDate = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
@@ -59,29 +71,71 @@ export const getSearchableDateValues = (value) => {
   ];
 };
 
-export const collectSearchValues = (value, depth = 0) => {
-  if (value == null || depth > 5) return [];
-  if (value instanceof Date) return getSearchableDateValues(value);
+const collectSearchValuesInto = (value, depth, acc) => {
+  if (value == null || depth > 5) return acc;
+  if (value instanceof Date) {
+    acc.push(...getSearchableDateValues(value));
+    return acc;
+  }
 
   if (
     typeof value === "string" ||
     typeof value === "number" ||
     typeof value === "boolean"
   ) {
-    return [String(value), ...getSearchableDateValues(value)];
+    acc.push(String(value));
+    if (isPotentialDateValue(value)) {
+      acc.push(...getSearchableDateValues(value));
+    }
+    return acc;
   }
 
   if (Array.isArray(value)) {
-    return value.flatMap((item) => collectSearchValues(item, depth + 1));
+    value.forEach((item) => collectSearchValuesInto(item, depth + 1, acc));
+    return acc;
   }
 
   if (typeof value === "object") {
-    return Object.values(value).flatMap((item) =>
-      collectSearchValues(item, depth + 1),
+    Object.values(value).forEach((item) =>
+      collectSearchValuesInto(item, depth + 1, acc),
     );
+    return acc;
   }
 
-  return [];
+  return acc;
+};
+
+export const collectSearchValues = (value, depth = 0) =>
+  collectSearchValuesInto(value, depth, []);
+
+const buildSearchIndex = (value) => {
+  const normalized = collectSearchValues(value)
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    normalized,
+    compact: normalized.replace(/[^a-z0-9]/g, ""),
+  };
+};
+
+const getSearchIndex = (value) => {
+  if (
+    !SEARCH_INDEX_CACHE ||
+    value == null ||
+    typeof value !== "object" ||
+    value instanceof Date
+  ) {
+    return buildSearchIndex(value);
+  }
+
+  const cached = SEARCH_INDEX_CACHE.get(value);
+  if (cached) return cached;
+
+  const next = buildSearchIndex(value);
+  SEARCH_INDEX_CACHE.set(value, next);
+  return next;
 };
 
 export const matchesSearch = (query, value) => {
@@ -89,14 +143,12 @@ export const matchesSearch = (query, value) => {
   if (!normalizedQuery) return true;
 
   const compactQuery = compactSearchText(query);
-  return collectSearchValues(value).some((entry) => {
-    const normalizedEntry = normalizeSearchText(entry);
-    const compactEntry = compactSearchText(entry);
-    return (
-      normalizedEntry.includes(normalizedQuery) ||
-      (compactQuery && compactEntry.includes(compactQuery))
-    );
-  });
+  const searchIndex = getSearchIndex(value);
+
+  return (
+    searchIndex.normalized.includes(normalizedQuery) ||
+    (compactQuery && searchIndex.compact.includes(compactQuery))
+  );
 };
 
 export const isDateLikeSearchQuery = (query) => {

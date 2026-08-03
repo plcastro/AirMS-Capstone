@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -90,6 +91,7 @@ export default function FlightLog() {
   const [entryModalVisible, setEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const hasRunRemoteSearchRef = useRef(false);
   const [workflowModal, setWorkflowModal] = useState({
     open: false,
     action: null,
@@ -763,12 +765,19 @@ export default function FlightLog() {
   }, [fetchFlightLogs]);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim()) {
-        searchFlightLogs(searchQuery);
-      } else {
+    const trimmedSearch = searchQuery.trim();
+
+    if (!trimmedSearch) {
+      if (hasRunRemoteSearchRef.current) {
+        hasRunRemoteSearchRef.current = false;
         fetchFlightLogs();
       }
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      hasRunRemoteSearchRef.current = true;
+      searchFlightLogs(trimmedSearch);
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -807,28 +816,42 @@ export default function FlightLog() {
     { label: "Completed", value: "completed" },
   ];
 
-  const filteredLogs = sortFlightLogsByDate(
-    flightLogs.filter((log) => {
-      const matchesSearchText = matchesSearch(searchQuery, log);
+  const filteredLogs = useMemo(() => {
+    const trimmedSearch = searchQuery.trim();
+    const shouldApplyLocalSearch =
+      trimmedSearch && isDateLikeSearchQuery(trimmedSearch);
 
-      const matchesAircraft =
-        selectedAircraft === "" ||
-        selectedAircraft === "all" ||
-        log.rpc === selectedAircraft;
+    return sortFlightLogsByDate(
+      flightLogs.filter((log) => {
+        const matchesSearchText =
+          !shouldApplyLocalSearch || matchesSearch(trimmedSearch, log);
 
-      const normalizedStatus = getComparableStatus(log.status);
-      const matchesStatus =
-        selectedStatus === "all" ||
-        (selectedStatus === "for_completion"
-          ? normalizedStatus === "accepted" && log.notifiedForCompletion
-          : selectedStatus === "accepted"
-            ? normalizedStatus === "accepted" && !log.notifiedForCompletion
-            : normalizedStatus ===
-              getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
+        const matchesAircraft =
+          selectedAircraft === "" ||
+          selectedAircraft === "all" ||
+          log.rpc === selectedAircraft;
 
-      return matchesSearchText && matchesAircraft && matchesStatus;
-    }),
-  );
+        const normalizedStatus = getComparableStatus(log.status);
+        const matchesStatus =
+          selectedStatus === "all" ||
+          (selectedStatus === "for_completion"
+            ? normalizedStatus === "accepted" && log.notifiedForCompletion
+            : selectedStatus === "accepted"
+              ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+              : normalizedStatus ===
+                getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
+
+        return matchesSearchText && matchesAircraft && matchesStatus;
+      }),
+    );
+  }, [
+    flightLogs,
+    getComparableStatus,
+    normalizeStatusFilterValue,
+    searchQuery,
+    selectedAircraft,
+    selectedStatus,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
