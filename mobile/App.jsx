@@ -50,6 +50,24 @@ const withDashboard = (loadScreen) => {
   return DashboardScreen;
 };
 
+const getRoleHomeRoute = (role = "") => {
+  switch (String(role || "").trim().toLowerCase()) {
+    case "superadmin":
+      return "Manage Users";
+    case "mechanic":
+      return "Maintenance Logs";
+    case "pilot":
+      return "Flight Logs";
+    case "maintenance manager":
+    case "officer-in-charge":
+      return "Reports and Analytics";
+    case "warehouse staff":
+      return "Parts Requisition";
+    default:
+      return "Profile";
+  }
+};
+
 const Screens = {
   ReportsAndAnalytics: withDashboard(
     () => require("./screens/Main/ReportsAndAnalytics").default,
@@ -160,19 +178,15 @@ function DrawerNav({ navigation }) {
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "superadmin";
   const canAccessActivityLogs = normalizedRole === "superadmin";
-  const initialDrawerRoute = canAccessReports
-    ? "Reports and Analytics"
-    : canAccessMessages
-      ? "Messages"
-      : canAccessUserManagement
-        ? "Manage Users"
-        : canAccessFlightAndPreInspection
-          ? "Flight Logs"
-          : canAccessTasks
-            ? "Tasks"
-            : canAccessPartsRequisition
-              ? "Parts Requisition"
-              : "Profile";
+  const roleHomeRoute = getRoleHomeRoute(normalizedRole);
+  const canAccessInitialRoute =
+    (roleHomeRoute === "Reports and Analytics" && canAccessReports) ||
+    (roleHomeRoute === "Manage Users" && canAccessUserManagement) ||
+    (roleHomeRoute === "Maintenance Logs" && canAccessMaintenanceLog) ||
+    (roleHomeRoute === "Flight Logs" && canAccessFlightAndPreInspection) ||
+    (roleHomeRoute === "Parts Requisition" && canAccessPartsRequisition) ||
+    roleHomeRoute === "Profile";
+  const initialDrawerRoute = canAccessInitialRoute ? roleHomeRoute : "Profile";
   const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();

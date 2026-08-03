@@ -215,6 +215,9 @@ const Login = () => {
       case "mechanic":
         dashboardPath = "/dashboard/maintenance-log";
         break;
+      case "pilot":
+        dashboardPath = "/dashboard/flight-log";
+        break;
       case "maintenance manager":
       case "officer-in-charge":
         dashboardPath = "/dashboard/maintenance-dashboard";
