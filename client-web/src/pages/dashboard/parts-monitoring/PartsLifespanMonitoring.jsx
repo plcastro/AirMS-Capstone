@@ -1687,64 +1687,6 @@ export default function PartsMonitoring() {
           </Col>
         </Row>
       </Card>
-      <Card className="aircraft-card legend-card">
-        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
-          <Text strong>NOTE:</Text>
-
-          <Row gutter={[16, 12]}>
-            <Col xs={24} sm={12} md={6}>
-              <Space>
-                <Text strong>OC</Text>
-                <Text>- ON CONDITION</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={6}>
-              <Space>
-                <Text strong>H</Text>
-                <Text>- HOURS</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={6}>
-              <Space>
-                <Text strong>D</Text>
-                <Text>- DAY</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={6}>
-              <Space>
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: "#ff4d4f",
-                    borderRadius: 2,
-                    display: "inline-block",
-                  }}
-                />
-                <Text>REMOVED</Text>
-              </Space>
-            </Col>
-
-            <Col xs={24} sm={12} md={6}>
-              <Space>
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: "#52c41a",
-                    borderRadius: 2,
-                    display: "inline-block",
-                  }}
-                />
-                <Text>INSTALLED</Text>
-              </Space>
-            </Col>
-          </Row>
-        </Space>
-      </Card>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={24} md={8}>
           <Card>
