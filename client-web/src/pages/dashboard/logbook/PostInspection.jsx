@@ -36,6 +36,7 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+import { matchesSearch } from "../../../utils/search";
 
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
 const { Text } = Typography;
@@ -163,14 +164,7 @@ export default function PostInspection() {
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const needle = query.trim().toLowerCase();
-        const matchesQuery =
-          !needle ||
-          [item.rpc, item.aircraftType, item.date].some((value) =>
-            String(value || "")
-              .toLowerCase()
-              .includes(needle),
-          );
+        const matchesQuery = matchesSearch(query, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||

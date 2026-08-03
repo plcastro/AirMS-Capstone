@@ -7,6 +7,7 @@ import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import MSummaryTable from "../../../components/tables/MSummaryTable";
 
 import RepairFrequencyChart from "../../../components/common/RepairFrequencyChart";
+import { matchesSearch } from "../../../utils/search";
 
 dayjs.extend(isBetween);
 
@@ -44,9 +45,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   }));
 
   const filteredData = mappedTasks.filter((item) => {
-    const matchesSearch =
-      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.task.toLowerCase().includes(searchText.toLowerCase());
+    const matchesSearchText = matchesSearch(searchText, item);
 
     let matchesDate = true;
     if (dateRange && dateRange[0] && dateRange[1] && item.date) {
@@ -54,7 +53,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       matchesDate = itemDate.isBetween(dateRange[0], dateRange[1], "day", "[]");
     }
 
-    return matchesSearch && matchesDate;
+    return matchesSearchText && matchesDate;
   });
 
   const visibleTaskKeys = new Set(filteredData.map((item) => item.key));

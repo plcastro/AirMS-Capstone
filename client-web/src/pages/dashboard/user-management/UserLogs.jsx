@@ -23,6 +23,7 @@ import {
   getAuditActionCategory,
   getAuditActionCategoryOptions,
 } from "../../../utils/auditActions";
+import { matchesSearch } from "../../../utils/search";
 import { ExportOutlined } from "@ant-design/icons";
 import { Input, DatePicker, Space, Grid, message, Select, Card, Button } from "antd";
 import dayjs from "dayjs";
@@ -149,13 +150,7 @@ export default function UserLogs() {
     let filtered = [...allUserLogs];
 
     if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (log) =>
-          (log.actionMade && log.actionMade.toLowerCase().includes(query)) ||
-          (log.dateTime && log.dateTime.toLowerCase().includes(query)) ||
-          (log.username && log.username.toLowerCase().includes(query)),
-      );
+      filtered = filtered.filter((log) => matchesSearch(searchQuery, log));
     }
 
     if (selectedActionType !== "all") {

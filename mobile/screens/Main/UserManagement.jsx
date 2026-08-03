@@ -29,6 +29,7 @@ import UserCard from "../../components/UserManagement/UserCard";
 import UserFormModal from "../../components/UserManagement/UserFormModal";
 import { SearchBar } from "../../components/common/MobileModule";
 import { JOB_TITLE_OPTIONS } from "../../components/UserManagement/constants";
+import { matchesSearch } from "../../utilities/search";
 
 const parseJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text();
@@ -367,14 +368,7 @@ export default function UserManagement() {
             .toLowerCase() === jobTitleFilter,
       );
     }
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return next;
-
-    return next.filter((u) =>
-      `${u.firstName} ${u.lastName} ${u.username} ${u.email} ${u.jobTitle || ""} ${u.base || ""}`
-        .toLowerCase()
-        .includes(query),
-    );
+    return next.filter((u) => matchesSearch(searchQuery, u));
   }, [jobTitleFilter, searchQuery, statusFilter, users]);
 
   const counts = useMemo(() => {

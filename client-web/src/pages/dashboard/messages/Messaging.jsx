@@ -35,6 +35,7 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { subscribeRealtime } from "../../../utils/realtimeSocket";
+import { matchesSearch } from "../../../utils/search";
 import "./Messaging.css";
 
 const { Text } = Typography;
@@ -427,15 +428,7 @@ export default function Messaging() {
         ).getTime();
         return secondTime - firstTime;
       });
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) return merged;
-
-    return merged.filter((item) =>
-      [item.title, item.subtitle, item.user?.username, item.user?.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    return merged.filter((item) => matchesSearch(searchText, item));
   }, [conversations, searchText, users]);
 
   const selectedConversationDetails = useMemo(() => {

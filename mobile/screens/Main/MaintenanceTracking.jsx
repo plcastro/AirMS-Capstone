@@ -28,6 +28,7 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
 
 const RISK_COLORS = {
   Critical: "#cf1322",
@@ -72,33 +73,6 @@ const formatRemainingLimit = (row = {}) => {
     parts.push(`${row.remainingDays} day(s)`);
   }
   return parts.length ? parts.join(" / ") : "N/A";
-};
-
-const matchesInspectionLimitSearch = (row = {}, query = "") => {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-
-  const dueState = getInspectionDueState(row);
-  const haystack = [
-    row.aircraft,
-    row.aircraftModel,
-    dueState.label,
-    row.inspectionName,
-    row.inspectionKey,
-    formatRemainingLimit(row),
-    row.remainingHours,
-    row.remainingDays,
-    row.dueDate,
-    row.dueAtHours,
-    row.flightHourInterval,
-    row.calendarMonthInterval,
-    row.sourceRow,
-  ]
-    .filter((value) => value !== null && value !== undefined)
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(needle);
 };
 
 const getTaskScheduleState = (task = {}) => {
@@ -266,7 +240,11 @@ export default function MaintenanceTracking() {
         : remainingRows.filter((item) => item.aircraft === aircraftFilter);
 
     return aircraftFiltered.filter((item) =>
-      matchesInspectionLimitSearch(item, inspectionLimitSearch),
+      matchesSearch(inspectionLimitSearch, {
+        ...item,
+        dueState: getInspectionDueState(item),
+        remainingLimit: formatRemainingLimit(item),
+      }),
     );
   }, [aircraftFilter, inspectionLimitSearch, remainingRows]);
 

@@ -38,6 +38,7 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import ResultPopup from "../../../components/common/ResultPopup";
 import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
+import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -315,6 +316,11 @@ export default function FlightLog() {
   const searchFlightLogs = async (query) => {
     if (!query.trim()) {
       fetchFlightLogs();
+      return;
+    }
+
+    if (isDateLikeSearchQuery(query)) {
+      await fetchFlightLogs({ silent: true });
       return;
     }
 
@@ -801,11 +807,7 @@ export default function FlightLog() {
 
   const filteredLogs = sortFlightLogsByDate(
     flightLogs.filter((log) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(log.date || "").includes(searchQuery);
+      const matchesSearchText = matchesSearch(searchQuery, log);
 
       const matchesAircraft =
         selectedAircraft === "" ||
@@ -822,7 +824,7 @@ export default function FlightLog() {
             : normalizedStatus ===
               getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
 
-      return matchesSearch && matchesAircraft && matchesStatus;
+      return matchesSearchText && matchesAircraft && matchesStatus;
     }),
   );
 

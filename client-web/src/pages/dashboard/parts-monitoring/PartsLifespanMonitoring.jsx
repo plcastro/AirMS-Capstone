@@ -38,6 +38,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { useSearchParams } from "react-router-dom";
+import { matchesSearch } from "../../../utils/search";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -723,35 +724,8 @@ export default function PartsMonitoring() {
   }, [rawData, refs, selectedAircraft]);
 
   const filteredData = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    if (!query) return computedData;
-
-    const searchableKeys = [
-      "componentName",
-      "hourLimit1",
-      "hourLimit2",
-      "hourLimit3",
-      "dayLimit",
-      "dayType",
-      "dateCW",
-      "hoursCW",
-      "daysRemaining",
-      "timeRemaining",
-      "dateDue",
-      "ttCycleDue",
-      "due",
-      "hd",
-      "timeSinceInstall",
-      "totalTimeSinceNew",
-    ];
-
-    return computedData.filter((row) =>
-      searchableKeys.some((key) =>
-        String(row?.[key] ?? "")
-          .toLowerCase()
-          .includes(query),
-      ),
-    );
+    if (!searchText.trim()) return computedData;
+    return computedData.filter((row) => matchesSearch(searchText, row));
   }, [computedData, searchText]);
 
   const componentsToUpdate = useMemo(

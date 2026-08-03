@@ -12,6 +12,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
 import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -195,13 +196,7 @@ export default function MechanicTaskScreen({
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
-    const taskTitle = task?.title || task?.maintenanceType || "";
-
-    if (
-      searchQuery &&
-      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
+    if (!matchesSearch(searchQuery, task)) return false;
 
     if (selectedAircraft !== "all") {
       if (task.aircraft !== selectedAircraft) {

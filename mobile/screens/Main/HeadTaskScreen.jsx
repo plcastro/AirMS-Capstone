@@ -19,6 +19,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -201,13 +202,7 @@ export default function HeadTaskScreen({
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
-    const taskTitle = task?.title || task?.maintenanceType || "";
-
-    if (
-      searchQuery &&
-      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
+    if (!matchesSearch(searchQuery, task)) return false;
 
     switch (activeTab) {
       case "Assigned":

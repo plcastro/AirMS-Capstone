@@ -19,6 +19,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
+import { matchesSearch } from "../../../utils/search";
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -205,20 +206,7 @@ export default function UserManagement() {
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((u) =>
-        [
-          u.fullname,
-          u.username,
-          u.email,
-          u.jobTitle,
-          u.access,
-          u.invitationStatus,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
+      filtered = filtered.filter((u) => matchesSearch(searchQuery, u));
     }
 
     setFilteredUsers(filtered);

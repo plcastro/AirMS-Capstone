@@ -42,6 +42,7 @@ import { confirmAction } from "../../../utils/confirmAction";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import { matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
@@ -627,16 +628,7 @@ export default function TaskAssignment() {
   }, [activeTab, isManager, myTasks, selectedAircraft]);
 
   const displayedTasks = useMemo(() => {
-    return filteredByTab.filter((task) => {
-      const needle = query.trim().toLowerCase();
-      if (!needle) return true;
-      return [task.id, task.title, task.aircraft, task.assignedToName].some(
-        (value) =>
-          String(value || "")
-            .toLowerCase()
-            .includes(needle),
-      );
-    });
+    return filteredByTab.filter((task) => matchesSearch(query, task));
   }, [filteredByTab, query]);
 
   const counts = useMemo(

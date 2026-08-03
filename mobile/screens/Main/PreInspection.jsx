@@ -18,6 +18,7 @@ import { exportPreInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
 
 const getDisplayStatus = (status) =>
   status === "completed"
@@ -143,13 +144,7 @@ export default function PreInspection({ route }) {
   ];
 
   const filteredInspections = inspections.filter((inspection) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      inspection.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.aircraftType
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      inspection.date?.includes(searchQuery);
+    const matchesSearchText = matchesSearch(searchQuery, inspection);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -160,7 +155,7 @@ export default function PreInspection({ route }) {
       selectedStatus === "all" ||
       getDisplayStatus(inspection.status) === selectedStatus;
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesAircraft && matchesStatus;
   });
 
   const handleEdit = (inspection) => {

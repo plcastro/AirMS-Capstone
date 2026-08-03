@@ -31,6 +31,7 @@ import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { useNavigate } from "react-router-dom";
+import { matchesSearch } from "../../../utils/search";
 
 const { Title, Text } = Typography;
 
@@ -221,31 +222,12 @@ const formatRemainingLimit = (record = {}) => {
 };
 
 const matchesInspectionLimitSearch = (record = {}, query = "") => {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-
   const dueState = getInspectionDueState(record);
-  const haystack = [
-    record.aircraft,
-    record.aircraftModel,
-    dueState.label,
-    dueState.note,
-    record.inspectionName,
-    record.inspectionKey,
-    formatRemainingLimit(record),
-    record.remainingHours,
-    record.remainingDays,
-    record.dueDate,
-    record.dueAtHours,
-    record.flightHourInterval,
-    record.calendarMonthInterval,
-    record.sourceRow,
-  ]
-    .filter((value) => value !== null && value !== undefined)
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(needle);
+  return matchesSearch(query, {
+    ...record,
+    dueState,
+    remainingLimit: formatRemainingLimit(record),
+  });
 };
 
 export default function MaintenanceTracking() {

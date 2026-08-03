@@ -22,6 +22,7 @@ import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -384,11 +385,7 @@ export default function FlightLog({ route, navigation }) {
   ];
 
   const filteredLogs = flightLogs.filter((log) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      log.rpc?.includes(searchQuery) ||
-      log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.date?.includes(searchQuery);
+    const matchesSearchText = matchesSearch(searchQuery, log);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -399,7 +396,7 @@ export default function FlightLog({ route, navigation }) {
       selectedStatus === "all" ||
       getComparableStatus(log.status) === getComparableStatus(selectedStatus);
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesAircraft && matchesStatus;
   });
 
   useEffect(() => {

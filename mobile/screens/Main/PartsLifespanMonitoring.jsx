@@ -35,6 +35,7 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
 
 const referenceFields = [
   ["engTT", "Engine Cycle"],
@@ -229,20 +230,7 @@ export default function PartsLifespanMonitoring() {
   );
 
   const filteredParts = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return cleanParts;
-    return cleanParts.filter((part) =>
-      [
-        part.componentName,
-        part.due,
-        part.hd,
-        part.dateDue,
-        part.timeRemaining,
-        part.daysRemaining,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    return cleanParts.filter((part) => matchesSearch(search, part));
   }, [cleanParts, search]);
 
   const summary = useMemo(

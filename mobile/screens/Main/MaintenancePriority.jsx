@@ -23,6 +23,7 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
 
 const DEFAULT_RULES = {
   criticalDueDays: 5,
@@ -113,19 +114,7 @@ export default function MaintenancePriority() {
   }, [loadRules]);
 
   const filteredData = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return priorityData;
-    return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    return priorityData.filter((item) => matchesSearch(search, item));
   }, [priorityData, search]);
 
   const stats = useMemo(

@@ -18,6 +18,7 @@ import { confirmAction } from "../../../utils/confirmAction";
 import ResultPopup from "../../../components/common/ResultPopup";
 import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import { matchesSearch } from "../../../utils/search";
 
 const { Title, Text } = Typography;
 
@@ -247,24 +248,8 @@ export default function MaintenancePriority() {
   };
 
   const filteredData = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) {
-      return priorityData;
-    }
-
-    return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.sourceRow,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    if (!searchText.trim()) return priorityData;
+    return priorityData.filter((item) => matchesSearch(searchText, item));
   }, [priorityData, searchText]);
 
   const stats = useMemo(() => {

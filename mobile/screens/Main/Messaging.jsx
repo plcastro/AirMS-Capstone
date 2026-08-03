@@ -15,6 +15,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
 import ConversationListView from "../../components/Messaging/ConversationListView";
 import ChatView from "../../components/Messaging/ChatView";
@@ -501,15 +502,7 @@ export default function Messaging({ navigation, route }) {
         ).getTime();
         return secondTime - firstTime;
       });
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) return merged;
-
-    return merged.filter((item) =>
-      [item.title, item.subtitle, item.user?.username, item.user?.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    return merged.filter((item) => matchesSearch(searchText, item));
   }, [conversations, searchText, users]);
 
   const selectedConversationDetails = useMemo(() => {

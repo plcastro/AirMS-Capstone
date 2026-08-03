@@ -34,6 +34,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
+import { matchesSearch } from "../../../utils/search";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -398,6 +399,13 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["general", "reports", "overview", "cross-module"],
+      searchRecords: [
+        tasks,
+        flightLogs,
+        preInspections,
+        postInspections,
+        partsRequisitions,
+      ],
     },
     {
       key: "performance",
@@ -405,6 +413,7 @@ export default function MaintenanceDashboard() {
       title: "Performance Overview",
       component: <MaintenancePerformance tasks={tasks} />,
       keywords: ["performance", "overview"],
+      searchRecords: tasks,
     },
     {
       key: "history",
@@ -412,6 +421,7 @@ export default function MaintenanceDashboard() {
       title: "Maintenance History",
       component: <MaintenanceHistory tasks={tasks} loading={loadingTasks} />,
       keywords: ["history", "maintenance", "record"],
+      searchRecords: tasks,
     },
     {
       key: "summary",
@@ -419,6 +429,7 @@ export default function MaintenanceDashboard() {
       title: "Maintenance Insights",
       component: <MaintenanceSummary tasks={tasks} loading={loadingTasks} />,
       keywords: ["summary", "insights", "repair"],
+      searchRecords: tasks,
     },
     {
       key: "component",
@@ -428,6 +439,7 @@ export default function MaintenanceDashboard() {
         <ComponentUsage records={partsRecords} loading={loadingTasks} />
       ),
       keywords: ["component", "usage", "analysis"],
+      searchRecords: partsRecords,
     },
     {
       key: "flight-log",
@@ -437,6 +449,7 @@ export default function MaintenanceDashboard() {
         <FlightLogReport records={flightLogs} loading={loadingTasks} />
       ),
       keywords: ["flight", "log", "aircraft", "release"],
+      searchRecords: flightLogs,
     },
     {
       key: "pre-inspection",
@@ -450,6 +463,7 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+      searchRecords: preInspections,
     },
     {
       key: "post-inspection",
@@ -463,6 +477,7 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["post", "inspection", "post-inspection", "aircraft"],
+      searchRecords: postInspections,
     },
     {
       key: "parts-requisition",
@@ -475,6 +490,7 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["parts", "requisition", "warehouse", "wrs", "stock"],
+      searchRecords: partsRequisitions,
     },
   ];
 
@@ -502,6 +518,7 @@ export default function MaintenanceDashboard() {
         if (haystack.includes(token)) relevance += 1;
       });
       if (haystack.includes(query)) relevance += 2;
+      if (matchesSearch(query, card.searchRecords || [])) relevance += 2;
 
       return { ...card, relevance };
     })

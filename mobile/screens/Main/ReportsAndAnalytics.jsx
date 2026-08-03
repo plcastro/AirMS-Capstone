@@ -21,6 +21,7 @@ import {
 } from "../../components/common/MobileModule";
 import ExportFile from "../../components/common/ExportFile";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch as recordMatchesSearch } from "../../utilities/search";
 import MaintenancePerformance from "../../components/reports/MaintenancePerformance";
 import MaintenanceHistory from "../../components/reports/MaintenanceHistory";
 import MaintenanceSummary from "../../components/reports/MaintenanceSummary";
@@ -51,29 +52,8 @@ const topRows = (counts, limit = 4) =>
     .sort((a, b) => b.value - a.value)
     .slice(0, limit);
 
-const collectSearchText = (value, depth = 0) => {
-  if (value == null || depth > 4) return "";
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return String(value);
-  }
-  if (value instanceof Date) return value.toISOString();
-  if (Array.isArray(value)) {
-    return value.map((item) => collectSearchText(item, depth + 1)).join(" ");
-  }
-  if (typeof value === "object") {
-    return Object.values(value)
-      .map((item) => collectSearchText(item, depth + 1))
-      .join(" ");
-  }
-  return "";
-};
-
 const matchesSearch = (record, needle) =>
-  !needle || collectSearchText(record).toLowerCase().includes(needle);
+  recordMatchesSearch(needle, record);
 
 const REPORT_CATEGORY_ORDER = ["Performance", "Inventory", "Logbook"];
 
@@ -103,6 +83,7 @@ const rankReportCards = (cards, searchText) => {
         if (haystack.includes(token)) relevance += 1;
       });
       if (haystack.includes(query)) relevance += 2;
+      if (recordMatchesSearch(query, card.searchRecords || [])) relevance += 2;
       relevance += Math.min(card.recordMatchCount || 0, 10);
 
       return { ...card, relevance };
@@ -566,6 +547,13 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["general", "reports", "overview", "cross-module"],
+        searchRecords: [
+          tasks,
+          flightLogs,
+          preInspections,
+          postInspections,
+          partsRequisitions,
+        ],
         recordMatchCount:
           filteredTasks.length +
           filteredFlightLogs.length +
@@ -585,6 +573,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["performance", "overview"],
+        searchRecords: tasks,
         recordMatchCount: filteredTasks.length,
       },
       {
@@ -600,6 +589,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["history", "maintenance", "record"],
+        searchRecords: tasks,
         recordMatchCount: filteredTasks.length,
       },
       {
@@ -615,6 +605,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["summary", "insights", "repair"],
+        searchRecords: tasks,
         recordMatchCount: filteredTasks.length,
       },
       {
@@ -632,6 +623,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["component", "usage", "analysis"],
+        searchRecords: partsRecords,
         recordMatchCount: filteredPartsRecords.length,
       },
       {
@@ -649,6 +641,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["flight", "log", "aircraft", "release"],
+        searchRecords: flightLogs,
         recordMatchCount: filteredFlightLogs.length,
       },
       {
@@ -667,6 +660,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+        searchRecords: preInspections,
         recordMatchCount: filteredPreInspections.length,
       },
       {
@@ -685,6 +679,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["post", "inspection", "post-inspection", "aircraft"],
+        searchRecords: postInspections,
         recordMatchCount: filteredPostInspections.length,
       },
       {
@@ -702,6 +697,7 @@ export default function ReportsAndAnalytics() {
           />
         ),
         keywords: ["parts", "requisition", "warehouse", "wrs", "stock"],
+        searchRecords: partsRequisitions,
         recordMatchCount: filteredPartsRequisitions.length,
       },
     ],

@@ -13,6 +13,7 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const getMechanicStatus = (taskCount) =>
@@ -122,13 +123,7 @@ export default function MechanicList() {
       };
     })
     .filter((mechanic) => {
-      if (
-        searchQuery &&
-        !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      return true;
+      return matchesSearch(searchQuery, mechanic);
     });
 
   const renderMechanicItem = ({ item }) => {

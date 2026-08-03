@@ -23,6 +23,7 @@ import UserAvatar from "../../../components/common/UserAvatar";
 import ResultPopup from "../../../components/common/ResultPopup";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
+import { matchesSearch } from "../../../utils/search";
 
 const { Text, Title } = Typography;
 const isCompletedTask = (task) =>
@@ -119,11 +120,7 @@ export default function MechanicList() {
               : "Offline",
           };
         })
-        .filter(
-          (item) =>
-            !query.trim() ||
-            item.name.toLowerCase().includes(query.trim().toLowerCase()),
-        ),
+        .filter((item) => matchesSearch(query, item)),
     [query, tasks, users],
   );
 

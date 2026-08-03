@@ -12,6 +12,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
+import { matchesSearch } from "../../../utils/search";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
@@ -494,26 +495,8 @@ export default function MaintenanceLog() {
   };
 
   const filteredEntries = useMemo(() => {
-    const needle = searchValue.trim().toLowerCase();
-    if (!needle) {
-      return allEntries;
-    }
-
-    return allEntries.filter((entry) =>
-      [
-        entry.aircraft,
-        entry.taskTitle,
-        entry.defects,
-        entry.correctiveActionDone,
-        entry.reportedBy,
-        entry.mechanicInCharge,
-        entry.mechanicLicenseNo,
-        entry.inspector,
-        entry.inspectorLicenseNo,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    if (!searchValue.trim()) return allEntries;
+    return allEntries.filter((entry) => matchesSearch(searchValue, entry));
   }, [allEntries, searchValue]);
 
   const uniqueAircraft = useMemo(

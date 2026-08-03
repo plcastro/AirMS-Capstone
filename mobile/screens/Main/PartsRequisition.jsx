@@ -28,6 +28,7 @@ import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -612,15 +613,7 @@ export default function PartsRequisition({ route, navigation }) {
     });
 
     return sourceData.filter((item) => {
-      const matchesSearch =
-        searchQuery.trim().length === 0 ||
-        item.slipNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.requestedBy?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.itemSummary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.aircraft.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchesSearch;
+      return matchesSearch(searchQuery, item);
     });
   }, [isManager, isWarehouse, mappedRequisitions, searchQuery, selectedTab]);
 

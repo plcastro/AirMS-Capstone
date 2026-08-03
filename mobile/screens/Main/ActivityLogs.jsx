@@ -18,6 +18,7 @@ import { showToast } from "../../utilities/toast";
 import AreaChart from "../../components/common/AreaChart";
 import { SearchBar } from "../../components/common/MobileModule";
 import { exportReportPdf } from "../../utilities/reportExport";
+import { matchesSearch } from "../../utilities/search";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
 const DATE_RANGE_OPTIONS = [
@@ -312,16 +313,7 @@ export default function ActivityLogs() {
       }
     }
 
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return next;
-
-    return next.filter((item) =>
-      [item.actionMade, item.username, item.dateTime, item.base, item.platform]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
+    return next.filter((item) => matchesSearch(searchQuery, item));
   }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
 
   useEffect(() => {

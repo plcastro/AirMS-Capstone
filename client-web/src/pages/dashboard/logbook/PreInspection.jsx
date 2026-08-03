@@ -40,6 +40,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
+import { matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -580,14 +581,7 @@ export default function PreInspection() {
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const needle = query.trim().toLowerCase();
-        const matchesQuery =
-          !needle ||
-          [item.rpc, item.aircraftType, item.date].some((value) =>
-            String(value || "")
-              .toLowerCase()
-              .includes(needle),
-          );
+        const matchesQuery = matchesSearch(query, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||

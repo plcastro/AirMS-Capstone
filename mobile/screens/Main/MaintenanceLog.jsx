@@ -24,6 +24,7 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
 
 const normalizeLog = (entry) => {
   const workDetails =
@@ -130,7 +131,6 @@ export default function MaintenanceLog() {
   );
 
   const filteredEntries = useMemo(() => {
-    const needle = search.trim().toLowerCase();
     const baseFiltered =
       selectedBase === "all"
         ? entries
@@ -139,21 +139,7 @@ export default function MaintenanceLog() {
               String(entry.base || "").trim().toUpperCase() === selectedBase,
           );
 
-    if (!needle) return baseFiltered;
-
-    return baseFiltered.filter((entry) =>
-      [
-        entry.aircraft,
-        entry.taskTitle,
-        entry.defects,
-        entry.correctiveActionDone,
-        entry.reportedBy,
-        entry.base,
-        entry.sourceTaskId,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    return baseFiltered.filter((entry) => matchesSearch(search, entry));
   }, [entries, search, selectedBase]);
 
   const aircraftGroups = useMemo(() => {

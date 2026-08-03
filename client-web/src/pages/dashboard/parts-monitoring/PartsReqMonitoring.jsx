@@ -32,6 +32,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -251,14 +252,7 @@ export default function PartsReqMonitoring() {
     let data = warehouseRequisitions;
 
     if (searchText.trim()) {
-      const query = searchText.trim().toLowerCase();
-      data = data.filter(
-        (record) =>
-          record.wrsNo?.toLowerCase().includes(query) ||
-          record.aircraft?.toLowerCase().includes(query) ||
-          record.status?.toLowerCase().includes(query) ||
-          record.staff?.employeeName?.toLowerCase().includes(query),
-      );
+      data = data.filter((record) => matchesSearch(searchText, record));
     }
 
     if (selectedStatus !== "all") {
