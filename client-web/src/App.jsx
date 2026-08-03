@@ -123,6 +123,8 @@ const getUserHomePath = (user) => {
     case "maintenance manager":
     case "officer-in-charge":
       return "/dashboard/maintenance-dashboard";
+    case "pilot":
+      return "/dashboard/maintenance-dashboard";
     case "warehouse staff":
       return "/dashboard/parts-requisition";
     default:
