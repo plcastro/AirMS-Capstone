@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import { TouchableOpacity, View } from "react-native";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -33,6 +33,8 @@ import {
   PartsRequisitionReport,
 } from "../../components/reports/ModuleReports";
 import { CHART_PALETTE, SDMChart } from "../../components/common/PieChart";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
 
 const normalizeStatus = (value) =>
   String(value || "Unknown")
@@ -242,6 +244,7 @@ const isRepairedTask = (task = {}) => {
 };
 
 export default function ReportsAndAnalytics() {
+  const { user } = useContext(AuthContext);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [taskView, setTaskView] = useState("dueSoon");
@@ -255,6 +258,7 @@ export default function ReportsAndAnalytics() {
   const [aircraftBaseByTail, setAircraftBaseByTail] = useState({});
   const searchNeedle = search.trim().toLowerCase();
   const hasActiveSearch = searchNeedle.length > 0;
+  const canExportReports = canExportModule(user?.jobTitle, "reports");
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -802,7 +806,9 @@ export default function ReportsAndAnalytics() {
         </>
       )}
 
-      <ExportFile title="Reports and Analytics" sections={reportSections} />
+      {canExportReports && (
+        <ExportFile title="Reports and Analytics" sections={reportSections} />
+      )}
 
       {!hasActiveSearch && (
         <>

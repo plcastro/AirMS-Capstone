@@ -175,16 +175,18 @@ export default function PreInspectionCards({
               </View>
 
               <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
-                <ActionIconButton
-                  icon="export-variant"
-                  tooltip="Export"
-                  onPress={() => handleExportPress(inspection)}
-                  disabled={Boolean(exportingInspectionId)}
-                  loading={exportLoading}
-                  color="#444"
-                  size={32}
-                  iconSize={18}
-                />
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={18}
+                  />
+                )}
                 <ActionIconButton
                   icon={isViewOnly ? "eye-outline" : "pencil"}
                   tooltip={isViewOnly ? "View" : "Edit"}

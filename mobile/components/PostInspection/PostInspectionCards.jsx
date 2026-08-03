@@ -174,16 +174,18 @@ export default function PostInspectionCards({
               </View>
 
               <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
-                <ActionIconButton
-                  icon="export-variant"
-                  tooltip="Export"
-                  onPress={() => handleExportPress(inspection)}
-                  disabled={Boolean(exportingInspectionId)}
-                  loading={exportLoading}
-                  color="#444"
-                  size={32}
-                  iconSize={21}
-                />
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
                 <ActionIconButton
                   icon={isOfficerInCharge ? "eye-outline" : "pencil"}
                   tooltip={isOfficerInCharge ? "View" : "Edit"}

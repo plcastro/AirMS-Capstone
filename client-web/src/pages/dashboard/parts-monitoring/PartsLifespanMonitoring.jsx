@@ -39,6 +39,7 @@ import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { useSearchParams } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -365,6 +366,10 @@ const columnHeader = [
 
 export default function PartsMonitoring() {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPartsLifespan = canExportModule(
+    user?.jobTitle,
+    "partsLifespan",
+  );
   const [searchParams] = useSearchParams();
   const screens = useBreakpoint();
   const isMobileLayout = !screens.md;
@@ -1432,19 +1437,21 @@ export default function PartsMonitoring() {
                         </Button>
                       </Upload>
                     )}
-                    <Button
-                      icon={<DownloadOutlined />}
-                      onClick={handleExportExcel}
-                      disabled={
-                        !selectedAircraft ||
-                        loading ||
-                        computedData.length === 0
-                      }
-                      block
-                      size="large"
-                    >
-                      Export
-                    </Button>
+                    {canExportPartsLifespan && (
+                      <Button
+                        icon={<DownloadOutlined />}
+                        onClick={handleExportExcel}
+                        disabled={
+                          !selectedAircraft ||
+                          loading ||
+                          computedData.length === 0
+                        }
+                        block
+                        size="large"
+                      >
+                        Export
+                      </Button>
+                    )}
                     {lastSaved && (
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         Last saved: {lastSaved.toLocaleTimeString()}
@@ -1666,15 +1673,17 @@ export default function PartsMonitoring() {
                   </Button>
                 </Upload>
               )}
-              <Button
-                icon={<DownloadOutlined />}
-                onClick={handleExportExcel}
-                disabled={
-                  !selectedAircraft || loading || computedData.length === 0
-                }
-              >
-                Export
-              </Button>
+              {canExportPartsLifespan && (
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleExportExcel}
+                  disabled={
+                    !selectedAircraft || loading || computedData.length === 0
+                  }
+                >
+                  Export
+                </Button>
+              )}
               {lastSaved && (
                 <Text
                   type="secondary"

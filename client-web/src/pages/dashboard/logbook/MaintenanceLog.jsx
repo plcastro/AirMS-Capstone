@@ -13,6 +13,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
@@ -344,7 +345,11 @@ const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
 };
 
 export default function MaintenanceLog() {
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportMaintenanceLogs = canExportModule(
+    user?.jobTitle,
+    "maintenanceLogs",
+  );
   const [allEntries, setAllEntries] = useState([]);
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1049,17 +1054,19 @@ export default function MaintenanceLog() {
                 Back
               </Button>
             </Col>
-            <Col>
-              <Button
-                icon={<ExportOutlined />}
-                type="primary"
-                style={{ backgroundColor: BRAND, border: "none" }}
-                onClick={handleExport}
-                loading={exporting}
-              >
-                Export
-              </Button>
-            </Col>
+            {canExportMaintenanceLogs && (
+              <Col>
+                <Button
+                  icon={<ExportOutlined />}
+                  type="primary"
+                  style={{ backgroundColor: BRAND, border: "none" }}
+                  onClick={handleExport}
+                  loading={exporting}
+                >
+                  Export
+                </Button>
+              </Col>
+            )}
           </Row>
 
           <Card style={{ marginBottom: 15, borderRadius: 12 }}>

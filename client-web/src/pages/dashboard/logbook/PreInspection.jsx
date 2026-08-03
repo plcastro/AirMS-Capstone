@@ -41,6 +41,7 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -437,6 +438,10 @@ export default function PreInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPreInspections = canExportModule(
+    user?.jobTitle,
+    "preInspection",
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
@@ -973,13 +978,15 @@ export default function PreInspection() {
                     onClick={() => setEditing(record)}
                   />
                 </Tooltip>
-                <Tooltip title="Export">
-                  <Button
-                    aria-label="Export"
-                    icon={<ExportOutlined />}
-                    onClick={() => exportInspectionPdf(record)}
-                  />
-                </Tooltip>
+                {canExportPreInspections && (
+                  <Tooltip title="Export">
+                    <Button
+                      aria-label="Export"
+                      icon={<ExportOutlined />}
+                      onClick={() => exportInspectionPdf(record)}
+                    />
+                  </Tooltip>
+                )}
               </Space>
             ),
           },

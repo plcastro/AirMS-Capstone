@@ -23,6 +23,7 @@ import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -88,6 +89,7 @@ export default function FlightLog({ route, navigation }) {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportFlightLogs = canExportModule(userRole, "flightLogs");
 
   const getAuthHeaders = useCallback(async () => {
     const token = await AsyncStorage.getItem("currentUserToken");
@@ -683,7 +685,7 @@ export default function FlightLog({ route, navigation }) {
               <FlightLogCards
                 logs={filteredLogs}
                 onEdit={handleEdit}
-                onExport={handleExport}
+                onExport={canExportFlightLogs ? handleExport : undefined}
                 userRole={userRole}
                 readOnly={isOfficerInCharge}
               />

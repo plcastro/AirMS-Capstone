@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
@@ -19,6 +19,8 @@ import AreaChart from "../../components/common/AreaChart";
 import { SearchBar } from "../../components/common/MobileModule";
 import { exportReportPdf } from "../../utilities/reportExport";
 import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
 const DATE_RANGE_OPTIONS = [
@@ -198,6 +200,7 @@ const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
 };
 
 export default function ActivityLogs() {
+  const { user } = useContext(AuthContext);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -207,6 +210,10 @@ export default function ActivityLogs() {
   const [dateRangeFilter, setDateRangeFilter] = useState("30");
   const [currentPage, setCurrentPage] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const canExportActivityLogs = canExportModule(
+    user?.jobTitle,
+    "activityLogs",
+  );
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -534,29 +541,31 @@ export default function ActivityLogs() {
           </View>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.86}
-          disabled={exporting || filteredLogs.length === 0}
-          onPress={handleExportPdf}
-          style={[
-            styles.exportButton,
-            (exporting || filteredLogs.length === 0) &&
-              styles.exportButtonDisabled,
-          ]}
-        >
-          {exporting ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <MaterialCommunityIcons
-              name="file-pdf-box"
-              size={18}
-              color={COLORS.white}
-            />
-          )}
-          <AppText style={styles.exportButtonText}>
-            {exporting ? "Exporting..." : "Export PDF"}
-          </AppText>
-        </TouchableOpacity>
+        {canExportActivityLogs && (
+          <TouchableOpacity
+            activeOpacity={0.86}
+            disabled={exporting || filteredLogs.length === 0}
+            onPress={handleExportPdf}
+            style={[
+              styles.exportButton,
+              (exporting || filteredLogs.length === 0) &&
+                styles.exportButtonDisabled,
+            ]}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={18}
+                color={COLORS.white}
+              />
+            )}
+            <AppText style={styles.exportButtonText}>
+              {exporting ? "Exporting..." : "Export PDF"}
+            </AppText>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.analyticsCard}>
           <AppText style={styles.analyticsTitle}>Activity Trends</AppText>

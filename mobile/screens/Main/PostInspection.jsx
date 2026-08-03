@@ -18,6 +18,7 @@ import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
 const getDisplayStatus = (status) =>
   status === "completed"
     ? "completed"
@@ -41,6 +42,10 @@ export default function PostInspection({ route }) {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportPostInspections = canExportModule(
+    userRole,
+    "postInspection",
+  );
 
   useEffect(() => {
     const fetchPostInspections = async () => {
@@ -316,7 +321,7 @@ export default function PostInspection({ route }) {
             <PostInspectionCards
               inspections={filteredInspections}
               onEdit={handleEdit}
-              onExport={handleExport}
+              onExport={canExportPostInspections ? handleExport : undefined}
               userRole={userRole}
             />
           )}

@@ -19,6 +19,7 @@ import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
 
 const getDisplayStatus = (status) =>
   status === "completed"
@@ -47,6 +48,10 @@ export default function PreInspection({ route }) {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportPreInspections = canExportModule(
+    userRole,
+    "preInspection",
+  );
 
   useEffect(() => {
     const fetchPreInspections = async () => {
@@ -358,7 +363,7 @@ export default function PreInspection({ route }) {
             <PreInspectionCards
               inspections={filteredInspections}
               onEdit={handleEdit}
-              onExport={handleExport}
+              onExport={canExportPreInspections ? handleExport : undefined}
               userRole={userRole}
             />
           )}

@@ -39,6 +39,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
 import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -110,6 +111,7 @@ export default function FlightLog() {
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportFlightLogs = canExportModule(userRole, "flightLogs");
   const isMechanic = [
     "engineer",
     "mechanic",
@@ -1005,15 +1007,17 @@ export default function FlightLog() {
                 />
               </Tooltip>
             )}
-          <Tooltip title="Export">
-            <Button
-              size="small"
-              aria-label="Export"
-              style={actionButtonStyles.export}
-              icon={<ExportOutlined />}
-              onClick={() => handleExport(record)}
-            />
-          </Tooltip>
+          {canExportFlightLogs && (
+            <Tooltip title="Export">
+              <Button
+                size="small"
+                aria-label="Export"
+                style={actionButtonStyles.export}
+                icon={<ExportOutlined />}
+                onClick={() => handleExport(record)}
+              />
+            </Tooltip>
+          )}
         </Space>
         );
       },
@@ -1140,18 +1144,20 @@ export default function FlightLog() {
                 />
               </Tooltip>
             )}
-          <Tooltip title="Export">
-            <Button
-              size="small"
-              aria-label="Export"
-              style={actionButtonStyles.export}
-              icon={<ExportOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleExport(record);
-              }}
-            />
-          </Tooltip>
+          {canExportFlightLogs && (
+            <Tooltip title="Export">
+              <Button
+                size="small"
+                aria-label="Export"
+                style={actionButtonStyles.export}
+                icon={<ExportOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleExport(record);
+                }}
+              />
+            </Tooltip>
+          )}
         </Space>
       </Card>
     );

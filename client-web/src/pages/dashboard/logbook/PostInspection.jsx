@@ -37,6 +37,7 @@ import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
 const { Text } = Typography;
@@ -77,6 +78,10 @@ export default function PostInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPostInspections = canExportModule(
+    user?.jobTitle,
+    "postInspection",
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
@@ -390,13 +395,15 @@ export default function PostInspection() {
                     onClick={() => setEditing(record)}
                   />
                 </Tooltip>
-                <Tooltip title="Export">
-                  <Button
-                    aria-label="Export"
-                    icon={<ExportOutlined />}
-                    onClick={() => exportInspectionPdf(record)}
-                  />
-                </Tooltip>
+                {canExportPostInspections && (
+                  <Tooltip title="Export">
+                    <Button
+                      aria-label="Export"
+                      icon={<ExportOutlined />}
+                      onClick={() => exportInspectionPdf(record)}
+                    />
+                  </Tooltip>
+                )}
               </Space>
             ),
           },

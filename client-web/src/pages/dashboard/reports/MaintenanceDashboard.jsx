@@ -35,6 +35,7 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -185,7 +186,8 @@ export default function MaintenanceDashboard() {
   const isMobile = !screens.md;
   const isCompactReports = !screens.lg;
   const { message } = App.useApp();
-  const { getValidToken } = useContext(AuthContext);
+  const { user, getValidToken } = useContext(AuthContext);
+  const canExportReports = canExportModule(user?.jobTitle, "reports");
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
@@ -1283,30 +1285,34 @@ export default function MaintenanceDashboard() {
             />
           </Col>
 
-          <Col xs={12} sm={8} md={6} lg={5}>
-            <Select
-              value={selectedFileType}
-              onChange={setSelectedFileType}
-              size="large"
-              style={{ width: "100%" }}
-              options={fileTypeOptions.map((type) => ({
-                label: type,
-                value: type,
-              }))}
-            />
-          </Col>
+          {canExportReports && (
+            <>
+              <Col xs={12} sm={8} md={6} lg={5}>
+                <Select
+                  value={selectedFileType}
+                  onChange={setSelectedFileType}
+                  size="large"
+                  style={{ width: "100%" }}
+                  options={fileTypeOptions.map((type) => ({
+                    label: type,
+                    value: type,
+                  }))}
+                />
+              </Col>
 
-          <Col xs={12} sm={8} md={6} lg={4}>
-            <Button
-              type="primary"
-              icon={<ExportOutlined />}
-              block
-              onClick={handleExportReports}
-              width={"100%"}
-            >
-              Export
-            </Button>
-          </Col>
+              <Col xs={12} sm={8} md={6} lg={4}>
+                <Button
+                  type="primary"
+                  icon={<ExportOutlined />}
+                  block
+                  onClick={handleExportReports}
+                  width={"100%"}
+                >
+                  Export
+                </Button>
+              </Col>
+            </>
+          )}
         </Row>
       </Card>
       {!hasActiveSearch ? (

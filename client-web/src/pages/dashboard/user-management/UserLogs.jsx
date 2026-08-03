@@ -28,6 +28,7 @@ import { ExportOutlined } from "@ant-design/icons";
 import { Input, DatePicker, Space, Grid, message, Select, Card, Button } from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
@@ -59,7 +60,8 @@ const buildReportFileName = (moduleName, extension) =>
 export default function UserLogs() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -427,16 +429,18 @@ export default function UserLogs() {
             style={{ width: isMobile ? "100%" : 180 }}
           />
         )}
-        <Button
-          type="primary"
-          size="large"
-          icon={<ExportOutlined />}
-          loading={exporting}
-          onClick={handleExportLogs}
-          style={{ width: isMobile ? "100%" : "auto" }}
-        >
-          Export PDF
-        </Button>
+        {canExportActivityLogs && (
+          <Button
+            type="primary"
+            size="large"
+            icon={<ExportOutlined />}
+            loading={exporting}
+            onClick={handleExportLogs}
+            style={{ width: isMobile ? "100%" : "auto" }}
+          >
+            Export PDF
+          </Button>
+        )}
       </Space>
       <div style={{ marginBottom: 20 }}>
         <Card title="Activity Trends" size="small" loading={loading}>

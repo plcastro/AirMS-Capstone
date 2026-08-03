@@ -190,16 +190,18 @@ export default function FlightLogCards({
               </View>
 
               <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
-                <ActionIconButton
-                  icon="export-variant"
-                  tooltip="Export"
-                  onPress={() => handleExportPress(log)}
-                  disabled={Boolean(exportingLogId)}
-                  loading={exportLoading}
-                  color="#444"
-                  size={32}
-                  iconSize={21}
-                />
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(log)}
+                    disabled={Boolean(exportingLogId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
                 <ActionIconButton
                   icon={readOnly ? "eye-outline" : "pencil"}
                   tooltip={readOnly ? "View" : "Edit"}

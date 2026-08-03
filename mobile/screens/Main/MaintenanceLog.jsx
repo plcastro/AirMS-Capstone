@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import {
   ScrollView,
@@ -25,6 +25,8 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
 
 const normalizeLog = (entry) => {
   const workDetails =
@@ -67,6 +69,7 @@ const getMechanicLicenseNo = (record = {}) =>
 const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
 
 export default function MaintenanceLog() {
+  const { user } = useContext(AuthContext);
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,6 +78,10 @@ export default function MaintenanceLog() {
   const [selectedBase, setSelectedBase] = useState("all");
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
+  const canExportMaintenanceLogs = canExportModule(
+    user?.jobTitle,
+    "maintenanceLogs",
+  );
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -181,31 +188,33 @@ export default function MaintenanceLog() {
               Back to work orders
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              moduleStyles.button,
-              { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0 },
-            ]}
-            disabled={exportingWorkOrder}
-            onPress={async () => {
-              setExportingWorkOrder(true);
-              try {
-                const aircraftData = await fetchAircraftExportData(
-                  selectedWorkOrder.aircraft,
-                );
-                await exportMaintenanceLogPdf(selectedWorkOrder, {
-                  aircraftData,
-                });
-              } finally {
-                setExportingWorkOrder(false);
-              }
-            }}
-          >
-            <MaterialCommunityIcons name="export-variant" size={18} color={COLORS.white} />
-            <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
-              {exportingWorkOrder ? "Exporting..." : "Export"}
-            </AppText>
-          </TouchableOpacity>
+          {canExportMaintenanceLogs && (
+            <TouchableOpacity
+              style={[
+                moduleStyles.button,
+                { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0 },
+              ]}
+              disabled={exportingWorkOrder}
+              onPress={async () => {
+                setExportingWorkOrder(true);
+                try {
+                  const aircraftData = await fetchAircraftExportData(
+                    selectedWorkOrder.aircraft,
+                  );
+                  await exportMaintenanceLogPdf(selectedWorkOrder, {
+                    aircraftData,
+                  });
+                } finally {
+                  setExportingWorkOrder(false);
+                }
+              }}
+            >
+              <MaterialCommunityIcons name="export-variant" size={18} color={COLORS.white} />
+              <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+                {exportingWorkOrder ? "Exporting..." : "Export"}
+              </AppText>
+            </TouchableOpacity>
+          )}
         </View>
 
         <InfoCard
