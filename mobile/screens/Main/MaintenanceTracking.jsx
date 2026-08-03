@@ -90,6 +90,7 @@ const getTaskScheduleState = (task = {}) => {
 
 const buildClearedInsight = (item) => ({
   ...item,
+  riskLevel: "Low",
   issueTitle: "No maintenance issue detected",
   managerSummary: "No active maintenance flags found from the current records.",
   recommendedAction: "",

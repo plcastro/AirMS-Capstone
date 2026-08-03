@@ -128,6 +128,7 @@ const inferRectificationInspectionName = (item = {}) => {
 
 const buildNoMaintenanceIssueInsight = (item = {}) => ({
   ...item,
+  riskLevel: "Low",
   issueTitle: "No maintenance issue detected",
   shortFinding: "No active maintenance flags found from the current records.",
   managerSummary: "No active maintenance flags found from the current records.",
