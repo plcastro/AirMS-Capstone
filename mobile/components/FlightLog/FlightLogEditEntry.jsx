@@ -633,7 +633,8 @@ export default function FlightLogEditEntry({
   }
 
   return (
-    <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+    <>
+      <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
@@ -1044,37 +1045,38 @@ export default function FlightLogEditEntry({
             </AppText>
           </TouchableOpacity>
         </View>
-
-        <FlightLogSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-        />
-
-        <FlightLogSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-        />
-
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
       </SafeAreaView>
-    </Modal>
+      </Modal>
+
+      <FlightLogSignatureModal
+        visible={showReleaseModal}
+        title="Release Signature"
+        onClose={() => setShowReleaseModal(false)}
+        onSave={handleRelease}
+        aircraftRPC={formData.rpc}
+      />
+
+      <FlightLogSignatureModal
+        visible={showAcceptModal}
+        title="Accept Signature"
+        onClose={() => setShowAcceptModal(false)}
+        onSave={handleAccept}
+        aircraftRPC={formData.rpc}
+      />
+
+      <AlertComp
+        visible={feedbackAlert.visible}
+        title={feedbackAlert.title}
+        message={feedbackAlert.message}
+        duration={1400}
+        onFinish={() => {
+          const shouldClose = feedbackAlert.closeOnFinish;
+          setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+          if (shouldClose) {
+            onClose();
+          }
+        }}
+      />
+    </>
   );
 }

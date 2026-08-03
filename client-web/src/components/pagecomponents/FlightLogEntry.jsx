@@ -615,6 +615,8 @@ export default function FlightLogEntry({
       footer={null}
       width={1160}
       centered
+      rootClassName="fl-entry-modal-root"
+      zIndex={1000}
       styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"
       destroyOnHidden

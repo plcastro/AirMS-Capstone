@@ -1297,6 +1297,9 @@ export default function FlightLog() {
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
+        rootClassName="fl-workflow-confirm-modal"
+        wrapClassName="fl-workflow-confirm-wrap"
+        zIndex={5000}
         okText="OK"
         cancelText="Cancel"
         title={
