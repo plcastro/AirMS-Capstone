@@ -398,6 +398,7 @@ const AppRouter = () => {
                     "officer-in-charge",
                     "warehouse staff",
                     "mechanic",
+                    "pilot",
                   ]}
                 >
                   <Messaging />
@@ -414,6 +415,7 @@ const AppRouter = () => {
                     "officer-in-charge",
                     "warehouse staff",
                     "mechanic",
+                    "pilot",
                   ]}
                 >
                   <Profile />
