@@ -551,6 +551,10 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
       title: "Requested",
       dataIndex: "dateRequested",
       key: "dateRequested",
+      sorter: (left, right) =>
+        new Date(left.dateRequested || 0).getTime() -
+        new Date(right.dateRequested || 0).getTime(),
+      sortDirections: ["descend", "ascend"],
       render: (value) => <DateOnlyCell value={value} fallback="---" />,
     },
     {

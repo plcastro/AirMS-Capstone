@@ -55,6 +55,12 @@ const toRows = (counts) =>
     .map(([label, value]) => ({ label, value }))
     .sort((left, right) => right.value - left.value);
 
+const toKnownBaseRows = (counts) =>
+  Object.entries(counts)
+    .filter(([label]) => isKnownBase(label))
+    .map(([label, value]) => ({ label, value }))
+    .sort((left, right) => right.value - left.value);
+
 const monthLabel = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "No date";
@@ -673,29 +679,23 @@ export default function MaintenanceDashboard() {
     );
 
     if (knownAnalyticsRows.length > 0) {
-      const rows = knownAnalyticsRows.map((row) => ({
-        label: row.base,
-        value: row.damagedCount || 0,
-      }));
-      const repairedRows = knownAnalyticsRows.map((row) => ({
-        label: row.base,
-        value: row.repairedCount || 0,
-      }));
+      const rows = knownAnalyticsRows
+        .map((row) => ({
+          label: row.base,
+          value: row.damagedCount || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
+      const repairedRows = knownAnalyticsRows
+        .map((row) => ({
+          label: row.base,
+          value: row.repairedCount || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
       return {
-        topDamagedBase: baseAnalytics.topDamagedBase
-          ? {
-              label: baseAnalytics.topDamagedBase.base,
-              value: baseAnalytics.topDamagedBase.damagedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
-        topRepairedBase: baseAnalytics.topRepairedBase
-          ? {
-              label: baseAnalytics.topRepairedBase.base,
-              value: baseAnalytics.topRepairedBase.repairedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
-        damageRows: rows.sort((a, b) => b.value - a.value),
-        repairRows: repairedRows.sort((a, b) => b.value - a.value),
+        topDamagedBase: rows[0] || { label: "N/A", value: 0 },
+        topRepairedBase: repairedRows[0] || { label: "N/A", value: 0 },
+        damageRows: rows,
+        repairRows: repairedRows,
         averageRectificationHours:
           baseAnalytics?.totals?.averageRectificationHours || 0,
         sameDayRepairCount: baseAnalytics?.totals?.sameDayRepairCount || 0,
@@ -715,8 +715,8 @@ export default function MaintenanceDashboard() {
       }
     });
 
-    const damageRows = toRows(damageCounts);
-    const repairRows = toRows(repairCounts);
+    const damageRows = toKnownBaseRows(damageCounts);
+    const repairRows = toKnownBaseRows(repairCounts);
 
     return {
       topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
@@ -1639,52 +1639,59 @@ export default function MaintenanceDashboard() {
         </Card>
       ) : null}
 
-      {remainingCardsByGroup.map(([category, categoryCards]) => (
-        <Card
-          key={category}
-          size="small"
-          title={`${category} Reports`}
-          style={{ marginBottom: 16 }}
-          styles={{
-            body: { paddingTop: 10, paddingInline: isCompactReports ? 10 : 16 },
-          }}
-        >
-          {isCompactReports ? (
-            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-              {categoryCards.map((card) => (
-                <Card
-                  key={card.key}
-                  size="small"
-                  title={card.title}
-                  style={{ width: "100%" }}
-                  styles={{ body: { padding: 10 } }}
-                >
-                  {card.component}
-                </Card>
-              ))}
-            </Space>
-          ) : (
-            <Masonry
-              columns={reportMasonryColumns}
-              gutter={[16, 16]}
-              items={categoryCards.map((card) => ({
-                key: card.key,
-                data: card,
-              }))}
-              itemRender={({ data: card }) => (
-                <Card
-                  size="small"
-                  title={card.title}
-                  style={{ width: "100%" }}
-                  styles={{ body: { padding: 12 } }}
-                >
-                  {card.component}
-                </Card>
-              )}
-            />
-          )}
-        </Card>
-      ))}
+      {remainingCardsByGroup.map(([category, categoryCards]) => {
+        const useSingleColumn = isCompactReports || category === "Logbook";
+
+        return (
+          <Card
+            key={category}
+            size="small"
+            title={`${category} Reports`}
+            style={{ marginBottom: 16 }}
+            styles={{
+              body: {
+                paddingTop: 10,
+                paddingInline: isCompactReports ? 10 : 16,
+              },
+            }}
+          >
+            {useSingleColumn ? (
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+                {categoryCards.map((card) => (
+                  <Card
+                    key={card.key}
+                    size="small"
+                    title={card.title}
+                    style={{ width: "100%" }}
+                    styles={{ body: { padding: 10 } }}
+                  >
+                    {card.component}
+                  </Card>
+                ))}
+              </Space>
+            ) : (
+              <Masonry
+                columns={reportMasonryColumns}
+                gutter={[16, 16]}
+                items={categoryCards.map((card) => ({
+                  key: card.key,
+                  data: card,
+                }))}
+                itemRender={({ data: card }) => (
+                  <Card
+                    size="small"
+                    title={card.title}
+                    style={{ width: "100%" }}
+                    styles={{ body: { padding: 12 } }}
+                  >
+                    {card.component}
+                  </Card>
+                )}
+              />
+            )}
+          </Card>
+        );
+      })}
       <ResultPopup
         open={popup.open}
         status={popup.status}

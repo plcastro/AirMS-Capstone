@@ -46,12 +46,43 @@ const ACTION_BUTTON_COLORS = {
     color: "#fff",
   },
 };
+const DATE_FIELD_CANDIDATES = [
+  "date",
+  "createdAt",
+  "updatedAt",
+  "submittedAt",
+  "completedAt",
+  "approvedAt",
+  "acceptedAt",
+  "releasedAt",
+  "reviewedAt",
+  "returnedAt",
+  "loginAt",
+  "logoutAt",
+  "lastActivityAt",
+  "lastSeenAt",
+  "dueDate",
+  "endDateTime",
+  "startDateTime",
+  "dateDiscovered",
+  "dateRectified",
+  "dateRequested",
+  "dateAdded",
+  "timestamp",
+];
+const DATE_TITLE_PATTERN =
+  /\b(date|time|due|requested|created|updated|submitted|completed|approved|accepted|released|reviewed|returned|login|logout|activity|seen)\b/i;
 
 const getColumnKey = (column, index) =>
   column.key || column.dataIndex || `column-${index}`;
 
 const getTitleText = (title) =>
   typeof title === "string" || typeof title === "number" ? String(title) : "";
+
+const normalizeDateKey = (value) =>
+  String(value || "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
 
 const getValueByPath = (record, dataIndex) => {
   if (!dataIndex) return undefined;
@@ -60,6 +91,130 @@ const getValueByPath = (record, dataIndex) => {
     : String(dataIndex).split(".");
   return path.reduce((value, key) => value?.[key], record);
 };
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const slashDate = raw.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i,
+  );
+  if (slashDate) {
+    const [, month, day, yearValue, hourValue, minuteValue, secondValue, ampm] =
+      slashDate;
+    const year =
+      yearValue.length === 2 ? 2000 + Number(yearValue) : Number(yearValue);
+    let hour = Number(hourValue || 0);
+    if (ampm) {
+      const marker = ampm.toUpperCase();
+      if (marker === "PM" && hour < 12) hour += 12;
+      if (marker === "AM" && hour === 12) hour = 0;
+    }
+    const date = new Date(
+      year,
+      Number(month) - 1,
+      Number(day),
+      hour,
+      Number(minuteValue || 0),
+      Number(secondValue || 0),
+    );
+    const time = date.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+
+  const parsed = new Date(raw);
+  const time = parsed.getTime();
+  return Number.isNaN(time) ? null : time;
+};
+
+const isDateColumn = (column) => {
+  const title = getTitleText(column.title);
+  const key = normalizeDateKey(getColumnKey(column));
+  const dataIndex = normalizeDateKey(
+    Array.isArray(column.dataIndex)
+      ? column.dataIndex.join(".")
+      : column.dataIndex,
+  );
+
+  return (
+    DATE_TITLE_PATTERN.test(title) ||
+    DATE_FIELD_CANDIDATES.some((candidate) => {
+      const normalizedCandidate = normalizeDateKey(candidate);
+      return key === normalizedCandidate || dataIndex === normalizedCandidate;
+    })
+  );
+};
+
+const getNewestSortValue = (record, dateColumns = []) => {
+  for (const column of dateColumns) {
+    const time = parseDateValue(getValueByPath(record, column.dataIndex));
+    if (time !== null) return time;
+  }
+
+  for (const field of DATE_FIELD_CANDIDATES) {
+    const time = parseDateValue(getValueByPath(record, field));
+    if (time !== null) return time;
+  }
+
+  return null;
+};
+
+const sortRowsNewestFirst = (records = [], columns = []) => {
+  const flatDateColumns = flattenColumns(columns).filter(isDateColumn);
+  const hasDateSignal =
+    flatDateColumns.length > 0 ||
+    records.some((record) =>
+      DATE_FIELD_CANDIDATES.some(
+        (field) => parseDateValue(getValueByPath(record, field)) !== null,
+      ),
+    );
+
+  if (!hasDateSignal) return records;
+
+  return [...records].sort((left, right) => {
+    const leftTime = getNewestSortValue(left, flatDateColumns);
+    const rightTime = getNewestSortValue(right, flatDateColumns);
+
+    if (leftTime === null && rightTime === null) return 0;
+    if (leftTime === null) return 1;
+    if (rightTime === null) return -1;
+    return rightTime - leftTime;
+  });
+};
+
+const getDateSorter = (column) => (left, right) => {
+  const leftTime = getNewestSortValue(left, [column]);
+  const rightTime = getNewestSortValue(right, [column]);
+
+  if (leftTime === null && rightTime === null) return 0;
+  if (leftTime === null) return 1;
+  if (rightTime === null) return -1;
+  return leftTime - rightTime;
+};
+
+const addDateSortersToColumns = (sourceColumns = []) =>
+  sourceColumns.map((column) => {
+    if (Array.isArray(column.children) && column.children.length) {
+      return {
+        ...column,
+        children: addDateSortersToColumns(column.children),
+      };
+    }
+
+    if (!isDateColumn(column) || column.sorter) return column;
+
+    return {
+      ...column,
+      sorter: getDateSorter(column),
+      sortDirections: column.sortDirections || ["descend", "ascend"],
+    };
+  });
 
 const flattenColumns = (columns = []) =>
   columns.flatMap((column) =>
@@ -296,6 +451,10 @@ export default function ResponsiveTable({
     paginationConfig && paginationConfig.total
       ? paginationConfig.total
       : dataSource.length;
+  const sortedDataSource = useMemo(
+    () => sortRowsNewestFirst(dataSource, columns),
+    [dataSource, columns],
+  );
 
   const handlePageChange = (page, nextPageSize) => {
     const sizeChanged = nextPageSize !== pageSize;
@@ -325,8 +484,11 @@ export default function ResponsiveTable({
         };
 
   const displayColumns = useMemo(
-    () => colorizeActionColumns(pruneEmptyActionColumns(columns, dataSource)),
-    [columns, dataSource],
+    () =>
+      addDateSortersToColumns(
+        colorizeActionColumns(pruneEmptyActionColumns(columns, sortedDataSource)),
+      ),
+    [columns, sortedDataSource],
   );
   const flatColumns = useMemo(
     () => flattenColumns(displayColumns),
@@ -342,7 +504,7 @@ export default function ResponsiveTable({
     return (
       <Table
         columns={displayColumns}
-        dataSource={dataSource}
+        dataSource={sortedDataSource}
         rowKey={rowKey}
         pagination={resolvedPagination}
         loading={loading}
@@ -354,8 +516,8 @@ export default function ResponsiveTable({
 
   const pagedData =
     pagination === false
-      ? dataSource
-      : dataSource.slice((current - 1) * pageSize, current * pageSize);
+      ? sortedDataSource
+      : sortedDataSource.slice((current - 1) * pageSize, current * pageSize);
 
   const preferredPrimary =
     detailColumns.find(
