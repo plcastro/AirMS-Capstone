@@ -22,6 +22,7 @@ import {
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import WRSTable from "../tables/WRSTable";
+import ResultPopup from "../common/ResultPopup";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -173,6 +174,12 @@ export default function WRSModal({
   const [availQtyMap, setAvailQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [closeAfterSuccess, setCloseAfterSuccess] = useState(false);
+  const [successPopup, setSuccessPopup] = useState({
+    open: false,
+    title: "",
+    subTitle: "",
+  });
 
   useEffect(() => {
     if (!selectedRecord) {
@@ -452,15 +459,25 @@ export default function WRSModal({
         );
       }
 
-      message.success(successMessage);
+      setCloseAfterSuccess(shouldClose);
+      setSuccessPopup({
+        open: true,
+        title: "Success",
+        subTitle: successMessage,
+      });
       onUpdated?.();
-      if (shouldClose) {
-        onClose();
-      }
     } catch (error) {
       message.error(error.message || "Failed to update requisition");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSuccessPopupClose = () => {
+    setSuccessPopup((current) => ({ ...current, open: false }));
+    if (closeAfterSuccess) {
+      setCloseAfterSuccess(false);
+      onClose();
     }
   };
 
@@ -683,163 +700,172 @@ export default function WRSModal({
   if (!selectedRecord) return null;
 
   return (
-    <Modal
-      open={visible}
-      onCancel={onClose}
-      width={"95%"}
-      height={"90vh"}
-      centered
-      footer={null}
-      zIndex={1100}
-      title={
-        <div>
-          <Title level={4} style={{ margin: 0 }}>
-            Warehouse Requisition Details
-          </Title>
-          <Text type="secondary">
-            Review stock, confirm ordered items, and mark approved requisitions
-            as delivered.
-          </Text>
-        </div>
-      }
-    >
-      <Row gutter={[20, 20]}>
-        <Col xs={24} xl={17}>
-          <Card
-            variant="borderless"
-            style={{ borderRadius: 18, background: "#fafafa" }}
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">WRS No.</Text>
-                <Title level={5} style={{ marginTop: 6 }}>
-                  {selectedRecord.wrsNo}
-                </Title>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Status</Text>
-                <div style={{ marginTop: 6 }}>
-                  <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {getStatusDisplayLabel(currentStatus)}
-                  </Tag>
-                </div>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Aircraft</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.aircraft}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Requested By</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>
-                    {selectedRecord.staff?.employeeName ||
-                      selectedRecord.staff?.requisitioner}
-                  </Text>
-                </Paragraph>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Date Requested</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.dateRequested}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Total Items</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.items.length}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={12} sm={12} md={6}>
-                <Text type="secondary">Total Quantity</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{totalQty}</Text>
-                </Paragraph>
-              </Col>
-            </Row>
-          </Card>
+    <>
+      <Modal
+        open={visible}
+        onCancel={onClose}
+        width={"95%"}
+        height={"90vh"}
+        centered
+        footer={null}
+        zIndex={1100}
+        title={
+          <div>
+            <Title level={4} style={{ margin: 0 }}>
+              Warehouse Requisition Details
+            </Title>
+            <Text type="secondary">
+              Review stock, confirm ordered items, and mark approved requisitions
+              as delivered.
+            </Text>
+          </div>
+        }
+      >
+        <Row gutter={[20, 20]}>
+          <Col xs={24} xl={17}>
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 18, background: "#fafafa" }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">WRS No.</Text>
+                  <Title level={5} style={{ marginTop: 6 }}>
+                    {selectedRecord.wrsNo}
+                  </Title>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Status</Text>
+                  <div style={{ marginTop: 6 }}>
+                    <Tag color={statusMeta.color} icon={statusMeta.icon}>
+                      {getStatusDisplayLabel(currentStatus)}
+                    </Tag>
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Aircraft</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{selectedRecord.aircraft}</Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Requested By</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>
+                      {selectedRecord.staff?.employeeName ||
+                        selectedRecord.staff?.requisitioner}
+                    </Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Date Requested</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{selectedRecord.dateRequested}</Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Total Items</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{selectedRecord.items.length}</Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Total Quantity</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{totalQty}</Text>
+                  </Paragraph>
+                </Col>
+              </Row>
+            </Card>
 
-          <Divider titlePlacement="left">Requested Items</Divider>
+            <Divider titlePlacement="left">Requested Items</Divider>
 
-          <WRSTable
-            data={selectedRecord.items}
-            availQtyMap={availQtyMap}
-            persistedQtyMap={persistedQtyMap}
-            setAvailQtyMap={setAvailQtyMap}
-            disabled={
-              !isWarehouseStaff ||
-              (currentStatus !== "Parts Requested" &&
-                currentStatus !== "To Be Ordered")
-            }
-          />
-        </Col>
-
-        <Col xs={24} xl={7}>
-          <Card
-            variant="borderless"
-            style={{ borderRadius: 18, marginBottom: 16 }}
-          >
-            <Title level={5}>Warehouse Flow</Title>
-            <Timeline
-              items={statusSteps.map((step, index) => {
-                const isCompleted = index < currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-
-                return {
-                  icon: isCompleted ? (
-                    <CheckCircleOutlined style={{ color: "#52c41a" }} />
-                  ) : isCurrent ? (
-                    <ClockCircleOutlined style={{ color: "#13c2c2" }} />
-                  ) : (
-                    <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
-                  ),
-                  content: (
-                    <div
-                      style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
-                    >
-                      <Text strong>{getStatusDisplayLabel(step)}</Text>
-                      <div>
-                        <Text type="secondary">
-                          {step === "Approved" &&
-                            "Maintenance manager approved the requisition because all items are available."}
-                          {step === "Parts Requested" &&
-                            "Warehouse checks whether each requested item is in stock or out of stock."}
-                          {step === "Availability Checked" &&
-                            "Stock review submitted. Maintenance is now reviewing warehouse availability."}
-                          {step === "To Be Ordered" &&
-                            "Maintenance manager requested ordering for the unavailable items."}
-                          {step === "Ordered" &&
-                            "Warehouse confirmed the previously unavailable items are now restocked."}
-                          {step === "Delivered" &&
-                            "Warehouse completed the release and marked the requisition as delivered."}
-                        </Text>
-                      </div>
-                    </div>
-                  ),
-                };
-              })}
+            <WRSTable
+              data={selectedRecord.items}
+              availQtyMap={availQtyMap}
+              persistedQtyMap={persistedQtyMap}
+              setAvailQtyMap={setAvailQtyMap}
+              disabled={
+                !isWarehouseStaff ||
+                (currentStatus !== "Parts Requested" &&
+                  currentStatus !== "To Be Ordered")
+              }
             />
-          </Card>
+          </Col>
 
-          <Card variant="borderless" style={{ borderRadius: 18 }}>
-            <Title level={5}>{nextAction.title}</Title>
-            <Paragraph type="secondary">{nextAction.description}</Paragraph>
+          <Col xs={24} xl={7}>
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 18, marginBottom: 16 }}
+            >
+              <Title level={5}>Warehouse Flow</Title>
+              <Timeline
+                items={statusSteps.map((step, index) => {
+                  const isCompleted = index < currentStepIndex;
+                  const isCurrent = index === currentStepIndex;
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Button
-                type="primary"
-                icon={<CheckCircleOutlined />}
-                loading={submitting}
-                disabled={nextAction.disabled}
-                onClick={handleSubmit}
-              >
-                {nextAction.buttonText}
-              </Button>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-    </Modal>
+                  return {
+                    icon: isCompleted ? (
+                      <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                    ) : isCurrent ? (
+                      <ClockCircleOutlined style={{ color: "#13c2c2" }} />
+                    ) : (
+                      <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
+                    ),
+                    content: (
+                      <div
+                        style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
+                      >
+                        <Text strong>{getStatusDisplayLabel(step)}</Text>
+                        <div>
+                          <Text type="secondary">
+                            {step === "Approved" &&
+                              "Maintenance manager approved the requisition because all items are available."}
+                            {step === "Parts Requested" &&
+                              "Warehouse checks whether each requested item is in stock or out of stock."}
+                            {step === "Availability Checked" &&
+                              "Stock review submitted. Maintenance is now reviewing warehouse availability."}
+                            {step === "To Be Ordered" &&
+                              "Maintenance manager requested ordering for the unavailable items."}
+                            {step === "Ordered" &&
+                              "Warehouse confirmed the previously unavailable items are now restocked."}
+                            {step === "Delivered" &&
+                              "Warehouse completed the release and marked the requisition as delivered."}
+                          </Text>
+                        </div>
+                      </div>
+                    ),
+                  };
+                })}
+              />
+            </Card>
+
+            <Card variant="borderless" style={{ borderRadius: 18 }}>
+              <Title level={5}>{nextAction.title}</Title>
+              <Paragraph type="secondary">{nextAction.description}</Paragraph>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Button
+                  type="primary"
+                  icon={<CheckCircleOutlined />}
+                  loading={submitting}
+                  disabled={nextAction.disabled}
+                  onClick={handleSubmit}
+                >
+                  {nextAction.buttonText}
+                </Button>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      </Modal>
+      <ResultPopup
+        open={successPopup.open}
+        status="success"
+        title={successPopup.title}
+        subTitle={successPopup.subTitle}
+        onClose={handleSuccessPopupClose}
+      />
+    </>
   );
 }
