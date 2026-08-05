@@ -6,10 +6,30 @@ export const normalizeRole = (value) =>
 const EXPORT_ACCESS = {
   reports: ["superadmin", "maintenance manager", "officer-in-charge"],
   activityLogs: ["superadmin"],
-  flightLogs: ["superadmin", "maintenance manager", "officer-in-charge"],
-  maintenanceLogs: ["superadmin", "maintenance manager", "officer-in-charge"],
-  preInspection: ["superadmin", "maintenance manager", "officer-in-charge"],
-  postInspection: ["superadmin", "maintenance manager", "officer-in-charge"],
+  flightLogs: [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ],
+  maintenanceLogs: [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ],
+  preInspection: [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ],
+  postInspection: [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+    "mechanic",
+  ],
   partsLifespan: ["superadmin", "maintenance manager", "officer-in-charge"],
 };
 

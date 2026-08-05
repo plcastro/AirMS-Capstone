@@ -11,6 +11,7 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
+  zIndex = 6000,
   onCancel,
   onSave,
 }) {
@@ -100,6 +101,7 @@ export default function PinVerifiedSignatureModal({
       open={open}
       title={title}
       onCancel={handleCancel}
+      zIndex={zIndex}
       destroyOnHidden
       footer={
         step === "signature"

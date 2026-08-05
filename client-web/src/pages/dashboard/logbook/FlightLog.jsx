@@ -1304,6 +1304,7 @@ export default function FlightLog() {
 
       <PinVerifiedSignatureModal
         open={signatureWorkflow.open}
+        zIndex={6000}
         title={
           signatureWorkflow.action === "release"
             ? "Flight Log - Release"
