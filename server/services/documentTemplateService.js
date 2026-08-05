@@ -11,6 +11,10 @@ const UserModel = require("../models/userModel");
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
 const EXPORT_TMP_DIR = path.join(__dirname, "../tmp/inspection-exports");
 const DOCX_TO_PDF_SCRIPT = path.join(__dirname, "../scripts/convertDocxToPdf.vbs");
+const NGCP_LOGO_PATH = path.resolve(
+  __dirname,
+  "../../client-web/public/images/ngcp-logo.png",
+);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("binary");
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {
@@ -1170,6 +1174,33 @@ const normalizePngForPdf = async (buffer) => {
   }
 };
 
+const getNgcpLogoBuffer = async () => {
+  try {
+    return await normalizePngForPdf(await fs.promises.readFile(NGCP_LOGO_PATH));
+  } catch {
+    return null;
+  }
+};
+
+const drawNgcpLogo = (doc, logoBuffer, x, y, width, height) => {
+  if (logoBuffer) {
+    doc.image(logoBuffer, x, y, { fit: [width, height] });
+    return;
+  }
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(28)
+    .fillColor("#0a8f63")
+    .text("N", x, y + 4, { continued: true });
+  doc.fillColor("#000").text("GCP", { continued: false });
+  doc
+    .font("Helvetica")
+    .fontSize(7)
+    .fillColor("#000")
+    .text("BRIDGING POWER & PROGRESS", x, y + 36);
+};
+
 const drawPdfLine = (doc, x1, y1, x2, y2) => {
   doc.moveTo(x1, y1).lineTo(x2, y2).stroke();
 };
@@ -1188,6 +1219,7 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
   const releasedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.releasedBy));
   const acceptedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.acceptedBy));
   const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 36 });
@@ -1211,9 +1243,7 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
     };
 
     const drawHeader = () => {
-      doc.font("Helvetica-Bold").fontSize(30).fillColor("#0a8f63").text("N", 42, 38, { continued: true });
-      doc.fillColor("#000").text("GCP", { continued: false });
-      doc.font("Helvetica").fontSize(7).fillColor("#000").text("BRIDGING POWER & PROGRESS", 42, 72);
+      drawNgcpLogo(doc, ngcpLogo, 42, 34, 96, 42);
       doc.font("Helvetica-Bold").fontSize(18).text("AS 350 B3e 360° PRE-FLIGHT INSPECTION", 182, 54);
       drawPdfLine(doc, 182, 76, 525, 76);
 
@@ -1344,6 +1374,7 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
     signatureImageBuffer(inspection.releasedBy),
   );
   const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 36 });
@@ -1359,11 +1390,7 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
     doc.on("error", reject);
 
     const drawHeader = () => {
-      doc.font("Helvetica-Bold").fontSize(28).fillColor("#0a8f63").text("N", left, 36, {
-        continued: true,
-      });
-      doc.fillColor("#000").text("GCP");
-      doc.font("Helvetica").fontSize(7).text("BRIDGING POWER & PROGRESS", left, 68);
+      drawNgcpLogo(doc, ngcpLogo, left, 32, 96, 42);
       doc.font("Helvetica-Bold").fontSize(17).text(
         "AS 350 B3e POST-FLIGHT INSPECTION",
         182,

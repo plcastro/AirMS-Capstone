@@ -418,6 +418,7 @@ export default function ResponsiveTable({
   pagination,
   loading = false,
   onRow,
+  autoDateSort = true,
   mobileBreakpoint = "xs",
   mobilePrimaryColumn,
   mobileSecondaryColumn,
@@ -452,8 +453,8 @@ export default function ResponsiveTable({
       ? paginationConfig.total
       : dataSource.length;
   const sortedDataSource = useMemo(
-    () => sortRowsNewestFirst(dataSource, columns),
-    [dataSource, columns],
+    () => (autoDateSort ? sortRowsNewestFirst(dataSource, columns) : dataSource),
+    [autoDateSort, dataSource, columns],
   );
 
   const handlePageChange = (page, nextPageSize) => {

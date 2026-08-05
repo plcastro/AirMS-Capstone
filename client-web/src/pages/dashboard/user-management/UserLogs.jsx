@@ -29,6 +29,10 @@ import { Input, DatePicker, Space, Grid, message, Select, Card, Button } from "a
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  drawPdfReportHeader,
+  loadNgcpLogoDataUrl,
+} from "../../../components/common/ExportFile";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
@@ -262,15 +266,21 @@ export default function UserLogs() {
       ]);
       const doc = new jsPDF("l", "pt", "a4");
       const columns = Object.keys(exportRows[0]);
+      const generatedAt = `Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`;
+      const logoDataUrl = await loadNgcpLogoDataUrl().catch((error) => {
+        console.warn(error);
+        return null;
+      });
+      const startY = drawPdfReportHeader(doc, {
+        title: "Activity Logs Report",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
 
-      doc.setFontSize(16);
-      doc.text("Activity Logs Report", 40, 42);
-      doc.setFontSize(10);
-      doc.text(`Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`, 40, 60);
       autoTable(doc, {
         head: [columns],
         body: exportRows.map((row) => columns.map((column) => row[column])),
-        startY: 78,
+        startY,
         theme: "grid",
         styles: {
           fontSize: 8,

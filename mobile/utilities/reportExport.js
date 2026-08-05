@@ -1,7 +1,51 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
+import { Image } from "react-native";
 import { requestStoragePermissionForDownload } from "./storagePermission";
+
+const NGCP_LOGO_ASSET = require("../assets/ngcp-logo.png");
+let cachedNgcpLogoDataUri = "";
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return global.btoa(binary);
+};
+
+const getNgcpLogoDataUri = async () => {
+  if (cachedNgcpLogoDataUri) return cachedNgcpLogoDataUri;
+
+  try {
+    const uri = Image.resolveAssetSource(NGCP_LOGO_ASSET)?.uri;
+    if (!uri) return "";
+
+    if (/^data:image\//i.test(uri)) {
+      cachedNgcpLogoDataUri = uri;
+      return cachedNgcpLogoDataUri;
+    }
+
+    if (/^https?:\/\//i.test(uri)) {
+      const response = await fetch(uri);
+      const base64 = arrayBufferToBase64(await response.arrayBuffer());
+      cachedNgcpLogoDataUri = `data:image/png;base64,${base64}`;
+      return cachedNgcpLogoDataUri;
+    }
+
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    cachedNgcpLogoDataUri = `data:image/png;base64,${base64}`;
+    return cachedNgcpLogoDataUri;
+  } catch {
+    return "";
+  }
+};
 
 const safe = (value) =>
   String(value ?? "")
@@ -69,13 +113,15 @@ const normalizeSection = (section = {}) => {
 
 const normalizeSections = (sections = []) => sections.map(normalizeSection);
 
-const buildHtml = (title, sections) => `
+const buildHtml = (title, sections, logoDataUri = "") => `
 <!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <style>
 body { font-family: Arial, sans-serif; padding: 22px; color: #1f1f1f; }
+.report-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.report-header img { width: 78px; height: auto; object-fit: contain; }
 h1 { margin: 0 0 8px; color: #26866F; }
 p { margin: 0 0 14px; color: #666; font-size: 12px; }
 h2 { margin: 18px 0 6px; color: #244D3B; font-size: 15px; }
@@ -85,8 +131,13 @@ th { background: #26866F; color: #fff; }
 </style>
 </head>
 <body>
+<div class="report-header">
+${logoDataUri ? `<img src="${logoDataUri}" alt="NGCP" />` : ""}
+<div>
 <h1>${safe(title)}</h1>
 <p>Generated: ${safe(asDate())}</p>
+</div>
+</div>
 ${sections
   .map(
     (section) => `
@@ -134,7 +185,8 @@ export const exportReportPdf = async ({ title = "Analytics Report", sections = [
   }
 
   const normalizedSections = normalizeSections(sections);
-  const html = buildHtml(title, normalizedSections);
+  const logoDataUri = await getNgcpLogoDataUri();
+  const html = buildHtml(title, normalizedSections, logoDataUri);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   const finalUri = `${FileSystem.cacheDirectory}${buildReportFileName(title, "pdf")}`;
   await FileSystem.copyAsync({ from: uri, to: finalUri });

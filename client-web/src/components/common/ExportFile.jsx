@@ -147,7 +147,7 @@ const COMPONENT_TIME_FIELDS = [
   ["USAGE", "usage"],
   ["L'DING CYCLE", "landingCycle"],
 ];
-const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+export const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
 const FLIGHT_LOG_TABLE_MARGIN = { left: 18, right: 18 };
 const FLIGHT_LOG_TABLE_WIDTH = 559;
 
@@ -191,7 +191,7 @@ const fitRows = (items = [], count, emptyFactory) =>
     (_, index) => items[index] || emptyFactory(index),
   );
 
-const loadImageDataUrl = (src) =>
+export const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -206,6 +206,42 @@ const loadImageDataUrl = (src) =>
     image.onerror = () => reject(new Error(`Unable to load image: ${src}`));
     image.src = src;
   });
+
+export const loadNgcpLogoDataUrl = () => loadImageDataUrl(NGCP_LOGO_PATH);
+
+export const drawPdfReportHeader = (
+  doc,
+  {
+    title = "Export",
+    subtitle = "",
+    logoDataUrl = null,
+    x = 40,
+    y = 34,
+    logoWidth = 78,
+    logoHeight = 30,
+  } = {},
+) => {
+  const titleX = logoDataUrl ? x + logoWidth + 16 : x;
+
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", x, y - 18, logoWidth, logoHeight);
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(30);
+  doc.text(title || "Export", titleX, y);
+
+  if (subtitle) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(subtitle, titleX, y + 16);
+  }
+
+  doc.setTextColor(0);
+  return y + (subtitle ? 36 : 24);
+};
 
 const getImageFormatFromDataUrl = (dataUrl = "") => {
   const match = String(dataUrl).match(/^data:image\/(png|jpe?g|webp);/i);
@@ -335,7 +371,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
 
     let logoDataUrl = null;
     try {
-      logoDataUrl = await loadImageDataUrl(NGCP_LOGO_PATH);
+      logoDataUrl = await loadNgcpLogoDataUrl();
     } catch (imageError) {
       console.warn(imageError);
     }
@@ -702,8 +738,14 @@ export const exportToPDF = async (options = {}) => {
       ]);
     const doc = new jsPDF("p", "pt", "a4");
 
-    doc.setFontSize(18);
-    doc.text("Maintenance Dashboard", 40, 40);
+    const logoDataUrl = await loadNgcpLogoDataUrl().catch((imageError) => {
+      console.warn(imageError);
+      return null;
+    });
+    const startY = drawPdfReportHeader(doc, {
+      title: "Maintenance Dashboard",
+      logoDataUrl,
+    });
 
     const summaryColumns = [
       { header: "Aircraft", dataKey: "aircraft" },
@@ -716,7 +758,7 @@ export const exportToPDF = async (options = {}) => {
     autoTable(doc, {
       head: [summaryColumns.map((c) => c.header)],
       body: summarydata.map((r) => summaryColumns.map((c) => r[c.dataKey])),
-      startY: 60,
+      startY,
       theme: "grid",
     });
 
@@ -790,20 +832,20 @@ export const exportRecordToPDF = async ({
     }
 
     const doc = new jsPDF("p", "pt", "a4");
-    doc.setFontSize(18);
-    doc.text(title || "Export", 40, 40);
-
-    if (subtitle) {
-      doc.setFontSize(11);
-      doc.setTextColor(90);
-      doc.text(subtitle, 40, 60);
-      doc.setTextColor(0);
-    }
+    const logoDataUrl = await loadNgcpLogoDataUrl().catch((imageError) => {
+      console.warn(imageError);
+      return null;
+    });
+    const startY = drawPdfReportHeader(doc, {
+      title: title || "Export",
+      subtitle,
+      logoDataUrl,
+    });
 
     autoTable(doc, {
       head: [["Field", "Value"]],
       body: rows.map(({ label, value }) => [label, value]),
-      startY: subtitle ? 78 : 60,
+      startY,
       theme: "grid",
       styles: {
         fontSize: 9,

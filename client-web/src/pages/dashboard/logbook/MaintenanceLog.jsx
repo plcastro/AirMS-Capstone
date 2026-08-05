@@ -17,6 +17,7 @@ import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+const NGCP_LOGO_ASPECT_RATIO = 493 / 243;
 const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
 const formatPdfValue = (value, fallback = "") =>
@@ -68,8 +69,23 @@ const getInspector = (record = {}) =>
   record.inspector || record.approvedBy || "";
 
 const getMechanicLicenseNo = (record = {}) =>
-  record.mechanicLicenseNo || record.licenseNo || "";
-const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+  record.mechanicLicenseNo ||
+  record.mechanicLicense ||
+  record.mechanicInCharge?.licenseNo ||
+  record.releasedBy?.licenseNo ||
+  record.licenseNo ||
+  "";
+const getInspectorLicenseNo = (record = {}) =>
+  record.inspectorLicenseNo ||
+  record.inspectorLicense ||
+  record.inspector?.licenseNo ||
+  record.approvedBy?.licenseNo ||
+  "";
+
+const formatAmtLicense = (value) => {
+  const licenseNo = formatPdfValue(value, "N/A");
+  return `${licenseNo} - AMT`;
+};
 
 const getReportDate = (record = {}) =>
   formatReportDate(
@@ -208,14 +224,17 @@ const drawMaintenanceReportHeader = (
 
   doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
   if (logoDataUrl) {
-    doc.addImage(
-      logoDataUrl,
-      "PNG",
-      centerX + 10,
-      metadataY + 4,
-      centerWidth - 20,
-      38,
+    const maxLogoWidth = centerWidth - 24;
+    const maxLogoHeight = rowHeight * 4 - 8;
+    const logoWidth = Math.min(
+      maxLogoWidth,
+      maxLogoHeight * NGCP_LOGO_ASPECT_RATIO,
     );
+    const logoHeight = logoWidth / NGCP_LOGO_ASPECT_RATIO;
+    const logoX = centerX + (centerWidth - logoWidth) / 2;
+    const logoY = metadataY + (rowHeight * 4 - logoHeight) / 2;
+
+    doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(32);
@@ -317,17 +336,13 @@ const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
   const leftCenterX = header.marginX + signoffColumnWidth / 2;
   const rightCenterX =
     header.marginX + signoffColumnWidth + signoffColumnWidth / 2;
-  const mechanicLicense = getMechanicLicenseNo(record)
-    ? `${getMechanicLicenseNo(record)} - AMT`
-    : "";
-  const inspectorLicense = getInspectorLicenseNo(record)
-    ? `${getInspectorLicenseNo(record)} - AMT`
-    : "";
+  const mechanicLicense = formatAmtLicense(getMechanicLicenseNo(record));
+  const inspectorLicense = formatAmtLicense(getInspectorLicenseNo(record));
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.text(
-    `Mechanic in-charge: ${formatPdfValue(getMechanicInCharge(record))}`,
+    `Mechanic-in-charge: ${formatPdfValue(getMechanicInCharge(record))}`,
     leftCenterX,
     signoffY,
     { align: "center" },

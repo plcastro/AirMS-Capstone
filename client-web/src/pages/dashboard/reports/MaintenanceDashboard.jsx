@@ -36,6 +36,10 @@ import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  drawPdfReportHeader,
+  loadNgcpLogoDataUrl,
+} from "../../../components/common/ExportFile";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -1031,7 +1035,22 @@ export default function MaintenanceDashboard() {
       ]);
       const doc = new jsPDF("p", "pt", "a4");
       const sections = buildReportExportSections();
-      let y = 42;
+      const generatedAt = `Generated: ${new Date().toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })}`;
+      const logoDataUrl = await loadNgcpLogoDataUrl().catch((error) => {
+        console.warn(error);
+        return null;
+      });
+      let y = drawPdfReportHeader(doc, {
+        title: "Reports and Analytics - Statistics",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
       const pageWidth = doc.internal.pageSize.getWidth();
 
       const drawKpiCard = ({
@@ -1111,25 +1130,6 @@ export default function MaintenanceDashboard() {
         });
       };
 
-      doc.setFontSize(18);
-      doc.text("Reports and Analytics - Statistics", 40, y);
-      y += 18;
-      doc.setFontSize(10);
-      doc.setTextColor(90);
-      doc.text(
-        `Generated: ${new Date().toLocaleString("en-US", {
-          month: "2-digit",
-          day: "2-digit",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })}`,
-        40,
-        y,
-      );
-      doc.setTextColor(0);
-      y += 20;
-
       const cardGap = 12;
       const cardWidth = (pageWidth - 80 - cardGap) / 2;
       const cardHeight = 52;
@@ -1206,12 +1206,20 @@ export default function MaintenanceDashboard() {
       });
 
       doc.addPage();
-      y = 42;
+      y = drawPdfReportHeader(doc, {
+        title: "Reports and Analytics - Details",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
 
       sections.forEach((section, index) => {
         if (index > 0 && y > 650) {
           doc.addPage();
-          y = 42;
+          y = drawPdfReportHeader(doc, {
+            title: "Reports and Analytics - Details",
+            subtitle: generatedAt,
+            logoDataUrl,
+          });
         }
 
         doc.setFontSize(13);

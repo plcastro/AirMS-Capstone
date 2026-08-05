@@ -1,7 +1,7 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import { Alert } from "react-native";
+import { Alert, Image } from "react-native";
 import { requestStoragePermissionForDownload } from "./storagePermission";
 import {
   exportPostInspectionTemplatePdf,
@@ -15,6 +15,54 @@ const EXCLUDED_EXPORT_KEYS = new Set([
   "createdAt",
   "updatedAt",
 ]);
+
+const NGCP_LOGO_ASSET = require("../assets/ngcp-logo.png");
+let cachedNgcpLogoDataUri = "";
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return global.btoa(binary);
+};
+
+const getNgcpLogoDataUri = async () => {
+  if (cachedNgcpLogoDataUri) return cachedNgcpLogoDataUri;
+
+  try {
+    const uri = Image.resolveAssetSource(NGCP_LOGO_ASSET)?.uri;
+    if (!uri) return "";
+
+    if (/^data:image\//i.test(uri)) {
+      cachedNgcpLogoDataUri = uri;
+      return cachedNgcpLogoDataUri;
+    }
+
+    if (/^https?:\/\//i.test(uri)) {
+      const response = await fetch(uri);
+      const base64 = arrayBufferToBase64(await response.arrayBuffer());
+      cachedNgcpLogoDataUri = `data:image/png;base64,${base64}`;
+      return cachedNgcpLogoDataUri;
+    }
+
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    cachedNgcpLogoDataUri = `data:image/png;base64,${base64}`;
+    return cachedNgcpLogoDataUri;
+  } catch {
+    return "";
+  }
+};
+
+const ngcpLogoMarkup = (logoDataUri, className = "ngcp-logo") =>
+  logoDataUri
+    ? `<img class="${className}" src="${logoDataUri}" alt="NGCP" />`
+    : `<div class="ngcp"><span class="accent">N</span>GC<span class="accent">P</span></div><div class="tagline">BRIDGING POWER &amp; PROGRESS</div>`;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -155,7 +203,7 @@ const flattenRecord = (value, prefix = "") => {
   return prefix ? [{ label: prefix, value: formatValue(value) }] : [];
 };
 
-const buildGenericHtml = ({ title, subtitle, rows }) => `
+const buildGenericHtml = ({ title, subtitle, rows, logoDataUri = "" }) => `
   <!DOCTYPE html>
   <html>
     <head>
@@ -165,6 +213,19 @@ const buildGenericHtml = ({ title, subtitle, rows }) => `
           font-family: Arial, sans-serif;
           padding: 24px;
           color: #1f1f1f;
+        }
+
+        .report-header {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .report-header img {
+          width: 78px;
+          height: auto;
+          object-fit: contain;
         }
 
         h1 {
@@ -206,8 +267,13 @@ const buildGenericHtml = ({ title, subtitle, rows }) => `
     </head>
 
     <body>
-      <h1>${escapeHtml(title)}</h1>
-      ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
+      <div class="report-header">
+        ${logoDataUri ? `<img src="${logoDataUri}" alt="NGCP" />` : ""}
+        <div>
+          <h1>${escapeHtml(title)}</h1>
+          ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
+        </div>
+      </div>
 
       <table>
         <thead>
@@ -251,7 +317,7 @@ const simpleTable = (rows = []) => `
   </table>
 `;
 
-const buildMaintenanceLogHtml = (log = {}, aircraftData = null) => {
+const buildMaintenanceLogHtml = (log = {}, aircraftData = null, logoDataUri = "") => {
   const workItems = (
     Array.isArray(log?.workDetails) && log.workDetails.length
       ? log.workDetails
@@ -350,6 +416,12 @@ const buildMaintenanceLogHtml = (log = {}, aircraftData = null) => {
             justify-content: center;
             overflow: hidden;
           }
+          .brand-logo {
+            width: 118pt;
+            max-width: 86%;
+            height: auto;
+            object-fit: contain;
+          }
           .ngcp {
             font-size: 32pt;
             line-height: .9;
@@ -430,8 +502,7 @@ const buildMaintenanceLogHtml = (log = {}, aircraftData = null) => {
               ${labeledCell("W.O. #:", workOrder)}
             </div>
             <div class="brand">
-              <div class="ngcp"><span class="accent">N</span>GC<span class="accent">P</span></div>
-              <div class="tagline">BRIDGING POWER &amp; PROGRESS</div>
+              ${ngcpLogoMarkup(logoDataUri, "brand-logo")}
             </div>
             <div class="meta-side">
               ${labeledCell("AIRCRAFT TT:", ref.acftTT ?? log?.aircraftTT ?? log?.acftTT)}
@@ -537,7 +608,7 @@ const COMPONENT_TIME_FIELDS = [
   ["L'DING CYCLE", "landingCycle"],
 ];
 
-const buildFlightLogHtml = (log = {}) => {
+const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
   const legs = fitRows(log.legs || [], 6, () => ({}));
   const passengerRows = Array.from({ length: 4 }, (_, rowIndex) => [
     rowIndex === 0 ? formatFlightLogDate(log.date) : "",
@@ -583,11 +654,19 @@ const buildFlightLogHtml = (log = {}) => {
           .logo {
             position: absolute;
             left: 4pt;
-            top: 46pt;
+            top: 42pt;
             font-size: 18pt;
             line-height: 1;
             font-weight: 900;
             letter-spacing: -1.5pt;
+          }
+          .logo-image {
+            position: absolute;
+            left: 4pt;
+            top: 42pt;
+            width: 78pt;
+            height: auto;
+            object-fit: contain;
           }
           .logo span:first-child,
           .logo span:last-child { color: #068345; }
@@ -755,7 +834,11 @@ const buildFlightLogHtml = (log = {}) => {
       <body>
         <div class="sheet">
           <div class="header">
-            <div class="logo"><span>N</span>GC<span>P</span></div>
+            ${
+              logoDataUri
+                ? `<img class="logo-image" src="${logoDataUri}" alt="NGCP" />`
+                : `<div class="logo"><span>N</span>GC<span>P</span></div>`
+            }
             <div class="title">
               AIRCRAFT FLIGHT LOG - RW<br />
               ROTARY WINGED AIRCRAFT<br />
@@ -2056,7 +2139,8 @@ const exportRecordToPdf = async ({
         throw new Error("No exportable data found");
       }
 
-      finalHtml = buildGenericHtml({ title, subtitle, rows });
+      const logoDataUri = await getNgcpLogoDataUri();
+      finalHtml = buildGenericHtml({ title, subtitle, rows, logoDataUri });
     }
 
     const { uri } = await Print.printToFileAsync({
@@ -2092,16 +2176,20 @@ export const exportPreInspectionPdf = (inspection) =>
 export const exportPostInspectionPdf = (inspection) =>
   exportPostInspectionTemplatePdf(inspection);
 
-export const exportFlightLogPdf = (log) =>
-  exportRecordToPdf({
+export const exportFlightLogPdf = async (log) => {
+  const logoDataUri = await getNgcpLogoDataUri();
+  return exportRecordToPdf({
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
-    html: buildFlightLogHtml(log),
+    html: buildFlightLogHtml(log, logoDataUri),
   });
+};
 
-export const exportMaintenanceLogPdf = (log, options = {}) =>
-  exportRecordToPdf({
+export const exportMaintenanceLogPdf = async (log, options = {}) => {
+  const logoDataUri = await getNgcpLogoDataUri();
+  return exportRecordToPdf({
     title: "Work Done Report",
     fileName: getMaintenanceLogFileName(log),
-    html: buildMaintenanceLogHtml(log, options.aircraftData),
+    html: buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri),
   });
+};

@@ -78,10 +78,18 @@ const getWarehouseStatusBucket = (record) =>
     : "pending";
 
 const parseRequestedDate = (dateValue) => {
+  if (!dateValue) return 0;
+
+  const parsed = new Date(dateValue);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.getTime();
+  }
+
   const [month, day, year] = String(dateValue || "")
     .split("/")
     .map(Number);
-  return new Date(year, month - 1, day).getTime();
+  const slashDate = new Date(year, month - 1, day).getTime();
+  return Number.isNaN(slashDate) ? 0 : slashDate;
 };
 
 const toSummaryRecord = (record) => ({

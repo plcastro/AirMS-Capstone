@@ -240,6 +240,7 @@ export default function PRMTable({
       <ResponsiveTable
         columns={columns}
         dataSource={data}
+        autoDateSort={false}
         rowKey={(record) => record._id}
         loading={loading}
         scroll={{ x: "max-content" }}
