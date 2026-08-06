@@ -3,6 +3,7 @@ import { Button, Grid, Space, Tag, Tooltip, Typography } from "antd";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
+  DownloadOutlined,
   EyeOutlined,
   FileDoneOutlined,
   InboxOutlined,
@@ -83,6 +84,7 @@ export default function PRMTable({
   loading = false,
   onUpdated,
   initialSelectedRecord = null,
+  onExportExcel,
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -92,6 +94,7 @@ export default function PRMTable({
     Boolean(initialSelectedRecord),
   );
   const [selectedWRS, setSelectedWRS] = useState(initialSelectedRecord);
+  const [exportingRecordId, setExportingRecordId] = useState(null);
 
   const handleShowModal = (record) => {
     setSelectedWRS(record);
@@ -101,6 +104,18 @@ export default function PRMTable({
   const handlePageChange = (page, nextPageSize) => {
     setCurrentPage(page);
     setPageSize(nextPageSize);
+  };
+
+  const handleExportExcel = async (event, record) => {
+    event.stopPropagation();
+    if (!onExportExcel || exportingRecordId) return;
+
+    setExportingRecordId(record._id);
+    try {
+      await onExportExcel(record);
+    } finally {
+      setExportingRecordId(null);
+    }
   };
 
   const columns = useMemo(
@@ -214,25 +229,42 @@ export default function PRMTable({
       {
         title: "Action",
         key: "action",
-        width: 120,
+        width: onExportExcel ? 140 : 120,
         fixed: screens.lg ? "right" : undefined,
         render: (_, record) => (
-          <Tooltip title="Review">
-            <Button
-              type="primary"
-              size="small"
-              aria-label="Review"
-              icon={<EyeOutlined />}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleShowModal(record);
-              }}
-            />
-          </Tooltip>
+          <Space size={6}>
+            <Tooltip title="Review">
+              <Button
+                type="primary"
+                size="small"
+                aria-label="Review"
+                icon={<EyeOutlined />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleShowModal(record);
+                }}
+              />
+            </Tooltip>
+            {onExportExcel && (
+              <Tooltip title="Export Excel">
+                <Button
+                  size="small"
+                  aria-label="Export Excel"
+                  icon={<DownloadOutlined />}
+                  loading={exportingRecordId === record._id}
+                  disabled={
+                    Boolean(exportingRecordId) &&
+                    exportingRecordId !== record._id
+                  }
+                  onClick={(event) => handleExportExcel(event, record)}
+                />
+              </Tooltip>
+            )}
+          </Space>
         ),
       },
     ],
-    [screens.lg],
+    [exportingRecordId, onExportExcel, screens.lg],
   );
 
   return (

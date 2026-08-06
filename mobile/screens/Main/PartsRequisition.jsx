@@ -27,6 +27,7 @@ import PartsRequisitionDetails from "../../components/PartsRequisition/PartsRequ
 import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { API_BASE } from "../../utilities/API_BASE";
+import { exportPartsRequisitionExcel } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
 const formatDate = (dateValue) => {
@@ -1328,6 +1329,7 @@ export default function PartsRequisition({ route, navigation }) {
         onSaveRestock={handleSaveRestock}
         onMarkRestocked={handleMarkRestocked}
         onMarkDelivered={handleMarkDelivered}
+        onExportExcel={isWarehouse ? exportPartsRequisitionExcel : null}
       />
 
       <AlertComp

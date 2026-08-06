@@ -4,6 +4,9 @@ const {
   createPartsRequisitionNotifications,
 } = require("../utils/partsRequisitionNotificationService");
 const { publishTypedEvent } = require("../utils/realtimeEvents");
+const {
+  buildPartsRequisitionWorkbook,
+} = require("../services/partsRequisitionExcelService");
 
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),
@@ -142,6 +145,51 @@ const getRequisitionById = async (req, res) => {
     res.status(200).json(requisition);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const exportRequisitionExcel = async (req, res) => {
+  try {
+    const requesterRole = String(req.user?.jobTitle || req.user?.access || "")
+      .trim()
+      .toLowerCase();
+
+    if (requesterRole !== "warehouse staff") {
+      return res.status(403).json({
+        message: "Only warehouse staff can export parts requisitions.",
+      });
+    }
+
+    const requisition = await partsRequisitionModel
+      .findById(req.params.id)
+      .lean();
+
+    if (!requisition) {
+      return res.status(404).json({ message: "Requisition not found" });
+    }
+
+    const workbook = await buildPartsRequisitionWorkbook(requisition);
+    const safeWrsNo = String(requisition.wrsNo || "WRS")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-");
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeWrsNo}.xlsx"`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Parts requisition Excel export failed:", error);
+    res.status(500).json({
+      message: "Failed to export parts requisition Excel file",
+      error: error.message,
+    });
   }
 };
 
@@ -321,6 +369,7 @@ module.exports = {
   getAllRequisitions,
   getRequisitionSummary,
   getRequisitionById,
+  exportRequisitionExcel,
   createRequisition,
   updateRequisitionStatus,
 };

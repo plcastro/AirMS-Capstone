@@ -13,6 +13,7 @@ import {
   Grid,
   Input,
   InputNumber,
+  message,
   Modal,
   Row,
   Select,
@@ -423,6 +424,38 @@ export default function PartsReqMonitoring() {
       stockStatus: "Parts Requested",
     }));
 
+  const handleExportRequisitionExcel = async (record) => {
+    if (!isWarehouseStaff || !record?._id) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-requisition/${record._id}/export-excel`,
+        {
+          method: "GET",
+          headers: await getAuthHeader(),
+        },
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || "Failed to export Excel file");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${record.wrsNo || "parts-requisition"}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      message.success("Excel file exported successfully.");
+    } catch (err) {
+      message.error(err.message || "Failed to export Excel file.");
+    }
+  };
+
   const handleAddRequisition = async () => {
     try {
       const values = await entryForm.validateFields();
@@ -540,7 +573,7 @@ export default function PartsReqMonitoring() {
             ]}
           />
         </Col>
-        {!isManager && (
+        {!isManager && !isWarehouseStaff && (
           <Col
             xs={24}
             md={10}
@@ -623,6 +656,7 @@ export default function PartsReqMonitoring() {
         loading={loading}
         onUpdated={handleAllRequisitions}
         initialSelectedRecord={targetRecord}
+        onExportExcel={isWarehouseStaff ? handleExportRequisitionExcel : null}
       />
 
       <Modal

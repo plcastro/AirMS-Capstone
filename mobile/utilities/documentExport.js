@@ -96,6 +96,62 @@ const downloadInspectionDocument = async (
   }
 };
 
+const downloadPartsRequisitionExcel = async (requisitionId, fileName) => {
+  try {
+    if (!requisitionId) {
+      throw new Error("Requisition ID is required");
+    }
+
+    const canUseStorage = await requestStoragePermissionForDownload();
+    if (!canUseStorage) {
+      throw new Error("Storage permission is required to download files.");
+    }
+
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const safeFileName = sanitizeFileName(fileName);
+    const fileUri = FileSystem.documentDirectory + safeFileName;
+
+    showToast("Generating Excel file...");
+
+    const response = await fetch(
+      `${API_BASE}/api/parts-requisition/${requisitionId}/export-excel`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download Excel file from server");
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+
+    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) {
+      showToast(`Excel exported. Saved to: ${fileUri}`);
+      return fileUri;
+    }
+
+    await Sharing.shareAsync(fileUri, {
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      dialogTitle: safeFileName,
+    });
+
+    showToast("Excel exported successfully.");
+    return fileUri;
+  } catch (error) {
+    console.error("Parts requisition Excel export error:", error);
+    showToast(error.message || "Unable to export Excel file.");
+    throw error;
+  }
+};
+
 export const exportPreInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
     showToast("Invalid inspection data.");
@@ -122,8 +178,26 @@ export const exportPostInspectionTemplatePdf = (inspection) => {
   return downloadInspectionDocument(inspection._id, "post", fileName);
 };
 
+export const exportPartsRequisitionExcel = (request) => {
+  const requisitionId = request?.id || request?._id || request?.rawRecord?._id;
+  const wrsNo =
+    request?.requestId || request?.wrsNo || request?.rawRecord?.wrsNo || "WRS";
+
+  if (!requisitionId) {
+    showToast("Invalid requisition data.");
+    return null;
+  }
+
+  return downloadPartsRequisitionExcel(
+    requisitionId,
+    `${sanitizeFileName(wrsNo)}.xlsx`,
+  );
+};
+
 export default {
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
+  exportPartsRequisitionExcel,
   downloadInspectionDocument,
+  downloadPartsRequisitionExcel,
 };

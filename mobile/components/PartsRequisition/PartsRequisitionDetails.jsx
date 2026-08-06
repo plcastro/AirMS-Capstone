@@ -141,6 +141,7 @@ export default function PartsRequisitionDetails({
   onSaveRestock,
   onMarkRestocked,
   onMarkDelivered,
+  onExportExcel,
 }) {
   const [availableQtyMap, setAvailableQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
@@ -280,6 +281,17 @@ export default function PartsRequisitionDetails({
     run().finally(() => setActionLoadingKey(""));
   };
 
+  const handleExportExcel = async () => {
+    if (!onExportExcel || actionLoadingKey) return;
+
+    setActionLoadingKey("export");
+    try {
+      await Promise.resolve(onExportExcel(request));
+    } finally {
+      setActionLoadingKey("");
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -413,6 +425,52 @@ export default function PartsRequisitionDetails({
                 </View>
               ))}
             </View>
+
+            {onExportExcel && (
+              <TouchableOpacity
+                activeOpacity={actionLoadingKey ? 1 : 0.8}
+                disabled={Boolean(actionLoadingKey)}
+                onPress={handleExportExcel}
+                style={{
+                  alignSelf: "flex-start",
+                  backgroundColor: actionLoadingKey
+                    ? "#D8D8D8"
+                    : COLORS.primaryLight,
+                  borderRadius: 6,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 18,
+                }}
+              >
+                {actionLoadingKey === "export" ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={COLORS.white}
+                    style={{ marginRight: 6 }}
+                  />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="download-outline"
+                    size={18}
+                    color={COLORS.white}
+                    style={{ marginRight: 6 }}
+                  />
+                )}
+                <AppText
+                  style={{
+                    color: COLORS.white,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {actionLoadingKey === "export"
+                    ? "Exporting..."
+                    : "Export Excel"}
+                </AppText>
+              </TouchableOpacity>
+            )}
 
             <AppText
               style={{
