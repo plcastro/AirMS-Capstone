@@ -9,7 +9,6 @@ import {
   Tag,
   Timeline,
   Typography,
-  message,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -177,6 +176,7 @@ export default function WRSModal({
   const [closeAfterSuccess, setCloseAfterSuccess] = useState(false);
   const [successPopup, setSuccessPopup] = useState({
     open: false,
+    status: "success",
     title: "",
     subTitle: "",
   });
@@ -329,7 +329,7 @@ export default function WRSModal({
         title: "Completed",
         description:
           "No further warehouse action is needed for this requisition.",
-        buttonText: "Done",
+        buttonText: "",
         disabled: true,
       };
     }
@@ -462,12 +462,19 @@ export default function WRSModal({
       setCloseAfterSuccess(shouldClose);
       setSuccessPopup({
         open: true,
+        status: "success",
         title: "Success",
         subTitle: successMessage,
       });
       onUpdated?.();
     } catch (error) {
-      message.error(error.message || "Failed to update requisition");
+      setCloseAfterSuccess(false);
+      setSuccessPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update requisition",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -844,26 +851,30 @@ export default function WRSModal({
               <Title level={5}>{nextAction.title}</Title>
               <Paragraph type="secondary">{nextAction.description}</Paragraph>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Button
-                  type="primary"
-                  icon={<CheckCircleOutlined />}
-                  loading={submitting}
-                  disabled={nextAction.disabled}
-                  onClick={handleSubmit}
-                >
-                  {nextAction.buttonText}
-                </Button>
-              </div>
+              {nextAction.buttonText && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    loading={submitting}
+                    disabled={nextAction.disabled}
+                    onClick={handleSubmit}
+                  >
+                    {nextAction.buttonText}
+                  </Button>
+                </div>
+              )}
             </Card>
           </Col>
         </Row>
       </Modal>
       <ResultPopup
         open={successPopup.open}
-        status="success"
+        status={successPopup.status}
         title={successPopup.title}
         subTitle={successPopup.subTitle}
+        duration={2000}
+        zIndex={1300}
         onClose={handleSuccessPopupClose}
       />
     </>

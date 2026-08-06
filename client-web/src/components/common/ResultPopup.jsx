@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Modal, Result } from "antd";
 
 export default function ResultPopup({
@@ -9,25 +9,33 @@ export default function ResultPopup({
   status = "success",
   duration = 2000,
   autoClose = true,
+  zIndex,
 }) {
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open || !autoClose) return;
 
     const timer = setTimeout(() => {
-      onClose?.();
+      onCloseRef.current?.();
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [open, autoClose, duration, onClose]);
+  }, [open, autoClose, duration]);
 
   return (
     <Modal
       open={open}
       footer={null}
       closable={!autoClose}
-      mask={{ closable: !autoClose }}
+      maskClosable={!autoClose}
       centered
       width={500}
+      zIndex={zIndex}
       onCancel={onClose}
       destroyOnHidden
     >
