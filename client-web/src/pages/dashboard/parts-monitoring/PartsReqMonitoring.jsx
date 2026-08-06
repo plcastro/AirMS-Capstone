@@ -22,6 +22,7 @@ import {
 import {
   CheckCircleOutlined,
   DeleteOutlined,
+  FilePdfOutlined,
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
@@ -29,6 +30,7 @@ import {
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
 import ResultPopup from "../../../components/common/ResultPopup";
+import { exportPartsRequisitionMonitoringReport } from "../../../components/common/ExportFile";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
@@ -142,6 +144,7 @@ export default function PartsReqMonitoring() {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
@@ -465,6 +468,21 @@ export default function PartsReqMonitoring() {
     }
   };
 
+  const handleExportMonitoringReport = async () => {
+    if (!isWarehouseStaff || exportingReport) return;
+
+    setExportingReport(true);
+    try {
+      await exportPartsRequisitionMonitoringReport({
+        data: filteredRequisitions,
+        selectedStatus,
+        setPopup,
+      });
+    } finally {
+      setExportingReport(false);
+    }
+  };
+
   const handleAddRequisition = async () => {
     try {
       const values = await entryForm.validateFields();
@@ -582,6 +600,25 @@ export default function PartsReqMonitoring() {
             ]}
           />
         </Col>
+        {isWarehouseStaff && (
+          <Col
+            xs={24}
+            md={10}
+            lg={10}
+            style={{ textAlign: screens.xs ? "left" : "right" }}
+          >
+            <Button
+              size="large"
+              icon={<FilePdfOutlined />}
+              loading={exportingReport}
+              disabled={filteredRequisitions.length === 0}
+              onClick={handleExportMonitoringReport}
+              style={{ width: screens.xs ? "100%" : undefined }}
+            >
+              Export PDF Report
+            </Button>
+          </Col>
+        )}
         {!isManager && !isWarehouseStaff && (
           <Col
             xs={24}

@@ -12,6 +12,21 @@ import LoginLayout from "../../components/layout/LoginLayout";
 import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
+const storeTrustedDeviceTokenForAccounts = (accounts = [], token) => {
+  if (!token) return;
+
+  const keys = new Set(
+    accounts.map(getTrustedDeviceStorageKey).filter(Boolean),
+  );
+  keys.forEach((key) => localStorage.setItem(key, token));
+  localStorage.removeItem("trustedDeviceToken");
+};
+
 export default function OTP() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,7 +115,10 @@ export default function OTP() {
       if (res.ok) {
         if (mode === "login-2fa") {
           if (data?.trustedDeviceToken) {
-            localStorage.setItem("trustedDeviceToken", data.trustedDeviceToken);
+            storeTrustedDeviceTokenForAccounts(
+              [params.identifier, data.user?.email, data.user?.username],
+              data.trustedDeviceToken,
+            );
           }
           await loginUser(data.user, data.token, {
             rememberMe: Boolean(params.rememberMe),

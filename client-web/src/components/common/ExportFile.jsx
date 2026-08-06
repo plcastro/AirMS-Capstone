@@ -813,6 +813,479 @@ export const exportToPDF = async (options = {}) => {
   }
 };
 
+const parseReportDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  const [month, day, year] = String(value || "")
+    .split("/")
+    .map(Number);
+  const fallbackDate = new Date(year, month - 1, day);
+  return Number.isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+};
+
+const formatReportDate = (value) => {
+  const date = parseReportDate(value);
+  if (!date) return "N/A";
+
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
+const getReportPartName = (item = {}) =>
+  item.particular ||
+  item.codeParticular?.[0]?.particular ||
+  item.itemName ||
+  "Unspecified Part";
+
+const getReportPartId = (item = {}) =>
+  item.matCodeNo ||
+  item.codeParticular?.[0]?.matCodeNo ||
+  item.partNo ||
+  item.partId ||
+  "";
+
+const getMonthKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+const getQuarterKey = (date) =>
+  `${date.getFullYear()} Q${Math.floor(date.getMonth() / 3) + 1}`;
+
+const monthDiffInclusive = (startDate, endDate) => {
+  if (!startDate || !endDate) return 1;
+  return Math.max(
+    1,
+    (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+      endDate.getMonth() -
+      startDate.getMonth() +
+      1,
+  );
+};
+
+const formatDays = (days) =>
+  Number.isFinite(days) ? `${Math.round(days * 10) / 10} days` : "N/A";
+
+const getTrendLabel = (dates = []) => {
+  if (dates.length < 3) return "Insufficient history";
+
+  const sortedDates = [...dates].sort((a, b) => a - b);
+  const midpoint =
+    sortedDates[0].getTime() +
+    (sortedDates[sortedDates.length - 1].getTime() - sortedDates[0].getTime()) /
+      2;
+  const firstHalf = sortedDates.filter(
+    (date) => date.getTime() <= midpoint,
+  ).length;
+  const secondHalf = sortedDates.length - firstHalf;
+
+  if (secondHalf > firstHalf * 1.15) return "Rising demand";
+  if (secondHalf < firstHalf * 0.85) return "Falling demand";
+  return "Stable demand";
+};
+
+const summarizePartsRequisitions = (requisitions = []) => {
+  const partMap = new Map();
+  const monthlyRequests = new Map();
+  const quarterlyRequests = new Map();
+  const datedRecords = [];
+  let totalItems = 0;
+  let totalQuantity = 0;
+
+  requisitions.forEach((record) => {
+    const requestDate =
+      parseReportDate(record.dateRequested) ||
+      parseReportDate(record.createdAt) ||
+      parseReportDate(record.updatedAt);
+
+    if (requestDate) {
+      datedRecords.push({ record, requestDate });
+      const monthKey = getMonthKey(requestDate);
+      const quarterKey = getQuarterKey(requestDate);
+      monthlyRequests.set(monthKey, (monthlyRequests.get(monthKey) || 0) + 1);
+      quarterlyRequests.set(
+        quarterKey,
+        (quarterlyRequests.get(quarterKey) || 0) + 1,
+      );
+    }
+
+    (record.items || []).forEach((item) => {
+      const partName = getReportPartName(item);
+      const partId = getReportPartId(item);
+      const key = `${partId || partName}`.toLowerCase();
+      const quantity = Number(item.quantity) || 0;
+      const existing =
+        partMap.get(key) ||
+        {
+          partName,
+          partId,
+          totalQuantity: 0,
+          requisitionIds: new Set(),
+          dates: [],
+        };
+
+      existing.totalQuantity += quantity;
+      existing.requisitionIds.add(record._id || record.wrsNo || key);
+      if (requestDate) existing.dates.push(requestDate);
+      partMap.set(key, existing);
+      totalItems += 1;
+      totalQuantity += quantity;
+    });
+  });
+
+  const sortedDates = datedRecords
+    .map(({ requestDate }) => requestDate)
+    .sort((a, b) => a - b);
+  const startDate = sortedDates[0] || null;
+  const endDate = sortedDates[sortedDates.length - 1] || null;
+  const monthCount = monthDiffInclusive(startDate, endDate);
+
+  const parts = [...partMap.values()]
+    .map((part) => {
+      const uniqueDates = [
+        ...new Map(
+          part.dates.map((date) => [date.toISOString().slice(0, 10), date]),
+        ).values(),
+      ].sort((a, b) => a - b);
+      const gaps = uniqueDates
+        .slice(1)
+        .map(
+          (date, index) =>
+            (date.getTime() - uniqueDates[index].getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
+      const averageGapDays =
+        gaps.length > 0
+          ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length
+          : null;
+
+      return {
+        ...part,
+        requisitionCount: part.requisitionIds.size,
+        requestsPerMonth: part.requisitionIds.size / monthCount,
+        averageGapDays,
+        trend: getTrendLabel(uniqueDates),
+      };
+    })
+    .sort((first, second) => second.totalQuantity - first.totalQuantity);
+
+  return {
+    parts,
+    topParts: parts.slice(0, 10),
+    totalRequisitions: requisitions.length,
+    totalItems,
+    totalQuantity,
+    startDate,
+    endDate,
+    monthlyRequests: [...monthlyRequests.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    ),
+    quarterlyRequests: [...quarterlyRequests.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    ),
+  };
+};
+
+const addPdfPageIfNeeded = (doc, y, neededHeight = 80) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + neededHeight <= pageHeight - 42) return y;
+  doc.addPage();
+  return 42;
+};
+
+const drawSectionTitle = (doc, title, y) => {
+  const nextY = addPdfPageIfNeeded(doc, y, 34);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(4, 100, 64);
+  doc.text(title, 40, nextY);
+  doc.setDrawColor(4, 100, 64);
+  doc.setLineWidth(0.6);
+  doc.line(40, nextY + 5, 555, nextY + 5);
+  doc.setTextColor(0);
+  return nextY + 20;
+};
+
+const drawWrappedText = (doc, text, x, y, width, lineHeight = 13) => {
+  const lines = doc.splitTextToSize(text, width);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(55);
+  doc.text(lines, x, y);
+  doc.setTextColor(0);
+  return y + lines.length * lineHeight;
+};
+
+const drawBarChart = (
+  doc,
+  { title, rows, x = 40, y, width = 515, height = 170 },
+) => {
+  const chartY = addPdfPageIfNeeded(doc, y, height + 48);
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+  const barGap = 8;
+  const leftLabelWidth = 128;
+  const barAreaWidth = width - leftLabelWidth - 46;
+  const barHeight = Math.max(
+    10,
+    Math.min(18, (height - 30) / rows.length - barGap),
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(title, x, chartY);
+  doc.setDrawColor(220);
+  doc.roundedRect(x, chartY + 12, width, height, 4, 4);
+
+  rows.forEach((row, index) => {
+    const rowY = chartY + 30 + index * (barHeight + barGap);
+    const label = doc.splitTextToSize(row.label, leftLabelWidth - 8)[0] || "";
+    const barWidth = (row.value / maxValue) * barAreaWidth;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(65);
+    doc.text(label, x + 10, rowY + barHeight - 3);
+    doc.setFillColor(4, 138, 37);
+    doc.rect(x + leftLabelWidth, rowY, Math.max(2, barWidth), barHeight, "F");
+    doc.setTextColor(20);
+    doc.text(
+      String(row.value),
+      x + leftLabelWidth + barWidth + 6,
+      rowY + barHeight - 3,
+    );
+  });
+
+  doc.setTextColor(0);
+  return chartY + height + 28;
+};
+
+const drawFrequencyChart = (
+  doc,
+  { title, rows, x = 40, y, width = 515, height = 170 },
+) => {
+  const chartY = addPdfPageIfNeeded(doc, y, height + 48);
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+  const usableHeight = height - 48;
+  const barWidth = Math.max(10, Math.min(34, (width - 40) / rows.length - 6));
+  const baseY = chartY + height - 26;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(title, x, chartY);
+  doc.setDrawColor(220);
+  doc.roundedRect(x, chartY + 12, width, height, 4, 4);
+  doc.line(x + 24, baseY, x + width - 14, baseY);
+
+  rows.forEach((row, index) => {
+    const barHeight = (row.value / maxValue) * usableHeight;
+    const barX = x + 34 + index * (barWidth + 6);
+    const barY = baseY - barHeight;
+
+    doc.setFillColor(22, 119, 255);
+    doc.rect(barX, barY, barWidth, barHeight, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(String(row.value), barX + barWidth / 2, barY - 4, {
+      align: "center",
+    });
+    doc.text(row.label.slice(5) || row.label, barX + barWidth / 2, baseY + 10, {
+      align: "center",
+    });
+  });
+
+  return chartY + height + 28;
+};
+
+export const exportPartsRequisitionMonitoringReport = async ({
+  data = [],
+  setPopup,
+  selectedStatus = "all",
+} = {}) => {
+  try {
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("No requisition data available for the report.");
+    }
+
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF("p", "pt", "a4");
+    const logoDataUrl = await loadNgcpLogoDataUrl().catch((imageError) => {
+      console.warn(imageError);
+      return null;
+    });
+    const report = summarizePartsRequisitions(data);
+    const topPart = report.topParts[0];
+    const periodText =
+      report.startDate && report.endDate
+        ? `${formatReportDate(report.startDate)} to ${formatReportDate(report.endDate)}`
+        : "No dated requests";
+    let y = drawPdfReportHeader(doc, {
+      title: "Parts Requisition Monitoring Report",
+      subtitle: `Period: ${periodText} | Filter: ${formatExportLabel(selectedStatus)}`,
+      logoDataUrl,
+    });
+
+    y = drawSectionTitle(doc, "1. Summary", y + 6);
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Metric", "Value"]],
+      body: [
+        ["Total requisitions", report.totalRequisitions],
+        ["Total line items", report.totalItems],
+        ["Total quantity requested", report.totalQuantity],
+        ["Unique requested parts", report.parts.length],
+        ["Date range", periodText],
+      ],
+      styles: { fontSize: 9, cellPadding: 6 },
+      headStyles: { fillColor: [4, 100, 64] },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 220 } },
+    });
+    y = doc.lastAutoTable.finalY + 16;
+    y = drawWrappedText(
+      doc,
+      topPart
+        ? `Overall findings: ${topPart.partName} ${
+            topPart.partId ? `(${topPart.partId}) ` : ""
+          }is the highest-demand part in the selected data, with ${topPart.totalQuantity} total unit(s) requested across ${topPart.requisitionCount} requisition(s). The report covers ${report.totalRequisitions} requisition(s), ${report.totalItems} line item(s), and ${report.parts.length} unique part(s).`
+        : "Overall findings: no part-level requisition data is available in the selected period.",
+      40,
+      y,
+      515,
+    );
+
+    y = drawSectionTitle(doc, "2. Most Requested Parts", y + 10);
+    autoTable(doc, {
+      startY: y,
+      theme: "striped",
+      head: [["Rank", "Part Name / ID", "Total Qty", "Requisitions"]],
+      body: report.topParts.map((part, index) => [
+        index + 1,
+        [part.partName, part.partId].filter(Boolean).join(" / "),
+        part.totalQuantity,
+        part.requisitionCount,
+      ]),
+      styles: { fontSize: 8.5, cellPadding: 5 },
+      headStyles: { fillColor: [4, 100, 64] },
+      columnStyles: {
+        0: { cellWidth: 42, halign: "center" },
+        2: { cellWidth: 78, halign: "right" },
+        3: { cellWidth: 85, halign: "right" },
+      },
+    });
+    y = doc.lastAutoTable.finalY + 16;
+
+    y = drawSectionTitle(doc, "3. Request Frequency", y);
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Part Name / ID", "Requests", "Requests / Month", "Requests / Quarter"]],
+      body: report.topParts.map((part) => [
+        [part.partName, part.partId].filter(Boolean).join(" / "),
+        part.requisitionCount,
+        Math.round(part.requestsPerMonth * 100) / 100,
+        Math.round(part.requestsPerMonth * 300) / 100,
+      ]),
+      styles: { fontSize: 8.5, cellPadding: 5 },
+      headStyles: { fillColor: [4, 100, 64] },
+      columnStyles: {
+        1: { halign: "right" },
+        2: { halign: "right" },
+        3: { halign: "right" },
+      },
+    });
+    y = doc.lastAutoTable.finalY + 16;
+
+    y = drawSectionTitle(doc, "4. Usage Patterns", y);
+    autoTable(doc, {
+      startY: y,
+      theme: "striped",
+      head: [["Part Name / ID", "Avg. Time Between Requests", "Trend"]],
+      body: report.topParts.map((part) => [
+        [part.partName, part.partId].filter(Boolean).join(" / "),
+        formatDays(part.averageGapDays),
+        part.trend,
+      ]),
+      styles: { fontSize: 8.5, cellPadding: 5 },
+      headStyles: { fillColor: [4, 100, 64] },
+      columnStyles: {
+        1: { cellWidth: 150 },
+        2: { cellWidth: 125 },
+      },
+    });
+    y = doc.lastAutoTable.finalY + 16;
+    y = drawWrappedText(
+      doc,
+      "Trend interpretation compares request activity in the first half of the selected period with the second half. Parts with limited history are marked as insufficient history.",
+      40,
+      y,
+      515,
+    );
+
+    y = drawSectionTitle(doc, "5. Visualizations", y + 10);
+    y = drawBarChart(doc, {
+      title: "Top Requested Parts by Quantity",
+      y,
+      rows:
+        report.topParts.length > 0
+          ? report.topParts.slice(0, 8).map((part) => ({
+              label: part.partId
+                ? `${part.partName} (${part.partId})`
+                : part.partName,
+              value: part.totalQuantity,
+            }))
+          : [{ label: "No requested parts", value: 0 }],
+    });
+    y = drawFrequencyChart(doc, {
+      title: "Request Frequency Over Time",
+      y,
+      rows:
+        report.monthlyRequests.length > 0
+          ? report.monthlyRequests.map(([label, value]) => ({ label, value }))
+          : [{ label: "N/A", value: 0 }],
+    });
+
+    y = drawSectionTitle(doc, "Quarterly Frequency Detail", y);
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Quarter", "Requisition Count"]],
+      body: report.quarterlyRequests.map(([quarter, count]) => [
+        quarter,
+        count,
+      ]),
+      styles: { fontSize: 9, cellPadding: 6 },
+      headStyles: { fillColor: [4, 100, 64] },
+    });
+
+    doc.save(
+      buildSafeFileName(
+        `Parts Requisition Monitoring Report ${formatFileDate()}`,
+        "Parts-Requisition-Monitoring-Report",
+      ) + ".pdf",
+    );
+    showExportPopup(setPopup, {
+      status: "success",
+      title: "PDF Exported!",
+      subTitle: "Parts Requisition Monitoring Report exported successfully.",
+      fallbackMessage: "PDF exported successfully!",
+    });
+  } catch (err) {
+    console.error("Parts requisition monitoring PDF export failed:", err);
+    showExportPopup(setPopup, {
+      status: "error",
+      title: "Operation failed!",
+      subTitle: err.message || "Failed to export PDF report.",
+      fallbackMessage: "PDF export failed: " + err.message,
+    });
+  }
+};
+
 export const exportRecordToPDF = async ({
   title,
   fileName,

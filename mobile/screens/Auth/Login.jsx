@@ -32,6 +32,11 @@ const BASE_OPTIONS = [
   { label: "CDO", value: "CDO" },
 ];
 
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
@@ -93,10 +98,9 @@ export default function Login() {
     setMessage("");
 
     try {
+      const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
       const trustedDeviceToken =
-        (await secureGetItem("trustedDeviceToken")) ||
-        (await AsyncStorage.getItem("trustedDeviceToken")) ||
-        "";
+        trustedDeviceKey ? await secureGetItem(trustedDeviceKey) : "";
 
       const parseResponse = async (res) => {
         const text = await res.text();

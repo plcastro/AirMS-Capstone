@@ -8,7 +8,10 @@ import {
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureSetItem } from "../../utilities/secureStorage";
+import {
+  secureDeleteItem,
+  secureSetItem,
+} from "../../utilities/secureStorage";
 
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
@@ -21,6 +24,21 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
+const storeTrustedDeviceTokenForAccounts = async (accounts = [], token) => {
+  if (!token) return;
+
+  const keys = new Set(
+    accounts.map(getTrustedDeviceStorageKey).filter(Boolean),
+  );
+  await Promise.all([...keys].map((key) => secureSetItem(key, token)));
+  await secureDeleteItem("trustedDeviceToken");
+};
 
 export default function OTP() {
   const route = useRoute();
@@ -115,12 +133,8 @@ export default function OTP() {
 
       const { user, token: accessToken, refreshToken } = data;
       if (data?.trustedDeviceToken) {
-        await secureSetItem(
-          "trustedDeviceToken",
-          data.trustedDeviceToken,
-        );
-        await AsyncStorage.setItem(
-          "trustedDeviceToken",
+        await storeTrustedDeviceTokenForAccounts(
+          [route.params?.identifier, user?.email, user?.username],
           data.trustedDeviceToken,
         );
       }

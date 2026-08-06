@@ -26,6 +26,11 @@ import AirMSLogo from "../../assets/AirMS_web.webp";
 import ResultPopup from "../../components/common/ResultPopup";
 const { Text } = Typography;
 
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -110,8 +115,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const trustedDeviceToken =
-        localStorage.getItem("trustedDeviceToken") || "";
+      const trustedDeviceKey = getTrustedDeviceStorageKey(identifier);
+      const trustedDeviceToken = trustedDeviceKey
+        ? localStorage.getItem(trustedDeviceKey) || ""
+        : "";
 
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
