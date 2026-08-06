@@ -13,7 +13,6 @@ import {
   Grid,
   Input,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
@@ -450,9 +449,19 @@ export default function PartsReqMonitoring() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
-      message.success("Excel file exported successfully.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Excel Exported!",
+        subTitle: `${record.wrsNo || "Parts requisition"} exported successfully.`,
+      });
     } catch (err) {
-      message.error(err.message || "Failed to export Excel file.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to export Excel file.",
+      });
     }
   };
 
