@@ -504,6 +504,7 @@ export default function WRSModal({
           okText: nextAction.buttonText || "Confirm",
           cancelText: "Cancel",
           centered: true,
+          zIndex: 1200,
           onOk: () => resolve(true),
           onCancel: () => resolve(false),
         });
@@ -660,6 +661,8 @@ export default function WRSModal({
               "Some items have partial or zero available quantity. Submit stock review anyway?",
             okText: "Submit",
             cancelText: "Cancel",
+            centered: true,
+            zIndex: 1200,
             onOk: () => resolve(true),
             onCancel: () => resolve(false),
           });
