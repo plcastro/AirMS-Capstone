@@ -172,9 +172,9 @@ export default function PartsRequisitionDetails({
       Number(availableQtyMap[item._id] ?? 0) !==
       Number(persistedQtyMap[item._id] ?? 0),
   );
-  const allRestockItemsReady = rawItems
-    .filter((item) => item.stockStatus === "To Be Ordered")
-    .every(
+  const allRestockItemsReady =
+    rawItems.length > 0 &&
+    rawItems.every(
       (item) =>
         Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
     );
@@ -252,11 +252,14 @@ export default function PartsRequisitionDetails({
       const availableQty = Number(
         availableQtyMap[item._id] ?? item.availableQty ?? 0,
       );
+      const requestedQty = Number(item.quantity) || 0;
       return {
         ...item,
         availableQty,
         stockStatus:
-          getItemStockStatus?.(item, availableQty) || item.stockStatus,
+          currentStatus === "To Be Ordered" && availableQty < requestedQty
+            ? "To Be Ordered"
+            : getItemStockStatus?.(item, availableQty) || item.stockStatus,
       };
     });
 
@@ -269,8 +272,12 @@ export default function PartsRequisitionDetails({
       if (stockAction.onPress === "submitReview") {
         await Promise.resolve(onSubmitStockReview?.(request, updatedItems));
       } else if (stockAction.onPress === "saveRestock") {
-        await Promise.resolve(onSaveRestock?.(request, updatedItems));
-        setPersistedQtyMap({ ...availableQtyMap });
+        const saved = await Promise.resolve(
+          onSaveRestock?.(request, updatedItems),
+        );
+        if (saved !== false) {
+          setPersistedQtyMap({ ...availableQtyMap });
+        }
       } else if (stockAction.onPress === "markRestocked") {
         await Promise.resolve(onMarkRestocked?.(request, updatedItems));
       } else if (stockAction.onPress === "markDelivered") {

@@ -770,9 +770,11 @@ export default function PartsRequisition({ route, navigation }) {
         if (successMessage) {
           showToast(successMessage);
         }
+        return true;
       } catch (error) {
         console.error("Error updating requisition:", error);
         showToast(error.message || "Failed to update requisition.");
+        return false;
       }
     },
     [fetchNotifications, fetchRequisitions],
@@ -946,7 +948,7 @@ export default function PartsRequisition({ route, navigation }) {
     const updatedItems = (request.rawRecord.items || []).map((item) => ({
       ...item,
       stockStatus:
-        normalizeItemStatus(item.stockStatus) === "Out of Stock"
+        Number(item.availableQty || 0) < Number(item.quantity || 0)
           ? "To Be Ordered"
           : normalizeItemStatus(item.stockStatus),
     }));
@@ -1038,14 +1040,27 @@ export default function PartsRequisition({ route, navigation }) {
   };
 
   const handleMarkRestocked = async (request, updatedItems) => {
+    const hasInsufficientStock = updatedItems.some(
+      (item) => Number(item.availableQty) < Number(item.quantity),
+    );
+
+    if (hasInsufficientStock) {
+      showAlert({
+        title: "Insufficient Stock",
+        message:
+          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
+      });
+      return false;
+    }
+
     const confirmed = await confirmWithAlert({
       title: "Mark as Restocked",
       message: `Mark ${request.requestId} as restocked?`,
       confirmText: "Restocked",
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
-    await submitRequisitionUpdate(
+    return submitRequisitionUpdate(
       request.id,
       {
         status: "Ordered",

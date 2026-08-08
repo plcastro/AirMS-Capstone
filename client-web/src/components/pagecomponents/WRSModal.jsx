@@ -274,14 +274,10 @@ export default function WRSModal({
 
   const allRestockItemsReady = useMemo(
     () =>
-      (selectedRecord?.items || [])
-        .filter(
-          (item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered",
-        )
-        .every((item) => {
-          const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
-          return persistedValue >= Number(item.quantity || 0);
-        }),
+      (selectedRecord?.items || []).every((item) => {
+        const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+        return persistedValue >= Number(item.quantity || 0);
+      }),
     [persistedQtyMap, selectedRecord],
   );
   const hasItemsStillOutOfStock = useMemo(
@@ -413,13 +409,11 @@ export default function WRSModal({
   }, [
     allQuantitiesFilled,
     allRestockItemsReady,
-    availQtyMap,
     currentStatus,
     hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
     isMaintenanceReviewer,
     isWarehouseStaff,
-    persistedQtyMap,
     selectedRecord,
   ]);
 
@@ -529,6 +523,17 @@ export default function WRSModal({
       await updateRequisition(
         {
           status: nextReviewerStatus,
+          ...(nextReviewerStatus === "To Be Ordered"
+            ? {
+                items: (selectedRecord.items || []).map((item) => ({
+                  ...item,
+                  stockStatus:
+                    Number(item.availableQty || 0) < Number(item.quantity || 0)
+                      ? "To Be Ordered"
+                      : normalizeItemStatus(item.stockStatus),
+                })),
+              }
+            : {}),
           approvedBy: reviewerName,
           approvedByTitle: userTitle,
           dateApproved:
@@ -600,11 +605,15 @@ export default function WRSModal({
       const availableQty = Number(
         availQtyMap[item._id] ?? item.availableQty ?? 0,
       );
+      const requestedQty = Number(item.quantity) || 0;
 
       return {
         ...item,
         availableQty,
-        stockStatus: getItemStockStatus(item, availableQty),
+        stockStatus:
+          currentStatus === "To Be Ordered" && availableQty < requestedQty
+            ? "To Be Ordered"
+            : getItemStockStatus(item, availableQty),
       };
     });
 
@@ -617,11 +626,21 @@ export default function WRSModal({
         "Save the updated stock quantities for this requisition?",
       );
       if (!confirmed) return;
-      const savedItems = (selectedRecord.items || []).map((item) => ({
-        ...item,
-        availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
-        stockStatus: normalizeItemStatus(item.stockStatus),
-      }));
+      const savedItems = (selectedRecord.items || []).map((item) => {
+        const availableQty = Number(
+          availQtyMap[item._id] ?? item.availableQty ?? 0,
+        );
+        const requestedQty = Number(item.quantity) || 0;
+
+        return {
+          ...item,
+          availableQty,
+          stockStatus:
+            availableQty < requestedQty
+              ? "To Be Ordered"
+              : normalizeItemStatus(item.stockStatus),
+        };
+      });
 
       await updateRequisition(
         {
