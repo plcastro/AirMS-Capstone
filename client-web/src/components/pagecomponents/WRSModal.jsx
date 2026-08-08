@@ -366,15 +366,23 @@ export default function WRSModal({
         };
       }
 
+      if (!hasUnsavedStockChanges && !allRestockItemsReady) {
+        return {
+          title: "Restock Incomplete",
+          description:
+            "Available quantities must meet all requested quantities before this requisition can be marked as restocked.",
+          buttonText: "Mark as Restocked",
+          disabled: true,
+        };
+      }
+
       return {
         title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
         description: hasUnsavedStockChanges
           ? "Save the edited stock quantities first."
           : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
         buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
-        disabled: hasUnsavedStockChanges
-          ? !allQuantitiesFilled
-          : !allRestockItemsReady,
+        disabled: hasUnsavedStockChanges ? !allQuantitiesFilled : false,
       };
     }
 

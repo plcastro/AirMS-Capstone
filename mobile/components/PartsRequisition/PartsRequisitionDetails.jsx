@@ -200,10 +200,18 @@ export default function PartsRequisitionDetails({
           onPress: "saveRestock",
         };
       }
+      if (!allRestockItemsReady) {
+        return {
+          title: "Restock Incomplete",
+          label: "Mark as Restocked",
+          disabled: true,
+          onPress: null,
+        };
+      }
       return {
         title: "Confirm Restock",
         label: "Mark as Restocked",
-        disabled: !allRestockItemsReady,
+        disabled: false,
         onPress: "markRestocked",
       };
     }
@@ -756,7 +764,9 @@ export default function PartsRequisitionDetails({
                   {currentStatus === "To Be Ordered" &&
                     (hasUnsavedStockChanges
                       ? "Save the updated stock quantities first."
-                      : "Confirm restocked items when all requested quantities are available.")}
+                      : allRestockItemsReady
+                        ? "Confirm restocked items when all requested quantities are available."
+                        : "Available quantities must meet all requested quantities before this requisition can be marked as restocked.")}
                   {currentStatus === "Approved" &&
                     "Approved requisition is ready for warehouse delivery."}
                   {currentStatus === "Availability Checked" &&
