@@ -32,7 +32,7 @@ export default function ResultPopup({
       open={open}
       footer={null}
       closable={!autoClose}
-      maskClosable={!autoClose}
+      mask={{ closable: !autoClose }}
       centered
       width={500}
       zIndex={zIndex}
