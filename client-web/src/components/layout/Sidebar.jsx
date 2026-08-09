@@ -341,9 +341,21 @@ const Sidebar = ({ collapsed, onNavigate }) => {
     return map;
   }, [filteredItems]);
 
+  const normalizePathname = (pathname = "") => {
+    const withoutTrailingSlash =
+      pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+
+    try {
+      return decodeURIComponent(withoutTrailingSlash);
+    } catch {
+      return withoutTrailingSlash;
+    }
+  };
+
   useEffect(() => {
+    const pathname = normalizePathname(location.pathname);
     const key =
-      routeToKey[location.pathname] || (role === "superadmin" ? "2" : "11");
+      routeToKey[pathname] || (role === "superadmin" ? "2" : "11");
     setCurrent(key);
   }, [location.pathname, routeToKey, role]);
 
