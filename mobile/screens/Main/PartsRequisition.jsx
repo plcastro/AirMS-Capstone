@@ -1090,15 +1090,7 @@ export default function PartsRequisition({ route, navigation }) {
     const hasInsufficientStock = updatedItems.some(
       (item) => Number(item.availableQty) < Number(item.quantity),
     );
-
-    if (hasInsufficientStock) {
-      showAlert({
-        title: "Insufficient Stock",
-        message:
-          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
-      });
-      return false;
-    }
+    const nextStatus = hasInsufficientStock ? "To Be Ordered" : "Ordered";
 
     const confirmed = await confirmWithAlert({
       title: "Mark as Restocked",
@@ -1110,13 +1102,15 @@ export default function PartsRequisition({ route, navigation }) {
     return submitRequisitionUpdate(
       request.id,
       {
-        status: "Ordered",
+        status: nextStatus,
         dateOrdered: new Date().toISOString(),
         warehouseBy: getCurrentUserName("Warehouse Staff"),
         warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
-      "Requisition marked as restocked.",
+      nextStatus === "Ordered"
+        ? "Requisition marked as restocked."
+        : "Remaining items are still to be restocked.",
     );
   };
 

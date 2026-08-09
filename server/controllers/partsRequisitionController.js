@@ -95,6 +95,12 @@ const hasLockedItemAvailableQtyChanges = (
     );
   });
 };
+
+const hasItemsBelowRequestedQuantity = (items = []) =>
+  items.some(
+    (item) => (Number(item.availableQty) || 0) < (Number(item.quantity) || 0),
+  );
+
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -333,6 +339,18 @@ const updateRequisitionStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         message: `Invalid status transition from ${normalizedExistingStatus} to ${updatePayload.status}`,
+      });
+    }
+
+    if (
+      updatePayload.status === "Ordered" &&
+      hasItemsBelowRequestedQuantity(
+        updatePayload.items || existingRequisition.items,
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
       });
     }
 
