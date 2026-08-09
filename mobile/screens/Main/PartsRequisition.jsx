@@ -60,6 +60,18 @@ const formatDateTime = (dateValue) => {
   });
 };
 
+const getRequisitionDateValue = (record = {}) => {
+  if (typeof record === "string" || record instanceof Date) {
+    return record;
+  }
+  return record.dateRequested || record.createdAt || "";
+};
+
+const getRequisitionTimestamp = (record = {}) => {
+  const parsedDate = new Date(getRequisitionDateValue(record));
+  return Number.isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
+};
+
 const normalizeOverallStatus = (status) => {
   switch (status) {
     case "Pending":
@@ -265,6 +277,8 @@ const mapRequisitionToCard = (record) => {
   return {
     ...record,
     id: record._id,
+    rawRecord: { ...record, status: rawStatus, items },
+    sortDate: getRequisitionDateValue(record),
     slipNo: record.wrsNo,
     status: rawStatus,
     rawStatus,
@@ -631,18 +645,14 @@ export default function PartsRequisition({ route, navigation }) {
     return sourceData
       .filter((item) => matchesSearch(searchQuery, item))
       .sort((left, right) => {
-        const leftTime = new Date(
-          left.rawRecord?.dateRequested || left.rawRecord?.createdAt || 0,
-        ).getTime();
-        const rightTime = new Date(
-          right.rawRecord?.dateRequested || right.rawRecord?.createdAt || 0,
-        ).getTime();
-        const safeLeft = Number.isNaN(leftTime) ? 0 : leftTime;
-        const safeRight = Number.isNaN(rightTime) ? 0 : rightTime;
+        const leftTime = getRequisitionTimestamp(left.sortDate || left.rawRecord);
+        const rightTime = getRequisitionTimestamp(
+          right.sortDate || right.rawRecord,
+        );
 
         return dateSortOrder === "oldest"
-          ? safeLeft - safeRight
-          : safeRight - safeLeft;
+          ? leftTime - rightTime
+          : rightTime - leftTime;
       });
   }, [
     dateSortOrder,

@@ -64,13 +64,13 @@ const DrawerList = [
       {
         icon: "clipboard-check-outline",
         label: "Pre-Flight Inspection",
-        navigateTo: "Pre-Inspection",
+        navigateTo: "Pre-Flight Inspection",
         accessKey: "preInspection",
       },
       {
         icon: "clipboard-check-outline",
         label: "Post-Flight Inspection",
-        navigateTo: "Post-Inspection",
+        navigateTo: "Post-Flight Inspection",
         accessKey: "postInspection",
       },
     ],
