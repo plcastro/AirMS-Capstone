@@ -5,8 +5,6 @@ import {
   Image,
   TouchableOpacity,
   View,
-  Modal,
-  Pressable,
   PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -468,131 +466,14 @@ function StackNavWrapper() {
 }
 
 function AppShell({ linking }) {
-  const {
-    user,
-    recordActivity,
-    showSessionTimeoutWarning,
-    warningSecondsRemaining,
-    continueSession,
-    logoutUser,
-  } = useContext(AuthContext);
-  const { scale } = useFontScale();
-  const shouldShowSessionWarning =
-    Boolean(user) &&
-    showSessionTimeoutWarning === true &&
-    Number.isFinite(warningSecondsRemaining) &&
-    warningSecondsRemaining > 0;
-
   return (
-    <View
-      style={{ flex: 1 }}
-      onStartShouldSetResponderCapture={() => {
-        if (user) {
-          recordActivity?.();
-        }
-        return false;
-      }}
-    >
+    <View style={{ flex: 1 }}>
       <NavigationContainer
         linking={linking}
         ref={navigationRef}
-        onStateChange={() => {
-          if (user) {
-            recordActivity?.();
-          }
-        }}
       >
         <StackNavWrapper />
       </NavigationContainer>
-      <Modal
-        transparent
-        animationType="fade"
-        visible={shouldShowSessionWarning}
-        onRequestClose={() => continueSession?.()}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.35)",
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              backgroundColor: "#fff",
-              borderRadius: 10,
-              padding: 18,
-            }}
-          >
-            <AppText
-              style={{
-                fontSize: scale(14),
-                fontWeight: "600",
-                marginBottom: 10,
-              }}
-            >
-              Session Timeout Warning
-            </AppText>
-            <AppText
-              style={{ fontSize: scale(12), color: "#333", marginBottom: 8 }}
-            >
-              You&apos;ve been inactive for a while. For your security,
-              you&apos;ll be signed out in 2 minutes unless you continue.
-            </AppText>
-            <AppText
-              style={{ fontSize: scale(12), color: "#666", marginBottom: 16 }}
-            >
-              Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
-              seconds.
-            </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-              }}
-            >
-              <Pressable
-                onPress={() => logoutUser?.()}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#d9d9d9",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                }}
-              >
-                <AppText style={{ color: "#333", fontSize: scale(12) }}>
-                  Sign out now
-                </AppText>
-              </Pressable>
-              <Pressable
-                onPress={() => continueSession?.()}
-                style={{
-                  backgroundColor: "#26866F",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  marginLeft: 8,
-                }}
-              >
-                <AppText
-                  style={{
-                    color: "#fff",
-                    fontWeight: "600",
-                    fontSize: scale(12),
-                  }}
-                >
-                  Continue session
-                </AppText>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
