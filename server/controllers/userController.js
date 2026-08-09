@@ -568,6 +568,12 @@ const loginUser = async (req, res) => {
       if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
         user.isLocked = true;
         user.lockUntil = Date.now() + LOCK_TIME;
+        await user.save();
+        return res.status(403).json({
+          message: `Account locked. Try again in ${Math.round(
+            LOCK_TIME / 60000,
+          )} minutes.`,
+        });
       }
       await user.save();
       return res
