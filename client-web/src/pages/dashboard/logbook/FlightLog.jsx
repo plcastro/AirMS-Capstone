@@ -1359,6 +1359,7 @@ export default function FlightLog() {
       </Modal>
       <ResultPopup
         open={popup.open}
+        zIndex={7000}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}
