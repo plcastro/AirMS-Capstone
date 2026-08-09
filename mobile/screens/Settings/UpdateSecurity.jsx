@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
 import { View, StyleSheet } from "react-native";
-import { Button, SegmentedButtons, Text } from "react-native-paper";
+import { SegmentedButtons, Text } from "react-native-paper";
+import Button from "../../components/common/AsyncPaperButton";
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -125,6 +126,9 @@ export default function UpdateSecurity() {
       match: newPin === confirmPin && newPin.length === 6,
     });
   }, [newPin, confirmPin]);
+
+  const isValidPinReset =
+    /^\d{6}$/.test(newPin) && newPin === confirmPin;
 
   // --- Reset All Fields ---
   const resetAll = () => {
@@ -368,7 +372,7 @@ export default function UpdateSecurity() {
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "save-pin"}
-                disabled={!Object.values(pinErrors).every(Boolean)}
+                disabled={!isValidPinReset}
                 onPress={() =>
                   runWithLoading("save-pin", () => handleSave("PIN"))
                 }
@@ -463,7 +467,7 @@ export default function UpdateSecurity() {
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "reset-pin"}
-                disabled={!Object.values(pinErrors).every(Boolean)}
+                disabled={!isValidPinReset}
                 onPress={() =>
                   runWithLoading("reset-pin", () => handleReset("PIN"))
                 }

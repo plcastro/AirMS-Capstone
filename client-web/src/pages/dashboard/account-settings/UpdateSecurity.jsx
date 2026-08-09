@@ -101,6 +101,9 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
+  const isValidPinReset =
+    /^\d{6}$/.test(newPin) && newPin === confirmPin;
+
   const resetAll = () => {
     setCurrentPassword("");
     setNewPassword("");
@@ -546,7 +549,7 @@ export default function UpdateSecurity() {
                 <Button
                   type="primary"
                   onClick={savePin}
-                  disabled={!Object.values(pinErrors).every(Boolean)}
+                  disabled={!isValidPinReset}
                 >
                   Save PIN
                 </Button>
@@ -651,18 +654,9 @@ export default function UpdateSecurity() {
             <Row justify="end" gutter={8}>
               <Col>
                 <Button
-                  type="default"
-                  onClick={clearPinResetFlow}
-                  icon={<ClearOutlined />}
-                >
-                  Clear
-                </Button>
-              </Col>
-              <Col>
-                <Button
                   type="primary"
                   onClick={resetForgottenPin}
-                  disabled={!Object.values(pinErrors).every(Boolean)}
+                  disabled={!isValidPinReset}
                 >
                   Reset PIN
                 </Button>
