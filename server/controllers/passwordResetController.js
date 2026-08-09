@@ -17,6 +17,8 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const TOKEN_EXPIRATION = 60 * 60 * 1000;
 const OTP_EXPIRATION = 15 * 60 * 1000;
+const MAX_PIN_OTP_ATTEMPTS = 5;
+const PIN_OTP_LOCK_TIME = 15 * 60 * 1000;
 
 const requestPasswordReset = async (req, res) => {
   try {
@@ -141,6 +143,8 @@ const requestPinReset = async (req, res) => {
     user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
     user.pinOtp = await bcrypt.hash(otp, 10);
     user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+    user.pinOtpAttempts = 0;
+    user.pinOtpLockUntil = undefined;
     await user.save();
 
     const emailMessage = buildOtpEmail({
@@ -179,11 +183,40 @@ const verifyPinOtp = async (req, res) => {
   const user = await UserModel.findOne({ resetPinToken: token });
   if (!user) return res.status(400).json({ message: "Invalid token" });
 
+  if (!user.resetPinExpires || user.resetPinExpires < Date.now())
+    return res.status(400).json({ message: "Invalid token" });
+
+  if (user.pinOtpLockUntil && user.pinOtpLockUntil > Date.now()) {
+    const remainingTime = Math.ceil((user.pinOtpLockUntil - Date.now()) / 60000);
+    return res.status(403).json({
+      message: `Too many invalid OTP attempts. Try again in ${remainingTime} minutes.`,
+    });
+  }
+
   if (user.pinOtpExpires < Date.now())
     return res.status(400).json({ message: "OTP expired" });
 
   const valid = await bcrypt.compare(otp, user.pinOtp);
-  if (!valid) return res.status(400).json({ message: "Invalid OTP" });
+  if (!valid) {
+    user.pinOtpAttempts += 1;
+
+    if (user.pinOtpAttempts >= MAX_PIN_OTP_ATTEMPTS) {
+      user.pinOtpLockUntil = Date.now() + PIN_OTP_LOCK_TIME;
+      await user.save();
+      return res.status(403).json({
+        message: `Too many invalid OTP attempts. Try again in ${Math.ceil(
+          PIN_OTP_LOCK_TIME / 60000,
+        )} minutes.`,
+      });
+    }
+
+    await user.save();
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  user.pinOtpAttempts = 0;
+  user.pinOtpLockUntil = undefined;
+  await user.save();
 
   res.json({ message: "OTP verified", token: user.resetPinToken });
 };

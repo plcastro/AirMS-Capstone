@@ -31,13 +31,14 @@ const rateLimiter = rateLimit({
 
 const otpRequestLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 3,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
   keyGenerator: (req) =>
-    getOtpRateLimitKey(req.body?.token || req.query?.token || req.body?.email) ||
-    `otp-ip:${rateLimit.ipKeyGenerator(req.ip)}`,
+    getOtpRateLimitKey(
+      req.body?.token || req.query?.token || req.body?.email,
+    ) || `otp-ip:${rateLimit.ipKeyGenerator(req.ip)}`,
   handler: (req, res) => {
     res.status(429).json({
       message: "Too many OTP requests, please try again later.",
