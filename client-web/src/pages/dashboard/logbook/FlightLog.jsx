@@ -87,6 +87,7 @@ export default function FlightLog() {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [saving, setSaving] = useState(false);
   const [entryModalVisible, setEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -808,12 +809,12 @@ export default function FlightLog() {
   );
 
   const statusOptions = [
-    { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending_release" },
-    { label: "Released", value: "pending_acceptance" },
-    { label: "Accepted", value: "accepted" },
-    { label: "For Completion", value: "for_completion" },
-    { label: "Completed", value: "completed" },
+    { label: "ALL STATUS", value: "all" },
+    { label: "PENDING RELEASE", value: "pending_release" },
+    { label: "RELEASED", value: "pending_acceptance" },
+    { label: "ACCEPTED", value: "accepted" },
+    { label: "FOR COMPLETION", value: "for_completion" },
+    { label: "COMPLETED", value: "completed" },
   ];
 
   const filteredLogs = useMemo(() => {
@@ -1248,11 +1249,14 @@ export default function FlightLog() {
         renderCard={renderCard}
         mobileCardBreakpoint="xs"
         pagination={{
-          pageSize: 10,
+          pageSize,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50"],
           current: currentPage,
-          onChange: (page) => setCurrentPage(page),
+          onChange: (page, nextPageSize) => {
+            setPageSize(nextPageSize);
+            setCurrentPage(nextPageSize !== pageSize ? 1 : page);
+          },
           showLessItems: isMobile,
           size: isMobile ? "small" : "default",
           placement: isMobile ? "bottom" : "bottomEnd",

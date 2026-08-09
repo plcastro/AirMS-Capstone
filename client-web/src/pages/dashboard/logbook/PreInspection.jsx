@@ -962,7 +962,7 @@ export default function PreInspection() {
               onChange={setStatus}
               options={STATUS_OPTIONS.map((value) => ({
                 value,
-                label: value === "all" ? "All Status" : value,
+                label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
               }))}
               size="large"
             />
