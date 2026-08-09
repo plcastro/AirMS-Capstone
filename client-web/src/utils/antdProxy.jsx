@@ -14,8 +14,11 @@ const AutoLoadingButton = React.forwardRef(function AutoLoadingButton(
 ) {
   const [autoLoading, setAutoLoading] = useState(false);
   const isLoading = Boolean(loading) || autoLoading;
+  const hasClickHandler = typeof onClick === "function";
 
   const handleClick = async (event) => {
+    if (!hasClickHandler) return;
+
     if (disabled || isLoading) {
       event?.preventDefault?.();
       return;
@@ -44,7 +47,7 @@ const AutoLoadingButton = React.forwardRef(function AutoLoadingButton(
       ref={ref}
       disabled={disabled || isLoading}
       loading={loading || autoLoading}
-      onClick={handleClick}
+      onClick={hasClickHandler ? handleClick : undefined}
     />
   );
 });
