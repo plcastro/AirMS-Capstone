@@ -44,6 +44,7 @@ export default function UpdateSecurity() {
   const [showPinValues, setShowPinValues] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const [pinResetToken, setPinResetToken] = useState("");
+  const [otpInputResetKey, setOtpInputResetKey] = useState(0);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -112,10 +113,28 @@ export default function UpdateSecurity() {
     setPinResetToken("");
     setPasswordSubmitAttempted(false);
     setShowPinValues(false);
+    setOtpInputResetKey((key) => key + 1);
     //adds delay for resetting validation message
     setTimeout(() => {
       setValidationMessage("");
     }, 3000);
+  };
+
+  const clearPinFields = () => {
+    setCurrentPin("");
+    setNewPin("");
+    setConfirmPin("");
+    setOtp("");
+    setValidationMessage("");
+    setOtpInputResetKey((key) => key + 1);
+  };
+
+  const clearPinResetFlow = () => {
+    clearPinFields();
+    setPasswordForPin("");
+    setOtpSent(false);
+    setOtpVerified(false);
+    setPinResetToken("");
   };
 
   const savePassword = async () => {
@@ -447,6 +466,7 @@ export default function UpdateSecurity() {
           <>
             <Form.Item label="Current PIN" required>
               <Input.OTP
+                key={`current-pin-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={currentPin}
@@ -463,6 +483,7 @@ export default function UpdateSecurity() {
                   setCurrentPin("");
                   setNewPin("");
                   setConfirmPin("");
+                  setOtpInputResetKey((key) => key + 1);
                   setForgotPinMode(true);
                 }}
               >
@@ -472,6 +493,7 @@ export default function UpdateSecurity() {
 
             <Form.Item label="New PIN" required>
               <Input.OTP
+                key={`new-pin-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
@@ -483,6 +505,7 @@ export default function UpdateSecurity() {
 
             <Form.Item label="Confirm PIN" required>
               <Input.OTP
+                key={`confirm-pin-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
@@ -513,7 +536,7 @@ export default function UpdateSecurity() {
               <Col>
                 <Button
                   type="default"
-                  onClick={resetAll}
+                  onClick={clearPinFields}
                   icon={<ClearOutlined />}
                 >
                   Clear
@@ -571,6 +594,7 @@ export default function UpdateSecurity() {
           <>
             <Form.Item label="OTP" required>
               <Input.OTP
+                key={`otp-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={otp}
@@ -602,6 +626,7 @@ export default function UpdateSecurity() {
           <>
             <Form.Item label="New PIN" required>
               <Input.OTP
+                key={`reset-new-pin-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
@@ -613,6 +638,7 @@ export default function UpdateSecurity() {
 
             <Form.Item label="Confirm PIN" required>
               <Input.OTP
+                key={`reset-confirm-pin-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
@@ -626,7 +652,7 @@ export default function UpdateSecurity() {
               <Col>
                 <Button
                   type="default"
-                  onClick={resetAll}
+                  onClick={clearPinResetFlow}
                   icon={<ClearOutlined />}
                 >
                   Clear

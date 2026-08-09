@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Card,
   Typography,
@@ -12,6 +12,7 @@ import {
   Slider,
   Switch,
   InputNumber,
+  Upload,
 } from "antd";
 import {
   FileTextOutlined,
@@ -30,13 +31,57 @@ import UserAvatar from "../../../components/common/UserAvatar";
 import PrivacyPolicyModal from "../../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../../components/common/TermsAndConditionsModal";
 import { hasNavAccess } from "../../../../../shared/navigationAccess";
+import ImgCrop from "antd-img-crop";
 const { Title, Text } = Typography;
+
+const resizeImage = (file, size = 172) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2;
+      const sy = (img.height - minSide) / 2;
+
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+      URL.revokeObjectURL(objectUrl);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to resize image"));
+            return;
+          }
+
+          resolve(
+            new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            }),
+          );
+        },
+        "image/jpeg",
+        0.85,
+      );
+    };
+
+    img.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
+    };
+    img.src = objectUrl;
+  });
 
 export default function Profile() {
   const { user, setUser, getValidToken } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
-  const fileInputRef = useRef(null);
   const [fontScalePreference, setFontScalePreference] = useState(1);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [
@@ -182,11 +227,24 @@ export default function Profile() {
     window.dispatchEvent(new Event("web-settings-updated"));
   };
 
-  const pickImage = (e) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-    setFile(selectedFile);
-    setPreviewUri(URL.createObjectURL(selectedFile));
+  const pickImage = async (selectedFile) => {
+    if (!selectedFile) return false;
+
+    try {
+      const resizedFile = await resizeImage(selectedFile);
+      setFile(resizedFile);
+      setPreviewUri(URL.createObjectURL(resizedFile));
+    } catch (err) {
+      console.error("Profile image crop failed:", err);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Failed to prepare profile image.",
+      });
+    }
+
+    return false;
   };
 
   const handleSaveImage = async () => {
@@ -297,6 +355,19 @@ export default function Profile() {
       });
     }
   };
+
+  const imageUpload = (children) => (
+    <ImgCrop rotationSlider aspect={1 / 1}>
+      <Upload
+        accept="image/*"
+        showUploadList={false}
+        beforeUpload={pickImage}
+        maxCount={1}
+      >
+        {children}
+      </Upload>
+    </ImgCrop>
+  );
 
   const tabItems = [
     {
@@ -543,33 +614,31 @@ export default function Profile() {
                       size={24}
                       style={{ width: "100%", alignItems: "center" }}
                     >
-                      <UserAvatar
-                        image={previewUri || user?.image}
-                        firstName={user?.firstName}
-                        lastName={user?.lastName}
-                        size={172}
-                        style={{ cursor: "pointer", fontSize: 48 }}
-                        onClick={() => fileInputRef.current?.click()}
-                      />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef}
-                        style={{ display: "none" }}
-                        onChange={pickImage}
-                      />
+                      {imageUpload(
+                        <UserAvatar
+                          image={previewUri || user?.image}
+                          firstName={user?.firstName}
+                          lastName={user?.lastName}
+                          size={172}
+                          style={{ cursor: "pointer", fontSize: 48 }}
+                        />,
+                      )}
                       <Space wrap>
-                        <Button
-                          type="primary"
-                          onClick={() =>
-                            file
-                              ? handleSaveImage()
-                              : fileInputRef.current.click()
-                          }
-                          icon={file ? <SaveOutlined /> : <EditOutlined />}
-                        >
-                          {file ? "Save Picture" : "Change Picture"}
-                        </Button>
+                        {file ? (
+                          <Button
+                            type="primary"
+                            onClick={handleSaveImage}
+                            icon={<SaveOutlined />}
+                          >
+                            Save Picture
+                          </Button>
+                        ) : (
+                          imageUpload(
+                            <Button type="primary" icon={<EditOutlined />}>
+                              Change Picture
+                            </Button>,
+                          )
+                        )}
                         <Popconfirm
                           title="Delete image"
                           description="Are you sure you want to delete your image?"
