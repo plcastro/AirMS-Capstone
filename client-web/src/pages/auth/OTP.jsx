@@ -181,7 +181,12 @@ export default function OTP() {
           navigate(`/reset-password?token=${token}`);
         }, 1000);
       } else {
-        setFieldError(data.message || "OTP is invalid.");
+        const message = String(data?.message || "");
+        setFieldError(
+          message.toLowerCase().includes("expired")
+            ? "OTP expired! Please request a new one."
+            : message || "OTP is invalid.",
+        );
       }
     } catch (err) {
       console.error("OTP verification error:", err);

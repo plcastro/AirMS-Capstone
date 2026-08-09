@@ -221,7 +221,7 @@ export default function UpdateSecurity() {
       if (!res.ok) {
         if (message.toLowerCase().includes("expired")) {
           setOtpSent(false);
-          showToast("OTP expired! Request a new one.");
+          showToast("OTP expired! Please request a new one.");
         } else {
           throw new Error(message || "OTP verification failed");
         }

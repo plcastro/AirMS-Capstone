@@ -78,12 +78,12 @@ const requestPasswordReset = async (req, res) => {
 const verifyOtp = async (req, res) => {
   const { token, otp } = req.body;
 
-  const user = await UserModel.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: Date.now() },
-  });
+  const user = await UserModel.findOne({ resetPasswordToken: token });
 
   if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  if (!user.otpExpires || user.otpExpires < Date.now())
+    return res.status(400).json({ message: "OTP expired" });
 
   const valid = await bcrypt.compare(otp, user.otp);
   if (!valid) return res.status(400).json({ message: "Invalid OTP" });

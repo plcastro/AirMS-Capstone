@@ -90,7 +90,12 @@ export default function OTP() {
       if (res.ok) {
         navigation.navigate("resetPassword", { token });
       } else {
-        setMessage(data.message || "Invalid OTP");
+        const message = String(data?.message || "");
+        setMessage(
+          message.toLowerCase().includes("expired")
+            ? "OTP expired! Please request a new one."
+            : message || "Invalid OTP",
+        );
       }
     } catch (err) {
       console.error("OTP verification error:", err);
@@ -127,7 +132,12 @@ export default function OTP() {
 
       const data = await parseResponse(res);
       if (!res.ok) {
-        setMessage(data.message || "Invalid OTP");
+        const message = String(data?.message || "");
+        setMessage(
+          message.toLowerCase().includes("expired")
+            ? "OTP expired! Please request a new one."
+            : message || "Invalid OTP",
+        );
         return;
       }
 
