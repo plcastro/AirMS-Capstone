@@ -27,6 +27,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
 import { AuthContext } from "../../Context/AuthContext";
 import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const normalizeLog = (entry) => {
   const workDetails =
@@ -78,11 +79,11 @@ export default function MaintenanceLog() {
   const [selectedBase, setSelectedBase] = useState("all");
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
-  const userRole = String(user?.jobTitle || "").trim().toLowerCase();
+  const userRole = resolveUserRole(user);
   const isMechanic = userRole === "mechanic";
   const userBase = String(user?.base || "").trim().toUpperCase();
   const canExportMaintenanceLogs = canExportModule(
-    user?.jobTitle,
+    userRole,
     "maintenanceLogs",
   );
 

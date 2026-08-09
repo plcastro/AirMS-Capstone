@@ -45,8 +45,9 @@ export default function PreInspectionEntry({
   );
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
-    userRole,
+    normalizedRole,
   );
 
   useEffect(() => {

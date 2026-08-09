@@ -12,6 +12,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 import { COLORS } from "../../stylesheets/colors";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 export default function TaskTabs({
   tasks,
@@ -21,7 +22,8 @@ export default function TaskTabs({
   refreshing = false,
 }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
+  const userRole = resolveUserRole(user);
+  const isHead = ["maintenance manager", "superadmin"].includes(userRole);
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];

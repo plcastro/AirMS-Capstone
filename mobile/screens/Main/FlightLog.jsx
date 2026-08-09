@@ -24,6 +24,7 @@ import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -90,7 +91,7 @@ export default function FlightLog({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportFlightLogs = canExportModule(userRole, "flightLogs");
 

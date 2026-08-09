@@ -30,6 +30,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { exportPartsRequisitionExcel } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -375,7 +376,7 @@ export default function PartsRequisition({ route, navigation }) {
     onCancel: null,
   });
 
-  const userRole = user?.jobTitle?.toLowerCase();
+  const userRole = resolveUserRole(user);
   const getCurrentUserTitle = useCallback(
     (fallback = "User") => user?.jobTitle || user?.access || fallback,
     [user?.access, user?.jobTitle],

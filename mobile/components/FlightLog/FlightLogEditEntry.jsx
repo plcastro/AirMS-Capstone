@@ -139,7 +139,7 @@ export default function FlightLogEditEntry({
     closeOnFinish: false,
   });
   const scrollViewRef = useRef(null);
-  const normalizedRole = (userRole || "").toLowerCase();
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
     ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
@@ -869,7 +869,7 @@ export default function FlightLogEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "superadmin"].includes((userRole || "").toLowerCase())
+                      {["maintenance manager", "superadmin"].includes(normalizedRole)
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </AppText>

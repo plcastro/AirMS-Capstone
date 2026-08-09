@@ -29,6 +29,7 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const RISK_COLORS = {
   Critical: "#cf1322",
@@ -101,11 +102,8 @@ const buildClearedInsight = (item) => ({
 export default function MaintenanceTracking() {
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
-  const role = String(user?.jobTitle || user?.access || "")
-    .trim()
-    .toLowerCase();
+  const role = resolveUserRole(user);
+  const isOfficerInCharge = role === "officer-in-charge";
   const access = String(user?.access || "")
     .trim()
     .toLowerCase();

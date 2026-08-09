@@ -31,6 +31,7 @@ import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
 import { getUserImageUri, getUserInitials } from "./utilities/avatar";
+import { resolveUserRole } from "../shared/navigationAccess";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -113,7 +114,7 @@ const Screens = {
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
   const { scale } = useFontScale();
-  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const normalizedRole = resolveUserRole(user);
   const canAccessFlightAndPreInspection = [
     "maintenance manager",
     "pilot",

@@ -37,9 +37,10 @@ export default function PreInspectionEditEntry({
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isPilot = userRole === "pilot";
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isPilot = normalizedRole === "pilot";
   const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
-    userRole,
+    normalizedRole,
   );
 
   const tabs = [

@@ -19,6 +19,7 @@ import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 const getDisplayStatus = (status) =>
   status === "completed"
     ? "completed"
@@ -40,7 +41,7 @@ export default function PostInspection({ route }) {
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportPostInspections = canExportModule(
     userRole,

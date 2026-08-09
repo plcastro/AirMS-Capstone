@@ -36,6 +36,7 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const referenceFields = [
   ["engTT", "Engine Cycle"],
@@ -137,7 +138,7 @@ const getPartStatus = (part = {}) => {
 export default function PartsLifespanMonitoring() {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
-  const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
+  const normalizedRole = resolveUserRole(user);
   const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
