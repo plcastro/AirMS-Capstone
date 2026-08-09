@@ -52,7 +52,7 @@ export default function PostInspection({ route }) {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
-          `${API_BASE}/api/post-inspections/getAllPostInspection`,
+          `${API_BASE}/api/post-flight/getAllPostInspection`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -341,7 +341,7 @@ export default function PostInspection({ route }) {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/post-inspections/updatePostInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/post-flight/updatePostInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
                 headers: {

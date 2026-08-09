@@ -2,20 +2,40 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const getAuthHeaders = async (extraHeaders = {}) => {
   const token = await AsyncStorage.getItem("currentUserToken");
+  let sessionMeta = {};
+  try {
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+  } catch {
+    sessionMeta = {};
+  }
 
   return {
     ...extraHeaders,
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "x-platform": sessionMeta?.platform || "MOBILE",
+    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
   };
 };
 
 export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
   const token = await AsyncStorage.getItem("currentUserToken");
+  let sessionMeta = {};
+  try {
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+  } catch {
+    sessionMeta = {};
+  }
 
   return {
     ...extraHeaders,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "x-platform": sessionMeta?.platform || "MOBILE",
+    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
   };
 };
 

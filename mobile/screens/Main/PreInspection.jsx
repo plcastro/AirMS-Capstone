@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import AppText from "../../components/common/AppText";
 import { View, ScrollView, TouchableOpacity, StatusBar } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -9,6 +8,7 @@ import PreInspectionCards from "../../components/PreInspection/PreInspectionCard
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 import { exportPreInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
@@ -48,13 +48,10 @@ export default function PreInspection({ route }) {
   useEffect(() => {
     const fetchPreInspections = async () => {
       try {
-        const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
-          `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
+          `${API_BASE}/api/pre-flight/getAllPreInspection`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
@@ -371,16 +368,13 @@ export default function PreInspection({ route }) {
         rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onSave={async (newEntry) => {
           try {
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-flight inspections/createPreInspection`,
+              `${API_BASE}/api/pre-flight/createPreInspection`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveNewEntry(newEntry),
                   confirmAction: true,
@@ -424,16 +418,13 @@ export default function PreInspection({ route }) {
               return;
             }
 
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-flight inspections/updatePreInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/pre-flight/updatePreInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveEdit(updatedInspection),
                   confirmAction: true,

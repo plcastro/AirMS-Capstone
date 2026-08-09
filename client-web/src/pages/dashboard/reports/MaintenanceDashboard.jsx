@@ -190,7 +190,7 @@ export default function MaintenanceDashboard() {
   const isMobile = !screens.md;
   const isCompactReports = !screens.lg;
   const { message } = App.useApp();
-  const { user, getValidToken } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
   const canExportReports = canExportModule(user?.jobTitle, "reports");
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
@@ -293,12 +293,10 @@ export default function MaintenanceDashboard() {
       try {
         setLoadingTasks(true);
 
-        const token = await getValidToken();
-        if (!token) {
+        const headers = await getAuthHeader();
+        if (!headers.Authorization) {
           throw new Error("No authentication token found. Please log in.");
         }
-
-        const headers = { Authorization: `Bearer ${token}` };
         const requests = {
           tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
           baseAnalytics: fetch(
@@ -318,11 +316,11 @@ export default function MaintenanceDashboard() {
             { headers },
           ),
           preInspections: fetch(
-            `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
+            `${API_BASE}/api/pre-flight/getAllPreInspection`,
             { headers },
           ),
           postInspections: fetch(
-            `${API_BASE}/api/post-flight inspections/getAllPostInspection`,
+            `${API_BASE}/api/post-flight/getAllPostInspection`,
             { headers },
           ),
           partsRequisitions: fetch(
@@ -393,7 +391,7 @@ export default function MaintenanceDashboard() {
     };
 
     fetchReportData();
-  }, [getValidToken]);
+  }, [getAuthHeader]);
 
   const cards = [
     {

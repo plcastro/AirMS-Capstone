@@ -294,11 +294,11 @@ export default function ReportsAndAnalytics() {
           { headers },
         ),
         preInspections: fetch(
-          `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
+          `${API_BASE}/api/pre-flight/getAllPreInspection`,
           { headers },
         ),
         postInspections: fetch(
-          `${API_BASE}/api/post-inspections/getAllPostInspection`,
+          `${API_BASE}/api/post-flight/getAllPostInspection`,
           { headers },
         ),
         partsRequisitions: fetch(

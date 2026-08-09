@@ -115,7 +115,7 @@ export default function PostInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/post-flight inspections/getAllPostInspection`,
+        `${API_BASE}/api/post-flight/getAllPostInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
@@ -249,7 +249,7 @@ export default function PostInspection() {
     if (!nextPayload?._id) return;
     try {
       const response = await fetch(
-        `${API_BASE}/api/post-flight inspections/updatePostInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/post-flight/updatePostInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {

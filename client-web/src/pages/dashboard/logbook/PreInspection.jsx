@@ -492,7 +492,7 @@ export default function PreInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
+        `${API_BASE}/api/pre-flight/getAllPreInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
@@ -631,7 +631,7 @@ export default function PreInspection() {
       setCreating(true);
       const releasedBy = signaturePayload(user, releaseSignature);
       const response = await fetch(
-        `${API_BASE}/api/pre-flight inspections/createPreInspection`,
+        `${API_BASE}/api/pre-flight/createPreInspection`,
         {
           method: "POST",
           headers: {
@@ -690,7 +690,7 @@ export default function PreInspection() {
     }
     try {
       const response = await fetch(
-        `${API_BASE}/api/pre-flight inspections/updatePreInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/pre-flight/updatePreInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
