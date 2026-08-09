@@ -1,6 +1,8 @@
 const PreInspection = require("../models/preInspectionModel");
 const PostInspection = require("../models/postInspectionModel");
-const { createPreInspectionNotifications } = require("../utils/preInspectionNotificationService");
+const {
+  createPreInspectionNotifications,
+} = require("../utils/preInspectionNotificationService");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
@@ -15,8 +17,7 @@ const createPreInspection = async (req, res) => {
   try {
     const payload = {
       ...req.body,
-      dateAdded:
-        req.body.dateAdded || new Date().toLocaleDateString("en-US"),
+      dateAdded: req.body.dateAdded || new Date().toLocaleDateString("en-US"),
       status: req.body.status || "pending",
     };
 
@@ -54,8 +55,8 @@ const createPreInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error creating pre-inspection:", err);
-    res.status(500).json({ message: "Failed to create pre-inspection" });
+    console.error("Error creating pre-flight inspection:", err);
+    res.status(500).json({ message: "Failed to create pre-flight inspection" });
   }
 };
 
@@ -64,8 +65,8 @@ const getAllPreInspections = async (req, res) => {
     const inspections = await PreInspection.find().sort({ createdAt: -1 });
     res.status(200).json({ status: "Ok", data: inspections });
   } catch (err) {
-    console.error("Error fetching pre-inspections:", err);
-    res.status(500).json({ message: "Failed to fetch pre-inspections" });
+    console.error("Error fetching pre-flight inspections:", err);
+    res.status(500).json({ message: "Failed to fetch pre-flight inspections" });
   }
 };
 
@@ -79,8 +80,8 @@ const getPreInspectionById = async (req, res) => {
 
     res.status(200).json({ status: "Ok", data: inspection });
   } catch (err) {
-    console.error("Error fetching pre-inspection:", err);
-    res.status(500).json({ message: "Failed to fetch pre-inspection" });
+    console.error("Error fetching pre-flight inspection:", err);
+    res.status(500).json({ message: "Failed to fetch pre-flight inspection" });
   }
 };
 
@@ -111,8 +112,8 @@ const updatePreInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error updating pre-inspection:", err);
-    res.status(500).json({ message: "Failed to update pre-inspection" });
+    console.error("Error updating pre-flight inspection:", err);
+    res.status(500).json({ message: "Failed to update pre-flight inspection" });
   }
 };
 
@@ -131,8 +132,8 @@ const deletePreInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error deleting pre-inspection:", err);
-    res.status(500).json({ message: "Failed to delete pre-inspection" });
+    console.error("Error deleting pre-flight inspection:", err);
+    res.status(500).json({ message: "Failed to delete pre-flight inspection" });
   }
 };
 

@@ -145,27 +145,27 @@ const routeLabels = [
     action: "Defect log deleted",
   },
   {
-    pattern: /^\/api\/pre-inspections\/createPreInspection$/,
+    pattern: /^\/api\/pre-flight inspections\/createPreInspection$/,
     action: "Pre-inspection created",
   },
   {
-    pattern: /^\/api\/pre-inspections\/updatePreInspectionById\//,
+    pattern: /^\/api\/pre-flight inspections\/updatePreInspectionById\//,
     action: "Pre-inspection updated",
   },
   {
-    pattern: /^\/api\/pre-inspections\/deletePreInspectionById\//,
+    pattern: /^\/api\/pre-flight inspections\/deletePreInspectionById\//,
     action: "Pre-inspection deleted",
   },
   {
-    pattern: /^\/api\/post-inspections\/createPostInspection$/,
+    pattern: /^\/api\/post-flight inspections\/createPostInspection$/,
     action: "Post-inspection created",
   },
   {
-    pattern: /^\/api\/post-inspections\/updatePostInspectionById\//,
+    pattern: /^\/api\/post-flight inspections\/updatePostInspectionById\//,
     action: "Post-inspection updated",
   },
   {
-    pattern: /^\/api\/post-inspections\/deletePostInspectionById\//,
+    pattern: /^\/api\/post-flight inspections\/deletePostInspectionById\//,
     action: "Post-inspection deleted",
   },
   { pattern: /^\/api\/tasks\/create$/, action: "Task created" },

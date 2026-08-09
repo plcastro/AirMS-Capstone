@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -78,7 +74,10 @@ export default function PreInspectionModalInfo({
         updateForm("aircraftType", resolvedType);
       }
     } catch (error) {
-      console.error("Error resolving aircraft type for pre-inspection:", error);
+      console.error(
+        "Error resolving aircraft type for pre-flight inspection:",
+        error,
+      );
     }
   };
 
@@ -275,7 +274,9 @@ export default function PreInspectionModalInfo({
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? () => setShowBaseDropdown((current) => !current) : null}
+        onPress={
+          isEditable ? () => setShowBaseDropdown((current) => !current) : null
+        }
       >
         <AppText
           style={{
@@ -312,10 +313,13 @@ export default function PreInspectionModalInfo({
               style={{
                 paddingVertical: 12,
                 paddingHorizontal: 12,
-                borderBottomWidth: base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
+                borderBottomWidth:
+                  base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
                 borderBottomColor: COLORS.grayLight,
                 backgroundColor:
-                  formData.base === base ? COLORS.primaryLight + "10" : COLORS.white,
+                  formData.base === base
+                    ? COLORS.primaryLight + "10"
+                    : COLORS.white,
               }}
               onPress={() => {
                 updateForm("base", base);
@@ -325,7 +329,8 @@ export default function PreInspectionModalInfo({
               <AppText
                 style={{
                   fontSize: 12,
-                  color: formData.base === base ? COLORS.primaryLight : COLORS.black,
+                  color:
+                    formData.base === base ? COLORS.primaryLight : COLORS.black,
                 }}
               >
                 {base}

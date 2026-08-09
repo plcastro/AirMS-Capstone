@@ -38,7 +38,7 @@ const ACTIVE_NOTIFICATION_POLL_MS = 10000;
 
 const VALID_MODULES = new Set([
   "flight-logs",
-  "pre-inspections",
+  "pre-flight inspections",
   "post-inspections",
   "tasks",
   "messages",
@@ -151,7 +151,7 @@ const buildTargetNavigation = (notificationPayload) => {
     };
   }
 
-  if (moduleName === "pre-inspections") {
+  if (moduleName === "pre-flight inspections") {
     return {
       screen: "Pre-Inspection",
       params: {

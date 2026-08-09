@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import AppText from "../../components/common/AppText";
 import { TouchableOpacity, View } from "react-native";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -54,7 +60,13 @@ const topRows = (counts, limit = 4) =>
     .sort((a, b) => b.value - a.value)
     .slice(0, limit);
 
-const REPORT_UNKNOWN_LABELS = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
+const REPORT_UNKNOWN_LABELS = new Set([
+  "",
+  "UNKNOWN",
+  "N/A",
+  "NA",
+  "UNASSIGNED",
+]);
 const REPORT_TOTAL_LABELS = new Set(["ALL", "OVERALL", "TOTAL", "TOTALS"]);
 
 const isKnownReportLabel = (value) => {
@@ -83,8 +95,7 @@ const topKnownBaseRows = (counts, limit = 10) =>
     .sort((a, b) => b.value - a.value)
     .slice(0, limit);
 
-const matchesSearch = (record, needle) =>
-  recordMatchesSearch(needle, record);
+const matchesSearch = (record, needle) => recordMatchesSearch(needle, record);
 
 const REPORT_CATEGORY_ORDER = ["Performance", "Inventory", "Logbook"];
 
@@ -283,7 +294,7 @@ export default function ReportsAndAnalytics() {
           { headers },
         ),
         preInspections: fetch(
-          `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+          `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
           { headers },
         ),
         postInspections: fetch(
@@ -494,7 +505,10 @@ export default function ReportsAndAnalytics() {
       {
         title: "Flight Logs by Aircraft",
         rows: topKnownReportRows(
-          countBy(filteredFlightLogs, (record) => record.rpc || record.aircraft),
+          countBy(
+            filteredFlightLogs,
+            (record) => record.rpc || record.aircraft,
+          ),
         ),
       },
       {
@@ -668,7 +682,7 @@ export default function ReportsAndAnalytics() {
         recordMatchCount: filteredFlightLogs.length,
       },
       {
-        key: "pre-inspection",
+        key: "pre-flight inspection",
         category: "Logbook",
         title: "Pre-Inspection Report",
         component: (
@@ -682,7 +696,7 @@ export default function ReportsAndAnalytics() {
             loading={loading}
           />
         ),
-        keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+        keywords: ["pre", "inspection", "pre-flight inspection", "aircraft"],
         searchRecords: preInspections,
         recordMatchCount: filteredPreInspections.length,
       },

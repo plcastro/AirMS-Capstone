@@ -250,7 +250,7 @@ const AppRouter = () => {
               }
             />
             <Route
-              path="pre-inspection"
+              path="pre-flight inspection"
               element={
                 <ProtectedRoute
                   allowedRoles={[
@@ -266,7 +266,7 @@ const AppRouter = () => {
               }
             />
             <Route
-              path="post-inspection"
+              path="post-flight inspection"
               element={
                 <ProtectedRoute
                   allowedRoles={[

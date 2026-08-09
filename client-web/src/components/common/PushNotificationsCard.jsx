@@ -342,7 +342,9 @@ export default function PushNotificationsCard({ open, onClose }) {
       }
 
       saveAircraftFhNotifications(
-        loadAircraftFhNotifications().filter((notification) => !notification.read),
+        loadAircraftFhNotifications().filter(
+          (notification) => !notification.read,
+        ),
       );
       setNotifications((currentNotifications) =>
         currentNotifications.filter((notification) => !notification.read),
@@ -385,7 +387,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       return;
     }
 
-    if (moduleName === "pre-inspections") {
+    if (moduleName === "pre-flight inspections") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
@@ -393,11 +395,13 @@ export default function PushNotificationsCard({ open, onClose }) {
         ...(status ? { notificationStatus: status } : {}),
       });
 
-      window.location.assign(`/dashboard/pre-inspection?${params.toString()}`);
+      window.location.assign(
+        `/dashboard/pre-flight inspection?${params.toString()}`,
+      );
       return;
     }
 
-    if (moduleName === "post-inspections") {
+    if (moduleName === "post-flight inspections") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
@@ -405,7 +409,9 @@ export default function PushNotificationsCard({ open, onClose }) {
         ...(status ? { notificationStatus: status } : {}),
       });
 
-      window.location.assign(`/dashboard/post-inspection?${params.toString()}`);
+      window.location.assign(
+        `/dashboard/post-flight inspection?${params.toString()}`,
+      );
       return;
     }
 

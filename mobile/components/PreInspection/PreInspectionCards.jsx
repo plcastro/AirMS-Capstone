@@ -80,7 +80,7 @@ export default function PreInspectionCards({
           color={COLORS.grayMedium}
         />
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          No pre-inspections found
+          No pre-flight inspections found
         </AppText>
       </View>
     );
@@ -174,7 +174,9 @@ export default function PreInspectionCards({
                 </AppText>
               </View>
 
-              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+              <CardActionRow
+                style={{ paddingHorizontal: 10, paddingBottom: 10 }}
+              >
                 {onExport && (
                   <ActionIconButton
                     icon="export-variant"

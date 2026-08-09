@@ -49,7 +49,7 @@ export const AUDIT_ACTION_CATEGORIES = [
     color: "#52c41a",
     keywords: [
       "inspection",
-      "pre-inspection",
+      "pre-flight inspection",
       "post-inspection",
       "pre-flight",
       "post-flight",

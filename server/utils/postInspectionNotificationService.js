@@ -100,8 +100,8 @@ const createNotification = async ({
   const notification = await NotificationModel.create({
     title,
     description,
-    module: "post-inspections",
-    entityType: "post-inspection",
+    module: "post-flight inspections",
+    entityType: "post-flight inspection",
     entityId: inspection._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
@@ -121,8 +121,8 @@ const createNotification = async ({
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
-      module: "post-inspections",
-      targetScreen: "Post-Inspection",
+      module: "post-flight inspections",
+      targetScreen: "Post-Flight Inspection",
       targetPostInspectionId: String(inspection._id),
       status: inspection.status,
       rpc: inspection.rpc,

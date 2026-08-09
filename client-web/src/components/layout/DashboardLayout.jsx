@@ -113,8 +113,8 @@ const DashboardLayout = () => {
       "/dashboard/user-management/view-users": "User Management",
       "/dashboard/user-management/activity-logs": "Activity Logs",
       "/dashboard/flight-log": "Flight Logs",
-      "/dashboard/pre-inspection": "Pre-Inspection",
-      "/dashboard/post-inspection": "Post-Inspection",
+      "/dashboard/pre-flight inspection": "Pre-Flight Inspection",
+      "/dashboard/post-flight inspection": "Post-Flight Inspection",
       "/dashboard/maintenance-log": "Maintenance Logs",
       "/dashboard/tasks": "Tasks",
       "/dashboard/mechanics": "Mechanics",
@@ -650,9 +650,7 @@ const DashboardLayout = () => {
           status={resultPopup.status}
           title={resultPopup.title}
           subTitle={resultPopup.subTitle}
-          onClose={() =>
-            setResultPopup((prev) => ({ ...prev, open: false }))
-          }
+          onClose={() => setResultPopup((prev) => ({ ...prev, open: false }))}
         />
       </Layout>
     </>

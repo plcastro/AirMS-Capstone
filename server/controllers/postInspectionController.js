@@ -1,5 +1,7 @@
 const PostInspection = require("../models/postInspectionModel");
-const { createPostInspectionNotifications } = require("../utils/postInspectionNotificationService");
+const {
+  createPostInspectionNotifications,
+} = require("../utils/postInspectionNotificationService");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
@@ -14,8 +16,7 @@ const createPostInspection = async (req, res) => {
   try {
     const payload = {
       ...req.body,
-      dateAdded:
-        req.body.dateAdded || new Date().toLocaleDateString("en-US"),
+      dateAdded: req.body.dateAdded || new Date().toLocaleDateString("en-US"),
       status: req.body.status || "pending",
     };
 
@@ -26,7 +27,10 @@ const createPostInspection = async (req, res) => {
       inspection,
     });
 
-    const audit = withActorId(req, `Post-inspection created: ${inspection._id}`);
+    const audit = withActorId(
+      req,
+      `Post-inspection created: ${inspection._id}`,
+    );
     await auditLog(audit.action, audit.actorId);
 
     res.status(201).json({
@@ -34,8 +38,10 @@ const createPostInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error creating post-inspection:", err);
-    res.status(500).json({ message: "Failed to create post-inspection" });
+    console.error("Error creating post-flight inspection:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to create post-flight inspection" });
   }
 };
 
@@ -44,8 +50,10 @@ const getAllPostInspections = async (req, res) => {
     const inspections = await PostInspection.find().sort({ createdAt: -1 });
     res.status(200).json({ status: "Ok", data: inspections });
   } catch (err) {
-    console.error("Error fetching post-inspections:", err);
-    res.status(500).json({ message: "Failed to fetch post-inspections" });
+    console.error("Error fetching post-flight inspections:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch post-flight inspections" });
   }
 };
 
@@ -59,8 +67,8 @@ const getPostInspectionById = async (req, res) => {
 
     res.status(200).json({ status: "Ok", data: inspection });
   } catch (err) {
-    console.error("Error fetching post-inspection:", err);
-    res.status(500).json({ message: "Failed to fetch post-inspection" });
+    console.error("Error fetching post-flight inspection:", err);
+    res.status(500).json({ message: "Failed to fetch post-flight inspection" });
   }
 };
 
@@ -83,7 +91,10 @@ const updatePostInspection = async (req, res) => {
       inspection,
     });
 
-    const audit = withActorId(req, `Post-inspection updated: ${inspection._id}`);
+    const audit = withActorId(
+      req,
+      `Post-inspection updated: ${inspection._id}`,
+    );
     await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
@@ -91,8 +102,10 @@ const updatePostInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error updating post-inspection:", err);
-    res.status(500).json({ message: "Failed to update post-inspection" });
+    console.error("Error updating post-flight inspection:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to update post-flight inspection" });
   }
 };
 
@@ -103,7 +116,10 @@ const deletePostInspection = async (req, res) => {
     if (!inspection) {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
-    const audit = withActorId(req, `Post-inspection deleted: ${inspection._id}`);
+    const audit = withActorId(
+      req,
+      `Post-inspection deleted: ${inspection._id}`,
+    );
     await auditLog(audit.action, audit.actorId);
 
     res.status(200).json({
@@ -111,8 +127,10 @@ const deletePostInspection = async (req, res) => {
       data: inspection,
     });
   } catch (err) {
-    console.error("Error deleting post-inspection:", err);
-    res.status(500).json({ message: "Failed to delete post-inspection" });
+    console.error("Error deleting post-flight inspection:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to delete post-flight inspection" });
   }
 };
 

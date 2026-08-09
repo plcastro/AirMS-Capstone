@@ -44,7 +44,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
 const sanitizeFileName = (value) =>
-  String(value || "post-inspection")
+  String(value || "post-flight inspection")
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
@@ -115,19 +115,21 @@ export default function PostInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/getAllPostInspection`,
+        `${API_BASE}/api/post-flight inspections/getAllPostInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to load post-inspections");
+        throw new Error(
+          data.message || "Failed to load post-flight inspections",
+        );
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to load post-inspections",
+        subTitle: error.message || "Failed to load post-flight inspections",
       });
     } finally {
       setLoading(false);
@@ -158,7 +160,7 @@ export default function PostInspection() {
     if (!match) return;
 
     setEditing(match);
-    navigate("/dashboard/post-inspection", { replace: true });
+    navigate("/dashboard/post-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
   const aircraftOptions = useMemo(
@@ -247,7 +249,7 @@ export default function PostInspection() {
     if (!nextPayload?._id) return;
     try {
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/updatePostInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/post-flight inspections/updatePostInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
@@ -259,21 +261,23 @@ export default function PostInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to update post-inspection");
+        throw new Error(
+          data.message || "Failed to update post-flight inspection",
+        );
       setEditing(data.data);
       await load();
       setPopup({
         open: true,
         status: "success",
-        title: "Post-Inspection Updated!",
-        subTitle: "The post-inspection has been updated successfully.",
+        title: "Post-Flight Inspection Updated!",
+        subTitle: "The post-flight inspection has been updated successfully.",
       });
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to update post-inspection",
+        subTitle: error.message || "Failed to update post-flight inspection",
       });
     }
   };
@@ -288,7 +292,9 @@ export default function PostInspection() {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(
-          data.message || data.error || "Failed to export post-inspection",
+          data.message ||
+            data.error ||
+            "Failed to export post-flight inspection",
         );
       }
       const blob = await response.blob();
@@ -296,7 +302,7 @@ export default function PostInspection() {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${sanitizeFileName(
-        `Post-Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+        `Post-Flight Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
       )}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -305,15 +311,16 @@ export default function PostInspection() {
       setPopup({
         open: true,
         status: "success",
-        title: "Post-Inspection Exported!",
-        subTitle: "The post-inspection PDF has been exported successfully.",
+        title: "Post-Flight Inspection Exported!",
+        subTitle:
+          "The post-flight inspection PDF has been exported successfully.",
       });
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to export post-inspection",
+        subTitle: error.message || "Failed to export post-flight inspection",
       });
     }
   };
@@ -412,7 +419,8 @@ export default function PostInspection() {
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> post-inspection log(s)
+            Showing <Text strong>{filtered.length}</Text> post-flight inspection
+            log(s)
           </Text>
         </Col>
       </Row>
@@ -424,8 +432,8 @@ export default function PostInspection() {
         okButtonProps={{ disabled: readOnly }}
         title={
           readOnly
-            ? "View Entry - Post-Inspection"
-            : "Edit Entry - Post-Inspection"
+            ? "View Entry - Post-Flight Inspection"
+            : "Edit Entry - Post-Flight Inspection"
         }
         okText="Save"
         width={isMobile ? "100%" : 1100}
@@ -504,7 +512,7 @@ export default function PostInspection() {
                     children: (
                       <Input.TextArea
                         rows={4}
-                        placeholder="Enter post-inspection notes, discrepancy signals, or remarks"
+                        placeholder="Enter post-flight inspection notes, discrepancy signals, or remarks"
                         value={editing.notes || ""}
                         onChange={(e) =>
                           setEditing((prev) => ({
@@ -591,7 +599,7 @@ export default function PostInspection() {
 
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
-        title="Complete Post-Inspection"
+        title="Complete Post-Flight Inspection"
         description="Draw your completion signature."
         confirmDescription="Enter your 6-digit PIN to confirm completion."
         onCancel={() => setSignatureMode(null)}

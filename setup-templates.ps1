@@ -46,7 +46,7 @@ Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "1. Place your Word document templates in server/templates/"
-Write-Host "   - Pre-inspection template: pre-inspection.docx"
+Write-Host "   - Pre-inspection template: pre-flight inspection.docx"
 Write-Host "   - Post-inspection template: post-inspection.docx"
 Write-Host ""
 Write-Host "2. Edit the templates to include merge field placeholders:"

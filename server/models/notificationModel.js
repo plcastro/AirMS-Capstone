@@ -10,8 +10,8 @@ const NotificationSchema = new mongoose.Schema(
       enum: [
         "parts-requisition",
         "flight-logs",
-        "pre-inspections",
-        "post-inspections",
+        "pre-flight inspections",
+        "post-flight inspections",
         "tasks",
         "messages",
       ],
@@ -22,8 +22,8 @@ const NotificationSchema = new mongoose.Schema(
       enum: [
         "parts-requisition",
         "flight-log",
-        "pre-inspection",
-        "post-inspection",
+        "pre-flight inspection",
+        "post-flight inspection",
         "task",
         "message",
       ],

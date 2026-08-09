@@ -414,7 +414,7 @@ const areAllReleaseChecksComplete = (record = {}) =>
   RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
 
 const sanitizeFileName = (value) =>
-  String(value || "pre-inspection")
+  String(value || "pre-flight inspection")
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
 
@@ -492,19 +492,21 @@ export default function PreInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+        `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to load pre-inspections");
+        throw new Error(
+          data.message || "Failed to load pre-flight inspections",
+        );
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to load pre-inspections",
+        subTitle: error.message || "Failed to load pre-flight inspections",
       });
     } finally {
       setLoading(false);
@@ -552,7 +554,7 @@ export default function PreInspection() {
     if (!match) return;
 
     setEditing(match);
-    navigate("/dashboard/pre-inspection", { replace: true });
+    navigate("/dashboard/pre-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
   const aircraftOptions = useMemo(
@@ -629,7 +631,7 @@ export default function PreInspection() {
       setCreating(true);
       const releasedBy = signaturePayload(user, releaseSignature);
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/createPreInspection`,
+        `${API_BASE}/api/pre-flight inspections/createPreInspection`,
         {
           method: "POST",
           headers: {
@@ -648,12 +650,14 @@ export default function PreInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to release pre-inspection");
+        throw new Error(
+          data.message || "Failed to release pre-flight inspection",
+        );
       setPopup({
         open: true,
         status: "success",
-        title: "Pre-Inspection Released!",
-        subTitle: "The pre-inspection has been released successfully.",
+        title: "Pre-Flight Inspection Released!",
+        subTitle: "The pre-flight inspection has been released successfully.",
       });
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
@@ -665,7 +669,7 @@ export default function PreInspection() {
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to release pre-inspection",
+        subTitle: error.message || "Failed to release pre-flight inspection",
       });
     }
   };
@@ -673,7 +677,7 @@ export default function PreInspection() {
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
     if (isCompletedInspection(nextPayload)) {
-      message.info("Completed pre-inspections are view-only.");
+      message.info("Completed pre-flight inspections are view-only.");
       return;
     }
     if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
@@ -686,7 +690,7 @@ export default function PreInspection() {
     }
     try {
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/updatePreInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/pre-flight inspections/updatePreInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
@@ -698,21 +702,23 @@ export default function PreInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to update pre-inspection");
+        throw new Error(
+          data.message || "Failed to update pre-flight inspection",
+        );
       setEditing(data.data);
       await load();
       setPopup({
         open: true,
         status: "success",
-        title: "Pre-Inspection Updated!",
-        subTitle: "The pre-inspection has been updated successfully.",
+        title: "Pre-Flight Inspection Updated!",
+        subTitle: "The pre-flight inspection has been updated successfully.",
       });
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to update pre-inspection",
+        subTitle: error.message || "Failed to update pre-flight inspection",
       });
     }
   };
@@ -727,7 +733,9 @@ export default function PreInspection() {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(
-          data.message || data.error || "Failed to export pre-inspection",
+          data.message ||
+            data.error ||
+            "Failed to export pre-flight inspection",
         );
       }
       const blob = await response.blob();
@@ -735,7 +743,7 @@ export default function PreInspection() {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${sanitizeFileName(
-        `Pre-Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+        `Pre-Flight Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
       )}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -744,28 +752,32 @@ export default function PreInspection() {
       setPopup({
         open: true,
         status: "success",
-        title: "Pre-Inspection Exported!",
-        subTitle: "The pre-inspection PDF has been exported successfully.",
+        title: "Pre-Flight Inspection Exported!",
+        subTitle:
+          "The pre-flight inspection PDF has been exported successfully.",
       });
     } catch (error) {
       setPopup({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: error.message || "Failed to export pre-inspection",
+        subTitle: error.message || "Failed to export pre-flight inspection",
       });
     }
   };
 
   const requestCreateRelease = async () => {
     if (!allDraftReleaseChecksComplete) {
-      message.warning("Please check all pre-inspection items before release");
+      message.warning(
+        "Please check all pre-flight inspection items before release",
+      );
       return;
     }
 
     const confirmed = await confirmAction({
-      title: "Release Pre-Inspection",
-      content: "This will create and release the pre-inspection log. Continue?",
+      title: "Release Pre-Flight Inspection",
+      content:
+        "This will create and release the pre-flight inspection log. Continue?",
       okText: "Release",
     });
     if (confirmed) setSignatureMode("create-release");
@@ -774,13 +786,15 @@ export default function PreInspection() {
   const requestEditRelease = async () => {
     if (!editing) return;
     if (!areAllReleaseChecksComplete(editing)) {
-      message.warning("Please check all pre-inspection items before release");
+      message.warning(
+        "Please check all pre-flight inspection items before release",
+      );
       return;
     }
 
     const confirmed = await confirmAction({
-      title: "Release Pre-Inspection",
-      content: "Release this pre-inspection log?",
+      title: "Release Pre-Flight Inspection",
+      content: "Release this pre-flight inspection log?",
       okText: "Release",
     });
     if (confirmed) setSignatureMode("release");
@@ -788,8 +802,8 @@ export default function PreInspection() {
 
   const requestAccept = async () => {
     const confirmed = await confirmAction({
-      title: "Accept Pre-Inspection",
-      content: "Accept and complete this pre-inspection log?",
+      title: "Accept Pre-Flight Inspection",
+      content: "Accept and complete this pre-flight inspection log?",
       okText: "Accept",
     });
     if (confirmed) setSignatureMode("accept");
@@ -995,7 +1009,8 @@ export default function PreInspection() {
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> pre-inspection log(s)
+            Showing <Text strong>{filtered.length}</Text> pre-flight inspection
+            log(s)
           </Text>
         </Col>
       </Row>
@@ -1008,7 +1023,7 @@ export default function PreInspection() {
           setCreateSelectAllState({});
         }}
         onOk={requestCreateRelease}
-        title="Release Pre-Inspection"
+        title="Release Pre-Flight Inspection"
         okText="Release"
         okButtonProps={{ disabled: !allDraftReleaseChecksComplete }}
         width={isMobile ? "100%" : 1140}
@@ -1208,10 +1223,10 @@ export default function PreInspection() {
         }}
         title={
           editingCanAccept
-            ? "Accept Pre-Inspection"
+            ? "Accept Pre-Flight Inspection"
             : editingReadOnly
-              ? "View Entry - Pre-Inspection"
-              : "Edit Entry - Pre-Inspection"
+              ? "View Entry - Pre-Flight Inspection"
+              : "Edit Entry - Pre-Flight Inspection"
         }
         okText="Save"
         cancelText="Close"
@@ -1346,8 +1361,8 @@ export default function PreInspection() {
         open={Boolean(signatureMode)}
         title={
           signatureMode === "release" || signatureMode === "create-release"
-            ? "Release Pre-Inspection"
-            : "Accept Pre-Inspection"
+            ? "Release Pre-Flight Inspection"
+            : "Accept Pre-Flight Inspection"
         }
         description={
           signatureMode === "release" || signatureMode === "create-release"

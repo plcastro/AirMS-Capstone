@@ -1,11 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import AppText from "../../components/common/AppText";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar
-} from "react-native";
+import { View, ScrollView, TouchableOpacity, StatusBar } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -48,17 +43,14 @@ export default function PreInspection({ route }) {
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
-  const canExportPreInspections = canExportModule(
-    userRole,
-    "preInspection",
-  );
+  const canExportPreInspections = canExportModule(userRole, "preInspection");
 
   useEffect(() => {
     const fetchPreInspections = async () => {
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
-          `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+          `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -67,14 +59,14 @@ export default function PreInspection({ route }) {
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch pre-inspections");
+          throw new Error("Failed to fetch pre-flight inspections");
         }
 
         const data = await response.json();
         setInspections(data.data || []);
       } catch (error) {
-        console.error("Error fetching pre-inspections:", error);
-        showToast("Failed to fetch pre-inspections");
+        console.error("Error fetching pre-flight inspections:", error);
+        showToast("Failed to fetch pre-flight inspections");
       }
     };
 
@@ -207,7 +199,9 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
+              <AppText style={styles.unifiedActionButtonText}>
+                New Entry
+              </AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -339,7 +333,7 @@ export default function PreInspection({ route }) {
                   textAlign: "center",
                 }}
               >
-                No pre-inspections found
+                No pre-flight inspections found
               </AppText>
               {/* Only show Create New Entry button for non-pilot roles */}
               {userRole !== "pilot" && !isOfficerInCharge && (
@@ -379,7 +373,7 @@ export default function PreInspection({ route }) {
           try {
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-inspections/createPreInspection`,
+              `${API_BASE}/api/pre-flight inspections/createPreInspection`,
               {
                 method: "POST",
                 headers: {
@@ -395,7 +389,7 @@ export default function PreInspection({ route }) {
             );
 
             if (!response.ok) {
-              throw new Error("Failed to create pre-inspection");
+              throw new Error("Failed to create pre-flight inspection");
             }
 
             const data = await response.json();
@@ -403,8 +397,8 @@ export default function PreInspection({ route }) {
             setShowNewEntryModal(false);
             showToast("Pre-inspection created successfully");
           } catch (error) {
-            console.error("Error creating pre-inspection:", error);
-            showToast("Failed to create pre-inspection");
+            console.error("Error creating pre-flight inspection:", error);
+            showToast("Failed to create pre-flight inspection");
             throw error;
           }
         }}
@@ -424,7 +418,7 @@ export default function PreInspection({ route }) {
         onSave={async (updatedInspection) => {
           try {
             if (isCompletedInspection(selectedInspection)) {
-              showToast("Completed pre-inspections are view-only.");
+              showToast("Completed pre-flight inspections are view-only.");
               setShowEditModal(false);
               setSelectedInspection(null);
               return;
@@ -432,7 +426,7 @@ export default function PreInspection({ route }) {
 
             const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-inspections/updatePreInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/pre-flight inspections/updatePreInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
                 headers: {
@@ -448,7 +442,7 @@ export default function PreInspection({ route }) {
             );
 
             if (!response.ok) {
-              throw new Error("Failed to update pre-inspection");
+              throw new Error("Failed to update pre-flight inspection");
             }
 
             const data = await response.json();
@@ -461,8 +455,8 @@ export default function PreInspection({ route }) {
             setSelectedInspection(null);
             showToast("Pre-inspection updated successfully");
           } catch (error) {
-            console.error("Error updating pre-inspection:", error);
-            showToast("Failed to update pre-inspection");
+            console.error("Error updating pre-flight inspection:", error);
+            showToast("Failed to update pre-flight inspection");
             throw error;
           }
         }}

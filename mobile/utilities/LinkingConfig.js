@@ -22,7 +22,7 @@ const LinkingConfig = {
           "Activity Logs": "activity-logs",
           "Flight Logs": "flight-log",
           "Maintenance Logs": "maintenance-log",
-          "Pre-Inspection": "pre-inspection",
+          "Pre-Inspection": "pre-flight inspection",
           "Post-Inspection": "post-inspection",
           Tasks: "tasks",
           Mechanics: "mechanics",

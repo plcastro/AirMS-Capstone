@@ -56,13 +56,13 @@ export default function GeneralReports({
     },
     {
       key: "pre",
-      module: "Pre-Inspection",
+      module: "Pre-Flight Inspection",
       total: summary.total.preInspections,
       completed: summary.completed.preInspections,
     },
     {
       key: "post",
-      module: "Post-Inspection",
+      module: "Post-Flight Inspection",
       total: summary.total.postInspections,
       completed: summary.completed.postInspections,
     },

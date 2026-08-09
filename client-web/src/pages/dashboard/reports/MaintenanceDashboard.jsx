@@ -318,11 +318,11 @@ export default function MaintenanceDashboard() {
             { headers },
           ),
           preInspections: fetch(
-            `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+            `${API_BASE}/api/pre-flight inspections/getAllPreInspection`,
             { headers },
           ),
           postInspections: fetch(
-            `${API_BASE}/api/post-inspections/getAllPostInspection`,
+            `${API_BASE}/api/post-flight inspections/getAllPostInspection`,
             { headers },
           ),
           partsRequisitions: fetch(
@@ -464,31 +464,31 @@ export default function MaintenanceDashboard() {
       searchRecords: flightLogs,
     },
     {
-      key: "pre-inspection",
+      key: "pre-flight inspection",
       category: "Logbook",
       title: "",
       component: (
         <InspectionReport
-          title="Pre-Inspection Report"
+          title="Pre-Flight Inspection Report"
           records={preInspections}
           loading={loadingTasks}
         />
       ),
-      keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+      keywords: ["pre", "inspection", "pre-flight inspection", "aircraft"],
       searchRecords: preInspections,
     },
     {
-      key: "post-inspection",
+      key: "post-flight inspection",
       category: "Logbook",
       title: "",
       component: (
         <InspectionReport
-          title="Post-Inspection Report"
+          title="Post-Flight Inspection Report"
           records={postInspections}
           loading={loadingTasks}
         />
       ),
-      keywords: ["post", "inspection", "post-inspection", "aircraft"],
+      keywords: ["post", "inspection", "post-flight inspection", "aircraft"],
       searchRecords: postInspections,
     },
     {
@@ -805,8 +805,8 @@ export default function MaintenanceDashboard() {
           ["Tracked Components", componentRows.length],
           ["Due / Due Soon Components", dueComponents.length],
           ["Flight Logs", flightLogs.length],
-          ["Pre-Inspections", preInspections.length],
-          ["Post-Inspections", postInspections.length],
+          ["Pre-Flight Inspections", preInspections.length],
+          ["Post-Flight Inspections", postInspections.length],
           ["Parts Requisitions", partsRequisitions.length],
           ["Requested Line Items", totalRequisitionItems],
           [
@@ -901,7 +901,7 @@ export default function MaintenanceDashboard() {
         ).map((row) => [row.label, row.value]),
       },
       {
-        title: "Pre-Inspection Status Counts",
+        title: "Pre-Flight Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
           countBy(preInspections, (record) =>
@@ -910,7 +910,7 @@ export default function MaintenanceDashboard() {
         ).map((row) => [row.label, row.value]),
       },
       {
-        title: "Post-Inspection Status Counts",
+        title: "Post-Flight Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
           countBy(postInspections, (record) =>

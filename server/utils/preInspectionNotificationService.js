@@ -57,11 +57,13 @@ const getCreatorUserId = async (inspection) => {
 };
 
 const getInvolvedUserIds = async (inspection) => {
-  const [creatorUserId, releasedByUserId, acceptedByUserId] = await Promise.all([
-    getCreatorUserId(inspection),
-    resolveUserIdByFullName(inspection?.releasedBy?.name),
-    resolveUserIdByFullName(inspection?.acceptedBy?.name),
-  ]);
+  const [creatorUserId, releasedByUserId, acceptedByUserId] = await Promise.all(
+    [
+      getCreatorUserId(inspection),
+      resolveUserIdByFullName(inspection?.releasedBy?.name),
+      resolveUserIdByFullName(inspection?.acceptedBy?.name),
+    ],
+  );
 
   return uniqueStrings([creatorUserId, releasedByUserId, acceptedByUserId]);
 };
@@ -105,8 +107,8 @@ const createNotification = async ({
   const notification = await NotificationModel.create({
     title,
     description,
-    module: "pre-inspections",
-    entityType: "pre-inspection",
+    module: "pre-flight inspections",
+    entityType: "pre-flight inspection",
     entityId: inspection._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
@@ -126,7 +128,7 @@ const createNotification = async ({
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
-      module: "pre-inspections",
+      module: "pre-flight inspections",
       targetScreen: "Pre-Inspection",
       targetPreInspectionId: String(inspection._id),
       status: inspection.status,

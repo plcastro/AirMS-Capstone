@@ -30,9 +30,7 @@ const http = require("http");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
-const {
-  startSessionRetentionJob,
-} = require("./utils/sessionRetentionService");
+const { startSessionRetentionJob } = require("./utils/sessionRetentionService");
 const {
   subscribeSSE,
   publishEvent,
@@ -235,8 +233,8 @@ app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/inspections", inspectionExportRoutes);
-app.use("/api/pre-inspections", preInspectionRoutes);
-app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/pre-flight inspections", preInspectionRoutes);
+app.use("/api/post-flight inspections", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);

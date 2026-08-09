@@ -19,13 +19,13 @@ const exportPreInspectionPdf = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="Pre-Inspection-${inspection.rpc}-${inspection.date}.pdf"`
+      `attachment; filename="Pre-Inspection-${inspection.rpc}-${inspection.date}.pdf"`,
     );
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error exporting pre-inspection PDF:", error);
+    console.error("Error exporting pre-flight inspection PDF:", error);
     res.status(500).json({
-      error: "Failed to generate pre-inspection PDF",
+      error: "Failed to generate pre-flight inspection PDF",
       message: error.message,
     });
   }
@@ -45,13 +45,13 @@ const exportPostInspectionPdf = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="Post-Inspection-${inspection.rpc}-${inspection.date}.pdf"`
+      `attachment; filename="Post-Flight Inspection-${inspection.rpc}-${inspection.date}.pdf"`,
     );
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error exporting post-inspection PDF:", error);
+    console.error("Error exporting post-flight inspection PDF:", error);
     res.status(500).json({
-      error: "Failed to generate post-inspection PDF",
+      error: "Failed to generate post-flight inspection PDF",
       message: error.message,
     });
   }

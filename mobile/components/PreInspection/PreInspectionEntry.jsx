@@ -5,7 +5,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -45,8 +45,9 @@ export default function PreInspectionEntry({
   );
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMechanic =
-    ["mechanic", "maintenance manager", "superadmin"].includes(userRole);
+  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+    userRole,
+  );
 
   useEffect(() => {
     if (visible) {
@@ -84,8 +85,8 @@ export default function PreInspectionEntry({
     try {
       await persistInspection(formData);
     } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
+      console.error("Error saving pre-flight inspection:", error);
+      showToast("Failed to save pre-flight inspection");
     }
   };
 
@@ -159,8 +160,8 @@ export default function PreInspectionEntry({
       await persistInspection(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      showToast("Failed to release pre-inspection");
+      console.error("Error releasing pre-flight inspection:", error);
+      showToast("Failed to release pre-flight inspection");
       throw error;
     }
   };
@@ -224,10 +225,18 @@ export default function PreInspectionEntry({
             }}
           >
             <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText
+                style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}
+              >
                 New Entry - Pre-Inspection
               </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: COLORS.grayDark,
+                }}
+              >
                 Select Section
               </AppText>
             </View>
@@ -291,7 +300,6 @@ export default function PreInspectionEntry({
               marginTop: 12,
             }}
           />
-
         </View>
 
         {/* Page Content */}
