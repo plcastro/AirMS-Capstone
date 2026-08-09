@@ -22,6 +22,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import WRSTable from "../tables/WRSTable";
 import ResultPopup from "../common/ResultPopup";
+import DateOnlyCell from "../common/DateOnlyCell";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -797,7 +798,10 @@ export default function WRSModal({
                 <Col xs={12} sm={12} md={6}>
                   <Text type="secondary">Date Requested</Text>
                   <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>{selectedRecord.dateRequested}</Text>
+                    <DateOnlyCell
+                      value={selectedRecord.dateRequested}
+                      fallback={selectedRecord.dateRequested || "N/A"}
+                    />
                   </Paragraph>
                 </Col>
                 <Col xs={12} sm={12} md={6}>
