@@ -321,10 +321,11 @@ export const AuthProvider = ({ children }) => {
         const persistedRefreshToken =
           (await AsyncStorage.getItem("refreshToken")) ||
           (await secureGetItem("refreshToken"));
+        const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
 
         const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
-        if (hasAuthMaterial && storedUser) {
-          setUser(JSON.parse(storedUser));
+        if (hasAuthMaterial && parsedStoredUser) {
+          setUser(parsedStoredUser);
         } else {
           setUser(null);
         }
@@ -338,9 +339,20 @@ export const AuthProvider = ({ children }) => {
 
         refreshTokenRef.current = persistedRefreshToken;
 
-        if (storedUser && (accessToken || persistedRefreshToken)) {
+        if (parsedStoredUser && (accessToken || persistedRefreshToken)) {
+          const sessionMeta = await getSessionMeta();
+          if (
+            !sessionMeta?.sessionId &&
+            (parsedStoredUser?.sessionId || parsedStoredUser?.base)
+          ) {
+            await persistSessionMeta({
+              base: parsedStoredUser?.base,
+              sessionId: parsedStoredUser?.sessionId,
+            });
+          }
+
           if (persistedRefreshToken) {
-            await refreshSession();
+            await refreshSession({ logoutOnFailure: false });
           }
         }
       } catch (err) {
@@ -350,7 +362,13 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadPersistedAuth();
-  }, [clearStoredAuth, hasMobileSessionExpired, refreshSession]);
+  }, [
+    clearStoredAuth,
+    getSessionMeta,
+    hasMobileSessionExpired,
+    persistSessionMeta,
+    refreshSession,
+  ]);
 
   const loginUser = async ({
     user: userData,

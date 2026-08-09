@@ -30,6 +30,8 @@ const getTrustedDeviceStorageKey = (account) => {
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
+
 const storeTrustedDeviceTokenForAccounts = async (accounts = [], token) => {
   if (!token) return;
 
@@ -161,6 +163,7 @@ export default function OTP() {
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
         await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       await loginUser({

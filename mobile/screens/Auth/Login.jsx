@@ -9,7 +9,11 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureGetItem } from "../../utilities/secureStorage";
+import {
+  secureDeleteItem,
+  secureGetItem,
+  secureSetItem,
+} from "../../utilities/secureStorage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -37,6 +41,8 @@ const getTrustedDeviceStorageKey = (account) => {
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
+
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
@@ -61,10 +67,11 @@ export default function Login() {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
+          const savedPassword = await secureGetItem(REMEMBERED_PASSWORD_KEY);
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: "",
+            password: savedPassword || "",
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
         }
@@ -144,6 +151,12 @@ export default function Login() {
       }
 
       if (data.requireLoginOtp && data.verification?.token) {
+        if (rememberMe) {
+          await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
+        } else {
+          await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
+        }
+
         nav.replace("otpScreen", {
           mode: "login-2fa",
           token: data.verification.token,
@@ -178,9 +191,11 @@ export default function Login() {
           formData.identifier.trim(),
         );
         await AsyncStorage.setItem("rememberedBase", selectedBase);
+        await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
         await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       // security redirect
