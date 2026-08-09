@@ -871,7 +871,10 @@ export default function TaskAssignment() {
         `${API_BASE}/api/tasks/${task.id || task._id}`,
         {
           method: "DELETE",
-          headers: await getAuthHeader(),
+          headers: {
+            "x-action-confirmed": "true",
+            ...(await getAuthHeader()),
+          },
         },
       );
       const data = await response.json().catch(() => ({}));

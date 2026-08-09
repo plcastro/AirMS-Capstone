@@ -132,7 +132,6 @@ export default function PreInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];

@@ -1,7 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
+
+export const recordClientActivity = async (timestamp = Date.now()) => {
+  await AsyncStorage.setItem(CLIENT_ACTIVE_AT_KEY, String(timestamp));
+  return timestamp;
+};
+
+export const getClientActiveAt = async () => {
+  const value = Number(await AsyncStorage.getItem(CLIENT_ACTIVE_AT_KEY));
+  return Number.isFinite(value) ? value : Date.now();
+};
+
 export const getAuthHeaders = async (extraHeaders = {}) => {
   const token = await AsyncStorage.getItem("currentUserToken");
+  const clientActiveAt = await getClientActiveAt();
   let sessionMeta = {};
   try {
     const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
@@ -15,6 +28,7 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-client-active-at": String(clientActiveAt),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
   };
@@ -22,6 +36,7 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
 
 export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
   const token = await AsyncStorage.getItem("currentUserToken");
+  const clientActiveAt = await getClientActiveAt();
   let sessionMeta = {};
   try {
     const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
@@ -34,6 +49,7 @@ export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
     ...extraHeaders,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-client-active-at": String(clientActiveAt),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
   };

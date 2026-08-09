@@ -258,7 +258,7 @@ const buildTargetNavigation = (notificationPayload) => {
 };
 
 export function NotificationProvider({ children }) {
-  const { user, logoutUser } = useContext(AuthContext);
+  const { user, logoutUser, refreshSession } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [foregroundBanner, setForegroundBanner] = useState(null);
@@ -282,6 +282,16 @@ export function NotificationProvider({ children }) {
   const moduleSnapshotRef = useRef(null);
   const moduleNotifierReadyRef = useRef(false);
   const loadedNotificationsUserIdRef = useRef("");
+
+  const handleUnauthorized = useCallback(async () => {
+    const refreshedToken = await refreshSession?.();
+    if (!refreshedToken) {
+      setNotifications([]);
+      await logoutUser?.();
+      return false;
+    }
+    return true;
+  }, [logoutUser, refreshSession]);
 
   const pushInAppNotification = useCallback(
     ({
@@ -536,9 +546,8 @@ export function NotificationProvider({ children }) {
           signal,
         });
 
-        if (response.status === 401 || response.status === 403) {
-          setNotifications([]);
-          await logoutUser?.();
+        if (response.status === 401) {
+          await handleUnauthorized();
           return;
         }
 
@@ -562,7 +571,7 @@ export function NotificationProvider({ children }) {
         }
       }
     },
-    [logoutUser, user?.id],
+    [handleUnauthorized, user?.id],
   );
 
   const fetchModuleSnapshot = useCallback(
@@ -848,8 +857,8 @@ export function NotificationProvider({ children }) {
           },
         );
 
-        if (response.status === 401 || response.status === 403) {
-          await logoutUser?.();
+        if (response.status === 401) {
+          await handleUnauthorized();
           return false;
         }
 
@@ -874,7 +883,7 @@ export function NotificationProvider({ children }) {
         return false;
       }
     },
-    [logoutUser],
+    [handleUnauthorized],
   );
 
   const markAllAsRead = useCallback(async () => {
@@ -890,8 +899,8 @@ export function NotificationProvider({ children }) {
         },
       );
 
-      if (response.status === 401 || response.status === 403) {
-        await logoutUser?.();
+      if (response.status === 401) {
+        await handleUnauthorized();
         return;
       }
 
@@ -912,7 +921,7 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
     }
-  }, [logoutUser]);
+  }, [handleUnauthorized]);
 
   const clearReadNotifications = useCallback(async () => {
     const authToken = await getStoredToken();
@@ -934,8 +943,8 @@ export function NotificationProvider({ children }) {
           },
         );
 
-        if (response.status === 401 || response.status === 403) {
-          await logoutUser?.();
+        if (response.status === 401) {
+          await handleUnauthorized();
           return;
         }
 
@@ -955,7 +964,7 @@ export function NotificationProvider({ children }) {
       console.error("Error clearing read notifications:", error);
       showToast("Failed to clear read notifications.");
     }
-  }, [logoutUser, notifications]);
+  }, [handleUnauthorized, notifications]);
 
   const openNotificationTarget = useCallback(
     async (notificationPayload) => {

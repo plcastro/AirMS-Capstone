@@ -340,6 +340,8 @@ export default function PartsRequisition({ route, navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState("Pending");
   const [showTabDropdown, setShowTabDropdown] = useState(false);
+  const [dateSortOrder, setDateSortOrder] = useState("newest");
+  const [showDateSortDropdown, setShowDateSortDropdown] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -365,6 +367,7 @@ export default function PartsRequisition({ route, navigation }) {
     [user?.access, user?.jobTitle],
   );
   const isWarehouse = userRole === "warehouse staff";
+  const isMechanic = userRole === "mechanic";
   const isManager = [
     "superadmin",
     "maintenance manager",
@@ -377,9 +380,10 @@ export default function PartsRequisition({ route, navigation }) {
     "warehouse staff",
   ].includes(userRole);
   const tabLabels = isManager
-    ? ["For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
+    ? ["All", "For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
     : isWarehouse
       ? [
+          "All",
           "Parts Requested",
           "Availability Checked",
           "To Be Restocked",
@@ -387,7 +391,7 @@ export default function PartsRequisition({ route, navigation }) {
           "Approved",
           "Closed",
         ]
-      : ["Pending", "Approved", "Closed"];
+      : ["All", "Pending", "Approved", "Closed"];
   const defaultTab = isManager
     ? "For Review"
     : isWarehouse
@@ -569,6 +573,10 @@ export default function PartsRequisition({ route, navigation }) {
 
   const filteredRequisitions = useMemo(() => {
     const sourceData = mappedRequisitions.filter((item) => {
+      if (selectedTab === "All") {
+        return true;
+      }
+
       if (isManager) {
         if (selectedTab === "For Review") {
           return item.rawStatus === "Availability Checked";
@@ -613,13 +621,34 @@ export default function PartsRequisition({ route, navigation }) {
       return ["Delivered", "Cancelled"].includes(item.rawStatus);
     });
 
-    return sourceData.filter((item) => {
-      return matchesSearch(searchQuery, item);
-    });
-  }, [isManager, isWarehouse, mappedRequisitions, searchQuery, selectedTab]);
+    return sourceData
+      .filter((item) => matchesSearch(searchQuery, item))
+      .sort((left, right) => {
+        const leftTime = new Date(
+          left.rawRecord?.dateRequested || left.rawRecord?.createdAt || 0,
+        ).getTime();
+        const rightTime = new Date(
+          right.rawRecord?.dateRequested || right.rawRecord?.createdAt || 0,
+        ).getTime();
+        const safeLeft = Number.isNaN(leftTime) ? 0 : leftTime;
+        const safeRight = Number.isNaN(rightTime) ? 0 : rightTime;
+
+        return dateSortOrder === "oldest"
+          ? safeLeft - safeRight
+          : safeRight - safeLeft;
+      });
+  }, [
+    dateSortOrder,
+    isManager,
+    isWarehouse,
+    mappedRequisitions,
+    searchQuery,
+    selectedTab,
+  ]);
 
   const tabCounts = useMemo(
     () => ({
+      All: mappedRequisitions.length,
       "For Review": mappedRequisitions.filter((item) =>
         ["Availability Checked"].includes(item.rawStatus),
       ).length,
@@ -1235,6 +1264,50 @@ export default function PartsRequisition({ route, navigation }) {
           )}
         </View>
 
+        <View style={{ marginBottom: 12 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowDateSortDropdown((open) => !open)}
+          >
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {dateSortOrder === "oldest"
+                ? "Date: Oldest First"
+                : "Date: Newest First"}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showDateSortDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
+
+          {showDateSortDropdown && (
+            <View style={styles.unifiedDropdownMenu}>
+              {[
+                ["newest", "Date: Newest First"],
+                ["oldest", "Date: Oldest First"],
+              ].map(([value, label], index) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    index === 0 ? styles.unifiedDropdownItemBordered : null,
+                  ]}
+                  onPress={() => {
+                    setDateSortOrder(value);
+                    setShowDateSortDropdown(false);
+                  }}
+                >
+                  <AppText style={styles.unifiedDropdownItemText}>
+                    {label}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
         {tabLabels.length > 3 ? (
           <View style={{ marginBottom: 20 }}>
             <TouchableOpacity
@@ -1305,7 +1378,7 @@ export default function PartsRequisition({ route, navigation }) {
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            showActions={!isManager && !isWarehouse}
+            showActions={!isManager && !isWarehouse && !isMechanic}
             actionsDisabled={!isManager && selectedTab !== "Pending"}
             loading={loading}
           />

@@ -5,6 +5,7 @@ const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
 const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const getSessionIdleLimitMs = (platform) =>
   String(platform || "").toUpperCase() === "WEB"
@@ -42,11 +43,18 @@ const verifyToken = async (req, res, next) => {
     const lastActivityAt = new Date(
       session.lastActivityAt || session.loginAt || now,
     ).getTime();
-    const inactiveForMs = now - lastActivityAt;
-
     const platform =
       req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
     const sessionIdleLimitMs = getSessionIdleLimitMs(platform);
+    const clientActiveAt = Number(req.headers["x-client-active-at"]);
+    const hasRecentClientActivity =
+      Number.isFinite(clientActiveAt) &&
+      clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
+      now - clientActiveAt <= sessionIdleLimitMs;
+    const effectiveLastActivityAt = hasRecentClientActivity
+      ? Math.max(lastActivityAt, clientActiveAt)
+      : lastActivityAt;
+    const inactiveForMs = now - effectiveLastActivityAt;
 
     if (inactiveForMs > sessionIdleLimitMs) {
       await UserSession.findOneAndUpdate(

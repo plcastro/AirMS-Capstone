@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const TaskModel = require("../models/taskModel");
 const AircraftModel = require("../models/aircraftModel");
 const { auditLog } = require("./logsController");
@@ -14,6 +15,17 @@ const withActorId = (req, action, fallbackId = null) => {
     actorId,
     action: actorId ? `${action} (actorId: ${actorId})` : action,
   };
+};
+
+const buildTaskIdentifierQuery = (value) => {
+  const identifier = String(value || "").trim();
+  const conditions = [{ id: identifier }];
+
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    conditions.push({ _id: identifier });
+  }
+
+  return { $or: conditions };
 };
 
 const sanitizeTaskPayload = (payload = {}) => {
@@ -507,7 +519,9 @@ const cleanupAssignedMechanic = async (req, res) => {
 
 const deleteTask = async (req, res) => {
   try {
-    const task = await TaskModel.findOneAndDelete({ id: req.params.id });
+    const task = await TaskModel.findOneAndDelete(
+      buildTaskIdentifierQuery(req.params.id),
+    );
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }

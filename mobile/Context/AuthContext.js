@@ -5,9 +5,11 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AppState, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { secureGetItem, secureSetItem, secureDeleteItem } from "../utilities/secureStorage";
 import { API_BASE } from "../utilities/API_BASE";
+import { getClientActiveAt, recordClientActivity } from "../utilities/mobileApi";
 
 export const AuthContext = createContext();
 
@@ -21,6 +23,19 @@ export const AuthProvider = ({ children }) => {
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
+  const lastActivityWriteRef = useRef(0);
+
+  const markClientActivity = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastActivityWriteRef.current < 30 * 1000) return;
+
+    lastActivityWriteRef.current = now;
+    try {
+      await recordClientActivity(now);
+    } catch (error) {
+      console.warn("Failed to record mobile activity:", error?.message || error);
+    }
+  }, []);
 
   const clearStoredAuth = useCallback(async () => {
     await AsyncStorage.multiRemove([
@@ -117,6 +132,7 @@ export const AuthProvider = ({ children }) => {
       if (!uniqueCandidates.length) throw new Error("No refresh token available");
 
       const sessionMeta = await getSessionMeta();
+      const clientActiveAt = await getClientActiveAt();
       let lastError = "Session expired";
 
       for (const refreshToken of uniqueCandidates) {
@@ -125,6 +141,7 @@ export const AuthProvider = ({ children }) => {
           headers: {
             "Content-Type": "application/json",
             "x-platform": "MOBILE",
+            "x-client-active-at": String(clientActiveAt),
             ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
             ...(sessionMeta?.sessionId
               ? { "x-session-id": sessionMeta.sessionId }
@@ -195,6 +212,18 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   }, [clearStoredAuth, getSessionMeta, logoutUser]);
+
+  useEffect(() => {
+    markClientActivity();
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        markClientActivity();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [markClientActivity]);
 
   useEffect(() => {
     const loadPersistedAuth = async () => {
@@ -383,9 +412,12 @@ export const AuthProvider = ({ children }) => {
         refreshSession,
         rememberMePreference,
         updateRememberMePreference,
+        markClientActivity,
       }}
     >
-      {children}
+      <View style={{ flex: 1 }} onTouchStart={markClientActivity}>
+        {children}
+      </View>
     </AuthContext.Provider>
   );
 };

@@ -62,7 +62,8 @@ export default function FlightLogCards({
     });
   };
 
-  const getStatusBadgeStyle = (status) => {
+  const getStatusBadgeStyle = (log) => {
+    const status = log?.status;
     switch (status) {
       case "pending_release":
         return {
@@ -77,6 +78,13 @@ export default function FlightLogCards({
           label: "Released",
         };
       case "accepted":
+        if (log?.notifiedForCompletion) {
+          return {
+            backgroundColor: "#E6F4FF",
+            textColor: "#0958D9",
+            label: "For Completion",
+          };
+        }
         return {
           backgroundColor: "#FFF8E1",
           textColor: "#A37300",
@@ -86,7 +94,7 @@ export default function FlightLogCards({
         return {
           backgroundColor: "#E8F5E9",
           textColor: "#2E7D32",
-          label: "Done",
+          label: "Completed",
         };
       default:
         return {
@@ -108,9 +116,10 @@ export default function FlightLogCards({
   return (
     <>
       {logs.map((log) => {
-        const statusStyle = getStatusBadgeStyle(log.status);
+        const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
         const exportLoading = exportingLogId === logKey;
+        const isViewOnly = readOnly || log.status === "completed";
 
         return (
           <TouchableOpacity
@@ -203,10 +212,10 @@ export default function FlightLogCards({
                   />
                 )}
                 <ActionIconButton
-                  icon={readOnly ? "eye-outline" : "pencil"}
-                  tooltip={readOnly ? "View" : "Edit"}
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
                   onPress={() => onEdit(log)}
-                  color={readOnly ? COLORS.primaryLight : "#777"}
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
                   size={32}
                   iconSize={21}
                 />

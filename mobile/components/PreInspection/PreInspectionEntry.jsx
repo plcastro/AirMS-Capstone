@@ -118,7 +118,9 @@ export default function PreInspectionEntry({
       return false;
     }
 
-    if (!String(formData.fob || "").trim()) {
+    const fobValue = String(formData.fob || "").trim();
+    const numericFob = Number(fobValue);
+    if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
       showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }

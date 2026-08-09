@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Image
+  Image,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -143,6 +144,20 @@ export default function PostInspectionEditEntry({
     }
   };
 
+  const handleSave = async () => {
+    if (!formData?._id) {
+      showToast("Post-inspection record is missing.");
+      return;
+    }
+
+    if (!formData.rpc || !formData.aircraftType || !formData.date) {
+      showToast("Aircraft, aircraft type, and date are required.");
+      return;
+    }
+
+    await persistInspection(formData);
+  };
+
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
   const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
   const isFormEditable =
@@ -232,6 +247,7 @@ export default function PostInspectionEditEntry({
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
+  const showSaveButton = isFormEditable;
   const footerActionLabel = "Close";
 
   return (
@@ -542,6 +558,39 @@ export default function PostInspectionEditEntry({
               Previous
             </AppText>
           </TouchableOpacity>
+
+          {showSaveButton && (
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={isSubmitting}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 18,
+                borderRadius: 4,
+                backgroundColor: COLORS.primaryLight,
+                opacity: isSubmitting ? 0.6 : 1,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              {isSubmitting && (
+                <ActivityIndicator
+                  size="small"
+                  color={COLORS.white}
+                  style={{ marginRight: 6 }}
+                />
+              )}
+              <AppText
+                style={{
+                  color: COLORS.white,
+                  fontSize: 14,
+                  fontWeight: "600",
+                }}
+              >
+                Save
+              </AppText>
+            </TouchableOpacity>
+          )}
 
           <View
             style={{

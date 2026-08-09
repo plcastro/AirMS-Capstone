@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ActivityIndicator
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -18,6 +17,7 @@ import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders as getMobileAuthHeaders } from "../../utilities/mobileApi";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
@@ -39,6 +39,9 @@ const getComparableStatus = (statusValue = "") => {
   }
   if (normalized === "released") {
     return "pending_acceptance";
+  }
+  if (normalized === "for_completion") {
+    return "accepted";
   }
 
   return normalized;
@@ -91,28 +94,10 @@ export default function FlightLog({ route, navigation }) {
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportFlightLogs = canExportModule(userRole, "flightLogs");
 
-  const getAuthHeaders = useCallback(async () => {
-    const token = await AsyncStorage.getItem("currentUserToken");
-    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
-    let sessionMeta = {};
-
-    try {
-      sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
-    } catch {
-      sessionMeta = {};
-    }
-
-    return {
-      "Content-Type": "application/json",
-      "x-action-confirmed": "true",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      "x-platform": "MOBILE",
-      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-      ...(sessionMeta.sessionId
-        ? { "x-session-id": sessionMeta.sessionId }
-        : {}),
-    };
-  }, []);
+  const getAuthHeaders = useCallback(
+    () => getMobileAuthHeaders({ "x-action-confirmed": "true" }),
+    [],
+  );
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
   const fetchFlightLogs = useCallback(
@@ -383,6 +368,7 @@ export default function FlightLog({ route, navigation }) {
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
+    { label: "For Completion", value: "for_completion" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -396,7 +382,14 @@ export default function FlightLog({ route, navigation }) {
 
     const matchesStatus =
       selectedStatus === "all" ||
-      getComparableStatus(log.status) === getComparableStatus(selectedStatus);
+      (selectedStatus === "for_completion"
+        ? getComparableStatus(log.status) === "accepted" &&
+          log.notifiedForCompletion
+        : selectedStatus === "accepted"
+          ? getComparableStatus(log.status) === "accepted" &&
+            !log.notifiedForCompletion
+          : getComparableStatus(log.status) ===
+            getComparableStatus(selectedStatus));
 
     return matchesSearchText && matchesAircraft && matchesStatus;
   });
@@ -714,7 +707,10 @@ export default function FlightLog({ route, navigation }) {
         onSave={handleSaveEdit}
         userRole={userRole}
         currentUser={user}
-        readOnly={isOfficerInCharge}
+        readOnly={
+          isOfficerInCharge ||
+          normalizeFlightLogStatus(selectedLog?.status) === "completed"
+        }
       />
     </View>
   );

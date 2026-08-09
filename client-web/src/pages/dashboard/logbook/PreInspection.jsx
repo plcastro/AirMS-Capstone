@@ -45,7 +45,7 @@ import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_OPTIONS = ["all", "released", "completed"];
 const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
 const isValidDate = (value) =>
@@ -412,6 +412,13 @@ const RELEASE_CHECK_FIELDS = Object.values(CHECKLIST_GROUPS).flatMap((groups) =>
 );
 const areAllReleaseChecksComplete = (record = {}) =>
   RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
+const hasValidFob = (record = {}) => {
+  const value = String(record.fob ?? "").trim();
+  if (!value) return false;
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0;
+};
 
 const sanitizeFileName = (value) =>
   String(value || "pre-flight inspection")
@@ -676,7 +683,10 @@ export default function PreInspection() {
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
-    if (isCompletedInspection(nextPayload)) {
+    const currentRecord = records.find(
+      (record) => String(record._id) === String(nextPayload._id),
+    );
+    if (isCompletedInspection(currentRecord || editing)) {
       message.info("Completed pre-flight inspections are view-only.");
       return;
     }
@@ -767,10 +777,14 @@ export default function PreInspection() {
   };
 
   const requestCreateRelease = async () => {
-    if (!allDraftReleaseChecksComplete) {
+    if (!areAllReleaseChecksComplete(draft)) {
       message.warning(
         "Please check all pre-flight inspection items before release",
       );
+      return;
+    }
+    if (!hasValidFob(draft)) {
+      message.warning("FOB must be filled in before release.");
       return;
     }
 
@@ -791,6 +805,10 @@ export default function PreInspection() {
       );
       return;
     }
+    if (!hasValidFob(editing)) {
+      message.warning("FOB must be filled in before release.");
+      return;
+    }
 
     const confirmed = await confirmAction({
       title: "Release Pre-Flight Inspection",
@@ -801,6 +819,12 @@ export default function PreInspection() {
   };
 
   const requestAccept = async () => {
+    if (!editingCanAccept) return;
+    if (!hasValidFob(editing)) {
+      message.warning("FOB must be filled in before acceptance.");
+      return;
+    }
+
     const confirmed = await confirmAction({
       title: "Accept Pre-Flight Inspection",
       content: "Accept and complete this pre-flight inspection log?",
@@ -1315,6 +1339,28 @@ export default function PreInspection() {
                 {editing.acceptedBy?.name || "-"}
               </Descriptions.Item>
             </Descriptions>
+
+            <Row gutter={[10, 10]}>
+              <Col xs={24} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                  Fuel On Board <span style={{ color: "red" }}>*</span>
+                </Text>
+                <Input
+                  type="number"
+                  size="large"
+                  value={editing.fob}
+                  onChange={(e) =>
+                    setEditing((prev) => ({
+                      ...prev,
+                      fob: e.target.value,
+                    }))
+                  }
+                  disabled={editingReadOnly}
+                  placeholder="Fuel On Board"
+                  suffix="%"
+                />
+              </Col>
+            </Row>
 
             <Divider style={{ margin: "6px 0" }}>Checklist Points</Divider>
             <Row gutter={[8, 8]}>

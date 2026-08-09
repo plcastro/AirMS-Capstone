@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   StatusBar
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 import { exportPostInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
@@ -50,13 +50,10 @@ export default function PostInspection({ route }) {
   useEffect(() => {
     const fetchPostInspections = async () => {
       try {
-        const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
           `${API_BASE}/api/post-flight/getAllPostInspection`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
@@ -134,7 +131,6 @@ export default function PostInspection({ route }) {
   const statusOptions = [
     { label: "All Status", value: "all" },
     { label: "Pending Release", value: "pending" },
-    { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -339,16 +335,13 @@ export default function PostInspection({ route }) {
         }}
         onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
               `${API_BASE}/api/post-flight/updatePostInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveEdit(updatedInspection),
                   confirmAction: true,

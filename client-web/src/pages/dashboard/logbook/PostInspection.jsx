@@ -39,7 +39,7 @@ import dayjs from "dayjs";
 import { matchesSearch } from "../../../utils/search";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
-const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_OPTIONS = ["all", "pending", "completed"];
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");

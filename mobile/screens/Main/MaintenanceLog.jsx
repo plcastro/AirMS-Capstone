@@ -78,6 +78,9 @@ export default function MaintenanceLog() {
   const [selectedBase, setSelectedBase] = useState("all");
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
+  const userRole = String(user?.jobTitle || "").trim().toLowerCase();
+  const isMechanic = userRole === "mechanic";
+  const userBase = String(user?.base || "").trim().toUpperCase();
   const canExportMaintenanceLogs = canExportModule(
     user?.jobTitle,
     "maintenanceLogs",
@@ -109,6 +112,12 @@ export default function MaintenanceLog() {
     fetchLogs();
   }, [fetchLogs]);
 
+  useEffect(() => {
+    if (isMechanic && userBase) {
+      setSelectedBase(userBase);
+    }
+  }, [isMechanic, userBase]);
+
   const fetchAircraftExportData = async (aircraft) => {
     if (!aircraft) return null;
 
@@ -126,28 +135,35 @@ export default function MaintenanceLog() {
   };
 
   const baseOptions = useMemo(
-    () => [
-      "all",
-      ...new Set(
-        entries
-          .map((entry) => String(entry.base || "").trim().toUpperCase())
-          .filter(Boolean),
-      ),
-    ],
-    [entries],
+    () => {
+      if (isMechanic) {
+        return userBase ? [userBase] : [];
+      }
+
+      return [
+        "all",
+        ...new Set(
+          entries
+            .map((entry) => String(entry.base || "").trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      ];
+    },
+    [entries, isMechanic, userBase],
   );
 
   const filteredEntries = useMemo(() => {
+    const effectiveBase = isMechanic ? userBase : selectedBase;
     const baseFiltered =
-      selectedBase === "all"
+      effectiveBase === "all"
         ? entries
         : entries.filter(
             (entry) =>
-              String(entry.base || "").trim().toUpperCase() === selectedBase,
+              String(entry.base || "").trim().toUpperCase() === effectiveBase,
           );
 
     return baseFiltered.filter((entry) => matchesSearch(search, entry));
-  }, [entries, search, selectedBase]);
+  }, [entries, search, selectedBase, isMechanic, userBase]);
 
   const aircraftGroups = useMemo(() => {
     const map = new Map();
@@ -163,7 +179,12 @@ export default function MaintenanceLog() {
     }));
   }, [filteredEntries]);
 
-  const selectedBaseLabel = selectedBase === "all" ? "All Bases" : selectedBase;
+  const selectedBaseLabel =
+    (isMechanic ? userBase : selectedBase) === "all"
+      ? "All Bases"
+      : isMechanic
+        ? userBase || "Base"
+        : selectedBase;
 
   const selectBase = (base) => {
     setSelectedBase(base);
@@ -316,7 +337,9 @@ export default function MaintenanceLog() {
         <TouchableOpacity
           style={styles.unifiedFilterButton}
           activeOpacity={0.82}
-          onPress={() => setShowBaseDropdown((open) => !open)}
+          onPress={() => {
+            if (!isMechanic) setShowBaseDropdown((open) => !open);
+          }}
         >
           <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
             {selectedBaseLabel}
@@ -328,7 +351,7 @@ export default function MaintenanceLog() {
           />
         </TouchableOpacity>
 
-        {showBaseDropdown && (
+        {showBaseDropdown && !isMechanic && (
           <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
             <ScrollView nestedScrollEnabled>
               {baseOptions.map((base, index) => (
