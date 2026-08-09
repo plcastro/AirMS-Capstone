@@ -1,11 +1,10 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import "../../pages/auth/login.css";
+import Airms_LogoDark from "../../assets/AirMS_web.webp";
 const AirMS_Hero = "/images/airms_hero.webp";
 const AirMS_Hero640 = "/images/airms-hero_680.webp";
 const AirMS_Hero412 = "/images/airms-hero_412.webp";
-const Airms_LogoDark = "/images/airmslogo_dark.webp";
 const { Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -17,15 +16,10 @@ const RootLayout = () => {
   if (isMobile) {
     return (
       <Layout className="auth-mobile-shell">
-        <picture className="auth-mobile-bg" aria-hidden="true">
-          <source media="(max-width: 480px)" srcSet={AirMS_Hero412} />
-          <source media="(max-width: 768px)" srcSet={AirMS_Hero640} />
-          <img src={AirMS_Hero640} alt="" />
-        </picture>
         <div className="auth-mobile-scrim" />
 
         <div className="auth-mobile-brand" aria-label="AirMS">
-          <img src={Airms_LogoDark} alt="AirMS" />
+          <img src={Airms_LogoDark} alt="AirMS" width="178" height="53" />
           <p className="auth-mobile-brand-title">
             Aircraft Maintenance Made{" "}
             <span>Smarter</span>

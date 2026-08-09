@@ -36,6 +36,15 @@ export const AuthProvider = ({ children }) => {
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
 
+  const hasStoredSessionHint = () =>
+    Boolean(
+      sessionStorage.getItem("currentUser") ||
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem(SESSION_META_KEY),
+    );
+
   const normalizeUser = (userData) => ({
     ...userData,
     id: userData.id || userData._id || null,
@@ -553,6 +562,10 @@ export const AuthProvider = ({ children }) => {
           setUser(normalizeUser(parsedUser));
           persistSessionTiming(token, "restore", { restartFullWindow: true });
           scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
+          return;
+        }
+
+        if (!hasStoredSessionHint()) {
           return;
         }
 

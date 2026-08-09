@@ -13,7 +13,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import RootLayout from "./components/layout/RootLayout";
 import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
@@ -33,6 +32,7 @@ const LoadingScreen = () => (
   </div>
 );
 const Login = lazy(() => import("./pages/auth/Login"));
+const RootLayout = lazy(() => import("./components/layout/RootLayout"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const OTP = lazy(() => import("./pages/auth/OTP"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));

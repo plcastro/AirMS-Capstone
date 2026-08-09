@@ -309,7 +309,7 @@ const Login = () => {
               id="base"
               aria-label="Logging in from"
               size="large"
-              placeholder="Select base"
+              placeholder={<span style={{ color: "#595959" }}>Select base</span>}
               required
               value={formData.base || undefined}
               onChange={(value) =>
@@ -360,7 +360,7 @@ const Login = () => {
             {loading ? "PLEASE WAIT..." : "LOGIN"}
           </Button>
           <Text
-            type="secondary"
+            className="auth-terms-copy"
             style={{
               display: "block",
               marginTop: 16,

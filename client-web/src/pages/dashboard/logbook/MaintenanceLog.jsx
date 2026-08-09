@@ -5,8 +5,6 @@ import {
   ArrowLeftOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
@@ -638,6 +636,10 @@ export default function MaintenanceLog() {
           console.warn(error);
           return null;
         }),
+      ]);
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
       ]);
 
       const doc = new jsPDF("p", "pt", "a4");

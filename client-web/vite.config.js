@@ -19,18 +19,15 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1000,
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
-            // Group export-heavy libraries together
-            if (
-              id.includes("jspdf") ||
-              id.includes("exceljs") ||
-              id.includes("html2canvas")
-            ) {
-              return "export-libs";
-            }
+            // Keep export-heavy libraries lazy and isolated by export type.
+            if (id.includes("exceljs")) return "export-excel";
+            if (id.includes("html2canvas")) return "export-canvas";
+            if (id.includes("file-saver")) return "export-file";
             // Group core React/Router libraries
             if (
               id.includes("react") ||
