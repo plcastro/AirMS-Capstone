@@ -955,7 +955,7 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          <Col xs={12} md={4}>
+          <Col xs={12} md={6}>
             <Select
               style={{ width: "100%" }}
               value={status}
