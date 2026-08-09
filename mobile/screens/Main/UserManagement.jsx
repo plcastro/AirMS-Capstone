@@ -12,7 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -55,7 +55,9 @@ export default function UserManagement() {
   const [formVisible, setFormVisible] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [savingUser, setSavingUser] = useState(false);
-  const [inviteActionLoadingByUser, setInviteActionLoadingByUser] = useState({});
+  const [inviteActionLoadingByUser, setInviteActionLoadingByUser] = useState(
+    {},
+  );
 
   const currentUserId = user?.id || user?._id || "";
 
@@ -89,7 +91,8 @@ export default function UserManagement() {
                     new Date(u.tempPasswordExpires).getTime() < now
                   ? "expired"
                   : "pending"),
-            invitationExpiresAt: u.invitationExpiresAt || u.tempPasswordExpires || null,
+            invitationExpiresAt:
+              u.invitationExpiresAt || u.tempPasswordExpires || null,
           }))
         : [];
       setUsers(mapped);
@@ -192,7 +195,10 @@ export default function UserManagement() {
 
     try {
       await withInviteActionLoading(targetUser?._id, async () => {
-        await runInviteAction(`/api/user/resend-activation/${targetUser._id}`, "POST");
+        await runInviteAction(
+          `/api/user/resend-activation/${targetUser._id}`,
+          "POST",
+        );
       });
       showToast(`Activation email resent to ${targetUser?.email || "user"}.`);
       fetchUsers({ silent: true });
@@ -235,7 +241,10 @@ export default function UserManagement() {
 
     try {
       await withInviteActionLoading(targetUser?._id, async () => {
-        await runInviteAction(`/api/user/revoke-invitation/${targetUser._id}`, "PUT");
+        await runInviteAction(
+          `/api/user/revoke-invitation/${targetUser._id}`,
+          "PUT",
+        );
       });
       showToast("Invitation revoked.");
       fetchUsers({ silent: true });
@@ -317,7 +326,8 @@ export default function UserManagement() {
             ? (() => {
                 const formData = new FormData();
                 Object.entries(requestPayload || {}).forEach(([key, value]) => {
-                  if (value === undefined || value === null || value === "") return;
+                  if (value === undefined || value === null || value === "")
+                    return;
                   formData.append(key, value);
                 });
                 formData.append("confirmAction", "true");
@@ -389,7 +399,9 @@ export default function UserManagement() {
     const dynamicTitles = users
       .map((u) => String(u.jobTitle || "").trim())
       .filter(Boolean);
-    const merged = Array.from(new Set([...JOB_TITLE_OPTIONS, ...dynamicTitles]));
+    const merged = Array.from(
+      new Set([...JOB_TITLE_OPTIONS, ...dynamicTitles]),
+    );
     return ["all", ...merged];
   }, [users]);
 
@@ -409,26 +421,31 @@ export default function UserManagement() {
         onStatusPress={setStatusFilter}
       />
 
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search name, email, role, or base..."
-      />
+      <View style={ui.searchFilterRow}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search users"
+          containerStyle={ui.searchControl}
+        />
 
-      <View style={ui.filterDropdownWrap}>
-        <Picker selectedValue={jobTitleFilter} onValueChange={setJobTitleFilter}>
-          {jobTitleOptions.map((option) => (
-            <Picker.Item
-              key={option}
-              value={String(option).toLowerCase()}
-              label={
-                option === "all"
-                  ? "All Roles / Job Titles"
-                  : String(option)
-              }
-            />
-          ))}
-        </Picker>
+        <View style={ui.filterDropdownWrap}>
+          <Picker
+            selectedValue={jobTitleFilter}
+            onValueChange={setJobTitleFilter}
+            style={ui.filterPicker}
+          >
+            {jobTitleOptions.map((option) => (
+              <Picker.Item
+                key={option}
+                value={String(option).toLowerCase()}
+                label={
+                  option === "all" ? "ALL ROLES" : String(option).toUpperCase()
+                }
+              />
+            ))}
+          </Picker>
+        </View>
       </View>
 
       <ScrollView
@@ -463,7 +480,9 @@ export default function UserManagement() {
               onExtendInvite={handleExtendInvite}
               onRevokeInvite={handleRevokeInvite}
               onUnlockUser={handleUnlockUser}
-              inviteActionLoading={Boolean(inviteActionLoadingByUser[String(item._id)])}
+              inviteActionLoading={Boolean(
+                inviteActionLoadingByUser[String(item._id)],
+              )}
             />
           ))
         )}
@@ -480,7 +499,6 @@ export default function UserManagement() {
         userToEdit={userToEdit}
         saving={savingUser}
       />
-
     </View>
   );
 }
@@ -490,15 +508,33 @@ const ui = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
   listContent: { paddingBottom: 92 },
+  searchFilterRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 10,
+    alignItems: "flex-start",
+  },
+  searchControl: {
+    flex: 1,
+    height: 48,
+    marginBottom: 0,
+  },
   filterDropdownWrap: {
-    height: 50,
+    flex: 1,
+    minWidth: 0,
+    height: 48,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: "#DDD",
     borderRadius: 10,
-    marginBottom: 10,
     justifyContent: "center",
     overflow: "hidden",
+  },
+  filterPicker: {
+    height: 48,
+    width: "100%",
+    color: COLORS.black,
+    marginTop: -2,
   },
   emptyState: { alignItems: "center", marginTop: 50, gap: 10 },
 });

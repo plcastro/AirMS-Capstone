@@ -1146,48 +1146,6 @@ export default function PartsRequisition({ route, navigation }) {
     );
   };
 
-  const renderTabButton = (label) => {
-    const isSelected = selectedTab === label;
-    const count = tabCounts[label] || 0;
-
-    return (
-      <TouchableOpacity
-        key={label}
-        activeOpacity={0.8}
-        onPress={() => setSelectedTab(label)}
-        style={[
-          {
-            minWidth: 92,
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 7,
-            backgroundColor: COLORS.white,
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-          },
-          isSelected && {
-            backgroundColor: COLORS.primaryLight,
-            borderColor: COLORS.primaryLight,
-          },
-        ]}
-      >
-        <AppText
-          style={[
-            {
-              textAlign: "center",
-              color: "#6A6A6A",
-              fontSize: 12,
-              fontWeight: "500",
-            },
-            isSelected && { color: COLORS.white },
-          ]}
-        >
-          {`${label} (${count})`}
-        </AppText>
-      </TouchableOpacity>
-    );
-  };
-
   const selectTab = (label) => {
     setSelectedTab(label);
     setShowTabDropdown(false);
@@ -1281,7 +1239,8 @@ export default function PartsRequisition({ route, navigation }) {
           )}
         </View>
 
-        <View style={{ marginBottom: 12 }}>
+        <View style={styles.filterControlsRow}>
+          <View style={styles.filterControlColumn}>
           <TouchableOpacity
             style={styles.unifiedFilterButton}
             activeOpacity={0.82}
@@ -1325,8 +1284,7 @@ export default function PartsRequisition({ route, navigation }) {
           )}
         </View>
 
-        {tabLabels.length > 3 ? (
-          <View style={{ marginBottom: 20 }}>
+          <View style={styles.filterControlColumn}>
             <TouchableOpacity
               style={styles.unifiedFilterButton}
               activeOpacity={0.82}
@@ -1363,18 +1321,7 @@ export default function PartsRequisition({ route, navigation }) {
               </View>
             )}
           </View>
-        ) : (
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              gap: 3,
-              marginBottom: 20,
-            }}
-          >
-            {tabLabels.map(renderTabButton)}
-          </View>
-        )}
+        </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -1451,6 +1398,16 @@ export default function PartsRequisition({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  filterControlsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+    alignItems: "flex-start",
+  },
+  filterControlColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
   unifiedFilterButton: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
