@@ -358,11 +358,6 @@ export default function UpdateSecurity() {
             validateStatus={
               passwordSubmitAttempted && !passwordErrors.match ? "error" : ""
             }
-            help={
-              passwordSubmitAttempted && !passwordErrors.match
-                ? "Passwords do not match."
-                : ""
-            }
           >
             <Input.Password
               size="large"
