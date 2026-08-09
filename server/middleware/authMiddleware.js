@@ -8,10 +8,8 @@ const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
 const MOBILE_SESSION_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
-const getSessionIdleLimitMs = (platform) =>
-  String(platform || "").toUpperCase() === "MOBILE"
-    ? MOBILE_SESSION_LIMIT_MS
-    : DEFAULT_SESSION_IDLE_LIMIT_MS;
+const isMobilePlatform = (platform) =>
+  String(platform || "").toUpperCase() === "MOBILE";
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -47,12 +45,8 @@ const verifyToken = async (req, res, next) => {
     ).getTime();
     const platform =
       req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
-    const sessionIdleLimitMs = getSessionIdleLimitMs(platform);
 
-    if (
-      String(platform || "").toUpperCase() === "MOBILE" &&
-      now - loginAt > MOBILE_SESSION_LIMIT_MS
-    ) {
+    if (isMobilePlatform(platform) && now - loginAt > MOBILE_SESSION_LIMIT_MS) {
       await UserSession.findOneAndUpdate(
         { userId, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
@@ -60,24 +54,26 @@ const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: "Mobile session expired" });
     }
 
-    const clientActiveAt = Number(req.headers["x-client-active-at"]);
-    const hasRecentClientActivity =
-      Number.isFinite(clientActiveAt) &&
-      clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
-      now - clientActiveAt <= sessionIdleLimitMs;
-    const effectiveLastActivityAt = hasRecentClientActivity
-      ? Math.max(lastActivityAt, clientActiveAt)
-      : lastActivityAt;
-    const inactiveForMs = now - effectiveLastActivityAt;
+    if (!isMobilePlatform(platform)) {
+      const clientActiveAt = Number(req.headers["x-client-active-at"]);
+      const hasRecentClientActivity =
+        Number.isFinite(clientActiveAt) &&
+        clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
+        now - clientActiveAt <= DEFAULT_SESSION_IDLE_LIMIT_MS;
+      const effectiveLastActivityAt = hasRecentClientActivity
+        ? Math.max(lastActivityAt, clientActiveAt)
+        : lastActivityAt;
+      const inactiveForMs = now - effectiveLastActivityAt;
 
-    if (inactiveForMs > sessionIdleLimitMs) {
-      await UserSession.findOneAndUpdate(
-        { userId, sessionId, isActive: true },
-        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-      );
-      return res
-        .status(401)
-        .json({ message: "Session timed out due to inactivity" });
+      if (inactiveForMs > DEFAULT_SESSION_IDLE_LIMIT_MS) {
+        await UserSession.findOneAndUpdate(
+          { userId, sessionId, isActive: true },
+          { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+        );
+        return res
+          .status(401)
+          .json({ message: "Session timed out due to inactivity" });
+      }
     }
 
     await UserSession.findOneAndUpdate(
