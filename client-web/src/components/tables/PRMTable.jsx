@@ -65,20 +65,6 @@ const getStatusMeta = (status) => {
 const getStatusDisplayLabel = (status) =>
   status === "Ordered" ? "Restocked" : status || "N/A";
 
-const parseTableDate = (dateValue) => {
-  const parsed = new Date(dateValue);
-
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.getTime();
-  }
-
-  const [month, day, year] = String(dateValue || "")
-    .split("/")
-    .map(Number);
-
-  return new Date(year, month - 1, day).getTime() || 0;
-};
-
 export default function PRMTable({
   data = [],
   loading = false,
@@ -154,8 +140,6 @@ export default function PRMTable({
         dataIndex: "dateRequested",
         key: "dateRequested",
         width: 150,
-        sorter: (a, b) =>
-          parseTableDate(a.dateRequested) - parseTableDate(b.dateRequested),
         render: (value) => (
           <DateOnlyCell value={value} fallback={value || "N/A"} />
         ),

@@ -101,17 +101,6 @@ const toSummaryRecord = (record) => ({
     record.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
 });
 
-const formatRequestedDate = (dateValue) => {
-  if (!dateValue) return "";
-
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return String(dateValue);
-  }
-
-  return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
-};
-
 const normalizeRequisitionRecord = (record) =>
   toSummaryRecord({
     ...record,
@@ -121,7 +110,7 @@ const normalizeRequisitionRecord = (record) =>
         : record.status === "Completed"
           ? "Delivered"
           : record.status,
-    dateRequested: formatRequestedDate(record.dateRequested),
+    dateRequested: record.dateRequested || record.createdAt || "",
     staff: {
       ...record.staff,
       employeeName:

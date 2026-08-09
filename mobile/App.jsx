@@ -51,7 +51,11 @@ const withDashboard = (loadScreen) => {
 };
 
 const getRoleHomeRoute = (role = "") => {
-  switch (String(role || "").trim().toLowerCase()) {
+  switch (
+    String(role || "")
+      .trim()
+      .toLowerCase()
+  ) {
     case "superadmin":
       return "Manage Users";
     case "mechanic":
@@ -329,14 +333,14 @@ function DrawerNav({ navigation }) {
           )}
           {canAccessFlightAndPreInspection && (
             <Drawer.Screen
-              name="Pre-Inspection"
+              name="Pre-Flight Inspection"
               component={Screens.PreInspection}
               options={navLabel}
             />
           )}
           {canAccessPostInspection && (
             <Drawer.Screen
-              name="Post-Inspection"
+              name="Post-Flight Inspection"
               component={Screens.PostInspection}
               options={navLabel}
             />

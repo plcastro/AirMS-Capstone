@@ -44,7 +44,7 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       subtitle={loading ? "Loading task history..." : "Status distribution of maintenance tasks"}
     >
       {rows.length ? (
-        <PieChart data={rows} size={190} />
+        <PieChart data={rows} size={180} fitToWidth />
       ) : (
         <AppText
           style={{
