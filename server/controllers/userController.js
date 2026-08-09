@@ -56,6 +56,7 @@ const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days a
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const MOBILE_SESSION_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const hashRefreshToken = (token = "") =>
@@ -63,8 +64,17 @@ const hashRefreshToken = (token = "") =>
 const hashTrustedDeviceToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 
-const getRefreshTokenTtlMs = (isPersistent) =>
-  isPersistent ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS : REFRESH_TOKEN_TTL_MS;
+const getRefreshTokenTtlMs = (isPersistent, platform = "") =>
+  normalizePlatform(platform) === "MOBILE"
+    ? MOBILE_SESSION_LIMIT_MS
+    : isPersistent
+      ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS
+      : REFRESH_TOKEN_TTL_MS;
+
+const getSessionIdleLimitMs = (platform = "") =>
+  normalizePlatform(platform) === "MOBILE"
+    ? MOBILE_SESSION_LIMIT_MS
+    : SESSION_IDLE_LIMIT_MS;
 
 const getRefreshTokenCleanupDate = (expiresAt) =>
   new Date(new Date(expiresAt).getTime() + REFRESH_TOKEN_RECORD_RETENTION_MS);
@@ -72,10 +82,10 @@ const getRefreshTokenCleanupDate = (expiresAt) =>
 const getRevokedRefreshTokenCleanupDate = () =>
   new Date(Date.now() + REFRESH_TOKEN_RECORD_RETENTION_MS);
 
-const issueRefreshToken = (userId, isPersistent = false) => {
+const issueRefreshToken = (userId, isPersistent = false, platform = "") => {
   const jti = crypto.randomUUID();
   const expiresInSeconds = Math.floor(
-    getRefreshTokenTtlMs(isPersistent) / 1000,
+    getRefreshTokenTtlMs(isPersistent, platform) / 1000,
   );
   const token = jwt.sign(
     { id: userId, type: "refresh" },
@@ -89,7 +99,12 @@ const issueRefreshToken = (userId, isPersistent = false) => {
   return { token, jti };
 };
 
-const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
+const setRefreshTokenCookie = (
+  res,
+  refreshToken,
+  isPersistent,
+  platform = "",
+) => {
   const refreshCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -98,7 +113,7 @@ const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
   };
 
   if (isPersistent) {
-    refreshCookieOptions.maxAge = getRefreshTokenTtlMs(true);
+    refreshCookieOptions.maxAge = getRefreshTokenTtlMs(true, platform);
   }
 
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
@@ -109,11 +124,12 @@ const storeRefreshToken = async ({
   refreshToken,
   jti,
   isPersistent,
+  platform,
   req,
 }) => {
   const tokenHash = hashRefreshToken(refreshToken);
   const expiresAt = new Date(
-    Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent)),
+    Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent), platform),
   );
   return RefreshToken.create({
     userId,
@@ -384,16 +400,23 @@ const buildLoginSuccessPayload = async ({
   const { token: refreshToken, jti } = issueRefreshToken(
     user._id.toString(),
     usePersistentRefreshCookie,
+    loginPlatform,
   );
   await storeRefreshToken({
     userId: user._id,
     refreshToken,
     jti,
     isPersistent: usePersistentRefreshCookie,
+    platform: loginPlatform,
     req,
   });
   await deletePreviousRefreshTokens(user._id, hashRefreshToken(refreshToken));
-  setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
+  setRefreshTokenCookie(
+    res,
+    refreshToken,
+    usePersistentRefreshCookie,
+    loginPlatform,
+  );
 
   auditLog(
     `User log in: ${user.username} (actorId: ${user._id})`,
@@ -883,12 +906,25 @@ const refreshToken = async (req, res) => {
       );
     }
 
+    const requestPlatform = normalizePlatform(
+      req.headers["x-platform"] || activeSession.platform || payload.platform,
+    );
+    const sessionIdleLimitMs = getSessionIdleLimitMs(requestPlatform);
     const now = Date.now();
+    const loginAt = new Date(activeSession.loginAt || now).getTime();
+    if (requestPlatform === "MOBILE" && now - loginAt > MOBILE_SESSION_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+      );
+      return res.status(401).json({ message: "Mobile session expired" });
+    }
+
     const clientActiveAt = Number(req.headers["x-client-active-at"]);
     const hasRecentClientActivity =
       Number.isFinite(clientActiveAt) &&
       clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
-      now - clientActiveAt <= SESSION_IDLE_LIMIT_MS;
+      now - clientActiveAt <= sessionIdleLimitMs;
     const lastActivityAt = new Date(
       activeSession.lastActivityAt || activeSession.loginAt || now,
     ).getTime();
@@ -897,7 +933,7 @@ const refreshToken = async (req, res) => {
       : lastActivityAt;
     if (
       !tokenRecord.isPersistent &&
-      now - effectiveLastActivityAt > SESSION_IDLE_LIMIT_MS
+      now - effectiveLastActivityAt > sessionIdleLimitMs
     ) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },
@@ -936,6 +972,7 @@ const refreshToken = async (req, res) => {
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
       Boolean(tokenRecord.isPersistent),
+      requestPlatform,
     );
     const newTokenHash = hashRefreshToken(newRefreshToken);
 
@@ -950,11 +987,17 @@ const refreshToken = async (req, res) => {
       refreshToken: newRefreshToken,
       jti,
       isPersistent: tokenRecord.isPersistent,
+      platform: requestPlatform,
       req,
     });
     await deletePreviousRefreshTokens(user._id, newTokenHash);
 
-    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
+    setRefreshTokenCookie(
+      res,
+      newRefreshToken,
+      tokenRecord.isPersistent,
+      requestPlatform,
+    );
     const isMobileClient =
       String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
     res.json({
@@ -1040,15 +1083,18 @@ const updateSessionPreference = async (req, res) => {
       !tokenRecord || Boolean(tokenRecord.isPersistent) !== desiredPersistent;
 
     if (shouldRotate) {
+      const requestPlatform = normalizePlatform(req.headers["x-platform"]);
       const { token: issuedRefreshToken, jti } = issueRefreshToken(
         userId.toString(),
         desiredPersistent,
+        requestPlatform,
       );
       await storeRefreshToken({
         userId,
         refreshToken: issuedRefreshToken,
         jti,
         isPersistent: desiredPersistent,
+        platform: requestPlatform,
         req,
       });
       await deletePreviousRefreshTokens(
@@ -1064,11 +1110,21 @@ const updateSessionPreference = async (req, res) => {
         );
       }
 
-      setRefreshTokenCookie(res, issuedRefreshToken, desiredPersistent);
+      setRefreshTokenCookie(
+        res,
+        issuedRefreshToken,
+        desiredPersistent,
+        requestPlatform,
+      );
       nextRefreshToken = issuedRefreshToken;
       rotated = true;
     } else if (incomingRefreshToken) {
-      setRefreshTokenCookie(res, incomingRefreshToken, desiredPersistent);
+      setRefreshTokenCookie(
+        res,
+        incomingRefreshToken,
+        desiredPersistent,
+        normalizePlatform(req.headers["x-platform"]),
+      );
     }
 
     const isMobileClient =

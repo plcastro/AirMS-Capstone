@@ -129,7 +129,7 @@ const createNotification = async ({
       _id: String(notification._id),
       notificationId: String(notification._id),
       module: "pre-flight inspections",
-      targetScreen: "Pre-Inspection",
+      targetScreen: "Pre-Flight Inspection",
       targetPreInspectionId: String(inspection._id),
       status: inspection.status,
       rpc: inspection.rpc,

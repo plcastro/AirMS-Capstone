@@ -40,11 +40,24 @@ const VALID_MODULES = new Set([
   "flight-logs",
   "pre-flight inspections",
   "post-inspections",
+  "post-flight inspections",
   "tasks",
   "messages",
   "parts-requisition",
   "parts-requisitions",
 ]);
+
+const TARGET_SCREEN_ALIASES = {
+  "flight logbook": "Flight Logs",
+  "flight logs": "Flight Logs",
+  "pre-inspection": "Pre-Flight Inspection",
+  "pre-flight inspection": "Pre-Flight Inspection",
+  "post-inspection": "Post-Flight Inspection",
+  "post-flight inspection": "Post-Flight Inspection",
+  tasks: "Tasks",
+  messages: "Messages",
+  "parts requisition": "Parts Requisition",
+};
 
 export const NotificationContext = createContext({
   notifications: [],
@@ -85,6 +98,19 @@ const getModuleName = (payload) =>
   )
     .trim()
     .toLowerCase();
+
+const getTargetScreenName = (payload) => {
+  const rawScreen = String(
+    payload?.targetScreen ||
+      payload?.data?.targetScreen ||
+      payload?.metadata?.targetScreen ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return TARGET_SCREEN_ALIASES[rawScreen] || "";
+};
 
 const normalizePushData = (data = {}) =>
   Object.fromEntries(
@@ -132,10 +158,11 @@ const buildTargetNavigation = (notificationPayload) => {
   }
 
   const moduleName = getModuleName(notificationPayload);
+  const targetScreen = getTargetScreenName(notificationPayload);
 
   if (moduleName === "flight-logs") {
     return {
-      screen: "Flight Logs",
+      screen: targetScreen || "Flight Logs",
       params: {
         refreshAt: Date.now(),
         targetFlightLogId:
@@ -153,7 +180,7 @@ const buildTargetNavigation = (notificationPayload) => {
 
   if (moduleName === "pre-flight inspections") {
     return {
-      screen: "Pre-Inspection",
+      screen: targetScreen || "Pre-Flight Inspection",
       params: {
         refreshAt: Date.now(),
         targetPreInspectionId:
@@ -169,9 +196,12 @@ const buildTargetNavigation = (notificationPayload) => {
     };
   }
 
-  if (moduleName === "post-inspections") {
+  if (
+    moduleName === "post-inspections" ||
+    moduleName === "post-flight inspections"
+  ) {
     return {
-      screen: "Post-Inspection",
+      screen: targetScreen || "Post-Flight Inspection",
       params: {
         refreshAt: Date.now(),
         targetPostInspectionId:
@@ -189,7 +219,7 @@ const buildTargetNavigation = (notificationPayload) => {
 
   if (moduleName === "tasks") {
     return {
-      screen: "Tasks",
+      screen: targetScreen || "Tasks",
       params: {
         refreshAt: Date.now(),
         targetTaskId:
@@ -226,7 +256,7 @@ const buildTargetNavigation = (notificationPayload) => {
       null;
 
     return {
-      screen: "Messages",
+      screen: targetScreen || "Messages",
       params: {
         refreshAt: Date.now(),
         targetConversationType: isGroup ? "group" : "direct",
@@ -241,7 +271,7 @@ const buildTargetNavigation = (notificationPayload) => {
   }
 
   return {
-    screen: "Parts Requisition",
+    screen: targetScreen || "Parts Requisition",
     params: {
       refreshAt: Date.now(),
       targetRequestId:

@@ -380,7 +380,14 @@ export default function PartsRequisition({ route, navigation }) {
     "warehouse staff",
   ].includes(userRole);
   const tabLabels = isManager
-    ? ["All", "For Review", "To Be Restocked", "Restocked", "Approved", "Closed"]
+    ? [
+        "All",
+        "For Review",
+        "To Be Restocked",
+        "Restocked",
+        "Approved",
+        "Closed",
+      ]
     : isWarehouse
       ? [
           "All",
@@ -1285,8 +1292,8 @@ export default function PartsRequisition({ route, navigation }) {
           {showDateSortDropdown && (
             <View style={styles.unifiedDropdownMenu}>
               {[
-                ["newest", "Date: Newest First"],
-                ["oldest", "Date: Oldest First"],
+                ["newest", "Newest First"],
+                ["oldest", "Oldest First"],
               ].map(([value, label], index) => (
                 <TouchableOpacity
                   key={value}
