@@ -681,22 +681,25 @@ export default function PreInspection() {
     }
   };
 
-  const saveEdit = async (nextPayload = editing) => {
-    if (!nextPayload?._id) return;
+  const saveEdit = async (
+    nextPayload = editing,
+    { throwOnError = false } = {},
+  ) => {
+    if (!nextPayload?._id) return false;
     const currentRecord = records.find(
       (record) => String(record._id) === String(nextPayload._id),
     );
     if (isCompletedInspection(currentRecord || editing)) {
       message.info("Completed pre-flight inspections are view-only.");
-      return;
+      return false;
     }
     if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
       message.warning("RP/C and aircraft type are required");
-      return;
+      return false;
     }
     if (!nextPayload.date || !isValidDate(nextPayload.date)) {
       message.warning("Please select a valid date");
-      return;
+      return false;
     }
     try {
       const response = await fetch(
@@ -720,9 +723,10 @@ export default function PreInspection() {
       setPopup({
         open: true,
         status: "success",
-        title: "Pre-Flight Inspection Updated!",
+        title: "Pre-inspection updated",
         subTitle: "The pre-flight inspection has been updated successfully.",
       });
+      return true;
     } catch (error) {
       setPopup({
         open: true,
@@ -730,6 +734,8 @@ export default function PreInspection() {
         title: "Operation failed!",
         subTitle: error.message || "Failed to update pre-flight inspection",
       });
+      if (throwOnError) throw error;
+      return false;
     }
   };
 
@@ -841,18 +847,24 @@ export default function PreInspection() {
     }
     if (!editing) return;
     if (signatureMode === "release") {
-      await saveEdit({
-        ...editing,
-        status: "released",
-        releasedBy: signaturePayload(user, signature),
-      });
+      await saveEdit(
+        {
+          ...editing,
+          status: "released",
+          releasedBy: signaturePayload(user, signature),
+        },
+        { throwOnError: true },
+      );
     }
     if (signatureMode === "accept") {
-      await saveEdit({
-        ...editing,
-        status: "completed",
-        acceptedBy: signaturePayload(user, signature),
-      });
+      await saveEdit(
+        {
+          ...editing,
+          status: "completed",
+          acceptedBy: signaturePayload(user, signature),
+        },
+        { throwOnError: true },
+      );
     }
     setSignatureMode(null);
   };
@@ -1391,13 +1403,11 @@ export default function PreInspection() {
                     Release
                   </Button>
                 )}
-              {canAccept &&
-                editing.status === "released" &&
-                !editing.acceptedBy?.name && (
-                  <Button type="primary" onClick={requestAccept}>
-                    Accept / Complete
-                  </Button>
-                )}
+              {editingCanAccept && (
+                <Button type="primary" onClick={requestAccept}>
+                  Accept / Complete
+                </Button>
+              )}
             </Space>
           </Space>
         )}
@@ -1421,6 +1431,7 @@ export default function PreInspection() {
       />
       <ResultPopup
         open={popup.open}
+        zIndex={7000}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}

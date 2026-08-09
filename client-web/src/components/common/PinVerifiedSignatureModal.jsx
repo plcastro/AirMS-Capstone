@@ -1,5 +1,5 @@
 import React, { useContext, useRef, useState } from "react";
-import { Button, Input, message, Modal, Typography } from "antd";
+import { Alert, Button, Input, message, Modal, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
@@ -21,12 +21,14 @@ export default function PinVerifiedSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const reset = () => {
     setStep("signature");
     setSignature("");
     setPin("");
     setSaving(false);
+    setErrorMessage("");
     signatureRef.current?.clear();
   };
 
@@ -42,6 +44,7 @@ export default function PinVerifiedSignatureModal({
   const handleClearSignature = () => {
     signatureRef.current?.clear();
     setSignature("");
+    setErrorMessage("");
   };
 
   const verifyPin = async () => {
@@ -70,16 +73,21 @@ export default function PinVerifiedSignatureModal({
   const handleOk = async () => {
     if (step === "signature") {
       if (!signature || signatureRef.current?.isEmpty()) {
-        message.error("Please draw your signature before continuing.");
+        const error = "Please draw your signature before continuing.";
+        setErrorMessage(error);
+        message.error(error);
         return;
       }
 
+      setErrorMessage("");
       setStep("pin");
       return;
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      message.error("Enter your 6-digit PIN to confirm this signature.");
+      const error = "Enter your 6-digit PIN to confirm this signature.";
+      setErrorMessage(error);
+      message.error(error);
       return;
     }
 
@@ -90,7 +98,9 @@ export default function PinVerifiedSignatureModal({
       reset();
       onCancel?.();
     } catch (error) {
-      message.error(error.message || "Could not verify your PIN.");
+      const errorText = error.message || "Could not verify your PIN.";
+      setErrorMessage(errorText);
+      message.error(errorText);
     } finally {
       setSaving(false);
     }
@@ -119,7 +129,13 @@ export default function PinVerifiedSignatureModal({
               </Button>,
             ]
           : [
-              <Button key="redraw" onClick={() => setStep("signature")}>
+              <Button
+                key="redraw"
+                onClick={() => {
+                  setErrorMessage("");
+                  setStep("signature");
+                }}
+              >
                 Redraw Signature
               </Button>,
               <Button
@@ -133,6 +149,16 @@ export default function PinVerifiedSignatureModal({
             ]
       }
     >
+      {errorMessage && (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          message={errorMessage}
+          onClose={() => setErrorMessage("")}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {step === "signature" ? (
         <>
           <p>{description}</p>
@@ -153,7 +179,10 @@ export default function PinVerifiedSignatureModal({
             type="password"
             formatter={(value) => value.replace(/\D/g, "")}
             value={pin}
-            onChange={setPin}
+            onChange={(value) => {
+              setPin(value);
+              setErrorMessage("");
+            }}
           />
           <div style={{ marginTop: 16 }}>
             <Text type="secondary">Signature to be applied:</Text>

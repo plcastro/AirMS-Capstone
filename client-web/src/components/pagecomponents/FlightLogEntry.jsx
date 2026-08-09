@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Button, message, Modal, Spin, Typography } from "antd";
+import { Alert, Button, message, Modal, Spin, Typography } from "antd";
 import {
   InfoCircleOutlined,
   EnvironmentOutlined,
@@ -187,6 +187,7 @@ export default function FlightLogEntry({
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [activeTab, setActiveTab] = useState("info");
   const [submitting, setSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   const mapAircraftReferenceToBroughtForward = (referenceData = {}) => ({
     airframe: referenceData.acftTT || "",
@@ -209,6 +210,7 @@ export default function FlightLogEntry({
       setComponentData(initComponent());
       setLoadedAircraftData(null);
       setActiveTab("info");
+      setValidationError("");
     }
   }, [visible]);
 
@@ -440,6 +442,7 @@ export default function FlightLogEntry({
     canSave || (activeTab === "component" && canEditNextInspectionDates);
 
   const handleSave = async () => {
+    setValidationError("");
     if (
       isCompletedLog &&
       !(activeTab === "component" && canEditNextInspectionDates)
@@ -469,15 +472,11 @@ export default function FlightLogEntry({
         return hasInvalidRoute || hasMissingField;
       });
       if (invalidLegIndex >= 0) {
-        const leg = (formData.legs || [])[invalidLegIndex] || {};
-        const missingField = REQUIRED_DESTINATION_FIELDS.find(([key]) =>
-          !String(leg?.[key] || "").trim(),
-        );
-        message.error(
-          missingField
-            ? `Leg ${invalidLegIndex + 1}: ${missingField[1]} is required`
-            : `Leg ${invalidLegIndex + 1}: complete station route is required`,
-        );
+        const errorMessage =
+          "Each leg must include complete station route and date";
+        setValidationError(errorMessage);
+        setActiveTab("destinations");
+        message.error(errorMessage);
         return;
       }
     }
@@ -649,6 +648,16 @@ export default function FlightLogEntry({
 
         {/* Scrollable body */}
         <div className="fl-modal-body">
+          {validationError && (
+            <Alert
+              type="error"
+              showIcon
+              closable
+              message={validationError}
+              onClose={() => setValidationError("")}
+              style={{ marginBottom: 12 }}
+            />
+          )}
           {renderContent()}
           {editMode &&
             (formData?.releasedBy?.name ||
