@@ -109,6 +109,17 @@ const DashboardLayout = () => {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const pageTitle = useMemo(() => {
+    const normalizePathname = (pathname = "") => {
+      const withoutTrailingSlash =
+        pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+
+      try {
+        return decodeURIComponent(withoutTrailingSlash);
+      } catch {
+        return withoutTrailingSlash;
+      }
+    };
+
     const routeTitles = {
       "/dashboard/user-management/view-users": "User Management",
       "/dashboard/user-management/activity-logs": "Activity Logs",
@@ -127,7 +138,7 @@ const DashboardLayout = () => {
       "/dashboard/profile": "Profile",
     };
 
-    return routeTitles[location.pathname] || "Dashboard";
+    return routeTitles[normalizePathname(location.pathname)] || "Dashboard";
   }, [location.pathname]);
 
   useEffect(() => {
