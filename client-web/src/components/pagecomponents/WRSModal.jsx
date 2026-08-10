@@ -680,7 +680,7 @@ export default function WRSModal({
           warehouseByTitle: userTitle,
           items: savedItems,
         },
-        "Stock quantities saved.",
+        "Remaining items are still to be restocked.",
         false,
       );
       setPersistedQtyMap({ ...availQtyMap });

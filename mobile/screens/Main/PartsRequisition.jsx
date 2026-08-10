@@ -1081,7 +1081,7 @@ export default function PartsRequisition({ route, navigation }) {
         warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
-      "Stock quantities saved.",
+      "Remaining items are still to be restocked.",
       { closeDetails: false },
     );
   };
