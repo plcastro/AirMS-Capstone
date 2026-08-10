@@ -103,6 +103,8 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
+  const pendingWorkflowPopupRef = useRef(null);
+  const pendingSignaturePopupRef = useRef(null);
 
   const [popup, setPopup] = useState({
     open: false,
@@ -535,6 +537,16 @@ export default function FlightLog() {
     setSignatureWorkflow({ open: false, action: null, log: null });
   };
 
+  const queueWorkflowResult = (payload) => {
+    pendingWorkflowPopupRef.current = payload;
+    closeWorkflowModal();
+  };
+
+  const queueSignatureResult = (payload) => {
+    pendingSignaturePopupRef.current = payload;
+    closeSignatureWorkflow();
+  };
+
   const runSignedWorkflowForLog = async (action, log) => {
     if (!log?._id) return;
     setSignatureWorkflow({ open: true, action, log });
@@ -542,6 +554,18 @@ export default function FlightLog() {
 
   const runNotifyWorkflowForLog = async (log) => {
     if (!log?._id) return;
+
+    if (!hasDestinationInfo(log)) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Flight log failed",
+        subTitle:
+          "Add at least one complete From-To station in Destination/s before notifying for completion.",
+      });
+      return;
+    }
+
     setWorkflowModal({ open: true, action: "notify", log });
   };
 
@@ -557,6 +581,7 @@ export default function FlightLog() {
     try {
       setSaving(true);
       const authHeader = getAuthHeader ? await getAuthHeader() : {};
+      let successResult = null;
 
       if (action === "release") {
         const response = await fetch(
@@ -578,12 +603,12 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
         }
-        setPopup({
+        successResult = {
           open: true,
           status: "success",
           title: "Flight log released",
           subTitle: "The flight log has been successfully released.",
-        });
+        };
       }
 
       if (action === "accept") {
@@ -607,24 +632,19 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
         }
-        setPopup({
+        successResult = {
           open: true,
           status: "success",
           title: "Flight log accepted",
           subTitle: "The flight log has been successfully accepted.",
-        });
+        };
       }
 
-      closeSignatureWorkflow();
+      if (successResult) queueSignatureResult(successResult);
       await fetchFlightLogs();
     } catch (error) {
       console.error("Signed workflow action error:", error);
-      setPopup({
-        open: true,
-        status: "error",
-        title: "Workflow action failed",
-        subTitle: "Flight log workflow action failed.",
-      });
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -661,7 +681,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to notify mechanic");
         }
-        setPopup({
+        queueWorkflowResult({
           open: true,
           status: "success",
           title: "Mechanic notified",
@@ -724,7 +744,7 @@ export default function FlightLog() {
             completeData.message || "Failed to complete flight log",
           );
         }
-        setPopup({
+        queueWorkflowResult({
           open: true,
           status: "success",
           title: "Flight log completed",
@@ -732,12 +752,10 @@ export default function FlightLog() {
         });
       }
 
-      closeWorkflowModal();
       await fetchFlightLogs();
     } catch (error) {
       console.error("Workflow action error:", error);
-      closeWorkflowModal();
-      setPopup({
+      queueWorkflowResult({
         open: true,
         status: "error",
         title: "Flight log failed",
@@ -1327,6 +1345,12 @@ export default function FlightLog() {
         }
         onCancel={closeSignatureWorkflow}
         onSave={handleSignedWorkflowAction}
+        afterOpenChange={(isOpen) => {
+          if (!isOpen && pendingSignaturePopupRef.current) {
+            setPopup(pendingSignaturePopupRef.current);
+            pendingSignaturePopupRef.current = null;
+          }
+        }}
       />
 
       <Modal
@@ -1334,6 +1358,13 @@ export default function FlightLog() {
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
+        destroyOnHidden
+        afterOpenChange={(isOpen) => {
+          if (!isOpen && pendingWorkflowPopupRef.current) {
+            setPopup(pendingWorkflowPopupRef.current);
+            pendingWorkflowPopupRef.current = null;
+          }
+        }}
         rootClassName="fl-workflow-confirm-modal"
         wrapClassName="fl-workflow-confirm-wrap"
         zIndex={5000}

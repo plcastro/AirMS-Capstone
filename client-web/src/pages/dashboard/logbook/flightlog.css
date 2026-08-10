@@ -143,23 +143,6 @@
   z-index: 1001 !important;
 }
 
-.fl-workflow-confirm-modal {
-  z-index: 5000 !important;
-}
-
-.fl-workflow-confirm-modal .ant-modal-mask {
-  z-index: 5000 !important;
-}
-
-.fl-workflow-confirm-modal .ant-modal-wrap,
-.fl-workflow-confirm-wrap {
-  z-index: 5001 !important;
-}
-
-.fl-workflow-confirm-wrap .ant-modal {
-  z-index: 5002 !important;
-}
-
 /* ── Tab nav bar ────────────────────────────────────────── */
 .fl-tab-nav {
   display: flex;
