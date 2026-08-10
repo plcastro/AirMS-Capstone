@@ -38,6 +38,10 @@ import { matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+const WRS_UOM_OPTIONS = ["SET", "ST", "UNT", "PC"].map((unit) => ({
+  label: unit,
+  value: unit,
+}));
 
 const normalizeStatus = (value) => {
   const raw = String(value || "")
@@ -394,7 +398,7 @@ export default function PartsReqMonitoring() {
   const openAddRequisitionModal = () => {
     entryForm.setFieldsValue({
       aircraft: undefined,
-      items: [{ particular: "", quantity: null, unit: "pcs", purpose: "" }],
+      items: [{ particular: "", quantity: null, unit: "PC", purpose: "" }],
     });
     setIsEntryModalOpen(true);
   };
@@ -409,7 +413,7 @@ export default function PartsReqMonitoring() {
       itemNo: index + 1,
       particular: String(item.particular || "").trim(),
       quantity: Number(item.quantity) || 0,
-      unitOfMeasure: item.unit || "pcs",
+      unitOfMeasure: item.unit || "PC",
       purpose: String(item.purpose || "").trim(),
       availableQty: 0,
       stockStatus: "Parts Requested",
@@ -760,17 +764,10 @@ export default function PartsReqMonitoring() {
                           {...restField}
                           label="Unit"
                           name={[name, "unit"]}
-                          initialValue="pcs"
+                          initialValue="PC"
                           style={{ marginBottom: 8 }}
                         >
-                          <Select
-                            options={[
-                              { label: "pcs", value: "pcs" },
-                              { label: "kg", value: "kg" },
-                              { label: "ft", value: "ft" },
-                              { label: "L", value: "L" },
-                            ]}
-                          />
+                          <Select options={WRS_UOM_OPTIONS} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={6}>
@@ -803,7 +800,7 @@ export default function PartsReqMonitoring() {
                     add({
                       particular: "",
                       quantity: null,
-                      unit: "pcs",
+                      unit: "PC",
                       purpose: "",
                     })
                   }

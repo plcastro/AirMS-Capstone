@@ -15,13 +15,13 @@ import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
-const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
+const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
 const createEmptyItem = (id) => ({
   id,
   particular: "",
   quantity: "",
-  unit: "pcs",
+  unit: "PC",
   purpose: "",
 });
 
@@ -48,7 +48,7 @@ export default function PartsRequisitionEntry({
               id: item.id || item._id || Date.now() + index,
               particular: item.particular || "",
               quantity: item.quantity ? String(item.quantity) : "",
-              unit: item.unit || item.unitOfMeasure || "pcs",
+              unit: item.unit || item.unitOfMeasure || "PC",
               purpose: item.purpose || "",
             }))
           : [createEmptyItem(1)];
