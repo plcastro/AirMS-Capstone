@@ -1146,6 +1146,16 @@ export default function PartsRequisition({ route, navigation }) {
     setShowTabDropdown(false);
   };
 
+  const toggleDateSortDropdown = () => {
+    setShowDateSortDropdown((open) => !open);
+    setShowTabDropdown(false);
+  };
+
+  const toggleTabDropdown = () => {
+    setShowTabDropdown((open) => !open);
+    setShowDateSortDropdown(false);
+  };
+
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
@@ -1235,56 +1245,78 @@ export default function PartsRequisition({ route, navigation }) {
         </View>
 
         <View style={styles.filterControlsRow}>
-          <View style={styles.filterControlColumn}>
-          <TouchableOpacity
-            style={styles.unifiedFilterButton}
-            activeOpacity={0.82}
-            onPress={() => setShowDateSortDropdown((open) => !open)}
+          <View
+            style={[
+              styles.filterControlColumn,
+              showDateSortDropdown ? styles.filterControlColumnOpen : null,
+            ]}
           >
-            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-              {dateSortOrder === "oldest"
-                ? "Date: Oldest First"
-                : "Date: Newest First"}
-            </AppText>
-            <MaterialCommunityIcons
-              name={showDateSortDropdown ? "chevron-up" : "chevron-down"}
-              size={22}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
-
-          {showDateSortDropdown && (
-            <View style={styles.unifiedDropdownMenu}>
-              {[
-                ["newest", "Newest First"],
-                ["oldest", "Oldest First"],
-              ].map(([value, label], index) => (
-                <TouchableOpacity
-                  key={value}
-                  style={[
-                    styles.unifiedDropdownItem,
-                    index === 0 ? styles.unifiedDropdownItemBordered : null,
-                  ]}
-                  onPress={() => {
-                    setDateSortOrder(value);
-                    setShowDateSortDropdown(false);
-                  }}
-                >
-                  <AppText style={styles.unifiedDropdownItemText}>
-                    {label}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-          <View style={styles.filterControlColumn}>
             <TouchableOpacity
               style={styles.unifiedFilterButton}
               activeOpacity={0.82}
-              onPress={() => setShowTabDropdown((open) => !open)}
+              onPress={toggleDateSortDropdown}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+                {dateSortOrder === "oldest"
+                  ? "Date: Oldest First"
+                  : "Date: Newest First"}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showDateSortDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            {showDateSortDropdown && (
+              <View style={styles.unifiedDropdownMenu}>
+                {[
+                  ["newest", "Newest First"],
+                  ["oldest", "Oldest First"],
+                ].map(([value, label], index) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index === 0 ? styles.unifiedDropdownItemBordered : null,
+                    ]}
+                    onPress={() => {
+                      setDateSortOrder(value);
+                      setShowDateSortDropdown(false);
+                    }}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {label}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View
+            style={[
+              styles.filterControlColumn,
+              showTabDropdown ? styles.filterControlColumnOpen : null,
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.unifiedFilterButton}
+              activeOpacity={0.82}
+              onPress={toggleTabDropdown}
+            >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
               <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {selectedTab} ({tabCounts[selectedTab] || 0})
               </AppText>
@@ -1395,25 +1427,29 @@ export default function PartsRequisition({ route, navigation }) {
 const styles = StyleSheet.create({
   filterControlsRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
     marginBottom: 20,
     alignItems: "flex-start",
+    zIndex: 20,
   },
   filterControlColumn: {
     flex: 1,
     minWidth: 0,
   },
+  filterControlColumnOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
   unifiedFilterButton: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 48,
+    height: 48,
   },
   unifiedFilterButtonText: {
     flex: 1,
@@ -1423,13 +1459,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
-    marginTop: 6,
+    borderRadius: 10,
     overflow: "hidden",
     zIndex: 1000,
+    elevation: 5,
   },
   unifiedDropdownItem: {
     paddingHorizontal: 12,

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -23,6 +22,10 @@ import { AuthContext } from "../../Context/AuthContext";
 import { canExportModule } from "../../../shared/exportAccess";
 
 const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const ACTION_TYPE_OPTIONS = ACTION_TYPES.map((type) => ({
+  value: type,
+  label: type === "all" ? "All Actions" : type[0].toUpperCase() + type.slice(1),
+}));
 const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
@@ -208,6 +211,7 @@ export default function ActivityLogs() {
   const [actionType, setActionType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("30");
+  const [openFilter, setOpenFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [exporting, setExporting] = useState(false);
   const canExportActivityLogs = canExportModule(
@@ -409,6 +413,96 @@ export default function ActivityLogs() {
     ];
   }, [logs]);
 
+  const selectedActionLabel =
+    ACTION_TYPE_OPTIONS.find((option) => option.value === actionType)?.label ||
+    "Action Type";
+  const selectedDateRangeLabel =
+    DATE_RANGE_OPTIONS.find((option) => option.value === dateRangeFilter)
+      ?.label || "Date Range";
+  const selectedScopeLabel =
+    scopeOptions.find((option) => option.value === scopeFilter)?.label ||
+    "Scope";
+
+  const toggleFilter = (filterKey) => {
+    setOpenFilter((current) => (current === filterKey ? null : filterKey));
+  };
+
+  const selectFilterValue = (setter, value) => {
+    setter(value);
+    setOpenFilter(null);
+  };
+
+  const renderFilterDropdown = ({
+    filterKey,
+    label,
+    selectedLabel,
+    options,
+    onSelect,
+    widthStyle,
+  }) => {
+    const isOpen = openFilter === filterKey;
+
+    return (
+      <View
+        style={[
+          styles.filterDropdownWrap,
+          widthStyle,
+          isOpen ? styles.filterDropdownWrapOpen : null,
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.unifiedFilterButton}
+          activeOpacity={0.82}
+          onPress={() => toggleFilter(filterKey)}
+        >
+          <MaterialCommunityIcons
+            name="tune"
+            size={16}
+            color={COLORS.primaryLight}
+            style={{ marginRight: 6 }}
+          />
+          <AppText
+            style={styles.unifiedFilterButtonText}
+            numberOfLines={1}
+          >
+            {selectedLabel || label}
+          </AppText>
+          <MaterialCommunityIcons
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={styles.unifiedDropdownMenu}>
+            <ScrollView nestedScrollEnabled>
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    index < options.length - 1
+                      ? styles.unifiedDropdownItemBordered
+                      : null,
+                  ]}
+                  onPress={() => onSelect(option.value)}
+                >
+                  <AppText
+                    style={styles.unifiedDropdownItemText}
+                    numberOfLines={2}
+                  >
+                    {option.label}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
     if (Number.isNaN(parsedDate.getTime())) return "N/A";
@@ -485,60 +579,29 @@ export default function ActivityLogs() {
         }
       >
         <View style={styles.filtersRow}>
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Action Type</AppText>
-            <Picker
-              selectedValue={actionType}
-              onValueChange={setActionType}
-              style={styles.filterPicker}
-            >
-              {ACTION_TYPES.map((type) => (
-                <Picker.Item
-                  key={type}
-                  value={type}
-                  label={
-                    type === "all"
-                      ? "All Actions"
-                      : type[0].toUpperCase() + type.slice(1)
-                  }
-                />
-              ))}
-            </Picker>
-          </View>
+          {renderFilterDropdown({
+            filterKey: "action",
+            label: "Action Type",
+            selectedLabel: selectedActionLabel,
+            options: ACTION_TYPE_OPTIONS,
+            onSelect: (value) => selectFilterValue(setActionType, value),
+          })}
 
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Date Range</AppText>
-            <Picker
-              selectedValue={dateRangeFilter}
-              onValueChange={setDateRangeFilter}
-              style={styles.filterPicker}
-            >
-              {DATE_RANGE_OPTIONS.map((value) => (
-                <Picker.Item
-                  key={value.value}
-                  value={value.value}
-                  label={value.label}
-                />
-              ))}
-            </Picker>
-          </View>
+          {renderFilterDropdown({
+            filterKey: "dateRange",
+            label: "Date Range",
+            selectedLabel: selectedDateRangeLabel,
+            options: DATE_RANGE_OPTIONS,
+            onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
+          })}
 
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Scope</AppText>
-            <Picker
-              selectedValue={scopeFilter}
-              onValueChange={setScopeFilter}
-              style={styles.filterPicker}
-            >
-              {scopeOptions.map((value) => (
-                <Picker.Item
-                  key={value.value}
-                  value={value.value}
-                  label={value.label}
-                />
-              ))}
-            </Picker>
-          </View>
+          {renderFilterDropdown({
+            filterKey: "scope",
+            label: "Scope",
+            selectedLabel: selectedScopeLabel,
+            options: scopeOptions,
+            onSelect: (value) => selectFilterValue(setScopeFilter, value),
+          })}
         </View>
 
         {canExportActivityLogs && (
@@ -718,37 +781,67 @@ const styles = StyleSheet.create({
   },
   filtersRow: {
     flexDirection: "row",
-    columnGap: 6,
-    marginBottom: 10,
+    gap: 12,
+    marginBottom: 20,
+    zIndex: 20,
   },
-  filterCard: {
+  filterDropdownWrap: {
     flex: 1,
     minWidth: 0,
+  },
+  filterDropdownWrapOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
+  unifiedFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: COLORS.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayMedium,
+    height: 48,
+    paddingHorizontal: 12,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.black,
+    fontWeight: "600",
+  },
+  unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 260,
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
     overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
     shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-    minHeight: 50,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
     justifyContent: "center",
   },
-  filterLabel: {
-    fontSize: 9,
-    color: COLORS.grayDark,
-    fontWeight: "700",
-    paddingHorizontal: 8,
-    paddingTop: 6,
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
   },
-  filterPicker: {
-    width: "100%",
-    height: 34,
+  unifiedDropdownItemText: {
     color: COLORS.black,
-    marginTop: -4,
+    fontSize: 12,
+    fontWeight: "500",
   },
   exportButton: {
     minHeight: 46,

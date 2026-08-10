@@ -555,6 +555,9 @@ const normalizeAircraftName = (value = "") =>
     .toUpperCase()
     .replace(/\s+/g, "");
 
+const isAircraftRegistration = (value = "") =>
+  /^RP-C[A-Z0-9-]+$/i.test(normalizeAircraftName(value));
+
 const WORKBOOK_PREVIEW_ROW_LIMIT = 100;
 
 const validateImportedAircraftRecord = async (record = {}) => {
@@ -566,8 +569,8 @@ const validateImportedAircraftRecord = async (record = {}) => {
     errors.push("Aircraft name is required in cell C1.");
   }
 
-  if (aircraft && !/^RP-C[A-Z0-9-]+$/i.test(aircraft)) {
-    warnings.push("Aircraft name does not follow the expected RP-C registration format.");
+  if (aircraft && !isAircraftRegistration(aircraft)) {
+    errors.push("Aircraft name must follow the expected RP-C registration format.");
   }
 
   if (!record.aircraftType) {
@@ -619,6 +622,13 @@ exports.updateAircraftTotals = async (req, res) => {
         message: "Aircraft is required",
       });
     }
+    const normalizedAircraft = normalizeAircraftName(aircraft);
+    if (!isAircraftRegistration(normalizedAircraft)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft must follow the expected RP-C registration format.",
+      });
+    }
 
     // Validate required fields
     if (
@@ -635,12 +645,12 @@ exports.updateAircraftTotals = async (req, res) => {
     }
 
     // Find existing record or create a new one
-    let partsData = await PartsMonitoring.findOne({ aircraft });
+    let partsData = await PartsMonitoring.findOne({ aircraft: normalizedAircraft });
 
     if (!partsData) {
       // Create minimal record with empty parts array
       partsData = new PartsMonitoring({
-        aircraft,
+        aircraft: normalizedAircraft,
         referenceData: {
           today: new Date(),
           acftTT: 0,
@@ -663,7 +673,7 @@ exports.updateAircraftTotals = async (req, res) => {
     partsData.updatedBy = req.body.updatedBy || "flight_log_system";
 
     await partsData.save();
-    publishPartsMonitoringChanged(aircraft, "totals-updated");
+    publishPartsMonitoringChanged(normalizedAircraft, "totals-updated");
 
     res.status(200).json({
       success: true,
@@ -697,11 +707,18 @@ exports.savePartsMonitoring = async (req, res) => {
     if (!aircraft) {
       return res.status(400).json({ success: false, message: "Aircraft is required" });
     }
+    const normalizedAircraft = normalizeAircraftName(aircraft);
+    if (!isAircraftRegistration(normalizedAircraft)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft must follow the expected RP-C registration format.",
+      });
+    }
     if (!parts || !Array.isArray(parts)) {
       return res.status(400).json({ success: false, message: "Parts data is required and must be an array" });
     }
 
-    let existingData = await PartsMonitoring.findOne({ aircraft });
+    let existingData = await PartsMonitoring.findOne({ aircraft: normalizedAircraft });
 
     if (existingData) {
       existingData.referenceData = referenceData || existingData.referenceData;
@@ -721,7 +738,7 @@ exports.savePartsMonitoring = async (req, res) => {
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
-      publishPartsMonitoringChanged(aircraft, "saved");
+      publishPartsMonitoringChanged(normalizedAircraft, "saved");
       res.status(200).json({
         success: true,
         message: "Data updated successfully",
@@ -729,7 +746,7 @@ exports.savePartsMonitoring = async (req, res) => {
       });
     } else {
       const newData = new PartsMonitoring({
-        aircraft,
+        aircraft: normalizedAircraft,
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
         creepDamage: normalizeCreepDamage(creepDamage),
@@ -739,7 +756,7 @@ exports.savePartsMonitoring = async (req, res) => {
         updatedBy: updatedBy || "system",
       });
       await newData.save();
-      publishPartsMonitoringChanged(aircraft, "saved");
+      publishPartsMonitoringChanged(normalizedAircraft, "saved");
       res.status(201).json({
         success: true,
         message: "Data saved successfully",
@@ -1559,12 +1576,8 @@ const getAircraftList = async (req, res) => {
     const aircraft = [
       ...new Set(
         [...partsMonitoringAircraft, ...aircraftTailNumbers]
-          .map((value) =>
-            String(value || "")
-              .trim()
-              .toUpperCase(),
-          )
-          .filter(Boolean),
+          .map(normalizeAircraftName)
+          .filter(isAircraftRegistration),
       ),
     ].sort();
 

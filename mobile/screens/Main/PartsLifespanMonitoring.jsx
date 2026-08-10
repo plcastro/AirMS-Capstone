@@ -519,7 +519,7 @@ export default function PartsLifespanMonitoring() {
   return (
     <ModuleContainer>
       <InfoCard title="Parts Lifespan Monitoring" subtitle="Aircraft component status">
-        <View style={{ marginTop: 10 }}>
+        <View style={{ marginTop: 10, zIndex: showAircraftDropdown ? 1000 : 1 }}>
           <TouchableOpacity
             style={[
               styles.unifiedFilterButton,
@@ -529,6 +529,12 @@ export default function PartsLifespanMonitoring() {
             disabled={loadingAircraft}
             onPress={() => setShowAircraftDropdown((open) => !open)}
           >
+            <MaterialCommunityIcons
+              name="tune"
+              size={16}
+              color={COLORS.primaryLight}
+              style={{ marginRight: 6 }}
+            />
             <AppText
               style={[
                 styles.unifiedFilterButtonText,
@@ -1259,13 +1265,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 48,
+    height: 48,
   },
   unifiedFilterButtonDisabled: {
     backgroundColor: COLORS.grayLight,
@@ -1277,13 +1282,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
-    marginTop: 6,
+    borderRadius: 10,
     overflow: "hidden",
     zIndex: 1000,
+    elevation: 5,
   },
   unifiedDropdownItem: {
     paddingHorizontal: 12,

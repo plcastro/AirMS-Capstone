@@ -206,7 +206,7 @@ export default function PostInspection({ route }) {
                 ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? selectedAircraft
                   : "Choose Aircraft"}
               </AppText>
               <MaterialCommunityIcons
@@ -231,9 +231,7 @@ export default function PostInspection({ route }) {
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
+                        {aircraft === "all" ? "All Aircraft" : aircraft}
                       </AppText>
                     </TouchableOpacity>
                   ))}
