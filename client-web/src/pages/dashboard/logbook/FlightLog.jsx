@@ -736,6 +736,7 @@ export default function FlightLog() {
       await fetchFlightLogs();
     } catch (error) {
       console.error("Workflow action error:", error);
+      closeWorkflowModal();
       setPopup({
         open: true,
         status: "error",
