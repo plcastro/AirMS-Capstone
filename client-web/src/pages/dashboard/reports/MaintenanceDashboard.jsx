@@ -17,17 +17,6 @@ import {
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
-import MaintenancePerformance from "./MaintenancePerformance";
-import MaintenanceSummary from "./MaintenanceSummary";
-import MaintenanceHistory from "./MaintenanceHistory";
-import ComponentUsage from "./ComponentUsage";
-import GeneralReports from "./GeneralReports";
-import {
-  FlightLogReport,
-  InspectionReport,
-  PartsRequisitionReport,
-} from "./ModuleReports";
-import { SDMChart } from "../../../components/common/PieChart";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -42,6 +31,31 @@ import {
 } from "../../../components/common/ExportFile";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+const MaintenancePerformance = React.lazy(() => import("./MaintenancePerformance"));
+const MaintenanceSummary = React.lazy(() => import("./MaintenanceSummary"));
+const MaintenanceHistory = React.lazy(() => import("./MaintenanceHistory"));
+const ComponentUsage = React.lazy(() => import("./ComponentUsage"));
+const GeneralReports = React.lazy(() => import("./GeneralReports"));
+const FlightLogReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.FlightLogReport,
+  })),
+);
+const InspectionReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.InspectionReport,
+  })),
+);
+const PartsRequisitionReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.PartsRequisitionReport,
+  })),
+);
+const SDMChart = React.lazy(() =>
+  import("../../../components/common/PieChart").then((module) => ({
+    default: module.SDMChart,
+  })),
+);
 
 const normalizeReportStatus = (value) =>
   String(value || "Unknown")
@@ -213,6 +227,7 @@ export default function MaintenanceDashboard() {
     title: "",
     subTitle: "",
   });
+  const [showAnalyticsWidgets, setShowAnalyticsWidgets] = useState(false);
   const statTitleStyle = {
     fontSize: 12,
     lineHeight: 1.25,
@@ -241,6 +256,24 @@ export default function MaintenanceDashboard() {
       Boolean(task.completedAt)
     );
   };
+
+  useEffect(() => {
+    let timeoutId;
+    let idleId;
+
+    const revealAnalytics = () => setShowAnalyticsWidgets(true);
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(revealAnalytics, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(revealAnalytics, 800);
+    }
+
+    return () => {
+      if (idleId) window.cancelIdleCallback?.(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   const getTaskDueDate = (task = {}) => {
     const value = task.dueDate || task.endDateTime || task.dateRectified;
@@ -1270,6 +1303,10 @@ export default function MaintenanceDashboard() {
     }
   };
 
+  const analyticsFallback = (
+    <Card size="small" loading styles={{ body: { minHeight: 160 } }} />
+  );
+
   return (
     <div
       style={{
@@ -1439,11 +1476,17 @@ export default function MaintenanceDashboard() {
                     activeKpi === "baseDamage" ? "#cf1322" : undefined,
                 }}
               >
-                <SDMChart
-                  data={damageBasePieData}
-                  height={290}
-                  outerRadius={78}
-                />
+                {showAnalyticsWidgets ? (
+                  <React.Suspense fallback={analyticsFallback}>
+                    <SDMChart
+                      data={damageBasePieData}
+                      height={290}
+                      outerRadius={78}
+                    />
+                  </React.Suspense>
+                ) : (
+                  analyticsFallback
+                )}
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topDamagedBase.label} (
                   {baseDamageRepairSummary.topDamagedBase.value})
@@ -1462,11 +1505,17 @@ export default function MaintenanceDashboard() {
                     activeKpi === "baseRepair" ? "#048a25" : undefined,
                 }}
               >
-                <SDMChart
-                  data={repairedBasePieData}
-                  height={290}
-                  outerRadius={78}
-                />
+                {showAnalyticsWidgets ? (
+                  <React.Suspense fallback={analyticsFallback}>
+                    <SDMChart
+                      data={repairedBasePieData}
+                      height={290}
+                      outerRadius={78}
+                    />
+                  </React.Suspense>
+                ) : (
+                  analyticsFallback
+                )}
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topRepairedBase.label} (
                   {baseDamageRepairSummary.topRepairedBase.value})
@@ -1647,11 +1696,26 @@ export default function MaintenanceDashboard() {
           style={{ marginBottom: 16, borderColor: "#26866f" }}
           styles={{ body: { padding: isMobile ? 10 : 12 } }}
         >
-          {topMatchedCard.component}
+          {showAnalyticsWidgets ? (
+            <React.Suspense fallback={analyticsFallback}>
+              {topMatchedCard.component}
+            </React.Suspense>
+          ) : (
+            analyticsFallback
+          )}
         </Card>
       ) : null}
 
-      {remainingCardsByGroup.map(([category, categoryCards]) => {
+      {!showAnalyticsWidgets ? (
+        <Card
+          size="small"
+          title="Analytics Modules"
+          style={{ marginBottom: 16 }}
+          loading
+        />
+      ) : null}
+
+      {showAnalyticsWidgets && remainingCardsByGroup.map(([category, categoryCards]) => {
         const useSingleColumn = isCompactReports || category === "Logbook";
 
         return (
@@ -1677,7 +1741,9 @@ export default function MaintenanceDashboard() {
                     style={{ width: "100%" }}
                     styles={{ body: { padding: 10 } }}
                   >
-                    {card.component}
+                    <React.Suspense fallback={analyticsFallback}>
+                      {card.component}
+                    </React.Suspense>
                   </Card>
                 ))}
               </Space>
@@ -1696,7 +1762,9 @@ export default function MaintenanceDashboard() {
                     style={{ width: "100%" }}
                     styles={{ body: { padding: 12 } }}
                   >
-                    {card.component}
+                    <React.Suspense fallback={analyticsFallback}>
+                      {card.component}
+                    </React.Suspense>
                   </Card>
                 )}
               />
