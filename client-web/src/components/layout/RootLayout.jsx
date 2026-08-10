@@ -1,7 +1,7 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import Airms_LogoDark from "../../assets/AirMS_web.webp";
+import Airms_LogoDark from "../../assets/airmslogo_dark.webp";
 const AirMS_Hero = "/images/airms_hero.webp";
 const AirMS_Hero640 = "/images/airms-hero_680.webp";
 const AirMS_Hero412 = "/images/airms-hero_412.webp";
@@ -21,8 +21,7 @@ const RootLayout = () => {
         <div className="auth-mobile-brand" aria-label="AirMS">
           <img src={Airms_LogoDark} alt="AirMS" width="178" height="53" />
           <p className="auth-mobile-brand-title">
-            Aircraft Maintenance Made{" "}
-            <span>Smarter</span>
+            Aircraft Maintenance Made <span>Smarter</span>
           </p>
         </div>
 
