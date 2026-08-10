@@ -281,6 +281,16 @@ export default function WRSModal({
       }),
     [persistedQtyMap, selectedRecord],
   );
+
+  const enteredRestockItemsReady = useMemo(
+    () =>
+      (selectedRecord?.items || []).every((item) => {
+        const enteredValue = Number(availQtyMap[item._id] ?? 0);
+        return enteredValue >= Number(item.quantity || 0);
+      }),
+    [availQtyMap, selectedRecord],
+  );
+
   const hasItemsStillOutOfStock = useMemo(
     () =>
       (selectedRecord?.items || []).some((item) => {
@@ -378,11 +388,18 @@ export default function WRSModal({
       }
 
       return {
-        title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
-        description: hasUnsavedStockChanges
-          ? "Save the edited stock quantities first."
-          : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
-        buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
+        title:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Confirm Restock",
+        description:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save the edited stock quantities first."
+            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        buttonText:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Mark as Restocked",
         disabled: hasUnsavedStockChanges ? !allQuantitiesFilled : false,
       };
     }
@@ -419,6 +436,7 @@ export default function WRSModal({
     allQuantitiesFilled,
     allRestockItemsReady,
     currentStatus,
+    enteredRestockItemsReady,
     hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
     isMaintenanceReviewer,
@@ -626,7 +644,11 @@ export default function WRSModal({
       };
     });
 
-    if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
+    if (
+      currentStatus === "To Be Ordered" &&
+      hasUnsavedStockChanges &&
+      !enteredRestockItemsReady
+    ) {
       if (!isWarehouseStaff) {
         return;
       }

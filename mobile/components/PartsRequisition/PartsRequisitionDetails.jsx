@@ -178,6 +178,12 @@ export default function PartsRequisitionDetails({
       (item) =>
         Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
     );
+  const enteredRestockItemsReady =
+    rawItems.length > 0 &&
+    rawItems.every(
+      (item) =>
+        Number(availableQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
+    );
   const canEditStock =
     showWarehouseActions &&
     ["Parts Requested", "To Be Ordered"].includes(currentStatus);
@@ -192,7 +198,7 @@ export default function PartsRequisitionDetails({
       };
     }
     if (currentStatus === "To Be Ordered") {
-      if (hasUnsavedStockChanges) {
+      if (hasUnsavedStockChanges && !enteredRestockItemsReady) {
         return {
           title: "Save Stock",
           label: "Save Stock",
@@ -249,6 +255,7 @@ export default function PartsRequisitionDetails({
     allQuantitiesFilled,
     allRestockItemsReady,
     currentStatus,
+    enteredRestockItemsReady,
     hasUnsavedStockChanges,
     showWarehouseActions,
   ]);
