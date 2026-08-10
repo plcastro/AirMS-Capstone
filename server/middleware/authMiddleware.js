@@ -5,7 +5,6 @@ const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
 const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const MOBILE_SESSION_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const isMobilePlatform = (platform) =>
@@ -39,20 +38,11 @@ const verifyToken = async (req, res, next) => {
     }
 
     const now = Date.now();
-    const loginAt = new Date(session.loginAt || now).getTime();
     const lastActivityAt = new Date(
       session.lastActivityAt || session.loginAt || now,
     ).getTime();
     const platform =
       req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
-
-    if (isMobilePlatform(platform) && now - loginAt > MOBILE_SESSION_LIMIT_MS) {
-      await UserSession.findOneAndUpdate(
-        { userId, sessionId, isActive: true },
-        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-      );
-      return res.status(401).json({ message: "Mobile session expired" });
-    }
 
     if (!isMobilePlatform(platform)) {
       const clientActiveAt = Number(req.headers["x-client-active-at"]);

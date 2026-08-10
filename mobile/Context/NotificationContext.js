@@ -288,7 +288,7 @@ const buildTargetNavigation = (notificationPayload) => {
 };
 
 export function NotificationProvider({ children }) {
-  const { user, logoutUser, refreshSession } = useContext(AuthContext);
+  const { user, refreshSession } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [foregroundBanner, setForegroundBanner] = useState(null);
@@ -317,11 +317,10 @@ export function NotificationProvider({ children }) {
     const refreshedToken = await refreshSession?.();
     if (!refreshedToken) {
       setNotifications([]);
-      await logoutUser?.();
       return false;
     }
     return true;
-  }, [logoutUser, refreshSession]);
+  }, [refreshSession]);
 
   const pushInAppNotification = useCallback(
     ({

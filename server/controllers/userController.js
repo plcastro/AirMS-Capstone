@@ -52,11 +52,11 @@ const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years; logout/revocation still ends mobile sessions
 const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const MOBILE_SESSION_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const hashRefreshToken = (token = "") =>
@@ -66,7 +66,7 @@ const hashTrustedDeviceToken = (token = "") =>
 
 const getRefreshTokenTtlMs = (isPersistent, platform = "") =>
   normalizePlatform(platform) === "MOBILE"
-    ? MOBILE_SESSION_LIMIT_MS
+    ? MOBILE_REFRESH_TOKEN_TTL_MS
     : isPersistent
       ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS
       : REFRESH_TOKEN_TTL_MS;
@@ -909,15 +909,6 @@ const refreshToken = async (req, res) => {
       req.headers["x-platform"] || activeSession.platform || payload.platform,
     );
     const now = Date.now();
-    const loginAt = new Date(activeSession.loginAt || now).getTime();
-    if (isMobilePlatform(requestPlatform) && now - loginAt > MOBILE_SESSION_LIMIT_MS) {
-      await UserSession.findOneAndUpdate(
-        { userId: user._id, sessionId, isActive: true },
-        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-      );
-      return res.status(401).json({ message: "Mobile session expired" });
-    }
-
     if (!isMobilePlatform(requestPlatform)) {
       const sessionIdleLimitMs = getSessionIdleLimitMs(requestPlatform);
       const clientActiveAt = Number(req.headers["x-client-active-at"]);
