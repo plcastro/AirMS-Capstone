@@ -7,6 +7,7 @@ const path = require("path");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
+const { ensureUserIndexes } = require("./utils/userIndexes");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
@@ -171,8 +172,13 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     console.log("Connected to MongoDB");
+    try {
+      await ensureUserIndexes();
+    } catch (error) {
+      console.error("User index maintenance failed:", error);
+    }
     startInvitationLifecycleJob();
     startSessionRetentionJob();
   })

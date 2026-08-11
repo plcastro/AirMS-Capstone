@@ -58,6 +58,33 @@ const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
+const ROLES_REQUIRING_LICENSE = new Set([
+  "maintenance manager",
+  "pilot",
+  "mechanic",
+  "officer-in-charge",
+]);
+
+const parseString = (value) => (typeof value === "string" ? value.trim() : "");
+const requiresLicenseNo = (jobTitle = "") =>
+  ROLES_REQUIRING_LICENSE.has(parseString(jobTitle).toLowerCase());
+const getDuplicateKeyMessage = (error) => {
+  if (error?.code !== 11000) {
+    return null;
+  }
+
+  if (error?.keyPattern?.email) {
+    return "Email already registered";
+  }
+  if (error?.keyPattern?.username) {
+    return "Username already taken";
+  }
+  if (error?.keyPattern?.licenseNo) {
+    return "License no. already in use";
+  }
+
+  return "Duplicate user information";
+};
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -1295,36 +1322,39 @@ const registerMobilePushDevice = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, jobTitle, access, licenseNo } =
-      req.body;
+    let { firstName, lastName, email, jobTitle, access, licenseNo } = req.body;
 
-    const rolesRequiringLicense = [
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ];
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    jobTitle = parseString(jobTitle);
+    access = parseString(access);
+    licenseNo = parseString(licenseNo);
 
     if (!firstName || !lastName || !email || !jobTitle) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    if (!validator.isEmail(email.trim())) {
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const normalizedJobTitle = jobTitle.toLowerCase();
+    const requiresLicense = requiresLicenseNo(jobTitle);
 
-    if (
-      rolesRequiringLicense.includes(normalizedJobTitle) &&
-      (!licenseNo || licenseNo.trim() === "")
-    ) {
+    if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
 
-    const existingEmail = await UserModel.findOne({ email: email.trim() });
+    const existingEmail = await UserModel.findOne({ email });
     if (existingEmail) {
       return res.status(409).json({ message: "Email already registered" });
+    }
+
+    if (requiresLicense) {
+      const existingLicense = await UserModel.findOne({ licenseNo });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
     }
 
     const username = await generateUniqueUsername(firstName, lastName);
@@ -1350,7 +1380,7 @@ const createUser = async (req, res) => {
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      email: email.trim(),
+      email,
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
@@ -1361,9 +1391,7 @@ const createUser = async (req, res) => {
       image: imagePath,
       jobTitle,
       access,
-      licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
-        ? licenseNo
-        : null,
+      licenseNo: requiresLicense ? licenseNo : undefined,
     });
 
     const audit = withActorId(
@@ -1379,6 +1407,11 @@ const createUser = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in createUser:", err);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({
       message: "User creation failed (email not sent)",
     });
@@ -1485,9 +1518,6 @@ const updateUser = async (req, res) => {
     let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
       req.body;
 
-    const parseString = (value) =>
-      typeof value === "string" ? value.trim() : "";
-
     firstName = parseString(firstName);
     lastName = parseString(lastName);
     email = parseString(email);
@@ -1516,13 +1546,7 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid access level" });
     }
 
-    const rolesRequiringLicense = new Set([
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ]);
-    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    const requiresLicense = requiresLicenseNo(jobTitle);
     if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
@@ -1574,14 +1598,14 @@ const updateUser = async (req, res) => {
     }
 
     const updateData = {
-      firstName,
-      lastName,
-      email,
-      username,
-      access,
-      jobTitle,
-      licenseNo: requiresLicense ? licenseNo : null,
+      $set: { firstName, lastName, email, username, access, jobTitle },
     };
+
+    if (requiresLicense) {
+      updateData.$set.licenseNo = licenseNo;
+    } else {
+      updateData.$unset = { licenseNo: "" };
+    }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
       returnDocument: "after",
@@ -1613,6 +1637,11 @@ const updateUser = async (req, res) => {
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({ message: err.message || "Failed to update user" });
   }
 };

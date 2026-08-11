@@ -5,7 +5,6 @@ import {
   Input,
   Button,
   Select,
-  Divider,
   Col,
   Row,
   Typography,
@@ -22,6 +21,17 @@ import { AuthContext } from "../../context/AuthContext";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
+const modalBodyStyle = (isMobile) => ({
+  maxHeight: isMobile ? "74vh" : "78vh",
+  overflowY: "auto",
+  padding: isMobile ? "12px 16px 16px" : "16px 24px 24px",
+});
+
+const footerButtonStyle = (isMobile) => ({
+  minWidth: isMobile ? 0 : 104,
+  width: isMobile ? "calc(50% - 4px)" : "auto",
+});
 
 const ROLE_MAP = {
   Superadmin: "Superadmin",
@@ -365,18 +375,21 @@ export default function UserForm({
         centered
         styles={{
           header: {
-            padding: "8px 24px",
+            padding: isMobile ? "14px 16px 10px" : "16px 24px 10px",
           },
-          body: {
-            maxHeight: isMobile ? "76vh" : "80vh",
-            padding: "4px 24px 24px",
+          body: modalBodyStyle(isMobile),
+          footer: {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: isMobile ? "10px 16px 14px" : "12px 24px 16px",
           },
         }}
         footer={[
           <Button
             key="cancel"
             onClick={handleCancelWithWarning}
-            style={{ width: isMobile ? "48%" : "auto" }}
+            style={footerButtonStyle(isMobile)}
           >
             Cancel
           </Button>,
@@ -385,18 +398,28 @@ export default function UserForm({
             type="primary"
             onClick={handlePreview}
             loading={loading}
-            style={{ width: isMobile ? "48%" : "auto" }}
+            style={footerButtonStyle(isMobile)}
             disabled={user ? !hasUnsavedChanges : false}
           >
             {user ? "Update" : "Create"}
           </Button>,
         ]}
       >
-        <Divider style={{ marginTop: 0 }} />
         <Form form={form} layout="vertical" requiredMark={true}>
-          <Space orientation="vertical" size={14} style={{ width: "100%" }}>
-            <Row justify="center">
-              <Col style={{ textAlign: "center" }}>
+          <Row gutter={[24, 12]} align="top">
+            <Col xs={24} md={7}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: isMobile ? "row" : "column",
+                  alignItems: "center",
+                  justifyContent: isMobile ? "flex-start" : "center",
+                  gap: isMobile ? 12 : 8,
+                  minHeight: isMobile ? 88 : 164,
+                  padding: isMobile ? "0 0 8px" : "8px 0",
+                  borderBottom: isMobile ? "1px solid #f0f0f0" : "none",
+                }}
+              >
                 <ImgCrop rotationSlider aspect={1 / 1}>
                   <Upload
                     listType="picture-card"
@@ -420,20 +443,39 @@ export default function UserForm({
                         alt="avatar"
                         loading="lazy"
                         decoding="async"
-                        style={{ width: "100%" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
                     ) : (
                       <PlusOutlined />
                     )}
                   </Upload>
                 </ImgCrop>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Upload profile photo
-                </Text>
-              </Col>
-            </Row>
+                <Space
+                  orientation="vertical"
+                  size={2}
+                  style={{
+                    alignItems: isMobile ? "flex-start" : "center",
+                    textAlign: isMobile ? "left" : "center",
+                  }}
+                >
+                  <Text strong>
+                    {firstNameValue || lastNameValue
+                      ? `${firstNameValue} ${lastNameValue}`.trim()
+                      : "Profile photo"}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    JPG or PNG, square crop
+                  </Text>
+                </Space>
+              </div>
+            </Col>
 
-            <Row gutter={[16, 14]}>
+            <Col xs={24} md={17}>
+              <Row gutter={[16, 6]}>
               <Col xs={24} md={12}>
                 <Form.Item
                   label="First Name"
@@ -575,8 +617,9 @@ export default function UserForm({
                   </Form.Item>
                 </Col>
               ) : null}
-            </Row>
-          </Space>
+              </Row>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
@@ -585,8 +628,22 @@ export default function UserForm({
         title={user ? "Preview Updated User" : "Preview New User"}
         onCancel={() => setPreviewOpen(false)}
         width={isMobile ? "94vw" : 640}
+        centered
+        styles={{
+          body: modalBodyStyle(isMobile),
+          footer: {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: isMobile ? "10px 16px 14px" : "12px 24px 16px",
+          },
+        }}
         footer={[
-          <Button key="back" onClick={() => setPreviewOpen(false)}>
+          <Button
+            key="back"
+            onClick={() => setPreviewOpen(false)}
+            style={footerButtonStyle(isMobile)}
+          >
             Back
           </Button>,
           <Button
@@ -594,6 +651,7 @@ export default function UserForm({
             type="primary"
             loading={loading}
             onClick={() => previewData && handleSave(previewData)}
+            style={footerButtonStyle(isMobile)}
           >
             {user ? "Save Changes" : "Create User"}
           </Button>,
@@ -628,7 +686,10 @@ export default function UserForm({
                       fontSize: 32,
                     }}
                   >
-                    {getUserInitials(user?.firstName, user?.lastName)}
+                    {getUserInitials(
+                      previewData?.firstName,
+                      previewData?.lastName,
+                    )}
                   </span>
                 </div>
               )}
