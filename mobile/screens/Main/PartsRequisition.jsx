@@ -28,6 +28,7 @@ import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportPartsRequisitionExcel } from "../../utilities/documentExport";
+import { exportReportPdf } from "../../utilities/reportExport";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
 import { resolveUserRole } from "../../../shared/navigationAccess";
@@ -349,6 +350,62 @@ const resolveTabForRequest = (request, isManager) => {
   return "Pending";
 };
 
+const canManagerActOnRequest = (request) =>
+  ["Availability Checked", "Ordered"].includes(request?.rawStatus);
+
+const buildPartsRequisitionReportSections = (items = [], selectedTab = "All") => {
+  const statusCounts = items.reduce((counts, item) => {
+    const label = getDisplayStatusLabel(item.rawStatus || item.status || "N/A");
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+
+  return [
+    {
+      title: "Summary",
+      columns: ["Metric", "Value"],
+      rows: [
+        ["Filter", selectedTab],
+        ["Total Requisitions", items.length],
+        [
+          "Total Items",
+          items.reduce((sum, item) => sum + Number(item.totalItems || 0), 0),
+        ],
+        [
+          "Total Quantity",
+          items.reduce((sum, item) => sum + Number(item.totalQuantity || 0), 0),
+        ],
+      ],
+    },
+    {
+      title: "Status Distribution",
+      columns: ["Status", "Count"],
+      rows: Object.entries(statusCounts),
+    },
+    {
+      title: "Requisitions",
+      columns: [
+        "WRS No.",
+        "Aircraft",
+        "Requester",
+        "Date Requested",
+        "Status",
+        "Items",
+        "Total Qty",
+      ],
+      rows: items.map((item) => [
+        item.slipNo || "N/A",
+        item.aircraft || "N/A",
+        item.requestedBy || "N/A",
+        item.dateRequested || "N/A",
+        getDisplayStatusLabel(item.rawStatus || item.status || "N/A"),
+        item.totalItems || 0,
+        item.totalQuantity || 0,
+      ]),
+    },
+  ];
+};
+
 export default function PartsRequisition({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -365,6 +422,7 @@ export default function PartsRequisition({ route, navigation }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const hasLoadedRef = useRef(false);
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -601,7 +659,7 @@ export default function PartsRequisition({ route, navigation }) {
 
       if (isManager) {
         if (selectedTab === "For Review") {
-          return item.rawStatus === "Availability Checked";
+          return canManagerActOnRequest(item);
         }
         if (selectedTab === "To Be Restocked") {
           return item.rawStatus === "To Be Ordered";
@@ -667,9 +725,7 @@ export default function PartsRequisition({ route, navigation }) {
   const tabCounts = useMemo(
     () => ({
       All: mappedRequisitions.length,
-      "For Review": mappedRequisitions.filter((item) =>
-        ["Availability Checked"].includes(item.rawStatus),
-      ).length,
+      "For Review": mappedRequisitions.filter(canManagerActOnRequest).length,
       Pending: mappedRequisitions.filter(
         (item) =>
           !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
@@ -857,6 +913,32 @@ export default function PartsRequisition({ route, navigation }) {
         await handleCancelRequest(item);
       },
     });
+  };
+
+  const handleExportMonitoringReport = async () => {
+    if (!isWarehouse || exportingReport) return;
+
+    if (filteredRequisitions.length === 0) {
+      showToast("No requisition data available for the report.");
+      return;
+    }
+
+    setExportingReport(true);
+    try {
+      await exportReportPdf({
+        title: "Parts Requisition Monitoring Report",
+        sections: buildPartsRequisitionReportSections(
+          filteredRequisitions,
+          selectedTab,
+        ),
+      });
+      showToast("Parts requisition report exported as PDF.");
+    } catch (error) {
+      console.error("Parts requisition PDF export failed:", error);
+      showToast(error.message || "Failed to export parts requisition report.");
+    } finally {
+      setExportingReport(false);
+    }
   };
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
@@ -1174,7 +1256,7 @@ export default function PartsRequisition({ route, navigation }) {
     detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
   const canOrder =
     isManager &&
-    selectedTab === "For Review" &&
+    selectedRequest?.rawStatus === "Availability Checked" &&
     selectedRequest?.hasWarehouseAssessment &&
     ["Parts Requested", "Availability Checked"].includes(
       selectedRequest?.rawStatus,
@@ -1182,7 +1264,8 @@ export default function PartsRequisition({ route, navigation }) {
     hasMissingItems;
   const canApprove =
     isManager &&
-    selectedTab === "For Review" &&
+    (selectedRequest?.rawStatus === "Ordered" ||
+      selectedRequest?.rawStatus === "Availability Checked") &&
     selectedRequest?.hasWarehouseAssessment &&
     !["Approved", "Delivered", "Cancelled"].includes(
       selectedRequest?.rawStatus,
@@ -1239,6 +1322,44 @@ export default function PartsRequisition({ route, navigation }) {
                 }}
               >
                 Request
+              </AppText>
+            </TouchableOpacity>
+          )}
+
+          {isWarehouse && (
+            <TouchableOpacity
+              style={{
+                backgroundColor:
+                  exportingReport || filteredRequisitions.length === 0
+                    ? COLORS.grayMedium
+                    : COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              activeOpacity={
+                exportingReport || filteredRequisitions.length === 0 ? 1 : 0.8
+              }
+              disabled={exportingReport || filteredRequisitions.length === 0}
+              onPress={handleExportMonitoringReport}
+            >
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={20}
+                color={COLORS.white}
+              />
+              <AppText
+                style={{
+                  color: COLORS.white,
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                {exportingReport ? "Exporting" : "PDF"}
               </AppText>
             </TouchableOpacity>
           )}
@@ -1395,7 +1516,7 @@ export default function PartsRequisition({ route, navigation }) {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showManagerActions={isManager && selectedTab === "For Review"}
+        showManagerActions={isManager && canManagerActOnRequest(selectedRequest)}
         showWarehouseActions={isWarehouse}
         canOrder={canOrder}
         canApprove={canApprove}
