@@ -23,6 +23,7 @@ import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { COLORS } from "../../stylesheets/colors";
 import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
@@ -316,23 +317,12 @@ export default function Login() {
             </TouchableOpacity>
           </View>
           <AppText style={styles.label}>Logging in from</AppText>
-          <View
-            style={[
-              loginDropdownStyles.wrap,
-              showBaseDropdown ? loginDropdownStyles.wrapOpen : null,
-            ]}
-          >
+          <View style={loginDropdownStyles.wrap}>
             <TouchableOpacity
               style={loginDropdownStyles.button}
               activeOpacity={0.82}
               onPress={() => setShowBaseDropdown((open) => !open)}
             >
-              <MaterialCommunityIcons
-                name="tune"
-                size={16}
-                color="#059670"
-                style={{ marginRight: 6 }}
-              />
               <AppText
                 style={[
                   loginDropdownStyles.buttonText,
@@ -438,16 +428,11 @@ export default function Login() {
 const loginDropdownStyles = StyleSheet.create({
   wrap: {
     marginBottom: 12,
-    position: "relative",
-  },
-  wrapOpen: {
-    zIndex: 1000,
-    elevation: 6,
   },
   button: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: COLORS.grayMedium,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -463,22 +448,13 @@ const loginDropdownStyles = StyleSheet.create({
     marginRight: 8,
   },
   menu: {
-    position: "absolute",
-    top: 52,
-    left: 0,
-    right: 0,
-    maxHeight: 220,
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: COLORS.grayMedium,
     borderRadius: 8,
+    marginTop: 6,
     overflow: "hidden",
     zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
   },
   item: {
     paddingHorizontal: 12,
@@ -486,7 +462,7 @@ const loginDropdownStyles = StyleSheet.create({
   },
   itemBordered: {
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
+    borderBottomColor: COLORS.grayMedium,
   },
   itemText: {
     color: "#111827",
