@@ -373,6 +373,7 @@ export default function UserForm({
         onCancel={handleCancelWithWarning}
         width={isMobile ? "96vw" : 760}
         centered
+        zIndex={999}
         styles={{
           header: {
             padding: isMobile ? "14px 16px 10px" : "16px 24px 10px",
@@ -476,147 +477,152 @@ export default function UserForm({
 
             <Col xs={24} md={17}>
               <Row gutter={[16, 6]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="First Name"
-                  name="firstName"
-                  rules={[
-                    { required: true, message: "First name is required" },
-                    {
-                      pattern: /^[a-zA-Z'\-\s]+$/,
-                      message:
-                        "First name can only contain letters, hyphens, or apostrophes",
-                    },
-                  ]}
-                >
-                  <Input
-                    maxLength={128}
-                    size="large"
-                    placeholder="Enter first name"
-                    onChange={(e) => {
-                      const value = e.target.value.replace(
-                        /[^a-zA-Z'\-\s]/g,
-                        "",
-                      );
-                      form.setFieldValue("firstName", value);
-                    }}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Last Name"
-                  name="lastName"
-                  rules={[
-                    { required: true, message: "Last name is required" },
-                    {
-                      pattern: /^[a-zA-Z'\-\s]+$/,
-                      message:
-                        "Last name can only contain letters, hyphens, or apostrophes",
-                    },
-                  ]}
-                >
-                  <Input
-                    maxLength={128}
-                    size="large"
-                    placeholder="Enter last name"
-                    onChange={(e) => {
-                      const value = e.target.value.replace(
-                        /[^a-zA-Z'\-\s]/g,
-                        "",
-                      );
-                      form.setFieldValue("lastName", value);
-                    }}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={24}>
-                <Form.Item
-                  label="Email Address"
-                  name="email"
-                  rules={[
-                    { required: true, message: "Email is required" },
-                    { type: "email", message: "Invalid email format" },
-                  ]}
-                >
-                  <Input
-                    placeholder="Enter email address"
-                    size="large"
-                    maxLength={256}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item label="Generated Username" name="username">
-                  <Input size="large" disabled />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Job Title"
-                  name="jobTitle"
-                  rules={[{ required: true, message: "Job Title is required" }]}
-                >
-                  <Select
-                    size="large"
-                    options={[
-                      { label: "Superadmin", value: "Superadmin" },
-                      {
-                        label: "Maintenance Manager",
-                        value: "Maintenance Manager",
-                      },
-                      { label: "Pilot", value: "Pilot" },
-                      {
-                        label: "Officer-In-Charge",
-                        value: "Officer-In-Charge",
-                      },
-                      { label: "Mechanic", value: "Mechanic" },
-                      {
-                        label: "Warehouse Staff",
-                        value: "Warehouse Staff",
-                      },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item label="Access Level" name="access">
-                  <Input size="large" disabled />
-                </Form.Item>
-              </Col>
-
-              {requiresLicense ? (
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="License No."
-                    name="licenseNo"
+                    label="First Name"
+                    name="firstName"
                     rules={[
-                      { required: true, message: "License number is required" },
+                      { required: true, message: "First name is required" },
                       {
-                        pattern: /^\d{6}$/,
-                        message: "License number must be 6 digits",
+                        pattern: /^[a-zA-Z'\-\s]+$/,
+                        message:
+                          "First name can only contain letters, hyphens, or apostrophes",
                       },
                     ]}
                   >
                     <Input
-                      placeholder="Enter license number"
+                      maxLength={128}
                       size="large"
-                      maxLength={6}
-                      onChange={(e) =>
-                        form.setFieldValue(
-                          "licenseNo",
-                          e.target.value.replace(/\D/g, ""),
-                        )
-                      }
+                      placeholder="Enter first name"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(
+                          /[^a-zA-Z'\-\s]/g,
+                          "",
+                        );
+                        form.setFieldValue("firstName", value);
+                      }}
                     />
                   </Form.Item>
                 </Col>
-              ) : null}
+
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Last Name"
+                    name="lastName"
+                    rules={[
+                      { required: true, message: "Last name is required" },
+                      {
+                        pattern: /^[a-zA-Z'\-\s]+$/,
+                        message:
+                          "Last name can only contain letters, hyphens, or apostrophes",
+                      },
+                    ]}
+                  >
+                    <Input
+                      maxLength={128}
+                      size="large"
+                      placeholder="Enter last name"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(
+                          /[^a-zA-Z'\-\s]/g,
+                          "",
+                        );
+                        form.setFieldValue("lastName", value);
+                      }}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={24}>
+                  <Form.Item
+                    label="Email Address"
+                    name="email"
+                    rules={[
+                      { required: true, message: "Email is required" },
+                      { type: "email", message: "Invalid email format" },
+                    ]}
+                  >
+                    <Input
+                      placeholder="Enter email address"
+                      size="large"
+                      maxLength={256}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Generated Username" name="username">
+                    <Input size="large" disabled />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Job Title"
+                    name="jobTitle"
+                    rules={[
+                      { required: true, message: "Job Title is required" },
+                    ]}
+                  >
+                    <Select
+                      size="large"
+                      options={[
+                        { label: "Superadmin", value: "Superadmin" },
+                        {
+                          label: "Maintenance Manager",
+                          value: "Maintenance Manager",
+                        },
+                        { label: "Pilot", value: "Pilot" },
+                        {
+                          label: "Officer-In-Charge",
+                          value: "Officer-In-Charge",
+                        },
+                        { label: "Mechanic", value: "Mechanic" },
+                        {
+                          label: "Warehouse Staff",
+                          value: "Warehouse Staff",
+                        },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Access Level" name="access">
+                    <Input size="large" disabled />
+                  </Form.Item>
+                </Col>
+
+                {requiresLicense ? (
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="License No."
+                      name="licenseNo"
+                      rules={[
+                        {
+                          required: true,
+                          message: "License number is required",
+                        },
+                        {
+                          pattern: /^\d{6}$/,
+                          message: "License number must be 6 digits",
+                        },
+                      ]}
+                    >
+                      <Input
+                        placeholder="Enter license number"
+                        size="large"
+                        maxLength={6}
+                        onChange={(e) =>
+                          form.setFieldValue(
+                            "licenseNo",
+                            e.target.value.replace(/\D/g, ""),
+                          )
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                ) : null}
               </Row>
             </Col>
           </Row>
