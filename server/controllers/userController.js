@@ -1363,15 +1363,6 @@ const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
     const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
 
-    await sendActivationCredentialsEmail({
-      to: email,
-      firstName,
-      username,
-      tempPassword,
-      jobTitle,
-      isResend: false,
-    });
-
     let imagePath = "";
     if (req.file) {
       imagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
@@ -1392,6 +1383,15 @@ const createUser = async (req, res) => {
       jobTitle,
       access,
       licenseNo: requiresLicense ? licenseNo : undefined,
+    });
+
+    await sendActivationCredentialsEmail({
+      to: email,
+      firstName,
+      username,
+      tempPassword,
+      jobTitle,
+      isResend: false,
     });
 
     const audit = withActorId(

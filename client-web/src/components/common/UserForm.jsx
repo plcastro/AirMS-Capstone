@@ -14,7 +14,7 @@ import {
   Descriptions,
   Avatar,
 } from "antd";
-import { PlusOutlined, UserOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
