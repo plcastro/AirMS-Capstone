@@ -120,7 +120,7 @@ export default function ForgotPassword() {
               className="login-btn"
               disabled={loading}
             >
-              {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
+              {loading ? "SENDING..." : "CONTINUE"}
             </Button>
           </Form.Item>
           <div style={{ marginTop: "20px" }}>

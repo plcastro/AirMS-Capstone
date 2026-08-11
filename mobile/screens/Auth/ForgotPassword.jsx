@@ -5,7 +5,7 @@ import AppInput from "../../components/common/AppInput";
 import {
   KeyboardAvoidingView,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Button from "../../components/Button";
@@ -125,7 +125,7 @@ export default function ForgotPassword() {
             </AppText>
           ) : null}
           <Button
-            label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
+            label={loading ? "SENDING..." : "CONTINUE"}
             onPress={sendResetLink}
             disabled={!isFormValid || loading}
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
@@ -149,7 +149,7 @@ export default function ForgotPassword() {
                 }}
               >
                 {" "}
-                Sign In
+                Log in
               </AppText>
             </AppText>
           </TouchableOpacity>
