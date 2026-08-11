@@ -706,6 +706,8 @@ export default function PartsReqMonitoring() {
         confirmLoading={isSubmittingEntry}
         okText="Submit"
         width={900}
+        centered
+        zIndex={9999}
         destroyOnHidden
       >
         <Form form={entryForm} layout="vertical">

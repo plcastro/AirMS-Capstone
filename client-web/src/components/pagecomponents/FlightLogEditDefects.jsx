@@ -67,6 +67,8 @@ export default function FlightLogEditDefects({
       <Modal
         open={visible}
         title="Edit Defect Entry"
+        centered
+        zIndex={9999}
         onCancel={onClose}
         footer={[
           <Button key="discard" onClick={onClose}>

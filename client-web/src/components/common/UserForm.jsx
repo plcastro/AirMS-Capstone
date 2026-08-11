@@ -635,6 +635,7 @@ export default function UserForm({
         onCancel={() => setPreviewOpen(false)}
         width={isMobile ? "94vw" : 640}
         centered
+        zIndex={9999}
         styles={{
           body: modalBodyStyle(isMobile),
           footer: {

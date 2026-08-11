@@ -438,6 +438,8 @@ export default function PostInspection() {
         okText="Save"
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
+        centered
+        zIndex={9999}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}

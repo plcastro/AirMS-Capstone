@@ -1064,6 +1064,8 @@ export default function PreInspection() {
         okButtonProps={{ disabled: !allDraftReleaseChecksComplete }}
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
+        centered
+        zIndex={9999}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
@@ -1250,6 +1252,8 @@ export default function PreInspection() {
       </Modal>
 
       <Modal
+        centered
+        zIndex={9999}
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}

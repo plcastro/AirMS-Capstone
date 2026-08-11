@@ -502,7 +502,6 @@ export default function Messaging() {
     }
   };
 
-
   const handleSend = async () => {
     const body = draft.trim();
     if (!selectedConversation?.id || (!body && attachments.length === 0))
@@ -1053,6 +1052,8 @@ export default function Messaging() {
         okText="Create"
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
+        centered
+        zIndex={9999}
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
@@ -1086,6 +1087,8 @@ export default function Messaging() {
         open={membersModalOpen}
         onCancel={() => setMembersModalOpen(false)}
         footer={null}
+        centered
+        zIndex={9999}
         width={isMobile ? "96vw" : 520}
       >
         {selectedGroupMembers.length === 0 ? (

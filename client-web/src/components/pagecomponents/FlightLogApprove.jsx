@@ -57,6 +57,8 @@ export default function FlightLogApprove({
       open={visible}
       onCancel={onCancel}
       width={720}
+      centered
+      zIndex={9999}
       okText="Confirm"
       cancelText="Cancel"
       onOk={handleConfirm}

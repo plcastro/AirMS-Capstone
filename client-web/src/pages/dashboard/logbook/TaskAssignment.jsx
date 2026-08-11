@@ -1925,6 +1925,7 @@ export default function TaskAssignment() {
         title={selectedTask?.title || "Task Checklist"}
         width={TASK_DETAIL_MODAL_WIDTH}
         centered
+        zIndex={9999}
         footer={null}
       >
         {selectedTask && (
@@ -2286,6 +2287,8 @@ export default function TaskAssignment() {
         open={reviewOpen}
         title="Return Task"
         okText="Return"
+        centered
+        zIndex={9999}
         onOk={submitReturn}
         onCancel={() => setReviewOpen(false)}
         width={720}

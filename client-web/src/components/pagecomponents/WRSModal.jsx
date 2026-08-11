@@ -767,16 +767,16 @@ export default function WRSModal({
         width={"95%"}
         height={"90vh"}
         centered
+        zIndex={9999}
         footer={null}
-        zIndex={1100}
         title={
           <div>
             <Title level={4} style={{ margin: 0 }}>
               Warehouse Requisition Details
             </Title>
             <Text type="secondary">
-              Review stock, confirm ordered items, and mark approved requisitions
-              as delivered.
+              Review stock, confirm ordered items, and mark approved
+              requisitions as delivered.
             </Text>
           </div>
         }

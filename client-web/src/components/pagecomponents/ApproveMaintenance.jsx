@@ -26,6 +26,8 @@ export default function ApproveMaintenance({
       onOk={handleConfirm}
       onCancel={onCancel}
       okText="Approve"
+      centered
+      zIndex={9999}
       cancelText="Cancel"
       width={400}
     >

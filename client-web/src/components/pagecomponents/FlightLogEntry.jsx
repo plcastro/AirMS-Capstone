@@ -466,8 +466,8 @@ export default function FlightLogEntry({
             !String(station?.from || "").trim() ||
             !String(station?.to || "").trim(),
         );
-        const hasMissingField = REQUIRED_DESTINATION_FIELDS.some(([key]) =>
-          !String(leg?.[key] || "").trim(),
+        const hasMissingField = REQUIRED_DESTINATION_FIELDS.some(
+          ([key]) => !String(leg?.[key] || "").trim(),
         );
         return hasInvalidRoute || hasMissingField;
       });
@@ -614,8 +614,8 @@ export default function FlightLogEntry({
       footer={null}
       width={1160}
       centered
+      zIndex={9999}
       rootClassName="fl-entry-modal-root"
-      zIndex={1000}
       styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"
       destroyOnHidden

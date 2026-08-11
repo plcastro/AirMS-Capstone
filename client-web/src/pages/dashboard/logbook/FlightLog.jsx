@@ -840,7 +840,9 @@ export default function FlightLog() {
             : selectedStatus === "accepted"
               ? normalizedStatus === "accepted" && !log.notifiedForCompletion
               : normalizedStatus ===
-                getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
+                getComparableStatus(
+                  normalizeStatusFilterValue(selectedStatus),
+                ));
 
         return matchesSearchText && matchesAircraft && matchesStatus;
       }),
@@ -966,83 +968,81 @@ export default function FlightLog() {
         const isViewOnly = isOfficerInCharge || isCompletedFlightLog(record);
         return (
           <Space size={12} wrap>
-          <Tooltip title={isViewOnly ? "View" : "Edit"}>
-            <Button
-              type={isViewOnly ? "default" : "primary"}
-              size="small"
-              aria-label={isViewOnly ? "View" : "Edit"}
-              style={
-                isViewOnly
-                  ? actionButtonStyles.view
-                  : actionButtonStyles.edit
-              }
-              onClick={() => handleEdit(record)}
-              icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
-            />
-          </Tooltip>
-          {!isOfficerInCharge &&
-            isMechanic &&
-            record.status === "pending_release" && (
-              <Tooltip title="Release">
-                <Button
-                  size="small"
-                  aria-label="Release"
-                  style={actionButtonStyles.release}
-                  icon={<SendOutlined />}
-                  onClick={() => openWorkflowModal("release", record)}
-                />
-              </Tooltip>
-            )}
-          {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Tooltip title="Accept">
+            <Tooltip title={isViewOnly ? "View" : "Edit"}>
               <Button
+                type={isViewOnly ? "default" : "primary"}
                 size="small"
-                aria-label="Accept"
-                style={actionButtonStyles.accept}
-                icon={<CheckOutlined />}
-                onClick={() => openWorkflowModal("accept", record)}
+                aria-label={isViewOnly ? "View" : "Edit"}
+                style={
+                  isViewOnly ? actionButtonStyles.view : actionButtonStyles.edit
+                }
+                onClick={() => handleEdit(record)}
+                icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
               />
             </Tooltip>
-          )}
-          {isPilot &&
-            record.status === "accepted" &&
-            !record.notifiedForCompletion && (
-              <Tooltip title="Notify">
+            {!isOfficerInCharge &&
+              isMechanic &&
+              record.status === "pending_release" && (
+                <Tooltip title="Release">
+                  <Button
+                    size="small"
+                    aria-label="Release"
+                    style={actionButtonStyles.release}
+                    icon={<SendOutlined />}
+                    onClick={() => openWorkflowModal("release", record)}
+                  />
+                </Tooltip>
+              )}
+            {isPilot && isPilotAcceptableStatus(record.status) && (
+              <Tooltip title="Accept">
                 <Button
                   size="small"
-                  aria-label="Notify"
-                  style={actionButtonStyles.notify}
-                  icon={<NotificationOutlined />}
-                  onClick={() => openWorkflowModal("notify", record)}
+                  aria-label="Accept"
+                  style={actionButtonStyles.accept}
+                  icon={<CheckOutlined />}
+                  onClick={() => openWorkflowModal("accept", record)}
                 />
               </Tooltip>
             )}
-          {!isOfficerInCharge &&
-            isMechanic &&
-            record.status === "accepted" &&
-            record.notifiedForCompletion && (
-              <Tooltip title="Complete">
+            {isPilot &&
+              record.status === "accepted" &&
+              !record.notifiedForCompletion && (
+                <Tooltip title="Notify">
+                  <Button
+                    size="small"
+                    aria-label="Notify"
+                    style={actionButtonStyles.notify}
+                    icon={<NotificationOutlined />}
+                    onClick={() => openWorkflowModal("notify", record)}
+                  />
+                </Tooltip>
+              )}
+            {!isOfficerInCharge &&
+              isMechanic &&
+              record.status === "accepted" &&
+              record.notifiedForCompletion && (
+                <Tooltip title="Complete">
+                  <Button
+                    size="small"
+                    aria-label="Complete"
+                    style={actionButtonStyles.complete}
+                    icon={<CheckCircleOutlined />}
+                    onClick={() => openWorkflowModal("complete", record)}
+                  />
+                </Tooltip>
+              )}
+            {canExportFlightLogs && (
+              <Tooltip title="Export">
                 <Button
                   size="small"
-                  aria-label="Complete"
-                  style={actionButtonStyles.complete}
-                  icon={<CheckCircleOutlined />}
-                  onClick={() => openWorkflowModal("complete", record)}
+                  aria-label="Export"
+                  style={actionButtonStyles.export}
+                  icon={<ExportOutlined />}
+                  onClick={() => handleExport(record)}
                 />
               </Tooltip>
             )}
-          {canExportFlightLogs && (
-            <Tooltip title="Export">
-              <Button
-                size="small"
-                aria-label="Export"
-                style={actionButtonStyles.export}
-                icon={<ExportOutlined />}
-                onClick={() => handleExport(record)}
-              />
-            </Tooltip>
-          )}
-        </Space>
+          </Space>
         );
       },
     },
@@ -1094,9 +1094,7 @@ export default function FlightLog() {
               size="small"
               aria-label={isViewOnly ? "View" : "Edit"}
               style={
-                isViewOnly
-                  ? actionButtonStyles.view
-                  : actionButtonStyles.edit
+                isViewOnly ? actionButtonStyles.view : actionButtonStyles.edit
               }
               onClick={(e) => {
                 e.stopPropagation();
@@ -1335,7 +1333,8 @@ export default function FlightLog() {
         confirmLoading={saving}
         rootClassName="fl-workflow-confirm-modal"
         wrapClassName="fl-workflow-confirm-wrap"
-        zIndex={5000}
+        centered
+        zIndex={9999}
         okText="OK"
         cancelText="Cancel"
         title={

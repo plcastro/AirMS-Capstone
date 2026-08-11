@@ -112,6 +112,7 @@ export default function PinVerifiedSignatureModal({
       title={title}
       onCancel={handleCancel}
       zIndex={zIndex}
+      centered
       destroyOnHidden
       footer={
         step === "signature"
