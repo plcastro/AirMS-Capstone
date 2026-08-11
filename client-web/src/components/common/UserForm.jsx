@@ -373,7 +373,7 @@ export default function UserForm({
         onCancel={handleCancelWithWarning}
         width={isMobile ? "96vw" : 760}
         centered
-        zIndex={999}
+        zIndex={3000}
         styles={{
           header: {
             padding: isMobile ? "14px 16px 10px" : "16px 24px 10px",

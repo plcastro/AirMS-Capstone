@@ -7,6 +7,12 @@ const { Text, Title } = Typography;
 
 const CUSTOM_INSPECTION_ID = "custom-task";
 const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
+const TASK_MODAL_WIDTH = "min(1280px, calc(100vw - 48px))";
+const TASK_MODAL_BODY_STYLE = {
+  maxHeight: "calc(100vh - 180px)",
+  overflowY: "auto",
+  paddingBottom: 8,
+};
 
 const toUniqueSelectOptions = (items = [], getValue, getLabel = getValue) => {
   const seen = new Set();
@@ -75,7 +81,11 @@ export default function CreateTaskModal({
       onOk={onOk}
       title="Create Task"
       okText="Create"
-      width={960}
+      width={TASK_MODAL_WIDTH}
+      centered
+      styles={{
+        body: TASK_MODAL_BODY_STYLE,
+      }}
       confirmLoading={confirmLoading}
       forceRender
     >

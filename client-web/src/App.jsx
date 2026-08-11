@@ -459,10 +459,12 @@ export default function App() {
         fontSize: Math.round(14 * fontScale),
         fontSizeSM: Math.round(12 * fontScale),
         fontSizeLG: Math.round(16 * fontScale),
+        zIndexPopupBase: 3000,
       },
       components: {
         Modal: {
           colorBgTextActive: "#26866f",
+          zIndexPopupBase: 3000,
         },
         Table: {
           headerBg: "#26866f",
