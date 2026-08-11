@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlayDark,
   },
   modalCard: {
-    height: "85%",
+    height: "95%",
     borderRadius: 14,
     backgroundColor: COLORS.white,
     overflow: "hidden",
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     paddingRight: 12,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     color: COLORS.black,
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: COLORS.black,
     marginBottom: 4,

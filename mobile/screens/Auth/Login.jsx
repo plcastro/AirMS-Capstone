@@ -316,12 +316,23 @@ export default function Login() {
             </TouchableOpacity>
           </View>
           <AppText style={styles.label}>Logging in from</AppText>
-          <View style={loginDropdownStyles.wrap}>
+          <View
+            style={[
+              loginDropdownStyles.wrap,
+              showBaseDropdown ? loginDropdownStyles.wrapOpen : null,
+            ]}
+          >
             <TouchableOpacity
               style={loginDropdownStyles.button}
               activeOpacity={0.82}
               onPress={() => setShowBaseDropdown((open) => !open)}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color="#059670"
+                style={{ marginRight: 6 }}
+              />
               <AppText
                 style={[
                   loginDropdownStyles.buttonText,
@@ -340,22 +351,24 @@ export default function Login() {
 
             {showBaseDropdown && (
               <View style={loginDropdownStyles.menu}>
-                {BASE_OPTIONS.map((option, index) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      loginDropdownStyles.item,
-                      index < BASE_OPTIONS.length - 1
-                        ? loginDropdownStyles.itemBordered
-                        : null,
-                    ]}
-                    onPress={() => selectBase(option.value)}
-                  >
-                    <AppText style={loginDropdownStyles.itemText}>
-                      {option.label}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
+                <ScrollView nestedScrollEnabled>
+                  {BASE_OPTIONS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        loginDropdownStyles.item,
+                        index < BASE_OPTIONS.length - 1
+                          ? loginDropdownStyles.itemBordered
+                          : null,
+                      ]}
+                      onPress={() => selectBase(option.value)}
+                    >
+                      <AppText style={loginDropdownStyles.itemText}>
+                        {option.label}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>
@@ -425,6 +438,11 @@ export default function Login() {
 const loginDropdownStyles = StyleSheet.create({
   wrap: {
     marginBottom: 12,
+    position: "relative",
+  },
+  wrapOpen: {
+    zIndex: 1000,
+    elevation: 6,
   },
   button: {
     backgroundColor: "#fff",
@@ -445,13 +463,22 @@ const loginDropdownStyles = StyleSheet.create({
     marginRight: 8,
   },
   menu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 220,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
-    marginTop: 6,
     overflow: "hidden",
     zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
   },
   item: {
     paddingHorizontal: 12,

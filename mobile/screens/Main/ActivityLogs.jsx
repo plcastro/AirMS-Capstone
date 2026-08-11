@@ -20,12 +20,14 @@ import { exportReportPdf } from "../../utilities/reportExport";
 import { matchesSearch } from "../../utilities/search";
 import { AuthContext } from "../../Context/AuthContext";
 import { canExportModule } from "../../../shared/exportAccess";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../utilities/auditActions";
 
-const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
-const ACTION_TYPE_OPTIONS = ACTION_TYPES.map((type) => ({
-  value: type,
-  label: type === "all" ? "All Actions" : type[0].toUpperCase() + type.slice(1),
-}));
+const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
@@ -33,87 +35,20 @@ const DATE_RANGE_OPTIONS = [
   { label: "All time", value: "all" },
 ];
 const LOGS_PER_PAGE = 10;
-const HIDDEN_ACTION_KEYWORDS = [
-  "viewed",
-  "succeeded",
-  "successful",
-  "successfully",
-];
-
-const getActionCategory = (actionText = "") => {
-  const text = String(actionText).toLowerCase();
-
-  // login/logout first
-  if (
-    ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
-  ) {
-    return "login";
-  }
-
-  if (
-    ["log out", "logged out", "logout", "signed out"].some((k) =>
-      text.includes(k),
-    )
-  ) {
-    return "logout";
-  }
-
-  // updates
-  if (
-    [
-      "updated",
-      "modified",
-      "changed",
-      "edited",
-      "activated",
-      "deactivated",
-      "disabled",
-      "enabled",
-      "status changed",
-    ].some((k) => text.includes(k))
-  ) {
-    return "update";
-  }
-
-  // delete
-  if (
-    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
-  ) {
-    return "delete";
-  }
-
-  // create
-  if (["created", "added", "inserted"].some((k) => text.includes(k))) {
-    return "create";
-  }
-
-  return "other";
-};
-
-const ACTION_TAG_COLORS = {
-  create: { bg: "#E7F7ED", text: "#157A38" },
-  update: { bg: "#E7F0FF", text: "#1F5FBF" },
-  delete: { bg: "#FDEAEA", text: "#B42318" },
-  login: { bg: "#EAF7FE", text: "#0B6B9E" },
-  logout: { bg: "#FFF2E8", text: "#AD4E00" },
-  other: { bg: "#F2F4F7", text: "#344054" },
-};
-const ACTIVITY_TREND_SERIES = [
-  { key: "create", name: "Create", color: "#26866f" },
-  { key: "update", name: "Update", color: "#1890ff" },
-  { key: "delete", name: "Delete", color: "#ff4d4f" },
-  { key: "login", name: "Login", color: "#13c2c2" },
-  { key: "logout", name: "Logout", color: "#faad14" },
-];
-
-const buildEmptyDailyCategories = () => ({
-  create: 0,
-  update: 0,
-  delete: 0,
-  login: 0,
-  logout: 0,
-  other: 0,
-});
+const ACTIVITY_TREND_SERIES = AUDIT_ACTION_CHART_CATEGORIES.map(
+  ({ value, label, color }) => ({
+    key: value,
+    name: label,
+    color,
+  }),
+);
+const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
+  (colors, category) => ({
+    ...colors,
+    [category.value]: { bg: "#F2F4F7", text: category.color },
+  }),
+  {},
+);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_TREND_BUCKETS = 8;
@@ -182,7 +117,7 @@ const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
       value: 0,
       startMs: bucketStart.getTime(),
       endMs: bucketEnd.getTime(),
-      ...buildEmptyDailyCategories(),
+      ...buildEmptyAuditCategoryCounts(),
     });
   }
 
@@ -194,7 +129,7 @@ const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
     );
     if (!bucket) return;
 
-    const category = getActionCategory(log.actionMade);
+    const category = getAuditActionCategory(log.actionMade);
     bucket[category] += 1;
     bucket.value += 1;
   });
@@ -210,7 +145,7 @@ export default function ActivityLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState("30");
+  const [dateRangeFilter, setDateRangeFilter] = useState("7");
   const [openFilter, setOpenFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [exporting, setExporting] = useState(false);
@@ -289,12 +224,6 @@ export default function ActivityLogs() {
 
   const filteredLogs = useMemo(() => {
     let next = [...logs];
-    next = next.filter((item) => {
-      const actionText = String(item.actionMade || "").toLowerCase();
-      return !HIDDEN_ACTION_KEYWORDS.some((keyword) =>
-        actionText.includes(keyword),
-      );
-    });
     if (dateRangeFilter !== "all") {
       const days = Number(dateRangeFilter);
       if (Number.isFinite(days) && days > 0) {
@@ -307,7 +236,7 @@ export default function ActivityLogs() {
     }
     if (actionType !== "all") {
       next = next.filter(
-        (item) => getActionCategory(item.actionMade) === actionType,
+        (item) => getAuditActionCategory(item.actionMade) === actionType,
       );
     }
 
@@ -343,11 +272,11 @@ export default function ActivityLogs() {
   const actionCounts = useMemo(() => {
     return filteredLogs.reduce(
       (counts, log) => {
-        const category = getActionCategory(log.actionMade);
+        const category = getAuditActionCategory(log.actionMade);
         counts[category] = (counts[category] || 0) + 1;
         return counts;
       },
-      { ...buildEmptyDailyCategories() },
+      { ...buildEmptyAuditCategoryCounts() },
     );
   }, [filteredLogs]);
 
@@ -639,26 +568,14 @@ export default function ActivityLogs() {
             xKey="label"
           />
           <View style={styles.kpiRow}>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Create</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.create}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Update</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.update}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Delete</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.delete}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Login</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.login}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Logout</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.logout}</AppText>
-            </View>
+            {AUDIT_ACTION_CHART_CATEGORIES.map((category) => (
+              <View key={category.value} style={styles.kpiChip}>
+                <AppText style={styles.kpiLabel}>{category.label}</AppText>
+                <AppText style={styles.kpiValue}>
+                  {actionCounts[category.value] || 0}
+                </AppText>
+              </View>
+            ))}
           </View>
           <View style={styles.groupSummaryWrap}>
             <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
@@ -689,7 +606,7 @@ export default function ActivityLogs() {
           </View>
         ) : (
           paginatedLogs.map((item) => {
-            const actionCategory = getActionCategory(item.actionMade);
+            const actionCategory = getAuditActionCategory(item.actionMade);
             const actionColors =
               ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
             return (

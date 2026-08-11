@@ -131,7 +131,7 @@ export default function PostInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
+    { label: "Pending", value: "pending" },
     { label: "Completed", value: "completed" },
   ];
 

@@ -16,6 +16,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
+import FlightLogSignatureModal from "../../components/FlightLog/FlightLogSignatureModal";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders as getMobileAuthHeaders } from "../../utilities/mobileApi";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
@@ -75,6 +77,18 @@ const sortNewestFlightLogs = (logs = []) =>
 const mergeFlightLogs = (logs = []) =>
   Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
 
+const hasDestinationInfo = (log = {}) =>
+  Array.isArray(log.legs) &&
+  log.legs.some(
+    (leg) =>
+      Array.isArray(leg?.stations) &&
+      leg.stations.some(
+        (station) =>
+          String(station?.from || "").trim() &&
+          String(station?.to || "").trim(),
+      ),
+  );
+
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -89,6 +103,20 @@ export default function FlightLog({ route, navigation }) {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [signatureWorkflow, setSignatureWorkflow] = useState({
+    visible: false,
+    action: "",
+    log: null,
+  });
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
   const hasLoadedRef = useRef(false);
 
   const userRole = resolveUserRole(user, "pilot");
@@ -99,6 +127,56 @@ export default function FlightLog({ route, navigation }) {
     () => getMobileAuthHeaders({ "x-action-confirmed": "true" }),
     [],
   );
+
+  const getUserDisplayName = useCallback(() => {
+    const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+    return fullName || user?.username || userRole || "Unknown";
+  }, [user?.firstName, user?.lastName, user?.username, userRole]);
+
+  const buildToDateData = (log = {}) => {
+    const broughtForward = log?.componentData?.broughtForwardData || {};
+    const thisFlight = log?.componentData?.thisFlightData || {};
+
+    return {
+      airframe:
+        (parseFloat(broughtForward.airframe) || 0) +
+        (parseFloat(thisFlight.airframe) || 0),
+      engine:
+        (parseFloat(broughtForward.engine) || 0) +
+        (parseFloat(thisFlight.engine) || 0),
+      cycleN1:
+        (parseFloat(broughtForward.cycleN1) || 0) +
+        (parseFloat(thisFlight.cycleN1) || 0),
+      cycleN2:
+        (parseFloat(broughtForward.cycleN2) || 0) +
+        (parseFloat(thisFlight.cycleN2) || 0),
+      landingCycle:
+        (parseFloat(broughtForward.landingCycle) || 0) +
+        (parseFloat(thisFlight.landingCycle) || 0),
+    };
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((current) => ({ ...current, visible: false }));
+  };
+
+  const confirmWithAlert = ({ title, message, confirmText = "Confirm" }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText: "Cancel",
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
   const fetchFlightLogs = useCallback(
@@ -439,6 +517,162 @@ export default function FlightLog({ route, navigation }) {
     await exportFlightLogPdf(log);
   };
 
+  const openSignedWorkflow = (action, log) => {
+    if (!log?._id) return;
+    setSignatureWorkflow({ visible: true, action, log });
+  };
+
+  const closeSignedWorkflow = () => {
+    setSignatureWorkflow({ visible: false, action: "", log: null });
+  };
+
+  const handleSignedWorkflow = async (signature) => {
+    const { action, log } = signatureWorkflow;
+    if (!action || !log?._id) return;
+
+    try {
+      const endpoint = action === "release" ? "release" : "accept";
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${log._id}/${endpoint}`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            name: getUserDisplayName(),
+            signature,
+            ...(action === "accept" ? { userRole: "pilot" } : {}),
+          }),
+        },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            `Failed to ${action === "release" ? "release" : "accept"} flight log`,
+        );
+      }
+
+      closeSignedWorkflow();
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast(
+        action === "release"
+          ? "Flight log released successfully."
+          : "Flight log accepted successfully.",
+      );
+    } catch (error) {
+      console.error("Signed flight log workflow failed:", error);
+      showToast(error.message || "Flight log workflow failed.");
+    }
+  };
+
+  const handleNotify = async (log) => {
+    if (!hasDestinationInfo(log)) {
+      showToast(
+        "Add at least one complete From-To station in Destination/s before notifying for completion.",
+      );
+      return;
+    }
+
+    const confirmed = await confirmWithAlert({
+      title: "Notify Mechanic",
+      message:
+        "Notify the mechanic that this accepted flight log is ready for completion?",
+      confirmText: "Notify",
+    });
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
+        method: "PUT",
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({
+          ...log,
+          _id: log._id,
+          notifiedForCompletion: true,
+          confirmAction: true,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to notify mechanic");
+      }
+
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast("Mechanic notified for completion.");
+    } catch (error) {
+      console.error("Notify mechanic failed:", error);
+      showToast(error.message || "Failed to notify mechanic.");
+    }
+  };
+
+  const handleComplete = async (log) => {
+    const confirmed = await confirmWithAlert({
+      title: "Complete Flight Log",
+      message:
+        "Complete this flight log and update parts-monitoring totals from its to-date values?",
+      confirmText: "Complete",
+    });
+    if (!confirmed) return;
+
+    try {
+      const toDateData =
+        log?.componentData?.toDateData &&
+        Object.keys(log.componentData.toDateData).length > 0
+          ? log.componentData.toDateData
+          : buildToDateData(log);
+      const aircraft = log.aircraft || log.rpc;
+
+      if (!aircraft) {
+        throw new Error("Aircraft identifier is missing.");
+      }
+
+      const totalsResponse = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            acftTT: Number(toDateData.airframe) || 0,
+            n1Cycles: Number(toDateData.cycleN1) || 0,
+            n2Cycles: Number(toDateData.cycleN2) || 0,
+            landings: Number(toDateData.landingCycle) || 0,
+            updatedBy: getUserDisplayName(),
+            confirmAction: true,
+          }),
+        },
+      );
+      const totalsData = await totalsResponse.json();
+      if (!totalsResponse.ok) {
+        throw new Error(
+          totalsData.message || "Failed to update aircraft totals.",
+        );
+      }
+
+      const completeResponse = await fetch(
+        `${API_BASE}/api/flightlogs/${log._id}/complete`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+        },
+      );
+      const completeData = await completeResponse.json();
+      if (!completeResponse.ok) {
+        throw new Error(completeData.message || "Failed to complete flight log");
+      }
+
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast("Flight log completed successfully.");
+    } catch (error) {
+      console.error("Complete flight log failed:", error);
+      showToast(error.message || "Failed to complete flight log.");
+    }
+  };
+
   const handleNewEntry = () => {
     setShowNewEntryModal(true);
   };
@@ -680,6 +914,10 @@ export default function FlightLog({ route, navigation }) {
                 logs={filteredLogs}
                 onEdit={handleEdit}
                 onExport={canExportFlightLogs ? handleExport : undefined}
+                onRelease={(log) => openSignedWorkflow("release", log)}
+                onAccept={(log) => openSignedWorkflow("accept", log)}
+                onNotify={handleNotify}
+                onComplete={handleComplete}
                 userRole={userRole}
                 readOnly={isOfficerInCharge}
               />
@@ -712,6 +950,28 @@ export default function FlightLog({ route, navigation }) {
           isOfficerInCharge ||
           normalizeFlightLogStatus(selectedLog?.status) === "completed"
         }
+      />
+
+      <FlightLogSignatureModal
+        visible={signatureWorkflow.visible}
+        title={
+          signatureWorkflow.action === "release"
+            ? "Release Signature"
+            : "Accept Signature"
+        }
+        onClose={closeSignedWorkflow}
+        onSave={handleSignedWorkflow}
+        aircraftRPC={signatureWorkflow.log?.rpc || signatureWorkflow.log?.aircraft}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel || closeAlert}
       />
     </View>
   );
