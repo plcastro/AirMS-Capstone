@@ -563,11 +563,6 @@ export default function TaskAssignment() {
     [tasks, users],
   );
 
-  const availableMechanics = useMemo(
-    () => mechanics.filter((item) => !item.isBusy),
-    [mechanics],
-  );
-
   const getTaskAssigneeId = useCallback((task = {}) => {
     const assignee = task.assignedTo;
     if (assignee && typeof assignee === "object") {
@@ -607,9 +602,8 @@ export default function TaskAssignment() {
   );
 
   const mechanicSelectOptions = useMemo(() => {
-    const source = editingTask ? mechanics : availableMechanics;
     const seen = new Set();
-    const options = source.reduce((list, item) => {
+    const options = mechanics.reduce((list, item) => {
       if (!item.id) return list;
       const key = String(item.id);
       if (seen.has(key)) return list;
@@ -639,7 +633,6 @@ export default function TaskAssignment() {
 
     return options;
   }, [
-    availableMechanics,
     editingTask,
     getTaskAssigneeId,
     getTaskAssigneeName,

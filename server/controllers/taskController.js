@@ -9,6 +9,7 @@ const {
 } = require("./maintenanceLogController");
 const { publishTypedEvent } = require("../utils/realtimeEvents");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const BUSY_TASK_STATUSES = ["Pending", "Ongoing", "Returned"];
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
   return {
@@ -26,6 +27,16 @@ const buildTaskIdentifierQuery = (value) => {
   }
 
   return { $or: conditions };
+};
+
+const findBusyTaskForMechanic = (mechanicId) => {
+  const assignedTo = String(mechanicId || "").trim();
+  if (!assignedTo) return null;
+
+  return TaskModel.findOne({
+    assignedTo,
+    status: { $in: BUSY_TASK_STATUSES },
+  }).lean();
 };
 
 const sanitizeTaskPayload = (payload = {}) => {
@@ -396,6 +407,14 @@ const createTask = async (req, res) => {
     const scheduleError = validateTaskSchedule(taskData);
     if (scheduleError) {
       return res.status(400).json({ message: scheduleError });
+    }
+
+    const busyTask = await findBusyTaskForMechanic(taskData.assignedTo);
+    if (busyTask) {
+      return res.status(409).json({
+        message:
+          "Selected mechanic is busy with a Pending, Ongoing, or Returned task.",
+      });
     }
 
     const task = new TaskModel(taskData);

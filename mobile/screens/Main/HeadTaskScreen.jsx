@@ -91,8 +91,7 @@ export default function HeadTaskScreen({
     .map((employee) => ({
       ...employee,
       isBusy: isEmployeeBusy(employee.id),
-    }))
-    .filter((employee) => !employee.isBusy);
+    }));
 
   useEffect(() => {
     if (addTaskDraft) {
