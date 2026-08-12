@@ -25,7 +25,16 @@ import {
 } from "../../../utils/auditActions";
 import { matchesSearch } from "../../../utils/search";
 import { ExportOutlined } from "@ant-design/icons";
-import { Input, DatePicker, Space, Grid, message, Select, Card, Button } from "antd";
+import {
+  Input,
+  DatePicker,
+  Space,
+  Grid,
+  message,
+  Select,
+  Card,
+  Button,
+} from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { canExportModule } from "../../../../../shared/exportAccess";
@@ -187,7 +196,11 @@ export default function UserLogs() {
       const values = Array.from(
         new Set(
           allUserLogs
-            .map((log) => String(log.base || "").trim().toUpperCase())
+            .map((log) =>
+              String(log.base || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ),
       ).sort();
@@ -201,7 +214,11 @@ export default function UserLogs() {
       const values = Array.from(
         new Set(
           allUserLogs
-            .map((log) => String(log.platform || "").trim().toUpperCase())
+            .map((log) =>
+              String(log.platform || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ),
       ).sort();

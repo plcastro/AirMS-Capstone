@@ -608,7 +608,7 @@ export default function PartsReqMonitoring() {
               onClick={handleExportMonitoringReport}
               style={{ width: screens.xs ? "100%" : undefined }}
             >
-              Export PDF Report
+              Export Report (PDF)
             </Button>
           </Col>
         )}
