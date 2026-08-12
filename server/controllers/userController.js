@@ -888,6 +888,10 @@ const refreshToken = async (req, res) => {
       tokenRecord.revokedAt ||
       tokenRecord.expiresAt <= new Date()
     ) {
+      if (tokenRecord?.revokedAt && tokenRecord?.replacedByTokenHash) {
+        return res.status(403).json({ message: "Refresh token already rotated" });
+      }
+
       await revokeAllUserRefreshTokens(
         payload.id,
         "Refresh token replay/reuse detected during rotation",

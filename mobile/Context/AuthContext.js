@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }) => {
   const [rememberMePreference, setRememberMePreference] = useState(false);
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
+  const refreshPromiseRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
   const lastActivityWriteRef = useRef(0);
 
@@ -130,6 +131,11 @@ export const AuthProvider = ({ children }) => {
 
   const refreshSession = useCallback(
     async () => {
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current;
+      }
+
+      refreshPromiseRef.current = (async () => {
       try {
         const inMemoryRefreshToken = refreshTokenRef.current;
         const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
@@ -222,6 +228,13 @@ export const AuthProvider = ({ children }) => {
           );
         }
         return null;
+      }
+      })();
+
+      try {
+        return await refreshPromiseRef.current;
+      } finally {
+        refreshPromiseRef.current = null;
       }
     },
     [clearStoredAuth, getSessionMeta],
