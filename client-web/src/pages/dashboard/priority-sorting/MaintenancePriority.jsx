@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -15,6 +15,7 @@ import {
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { AuthContext } from "../../../context/AuthContext";
 import ResultPopup from "../../../components/common/ResultPopup";
 import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
@@ -66,6 +67,7 @@ const formatDueBasis = (basis) => {
 };
 
 export default function MaintenancePriority() {
+  const { getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
@@ -192,9 +194,14 @@ export default function MaintenancePriority() {
         {
           method: "PUT",
           headers: {
+            ...(await getAuthHeader()),
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify(draftRules),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
