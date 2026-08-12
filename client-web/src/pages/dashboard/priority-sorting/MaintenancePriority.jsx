@@ -232,8 +232,7 @@ export default function MaintenancePriority() {
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle:
-          error.message || "Failed to save maintenance priority rules",
+        subTitle: error.message || "Failed to save maintenance priority rules",
       });
     } finally {
       setSavingRules(false);
@@ -502,8 +501,8 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24}>
-              <Space wrap>
+            <Col xs={24} style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Space wrap style={{ justifyContent: "flex-end" }}>
                 <Button type="primary" onClick={applyRules} loading={loading}>
                   Apply Rules
                 </Button>
