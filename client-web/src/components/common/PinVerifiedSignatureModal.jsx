@@ -14,6 +14,7 @@ export default function PinVerifiedSignatureModal({
   zIndex = 6000,
   onCancel,
   onSave,
+  afterOpenChange,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -111,6 +112,7 @@ export default function PinVerifiedSignatureModal({
       open={open}
       title={title}
       onCancel={handleCancel}
+      afterOpenChange={afterOpenChange}
       zIndex={zIndex}
       centered
       destroyOnHidden
